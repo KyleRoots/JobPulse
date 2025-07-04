@@ -8,6 +8,8 @@ from sqlalchemy.orm import DeclarativeBase
 import tempfile
 import uuid
 from xml_processor import XMLProcessor
+from email_service import EmailService
+from ftp_service import FTPService
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
@@ -116,11 +118,65 @@ def process_scheduled_files():
                         # Replace original file with updated version
                         os.replace(temp_output, schedule.file_path)
                         app.logger.info(f"Successfully processed scheduled file: {schedule.file_path}")
+                        
+                        # Get original filename for email/FTP
+                        original_filename = os.path.basename(schedule.file_path)
+                        
+                        # Send email notification if configured
+                        if schedule.send_email_notifications and schedule.notification_email:
+                            try:
+                                email_service = EmailService()
+                                email_sent = email_service.send_processing_notification(
+                                    to_email=schedule.notification_email,
+                                    schedule_name=schedule.name,
+                                    jobs_processed=result.get('jobs_processed', 0),
+                                    xml_file_path=schedule.file_path,
+                                    original_filename=original_filename
+                                )
+                                if email_sent:
+                                    app.logger.info(f"Email notification sent to {schedule.notification_email}")
+                                else:
+                                    app.logger.warning(f"Failed to send email notification to {schedule.notification_email}")
+                            except Exception as e:
+                                app.logger.error(f"Error sending email notification: {str(e)}")
+                        
+                        # Upload to FTP if configured
+                        if schedule.auto_upload_ftp and schedule.ftp_hostname and schedule.ftp_username and schedule.ftp_password:
+                            try:
+                                ftp_service = FTPService(
+                                    hostname=schedule.ftp_hostname,
+                                    username=schedule.ftp_username,
+                                    password=schedule.ftp_password,
+                                    target_directory=schedule.ftp_directory or "/"
+                                )
+                                ftp_uploaded = ftp_service.upload_file(
+                                    local_file_path=schedule.file_path,
+                                    remote_filename=original_filename
+                                )
+                                if ftp_uploaded:
+                                    app.logger.info(f"File uploaded to FTP server: {original_filename}")
+                                else:
+                                    app.logger.warning(f"Failed to upload file to FTP server")
+                            except Exception as e:
+                                app.logger.error(f"Error uploading to FTP: {str(e)}")
+                        
                     else:
                         # Clean up temp file on failure
                         if os.path.exists(temp_output):
                             os.remove(temp_output)
                         app.logger.error(f"Failed to process scheduled file: {schedule.file_path} - {result.get('error')}")
+                        
+                        # Send error notification email if configured
+                        if schedule.send_email_notifications and schedule.notification_email:
+                            try:
+                                email_service = EmailService()
+                                email_service.send_processing_error_notification(
+                                    to_email=schedule.notification_email,
+                                    schedule_name=schedule.name,
+                                    error_message=result.get('error', 'Unknown error')
+                                )
+                            except Exception as e:
+                                app.logger.error(f"Error sending error notification email: {str(e)}")
                     
                 except Exception as e:
                     app.logger.error(f"Error processing scheduled file {schedule.file_path}: {str(e)}")
@@ -192,7 +248,16 @@ def create_schedule():
         schedule = ScheduleConfig(
             name=data['name'],
             file_path=data['file_path'],
-            schedule_days=int(data['schedule_days'])
+            schedule_days=int(data['schedule_days']),
+            # Email notification settings
+            send_email_notifications=data.get('send_email_notifications', False),
+            notification_email=data.get('notification_email') if data.get('send_email_notifications') else None,
+            # FTP upload settings
+            auto_upload_ftp=data.get('auto_upload_ftp', False),
+            ftp_hostname=data.get('ftp_hostname') if data.get('auto_upload_ftp') else None,
+            ftp_username=data.get('ftp_username') if data.get('auto_upload_ftp') else None,
+            ftp_password=data.get('ftp_password') if data.get('auto_upload_ftp') else None,
+            ftp_directory=data.get('ftp_directory', '/') if data.get('auto_upload_ftp') else None
         )
         schedule.calculate_next_run()
         

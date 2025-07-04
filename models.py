@@ -13,6 +13,18 @@ def create_models(db):
         last_run = db.Column(db.DateTime, nullable=True)
         next_run = db.Column(db.DateTime, nullable=False)
         is_active = db.Column(db.Boolean, default=True)
+        
+        # Email notification settings
+        notification_email = db.Column(db.String(255), nullable=True)  # Email for notifications
+        send_email_notifications = db.Column(db.Boolean, default=False)
+        
+        # FTP upload settings
+        ftp_hostname = db.Column(db.String(255), nullable=True)
+        ftp_username = db.Column(db.String(100), nullable=True)
+        ftp_password = db.Column(db.String(255), nullable=True)  # Consider encryption in production
+        ftp_directory = db.Column(db.String(500), nullable=True, default="/")
+        auto_upload_ftp = db.Column(db.Boolean, default=False)
+        
         created_at = db.Column(db.DateTime, default=datetime.utcnow)
         updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
         

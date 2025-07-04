@@ -372,6 +372,80 @@
                                 <option value="30">Every 30 days (Monthly)</option>
                             </select>
                         </div>
+
+                        <!-- Email Notifications Section -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enableEmailNotifications">
+                                    <label class="form-check-label" for="enableEmailNotifications">
+                                        <i class="fas fa-envelope me-2"></i>
+                                        Email Notifications
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body" id="emailNotificationSettings" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="notificationEmail" class="form-label">Email Address</label>
+                                    <input type="email" class="form-control" id="notificationEmail" 
+                                           placeholder="your@email.com" 
+                                           title="Email address to receive processing notifications">
+                                    <div class="form-text">You'll receive notifications when processing completes or fails</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- FTP Upload Section -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enableFtpUpload">
+                                    <label class="form-check-label" for="enableFtpUpload">
+                                        <i class="fas fa-upload me-2"></i>
+                                        Auto-Upload to Website
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body" id="ftpUploadSettings" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="ftpHostname" class="form-label">FTP Hostname</label>
+                                            <input type="text" class="form-control" id="ftpHostname" 
+                                                   placeholder="ftp.yourdomain.com">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="ftpUsername" class="form-label">FTP Username</label>
+                                            <input type="text" class="form-control" id="ftpUsername" 
+                                                   placeholder="your-ftp-username">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="ftpPassword" class="form-label">FTP Password</label>
+                                            <input type="password" class="form-control" id="ftpPassword" 
+                                                   placeholder="your-ftp-password">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="ftpDirectory" class="form-label">Upload Directory</label>
+                                            <input type="text" class="form-control" id="ftpDirectory" 
+                                                   placeholder="/" value="/">
+                                            <div class="form-text">Directory path on server (e.g., /public_html/)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>For WP Engine:</strong> Use your site's FTP credentials. The processed XML file will maintain its original filename.
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
@@ -439,6 +513,26 @@
                 }
             });
 
+            // Email notification toggle
+            document.getElementById('enableEmailNotifications').addEventListener('change', function() {
+                const emailSettings = document.getElementById('emailNotificationSettings');
+                if (this.checked) {
+                    emailSettings.style.display = 'block';
+                } else {
+                    emailSettings.style.display = 'none';
+                }
+            });
+
+            // FTP upload toggle
+            document.getElementById('enableFtpUpload').addEventListener('change', function() {
+                const ftpSettings = document.getElementById('ftpUploadSettings');
+                if (this.checked) {
+                    ftpSettings.style.display = 'block';
+                } else {
+                    ftpSettings.style.display = 'none';
+                }
+            });
+
             // Form submission
             document.getElementById('newScheduleForm').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -465,7 +559,16 @@
                         const scheduleData = {
                             name: document.getElementById('scheduleName').value,
                             file_path: data.file_path,
-                            schedule_days: document.getElementById('scheduleFrequency').value
+                            schedule_days: document.getElementById('scheduleFrequency').value,
+                            // Email notification settings
+                            send_email_notifications: document.getElementById('enableEmailNotifications').checked,
+                            notification_email: document.getElementById('notificationEmail').value,
+                            // FTP upload settings
+                            auto_upload_ftp: document.getElementById('enableFtpUpload').checked,
+                            ftp_hostname: document.getElementById('ftpHostname').value,
+                            ftp_username: document.getElementById('ftpUsername').value,
+                            ftp_password: document.getElementById('ftpPassword').value,
+                            ftp_directory: document.getElementById('ftpDirectory').value
                         };
                         
                         return fetch('/api/schedules', {

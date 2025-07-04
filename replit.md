@@ -15,7 +15,11 @@ This is a Flask-based web application designed to process XML job feed files and
 
 ### Backend Architecture
 - **Web Framework**: Flask (Python)
+- **Database**: PostgreSQL with SQLAlchemy ORM for schedule and log management
+- **Background Processing**: APScheduler for automated XML processing
 - **File Processing**: Custom XML processor using lxml library
+- **Email Service**: SendGrid integration for processing notifications
+- **FTP Service**: Built-in FTP client for automatic file uploads to hosting providers
 - **Session Management**: Flask sessions with configurable secret key
 - **File Handling**: Temporary file storage with secure filename handling
 - **Proxy Support**: ProxyFix middleware for deployment behind reverse proxies
