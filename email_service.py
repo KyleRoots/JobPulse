@@ -15,7 +15,7 @@ class EmailService:
             return
         
         self.sg = SendGridAPIClient(self.api_key)
-        self.from_email = "noreply@xmlprocessor.com"  # Default from email
+        self.from_email = "kroots@myticas.com"  # Verified sender email
     
     def send_processing_notification(self, 
                                    to_email: str, 
