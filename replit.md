@@ -9,8 +9,9 @@ This is a Flask-based web application designed to process XML job feed files and
 ### Frontend Architecture
 - **Template Engine**: Jinja2 templates with Bootstrap 5 dark theme
 - **Client-side**: Vanilla JavaScript for drag-and-drop file upload functionality
-- **UI Framework**: Bootstrap 5 with custom CSS styling
+- **UI Framework**: Bootstrap 5 with custom CSS styling and responsive design
 - **Icons**: Font Awesome 6.0 for visual elements
+- **Mobile Support**: Responsive design with tablet/mobile breakpoints and touch-friendly interfaces
 
 ### Backend Architecture
 - **Web Framework**: Flask (Python)
@@ -87,6 +88,7 @@ Changelog:
 - July 04, 2025. Initial setup and development
 - July 04, 2025. Completed XML reference number updater with CDATA preservation and proper formatting
 - July 04, 2025. Implemented comprehensive scheduling system with database integration and automated processing
+- July 04, 2025. Added responsive design for mobile-friendly file management across all interfaces
 ```
 
 ## User Preferences
