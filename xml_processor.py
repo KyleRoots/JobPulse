@@ -88,7 +88,7 @@ class XMLProcessor:
     def process_xml(self, input_filepath, output_filepath):
         """Process XML file and update reference numbers"""
         try:
-            # Parse XML file
+            # Parse XML file with CDATA preservation
             parser = etree.XMLParser(strip_cdata=False)
             with open(input_filepath, 'rb') as f:
                 tree = etree.parse(f, parser)
@@ -110,13 +110,19 @@ class XMLProcessor:
                 # Generate new unique reference number
                 new_reference = self.generate_reference_number()
                 
-                # Update the element
+                # Store old reference for stats
+                old_reference = ""
                 if ref_element.text:
                     old_reference = ref_element.text.strip()
                     reference_stats[old_reference] += 1
                 
-                # Handle CDATA sections
-                ref_element.text = new_reference
+                # Clear existing content
+                ref_element.clear()
+                ref_element.text = None
+                ref_element.tail = None
+                
+                # Create new CDATA section with new reference
+                ref_element.text = etree.CDATA(new_reference)
                 
                 jobs_processed += 1
                 
@@ -124,7 +130,7 @@ class XMLProcessor:
                 if jobs_processed % 100 == 0:
                     self.logger.info(f"Processed {jobs_processed} reference numbers...")
             
-            # Write updated XML to output file
+            # Write updated XML to output file preserving CDATA
             with open(output_filepath, 'wb') as f:
                 tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
             
@@ -148,8 +154,9 @@ class XMLProcessor:
     def get_reference_numbers(self, filepath):
         """Get all current reference numbers from XML file"""
         try:
+            parser = etree.XMLParser(strip_cdata=False)
             with open(filepath, 'rb') as f:
-                tree = etree.parse(f)
+                tree = etree.parse(f, parser)
             
             reference_elements = tree.findall('.//referencenumber')
             references = []
