@@ -331,6 +331,49 @@ def run_schedule_now(schedule_id):
             # Replace original file with updated version
             os.replace(temp_output, schedule.file_path)
             
+            # Get original filename for email/FTP
+            original_filename = os.path.basename(schedule.file_path)
+            
+            # Send email notification if configured
+            if schedule.send_email_notifications and schedule.notification_email:
+                try:
+                    email_service = EmailService()
+                    email_sent = email_service.send_processing_notification(
+                        to_email=schedule.notification_email,
+                        schedule_name=schedule.name,
+                        jobs_processed=result.get('jobs_processed', 0),
+                        xml_file_path=schedule.file_path,
+                        original_filename=original_filename
+                    )
+                    if email_sent:
+                        app.logger.info(f"Email notification sent to {schedule.notification_email}")
+                    else:
+                        app.logger.warning(f"Failed to send email notification to {schedule.notification_email}")
+                except Exception as e:
+                    app.logger.error(f"Error sending email notification: {str(e)}")
+            
+            # Upload to FTP/SFTP if configured
+            if schedule.auto_upload_ftp and schedule.ftp_hostname and schedule.ftp_username and schedule.ftp_password:
+                try:
+                    ftp_service = FTPService(
+                        hostname=schedule.ftp_hostname,
+                        username=schedule.ftp_username,
+                        password=schedule.ftp_password,
+                        target_directory=schedule.ftp_directory or "/",
+                        port=schedule.ftp_port,
+                        use_sftp=schedule.use_sftp or False
+                    )
+                    ftp_uploaded = ftp_service.upload_file(
+                        local_file_path=schedule.file_path,
+                        remote_filename=original_filename
+                    )
+                    if ftp_uploaded:
+                        app.logger.info(f"File uploaded to FTP server: {original_filename}")
+                    else:
+                        app.logger.warning(f"Failed to upload file to FTP server")
+                except Exception as e:
+                    app.logger.error(f"Error uploading to FTP: {str(e)}")
+            
             # Update last run time but don't change next scheduled run
             schedule.last_run = datetime.utcnow()
             db.session.commit()
@@ -344,6 +387,19 @@ def run_schedule_now(schedule_id):
             # Clean up temp file on failure
             if os.path.exists(temp_output):
                 os.remove(temp_output)
+                
+            # Send error notification email if configured
+            if schedule.send_email_notifications and schedule.notification_email:
+                try:
+                    email_service = EmailService()
+                    email_service.send_processing_error_notification(
+                        to_email=schedule.notification_email,
+                        schedule_name=schedule.name,
+                        error_message=result.get('error', 'Unknown error')
+                    )
+                except Exception as e:
+                    app.logger.error(f"Error sending error notification email: {str(e)}")
+            
             db.session.commit()
             return jsonify({'success': False, 'error': result.get('error')}), 500
         
