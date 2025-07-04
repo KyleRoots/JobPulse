@@ -3,18 +3,40 @@ import logging
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
 import tempfile
 import uuid
 from xml_processor import XMLProcessor
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from datetime import datetime, timedelta
+import atexit
+import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+class Base(DeclarativeBase):
+    pass
+
+# Create database instance
+db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-12345")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
+# Database configuration
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_recycle": 300,
+    "pool_pre_ping": True,
+}
+
+# Initialize database
+db.init_app(app)
 
 
 # Configuration
@@ -25,11 +47,109 @@ MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
-# Remove database initialization for now
+# Import and initialize models
+from models import create_models
+ScheduleConfig, ProcessingLog = create_models(db)
+
+# Initialize database tables
+with app.app_context():
+    db.create_all()
+
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+# Cleanup scheduler on exit
+atexit.register(lambda: scheduler.shutdown())
 
 def allowed_file(filename):
     """Check if file has allowed extension"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def process_scheduled_files():
+    """Process all scheduled files that are due for processing"""
+    with app.app_context():
+        try:
+            # Get all active schedules that are due
+            now = datetime.utcnow()
+            due_schedules = ScheduleConfig.query.filter(
+                ScheduleConfig.is_active == True,
+                ScheduleConfig.next_run <= now
+            ).all()
+            
+            for schedule in due_schedules:
+                try:
+                    # Check if file exists
+                    if not os.path.exists(schedule.file_path):
+                        app.logger.warning(f"Scheduled file not found: {schedule.file_path}")
+                        continue
+                    
+                    # Process the file
+                    processor = XMLProcessor()
+                    
+                    # Create backup of original file
+                    backup_path = f"{schedule.file_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    shutil.copy2(schedule.file_path, backup_path)
+                    
+                    # Generate temporary output filename
+                    temp_output = f"{schedule.file_path}.temp"
+                    
+                    # Process the XML
+                    result = processor.process_xml(schedule.file_path, temp_output)
+                    
+                    # Log the processing result
+                    log_entry = ProcessingLog(
+                        schedule_config_id=schedule.id,
+                        file_path=schedule.file_path,
+                        processing_type='scheduled',
+                        jobs_processed=result.get('jobs_processed', 0),
+                        success=result.get('success', False),
+                        error_message=result.get('error') if not result.get('success') else None
+                    )
+                    db.session.add(log_entry)
+                    
+                    # Update schedule
+                    schedule.last_run = now
+                    schedule.calculate_next_run()
+                    
+                    if result.get('success'):
+                        # Replace original file with updated version
+                        os.replace(temp_output, schedule.file_path)
+                        app.logger.info(f"Successfully processed scheduled file: {schedule.file_path}")
+                    else:
+                        # Clean up temp file on failure
+                        if os.path.exists(temp_output):
+                            os.remove(temp_output)
+                        app.logger.error(f"Failed to process scheduled file: {schedule.file_path} - {result.get('error')}")
+                    
+                except Exception as e:
+                    app.logger.error(f"Error processing scheduled file {schedule.file_path}: {str(e)}")
+                    
+                    # Log the error
+                    log_entry = ProcessingLog(
+                        schedule_config_id=schedule.id,
+                        file_path=schedule.file_path,
+                        processing_type='scheduled',
+                        jobs_processed=0,
+                        success=False,
+                        error_message=str(e)
+                    )
+                    db.session.add(log_entry)
+            
+            db.session.commit()
+            
+        except Exception as e:
+            app.logger.error(f"Error in scheduled processing: {str(e)}")
+            db.session.rollback()
+
+# Add the scheduled job to check every 5 minutes
+scheduler.add_job(
+    func=process_scheduled_files,
+    trigger=IntervalTrigger(minutes=5),
+    id='process_scheduled_files',
+    name='Process Scheduled XML Files',
+    replace_existing=True
+)
 
 @app.route('/')
 def index():
@@ -39,7 +159,174 @@ def index():
 @app.route('/scheduler')
 def scheduler_dashboard():
     """Scheduling dashboard for automated processing"""
-    return render_template('scheduler.html')
+    # Get all active schedules
+    schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+    
+    # Get recent processing logs
+    recent_logs = ProcessingLog.query.order_by(ProcessingLog.processed_at.desc()).limit(10).all()
+    
+    return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs)
+
+@app.route('/api/schedules', methods=['POST'])
+def create_schedule():
+    """Create a new automated processing schedule"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['name', 'file_path', 'schedule_days']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+        
+        # Validate file exists
+        if not os.path.exists(data['file_path']):
+            return jsonify({'success': False, 'error': 'File does not exist'}), 400
+        
+        # Validate XML file
+        processor = XMLProcessor()
+        if not processor.validate_xml(data['file_path']):
+            return jsonify({'success': False, 'error': 'Invalid XML file'}), 400
+        
+        # Create new schedule
+        schedule = ScheduleConfig(
+            name=data['name'],
+            file_path=data['file_path'],
+            schedule_days=int(data['schedule_days'])
+        )
+        schedule.calculate_next_run()
+        
+        db.session.add(schedule)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Schedule created successfully',
+            'schedule_id': schedule.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating schedule: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/schedules/<int:schedule_id>', methods=['DELETE'])
+def delete_schedule(schedule_id):
+    """Delete a schedule"""
+    try:
+        schedule = ScheduleConfig.query.get_or_404(schedule_id)
+        schedule.is_active = False
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Schedule deleted successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
+def run_schedule_now(schedule_id):
+    """Manually trigger a schedule to run now"""
+    try:
+        schedule = ScheduleConfig.query.get_or_404(schedule_id)
+        
+        # Check if file exists
+        if not os.path.exists(schedule.file_path):
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+        
+        # Process the file
+        processor = XMLProcessor()
+        
+        # Create backup
+        backup_path = f"{schedule.file_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        shutil.copy2(schedule.file_path, backup_path)
+        
+        # Generate temporary output
+        temp_output = f"{schedule.file_path}.temp"
+        
+        # Process the XML
+        result = processor.process_xml(schedule.file_path, temp_output)
+        
+        # Log the processing result
+        log_entry = ProcessingLog(
+            schedule_config_id=schedule.id,
+            file_path=schedule.file_path,
+            processing_type='manual',
+            jobs_processed=result.get('jobs_processed', 0),
+            success=result.get('success', False),
+            error_message=result.get('error') if not result.get('success') else None
+        )
+        db.session.add(log_entry)
+        
+        if result.get('success'):
+            # Replace original file with updated version
+            os.replace(temp_output, schedule.file_path)
+            
+            # Update last run time but don't change next scheduled run
+            schedule.last_run = datetime.utcnow()
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully processed {result.get("jobs_processed", 0)} jobs',
+                'jobs_processed': result.get('jobs_processed', 0)
+            })
+        else:
+            # Clean up temp file on failure
+            if os.path.exists(temp_output):
+                os.remove(temp_output)
+            db.session.commit()
+            return jsonify({'success': False, 'error': result.get('error')}), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error running schedule manually: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/upload-schedule-file', methods=['POST'])
+def upload_schedule_file():
+    """Handle file upload for scheduling"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+        
+        # Create uploads directory if it doesn't exist
+        uploads_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'scheduled_files')
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        # Save file with secure filename
+        filename = secure_filename(file.filename or 'unknown.xml')
+        unique_id = str(uuid.uuid4())[:8]
+        final_filename = f"{unique_id}_{filename}"
+        file_path = os.path.join(uploads_dir, final_filename)
+        
+        file.save(file_path)
+        
+        # Validate XML
+        processor = XMLProcessor()
+        if not processor.validate_xml(file_path):
+            os.remove(file_path)
+            return jsonify({'success': False, 'error': 'Invalid XML file'}), 400
+        
+        job_count = processor.count_jobs(file_path)
+        
+        return jsonify({
+            'success': True,
+            'file_path': file_path,
+            'filename': filename,
+            'job_count': job_count
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error uploading schedule file: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

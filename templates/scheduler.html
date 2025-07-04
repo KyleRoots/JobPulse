@@ -70,50 +70,73 @@
                             Active Schedules
                         </h4>
                         
-                        <!-- Schedule Example (This will be dynamic) -->
-                        <div class="schedule-card schedule-active">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
-                                    <h5 class="mb-2">Weekly Job Feed Update</h5>
-                                    <p class="text-muted mb-3">
-                                        <i class="fas fa-file me-2"></i>
-                                        /path/to/job-feed.xml
-                                    </p>
-                                    <div class="row text-center">
-                                        <div class="col-sm-3">
-                                            <small class="text-muted d-block">Frequency</small>
-                                            <strong>Every 7 days</strong>
-                                        </div>
-                                        <div class="col-sm-3">
-                                            <small class="text-muted d-block">Last Run</small>
-                                            <strong>Dec 28, 2024</strong>
-                                        </div>
-                                        <div class="col-sm-3">
-                                            <small class="text-muted d-block">Next Run</small>
-                                            <strong class="text-success">Jan 4, 2025</strong>
-                                        </div>
-                                        <div class="col-sm-3">
-                                            <small class="text-muted d-block">Jobs Processed</small>
-                                            <strong>36</strong>
+                        <!-- Dynamic Schedules -->
+                        {% if schedules %}
+                            {% for schedule in schedules %}
+                            <div class="schedule-card schedule-active" data-schedule-id="{{ schedule.id }}">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h5 class="mb-2">{{ schedule.name }}</h5>
+                                        <p class="text-muted mb-3">
+                                            <i class="fas fa-file me-2"></i>
+                                            {{ schedule.file_path }}
+                                        </p>
+                                        <div class="row text-center">
+                                            <div class="col-sm-3">
+                                                <small class="text-muted d-block">Frequency</small>
+                                                <strong>Every {{ schedule.schedule_days }} days</strong>
+                                            </div>
+                                            <div class="col-sm-3">
+                                                <small class="text-muted d-block">Last Run</small>
+                                                <strong>
+                                                    {% if schedule.last_run %}
+                                                        {{ schedule.last_run.strftime('%b %d, %Y') }}
+                                                    {% else %}
+                                                        Never
+                                                    {% endif %}
+                                                </strong>
+                                            </div>
+                                            <div class="col-sm-3">
+                                                <small class="text-muted d-block">Next Run</small>
+                                                <strong class="text-success">
+                                                    {{ schedule.next_run.strftime('%b %d, %Y') }}
+                                                </strong>
+                                            </div>
+                                            <div class="col-sm-3">
+                                                <small class="text-muted d-block">Last Processed</small>
+                                                <strong>
+                                                    {% set last_log = schedule.processing_logs | selectattr('success', 'equalto', True) | list | last %}
+                                                    {% if last_log %}
+                                                        {{ last_log.jobs_processed }}
+                                                    {% else %}
+                                                        0
+                                                    {% endif %}
+                                                </strong>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="dropdown">
-                                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown">
-                                        <i class="fas fa-ellipsis-v"></i>
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit Schedule</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="fas fa-play me-2"></i>Run Now</a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-pause me-2"></i>Pause</a></li>
-                                    </ul>
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item run-now-btn" href="#" data-schedule-id="{{ schedule.id }}">
+                                                <i class="fas fa-play me-2"></i>Run Now
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger delete-schedule-btn" href="#" data-schedule-id="{{ schedule.id }}">
+                                                <i class="fas fa-trash me-2"></i>Delete
+                                            </a></li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                            {% endfor %}
+                        {% endif %}
 
                         <!-- No schedules state -->
-                        <div class="text-center py-5" id="noSchedulesState" style="display: none;">
+                        {% if not schedules %}
+                        <div class="text-center py-5" id="noSchedulesState">
                             <i class="fas fa-calendar-plus fa-3x text-muted mb-3"></i>
                             <h5>No Schedules Created Yet</h5>
                             <p class="text-muted mb-3">Create your first automated schedule to get started</p>
@@ -122,6 +145,7 @@
                                 Create First Schedule
                             </button>
                         </div>
+                        {% endif %}
                     </div>
 
                     <!-- Sidebar -->
@@ -160,24 +184,30 @@
                                     Recent Activity
                                 </h5>
                                 <div class="list-group list-group-flush">
-                                    <div class="list-group-item bg-transparent">
-                                        <div class="d-flex justify-content-between">
-                                            <small class="text-success">
-                                                <i class="fas fa-check-circle me-2"></i>
-                                                Weekly update completed
-                                            </small>
-                                            <small class="text-muted">2h ago</small>
+                                    {% if recent_logs %}
+                                        {% for log in recent_logs[:5] %}
+                                        <div class="list-group-item bg-transparent">
+                                            <div class="d-flex justify-content-between">
+                                                <small class="{% if log.success %}text-success{% else %}text-danger{% endif %}">
+                                                    <i class="fas {% if log.success %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %} me-2"></i>
+                                                    {% if log.success %}
+                                                        {{ log.processing_type|title }} run: {{ log.jobs_processed }} jobs
+                                                    {% else %}
+                                                        {{ log.processing_type|title }} failed: {{ log.error_message[:30] }}...
+                                                    {% endif %}
+                                                </small>
+                                                <small class="text-muted">{{ log.processed_at.strftime('%m/%d %H:%M') }}</small>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="list-group-item bg-transparent">
-                                        <div class="d-flex justify-content-between">
-                                            <small>
-                                                <i class="fas fa-clock me-2"></i>
-                                                Next run scheduled
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="list-group-item bg-transparent">
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-2"></i>
+                                                No processing activity yet
                                             </small>
-                                            <small class="text-muted">5d left</small>
                                         </div>
-                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -300,10 +330,113 @@
                 }
             });
 
-            // Form submission (placeholder for now)
+            // Form submission
             document.getElementById('newScheduleForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                alert('Schedule creation will be implemented in the next phase. For now, you can use the manual upload feature.');
+                
+                const formData = new FormData();
+                const fileInput = document.getElementById('xmlFileInput');
+                
+                if (!fileInput.files[0]) {
+                    alert('Please select an XML file');
+                    return;
+                }
+                
+                formData.append('file', fileInput.files[0]);
+                
+                // Upload file first
+                fetch('/api/upload-schedule-file', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Create schedule with uploaded file path
+                        const scheduleData = {
+                            name: document.getElementById('scheduleName').value,
+                            file_path: data.file_path,
+                            schedule_days: document.getElementById('scheduleFrequency').value
+                        };
+                        
+                        return fetch('/api/schedules', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(scheduleData)
+                        });
+                    } else {
+                        throw new Error(data.error);
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Schedule created successfully!');
+                        location.reload();
+                    } else {
+                        throw new Error(data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error creating schedule: ' + error.message);
+                });
+            });
+
+            // Run now functionality
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('run-now-btn') || e.target.closest('.run-now-btn')) {
+                    e.preventDefault();
+                    const scheduleId = e.target.closest('.run-now-btn').dataset.scheduleId;
+                    
+                    if (confirm('Are you sure you want to run this schedule now?')) {
+                        fetch(`/api/schedules/${scheduleId}/run`, {
+                            method: 'POST'
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(`Success! Processed ${data.jobs_processed} jobs.`);
+                                location.reload();
+                            } else {
+                                alert('Error running schedule: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error running schedule: ' + error.message);
+                        });
+                    }
+                }
+            });
+
+            // Delete schedule functionality
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('delete-schedule-btn') || e.target.closest('.delete-schedule-btn')) {
+                    e.preventDefault();
+                    const scheduleId = e.target.closest('.delete-schedule-btn').dataset.scheduleId;
+                    
+                    if (confirm('Are you sure you want to delete this schedule? This action cannot be undone.')) {
+                        fetch(`/api/schedules/${scheduleId}`, {
+                            method: 'DELETE'
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Schedule deleted successfully');
+                                location.reload();
+                            } else {
+                                alert('Error deleting schedule: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error deleting schedule: ' + error.message);
+                        });
+                    }
+                }
             });
         });
     </script>
