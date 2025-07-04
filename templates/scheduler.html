@@ -395,7 +395,7 @@
                             </div>
                         </div>
 
-                        <!-- FTP Upload Section -->
+                        <!-- FTP/SFTP Upload Section -->
                         <div class="card mb-3">
                             <div class="card-header">
                                 <div class="form-check">
@@ -407,42 +407,58 @@
                                 </div>
                             </div>
                             <div class="card-body" id="ftpUploadSettings" style="display: none;">
+                                <div class="mb-3">
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="uploadProtocol" id="useFtp" value="ftp" checked>
+                                        <label class="form-check-label" for="useFtp">FTP</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="uploadProtocol" id="useSftp" value="sftp">
+                                        <label class="form-check-label" for="useSftp">SFTP (Secure)</label>
+                                    </div>
+                                </div>
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="mb-3">
-                                            <label for="ftpHostname" class="form-label">FTP Hostname</label>
+                                            <label for="ftpHostname" class="form-label">Hostname</label>
                                             <input type="text" class="form-control" id="ftpHostname" 
-                                                   placeholder="ftp.yourdomain.com">
+                                                   placeholder="your-site.wpengine.com">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="mb-3">
-                                            <label for="ftpUsername" class="form-label">FTP Username</label>
-                                            <input type="text" class="form-control" id="ftpUsername" 
-                                                   placeholder="your-ftp-username">
+                                            <label for="ftpPort" class="form-label">Port</label>
+                                            <input type="number" class="form-control" id="ftpPort" 
+                                                   placeholder="21" value="21">
+                                            <div class="form-text">Default: 21 for FTP, 22 for SFTP</div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="mb-3">
-                                            <label for="ftpPassword" class="form-label">FTP Password</label>
-                                            <input type="password" class="form-control" id="ftpPassword" 
-                                                   placeholder="your-ftp-password">
+                                            <label for="ftpUsername" class="form-label">Username</label>
+                                            <input type="text" class="form-control" id="ftpUsername" 
+                                                   placeholder="your-username">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="mb-3">
-                                            <label for="ftpDirectory" class="form-label">Upload Directory</label>
-                                            <input type="text" class="form-control" id="ftpDirectory" 
-                                                   placeholder="/" value="/">
-                                            <div class="form-text">Directory path on server (e.g., /public_html/)</div>
+                                            <label for="ftpPassword" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="ftpPassword" 
+                                                   placeholder="your-password">
                                         </div>
                                     </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="ftpDirectory" class="form-label">Upload Directory</label>
+                                    <input type="text" class="form-control" id="ftpDirectory" 
+                                           placeholder="/" value="/">
+                                    <div class="form-text">Directory path on server (e.g., /public_html/)</div>
                                 </div>
                                 <div class="alert alert-info mb-0">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    <strong>For WP Engine:</strong> Use your site's FTP credentials. The processed XML file will maintain its original filename.
+                                    <strong>WP Engine:</strong> Use SFTP with your site credentials. The processed XML file will maintain its original filename (e.g., myticas-job-feed-dice.xml).
                                 </div>
                             </div>
                         </div>
@@ -533,6 +549,20 @@
                 }
             });
 
+            // Protocol selection handling
+            document.querySelectorAll('input[name="uploadProtocol"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const portField = document.getElementById('ftpPort');
+                    if (this.value === 'sftp') {
+                        portField.value = '22';
+                        portField.placeholder = '22';
+                    } else {
+                        portField.value = '21';
+                        portField.placeholder = '21';
+                    }
+                });
+            });
+
             // Form submission
             document.getElementById('newScheduleForm').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -563,12 +593,14 @@
                             // Email notification settings
                             send_email_notifications: document.getElementById('enableEmailNotifications').checked,
                             notification_email: document.getElementById('notificationEmail').value,
-                            // FTP upload settings
+                            // FTP/SFTP upload settings
                             auto_upload_ftp: document.getElementById('enableFtpUpload').checked,
                             ftp_hostname: document.getElementById('ftpHostname').value,
                             ftp_username: document.getElementById('ftpUsername').value,
                             ftp_password: document.getElementById('ftpPassword').value,
-                            ftp_directory: document.getElementById('ftpDirectory').value
+                            ftp_directory: document.getElementById('ftpDirectory').value,
+                            ftp_port: parseInt(document.getElementById('ftpPort').value) || null,
+                            use_sftp: document.querySelector('input[name="uploadProtocol"]:checked').value === 'sftp'
                         };
                         
                         return fetch('/api/schedules', {

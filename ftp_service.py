@@ -1,29 +1,35 @@
 import ftplib
+import paramiko
 import os
 import logging
 from typing import Optional
 
 class FTPService:
-    """Handles FTP uploads to WP Engine or other hosting providers"""
+    """Handles FTP and SFTP uploads to WP Engine or other hosting providers"""
     
-    def __init__(self, hostname: str, username: str, password: str, target_directory: str = "/"):
+    def __init__(self, hostname: str, username: str, password: str, target_directory: str = "/", 
+                 port: Optional[int] = None, use_sftp: bool = False):
         """
-        Initialize FTP service
+        Initialize FTP/SFTP service
         
         Args:
-            hostname: FTP server hostname
-            username: FTP username
-            password: FTP password
+            hostname: FTP/SFTP server hostname
+            username: FTP/SFTP username
+            password: FTP/SFTP password
             target_directory: Target directory on server (default: root)
+            port: Port number (default: 21 for FTP, 22 for SFTP)
+            use_sftp: Whether to use SFTP instead of FTP
         """
         self.hostname = hostname
         self.username = username
         self.password = password
         self.target_directory = target_directory.rstrip('/')
+        self.use_sftp = use_sftp
+        self.port = port if port is not None else (22 if use_sftp else 21)
         
     def upload_file(self, local_file_path: str, remote_filename: Optional[str] = None) -> bool:
         """
-        Upload file to FTP server
+        Upload file to FTP/SFTP server
         
         Args:
             local_file_path: Path to local file to upload
@@ -35,13 +41,17 @@ class FTPService:
         if not remote_filename:
             remote_filename = os.path.basename(local_file_path)
             
-        remote_path = f"{self.target_directory}/{remote_filename}" if self.target_directory != "/" else remote_filename
-        
+        if self.use_sftp:
+            return self._upload_sftp(local_file_path, remote_filename)
+        else:
+            return self._upload_ftp(local_file_path, remote_filename)
+    
+    def _upload_ftp(self, local_file_path: str, remote_filename: str) -> bool:
+        """Upload file using FTP"""
         try:
-            # Connect to FTP server
-            logging.info(f"Connecting to FTP server: {self.hostname}")
-            with ftplib.FTP(self.hostname) as ftp:
-                # Login
+            logging.info(f"Connecting to FTP server: {self.hostname}:{self.port}")
+            with ftplib.FTP() as ftp:
+                ftp.connect(self.hostname, self.port)
                 ftp.login(self.username, self.password)
                 logging.info("FTP login successful")
                 
@@ -59,10 +69,10 @@ class FTPService:
                     result = ftp.storbinary(f'STOR {remote_filename}', file)
                     
                 if result.startswith('226'):  # 226 Transfer complete
-                    logging.info(f"File uploaded successfully: {remote_filename}")
+                    logging.info(f"File uploaded successfully via FTP: {remote_filename}")
                     return True
                 else:
-                    logging.error(f"Upload failed with result: {result}")
+                    logging.error(f"FTP upload failed with result: {result}")
                     return False
                     
         except ftplib.error_perm as e:
@@ -73,6 +83,63 @@ class FTPService:
             return False
         except Exception as e:
             logging.error(f"FTP upload error: {e}")
+            return False
+    
+    def _upload_sftp(self, local_file_path: str, remote_filename: str) -> bool:
+        """Upload file using SFTP"""
+        try:
+            logging.info(f"Connecting to SFTP server: {self.hostname}:{self.port}")
+            
+            # Create SSH client
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # Connect to server
+            ssh.connect(
+                hostname=self.hostname,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                timeout=30
+            )
+            
+            # Create SFTP client
+            sftp = ssh.open_sftp()
+            logging.info("SFTP connection successful")
+            
+            # Change to target directory if specified
+            if self.target_directory != "/":
+                try:
+                    sftp.chdir(self.target_directory)
+                    logging.info(f"Changed to directory: {self.target_directory}")
+                except Exception as e:
+                    logging.error(f"Could not change to directory {self.target_directory}: {e}")
+                    sftp.close()
+                    ssh.close()
+                    return False
+            
+            # Upload file
+            if self.target_directory != "/":
+                remote_path = f"{self.target_directory}/{remote_filename}"
+            else:
+                remote_path = remote_filename
+            sftp.put(local_file_path, remote_path)
+            
+            logging.info(f"File uploaded successfully via SFTP: {remote_filename}")
+            
+            # Close connections
+            sftp.close()
+            ssh.close()
+            return True
+            
+        except paramiko.AuthenticationException as e:
+            logging.error(f"SFTP authentication failed: {e}")
+            return False
+        except paramiko.SSHException as e:
+            logging.error(f"SFTP SSH error: {e}")
+            return False
+        except Exception as e:
+            logging.error(f"SFTP upload error: {e}")
             return False
     
     def test_connection(self) -> bool:

@@ -140,14 +140,16 @@ def process_scheduled_files():
                             except Exception as e:
                                 app.logger.error(f"Error sending email notification: {str(e)}")
                         
-                        # Upload to FTP if configured
+                        # Upload to FTP/SFTP if configured
                         if schedule.auto_upload_ftp and schedule.ftp_hostname and schedule.ftp_username and schedule.ftp_password:
                             try:
                                 ftp_service = FTPService(
                                     hostname=schedule.ftp_hostname,
                                     username=schedule.ftp_username,
                                     password=schedule.ftp_password,
-                                    target_directory=schedule.ftp_directory or "/"
+                                    target_directory=schedule.ftp_directory or "/",
+                                    port=schedule.ftp_port,
+                                    use_sftp=schedule.use_sftp or False
                                 )
                                 ftp_uploaded = ftp_service.upload_file(
                                     local_file_path=schedule.file_path,
@@ -252,12 +254,14 @@ def create_schedule():
             # Email notification settings
             send_email_notifications=data.get('send_email_notifications', False),
             notification_email=data.get('notification_email') if data.get('send_email_notifications') else None,
-            # FTP upload settings
+            # FTP/SFTP upload settings
             auto_upload_ftp=data.get('auto_upload_ftp', False),
             ftp_hostname=data.get('ftp_hostname') if data.get('auto_upload_ftp') else None,
             ftp_username=data.get('ftp_username') if data.get('auto_upload_ftp') else None,
             ftp_password=data.get('ftp_password') if data.get('auto_upload_ftp') else None,
-            ftp_directory=data.get('ftp_directory', '/') if data.get('auto_upload_ftp') else None
+            ftp_directory=data.get('ftp_directory', '/') if data.get('auto_upload_ftp') else None,
+            ftp_port=data.get('ftp_port') if data.get('auto_upload_ftp') else None,
+            use_sftp=data.get('use_sftp', False) if data.get('auto_upload_ftp') else False
         )
         schedule.calculate_next_run()
         
