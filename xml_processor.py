@@ -116,13 +116,18 @@ class XMLProcessor:
                     old_reference = ref_element.text.strip()
                     reference_stats[old_reference] += 1
                 
+                # Store the original tail (whitespace after the element)
+                original_tail = ref_element.tail
+                
                 # Clear existing content
                 ref_element.clear()
                 ref_element.text = None
-                ref_element.tail = None
                 
                 # Create new CDATA section with new reference
                 ref_element.text = etree.CDATA(new_reference)
+                
+                # Restore the original tail to maintain formatting
+                ref_element.tail = original_tail
                 
                 jobs_processed += 1
                 
@@ -130,7 +135,11 @@ class XMLProcessor:
                 if jobs_processed % 100 == 0:
                     self.logger.info(f"Processed {jobs_processed} reference numbers...")
             
-            # Write updated XML to output file preserving CDATA
+            # Ensure proper formatting by cleaning up whitespace
+            etree.cleanup_namespaces(tree)
+            etree.indent(tree, space="  ")
+            
+            # Write updated XML to output file preserving CDATA with proper formatting
             with open(output_filepath, 'wb') as f:
                 tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
             
