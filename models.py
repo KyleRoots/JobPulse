@@ -9,6 +9,7 @@ def create_models(db):
         id = db.Column(db.Integer, primary_key=True)
         name = db.Column(db.String(100), nullable=False)
         file_path = db.Column(db.String(500), nullable=False)  # Path to XML file to monitor
+        original_filename = db.Column(db.String(255), nullable=True)  # Original filename to preserve
         schedule_days = db.Column(db.Integer, nullable=False, default=7)  # Days between runs
         last_run = db.Column(db.DateTime, nullable=True)
         next_run = db.Column(db.DateTime, nullable=False)
@@ -58,5 +59,16 @@ def create_models(db):
         
         def __repr__(self):
             return f'<ProcessingLog {self.file_path} - {self.processing_type}>'
+    
+    class GlobalSettings(db.Model):
+        """Global application settings including SFTP credentials"""
+        id = db.Column(db.Integer, primary_key=True)
+        setting_key = db.Column(db.String(100), unique=True, nullable=False)
+        setting_value = db.Column(db.Text, nullable=True)
+        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+        
+        def __repr__(self):
+            return f'<GlobalSettings {self.setting_key}: {self.setting_value}>'
 
-    return ScheduleConfig, ProcessingLog
+    return ScheduleConfig, ProcessingLog, GlobalSettings

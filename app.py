@@ -51,7 +51,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 # Import and initialize models
 from models import create_models
-ScheduleConfig, ProcessingLog = create_models(db)
+ScheduleConfig, ProcessingLog, GlobalSettings = create_models(db)
 
 # Initialize database tables
 with app.app_context():
@@ -119,8 +119,8 @@ def process_scheduled_files():
                         os.replace(temp_output, schedule.file_path)
                         app.logger.info(f"Successfully processed scheduled file: {schedule.file_path}")
                         
-                        # Get original filename for email/FTP
-                        original_filename = os.path.basename(schedule.file_path)
+                        # Get original filename for email/FTP (use stored original filename if available)
+                        original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
                         
                         # Send email notification if configured
                         if schedule.send_email_notifications and schedule.notification_email:
@@ -250,6 +250,7 @@ def create_schedule():
         schedule = ScheduleConfig(
             name=data['name'],
             file_path=data['file_path'],
+            original_filename=data.get('original_filename'),
             schedule_days=int(data['schedule_days']),
             # Email notification settings
             send_email_notifications=data.get('send_email_notifications', False),
@@ -293,6 +294,37 @@ def delete_schedule(schedule_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/schedules/<int:schedule_id>/status', methods=['GET'])
+def get_schedule_status(schedule_id):
+    """Get the processing status of a schedule"""
+    try:
+        schedule = ScheduleConfig.query.get_or_404(schedule_id)
+        
+        # Get the latest processing log for this schedule
+        latest_log = ProcessingLog.query.filter_by(
+            schedule_config_id=schedule_id
+        ).order_by(ProcessingLog.processed_at.desc()).first()
+        
+        if latest_log:
+            return jsonify({
+                'success': True,
+                'last_processed': latest_log.processed_at.isoformat(),
+                'jobs_processed': latest_log.jobs_processed,
+                'processing_success': latest_log.success,
+                'error_message': latest_log.error_message
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'last_processed': None,
+                'jobs_processed': 0,
+                'processing_success': None,
+                'error_message': None
+            })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
 def run_schedule_now(schedule_id):
     """Manually trigger a schedule to run now"""
@@ -331,8 +363,8 @@ def run_schedule_now(schedule_id):
             # Replace original file with updated version
             os.replace(temp_output, schedule.file_path)
             
-            # Get original filename for email/FTP
-            original_filename = os.path.basename(schedule.file_path)
+            # Get original filename for email/FTP (use stored original filename if available)
+            original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
             
             # Send email notification if configured
             if schedule.send_email_notifications and schedule.notification_email:
@@ -446,6 +478,7 @@ def upload_schedule_file():
             'success': True,
             'file_path': file_path,
             'filename': filename,
+            'original_filename': file.filename,
             'job_count': job_count
         })
         

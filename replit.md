@@ -96,6 +96,9 @@ Changelog:
 - July 04, 2025. Enhanced SFTP/FTP system with dual protocol support and WP Engine optimization
 - July 04, 2025. Fixed email notifications (verified sender domain) and SFTP connection (port 2222)
 - July 04, 2025. Completed full automation: XML processing → Email notifications → SFTP upload to WP Engine
+- July 04, 2025. Fixed filename preservation issue - now maintains original filename (myticas-job-feed-dice.xml)
+- July 04, 2025. Added progress indicator modal for manual processing operations
+- July 04, 2025. Implemented automated workflow integration for both manual and scheduled processing
 ```
 
 ## User Preferences

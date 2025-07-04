@@ -589,6 +589,7 @@
                         const scheduleData = {
                             name: document.getElementById('scheduleName').value,
                             file_path: data.file_path,
+                            original_filename: data.original_filename,
                             schedule_days: document.getElementById('scheduleFrequency').value,
                             // Email notification settings
                             send_email_notifications: document.getElementById('enableEmailNotifications').checked,
@@ -683,6 +684,86 @@
                 }
             });
         });
+
+        // Progress Modal Functions
+        function showProgressModal() {
+            const modal = new bootstrap.Modal(document.getElementById('progressModal'));
+            modal.show();
+            
+            // Simulate progress updates
+            setTimeout(() => updateProgress(66, 'Sending email notification...', 2), 3000);
+            setTimeout(() => updateProgress(100, 'Uploading to server...', 3), 6000);
+            setTimeout(() => hideProgressModal(), 10000);
+        }
+
+        function updateProgress(percent, text, step) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressBar.style.width = percent + '%';
+            progressText.textContent = text;
+            
+            // Update step indicators
+            for (let i = 1; i <= 3; i++) {
+                const stepElement = document.getElementById('step' + i);
+                const icon = stepElement.querySelector('i');
+                
+                if (i < step) {
+                    icon.className = 'fas fa-check-circle text-success me-2';
+                    stepElement.style.color = '#198754';
+                } else if (i === step) {
+                    icon.className = 'fas fa-hourglass-half text-warning me-2';
+                    stepElement.style.color = '#ffc107';
+                } else {
+                    icon.className = 'fas fa-hourglass-half text-muted me-2';
+                    stepElement.style.color = '#6c757d';
+                }
+            }
+        }
+
+        function hideProgressModal() {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('progressModal'));
+            if (modal) {
+                modal.hide();
+            }
+        }
     </script>
+
+    <!-- Progress Modal -->
+    <div class="modal fade" id="progressModal" tabindex="-1" aria-labelledby="progressModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="progressModalLabel">
+                        <i class="fas fa-cog fa-spin me-2"></i>Processing XML File
+                    </h5>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="progress mb-3" style="height: 25px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: 33%" 
+                             id="progressBar">
+                            <span id="progressText">Processing XML...</span>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div id="step1" class="mb-2">
+                            <i class="fas fa-hourglass-half text-warning me-2"></i>
+                            <span>Step 1: Processing XML file and updating reference numbers</span>
+                        </div>
+                        <div id="step2" class="mb-2" style="color: #6c757d;">
+                            <i class="fas fa-hourglass-half text-muted me-2"></i>
+                            <span>Step 2: Sending email notification</span>
+                        </div>
+                        <div id="step3" class="mb-2" style="color: #6c757d;">
+                            <i class="fas fa-hourglass-half text-muted me-2"></i>
+                            <span>Step 3: Uploading to WP Engine server</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
