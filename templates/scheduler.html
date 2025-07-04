@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XML Processing Scheduler - Automated Updates</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .schedule-card {
+            background-color: var(--bs-secondary-bg-subtle);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .schedule-active {
+            border-color: var(--bs-success);
+            background-color: var(--bs-success-bg-subtle);
+        }
+        .schedule-inactive {
+            border-color: var(--bs-secondary);
+            opacity: 0.7;
+        }
+        .file-picker-area {
+            border: 2px dashed var(--bs-border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .file-picker-area:hover {
+            border-color: var(--bs-primary);
+            background-color: var(--bs-primary-bg-subtle);
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row">
+            <div class="col-12">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h1 class="display-5 mb-2">
+                            <i class="fas fa-clock me-3"></i>
+                            XML Processing Scheduler
+                        </h1>
+                        <p class="lead text-muted">Automate XML reference number updates on a schedule</p>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-upload me-2"></i>
+                            Manual Upload
+                        </a>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
+                            <i class="fas fa-plus me-2"></i>
+                            New Schedule
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Schedules -->
+                <div class="row">
+                    <div class="col-lg-8">
+                        <h4 class="mb-3">
+                            <i class="fas fa-calendar-check me-2"></i>
+                            Active Schedules
+                        </h4>
+                        
+                        <!-- Schedule Example (This will be dynamic) -->
+                        <div class="schedule-card schedule-active">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-2">Weekly Job Feed Update</h5>
+                                    <p class="text-muted mb-3">
+                                        <i class="fas fa-file me-2"></i>
+                                        /path/to/job-feed.xml
+                                    </p>
+                                    <div class="row text-center">
+                                        <div class="col-sm-3">
+                                            <small class="text-muted d-block">Frequency</small>
+                                            <strong>Every 7 days</strong>
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <small class="text-muted d-block">Last Run</small>
+                                            <strong>Dec 28, 2024</strong>
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <small class="text-muted d-block">Next Run</small>
+                                            <strong class="text-success">Jan 4, 2025</strong>
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <small class="text-muted d-block">Jobs Processed</small>
+                                            <strong>36</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit Schedule</a></li>
+                                        <li><a class="dropdown-item" href="#"><i class="fas fa-play me-2"></i>Run Now</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-pause me-2"></i>Pause</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- No schedules state -->
+                        <div class="text-center py-5" id="noSchedulesState" style="display: none;">
+                            <i class="fas fa-calendar-plus fa-3x text-muted mb-3"></i>
+                            <h5>No Schedules Created Yet</h5>
+                            <p class="text-muted mb-3">Create your first automated schedule to get started</p>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
+                                <i class="fas fa-plus me-2"></i>
+                                Create First Schedule
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar -->
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Schedule Options
+                                </h5>
+                                <div class="mb-3">
+                                    <h6>Available Frequencies:</h6>
+                                    <ul class="list-unstyled mb-0">
+                                        <li><i class="fas fa-check text-success me-2"></i>Every 3 days</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Every 7 days (Weekly)</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Every 10 days</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Every 14 days (Bi-weekly)</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Every 21 days</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Every 30 days (Monthly)</li>
+                                    </ul>
+                                </div>
+                                <div class="alert alert-info">
+                                    <small>
+                                        <i class="fas fa-lightbulb me-2"></i>
+                                        Schedules run automatically in the background. You can also trigger manual runs anytime.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Activity -->
+                        <div class="card mt-4">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-history me-2"></i>
+                                    Recent Activity
+                                </h5>
+                                <div class="list-group list-group-flush">
+                                    <div class="list-group-item bg-transparent">
+                                        <div class="d-flex justify-content-between">
+                                            <small class="text-success">
+                                                <i class="fas fa-check-circle me-2"></i>
+                                                Weekly update completed
+                                            </small>
+                                            <small class="text-muted">2h ago</small>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item bg-transparent">
+                                        <div class="d-flex justify-content-between">
+                                            <small>
+                                                <i class="fas fa-clock me-2"></i>
+                                                Next run scheduled
+                                            </small>
+                                            <small class="text-muted">5d left</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Schedule Modal -->
+    <div class="modal fade" id="newScheduleModal" tabindex="-1" aria-labelledby="newScheduleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newScheduleModalLabel">
+                        <i class="fas fa-plus me-2"></i>
+                        Create New Schedule
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="newScheduleForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="scheduleName" class="form-label">Schedule Name</label>
+                            <input type="text" class="form-control" id="scheduleName" placeholder="e.g., Weekly Job Feed Update" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="xmlFilePath" class="form-label">XML File to Monitor</label>
+                            <div class="file-picker-area" id="filePickerArea">
+                                <i class="fas fa-file-code fa-2x text-muted mb-2"></i>
+                                <p class="mb-2">Click to select XML file or drag and drop</p>
+                                <small class="text-muted">The file you want to update automatically</small>
+                                <input type="file" id="xmlFileInput" accept=".xml" class="d-none">
+                            </div>
+                            <div id="selectedFileInfo" class="mt-2" style="display: none;">
+                                <small class="text-muted">
+                                    <i class="fas fa-file me-2"></i>
+                                    <span id="selectedFileName"></span>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="scheduleFrequency" class="form-label">Update Frequency</label>
+                            <select class="form-select" id="scheduleFrequency" required>
+                                <option value="">Select frequency...</option>
+                                <option value="3">Every 3 days</option>
+                                <option value="7" selected>Every 7 days (Weekly)</option>
+                                <option value="10">Every 10 days</option>
+                                <option value="14">Every 14 days (Bi-weekly)</option>
+                                <option value="21">Every 21 days</option>
+                                <option value="30">Every 30 days (Monthly)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>How it works:</strong> The system will automatically update reference numbers in your XML file based on the schedule you set. The original file will be updated in place with new unique reference numbers.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            Create Schedule
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const filePickerArea = document.getElementById('filePickerArea');
+            const xmlFileInput = document.getElementById('xmlFileInput');
+            const selectedFileInfo = document.getElementById('selectedFileInfo');
+            const selectedFileName = document.getElementById('selectedFileName');
+
+            // File picker functionality
+            filePickerArea.addEventListener('click', function() {
+                xmlFileInput.click();
+            });
+
+            xmlFileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    selectedFileName.textContent = file.name;
+                    selectedFileInfo.style.display = 'block';
+                }
+            });
+
+            // Drag and drop
+            filePickerArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                filePickerArea.style.borderColor = 'var(--bs-success)';
+            });
+
+            filePickerArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                filePickerArea.style.borderColor = 'var(--bs-border-color)';
+            });
+
+            filePickerArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                filePickerArea.style.borderColor = 'var(--bs-border-color)';
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.name.endsWith('.xml')) {
+                        xmlFileInput.files = files;
+                        selectedFileName.textContent = file.name;
+                        selectedFileInfo.style.display = 'block';
+                    } else {
+                        alert('Please select an XML file');
+                    }
+                }
+            });
+
+            // Form submission (placeholder for now)
+            document.getElementById('newScheduleForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Schedule creation will be implemented in the next phase. For now, you can use the manual upload feature.');
+            });
+        });
+    </script>
+</body>
+</html>

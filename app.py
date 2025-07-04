@@ -15,6 +15,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-12345")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
+
+
 # Configuration
 UPLOAD_FOLDER = tempfile.gettempdir()
 ALLOWED_EXTENSIONS = {'xml'}
@@ -22,6 +24,8 @@ MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+
+# Remove database initialization for now
 
 def allowed_file(filename):
     """Check if file has allowed extension"""
@@ -31,6 +35,11 @@ def allowed_file(filename):
 def index():
     """Main page with file upload form"""
     return render_template('index.html')
+
+@app.route('/scheduler')
+def scheduler_dashboard():
+    """Scheduling dashboard for automated processing"""
+    return render_template('scheduler.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
