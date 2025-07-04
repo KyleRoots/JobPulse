@@ -93,6 +93,9 @@ Changelog:
 - July 04, 2025. Completed XML reference number updater with CDATA preservation and proper formatting
 - July 04, 2025. Implemented comprehensive scheduling system with database integration and automated processing
 - July 04, 2025. Added responsive design for mobile-friendly file management across all interfaces
+- July 04, 2025. Enhanced SFTP/FTP system with dual protocol support and WP Engine optimization
+- July 04, 2025. Fixed email notifications (verified sender domain) and SFTP connection (port 2222)
+- July 04, 2025. Completed full automation: XML processing → Email notifications → SFTP upload to WP Engine
 ```
 
 ## User Preferences
