@@ -101,6 +101,9 @@ Changelog:
 - July 04, 2025. Implemented automated workflow integration for both manual and scheduled processing
 - July 05, 2025. Added file replacement functionality - users can now update XML files without affecting schedule settings
 - July 05, 2025. Implemented real-time progress tracking for manual operations with live status updates
+- July 05, 2025. Fixed contrast issues for better text readability on dark backgrounds
+- July 05, 2025. Added global settings page for centralized SFTP and email configuration management
+- July 05, 2025. Enhanced manual uploads with SFTP auto-upload and preserved original filenames (no "updated_" prefix)
 ```
 
 ## User Preferences

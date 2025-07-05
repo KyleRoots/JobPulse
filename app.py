@@ -822,6 +822,123 @@ def download_file(download_key):
         flash(f'Error downloading file: {str(e)}', 'error')
         return redirect(url_for('index'))
 
+@app.route('/settings')
+def settings():
+    """Global settings page for SFTP and email configuration"""
+    try:
+        # Get current settings
+        settings_data = {}
+        setting_keys = [
+            'sftp_hostname', 'sftp_username', 'sftp_directory', 'sftp_port', 'sftp_enabled',
+            'email_notifications_enabled', 'default_notification_email'
+        ]
+        
+        for key in setting_keys:
+            setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
+            settings_data[key] = setting.setting_value if setting else ''
+        
+        return render_template('settings.html', settings=settings_data)
+        
+    except Exception as e:
+        app.logger.error(f"Error loading settings: {str(e)}")
+        flash('Error loading settings', 'error')
+        return redirect(url_for('index'))
+
+@app.route('/settings', methods=['POST'])
+def update_settings():
+    """Update global settings"""
+    try:
+        # Update SFTP settings
+        sftp_settings = {
+            'sftp_enabled': request.form.get('sftp_enabled') == 'on',
+            'sftp_hostname': request.form.get('sftp_hostname', ''),
+            'sftp_username': request.form.get('sftp_username', ''),
+            'sftp_password': request.form.get('sftp_password', ''),
+            'sftp_directory': request.form.get('sftp_directory', '/'),
+            'sftp_port': request.form.get('sftp_port', '2222')
+        }
+        
+        # Update email settings
+        email_settings = {
+            'email_notifications_enabled': request.form.get('email_notifications_enabled') == 'on',
+            'default_notification_email': request.form.get('default_notification_email', '')
+        }
+        
+        # Combine all settings
+        all_settings = {**sftp_settings, **email_settings}
+        
+        # Save to database
+        for key, value in all_settings.items():
+            setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
+            
+            if setting:
+                setting.setting_value = str(value)
+                setting.updated_at = datetime.utcnow()
+            else:
+                setting = GlobalSettings(
+                    setting_key=key,
+                    setting_value=str(value)
+                )
+                db.session.add(setting)
+        
+        db.session.commit()
+        flash('Settings updated successfully!', 'success')
+        
+        return redirect(url_for('settings'))
+        
+    except Exception as e:
+        app.logger.error(f"Error updating settings: {str(e)}")
+        db.session.rollback()
+        flash(f'Error updating settings: {str(e)}', 'error')
+        return redirect(url_for('settings'))
+
+@app.route('/test-sftp-connection', methods=['POST'])
+def test_sftp_connection():
+    """Test SFTP connection with current settings"""
+    try:
+        # Get SFTP settings
+        hostname = db.session.query(GlobalSettings).filter_by(setting_key='sftp_hostname').first()
+        username = db.session.query(GlobalSettings).filter_by(setting_key='sftp_username').first()
+        password = db.session.query(GlobalSettings).filter_by(setting_key='sftp_password').first()
+        directory = db.session.query(GlobalSettings).filter_by(setting_key='sftp_directory').first()
+        port = db.session.query(GlobalSettings).filter_by(setting_key='sftp_port').first()
+        
+        if not all([hostname, username, password]):
+            return jsonify({
+                'success': False,
+                'error': 'SFTP credentials not configured. Please fill in hostname, username, and password.'
+            })
+        
+        # Test connection
+        ftp_service = FTPService(
+            hostname=hostname.setting_value,
+            username=username.setting_value,
+            password=password.setting_value,
+            target_directory=directory.setting_value if directory else "/",
+            port=int(port.setting_value) if port else 2222,
+            use_sftp=True
+        )
+        
+        success = ftp_service.test_connection()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Successfully connected to {hostname.setting_value}!'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to connect. Please check your credentials and try again.'
+            })
+        
+    except Exception as e:
+        app.logger.error(f"Error testing SFTP connection: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Connection test failed: {str(e)}'
+        })
+
 @app.route('/validate', methods=['POST'])
 def validate_file():
     """Validate XML file structure without processing"""

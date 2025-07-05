@@ -34,11 +34,16 @@
             margin-top: 1rem;
         }
         .download-section {
-            background-color: var(--bs-success-bg-subtle);
+            background-color: var(--bs-dark) !important;
             border: 1px solid var(--bs-success-border-subtle);
             border-radius: 8px;
             padding: 2rem;
             margin-top: 2rem;
+            color: var(--bs-body-color) !important;
+        }
+        
+        .download-section h4 {
+            color: var(--bs-success) !important;
         }
         
         /* Fix contrast for better readability */
@@ -143,7 +148,12 @@
                                 Automatically update reference numbers in XML job feed files while preserving structure and content
                             </p>
                         </div>
-                        <div class="d-none d-md-block"></div>
+                        <div>
+                            <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-cog me-2"></i>
+                                <span class="d-none d-sm-inline">Global </span>Settings
+                            </a>
+                        </div>
                     </div>
                 </div>
 
