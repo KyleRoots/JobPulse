@@ -144,13 +144,24 @@ class XMLProcessor:
             self.logger.info(f"Writing output file to: {output_filepath}")
             with open(output_filepath, 'wb') as f:
                 tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+                f.flush()  # Ensure data is written to disk
+                os.fsync(f.fileno())  # Force OS to write to disk
             
-            # Verify file was written
+            # Verify file was written immediately after closing
+            self.logger.info(f"File closed, checking existence...")
             if os.path.exists(output_filepath):
                 file_size = os.path.getsize(output_filepath)
                 self.logger.info(f"Output file written successfully, size: {file_size} bytes")
+                
+                # Additional checks
+                file_perms = oct(os.stat(output_filepath).st_mode)[-3:]
+                self.logger.info(f"File permissions: {file_perms}")
             else:
                 self.logger.error("Output file was not created!")
+                # List directory contents to see what files exist
+                temp_dir = os.path.dirname(output_filepath)
+                files_in_dir = os.listdir(temp_dir)
+                self.logger.error(f"Files in {temp_dir}: {files_in_dir}")
             
             self.logger.info(f"Successfully processed {jobs_processed} jobs")
             self.logger.info(f"Found {len(reference_stats)} unique original references")
