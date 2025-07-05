@@ -130,21 +130,30 @@ def process_scheduled_files():
                         # Get original filename for email/FTP (use stored original filename if available)
                         original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
                         
-                        # Send email notification if configured
-                        if schedule.send_email_notifications and schedule.notification_email:
+                        # Send email notification if configured (using Global Settings)
+                        if schedule.send_email_notifications:
                             try:
-                                email_service = EmailService()
-                                email_sent = email_service.send_processing_notification(
-                                    to_email=schedule.notification_email,
-                                    schedule_name=schedule.name,
-                                    jobs_processed=result.get('jobs_processed', 0),
-                                    xml_file_path=schedule.file_path,
-                                    original_filename=original_filename
-                                )
-                                if email_sent:
-                                    app.logger.info(f"Email notification sent to {schedule.notification_email}")
+                                # Get email settings from Global Settings
+                                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
+                                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                                
+                                if (email_enabled and email_enabled.setting_value == 'true' and 
+                                    email_address and email_address.setting_value):
+                                    
+                                    email_service = EmailService()
+                                    email_sent = email_service.send_processing_notification(
+                                        to_email=email_address.setting_value,
+                                        schedule_name=schedule.name,
+                                        jobs_processed=result.get('jobs_processed', 0),
+                                        xml_file_path=schedule.file_path,
+                                        original_filename=original_filename
+                                    )
+                                    if email_sent:
+                                        app.logger.info(f"Email notification sent to {email_address.setting_value}")
+                                    else:
+                                        app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
                                 else:
-                                    app.logger.warning(f"Failed to send email notification to {schedule.notification_email}")
+                                    app.logger.warning(f"Email notification requested but credentials not configured in Global Settings")
                             except Exception as e:
                                 app.logger.error(f"Error sending email notification: {str(e)}")
                         
@@ -191,15 +200,24 @@ def process_scheduled_files():
                             os.remove(temp_output)
                         app.logger.error(f"Failed to process scheduled file: {schedule.file_path} - {result.get('error')}")
                         
-                        # Send error notification email if configured
-                        if schedule.send_email_notifications and schedule.notification_email:
+                        # Send error notification email if configured (using Global Settings)
+                        if schedule.send_email_notifications:
                             try:
-                                email_service = EmailService()
-                                email_service.send_processing_error_notification(
-                                    to_email=schedule.notification_email,
-                                    schedule_name=schedule.name,
-                                    error_message=result.get('error', 'Unknown error')
-                                )
+                                # Get email settings from Global Settings
+                                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
+                                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                                
+                                if (email_enabled and email_enabled.setting_value == 'true' and 
+                                    email_address and email_address.setting_value):
+                                    
+                                    email_service = EmailService()
+                                    email_service.send_processing_error_notification(
+                                        to_email=email_address.setting_value,
+                                        schedule_name=schedule.name,
+                                        error_message=result.get('error', 'Unknown error')
+                                    )
+                                else:
+                                    app.logger.warning(f"Error email notification requested but credentials not configured in Global Settings")
                             except Exception as e:
                                 app.logger.error(f"Error sending error notification email: {str(e)}")
                     
