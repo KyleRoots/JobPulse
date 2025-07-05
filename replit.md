@@ -99,6 +99,7 @@ Changelog:
 - July 04, 2025. Fixed filename preservation issue - now maintains original filename (myticas-job-feed-dice.xml)
 - July 04, 2025. Added progress indicator modal for manual processing operations
 - July 04, 2025. Implemented automated workflow integration for both manual and scheduled processing
+- July 05, 2025. Added file replacement functionality - users can now update XML files without affecting schedule settings
 ```
 
 ## User Preferences

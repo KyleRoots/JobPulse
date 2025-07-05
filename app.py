@@ -325,6 +325,84 @@ def get_schedule_status(schedule_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/schedules/replace-file', methods=['POST'])
+def replace_schedule_file():
+    """Replace the XML file for an existing schedule"""
+    try:
+        schedule_id = request.form.get('schedule_id')
+        if not schedule_id:
+            return jsonify({'success': False, 'error': 'Schedule ID is required'}), 400
+        
+        schedule = ScheduleConfig.query.get_or_404(int(schedule_id))
+        
+        # Check if file was uploaded
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'success': False, 'error': 'Only XML files are allowed'}), 400
+        
+        # Validate XML structure
+        try:
+            xml_processor = XMLProcessor()
+            
+            # Create a temporary copy for validation
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xml')
+            file.save(temp_file.name)
+            
+            # Validate the XML structure
+            validation_result = xml_processor.validate_xml(temp_file.name)
+            if not validation_result['valid']:
+                os.unlink(temp_file.name)
+                return jsonify({
+                    'success': False, 
+                    'error': f'Invalid XML structure: {validation_result["error"]}'
+                }), 400
+            
+            # If old file exists, remove it
+            if schedule.file_path and os.path.exists(schedule.file_path):
+                os.unlink(schedule.file_path)
+            
+            # Generate new secure filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = secure_filename(file.filename) if file.filename else 'uploaded_file.xml'
+            new_filename = f"{timestamp}_{filename}"
+            
+            # Create scheduled files directory if it doesn't exist
+            scheduled_dir = os.path.join(tempfile.gettempdir(), 'scheduled_files')
+            os.makedirs(scheduled_dir, exist_ok=True)
+            
+            # Move the validated file to the scheduled directory
+            new_filepath = os.path.join(scheduled_dir, new_filename)
+            shutil.move(temp_file.name, new_filepath)
+            
+            # Update the schedule with new file path
+            schedule.file_path = new_filepath
+            schedule.original_filename = filename  # Store original filename
+            schedule.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'File replaced successfully',
+                'jobs_count': validation_result.get('jobs_count', 0)
+            })
+            
+        except Exception as e:
+            # Clean up temporary file if it exists
+            if 'temp_file' in locals() and os.path.exists(temp_file.name):
+                os.unlink(temp_file.name)
+            raise e
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
 def run_schedule_now(schedule_id):
     """Manually trigger a schedule to run now"""
