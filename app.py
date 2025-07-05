@@ -894,28 +894,42 @@ def update_settings():
 
 @app.route('/test-sftp-connection', methods=['POST'])
 def test_sftp_connection():
-    """Test SFTP connection with current settings"""
+    """Test SFTP connection with form data"""
     try:
-        # Get SFTP settings
-        hostname = db.session.query(GlobalSettings).filter_by(setting_key='sftp_hostname').first()
-        username = db.session.query(GlobalSettings).filter_by(setting_key='sftp_username').first()
-        password = db.session.query(GlobalSettings).filter_by(setting_key='sftp_password').first()
-        directory = db.session.query(GlobalSettings).filter_by(setting_key='sftp_directory').first()
-        port = db.session.query(GlobalSettings).filter_by(setting_key='sftp_port').first()
+        # Get form data from request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No connection data provided'
+            })
+        
+        hostname = data.get('sftp_hostname', '').strip()
+        username = data.get('sftp_username', '').strip()
+        password = data.get('sftp_password', '').strip()
+        directory = data.get('sftp_directory', '/').strip()
+        port = data.get('sftp_port', '2222')
         
         if not all([hostname, username, password]):
             return jsonify({
                 'success': False,
-                'error': 'SFTP credentials not configured. Please fill in hostname, username, and password.'
+                'error': 'Please fill in hostname, username, and password fields.'
             })
+        
+        # Convert port to integer
+        try:
+            port = int(port) if port else 2222
+        except ValueError:
+            port = 2222
         
         # Test connection
         ftp_service = FTPService(
-            hostname=hostname.setting_value,
-            username=username.setting_value,
-            password=password.setting_value,
-            target_directory=directory.setting_value if directory else "/",
-            port=int(port.setting_value) if port else 2222,
+            hostname=hostname,
+            username=username,
+            password=password,
+            target_directory=directory,
+            port=port,
             use_sftp=True
         )
         
@@ -924,7 +938,7 @@ def test_sftp_connection():
         if success:
             return jsonify({
                 'success': True,
-                'message': f'Successfully connected to {hostname.setting_value}!'
+                'message': f'Successfully connected to {hostname} on port {port}!'
             })
         else:
             return jsonify({

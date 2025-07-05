@@ -158,6 +158,26 @@
                         </div>
                     </div>
 
+                    <!-- Test Connection Section -->
+                    <div class="card settings-card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Test SFTP Connection
+                            </h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-3">
+                                Test your SFTP connection to ensure settings are correct before saving
+                            </p>
+                            <button type="button" class="btn btn-outline-info" onclick="testSftpConnection()">
+                                <i class="fas fa-plug me-2"></i>
+                                Test SFTP Connection
+                            </button>
+                            <div id="testResult" class="mt-3"></div>
+                        </div>
+                    </div>
+
                     <!-- Email Settings -->
                     <div class="card settings-card mb-4">
                         <div class="card-header">
@@ -200,25 +220,7 @@
                     </div>
                 </form>
 
-                <!-- Test Connection Section -->
-                <div class="card settings-card mt-4">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-check-circle me-2"></i>
-                            Test Connection
-                        </h5>
-                    </div>
-                    <div class="card-body text-center">
-                        <p class="text-muted mb-3">
-                            Test your SFTP connection to ensure settings are correct
-                        </p>
-                        <button type="button" class="btn btn-outline-info" onclick="testSftpConnection()">
-                            <i class="fas fa-plug me-2"></i>
-                            Test SFTP Connection
-                        </button>
-                        <div id="testResult" class="mt-3"></div>
-                    </div>
-                </div>
+
 
                 <!-- Usage Information -->
                 <div class="card settings-card mt-4">
@@ -246,17 +248,33 @@
             const button = event.target;
             const resultDiv = document.getElementById('testResult');
             
+            // Get current form values
+            const formData = {
+                sftp_hostname: document.getElementById('sftp_hostname').value,
+                sftp_username: document.getElementById('sftp_username').value,
+                sftp_password: document.getElementById('sftp_password').value,
+                sftp_directory: document.getElementById('sftp_directory').value,
+                sftp_port: document.getElementById('sftp_port').value
+            };
+            
+            // Validate required fields
+            if (!formData.sftp_hostname || !formData.sftp_username || !formData.sftp_password) {
+                resultDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Please fill in hostname, username, and password before testing</div>';
+                return;
+            }
+            
             // Show loading state
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing...';
             resultDiv.innerHTML = '';
             
-            // Make test request
+            // Make test request with form data
             fetch('/test-sftp-connection', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                }
+                },
+                body: JSON.stringify(formData)
             })
             .then(response => response.json())
             .then(data => {

@@ -144,18 +144,58 @@ class FTPService:
     
     def test_connection(self) -> bool:
         """
-        Test FTP connection without uploading
+        Test FTP/SFTP connection without uploading
         
         Returns:
             bool: True if connection successful, False otherwise
         """
+        if self.use_sftp:
+            return self._test_sftp_connection()
+        else:
+            return self._test_ftp_connection()
+    
+    def _test_ftp_connection(self) -> bool:
+        """Test FTP connection"""
         try:
-            with ftplib.FTP(self.hostname) as ftp:
+            with ftplib.FTP(self.hostname, timeout=10) as ftp:
+                if self.port and self.port != 21:
+                    ftp.connect(self.hostname, self.port)
                 ftp.login(self.username, self.password)
                 logging.info("FTP connection test successful")
                 return True
         except Exception as e:
             logging.error(f"FTP connection test failed: {e}")
+            return False
+    
+    def _test_sftp_connection(self) -> bool:
+        """Test SFTP connection"""
+        try:
+            import paramiko
+            
+            # Create SSH client
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # Connect to server
+            ssh.connect(
+                hostname=self.hostname,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                timeout=10
+            )
+            
+            # Test SFTP
+            sftp = ssh.open_sftp()
+            sftp.listdir(self.target_directory)
+            sftp.close()
+            ssh.close()
+            
+            logging.info("SFTP connection test successful")
+            return True
+            
+        except Exception as e:
+            logging.error(f"SFTP connection test failed: {e}")
             return False
     
     def list_directory(self, directory: str = None) -> list:
