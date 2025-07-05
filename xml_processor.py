@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 import string
 import time
@@ -140,8 +141,16 @@ class XMLProcessor:
             etree.indent(tree, space="  ")
             
             # Write updated XML to output file preserving CDATA with proper formatting
+            self.logger.info(f"Writing output file to: {output_filepath}")
             with open(output_filepath, 'wb') as f:
                 tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+            
+            # Verify file was written
+            if os.path.exists(output_filepath):
+                file_size = os.path.getsize(output_filepath)
+                self.logger.info(f"Output file written successfully, size: {file_size} bytes")
+            else:
+                self.logger.error("Output file was not created!")
             
             self.logger.info(f"Successfully processed {jobs_processed} jobs")
             self.logger.info(f"Found {len(reference_stats)} unique original references")
