@@ -667,7 +667,9 @@ def upload_file():
         
         # Generate output filename (preserve original name without "updated_" prefix)
         output_filename = original_filename
-        output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{unique_id}_{output_filename}")
+        # Try using current working directory instead of temp folder
+        output_filepath = os.path.join(os.getcwd(), f"{unique_id}_{output_filename}")
+        app.logger.info(f"Using output path: {output_filepath}")
         
         # Process the file
         result = processor.process_xml(input_filepath, output_filepath)
