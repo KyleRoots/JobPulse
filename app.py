@@ -355,7 +355,7 @@ def replace_schedule_file():
             file.save(temp_file.name)
             
             # Validate the XML structure
-            validation_result = xml_processor.validate_xml(temp_file.name)
+            validation_result = xml_processor.validate_xml_detailed(temp_file.name)
             if not validation_result['valid']:
                 os.unlink(temp_file.name)
                 return jsonify({

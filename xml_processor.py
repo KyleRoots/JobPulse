@@ -199,3 +199,63 @@ class XMLProcessor:
         except Exception as e:
             self.logger.error(f"Error validating uniqueness: {str(e)}")
             return False, str(e)
+    
+    def validate_xml_detailed(self, filepath):
+        """Validate XML file structure and return detailed results"""
+        try:
+            # Parse XML file
+            with open(filepath, 'rb') as f:
+                tree = etree.parse(f)
+            
+            # Check for root element
+            root = tree.getroot()
+            if root.tag != 'source':
+                error_msg = "Invalid root element. Expected 'source'"
+                self.logger.error(error_msg)
+                return {
+                    'valid': False,
+                    'error': error_msg
+                }
+            
+            # Check for job elements
+            jobs = root.findall('.//job')
+            if not jobs:
+                error_msg = "No job elements found"
+                self.logger.error(error_msg)
+                return {
+                    'valid': False,
+                    'error': error_msg
+                }
+            
+            # Validate that jobs have required elements
+            required_elements = ['title', 'company', 'date', 'referencenumber']
+            for i, job in enumerate(jobs[:10]):  # Check first 10 jobs
+                for element in required_elements:
+                    if job.find(element) is None:
+                        error_msg = f"Job {i+1} missing required element: {element}"
+                        self.logger.error(error_msg)
+                        return {
+                            'valid': False,
+                            'error': error_msg
+                        }
+            
+            return {
+                'valid': True,
+                'jobs_count': len(jobs),
+                'error': None
+            }
+            
+        except etree.XMLSyntaxError as e:
+            error_msg = f"XML syntax error: {str(e)}"
+            self.logger.error(error_msg)
+            return {
+                'valid': False,
+                'error': error_msg
+            }
+        except Exception as e:
+            error_msg = f"Error validating XML: {str(e)}"
+            self.logger.error(error_msg)
+            return {
+                'valid': False,
+                'error': error_msg
+            }
