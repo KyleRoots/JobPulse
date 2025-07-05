@@ -110,6 +110,9 @@ Changelog:
 - July 05, 2025. Fixed manual upload file persistence issue by changing output directory from /tmp to working directory
 - July 05, 2025. Streamlined scheduler interface by centralizing all SFTP/email credentials in Global Settings - removed duplicate fields from scheduler forms
 - July 05, 2025. Completely removed email field from scheduler form to eliminate confusion - all email notifications now use Global Settings exclusively
+- July 05, 2025. Enhanced email notifications with SFTP upload status reporting and removed signature for cleaner presentation
+- July 05, 2025. Fixed manual processing email workflow to properly use Global Settings and include SFTP upload status
+- July 05, 2025. Completed full automation testing - all three features (XML processing, SFTP upload, email notifications) working perfectly
 ```
 
 ## User Preferences
