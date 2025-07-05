@@ -132,12 +132,7 @@
                                 Automatically update reference numbers in XML job feed files while preserving structure and content
                             </p>
                         </div>
-                        <div>
-                            <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-outline-info">
-                                <i class="fas fa-clock me-2"></i>
-                                <span class="d-none d-sm-inline">Schedule </span>Automation
-                            </a>
-                        </div>
+                        <div class="d-none d-md-block"></div>
                     </div>
                 </div>
 
@@ -206,6 +201,16 @@
                                 </button>
                             </div>
                         </form>
+                        
+                        <!-- Action Buttons -->
+                        <div class="text-center mt-3">
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-outline-info btn-lg">
+                                    <i class="fas fa-clock me-2"></i>
+                                    Schedule Automation
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
