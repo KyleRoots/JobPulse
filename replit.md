@@ -104,6 +104,8 @@ Changelog:
 - July 05, 2025. Fixed contrast issues for better text readability on dark backgrounds
 - July 05, 2025. Added global settings page for centralized SFTP and email configuration management
 - July 05, 2025. Enhanced manual uploads with SFTP auto-upload and preserved original filenames (no "updated_" prefix)
+- July 05, 2025. Fixed SFTP connection testing to use proper SFTP protocol with real-time form validation
+- July 05, 2025. Reorganized settings page layout with test connection section positioned after SFTP settings
 ```
 
 ## User Preferences
