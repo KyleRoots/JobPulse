@@ -194,6 +194,12 @@ class FTPService:
             logging.info("SFTP connection test successful")
             return True
             
+        except paramiko.AuthenticationException as e:
+            logging.error(f"SFTP authentication failed: {e}")
+            return False
+        except paramiko.SSHException as e:
+            logging.error(f"SFTP SSH error: {e}")
+            return False
         except Exception as e:
             logging.error(f"SFTP connection test failed: {e}")
             return False

@@ -946,6 +946,7 @@ def test_sftp_connection():
             use_sftp=True
         )
         
+        app.logger.info(f"Testing SFTP connection to {hostname}:{port} with user {username}")
         success = ftp_service.test_connection()
         
         if success:
