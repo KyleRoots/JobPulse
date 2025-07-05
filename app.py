@@ -527,22 +527,31 @@ def process_schedule_with_progress(schedule_id):
             # Get original filename for email/FTP
             original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
             
-            # Send email notification if enabled
+            # Send email notification if enabled (using Global Settings)
             email_sent = True  # Default to success if not configured
-            if schedule.send_email_notifications and schedule.notification_email:
-                email_service = EmailService()
-                email_sent = email_service.send_processing_notification(
-                    to_email=schedule.notification_email,
-                    schedule_name=schedule.name,
-                    jobs_processed=jobs_processed,
-                    xml_file_path=schedule.file_path,
-                    original_filename=original_filename
-                )
+            if schedule.send_email_notifications:
+                # Get email settings from Global Settings
+                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
+                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
                 
-                if email_sent:
-                    update_progress(schedule_id, 2, f"Email sent successfully to {schedule.notification_email}")
+                if (email_enabled and email_enabled.setting_value == 'true' and 
+                    email_address and email_address.setting_value):
+                    
+                    email_service = EmailService()
+                    email_sent = email_service.send_processing_notification(
+                        to_email=email_address.setting_value,
+                        schedule_name=schedule.name,
+                        jobs_processed=jobs_processed,
+                        xml_file_path=schedule.file_path,
+                        original_filename=original_filename
+                    )
+                    
+                    if email_sent:
+                        update_progress(schedule_id, 2, f"Email sent successfully to {email_address.setting_value}")
+                    else:
+                        update_progress(schedule_id, 2, "Email sending failed", error="Failed to send email notification")
                 else:
-                    update_progress(schedule_id, 2, "Email sending failed", error="Failed to send email notification")
+                    update_progress(schedule_id, 2, "Email notification requested but not configured in Global Settings", error="Email credentials not set")
             
             time.sleep(0.5)
             update_progress(schedule_id, 3, "Uploading to WP Engine server...")
