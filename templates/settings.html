@@ -37,8 +37,9 @@
         
         /* Fix toggle switch visibility */
         .form-check-input {
-            background-color: var(--bs-secondary-bg) !important;
-            border: 1px solid var(--bs-border-color) !important;
+            background-color: var(--bs-gray-600) !important;
+            border: 2px solid var(--bs-gray-400) !important;
+            opacity: 1 !important;
         }
         
         .form-check-input:checked {
@@ -49,6 +50,11 @@
         .form-check-input:focus {
             border-color: var(--bs-primary) !important;
             box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25) !important;
+        }
+        
+        .form-check-input:not(:checked) {
+            background-color: var(--bs-gray-500) !important;
+            border-color: var(--bs-gray-300) !important;
         }
     </style>
 </head>
