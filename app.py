@@ -675,6 +675,10 @@ def upload_file():
         # Clean up input file
         os.remove(input_filepath)
         
+        # Debug: Check if output file exists
+        app.logger.info(f"Output file path: {output_filepath}")
+        app.logger.info(f"Output file exists: {os.path.exists(output_filepath)}")
+        
         if result['success']:
             flash(f'Successfully processed {result["jobs_processed"]} jobs with unique reference numbers', 'success')
             
@@ -707,6 +711,7 @@ def upload_file():
                         )
                         
                         app.logger.info(f"Attempting SFTP upload to {hostname.setting_value}")
+                        app.logger.info(f"Upload file check - file exists: {os.path.exists(output_filepath)}")
                         # Upload file with original name
                         upload_success = ftp_service.upload_file(output_filepath, original_filename)
                         
