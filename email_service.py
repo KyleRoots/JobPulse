@@ -37,6 +37,12 @@ class EmailService:
             bool: True if email sent successfully, False otherwise
         """
         try:
+            logging.info(f"EmailService: Starting email notification to {to_email}")
+            logging.info(f"EmailService: API Key present: {bool(self.api_key)}")
+            
+            if not self.api_key:
+                logging.error("EmailService: No SendGrid API key available")
+                return False
             # Read the XML file for attachment
             with open(xml_file_path, 'rb') as f:
                 xml_content = f.read()

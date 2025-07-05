@@ -131,15 +131,22 @@ def process_scheduled_files():
                         original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
                         
                         # Send email notification if configured (using Global Settings)
+                        app.logger.info(f"Checking email notifications for schedule: {schedule.name}")
+                        app.logger.info(f"schedule.send_email_notifications = {schedule.send_email_notifications}")
+                        
                         if schedule.send_email_notifications:
                             try:
                                 # Get email settings from Global Settings
                                 email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
                                 email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
                                 
+                                app.logger.info(f"Email enabled setting: {email_enabled.setting_value if email_enabled else 'Not found'}")
+                                app.logger.info(f"Email address setting: {email_address.setting_value if email_address else 'Not found'}")
+                                
                                 if (email_enabled and email_enabled.setting_value == 'true' and 
                                     email_address and email_address.setting_value):
                                     
+                                    app.logger.info(f"Attempting to send email notification to {email_address.setting_value}")
                                     email_service = EmailService()
                                     email_sent = email_service.send_processing_notification(
                                         to_email=email_address.setting_value,
@@ -149,13 +156,17 @@ def process_scheduled_files():
                                         original_filename=original_filename
                                     )
                                     if email_sent:
-                                        app.logger.info(f"Email notification sent to {email_address.setting_value}")
+                                        app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
                                     else:
                                         app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
                                 else:
                                     app.logger.warning(f"Email notification requested but credentials not configured in Global Settings")
+                                    app.logger.warning(f"Email enabled: {email_enabled.setting_value if email_enabled else 'Not found'}")
+                                    app.logger.warning(f"Email address: {email_address.setting_value if email_address else 'Not found'}")
                             except Exception as e:
                                 app.logger.error(f"Error sending email notification: {str(e)}")
+                        else:
+                            app.logger.info(f"Email notifications disabled for schedule: {schedule.name}")
                         
                         # Upload to SFTP if configured (using Global Settings)
                         if schedule.auto_upload_ftp:
