@@ -675,9 +675,18 @@ def upload_file():
         # Clean up input file
         os.remove(input_filepath)
         
-        # Debug: Check if output file exists
+        # Debug: Check if output file exists immediately after processing
+        import time
         app.logger.info(f"Output file path: {output_filepath}")
-        app.logger.info(f"Output file exists: {os.path.exists(output_filepath)}")
+        app.logger.info(f"Output file exists immediately: {os.path.exists(output_filepath)}")
+        
+        # Brief pause to check if timing issue
+        time.sleep(0.1)
+        app.logger.info(f"Output file exists after 0.1s: {os.path.exists(output_filepath)}")
+        
+        # List files in temp directory to see what's there
+        temp_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if 'myticas-job-feed-dice.xml' in f]
+        app.logger.info(f"Files in temp directory containing 'myticas-job-feed-dice.xml': {temp_files}")
         
         if result['success']:
             flash(f'Successfully processed {result["jobs_processed"]} jobs with unique reference numbers', 'success')
