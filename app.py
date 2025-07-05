@@ -628,7 +628,7 @@ def upload_schedule_file():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file upload and processing"""
+    """Handle file upload and processing with progress tracking"""
     try:
         # Check if file was uploaded
         if 'file' not in request.files:
@@ -665,8 +665,8 @@ def upload_file():
             os.remove(input_filepath)
             return redirect(url_for('index'))
         
-        # Generate output filename
-        output_filename = f"updated_{original_filename}"
+        # Generate output filename (preserve original name without "updated_" prefix)
+        output_filename = original_filename
         output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{unique_id}_{output_filename}")
         
         # Process the file
@@ -678,6 +678,45 @@ def upload_file():
         if result['success']:
             flash(f'Successfully processed {result["jobs_processed"]} jobs with unique reference numbers', 'success')
             
+            # Get global SFTP settings for automatic upload
+            sftp_enabled = False
+            try:
+                sftp_settings = db.session.query(GlobalSettings).filter_by(setting_key='sftp_enabled').first()
+                if sftp_settings and sftp_settings.setting_value == 'true':
+                    sftp_enabled = True
+                    
+                    # Get SFTP credentials
+                    hostname = db.session.query(GlobalSettings).filter_by(setting_key='sftp_hostname').first()
+                    username = db.session.query(GlobalSettings).filter_by(setting_key='sftp_username').first()
+                    password = db.session.query(GlobalSettings).filter_by(setting_key='sftp_password').first()
+                    directory = db.session.query(GlobalSettings).filter_by(setting_key='sftp_directory').first()
+                    port = db.session.query(GlobalSettings).filter_by(setting_key='sftp_port').first()
+                    
+                    if all([hostname, username, password]):
+                        from ftp_service import FTPService
+                        
+                        ftp_service = FTPService(
+                            hostname=hostname.setting_value,
+                            username=username.setting_value,
+                            password=password.setting_value,
+                            target_directory=directory.setting_value if directory else "/",
+                            port=int(port.setting_value) if port else 2222,
+                            use_sftp=True
+                        )
+                        
+                        # Upload file with original name
+                        upload_success = ftp_service.upload_file(output_filepath, original_filename)
+                        
+                        if upload_success:
+                            flash(f'File processed and uploaded to server successfully!', 'success')
+                        else:
+                            flash(f'File processed but upload to server failed', 'warning')
+                    else:
+                        flash(f'File processed but SFTP credentials not configured', 'warning')
+            except Exception as e:
+                app.logger.error(f"SFTP upload error: {str(e)}")
+                flash(f'File processed but upload to server failed: {str(e)}', 'warning')
+            
             # Store output file info in session for download
             session_key = f"processed_file_{unique_id}"
             app.config[session_key] = {
@@ -686,10 +725,28 @@ def upload_file():
                 'jobs_processed': result['jobs_processed']
             }
             
+            # Generate a manual upload ID for progress tracking
+            upload_id = unique_id
+            
+            # Initialize progress tracking for this upload
+            progress_tracker[upload_id] = {
+                'step': 'completed',
+                'message': 'Processing complete!',
+                'completed': True,
+                'error': None,
+                'download_key': unique_id,
+                'filename': output_filename,
+                'jobs_processed': result['jobs_processed'],
+                'sftp_uploaded': sftp_enabled
+            }
+            
             return render_template('index.html', 
                                  download_key=unique_id,
                                  filename=output_filename,
-                                 jobs_processed=result['jobs_processed'])
+                                 jobs_processed=result['jobs_processed'],
+                                 sftp_uploaded=sftp_enabled,
+                                 manual_upload_id=upload_id,
+                                 show_progress=True)
         else:
             flash(f'Error processing file: {result["error"]}', 'error')
             return redirect(url_for('index'))
@@ -698,6 +755,35 @@ def upload_file():
         app.logger.error(f"Error in upload_file: {str(e)}")
         flash(f'An error occurred while processing the file: {str(e)}', 'error')
         return redirect(url_for('index'))
+
+@app.route('/manual-upload-progress/<upload_id>')
+def get_manual_upload_progress(upload_id):
+    """Get real-time progress for manual upload processing"""
+    try:
+        if upload_id not in progress_tracker:
+            return jsonify({'error': 'Upload not found'}), 404
+        
+        progress = progress_tracker[upload_id]
+        
+        response_data = {
+            'step': progress['step'],
+            'message': progress['message'],
+            'completed': progress['completed'],
+            'error': progress['error']
+        }
+        
+        # If completed, add download information
+        if progress['completed'] and progress['error'] is None:
+            response_data['download_key'] = progress.get('download_key')
+            response_data['filename'] = progress.get('filename')
+            response_data['jobs_processed'] = progress.get('jobs_processed')
+            response_data['sftp_uploaded'] = progress.get('sftp_uploaded', False)
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        app.logger.error(f"Error getting manual upload progress: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/download/<download_key>')
 def download_file(download_key):

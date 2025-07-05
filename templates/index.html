@@ -40,6 +40,17 @@
             padding: 2rem;
             margin-top: 2rem;
         }
+        
+        /* Fix contrast for better readability */
+        .file-info {
+            background-color: var(--bs-dark) !important;
+            border: 1px solid var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+        
+        .file-info small {
+            color: var(--bs-secondary-color) !important;
+        }
 
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
@@ -282,7 +293,127 @@
         </div>
     </div>
 
+    <!-- Progress Modal for Manual Uploads -->
+    <div class="modal fade" id="manualProgressModal" tabindex="-1" aria-labelledby="manualProgressModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="manualProgressModalLabel">
+                        <i class="fas fa-cogs me-2"></i>
+                        Processing XML File
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div>
+                            <div class="fw-bold" id="manualProgressStep">Starting...</div>
+                            <small class="text-muted" id="manualProgressMessage">Preparing file for processing</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    
+    <!-- Manual Upload Progress Script -->
+    {% if manual_upload_id and show_progress %}
+    <script>
+        // Show progress modal for manual uploads
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadId = '{{ manual_upload_id }}';
+            const progressModal = new bootstrap.Modal(document.getElementById('manualProgressModal'));
+            
+            // Show the modal
+            progressModal.show();
+            
+            // Start polling for progress
+            pollManualUploadProgress(uploadId, progressModal);
+        });
+        
+        function pollManualUploadProgress(uploadId, modal) {
+            fetch(`/manual-upload-progress/${uploadId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        // Handle error
+                        document.getElementById('manualProgressStep').textContent = 'Error';
+                        document.getElementById('manualProgressMessage').textContent = data.error;
+                        document.querySelector('.progress-bar').style.width = '100%';
+                        document.querySelector('.progress-bar').classList.add('bg-danger');
+                        document.querySelector('.spinner-border').style.display = 'none';
+                        return;
+                    }
+                    
+                    // Update progress display
+                    document.getElementById('manualProgressStep').textContent = data.step;
+                    document.getElementById('manualProgressMessage').textContent = data.message;
+                    
+                    if (data.completed) {
+                        // Processing completed
+                        document.querySelector('.progress-bar').style.width = '100%';
+                        document.querySelector('.progress-bar').classList.remove('progress-bar-animated');
+                        document.querySelector('.spinner-border').style.display = 'none';
+                        
+                        if (data.error) {
+                            // Error occurred
+                            document.querySelector('.progress-bar').classList.add('bg-danger');
+                            document.getElementById('manualProgressStep').textContent = 'Error';
+                            document.getElementById('manualProgressMessage').textContent = data.error;
+                        } else {
+                            // Success
+                            document.querySelector('.progress-bar').classList.add('bg-success');
+                            document.getElementById('manualProgressStep').textContent = 'Complete!';
+                            
+                            // Build success message
+                            let successMessage = `Processed ${data.jobs_processed} jobs successfully`;
+                            if (data.sftp_uploaded) {
+                                successMessage += ' and uploaded to server';
+                            }
+                            document.getElementById('manualProgressMessage').textContent = successMessage;
+                            
+                            // Show download link after a brief delay
+                            setTimeout(() => {
+                                if (data.download_key) {
+                                    const downloadSection = document.querySelector('.download-section');
+                                    if (downloadSection) {
+                                        downloadSection.scrollIntoView({ behavior: 'smooth' });
+                                    }
+                                }
+                                modal.hide();
+                            }, 2000);
+                        }
+                    } else {
+                        // Still processing, continue polling
+                        setTimeout(() => pollManualUploadProgress(uploadId, modal), 1000);
+                        
+                        // Update progress bar based on step
+                        let progressWidth = '25%';
+                        if (data.step === 'processing') progressWidth = '50%';
+                        else if (data.step === 'uploading_sftp') progressWidth = '75%';
+                        else if (data.step === 'completed') progressWidth = '100%';
+                        
+                        document.querySelector('.progress-bar').style.width = progressWidth;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error polling progress:', error);
+                    document.getElementById('manualProgressStep').textContent = 'Error';
+                    document.getElementById('manualProgressMessage').textContent = 'Failed to get progress updates';
+                    document.querySelector('.progress-bar').style.width = '100%';
+                    document.querySelector('.progress-bar').classList.add('bg-danger');
+                    document.querySelector('.spinner-border').style.display = 'none';
+                });
+        }
+    </script>
+    {% endif %}
 </body>
 </html>
