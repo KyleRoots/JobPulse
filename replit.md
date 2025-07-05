@@ -108,6 +108,7 @@ Changelog:
 - July 05, 2025. Reorganized settings page layout with test connection section positioned after SFTP settings
 - July 05, 2025. Updated email settings header to clarify automation-only usage (scheduled vs manual processing distinction)
 - July 05, 2025. Fixed manual upload file persistence issue by changing output directory from /tmp to working directory
+- July 05, 2025. Streamlined scheduler interface by centralizing all SFTP/email credentials in Global Settings - removed duplicate fields from scheduler forms
 ```
 
 ## User Preferences

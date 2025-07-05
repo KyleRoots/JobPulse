@@ -145,27 +145,42 @@ def process_scheduled_files():
                             except Exception as e:
                                 app.logger.error(f"Error sending email notification: {str(e)}")
                         
-                        # Upload to FTP/SFTP if configured
-                        if schedule.auto_upload_ftp and schedule.ftp_hostname and schedule.ftp_username and schedule.ftp_password:
+                        # Upload to SFTP if configured (using Global Settings)
+                        if schedule.auto_upload_ftp:
                             try:
-                                ftp_service = FTPService(
-                                    hostname=schedule.ftp_hostname,
-                                    username=schedule.ftp_username,
-                                    password=schedule.ftp_password,
-                                    target_directory=schedule.ftp_directory or "/",
-                                    port=schedule.ftp_port,
-                                    use_sftp=schedule.use_sftp or False
-                                )
-                                ftp_uploaded = ftp_service.upload_file(
-                                    local_file_path=schedule.file_path,
-                                    remote_filename=original_filename
-                                )
-                                if ftp_uploaded:
-                                    app.logger.info(f"File uploaded to FTP server: {original_filename}")
+                                # Get SFTP settings from Global Settings
+                                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                
+                                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                    sftp_hostname and sftp_hostname.setting_value and 
+                                    sftp_username and sftp_username.setting_value and 
+                                    sftp_password and sftp_password.setting_value):
+                                    
+                                    ftp_service = FTPService(
+                                        hostname=sftp_hostname.setting_value,
+                                        username=sftp_username.setting_value,
+                                        password=sftp_password.setting_value,
+                                        target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                                        use_sftp=True
+                                    )
+                                    ftp_uploaded = ftp_service.upload_file(
+                                        local_file_path=schedule.file_path,
+                                        remote_filename=original_filename
+                                    )
+                                    if ftp_uploaded:
+                                        app.logger.info(f"File uploaded to SFTP server: {original_filename}")
+                                    else:
+                                        app.logger.warning(f"Failed to upload file to SFTP server")
                                 else:
-                                    app.logger.warning(f"Failed to upload file to FTP server")
+                                    app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
                             except Exception as e:
-                                app.logger.error(f"Error uploading to FTP: {str(e)}")
+                                app.logger.error(f"Error uploading to SFTP: {str(e)}")
                         
                     else:
                         # Clean up temp file on failure
@@ -257,17 +272,11 @@ def create_schedule():
             file_path=data['file_path'],
             original_filename=data.get('original_filename'),
             schedule_days=int(data['schedule_days']),
-            # Email notification settings
+            # Email notification settings (credentials come from Global Settings)
             send_email_notifications=data.get('send_email_notifications', False),
             notification_email=data.get('notification_email') if data.get('send_email_notifications') else None,
-            # FTP/SFTP upload settings
-            auto_upload_ftp=data.get('auto_upload_ftp', False),
-            ftp_hostname=data.get('ftp_hostname') if data.get('auto_upload_ftp') else None,
-            ftp_username=data.get('ftp_username') if data.get('auto_upload_ftp') else None,
-            ftp_password=data.get('ftp_password') if data.get('auto_upload_ftp') else None,
-            ftp_directory=data.get('ftp_directory', '/') if data.get('auto_upload_ftp') else None,
-            ftp_port=data.get('ftp_port') if data.get('auto_upload_ftp') else None,
-            use_sftp=data.get('use_sftp', False) if data.get('auto_upload_ftp') else False
+            # Auto-upload settings (credentials come from Global Settings)
+            auto_upload_ftp=data.get('auto_upload_ftp', False)
         )
         schedule.calculate_next_run()
         
@@ -506,27 +515,42 @@ def process_schedule_with_progress(schedule_id):
             time.sleep(0.5)
             update_progress(schedule_id, 3, "Uploading to WP Engine server...")
             
-            # Upload to FTP/SFTP if enabled
+            # Upload to SFTP if enabled (using Global Settings)
             upload_success = True  # Default to success if not configured
-            if schedule.auto_upload_ftp and schedule.ftp_hostname and schedule.ftp_username and schedule.ftp_password:
-                ftp_service = FTPService(
-                    hostname=schedule.ftp_hostname,
-                    username=schedule.ftp_username,
-                    password=schedule.ftp_password,
-                    target_directory=schedule.ftp_directory or "/",
-                    port=schedule.ftp_port,
-                    use_sftp=schedule.use_sftp or False
-                )
+            if schedule.auto_upload_ftp:
+                # Get SFTP settings from Global Settings
+                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
                 
-                upload_success = ftp_service.upload_file(
-                    local_file_path=schedule.file_path,
-                    remote_filename=original_filename
-                )
-                
-                if upload_success:
-                    update_progress(schedule_id, 3, f"File uploaded successfully to {schedule.ftp_hostname}")
+                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                    sftp_hostname and sftp_hostname.setting_value and 
+                    sftp_username and sftp_username.setting_value and 
+                    sftp_password and sftp_password.setting_value):
+                    
+                    ftp_service = FTPService(
+                        hostname=sftp_hostname.setting_value,
+                        username=sftp_username.setting_value,
+                        password=sftp_password.setting_value,
+                        target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                        use_sftp=True
+                    )
+                    
+                    upload_success = ftp_service.upload_file(
+                        local_file_path=schedule.file_path,
+                        remote_filename=original_filename
+                    )
+                    
+                    if upload_success:
+                        update_progress(schedule_id, 3, f"File uploaded successfully to {sftp_hostname.setting_value}")
+                    else:
+                        update_progress(schedule_id, 3, "File upload failed", error="Failed to upload to SFTP server")
                 else:
-                    update_progress(schedule_id, 3, "File upload failed", error="Failed to upload to FTP/SFTP server")
+                    update_progress(schedule_id, 3, "SFTP upload requested but not configured", error="SFTP credentials not set in Global Settings")
             
             # Log the processing
             log_entry = ProcessingLog(
