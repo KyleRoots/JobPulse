@@ -377,54 +377,31 @@
                         </div>
 
                         <!-- Email Notifications Section -->
-                        <div class="card mb-3">
-                            <div class="card-header">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="enableEmailNotifications">
-                                    <label class="form-check-label" for="enableEmailNotifications">
-                                        <i class="fas fa-envelope me-2"></i>
-                                        Email Notifications
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="card-body" id="emailNotificationSettings" style="display: none;">
-                                <div class="mb-3">
-                                    <label for="notificationEmail" class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" id="notificationEmail" 
-                                           placeholder="your@email.com" 
-                                           title="Email address to receive processing notifications">
-                                    <div class="form-text">You'll receive notifications when processing completes or fails</div>
-                                </div>
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Note:</strong> Email credentials are configured in <a href="/settings" class="alert-link">Global Settings</a>. 
-                                    This schedule will use those settings for sending notifications.
-                                </div>
+                        <div class="mb-3">
+                            <label for="notificationEmail" class="form-label">Email Address (Optional)</label>
+                            <input type="email" class="form-control" id="notificationEmail" 
+                                   placeholder="your@email.com" 
+                                   title="Email address to receive processing notifications">
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Leave blank to disable email notifications. Email credentials are managed in <a href="/settings" class="link-secondary">Global Settings</a>.
                             </div>
                         </div>
 
-                        <!-- Auto-Upload Section -->
-                        <div class="card mb-3">
-                            <div class="card-header">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="enableFtpUpload">
-                                    <label class="form-check-label" for="enableFtpUpload">
-                                        <i class="fas fa-upload me-2"></i>
-                                        Auto-Upload to Website
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="card-body" id="ftpUploadSettings" style="display: none;">
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Note:</strong> SFTP credentials are configured in <a href="/settings" class="alert-link">Global Settings</a>. 
-                                    This schedule will use those settings to automatically upload processed files to your server.
-                                </div>
-                                <div class="alert alert-success mb-0">
-                                    <i class="fas fa-check-circle me-2"></i>
-                                    <strong>How it works:</strong> After processing, the updated XML file will be automatically uploaded to your server using the original filename (e.g., myticas-job-feed-dice.xml).
-                                </div>
-                            </div>
+                        <!-- Features Info -->
+                        <div class="alert alert-info">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-magic me-2"></i>
+                                Automated Features
+                            </h6>
+                            <ul class="mb-0">
+                                <li><strong>Email Notifications:</strong> Get notified when processing completes (if email provided above)</li>
+                                <li><strong>SFTP Upload:</strong> Automatically uploads processed files to your server</li>
+                                <li><strong>File Backup:</strong> Creates backup copies before processing</li>
+                            </ul>
+                            <small class="text-muted mt-2 d-block">
+                                Configure SFTP and email credentials in <a href="/settings" class="alert-link">Global Settings</a>.
+                            </small>
                         </div>
                         
                         <div class="alert alert-info">
@@ -493,25 +470,7 @@
                 }
             });
 
-            // Email notification toggle
-            document.getElementById('enableEmailNotifications').addEventListener('change', function() {
-                const emailSettings = document.getElementById('emailNotificationSettings');
-                if (this.checked) {
-                    emailSettings.style.display = 'block';
-                } else {
-                    emailSettings.style.display = 'none';
-                }
-            });
-
-            // FTP upload toggle
-            document.getElementById('enableFtpUpload').addEventListener('change', function() {
-                const ftpSettings = document.getElementById('ftpUploadSettings');
-                if (this.checked) {
-                    ftpSettings.style.display = 'block';
-                } else {
-                    ftpSettings.style.display = 'none';
-                }
-            });
+            // Removed toggle handling - simplified form without checkboxes
 
             // Removed protocol selection handling - now managed in Global Settings
 
@@ -544,10 +503,10 @@
                             original_filename: data.original_filename,
                             schedule_days: document.getElementById('scheduleFrequency').value,
                             // Email notification settings (uses Global Settings for credentials)
-                            send_email_notifications: document.getElementById('enableEmailNotifications').checked,
-                            notification_email: document.getElementById('notificationEmail').value,
-                            // Auto-upload settings (uses Global Settings for SFTP credentials)
-                            auto_upload_ftp: document.getElementById('enableFtpUpload').checked
+                            send_email_notifications: document.getElementById('notificationEmail').value.trim() !== '',
+                            notification_email: document.getElementById('notificationEmail').value || null,
+                            // Auto-upload settings (always enabled, uses Global Settings for SFTP credentials)
+                            auto_upload_ftp: true
                         };
                         
                         return fetch('/api/schedules', {

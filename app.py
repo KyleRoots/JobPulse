@@ -84,7 +84,10 @@ def process_scheduled_files():
                 ScheduleConfig.next_run <= now
             ).all()
             
+            app.logger.info(f"Checking for scheduled files to process. Found {len(due_schedules)} due schedules")
+            
             for schedule in due_schedules:
+                app.logger.info(f"Processing schedule: {schedule.name} (ID: {schedule.id})")
                 try:
                     # Check if file exists
                     if not os.path.exists(schedule.file_path):
