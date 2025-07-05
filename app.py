@@ -679,18 +679,20 @@ def upload_file():
             flash(f'Successfully processed {result["jobs_processed"]} jobs with unique reference numbers', 'success')
             
             # Get global SFTP settings for automatic upload
-            sftp_enabled = False
+            sftp_uploaded = False
             try:
                 sftp_settings = db.session.query(GlobalSettings).filter_by(setting_key='sftp_enabled').first()
-                if sftp_settings and sftp_settings.setting_value == 'true':
-                    sftp_enabled = True
-                    
+                app.logger.info(f"SFTP enabled setting: {sftp_settings.setting_value if sftp_settings else 'None'}")
+                
+                if sftp_settings and sftp_settings.setting_value.lower() == 'true':
                     # Get SFTP credentials
                     hostname = db.session.query(GlobalSettings).filter_by(setting_key='sftp_hostname').first()
                     username = db.session.query(GlobalSettings).filter_by(setting_key='sftp_username').first()
                     password = db.session.query(GlobalSettings).filter_by(setting_key='sftp_password').first()
                     directory = db.session.query(GlobalSettings).filter_by(setting_key='sftp_directory').first()
                     port = db.session.query(GlobalSettings).filter_by(setting_key='sftp_port').first()
+                    
+                    app.logger.info(f"SFTP credentials check - hostname: {hostname is not None}, username: {username is not None}, password: {password is not None}")
                     
                     if all([hostname, username, password]):
                         from ftp_service import FTPService
@@ -704,15 +706,19 @@ def upload_file():
                             use_sftp=True
                         )
                         
+                        app.logger.info(f"Attempting SFTP upload to {hostname.setting_value}")
                         # Upload file with original name
                         upload_success = ftp_service.upload_file(output_filepath, original_filename)
                         
                         if upload_success:
+                            sftp_uploaded = True
                             flash(f'File processed and uploaded to server successfully!', 'success')
                         else:
                             flash(f'File processed but upload to server failed', 'warning')
                     else:
                         flash(f'File processed but SFTP credentials not configured', 'warning')
+                else:
+                    app.logger.info("SFTP upload disabled or not configured")
             except Exception as e:
                 app.logger.error(f"SFTP upload error: {str(e)}")
                 flash(f'File processed but upload to server failed: {str(e)}', 'warning')
@@ -737,14 +743,14 @@ def upload_file():
                 'download_key': unique_id,
                 'filename': output_filename,
                 'jobs_processed': result['jobs_processed'],
-                'sftp_uploaded': sftp_enabled
+                'sftp_uploaded': sftp_uploaded
             }
             
             return render_template('index.html', 
                                  download_key=unique_id,
                                  filename=output_filename,
                                  jobs_processed=result['jobs_processed'],
-                                 sftp_uploaded=sftp_enabled,
+                                 sftp_uploaded=sftp_uploaded,
                                  manual_upload_id=upload_id,
                                  show_progress=True)
         else:
@@ -804,6 +810,9 @@ def download_file(download_key):
             return redirect(url_for('index'))
         
         # Send file and clean up
+        from flask import after_this_request
+        
+        @after_this_request
         def remove_file(response):
             try:
                 os.remove(filepath)
@@ -850,7 +859,7 @@ def update_settings():
     try:
         # Update SFTP settings
         sftp_settings = {
-            'sftp_enabled': request.form.get('sftp_enabled') == 'on',
+            'sftp_enabled': 'true' if request.form.get('sftp_enabled') == 'on' else 'false',
             'sftp_hostname': request.form.get('sftp_hostname', ''),
             'sftp_username': request.form.get('sftp_username', ''),
             'sftp_password': request.form.get('sftp_password', ''),
@@ -860,7 +869,7 @@ def update_settings():
         
         # Update email settings
         email_settings = {
-            'email_notifications_enabled': request.form.get('email_notifications_enabled') == 'on',
+            'email_notifications_enabled': 'true' if request.form.get('email_notifications_enabled') == 'on' else 'false',
             'default_notification_email': request.form.get('default_notification_email', '')
         }
         
@@ -869,6 +878,10 @@ def update_settings():
         
         # Save to database
         for key, value in all_settings.items():
+            # Skip password if empty (preserve existing password)
+            if key == 'sftp_password' and not value:
+                continue
+                
             setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
             
             if setting:
