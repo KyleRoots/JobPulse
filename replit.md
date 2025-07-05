@@ -113,6 +113,7 @@ Changelog:
 - July 05, 2025. Enhanced email notifications with SFTP upload status reporting and removed signature for cleaner presentation
 - July 05, 2025. Fixed manual processing email workflow to properly use Global Settings and include SFTP upload status
 - July 05, 2025. Completed full automation testing - all three features (XML processing, SFTP upload, email notifications) working perfectly
+- July 05, 2025. Improved home page layout by moving Global Settings button next to Schedule Automation button for cleaner navigation
 ```
 
 ## User Preferences
