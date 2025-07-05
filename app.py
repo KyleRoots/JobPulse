@@ -275,11 +275,11 @@ def create_schedule():
             file_path=data['file_path'],
             original_filename=data.get('original_filename'),
             schedule_days=int(data['schedule_days']),
-            # Email notification settings (credentials come from Global Settings)
-            send_email_notifications=data.get('send_email_notifications', False),
-            notification_email=data.get('notification_email') if data.get('send_email_notifications') else None,
-            # Auto-upload settings (credentials come from Global Settings)
-            auto_upload_ftp=data.get('auto_upload_ftp', False)
+            # Email notification settings (always enabled, uses Global Settings)
+            send_email_notifications=True,
+            notification_email=None,  # Will use Global Settings email
+            # Auto-upload settings (always enabled, uses Global Settings)
+            auto_upload_ftp=True
         )
         schedule.calculate_next_run()
         

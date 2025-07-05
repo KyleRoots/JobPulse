@@ -376,17 +376,7 @@
                             </select>
                         </div>
 
-                        <!-- Email Notifications Section -->
-                        <div class="mb-3">
-                            <label for="notificationEmail" class="form-label">Email Address (Optional)</label>
-                            <input type="email" class="form-control" id="notificationEmail" 
-                                   placeholder="your@email.com" 
-                                   title="Email address to receive processing notifications">
-                            <div class="form-text">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Leave blank to disable email notifications. Email credentials are managed in <a href="/settings" class="link-secondary">Global Settings</a>.
-                            </div>
-                        </div>
+
 
                         <!-- Features Info -->
                         <div class="alert alert-info">
@@ -395,7 +385,7 @@
                                 Automated Features
                             </h6>
                             <ul class="mb-0">
-                                <li><strong>Email Notifications:</strong> Get notified when processing completes (if email provided above)</li>
+                                <li><strong>Email Notifications:</strong> Automated alerts sent to email configured in Global Settings</li>
                                 <li><strong>SFTP Upload:</strong> Automatically uploads processed files to your server</li>
                                 <li><strong>File Backup:</strong> Creates backup copies before processing</li>
                             </ul>
@@ -501,12 +491,7 @@
                             name: document.getElementById('scheduleName').value,
                             file_path: data.file_path,
                             original_filename: data.original_filename,
-                            schedule_days: document.getElementById('scheduleFrequency').value,
-                            // Email notification settings (uses Global Settings for credentials)
-                            send_email_notifications: document.getElementById('notificationEmail').value.trim() !== '',
-                            notification_email: document.getElementById('notificationEmail').value || null,
-                            // Auto-upload settings (always enabled, uses Global Settings for SFTP credentials)
-                            auto_upload_ftp: true
+                            schedule_days: document.getElementById('scheduleFrequency').value
                         };
                         
                         return fetch('/api/schedules', {
