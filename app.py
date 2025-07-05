@@ -15,9 +15,14 @@ from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
 import atexit
 import shutil
+import threading
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+# Global progress tracker for manual operations
+progress_tracker = {}
 
 class Base(DeclarativeBase):
     pass
@@ -403,115 +408,172 @@ def replace_schedule_file():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+def update_progress(schedule_id, step, message, completed=False, error=None):
+    """Update progress for a manual operation"""
+    progress_tracker[f"schedule_{schedule_id}"] = {
+        'step': step,
+        'message': message,
+        'completed': completed,
+        'error': error,
+        'timestamp': time.time()
+    }
+
+@app.route('/api/schedules/<int:schedule_id>/progress', methods=['GET'])
+def get_schedule_progress(schedule_id):
+    """Get real-time progress for manual schedule execution"""
+    try:
+        progress_key = f"schedule_{schedule_id}"
+        progress = progress_tracker.get(progress_key, {
+            'step': 0,
+            'message': 'Ready to start...',
+            'completed': False,
+            'error': None
+        })
+        
+        return jsonify({
+            'success': True,
+            **progress
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def process_schedule_with_progress(schedule_id):
+    """Process a schedule with real-time progress updates"""
+    try:
+        with app.app_context():
+            schedule = ScheduleConfig.query.get(schedule_id)
+            if not schedule:
+                update_progress(schedule_id, 0, "Schedule not found", completed=True, error="Schedule not found")
+                return
+            
+            update_progress(schedule_id, 1, "Starting XML processing...")
+            time.sleep(0.5)  # Brief pause for user to see
+            
+            if not os.path.exists(schedule.file_path):
+                update_progress(schedule_id, 1, "XML file not found", completed=True, error="XML file not found")
+                return
+            
+            # Process the XML file
+            processor = XMLProcessor()
+            update_progress(schedule_id, 1, "Processing XML file and updating reference numbers...")
+            
+            # Create backup
+            backup_path = f"{schedule.file_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            shutil.copy2(schedule.file_path, backup_path)
+            
+            # Generate temporary output
+            temp_output = f"{schedule.file_path}.temp"
+            
+            # Process the XML
+            result = processor.process_xml(schedule.file_path, temp_output)
+            
+            if not result.get('success'):
+                update_progress(schedule_id, 1, f"XML processing failed: {result.get('error', 'Unknown error')}", completed=True, error=result.get('error'))
+                return
+            
+            jobs_processed = result.get('jobs_processed', 0)
+            if jobs_processed == 0:
+                update_progress(schedule_id, 1, "No jobs found to process", completed=True, error="No jobs found in XML file")
+                return
+            
+            # Replace original file with updated version
+            os.replace(temp_output, schedule.file_path)
+            
+            update_progress(schedule_id, 2, f"Processed {jobs_processed} jobs. Sending email notification...")
+            time.sleep(0.5)
+            
+            # Get original filename for email/FTP
+            original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
+            
+            # Send email notification if enabled
+            email_sent = True  # Default to success if not configured
+            if schedule.send_email_notifications and schedule.notification_email:
+                email_service = EmailService()
+                email_sent = email_service.send_processing_notification(
+                    to_email=schedule.notification_email,
+                    schedule_name=schedule.name,
+                    jobs_processed=jobs_processed,
+                    xml_file_path=schedule.file_path,
+                    original_filename=original_filename
+                )
+                
+                if email_sent:
+                    update_progress(schedule_id, 2, f"Email sent successfully to {schedule.notification_email}")
+                else:
+                    update_progress(schedule_id, 2, "Email sending failed", error="Failed to send email notification")
+            
+            time.sleep(0.5)
+            update_progress(schedule_id, 3, "Uploading to WP Engine server...")
+            
+            # Upload to FTP/SFTP if enabled
+            upload_success = True  # Default to success if not configured
+            if schedule.auto_upload_ftp and schedule.ftp_hostname and schedule.ftp_username and schedule.ftp_password:
+                ftp_service = FTPService(
+                    hostname=schedule.ftp_hostname,
+                    username=schedule.ftp_username,
+                    password=schedule.ftp_password,
+                    target_directory=schedule.ftp_directory or "/",
+                    port=schedule.ftp_port,
+                    use_sftp=schedule.use_sftp or False
+                )
+                
+                upload_success = ftp_service.upload_file(
+                    local_file_path=schedule.file_path,
+                    remote_filename=original_filename
+                )
+                
+                if upload_success:
+                    update_progress(schedule_id, 3, f"File uploaded successfully to {schedule.ftp_hostname}")
+                else:
+                    update_progress(schedule_id, 3, "File upload failed", error="Failed to upload to FTP/SFTP server")
+            
+            # Log the processing
+            log_entry = ProcessingLog(
+                schedule_config_id=schedule.id,
+                file_path=schedule.file_path,
+                processing_type='manual',
+                jobs_processed=jobs_processed,
+                success=True,
+                error_message=None
+            )
+            db.session.add(log_entry)
+            
+            # Update schedule last run time
+            schedule.last_run = datetime.utcnow()
+            db.session.commit()
+            
+            time.sleep(0.5)
+            # Mark as completed
+            update_progress(schedule_id, 4, f"Processing complete! {jobs_processed} jobs processed successfully.", completed=True)
+            
+    except Exception as e:
+        app.logger.error(f"Error in manual processing: {str(e)}")
+        update_progress(schedule_id, 0, f"Error: {str(e)}", completed=True, error=str(e))
+
 @app.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
 def run_schedule_now(schedule_id):
     """Manually trigger a schedule to run now"""
     try:
         schedule = ScheduleConfig.query.get_or_404(schedule_id)
         
-        # Check if file exists
-        if not os.path.exists(schedule.file_path):
-            return jsonify({'success': False, 'error': 'File not found'}), 404
+        # Clear any existing progress
+        if f"schedule_{schedule_id}" in progress_tracker:
+            del progress_tracker[f"schedule_{schedule_id}"]
         
-        # Process the file
-        processor = XMLProcessor()
+        # Start processing in a separate thread
+        thread = threading.Thread(target=process_schedule_with_progress, args=(schedule_id,))
+        thread.daemon = True
+        thread.start()
         
-        # Create backup
-        backup_path = f"{schedule.file_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        shutil.copy2(schedule.file_path, backup_path)
+        return jsonify({
+            'success': True,
+            'message': 'Processing started',
+            'schedule_id': schedule_id
+        })
         
-        # Generate temporary output
-        temp_output = f"{schedule.file_path}.temp"
-        
-        # Process the XML
-        result = processor.process_xml(schedule.file_path, temp_output)
-        
-        # Log the processing result
-        log_entry = ProcessingLog(
-            schedule_config_id=schedule.id,
-            file_path=schedule.file_path,
-            processing_type='manual',
-            jobs_processed=result.get('jobs_processed', 0),
-            success=result.get('success', False),
-            error_message=result.get('error') if not result.get('success') else None
-        )
-        db.session.add(log_entry)
-        
-        if result.get('success'):
-            # Replace original file with updated version
-            os.replace(temp_output, schedule.file_path)
-            
-            # Get original filename for email/FTP (use stored original filename if available)
-            original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
-            
-            # Send email notification if configured
-            if schedule.send_email_notifications and schedule.notification_email:
-                try:
-                    email_service = EmailService()
-                    email_sent = email_service.send_processing_notification(
-                        to_email=schedule.notification_email,
-                        schedule_name=schedule.name,
-                        jobs_processed=result.get('jobs_processed', 0),
-                        xml_file_path=schedule.file_path,
-                        original_filename=original_filename
-                    )
-                    if email_sent:
-                        app.logger.info(f"Email notification sent to {schedule.notification_email}")
-                    else:
-                        app.logger.warning(f"Failed to send email notification to {schedule.notification_email}")
-                except Exception as e:
-                    app.logger.error(f"Error sending email notification: {str(e)}")
-            
-            # Upload to FTP/SFTP if configured
-            if schedule.auto_upload_ftp and schedule.ftp_hostname and schedule.ftp_username and schedule.ftp_password:
-                try:
-                    ftp_service = FTPService(
-                        hostname=schedule.ftp_hostname,
-                        username=schedule.ftp_username,
-                        password=schedule.ftp_password,
-                        target_directory=schedule.ftp_directory or "/",
-                        port=schedule.ftp_port,
-                        use_sftp=schedule.use_sftp or False
-                    )
-                    ftp_uploaded = ftp_service.upload_file(
-                        local_file_path=schedule.file_path,
-                        remote_filename=original_filename
-                    )
-                    if ftp_uploaded:
-                        app.logger.info(f"File uploaded to FTP server: {original_filename}")
-                    else:
-                        app.logger.warning(f"Failed to upload file to FTP server")
-                except Exception as e:
-                    app.logger.error(f"Error uploading to FTP: {str(e)}")
-            
-            # Update last run time but don't change next scheduled run
-            schedule.last_run = datetime.utcnow()
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'message': f'Successfully processed {result.get("jobs_processed", 0)} jobs',
-                'jobs_processed': result.get('jobs_processed', 0)
-            })
-        else:
-            # Clean up temp file on failure
-            if os.path.exists(temp_output):
-                os.remove(temp_output)
-                
-            # Send error notification email if configured
-            if schedule.send_email_notifications and schedule.notification_email:
-                try:
-                    email_service = EmailService()
-                    email_service.send_processing_error_notification(
-                        to_email=schedule.notification_email,
-                        schedule_name=schedule.name,
-                        error_message=result.get('error', 'Unknown error')
-                    )
-                except Exception as e:
-                    app.logger.error(f"Error sending error notification email: {str(e)}")
-            
-            db.session.commit()
-            return jsonify({'success': False, 'error': result.get('error')}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
         
     except Exception as e:
         db.session.rollback()

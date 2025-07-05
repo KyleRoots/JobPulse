@@ -100,6 +100,7 @@ Changelog:
 - July 04, 2025. Added progress indicator modal for manual processing operations
 - July 04, 2025. Implemented automated workflow integration for both manual and scheduled processing
 - July 05, 2025. Added file replacement functionality - users can now update XML files without affecting schedule settings
+- July 05, 2025. Implemented real-time progress tracking for manual operations with live status updates
 ```
 
 ## User Preferences

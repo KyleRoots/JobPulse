@@ -640,19 +640,24 @@
                     const scheduleId = e.target.closest('.run-now-btn').dataset.scheduleId;
                     
                     if (confirm('Are you sure you want to run this schedule now?')) {
+                        // Show progress modal and start real-time tracking
+                        showProgressModal(scheduleId);
+                        
                         fetch(`/api/schedules/${scheduleId}/run`, {
                             method: 'POST'
                         })
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                alert(`Success! Processed ${data.jobs_processed} jobs.`);
-                                location.reload();
+                                // Start polling for progress
+                                startProgressPolling(scheduleId);
                             } else {
-                                alert('Error running schedule: ' + data.error);
+                                hideProgressModal();
+                                alert('Error starting processing: ' + data.error);
                             }
                         })
                         .catch(error => {
+                            hideProgressModal();
                             console.error('Error:', error);
                             alert('Error running schedule: ' + error.message);
                         });
@@ -761,15 +766,72 @@
             });
         });
 
+        // Progress tracking variables
+        let progressInterval = null;
+        let currentScheduleId = null;
+
         // Progress Modal Functions
-        function showProgressModal() {
+        function showProgressModal(scheduleId) {
+            currentScheduleId = scheduleId;
             const modal = new bootstrap.Modal(document.getElementById('progressModal'));
             modal.show();
             
-            // Simulate progress updates
-            setTimeout(() => updateProgress(66, 'Sending email notification...', 2), 3000);
-            setTimeout(() => updateProgress(100, 'Uploading to server...', 3), 6000);
-            setTimeout(() => hideProgressModal(), 10000);
+            // Reset progress to starting state
+            updateProgress(10, 'Starting processing...', 1);
+        }
+
+        function startProgressPolling(scheduleId) {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+            
+            progressInterval = setInterval(() => {
+                fetch(`/api/schedules/${scheduleId}/progress`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const step = data.step || 1;
+                            const message = data.message || 'Processing...';
+                            
+                            // Calculate progress percentage based on step
+                            let percent = 10;
+                            if (step === 1) percent = 33;
+                            else if (step === 2) percent = 66;
+                            else if (step === 3) percent = 90;
+                            else if (step === 4) percent = 100;
+                            
+                            updateProgress(percent, message, step);
+                            
+                            // Check if completed
+                            if (data.completed) {
+                                clearInterval(progressInterval);
+                                progressInterval = null;
+                                
+                                setTimeout(() => {
+                                    hideProgressModal();
+                                    if (data.error) {
+                                        alert('Processing failed: ' + data.error);
+                                    } else {
+                                        alert('Processing completed successfully!\n\nYou should receive an email notification and the file has been uploaded to your WP Engine server.');
+                                    }
+                                    location.reload();
+                                }, 2000);
+                            }
+                        } else {
+                            clearInterval(progressInterval);
+                            progressInterval = null;
+                            hideProgressModal();
+                            alert('Error checking progress: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Progress polling error:', error);
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        hideProgressModal();
+                        alert('Error monitoring progress: ' + error.message);
+                    });
+            }, 1000); // Poll every second
         }
 
         function updateProgress(percent, text, step) {
@@ -798,6 +860,11 @@
         }
 
         function hideProgressModal() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            
             const modal = bootstrap.Modal.getInstance(document.getElementById('progressModal'));
             if (modal) {
                 modal.hide();
