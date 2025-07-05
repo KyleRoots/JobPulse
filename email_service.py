@@ -22,7 +22,8 @@ class EmailService:
                                    schedule_name: str,
                                    jobs_processed: int,
                                    xml_file_path: str,
-                                   original_filename: str) -> bool:
+                                   original_filename: str,
+                                   sftp_upload_success: bool = True) -> bool:
         """
         Send email notification with processed XML file attachment
         
@@ -48,40 +49,41 @@ class EmailService:
                 xml_content = f.read()
             
             # Create email
-            subject = f"XML Processing Complete: {schedule_name}"
+            status_icon = "✅" if sftp_upload_success else "❌"
+            status_text = "Completed" if sftp_upload_success else "Not Complete"
+            subject = f"XML Processing {status_text}: {schedule_name}"
             
             html_content = f"""
             <html>
             <body>
-                <h2>XML Processing Complete</h2>
-                <p>Your scheduled XML processing has been completed successfully.</p>
+                <h2>XML Processing {status_text}</h2>
+                <p>Your scheduled XML processing has been completed{' successfully' if sftp_upload_success else ' with issues'}.</p>
                 
                 <h3>Processing Details:</h3>
                 <ul>
                     <li><strong>Schedule:</strong> {schedule_name}</li>
                     <li><strong>Jobs Processed:</strong> {jobs_processed}</li>
                     <li><strong>File:</strong> {original_filename}</li>
-                    <li><strong>Status:</strong> ✅ Completed</li>
+                    <li><strong>Status:</strong> {status_icon} {status_text}</li>
+                    <li><strong>SFTP Upload:</strong> {'✅ Successful' if sftp_upload_success else '❌ Failed'}</li>
                 </ul>
                 
                 <p>The updated XML file with new reference numbers is attached to this email.</p>
-                
-                <p>Best regards,<br>
-                XML Processing System</p>
             </body>
             </html>
             """
             
             text_content = f"""
-            XML Processing Complete
+            XML Processing {status_text}
             
-            Your scheduled XML processing has been completed successfully.
+            Your scheduled XML processing has been completed{' successfully' if sftp_upload_success else ' with issues'}.
             
             Processing Details:
             - Schedule: {schedule_name}
             - Jobs Processed: {jobs_processed}
             - File: {original_filename}
-            - Status: Completed
+            - Status: {status_text}
+            - SFTP Upload: {'Successful' if sftp_upload_success else 'Failed'}
             
             The updated XML file with new reference numbers is attached to this email.
             

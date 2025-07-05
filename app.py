@@ -130,45 +130,8 @@ def process_scheduled_files():
                         # Get original filename for email/FTP (use stored original filename if available)
                         original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
                         
-                        # Send email notification if configured (using Global Settings)
-                        app.logger.info(f"Checking email notifications for schedule: {schedule.name}")
-                        app.logger.info(f"schedule.send_email_notifications = {schedule.send_email_notifications}")
-                        
-                        if schedule.send_email_notifications:
-                            try:
-                                # Get email settings from Global Settings
-                                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                                
-                                app.logger.info(f"Email enabled setting: {email_enabled.setting_value if email_enabled else 'Not found'}")
-                                app.logger.info(f"Email address setting: {email_address.setting_value if email_address else 'Not found'}")
-                                
-                                if (email_enabled and email_enabled.setting_value == 'true' and 
-                                    email_address and email_address.setting_value):
-                                    
-                                    app.logger.info(f"Attempting to send email notification to {email_address.setting_value}")
-                                    email_service = EmailService()
-                                    email_sent = email_service.send_processing_notification(
-                                        to_email=email_address.setting_value,
-                                        schedule_name=schedule.name,
-                                        jobs_processed=result.get('jobs_processed', 0),
-                                        xml_file_path=schedule.file_path,
-                                        original_filename=original_filename
-                                    )
-                                    if email_sent:
-                                        app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
-                                    else:
-                                        app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
-                                else:
-                                    app.logger.warning(f"Email notification requested but credentials not configured in Global Settings")
-                                    app.logger.warning(f"Email enabled: {email_enabled.setting_value if email_enabled else 'Not found'}")
-                                    app.logger.warning(f"Email address: {email_address.setting_value if email_address else 'Not found'}")
-                            except Exception as e:
-                                app.logger.error(f"Error sending email notification: {str(e)}")
-                        else:
-                            app.logger.info(f"Email notifications disabled for schedule: {schedule.name}")
-                        
                         # Upload to SFTP if configured (using Global Settings)
+                        sftp_upload_success = True  # Default to success if not configured
                         if schedule.auto_upload_ftp:
                             try:
                                 # Get SFTP settings from Global Settings
@@ -192,18 +155,59 @@ def process_scheduled_files():
                                         port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
                                         use_sftp=True
                                     )
-                                    ftp_uploaded = ftp_service.upload_file(
+                                    sftp_upload_success = ftp_service.upload_file(
                                         local_file_path=schedule.file_path,
                                         remote_filename=original_filename
                                     )
-                                    if ftp_uploaded:
+                                    if sftp_upload_success:
                                         app.logger.info(f"File uploaded to SFTP server: {original_filename}")
                                     else:
                                         app.logger.warning(f"Failed to upload file to SFTP server")
                                 else:
+                                    sftp_upload_success = False
                                     app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
                             except Exception as e:
+                                sftp_upload_success = False
                                 app.logger.error(f"Error uploading to SFTP: {str(e)}")
+                        
+                        # Send email notification if configured (using Global Settings)
+                        app.logger.info(f"Checking email notifications for schedule: {schedule.name}")
+                        app.logger.info(f"schedule.send_email_notifications = {schedule.send_email_notifications}")
+                        
+                        if schedule.send_email_notifications:
+                            try:
+                                # Get email settings from Global Settings
+                                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
+                                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                                
+                                app.logger.info(f"Email enabled setting: {email_enabled.setting_value if email_enabled else 'Not found'}")
+                                app.logger.info(f"Email address setting: {email_address.setting_value if email_address else 'Not found'}")
+                                
+                                if (email_enabled and email_enabled.setting_value == 'true' and 
+                                    email_address and email_address.setting_value):
+                                    
+                                    app.logger.info(f"Attempting to send email notification to {email_address.setting_value}")
+                                    email_service = EmailService()
+                                    email_sent = email_service.send_processing_notification(
+                                        to_email=email_address.setting_value,
+                                        schedule_name=schedule.name,
+                                        jobs_processed=result.get('jobs_processed', 0),
+                                        xml_file_path=schedule.file_path,
+                                        original_filename=original_filename,
+                                        sftp_upload_success=sftp_upload_success
+                                    )
+                                    if email_sent:
+                                        app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
+                                    else:
+                                        app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
+                                else:
+                                    app.logger.warning(f"Email notification requested but credentials not configured in Global Settings")
+                                    app.logger.warning(f"Email enabled: {email_enabled.setting_value if email_enabled else 'Not found'}")
+                                    app.logger.warning(f"Email address: {email_address.setting_value if email_address else 'Not found'}")
+                            except Exception as e:
+                                app.logger.error(f"Error sending email notification: {str(e)}")
+                        else:
+                            app.logger.info(f"Email notifications disabled for schedule: {schedule.name}")
                         
                     else:
                         # Clean up temp file on failure
@@ -527,37 +531,11 @@ def process_schedule_with_progress(schedule_id):
             # Get original filename for email/FTP
             original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
             
-            # Send email notification if enabled (using Global Settings)
-            email_sent = True  # Default to success if not configured
-            if schedule.send_email_notifications:
-                # Get email settings from Global Settings
-                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                
-                if (email_enabled and email_enabled.setting_value == 'true' and 
-                    email_address and email_address.setting_value):
-                    
-                    email_service = EmailService()
-                    email_sent = email_service.send_processing_notification(
-                        to_email=email_address.setting_value,
-                        schedule_name=schedule.name,
-                        jobs_processed=jobs_processed,
-                        xml_file_path=schedule.file_path,
-                        original_filename=original_filename
-                    )
-                    
-                    if email_sent:
-                        update_progress(schedule_id, 2, f"Email sent successfully to {email_address.setting_value}")
-                    else:
-                        update_progress(schedule_id, 2, "Email sending failed", error="Failed to send email notification")
-                else:
-                    update_progress(schedule_id, 2, "Email notification requested but not configured in Global Settings", error="Email credentials not set")
-            
             time.sleep(0.5)
-            update_progress(schedule_id, 3, "Uploading to WP Engine server...")
+            update_progress(schedule_id, 2, "Uploading to WP Engine server...")
             
             # Upload to SFTP if enabled (using Global Settings)
-            upload_success = True  # Default to success if not configured
+            sftp_upload_success = True  # Default to success if not configured
             if schedule.auto_upload_ftp:
                 # Get SFTP settings from Global Settings
                 sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
@@ -581,17 +559,50 @@ def process_schedule_with_progress(schedule_id):
                         use_sftp=True
                     )
                     
-                    upload_success = ftp_service.upload_file(
+                    sftp_upload_success = ftp_service.upload_file(
                         local_file_path=schedule.file_path,
                         remote_filename=original_filename
                     )
                     
-                    if upload_success:
+                    if sftp_upload_success:
                         update_progress(schedule_id, 3, f"File uploaded successfully to {sftp_hostname.setting_value}")
                     else:
                         update_progress(schedule_id, 3, "File upload failed", error="Failed to upload to SFTP server")
                 else:
+                    sftp_upload_success = False
                     update_progress(schedule_id, 3, "SFTP upload requested but not configured", error="SFTP credentials not set in Global Settings")
+            
+            time.sleep(0.5)
+            update_progress(schedule_id, 4, "Sending email notification...")
+            
+            # Send email notification if enabled (using Global Settings)
+            if schedule.send_email_notifications:
+                # Get email settings from Global Settings
+                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
+                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                
+                if (email_enabled and email_enabled.setting_value == 'true' and 
+                    email_address and email_address.setting_value):
+                    
+                    email_service = EmailService()
+                    email_sent = email_service.send_processing_notification(
+                        to_email=email_address.setting_value,
+                        schedule_name=schedule.name,
+                        jobs_processed=jobs_processed,
+                        xml_file_path=schedule.file_path,
+                        original_filename=original_filename,
+                        sftp_upload_success=sftp_upload_success
+                    )
+                    
+                    if email_sent:
+                        update_progress(schedule_id, 4, f"Email sent successfully to {email_address.setting_value}")
+                    else:
+                        update_progress(schedule_id, 4, "Email sending failed", error="Failed to send email notification")
+                else:
+                    update_progress(schedule_id, 4, "Email notification requested but not configured in Global Settings", error="Email credentials not set")
+            
+            time.sleep(0.5)
+            update_progress(schedule_id, 5, "Processing completed successfully!", completed=True)
             
             # Log the processing
             log_entry = ProcessingLog(
