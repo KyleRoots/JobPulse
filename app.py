@@ -1249,44 +1249,64 @@ def create_bullhorn_monitor():
     if request.method == 'POST':
         try:
             name = request.form.get('name')
-            tearsheet_name = request.form.get('tearsheet_name')
+            tearsheet_names = request.form.getlist('tearsheet_name')  # Get multiple selections
             check_interval = int(request.form.get('check_interval_minutes', 60))
             notification_email = request.form.get('notification_email', '').strip()
             send_notifications = 'send_notifications' in request.form
             
             # Validate inputs
-            if not name or not tearsheet_name:
+            if not name or not tearsheet_names:
                 flash('Name and Tearsheet selection are required', 'error')
                 return redirect(url_for('create_bullhorn_monitor'))
             
-            # Get tearsheet ID from name using Bullhorn API
+            # Initialize Bullhorn service
             bullhorn_service = BullhornService()
-            tearsheet = bullhorn_service.get_tearsheet_by_name(tearsheet_name)
+            monitors_created = []
             
-            if not tearsheet:
-                flash(f'Tearsheet "{tearsheet_name}" not found in Bullhorn', 'error')
-                return redirect(url_for('create_bullhorn_monitor'))
+            # Create a monitor for each selected tearsheet
+            for tearsheet_name in tearsheet_names:
+                # Get tearsheet ID from name using Bullhorn API
+                tearsheet = bullhorn_service.get_tearsheet_by_name(tearsheet_name)
+                
+                if not tearsheet:
+                    flash(f'Tearsheet "{tearsheet_name}" not found in Bullhorn', 'error')
+                    continue
+                
+                tearsheet_id = tearsheet.get('id')
+                if not tearsheet_id:
+                    flash(f'Could not retrieve ID for tearsheet "{tearsheet_name}"', 'error')
+                    continue
+                
+                # Create monitor name based on whether single or multiple tearsheets
+                if len(tearsheet_names) == 1:
+                    monitor_name = name
+                else:
+                    monitor_name = f"{name} - {tearsheet_name}"
+                
+                # Create new monitor
+                monitor = BullhornMonitor(
+                    name=monitor_name,
+                    tearsheet_id=tearsheet_id,
+                    tearsheet_name=tearsheet_name,
+                    check_interval_minutes=check_interval,
+                    notification_email=notification_email if notification_email else None,
+                    send_notifications=send_notifications,
+                    next_check=datetime.utcnow()
+                )
+                
+                db.session.add(monitor)
+                monitors_created.append(tearsheet_name)
             
-            tearsheet_id = tearsheet.get('id')
-            if not tearsheet_id:
-                flash('Could not retrieve tearsheet ID', 'error')
-                return redirect(url_for('create_bullhorn_monitor'))
-            
-            # Create new monitor
-            monitor = BullhornMonitor(
-                name=name,
-                tearsheet_id=tearsheet_id,
-                tearsheet_name=tearsheet_name,
-                check_interval_minutes=check_interval,
-                notification_email=notification_email if notification_email else None,
-                send_notifications=send_notifications,
-                next_check=datetime.utcnow()
-            )
-            
-            db.session.add(monitor)
             db.session.commit()
             
-            flash(f'Bullhorn monitor "{name}" created successfully for tearsheet "{tearsheet_name}"', 'success')
+            if monitors_created:
+                if len(monitors_created) == 1:
+                    flash(f'Monitor "{name}" created successfully for tearsheet "{monitors_created[0]}"', 'success')
+                else:
+                    flash(f'Created {len(monitors_created)} monitors for tearsheets: {", ".join(monitors_created)}', 'success')
+            else:
+                flash('No monitors could be created. Please check your tearsheet selections.', 'error')
+            
             return redirect(url_for('bullhorn_dashboard'))
             
         except Exception as e:

@@ -117,6 +117,7 @@ Changelog:
 - July 05, 2025. Improved home page layout by moving Global Settings button next to Schedule Automation button for cleaner navigation
 - July 07, 2025. Added comprehensive Bullhorn ATS/CRM integration for monitoring tearsheet job changes with automated email notifications
 - July 07, 2025. Enhanced Bullhorn integration to use tearsheet names instead of requiring manual ID entry - system now automatically loads and displays all available tearsheets
+- July 07, 2025. Added multiple tearsheet selection capability - users can now select multiple tearsheets and the system creates separate monitors for each one automatically
 ```
 
 ## User Preferences
