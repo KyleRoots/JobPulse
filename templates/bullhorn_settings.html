@@ -143,24 +143,40 @@
                             <li><strong>API Access</strong> - Permission to use REST API endpoints</li>
                         </ul>
 
-                        <h6 class="mt-4">2. Required Redirect URI</h6>
+                        <h6 class="mt-4">2. Required Redirect URIs</h6>
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Important:</strong> You must provide this exact redirect URI to Bullhorn Support:
-                            <br><code id="redirectUri">{{ request.url_root }}bullhorn/oauth/callback</code>
-                            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyRedirectUri()">
-                                <i class="fas fa-copy"></i> Copy
-                            </button>
+                            <strong>Important:</strong> Provide both URLs below to Bullhorn Support so you won't need to update them later:
                         </div>
                         
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>Production Note:</strong> The URL shown above is your current environment URL. 
-                            If you plan to deploy this application to production (using a custom domain or Replit's deployment), 
-                            you'll need to update the redirect URI with Bullhorn Support to match your production URL.
-                            <br><br>
-                            For Replit deployments, the production URL typically follows the format:
-                            <br><code>https://your-app-name.your-username.replit.app/bullhorn/oauth/callback</code>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">Current Development URL</h6>
+                                <p class="card-text text-muted">For immediate testing and development</p>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="devRedirectUri" value="{{ request.url_root }}bullhorn/oauth/callback" readonly>
+                                    <button class="btn btn-outline-secondary" onclick="copyToClipboard('devRedirectUri', this)">
+                                        <i class="fas fa-copy"></i> Copy
+                                    </button>
+                                </div>
+                                
+                                <h6 class="card-title mt-4">Production URL</h6>
+                                <p class="card-text text-muted">Configure your planned production domain</p>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="prodRedirectUri" 
+                                           placeholder="https://your-domain.com/bullhorn/oauth/callback"
+                                           value="https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback">
+                                    <button class="btn btn-outline-secondary" onclick="copyToClipboard('prodRedirectUri', this)">
+                                        <i class="fas fa-copy"></i> Copy
+                                    </button>
+                                </div>
+                                
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-lightbulb me-2"></i>
+                                    <strong>Pro Tip:</strong> Copy both URLs and include them in your Bullhorn Support request. 
+                                    This way, you can test immediately with the development URL and switch to production later without needing another support ticket.
+                                </div>
+                            </div>
                         </div>
 
                         <h6 class="mt-4">3. Required Information</h6>
@@ -168,8 +184,9 @@
                         <ul>
                             <li>Your company name and Bullhorn account details</li>
                             <li>Intended use case (monitoring tearsheet job changes)</li>
-                            <li>The redirect URI shown above</li>
+                            <li><strong>Both redirect URIs shown above</strong> (development and production)</li>
                             <li>Technical contact information</li>
+                            <li>Request OAuth API access with tearsheet monitoring permissions</li>
                         </ul>
 
                         <h6 class="mt-4">4. Security Notes</h6>
@@ -248,11 +265,12 @@
             });
         }
         
-        function copyRedirectUri() {
-            const redirectUri = document.getElementById('redirectUri').textContent;
-            navigator.clipboard.writeText(redirectUri).then(function() {
+        function copyToClipboard(inputId, button) {
+            const input = document.getElementById(inputId);
+            const value = input.value;
+            
+            navigator.clipboard.writeText(value).then(function() {
                 // Show success feedback
-                const button = event.target.closest('button');
                 const originalHtml = button.innerHTML;
                 button.innerHTML = '<i class="fas fa-check"></i> Copied!';
                 button.classList.remove('btn-outline-secondary');
