@@ -89,7 +89,17 @@ class BullhornService:
             
             # Step 2: Get authorization code
             auth_endpoint = f"{oauth_url}/oauth/authorize"
-            redirect_uri = f"{os.environ.get('REPLIT_URL', 'http://localhost:5000')}/bullhorn/oauth/callback"
+            
+            # Determine the correct redirect URI based on environment
+            if 'REPLIT_URL' in os.environ:
+                # Use REPLIT_URL if available (production deployments)
+                redirect_uri = f"{os.environ['REPLIT_URL']}/bullhorn/oauth/callback"
+            elif hasattr(request, 'url_root'):
+                # Use current request URL root if available
+                redirect_uri = f"{request.url_root}bullhorn/oauth/callback"
+            else:
+                # Fallback for development
+                redirect_uri = "http://localhost:5000/bullhorn/oauth/callback"
             
             auth_params = {
                 'client_id': self.client_id,
