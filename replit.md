@@ -16,10 +16,11 @@ This is a Flask-based web application designed to process XML job feed files and
 ### Backend Architecture
 - **Web Framework**: Flask (Python)
 - **Database**: PostgreSQL with SQLAlchemy ORM for schedule and log management
-- **Background Processing**: APScheduler for automated XML processing
+- **Background Processing**: APScheduler for automated XML processing and Bullhorn monitoring
 - **File Processing**: Custom XML processor using lxml library
-- **Email Service**: SendGrid integration for processing notifications
+- **Email Service**: SendGrid integration for processing notifications and Bullhorn alerts
 - **FTP Service**: Built-in FTP client for automatic file uploads to hosting providers
+- **Bullhorn Integration**: Real-time ATS/CRM tearsheet monitoring with job change detection
 - **Session Management**: Flask sessions with configurable secret key
 - **File Handling**: Temporary file storage with secure filename handling
 - **Proxy Support**: ProxyFix middleware for deployment behind reverse proxies
@@ -114,6 +115,7 @@ Changelog:
 - July 05, 2025. Fixed manual processing email workflow to properly use Global Settings and include SFTP upload status
 - July 05, 2025. Completed full automation testing - all three features (XML processing, SFTP upload, email notifications) working perfectly
 - July 05, 2025. Improved home page layout by moving Global Settings button next to Schedule Automation button for cleaner navigation
+- July 07, 2025. Added comprehensive Bullhorn ATS/CRM integration for monitoring tearsheet job changes with automated email notifications
 ```
 
 ## User Preferences

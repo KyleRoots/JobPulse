@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bullhorn Monitoring - XML Processor</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row">
+            <div class="col-12">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h1 class="display-4 mb-0">
+                            <i class="fas fa-eye me-3"></i>
+                            Bullhorn Monitoring
+                        </h1>
+                        <p class="lead text-muted">Monitor Bullhorn tearsheets for job changes</p>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Home
+                        </a>
+                        <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Create Monitor
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Quick Settings Access -->
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Setup Required:</strong> Configure your Bullhorn API credentials in 
+                    <a href="{{ url_for('bullhorn_settings') }}" class="alert-link">Bullhorn Settings</a> 
+                    before creating monitors.
+                </div>
+
+                <!-- Active Monitors -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-desktop me-2"></i>
+                            Active Monitors ({{ monitors|length }})
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if monitors %}
+                            <div class="row">
+                                {% for monitor in monitors %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">{{ monitor.name }}</h6>
+                                            <p class="card-text text-muted">
+                                                <small>
+                                                    <i class="fas fa-list me-1"></i>Tearsheet ID: {{ monitor.tearsheet_id }}<br>
+                                                    <i class="fas fa-clock me-1"></i>Check every {{ monitor.check_interval_minutes }} minutes<br>
+                                                    <i class="fas fa-calendar me-1"></i>Last check: 
+                                                    {% if monitor.last_check %}
+                                                        {{ monitor.last_check.strftime('%Y-%m-%d %H:%M') }}
+                                                    {% else %}
+                                                        Never
+                                                    {% endif %}
+                                                </small>
+                                            </p>
+                                            <div class="d-flex gap-1">
+                                                <a href="{{ url_for('bullhorn_monitor_details', monitor_id=monitor.id) }}" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye me-1"></i>View
+                                                </a>
+                                                <button onclick="testMonitor({{ monitor.id }})" 
+                                                        class="btn btn-sm btn-outline-info">
+                                                    <i class="fas fa-vial me-1"></i>Test
+                                                </button>
+                                                <form method="POST" action="{{ url_for('delete_bullhorn_monitor', monitor_id=monitor.id) }}" 
+                                                      class="d-inline" onsubmit="return confirm('Are you sure you want to delete this monitor?')">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="fas fa-trash me-1"></i>Delete
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-desktop fa-3x text-muted mb-3"></i>
+                                <h5>No Active Monitors</h5>
+                                <p class="text-muted">Create your first Bullhorn monitor to start tracking tearsheet changes.</p>
+                                <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Create Your First Monitor
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-history me-2"></i>
+                            Recent Activity
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if recent_activities %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Monitor</th>
+                                            <th>Activity</th>
+                                            <th>Job</th>
+                                            <th>Time</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for activity in recent_activities %}
+                                        <tr>
+                                            <td>
+                                                <a href="{{ url_for('bullhorn_monitor_details', monitor_id=activity.monitor.id) }}">
+                                                    {{ activity.monitor.name }}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                {% if activity.activity_type == 'job_added' %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-plus me-1"></i>Job Added
+                                                    </span>
+                                                {% elif activity.activity_type == 'job_removed' %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-minus me-1"></i>Job Removed
+                                                    </span>
+                                                {% elif activity.activity_type == 'check_completed' %}
+                                                    <span class="badge bg-info">
+                                                        <i class="fas fa-check me-1"></i>Check Completed
+                                                    </span>
+                                                {% elif activity.activity_type == 'error' %}
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i>Error
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if activity.job_id %}
+                                                    <strong>ID {{ activity.job_id }}:</strong> {{ activity.job_title or 'No title' }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">
+                                                    {{ activity.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                {% if activity.notification_sent %}
+                                                    <i class="fas fa-envelope text-success" title="Email sent"></i>
+                                                {% else %}
+                                                    <i class="fas fa-envelope-open text-muted" title="No email"></i>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                                <h5>No Recent Activity</h5>
+                                <p class="text-muted">Activity will appear here once monitors start running.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Monitor Modal -->
+    <div class="modal fade" id="testModal" tabindex="-1" aria-labelledby="testModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="testModalLabel">
+                        <i class="fas fa-vial me-2"></i>Testing Monitor
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="testResult">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-3" role="status">
+                                <span class="visually-hidden">Testing...</span>
+                            </div>
+                            <div>Testing connection to Bullhorn API...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function testMonitor(monitorId) {
+            const modal = new bootstrap.Modal(document.getElementById('testModal'));
+            const resultDiv = document.getElementById('testResult');
+            
+            modal.show();
+            
+            fetch(`/bullhorn/monitor/${monitorId}/test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            ${data.message}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            ${data.message}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error testing monitor: ${error.message}
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>

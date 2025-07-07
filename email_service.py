@@ -198,3 +198,110 @@ class EmailService:
         except Exception as e:
             logging.error(f"Error sending error notification: {str(e)}")
             return False
+    
+    def send_bullhorn_notification(self, 
+                                 to_email: str, 
+                                 monitor_name: str,
+                                 added_jobs: list,
+                                 removed_jobs: list) -> bool:
+        """
+        Send email notification for Bullhorn tearsheet changes
+        
+        Args:
+            to_email: Recipient email address
+            monitor_name: Name of the monitor/tearsheet
+            added_jobs: List of jobs that were added
+            removed_jobs: List of jobs that were removed
+            
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        try:
+            if not self.api_key:
+                logging.error("EmailService: No SendGrid API key available")
+                return False
+            
+            # Prepare email content
+            subject = f"Bullhorn Tearsheet Update: {monitor_name}"
+            
+            # Build email body
+            html_content = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+                    <h2 style="color: #333; margin-top: 0;">
+                        🔄 Bullhorn Tearsheet Update
+                    </h2>
+                    <p><strong>Monitor:</strong> {monitor_name}</p>
+                    <p><strong>Checked at:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+                </div>
+            """
+            
+            if added_jobs:
+                html_content += f"""
+                <div style="margin: 20px 0;">
+                    <h3 style="color: #28a745; margin-bottom: 15px;">
+                        ✅ Jobs Added ({len(added_jobs)})
+                    </h3>
+                    <ul style="padding-left: 20px;">
+                """
+                for job in added_jobs:
+                    job_id = job.get('id', 'N/A')
+                    job_title = job.get('title', 'No title')
+                    html_content += f"<li><strong>ID {job_id}:</strong> {job_title}</li>"
+                
+                html_content += "</ul></div>"
+            
+            if removed_jobs:
+                html_content += f"""
+                <div style="margin: 20px 0;">
+                    <h3 style="color: #dc3545; margin-bottom: 15px;">
+                        ❌ Jobs Removed ({len(removed_jobs)})
+                    </h3>
+                    <ul style="padding-left: 20px;">
+                """
+                for job in removed_jobs:
+                    job_id = job.get('id', 'N/A')
+                    job_title = job.get('title', 'No title')
+                    html_content += f"<li><strong>ID {job_id}:</strong> {job_title}</li>"
+                
+                html_content += "</ul></div>"
+            
+            if not added_jobs and not removed_jobs:
+                html_content += """
+                <div style="margin: 20px 0;">
+                    <p style="color: #6c757d; font-style: italic;">No changes detected in this check.</p>
+                </div>
+                """
+            
+            html_content += """
+                <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-top: 20px;">
+                    <p style="margin: 0; font-size: 12px; color: #6c757d;">
+                        This is an automated notification from your XML Processing System's Bullhorn integration.
+                    </p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Create email message
+            message = Mail(
+                from_email=Email(self.from_email),
+                to_emails=To(to_email),
+                subject=subject,
+                html_content=Content("text/html", html_content)
+            )
+            
+            # Send email
+            response = self.sg.send(message)
+            
+            if response.status_code == 202:
+                logging.info(f"Bullhorn notification sent successfully to {to_email}")
+                return True
+            else:
+                logging.error(f"Failed to send Bullhorn notification: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            logging.error(f"Failed to send Bullhorn notification: {str(e)}")
+            return False

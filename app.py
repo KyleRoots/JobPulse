@@ -10,6 +10,7 @@ import uuid
 from xml_processor import XMLProcessor
 from email_service import EmailService
 from ftp_service import FTPService
+from bullhorn_service import BullhornService
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
@@ -56,7 +57,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 # Import and initialize models
 from models import create_models
-ScheduleConfig, ProcessingLog, GlobalSettings = create_models(db)
+ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity = create_models(db)
 
 # Initialize database tables
 with app.app_context():
@@ -251,6 +252,148 @@ scheduler.add_job(
     trigger=IntervalTrigger(minutes=5),
     id='process_scheduled_files',
     name='Process Scheduled XML Files',
+    replace_existing=True
+)
+
+def process_bullhorn_monitors():
+    """Process all active Bullhorn monitors for tearsheet changes"""
+    with app.app_context():
+        try:
+            current_time = datetime.utcnow()
+            
+            # Get all active monitors that are due for checking
+            due_monitors = BullhornMonitor.query.filter(
+                BullhornMonitor.is_active == True,
+                BullhornMonitor.next_check <= current_time
+            ).all()
+            
+            app.logger.info(f"Checking Bullhorn monitors. Found {len(due_monitors)} due monitors")
+            
+            for monitor in due_monitors:
+                app.logger.info(f"Processing Bullhorn monitor: {monitor.name} (ID: {monitor.id})")
+                try:
+                    # Initialize Bullhorn service
+                    bullhorn_service = BullhornService()
+                    
+                    if not bullhorn_service.test_connection():
+                        app.logger.warning(f"Bullhorn connection failed for monitor: {monitor.name}")
+                        # Log the error
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='error',
+                            details='Failed to connect to Bullhorn API'
+                        )
+                        db.session.add(activity)
+                        continue
+                    
+                    # Get current jobs in the tearsheet
+                    current_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+                    
+                    # Compare with previous snapshot if it exists
+                    previous_jobs = []
+                    if monitor.last_job_snapshot:
+                        try:
+                            import json
+                            previous_jobs = json.loads(monitor.last_job_snapshot)
+                        except json.JSONDecodeError:
+                            app.logger.warning(f"Failed to parse job snapshot for monitor: {monitor.name}")
+                    
+                    # Find changes
+                    changes = bullhorn_service.compare_job_lists(previous_jobs, current_jobs)
+                    added_jobs = changes.get('added', [])
+                    removed_jobs = changes.get('removed', [])
+                    
+                    # Log activities
+                    for job in added_jobs:
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='job_added',
+                            job_id=job.get('id'),
+                            job_title=job.get('title'),
+                            details=json.dumps(job)
+                        )
+                        db.session.add(activity)
+                    
+                    for job in removed_jobs:
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='job_removed',
+                            job_id=job.get('id'),
+                            job_title=job.get('title'),
+                            details=json.dumps(job)
+                        )
+                        db.session.add(activity)
+                    
+                    # Send email notification if there are changes and notifications are enabled
+                    if (added_jobs or removed_jobs) and monitor.send_notifications:
+                        # Get email address from Global Settings or monitor-specific setting
+                        email_address = monitor.notification_email
+                        if not email_address:
+                            # Fall back to global notification email
+                            global_email = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                            if global_email:
+                                email_address = global_email.setting_value
+                        
+                        if email_address:
+                            email_service = EmailService()
+                            email_sent = email_service.send_bullhorn_notification(
+                                to_email=email_address,
+                                monitor_name=monitor.name,
+                                added_jobs=added_jobs,
+                                removed_jobs=removed_jobs
+                            )
+                            
+                            if email_sent:
+                                app.logger.info(f"Bullhorn notification sent for monitor: {monitor.name}")
+                                # Mark activities as notified
+                                for activity in db.session.new:
+                                    if isinstance(activity, BullhornActivity) and activity.monitor_id == monitor.id:
+                                        activity.notification_sent = True
+                            else:
+                                app.logger.warning(f"Failed to send Bullhorn notification for monitor: {monitor.name}")
+                    
+                    # Update monitor with new snapshot and next check time
+                    monitor.last_job_snapshot = json.dumps(current_jobs)
+                    monitor.last_check = current_time
+                    monitor.calculate_next_check()
+                    
+                    # Log successful check
+                    activity = BullhornActivity(
+                        monitor_id=monitor.id,
+                        activity_type='check_completed',
+                        details=f"Checked tearsheet {monitor.tearsheet_id}. Found {len(current_jobs)} jobs. {len(added_jobs)} added, {len(removed_jobs)} removed."
+                    )
+                    db.session.add(activity)
+                    
+                    app.logger.info(f"Successfully processed Bullhorn monitor: {monitor.name}")
+                    
+                except Exception as e:
+                    app.logger.error(f"Error processing Bullhorn monitor {monitor.name}: {str(e)}")
+                    # Log the error
+                    activity = BullhornActivity(
+                        monitor_id=monitor.id,
+                        activity_type='error',
+                        details=f"Error: {str(e)}"
+                    )
+                    db.session.add(activity)
+                    
+                    # Still update the next check time to avoid repeated failures
+                    monitor.last_check = current_time
+                    monitor.calculate_next_check()
+            
+            # Commit all changes
+            db.session.commit()
+            
+        except Exception as e:
+            app.logger.error(f"Error in Bullhorn monitor processing: {str(e)}")
+            db.session.rollback()
+
+# Add Bullhorn monitoring to scheduler
+scheduler.add_job(
+    func=process_bullhorn_monitors,
+    trigger=IntervalTrigger(minutes=5),
+    id='process_bullhorn_monitors',
+    name='Process Bullhorn Monitors',
     replace_existing=True
 )
 
@@ -1089,6 +1232,183 @@ def validate_file():
     except Exception as e:
         app.logger.error(f"Error in validate_file: {str(e)}")
         return jsonify({'valid': False, 'error': str(e)})
+
+@app.route('/bullhorn')
+def bullhorn_dashboard():
+    """Bullhorn monitoring dashboard"""
+    monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+    recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(20).all()
+    
+    return render_template('bullhorn.html', 
+                         monitors=monitors, 
+                         recent_activities=recent_activities)
+
+@app.route('/bullhorn/create', methods=['GET', 'POST'])
+def create_bullhorn_monitor():
+    """Create a new Bullhorn monitor"""
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            tearsheet_id = request.form.get('tearsheet_id')
+            check_interval = int(request.form.get('check_interval_minutes', 60))
+            notification_email = request.form.get('notification_email', '').strip()
+            send_notifications = 'send_notifications' in request.form
+            
+            # Validate inputs
+            if not name or not tearsheet_id:
+                flash('Name and Tearsheet ID are required', 'error')
+                return redirect(url_for('create_bullhorn_monitor'))
+            
+            try:
+                tearsheet_id = int(tearsheet_id)
+            except ValueError:
+                flash('Tearsheet ID must be a number', 'error')
+                return redirect(url_for('create_bullhorn_monitor'))
+            
+            # Create new monitor
+            monitor = BullhornMonitor(
+                name=name,
+                tearsheet_id=tearsheet_id,
+                check_interval_minutes=check_interval,
+                notification_email=notification_email if notification_email else None,
+                send_notifications=send_notifications,
+                next_check=datetime.utcnow()
+            )
+            
+            db.session.add(monitor)
+            db.session.commit()
+            
+            flash(f'Bullhorn monitor "{name}" created successfully', 'success')
+            return redirect(url_for('bullhorn_dashboard'))
+            
+        except Exception as e:
+            app.logger.error(f"Error creating Bullhorn monitor: {str(e)}")
+            flash(f'Error creating monitor: {str(e)}', 'error')
+            return redirect(url_for('create_bullhorn_monitor'))
+    
+    return render_template('bullhorn_create.html')
+
+@app.route('/bullhorn/monitor/<int:monitor_id>')
+def bullhorn_monitor_details(monitor_id):
+    """View details of a specific Bullhorn monitor"""
+    monitor = BullhornMonitor.query.get_or_404(monitor_id)
+    activities = BullhornActivity.query.filter_by(monitor_id=monitor_id).order_by(BullhornActivity.created_at.desc()).limit(50).all()
+    
+    return render_template('bullhorn_details.html', 
+                         monitor=monitor, 
+                         activities=activities)
+
+@app.route('/bullhorn/monitor/<int:monitor_id>/delete', methods=['POST'])
+def delete_bullhorn_monitor(monitor_id):
+    """Delete a Bullhorn monitor"""
+    try:
+        monitor = BullhornMonitor.query.get_or_404(monitor_id)
+        monitor_name = monitor.name
+        
+        # Soft delete by setting inactive
+        monitor.is_active = False
+        db.session.commit()
+        
+        flash(f'Monitor "{monitor_name}" deleted successfully', 'success')
+        
+    except Exception as e:
+        app.logger.error(f"Error deleting Bullhorn monitor: {str(e)}")
+        flash(f'Error deleting monitor: {str(e)}', 'error')
+    
+    return redirect(url_for('bullhorn_dashboard'))
+
+@app.route('/bullhorn/monitor/<int:monitor_id>/test', methods=['POST'])
+def test_bullhorn_monitor(monitor_id):
+    """Test a Bullhorn monitor manually"""
+    try:
+        monitor = BullhornMonitor.query.get_or_404(monitor_id)
+        
+        # Initialize Bullhorn service
+        bullhorn_service = BullhornService()
+        
+        if not bullhorn_service.test_connection():
+            return jsonify({
+                'success': False,
+                'message': 'Failed to connect to Bullhorn API. Check your credentials in Global Settings.'
+            })
+        
+        # Get jobs from tearsheet
+        jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully connected to Bullhorn. Found {len(jobs)} jobs in tearsheet {monitor.tearsheet_id}.',
+            'job_count': len(jobs)
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error testing Bullhorn monitor: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        })
+
+@app.route('/bullhorn/settings', methods=['GET', 'POST'])
+def bullhorn_settings():
+    """Manage Bullhorn API credentials in Global Settings"""
+    if request.method == 'POST':
+        try:
+            # Update Bullhorn settings
+            settings_to_update = [
+                ('bullhorn_client_id', request.form.get('bullhorn_client_id', '')),
+                ('bullhorn_client_secret', request.form.get('bullhorn_client_secret', '')),
+                ('bullhorn_username', request.form.get('bullhorn_username', '')),
+                ('bullhorn_password', request.form.get('bullhorn_password', '')),
+            ]
+            
+            for key, value in settings_to_update:
+                setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                if setting:
+                    setting.setting_value = value
+                else:
+                    setting = GlobalSettings(setting_key=key, setting_value=value)
+                    db.session.add(setting)
+            
+            db.session.commit()
+            flash('Bullhorn settings updated successfully', 'success')
+            
+        except Exception as e:
+            app.logger.error(f"Error updating Bullhorn settings: {str(e)}")
+            flash(f'Error updating settings: {str(e)}', 'error')
+        
+        return redirect(url_for('bullhorn_settings'))
+    
+    # Get current settings
+    settings = {}
+    for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+        setting = GlobalSettings.query.filter_by(setting_key=key).first()
+        settings[key] = setting.setting_value if setting else ''
+    
+    return render_template('bullhorn_settings.html', settings=settings)
+
+@app.route('/api/bullhorn/test-connection', methods=['POST'])
+def test_bullhorn_connection():
+    """Test Bullhorn API connection"""
+    try:
+        bullhorn_service = BullhornService()
+        
+        if bullhorn_service.test_connection():
+            return jsonify({
+                'success': True,
+                'message': 'Successfully connected to Bullhorn API'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to connect to Bullhorn API. Please check your credentials.'
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Error testing Bullhorn connection: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Connection test failed: {str(e)}'
+        })
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

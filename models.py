@@ -70,5 +70,49 @@ def create_models(db):
         
         def __repr__(self):
             return f'<GlobalSettings {self.setting_key}: {self.setting_value}>'
+    
+    class BullhornMonitor(db.Model):
+        """Configuration for Bullhorn tearsheet monitoring"""
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(100), nullable=False)
+        tearsheet_id = db.Column(db.Integer, nullable=False)
+        is_active = db.Column(db.Boolean, default=True)
+        check_interval_minutes = db.Column(db.Integer, default=60)  # How often to check for changes
+        last_check = db.Column(db.DateTime, nullable=True)
+        next_check = db.Column(db.DateTime, nullable=False)
+        notification_email = db.Column(db.String(255), nullable=True)
+        send_notifications = db.Column(db.Boolean, default=True)
+        
+        # Store the last known job list as JSON
+        last_job_snapshot = db.Column(db.Text, nullable=True)
+        
+        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+        
+        def __repr__(self):
+            return f'<BullhornMonitor {self.name}>'
+        
+        def calculate_next_check(self):
+            """Calculate the next check time based on interval"""
+            if self.last_check:
+                self.next_check = self.last_check + timedelta(minutes=self.check_interval_minutes)
+            else:
+                self.next_check = datetime.utcnow() + timedelta(minutes=self.check_interval_minutes)
+    
+    class BullhornActivity(db.Model):
+        """Log of Bullhorn monitoring activities"""
+        id = db.Column(db.Integer, primary_key=True)
+        monitor_id = db.Column(db.Integer, db.ForeignKey('bullhorn_monitor.id'), nullable=False)
+        activity_type = db.Column(db.String(20), nullable=False)  # 'job_added', 'job_removed', 'check_completed', 'error'
+        job_id = db.Column(db.Integer, nullable=True)  # Bullhorn job ID if applicable
+        job_title = db.Column(db.String(255), nullable=True)
+        details = db.Column(db.Text, nullable=True)  # JSON or text details
+        notification_sent = db.Column(db.Boolean, default=False)
+        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        
+        monitor = db.relationship('BullhornMonitor', backref='activities')
+        
+        def __repr__(self):
+            return f'<BullhornActivity {self.activity_type} - {self.job_title}>'
 
-    return ScheduleConfig, ProcessingLog, GlobalSettings
+    return ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity

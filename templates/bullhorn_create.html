@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Bullhorn Monitor - XML Processor</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h1 class="display-5 mb-0">
+                            <i class="fas fa-plus me-3"></i>
+                            Create Bullhorn Monitor
+                        </h1>
+                        <p class="lead text-muted">Set up automated monitoring for a Bullhorn tearsheet</p>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Monitors
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Create Monitor Form -->
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-cog me-2"></i>
+                            Monitor Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="name" class="form-label">
+                                            <i class="fas fa-tag me-1"></i>Monitor Name
+                                        </label>
+                                        <input type="text" class="form-control" id="name" name="name" 
+                                               placeholder="e.g., Sales Team Tearsheet" required>
+                                        <div class="form-text">
+                                            Give this monitor a descriptive name for easy identification
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="tearsheet_id" class="form-label">
+                                            <i class="fas fa-list me-1"></i>Tearsheet ID
+                                        </label>
+                                        <input type="number" class="form-control" id="tearsheet_id" name="tearsheet_id" 
+                                               placeholder="e.g., 12345" required>
+                                        <div class="form-text">
+                                            The numeric ID of the Bullhorn tearsheet to monitor
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="check_interval_minutes" class="form-label">
+                                            <i class="fas fa-clock me-1"></i>Check Interval (minutes)
+                                        </label>
+                                        <select class="form-select" id="check_interval_minutes" name="check_interval_minutes">
+                                            <option value="15">Every 15 minutes</option>
+                                            <option value="30">Every 30 minutes</option>
+                                            <option value="60" selected>Every hour</option>
+                                            <option value="120">Every 2 hours</option>
+                                            <option value="240">Every 4 hours</option>
+                                            <option value="480">Every 8 hours</option>
+                                            <option value="1440">Daily</option>
+                                        </select>
+                                        <div class="form-text">
+                                            How often to check the tearsheet for changes
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="notification_email" class="form-label">
+                                            <i class="fas fa-envelope me-1"></i>Notification Email (Optional)
+                                        </label>
+                                        <input type="email" class="form-control" id="notification_email" name="notification_email" 
+                                               placeholder="notifications@company.com">
+                                        <div class="form-text">
+                                            Leave blank to use the global notification email from settings
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="send_notifications" 
+                                           name="send_notifications" checked>
+                                    <label class="form-check-label" for="send_notifications">
+                                        <i class="fas fa-bell me-1"></i>Send email notifications when jobs are added or removed
+                                    </label>
+                                    <div class="form-text">
+                                        When enabled, you'll receive emails whenever jobs are added to or removed from the tearsheet
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Info Box -->
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Before creating monitors:</strong> Make sure your Bullhorn API credentials are configured in 
+                                <a href="{{ url_for('bullhorn_settings') }}" class="alert-link">Bullhorn Settings</a>. 
+                                You'll need your Client ID, Client Secret, Username, and Password.
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Create Monitor
+                                </button>
+                                <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-2"></i>Cancel
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- How to Find Tearsheet ID -->
+                <div class="card shadow-sm mt-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-question-circle me-2"></i>
+                            How to Find Your Tearsheet ID
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <ol>
+                            <li>Log into your Bullhorn system</li>
+                            <li>Navigate to the tearsheet you want to monitor</li>
+                            <li>Look at the URL in your browser's address bar</li>
+                            <li>The tearsheet ID is the number after "TearsheetID=" or similar parameter</li>
+                        </ol>
+                        <p class="mb-0 text-muted">
+                            <strong>Example URL:</strong> 
+                            <code>https://app.bullhorn.com/BullhornWeb/Tearsheet.cfm?TearsheetID=12345</code><br>
+                            <strong>Tearsheet ID:</strong> 12345
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
