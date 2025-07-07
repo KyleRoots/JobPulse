@@ -143,22 +143,33 @@
                             <li><strong>API Access</strong> - Permission to use REST API endpoints</li>
                         </ul>
 
-                        <h6 class="mt-4">2. Required Information</h6>
+                        <h6 class="mt-4">2. Required Redirect URI</h6>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Important:</strong> You must provide this exact redirect URI to Bullhorn Support:
+                            <br><code id="redirectUri">{{ request.url_root }}bullhorn/oauth/callback</code>
+                            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyRedirectUri()">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+
+                        <h6 class="mt-4">3. Required Information</h6>
                         <p>When contacting Bullhorn Support, provide:</p>
                         <ul>
                             <li>Your company name and Bullhorn account details</li>
                             <li>Intended use case (monitoring tearsheet job changes)</li>
+                            <li>The redirect URI shown above</li>
                             <li>Technical contact information</li>
                         </ul>
 
-                        <h6 class="mt-4">3. Security Notes</h6>
+                        <h6 class="mt-4">4. Security Notes</h6>
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             <strong>Important:</strong> Your API credentials are stored securely and used only for 
                             accessing your Bullhorn data. Never share these credentials with unauthorized parties.
                         </div>
 
-                        <h6 class="mt-4">4. Support Resources</h6>
+                        <h6 class="mt-4">5. Support Resources</h6>
                         <ul>
                             <li><a href="https://bullhorn.github.io/rest-api-docs/" target="_blank" class="text-decoration-none">
                                 Bullhorn REST API Documentation <i class="fas fa-external-link-alt"></i>
@@ -224,6 +235,24 @@
                         Connection test failed: ${error.message}
                     </div>
                 `;
+            });
+        }
+        
+        function copyRedirectUri() {
+            const redirectUri = document.getElementById('redirectUri').textContent;
+            navigator.clipboard.writeText(redirectUri).then(function() {
+                // Show success feedback
+                const button = event.target.closest('button');
+                const originalHtml = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-success');
+                
+                setTimeout(function() {
+                    button.innerHTML = originalHtml;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-outline-secondary');
+                }, 2000);
             });
         }
     </script>

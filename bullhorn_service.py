@@ -47,29 +47,12 @@ class BullhornService:
         Returns:
             bool: True if authentication successful, False otherwise
         """
+        if not all([self.client_id, self.client_secret, self.username, self.password]):
+            logging.error("Missing Bullhorn credentials")
+            return False
+            
         try:
-            # Step 1: Get authorization code
-            auth_url = "https://auth.bullhornstaffing.com/oauth/authorize"
-            auth_params = {
-                'client_id': self.client_id,
-                'response_type': 'code',
-                'redirect_uri': 'https://www.bullhorn.com',
-                'username': self.username,
-                'password': self.password
-            }
-            
-            # Step 2: Exchange authorization code for access token
-            token_url = "https://auth.bullhornstaffing.com/oauth/token"
-            token_data = {
-                'grant_type': 'authorization_code',
-                'code': 'temp_code',  # This would be obtained from the auth flow
-                'client_id': self.client_id,
-                'client_secret': self.client_secret,
-                'redirect_uri': 'https://www.bullhorn.com'
-            }
-            
-            # For production, implement full OAuth flow
-            # For now, use direct login if available
+            # Try direct login first (simpler for API access)
             return self._direct_login()
             
         except Exception as e:
@@ -78,28 +61,115 @@ class BullhornService:
     
     def _direct_login(self) -> bool:
         """
-        Direct login using username/password (if available)
+        Complete Bullhorn OAuth 2.0 authentication flow
         
         Returns:
             bool: True if login successful, False otherwise
         """
         try:
-            # First, get login info to determine correct data center
+            # Step 1: Get login info to determine correct data center
             login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
             login_info_params = {'username': self.username}
             
             response = self.session.get(login_info_url, params=login_info_params)
             if response.status_code != 200:
-                logging.error(f"Failed to get login info: {response.status_code}")
+                logging.error(f"Failed to get login info: {response.status_code} - {response.text}")
                 return False
             
             login_data = response.json()
+            logging.info(f"Login info response: {login_data}")
             
-            # Extract the correct REST URL
-            if 'restUrl' in login_data:
-                self.base_url = login_data['restUrl']
+            # Extract the authorization URL and REST URL
+            if 'oauthUrl' not in login_data or 'restUrl' not in login_data:
+                logging.error("Missing oauthUrl or restUrl in login info response")
+                return False
+            
+            oauth_url = login_data['oauthUrl']
+            rest_url = login_data['restUrl']
+            
+            # Step 2: Get authorization code
+            auth_endpoint = f"{oauth_url}/oauth/authorize"
+            redirect_uri = f"{os.environ.get('REPLIT_URL', 'http://localhost:5000')}/bullhorn/oauth/callback"
+            
+            auth_params = {
+                'client_id': self.client_id,
+                'response_type': 'code',
+                'redirect_uri': redirect_uri,
+                'username': self.username,
+                'password': self.password,
+                'action': 'Login'
+            }
+            
+            auth_response = self.session.post(auth_endpoint, data=auth_params)
+            logging.info(f"Auth response status: {auth_response.status_code}")
+            
+            if auth_response.status_code == 302:
+                # Check for authorization code in redirect
+                location = auth_response.headers.get('Location', '')
+                if 'code=' in location:
+                    auth_code = location.split('code=')[1].split('&')[0]
+                elif 'error=' in location:
+                    error = location.split('error=')[1].split('&')[0]
+                    logging.error(f"OAuth authorization failed: {error}")
+                    return False
+                else:
+                    logging.error("No authorization code found in redirect")
+                    return False
             else:
-                logging.error("No REST URL found in login info response")
+                # Try to extract from response content for different OAuth implementations
+                response_text = auth_response.text
+                if '"code":"' in response_text:
+                    import re
+                    code_match = re.search(r'"code":"([^"]+)"', response_text)
+                    auth_code = code_match.group(1) if code_match else None
+                else:
+                    logging.error(f"Unexpected auth response: {auth_response.status_code} - {response_text}")
+                    return False
+            
+            if not auth_code:
+                logging.error("Failed to obtain authorization code")
+                return False
+            
+            # Step 3: Exchange authorization code for access token
+            token_endpoint = f"{oauth_url}/oauth/token"
+            token_data = {
+                'grant_type': 'authorization_code',
+                'code': auth_code,
+                'client_id': self.client_id,
+                'client_secret': self.client_secret,
+                'redirect_uri': redirect_uri
+            }
+            
+            token_response = self.session.post(token_endpoint, data=token_data)
+            if token_response.status_code != 200:
+                logging.error(f"Failed to get access token: {token_response.status_code} - {token_response.text}")
+                return False
+            
+            token_info = token_response.json()
+            access_token = token_info.get('access_token')
+            
+            if not access_token:
+                logging.error("No access token in response")
+                return False
+            
+            # Step 4: Get REST token for API access
+            rest_login_endpoint = f"{rest_url}/login"
+            rest_params = {
+                'version': '2.0',
+                'access_token': access_token
+            }
+            
+            rest_response = self.session.post(rest_login_endpoint, params=rest_params)
+            if rest_response.status_code != 200:
+                logging.error(f"Failed to get REST token: {rest_response.status_code} - {rest_response.text}")
+                return False
+            
+            rest_data = rest_response.json()
+            self.rest_token = rest_data.get('BhRestToken')
+            self.base_url = rest_url
+            
+            if not self.rest_token:
+                logging.error("No REST token in response")
                 return False
             
             logging.info(f"Bullhorn authentication successful. Base URL: {self.base_url}")
@@ -107,6 +177,8 @@ class BullhornService:
             
         except Exception as e:
             logging.error(f"Direct login failed: {str(e)}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
             return False
     
     def get_job_orders(self, last_modified_since: Optional[datetime] = None) -> List[Dict]:

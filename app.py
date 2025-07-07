@@ -1446,5 +1446,28 @@ def test_bullhorn_connection():
             'message': f'Connection test failed: {str(e)}'
         })
 
+@app.route('/bullhorn/oauth/callback')
+def bullhorn_oauth_callback():
+    """Handle Bullhorn OAuth callback"""
+    try:
+        # This endpoint is used as the redirect URI for Bullhorn OAuth
+        # In a production implementation, this would handle the authorization code
+        code = request.args.get('code')
+        error = request.args.get('error')
+        
+        if error:
+            flash(f'Bullhorn OAuth error: {error}', 'error')
+        elif code:
+            flash('OAuth authorization successful', 'success')
+        else:
+            flash('OAuth callback received with no code or error', 'info')
+            
+        return redirect(url_for('bullhorn_settings'))
+        
+    except Exception as e:
+        app.logger.error(f"Error in OAuth callback: {str(e)}")
+        flash(f'OAuth callback error: {str(e)}', 'error')
+        return redirect(url_for('bullhorn_settings'))
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
