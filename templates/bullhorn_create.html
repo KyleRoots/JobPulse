@@ -65,13 +65,17 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="tearsheet_id" class="form-label">
-                                            <i class="fas fa-list me-1"></i>Tearsheet ID
+                                        <label for="tearsheet_name" class="form-label">
+                                            <i class="fas fa-list me-1"></i>Tearsheet
                                         </label>
-                                        <input type="number" class="form-control" id="tearsheet_id" name="tearsheet_id" 
-                                               placeholder="e.g., 12345" required>
+                                        <select class="form-select" id="tearsheet_name" name="tearsheet_name" required>
+                                            <option value="">Select a tearsheet...</option>
+                                            {% for tearsheet in tearsheets %}
+                                            <option value="{{ tearsheet.name }}">{{ tearsheet.name }}</option>
+                                            {% endfor %}
+                                        </select>
                                         <div class="form-text">
-                                            The numeric ID of the Bullhorn tearsheet to monitor
+                                            Choose the Bullhorn tearsheet to monitor for job changes
                                         </div>
                                     </div>
                                 </div>
@@ -144,25 +148,23 @@
                     </div>
                 </div>
 
-                <!-- How to Find Tearsheet ID -->
+                <!-- How Tearsheet Selection Works -->
                 <div class="card shadow-sm mt-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="fas fa-question-circle me-2"></i>
-                            How to Find Your Tearsheet ID
+                            <i class="fas fa-info-circle me-2"></i>
+                            How Tearsheet Selection Works
                         </h5>
                     </div>
                     <div class="card-body">
+                        <p>The system automatically loads all available tearsheets from your Bullhorn account. Simply:</p>
                         <ol>
-                            <li>Log into your Bullhorn system</li>
-                            <li>Navigate to the tearsheet you want to monitor</li>
-                            <li>Look at the URL in your browser's address bar</li>
-                            <li>The tearsheet ID is the number after "TearsheetID=" or similar parameter</li>
+                            <li>Make sure your Bullhorn API credentials are configured in <a href="{{ url_for('bullhorn_settings') }}">Bullhorn Settings</a></li>
+                            <li>Select the tearsheet you want to monitor from the dropdown menu</li>
+                            <li>The system will automatically handle the technical details behind the scenes</li>
                         </ol>
                         <p class="mb-0 text-muted">
-                            <strong>Example URL:</strong> 
-                            <code>https://app.bullhorn.com/BullhornWeb/Tearsheet.cfm?TearsheetID=12345</code><br>
-                            <strong>Tearsheet ID:</strong> 12345
+                            <strong>Note:</strong> If you don't see your tearsheet in the dropdown, check that your API credentials are correct and that you have access to the tearsheet in Bullhorn.
                         </p>
                     </div>
                 </div>

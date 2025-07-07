@@ -234,6 +234,24 @@ class BullhornService:
             logging.error(f"Error getting tearsheets: {str(e)}")
             return []
     
+    def get_tearsheet_by_name(self, name: str) -> Optional[Dict]:
+        """
+        Get a specific tearsheet by name
+        
+        Args:
+            name: Name of the tearsheet to find
+            
+        Returns:
+            Dict: Tearsheet dictionary if found, None otherwise
+        """
+        tearsheets = self.get_tearsheets()
+        
+        for tearsheet in tearsheets:
+            if tearsheet.get('name', '').lower() == name.lower():
+                return tearsheet
+                
+        return None
+    
     def test_connection(self) -> bool:
         """
         Test connection to Bullhorn API

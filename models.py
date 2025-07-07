@@ -76,6 +76,7 @@ def create_models(db):
         id = db.Column(db.Integer, primary_key=True)
         name = db.Column(db.String(100), nullable=False)
         tearsheet_id = db.Column(db.Integer, nullable=False)
+        tearsheet_name = db.Column(db.String(255), nullable=True)  # Store tearsheet name for reference
         is_active = db.Column(db.Boolean, default=True)
         check_interval_minutes = db.Column(db.Integer, default=60)  # How often to check for changes
         last_check = db.Column(db.DateTime, nullable=True)

@@ -1249,26 +1249,34 @@ def create_bullhorn_monitor():
     if request.method == 'POST':
         try:
             name = request.form.get('name')
-            tearsheet_id = request.form.get('tearsheet_id')
+            tearsheet_name = request.form.get('tearsheet_name')
             check_interval = int(request.form.get('check_interval_minutes', 60))
             notification_email = request.form.get('notification_email', '').strip()
             send_notifications = 'send_notifications' in request.form
             
             # Validate inputs
-            if not name or not tearsheet_id:
-                flash('Name and Tearsheet ID are required', 'error')
+            if not name or not tearsheet_name:
+                flash('Name and Tearsheet selection are required', 'error')
                 return redirect(url_for('create_bullhorn_monitor'))
             
-            try:
-                tearsheet_id = int(tearsheet_id)
-            except ValueError:
-                flash('Tearsheet ID must be a number', 'error')
+            # Get tearsheet ID from name using Bullhorn API
+            bullhorn_service = BullhornService()
+            tearsheet = bullhorn_service.get_tearsheet_by_name(tearsheet_name)
+            
+            if not tearsheet:
+                flash(f'Tearsheet "{tearsheet_name}" not found in Bullhorn', 'error')
+                return redirect(url_for('create_bullhorn_monitor'))
+            
+            tearsheet_id = tearsheet.get('id')
+            if not tearsheet_id:
+                flash('Could not retrieve tearsheet ID', 'error')
                 return redirect(url_for('create_bullhorn_monitor'))
             
             # Create new monitor
             monitor = BullhornMonitor(
                 name=name,
                 tearsheet_id=tearsheet_id,
+                tearsheet_name=tearsheet_name,
                 check_interval_minutes=check_interval,
                 notification_email=notification_email if notification_email else None,
                 send_notifications=send_notifications,
@@ -1278,7 +1286,7 @@ def create_bullhorn_monitor():
             db.session.add(monitor)
             db.session.commit()
             
-            flash(f'Bullhorn monitor "{name}" created successfully', 'success')
+            flash(f'Bullhorn monitor "{name}" created successfully for tearsheet "{tearsheet_name}"', 'success')
             return redirect(url_for('bullhorn_dashboard'))
             
         except Exception as e:
@@ -1286,7 +1294,15 @@ def create_bullhorn_monitor():
             flash(f'Error creating monitor: {str(e)}', 'error')
             return redirect(url_for('create_bullhorn_monitor'))
     
-    return render_template('bullhorn_create.html')
+    # For GET request, load tearsheets from Bullhorn
+    try:
+        bullhorn_service = BullhornService()
+        tearsheets = bullhorn_service.get_tearsheets()
+        return render_template('bullhorn_create.html', tearsheets=tearsheets)
+    except Exception as e:
+        app.logger.error(f"Error loading tearsheets: {str(e)}")
+        flash('Could not load tearsheets from Bullhorn. Please check your API credentials.', 'error')
+        return render_template('bullhorn_create.html', tearsheets=[])
 
 @app.route('/bullhorn/monitor/<int:monitor_id>')
 def bullhorn_monitor_details(monitor_id):

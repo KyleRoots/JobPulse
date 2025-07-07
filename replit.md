@@ -116,6 +116,7 @@ Changelog:
 - July 05, 2025. Completed full automation testing - all three features (XML processing, SFTP upload, email notifications) working perfectly
 - July 05, 2025. Improved home page layout by moving Global Settings button next to Schedule Automation button for cleaner navigation
 - July 07, 2025. Added comprehensive Bullhorn ATS/CRM integration for monitoring tearsheet job changes with automated email notifications
+- July 07, 2025. Enhanced Bullhorn integration to use tearsheet names instead of requiring manual ID entry - system now automatically loads and displays all available tearsheets
 ```
 
 ## User Preferences
