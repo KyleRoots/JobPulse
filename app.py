@@ -1235,13 +1235,22 @@ def validate_file():
 
 @app.route('/bullhorn')
 def bullhorn_dashboard():
-    """Bullhorn monitoring dashboard"""
+    """ATS monitoring dashboard"""
     monitors = BullhornMonitor.query.filter_by(is_active=True).all()
     recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(20).all()
     
+    # Check if Bullhorn is connected
+    bullhorn_connected = False
+    try:
+        bullhorn_service = BullhornService()
+        bullhorn_connected = bullhorn_service.test_connection()
+    except Exception as e:
+        app.logger.debug(f"Bullhorn connection check failed: {str(e)}")
+    
     return render_template('bullhorn.html', 
                          monitors=monitors, 
-                         recent_activities=recent_activities)
+                         recent_activities=recent_activities,
+                         bullhorn_connected=bullhorn_connected)
 
 @app.route('/bullhorn/create', methods=['GET', 'POST'])
 def create_bullhorn_monitor():

@@ -118,6 +118,7 @@ Changelog:
 - July 07, 2025. Added comprehensive Bullhorn ATS/CRM integration for monitoring tearsheet job changes with automated email notifications
 - July 07, 2025. Enhanced Bullhorn integration to use tearsheet names instead of requiring manual ID entry - system now automatically loads and displays all available tearsheets
 - July 07, 2025. Added multiple tearsheet selection capability - users can now select multiple tearsheets and the system creates separate monitors for each one automatically
+- July 07, 2025. Renamed "Bullhorn Monitoring" to "ATS Monitoring" with provider selection interface and ATS Settings button for future expansion to support multiple ATS providers
 ```
 
 ## User Preferences

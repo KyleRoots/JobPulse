@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bullhorn Monitoring - XML Processor</title>
+    <title>ATS Monitoring - XML Processor</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -15,14 +15,17 @@
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div>
                         <h1 class="display-4 mb-0">
-                            <i class="fas fa-eye me-3"></i>
-                            Bullhorn Monitoring
+                            <i class="fas fa-building me-3"></i>
+                            ATS Monitoring
                         </h1>
-                        <p class="lead text-muted">Monitor Bullhorn tearsheets for job changes</p>
+                        <p class="lead text-muted">Monitor ATS tearsheets for job changes</p>
                     </div>
                     <div>
                         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary me-2">
                             <i class="fas fa-arrow-left me-2"></i>Back to Home
+                        </a>
+                        <a href="{{ url_for('bullhorn_settings') }}" class="btn btn-outline-info me-2">
+                            <i class="fas fa-cog me-2"></i>ATS Settings
                         </a>
                         <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>Create Monitor
@@ -43,13 +46,50 @@
                     {% endif %}
                 {% endwith %}
 
-                <!-- Quick Settings Access -->
-                <div class="alert alert-info mb-4">
-                    <i class="fas fa-info-circle me-2"></i>
+                <!-- ATS Selection -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-network-wired me-2"></i>
+                            ATS Provider Selection
+                        </h5>
+                        <p class="text-muted">Choose your ATS provider for monitoring tearsheets and job changes</p>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="ats_provider" id="bullhorn_provider" value="bullhorn" checked>
+                                    <label class="form-check-label" for="bullhorn_provider">
+                                        <i class="fas fa-building me-2"></i>
+                                        <strong>Bullhorn</strong>
+                                        <span class="badge bg-{{ 'success' if bullhorn_connected else 'warning' }} ms-2" id="bullhorn_status">
+                            {{ 'Connected' if bullhorn_connected else 'Setup Required' }}
+                        </span>
+                                    </label>
+                                    <div class="text-muted small mt-1">
+                                        Professional ATS/CRM platform with tearsheet monitoring
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="text-muted">
+                                    <i class="fas fa-plus-circle me-2"></i>
+                                    More ATS providers coming soon...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Setup Status -->
+                {% if not bullhorn_connected %}
+                <div class="alert alert-warning mb-4">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
                     <strong>Setup Required:</strong> Configure your Bullhorn API credentials in 
-                    <a href="{{ url_for('bullhorn_settings') }}" class="alert-link">Bullhorn Settings</a> 
+                    <a href="{{ url_for('bullhorn_settings') }}" class="alert-link">ATS Settings</a> 
                     before creating monitors.
                 </div>
+                {% endif %}
 
                 <!-- Active Monitors -->
                 <div class="card shadow-sm mb-4">
