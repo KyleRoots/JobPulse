@@ -302,6 +302,8 @@ def process_bullhorn_monitors():
                     changes = bullhorn_service.compare_job_lists(previous_jobs, current_jobs)
                     added_jobs = changes.get('added', [])
                     removed_jobs = changes.get('removed', [])
+                    modified_jobs = changes.get('modified', [])
+                    summary = changes.get('summary', {})
                     
                     # Log activities
                     for job in added_jobs:
@@ -324,8 +326,33 @@ def process_bullhorn_monitors():
                         )
                         db.session.add(activity)
                     
+                    for job in modified_jobs:
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='job_modified',
+                            job_id=job.get('id'),
+                            job_title=job.get('title'),
+                            details=json.dumps(job)
+                        )
+                        db.session.add(activity)
+                    
+                    # Log a summary activity for batch updates
+                    if added_jobs or removed_jobs or modified_jobs:
+                        summary_activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='check_completed',
+                            details=json.dumps({
+                                'summary': summary,
+                                'changes_detected': True,
+                                'timestamp': datetime.utcnow().isoformat()
+                            })
+                        )
+                        db.session.add(summary_activity)
+                        
+                        app.logger.info(f"Bullhorn monitor {monitor.name}: {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified")
+                    
                     # Send email notification if there are changes and notifications are enabled
-                    if (added_jobs or removed_jobs) and monitor.send_notifications:
+                    if (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications:
                         # Get email address from Global Settings or monitor-specific setting
                         email_address = monitor.notification_email
                         if not email_address:
@@ -340,7 +367,9 @@ def process_bullhorn_monitors():
                                 to_email=email_address,
                                 monitor_name=monitor.name,
                                 added_jobs=added_jobs,
-                                removed_jobs=removed_jobs
+                                removed_jobs=removed_jobs,
+                                modified_jobs=modified_jobs,
+                                summary=summary
                             )
                             
                             if email_sent:

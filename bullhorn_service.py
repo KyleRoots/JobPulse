@@ -362,25 +362,68 @@ class BullhornService:
     
     def compare_job_lists(self, previous_jobs: List[Dict], current_jobs: List[Dict]) -> Dict[str, List[Dict]]:
         """
-        Compare two job lists to find added and removed jobs
+        Compare two job lists to find added, removed, and modified jobs
         
         Args:
             previous_jobs: List of jobs from previous check
             current_jobs: List of jobs from current check
             
         Returns:
-            Dict with 'added' and 'removed' lists
+            Dict with 'added', 'removed', 'modified', and 'summary' lists
         """
-        previous_ids = {job['id'] for job in previous_jobs}
-        current_ids = {job['id'] for job in current_jobs}
+        # Create lookup dictionaries for efficient comparison
+        previous_lookup = {job['id']: job for job in previous_jobs}
+        current_lookup = {job['id']: job for job in current_jobs}
         
+        previous_ids = set(previous_lookup.keys())
+        current_ids = set(current_lookup.keys())
+        
+        # Find added and removed jobs
         added_ids = current_ids - previous_ids
         removed_ids = previous_ids - current_ids
+        common_ids = previous_ids & current_ids
         
-        added_jobs = [job for job in current_jobs if job['id'] in added_ids]
-        removed_jobs = [job for job in previous_jobs if job['id'] in removed_ids]
+        added_jobs = [current_lookup[job_id] for job_id in added_ids]
+        removed_jobs = [previous_lookup[job_id] for job_id in removed_ids]
+        
+        # Check for modifications in existing jobs
+        modified_jobs = []
+        for job_id in common_ids:
+            prev_job = previous_lookup[job_id]
+            curr_job = current_lookup[job_id]
+            
+            # Check key fields for changes
+            changes = []
+            fields_to_check = ['title', 'status', 'isOpen', 'numOpenings', 'dateLastModified']
+            
+            for field in fields_to_check:
+                prev_val = prev_job.get(field)
+                curr_val = curr_job.get(field)
+                if prev_val != curr_val:
+                    changes.append({
+                        'field': field,
+                        'from': prev_val,
+                        'to': curr_val
+                    })
+            
+            if changes:
+                modified_job = curr_job.copy()
+                modified_job['changes'] = changes
+                modified_jobs.append(modified_job)
+        
+        # Create summary statistics
+        summary = {
+            'total_previous': len(previous_jobs),
+            'total_current': len(current_jobs),
+            'added_count': len(added_jobs),
+            'removed_count': len(removed_jobs),
+            'modified_count': len(modified_jobs),
+            'net_change': len(current_jobs) - len(previous_jobs)
+        }
         
         return {
             'added': added_jobs,
-            'removed': removed_jobs
+            'removed': removed_jobs,
+            'modified': modified_jobs,
+            'summary': summary
         }

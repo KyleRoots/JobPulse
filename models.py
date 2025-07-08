@@ -104,7 +104,7 @@ def create_models(db):
         """Log of Bullhorn monitoring activities"""
         id = db.Column(db.Integer, primary_key=True)
         monitor_id = db.Column(db.Integer, db.ForeignKey('bullhorn_monitor.id'), nullable=False)
-        activity_type = db.Column(db.String(20), nullable=False)  # 'job_added', 'job_removed', 'check_completed', 'error'
+        activity_type = db.Column(db.String(20), nullable=False)  # 'job_added', 'job_removed', 'job_modified', 'check_completed', 'error'
         job_id = db.Column(db.Integer, nullable=True)  # Bullhorn job ID if applicable
         job_title = db.Column(db.String(255), nullable=True)
         details = db.Column(db.Text, nullable=True)  # JSON or text details

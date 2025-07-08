@@ -203,7 +203,9 @@ class EmailService:
                                  to_email: str, 
                                  monitor_name: str,
                                  added_jobs: list,
-                                 removed_jobs: list) -> bool:
+                                 removed_jobs: list,
+                                 modified_jobs: list = None,
+                                 summary: dict = None) -> bool:
         """
         Send email notification for Bullhorn tearsheet changes
         
@@ -212,6 +214,8 @@ class EmailService:
             monitor_name: Name of the monitor/tearsheet
             added_jobs: List of jobs that were added
             removed_jobs: List of jobs that were removed
+            modified_jobs: List of jobs that were modified (optional)
+            summary: Summary statistics of changes (optional)
             
         Returns:
             bool: True if email sent successfully, False otherwise
@@ -221,63 +225,129 @@ class EmailService:
                 logging.error("EmailService: No SendGrid API key available")
                 return False
             
+            # Prepare default values
+            if modified_jobs is None:
+                modified_jobs = []
+            if summary is None:
+                summary = {}
+            
+            # Calculate total changes
+            total_changes = len(added_jobs) + len(removed_jobs) + len(modified_jobs)
+            
             # Prepare email content
-            subject = f"Bullhorn Tearsheet Update: {monitor_name}"
+            subject = f"ATS Tearsheet Update: {monitor_name} ({total_changes} changes)"
             
             # Build email body
             html_content = f"""
             <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+            <body style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h2 style="color: #333; margin-top: 0;">
-                        🔄 Bullhorn Tearsheet Update
+                        🔄 ATS Tearsheet Update
                     </h2>
                     <p><strong>Monitor:</strong> {monitor_name}</p>
                     <p><strong>Checked at:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+                    
+                    <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #495057;">📊 Change Summary</h4>
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <span style="color: #28a745; font-weight: bold;">✅ Added: {len(added_jobs)}</span>
+                            <span style="color: #dc3545; font-weight: bold;">❌ Removed: {len(removed_jobs)}</span>
+                            <span style="color: #fd7e14; font-weight: bold;">🔄 Modified: {len(modified_jobs)}</span>
+                            <span style="color: #6c757d; font-weight: bold;">📈 Net Change: {summary.get('net_change', 0):+d}</span>
+                        </div>
+                    </div>
                 </div>
             """
             
             if added_jobs:
                 html_content += f"""
-                <div style="margin: 20px 0;">
-                    <h3 style="color: #28a745; margin-bottom: 15px;">
+                <div style="margin: 20px 0; background-color: #d4edda; padding: 15px; border-radius: 5px; border-left: 4px solid #28a745;">
+                    <h3 style="color: #155724; margin-bottom: 15px;">
                         ✅ Jobs Added ({len(added_jobs)})
                     </h3>
-                    <ul style="padding-left: 20px;">
+                    <ul style="padding-left: 20px; margin: 0;">
                 """
                 for job in added_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    html_content += f"<li><strong>ID {job_id}:</strong> {job_title}</li>"
+                    company = job.get('clientCorporation', {}).get('name', 'N/A') if isinstance(job.get('clientCorporation'), dict) else 'N/A'
+                    status = job.get('status', 'N/A')
+                    html_content += f"""
+                    <li style="margin-bottom: 8px;">
+                        <strong>ID {job_id}:</strong> {job_title}<br>
+                        <small style="color: #6c757d;">Company: {company} | Status: {status}</small>
+                    </li>
+                    """
                 
                 html_content += "</ul></div>"
             
             if removed_jobs:
                 html_content += f"""
-                <div style="margin: 20px 0;">
-                    <h3 style="color: #dc3545; margin-bottom: 15px;">
+                <div style="margin: 20px 0; background-color: #f8d7da; padding: 15px; border-radius: 5px; border-left: 4px solid #dc3545;">
+                    <h3 style="color: #721c24; margin-bottom: 15px;">
                         ❌ Jobs Removed ({len(removed_jobs)})
                     </h3>
-                    <ul style="padding-left: 20px;">
+                    <ul style="padding-left: 20px; margin: 0;">
                 """
                 for job in removed_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    html_content += f"<li><strong>ID {job_id}:</strong> {job_title}</li>"
+                    company = job.get('clientCorporation', {}).get('name', 'N/A') if isinstance(job.get('clientCorporation'), dict) else 'N/A'
+                    status = job.get('status', 'N/A')
+                    html_content += f"""
+                    <li style="margin-bottom: 8px;">
+                        <strong>ID {job_id}:</strong> {job_title}<br>
+                        <small style="color: #6c757d;">Company: {company} | Status: {status}</small>
+                    </li>
+                    """
                 
                 html_content += "</ul></div>"
             
-            if not added_jobs and not removed_jobs:
+            if modified_jobs:
+                html_content += f"""
+                <div style="margin: 20px 0; background-color: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #fd7e14;">
+                    <h3 style="color: #856404; margin-bottom: 15px;">
+                        🔄 Jobs Modified ({len(modified_jobs)})
+                    </h3>
+                    <ul style="padding-left: 20px; margin: 0;">
+                """
+                for job in modified_jobs:
+                    job_id = job.get('id', 'N/A')
+                    job_title = job.get('title', 'No title')
+                    changes = job.get('changes', [])
+                    html_content += f"""
+                    <li style="margin-bottom: 15px;">
+                        <strong>ID {job_id}:</strong> {job_title}<br>
+                        <small style="color: #6c757d;">Changes:</small>
+                        <ul style="margin-top: 5px;">
+                    """
+                    for change in changes:
+                        field = change['field']
+                        from_val = change['from']
+                        to_val = change['to']
+                        html_content += f"<li><strong>{field}:</strong> {from_val} → {to_val}</li>"
+                    html_content += "</ul></li>"
+                
+                html_content += "</ul></div>"
+            
+            if not added_jobs and not removed_jobs and not modified_jobs:
                 html_content += """
-                <div style="margin: 20px 0;">
-                    <p style="color: #6c757d; font-style: italic;">No changes detected in this check.</p>
+                <div style="margin: 20px 0; background-color: #e2e3e5; padding: 15px; border-radius: 5px;">
+                    <p style="color: #6c757d; font-style: italic; margin: 0;">No changes detected in this check.</p>
                 </div>
                 """
             
-            html_content += """
+            html_content += f"""
                 <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-top: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #495057;">📋 Monitor Details</h4>
+                    <p style="margin: 0 0 10px 0; font-size: 14px;">
+                        <strong>Previous total:</strong> {summary.get('total_previous', 0)} jobs<br>
+                        <strong>Current total:</strong> {summary.get('total_current', 0)} jobs<br>
+                        <strong>Net change:</strong> {summary.get('net_change', 0):+d} jobs
+                    </p>
                     <p style="margin: 0; font-size: 12px; color: #6c757d;">
-                        This is an automated notification from your XML Processing System's Bullhorn integration.
+                        This is an automated notification from your XML Processing System's ATS integration.
                     </p>
                 </div>
             </body>
