@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -293,7 +294,6 @@ def process_bullhorn_monitors():
                     previous_jobs = []
                     if monitor.last_job_snapshot:
                         try:
-                            import json
                             previous_jobs = json.loads(monitor.last_job_snapshot)
                         except json.JSONDecodeError:
                             app.logger.warning(f"Failed to parse job snapshot for monitor: {monitor.name}")
