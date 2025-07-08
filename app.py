@@ -598,10 +598,50 @@ def replace_schedule_file():
             
             db.session.commit()
             
+            # Immediately upload the new file to SFTP if configured
+            sftp_upload_success = False
+            if schedule.auto_upload_ftp:
+                try:
+                    # Get SFTP settings from Global Settings
+                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                    
+                    if (sftp_hostname and sftp_hostname.setting_value and 
+                        sftp_username and sftp_username.setting_value and 
+                        sftp_password and sftp_password.setting_value):
+                        
+                        ftp_service = FTPService(
+                            hostname=sftp_hostname.setting_value,
+                            username=sftp_username.setting_value,
+                            password=sftp_password.setting_value,
+                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                            use_sftp=True
+                        )
+                        
+                        # Upload the new file (without reference number processing)
+                        sftp_upload_success = ftp_service.upload_file(
+                            local_file_path=new_filepath,
+                            remote_filename=filename  # Use original filename
+                        )
+                        
+                        if sftp_upload_success:
+                            app.logger.info(f"File replacement uploaded to SFTP server: {filename}")
+                        else:
+                            app.logger.warning(f"Failed to upload replacement file to SFTP server")
+                    else:
+                        app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
+                except Exception as e:
+                    app.logger.error(f"Error uploading replacement file to SFTP: {str(e)}")
+            
             return jsonify({
                 'success': True,
-                'message': 'File replaced successfully',
-                'jobs_count': validation_result.get('jobs_count', 0)
+                'message': 'File replaced successfully' + (' and uploaded to server' if sftp_upload_success else ''),
+                'jobs_count': validation_result.get('jobs_count', 0),
+                'sftp_uploaded': sftp_upload_success
             })
             
         except Exception as e:
