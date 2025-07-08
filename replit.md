@@ -122,6 +122,8 @@ Changelog:
 - July 08, 2025. Enhanced monitoring system to handle multiple simultaneous job changes with comprehensive change detection (added, removed, modified jobs), batch update notifications, and detailed email summaries with statistics
 - July 08, 2025. Added prominent Job ID references in email notifications with visual badges for easy copy-paste lookup in Bullhorn
 - July 08, 2025. Enhanced file replacement functionality to immediately upload new files to SFTP server when replaced (without reference number processing)
+- July 08, 2025. Added "Last Upload" timestamp tracking for better user transparency - shows when files were most recently replaced/uploaded
+- July 08, 2025. Final code cleanup and production readiness - optimized logging levels and verified all functionality
 ```
 
 ## User Preferences

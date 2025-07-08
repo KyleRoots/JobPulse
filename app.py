@@ -21,7 +21,7 @@ import threading
 import time
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 # Global progress tracker for manual operations
 progress_tracker = {}
