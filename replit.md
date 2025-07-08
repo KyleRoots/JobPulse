@@ -120,6 +120,7 @@ Changelog:
 - July 07, 2025. Added multiple tearsheet selection capability - users can now select multiple tearsheets and the system creates separate monitors for each one automatically
 - July 07, 2025. Renamed "Bullhorn Monitoring" to "ATS Monitoring" with provider selection interface and ATS Settings button for future expansion to support multiple ATS providers
 - July 08, 2025. Enhanced monitoring system to handle multiple simultaneous job changes with comprehensive change detection (added, removed, modified jobs), batch update notifications, and detailed email summaries with statistics
+- July 08, 2025. Added prominent Job ID references in email notifications with visual badges for easy copy-paste lookup in Bullhorn
 ```
 
 ## User Preferences

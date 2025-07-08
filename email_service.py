@@ -274,8 +274,15 @@ class EmailService:
                     company = job.get('clientCorporation', {}).get('name', 'N/A') if isinstance(job.get('clientCorporation'), dict) else 'N/A'
                     status = job.get('status', 'N/A')
                     html_content += f"""
-                    <li style="margin-bottom: 8px;">
-                        <strong>ID {job_id}:</strong> {job_title}<br>
+                    <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
+                        <div style="margin-bottom: 4px;">
+                            <strong style="color: #155724;">{job_title}</strong>
+                        </div>
+                        <div style="margin-bottom: 4px;">
+                            <span style="background-color: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: bold;">
+                                Job ID: {job_id}
+                            </span>
+                        </div>
                         <small style="color: #6c757d;">Company: {company} | Status: {status}</small>
                     </li>
                     """
@@ -296,8 +303,15 @@ class EmailService:
                     company = job.get('clientCorporation', {}).get('name', 'N/A') if isinstance(job.get('clientCorporation'), dict) else 'N/A'
                     status = job.get('status', 'N/A')
                     html_content += f"""
-                    <li style="margin-bottom: 8px;">
-                        <strong>ID {job_id}:</strong> {job_title}<br>
+                    <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
+                        <div style="margin-bottom: 4px;">
+                            <strong style="color: #721c24;">{job_title}</strong>
+                        </div>
+                        <div style="margin-bottom: 4px;">
+                            <span style="background-color: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: bold;">
+                                Job ID: {job_id}
+                            </span>
+                        </div>
                         <small style="color: #6c757d;">Company: {company} | Status: {status}</small>
                     </li>
                     """
@@ -317,16 +331,25 @@ class EmailService:
                     job_title = job.get('title', 'No title')
                     changes = job.get('changes', [])
                     html_content += f"""
-                    <li style="margin-bottom: 15px;">
-                        <strong>ID {job_id}:</strong> {job_title}<br>
-                        <small style="color: #6c757d;">Changes:</small>
-                        <ul style="margin-top: 5px;">
+                    <li style="margin-bottom: 15px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
+                        <div style="margin-bottom: 4px;">
+                            <strong style="color: #856404;">{job_title}</strong>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <span style="background-color: #fd7e14; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: bold;">
+                                Job ID: {job_id}
+                            </span>
+                        </div>
+                        <div style="margin-bottom: 4px;">
+                            <small style="color: #6c757d; font-weight: bold;">Changes:</small>
+                        </div>
+                        <ul style="margin-top: 5px; padding-left: 20px;">
                     """
                     for change in changes:
                         field = change['field']
                         from_val = change['from']
                         to_val = change['to']
-                        html_content += f"<li><strong>{field}:</strong> {from_val} → {to_val}</li>"
+                        html_content += f"<li style='margin-bottom: 2px;'><strong>{field}:</strong> {from_val} → {to_val}</li>"
                     html_content += "</ul></li>"
                 
                 html_content += "</ul></div>"
@@ -348,6 +371,9 @@ class EmailService:
                     </p>
                     <p style="margin: 0; font-size: 12px; color: #6c757d;">
                         This is an automated notification from your XML Processing System's ATS integration.
+                    </p>
+                    <p style="margin: 8px 0 0 0; font-size: 11px; color: #6c757d; font-style: italic;">
+                        💡 Tip: Copy and paste the Job ID into Bullhorn's search to quickly locate and review any job.
                     </p>
                 </div>
             </body>
