@@ -30,6 +30,7 @@ def create_models(db):
         
         created_at = db.Column(db.DateTime, default=datetime.utcnow)
         updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+        last_file_upload = db.Column(db.DateTime, nullable=True)  # Track when file was last uploaded/replaced
         
         def __repr__(self):
             return f'<ScheduleConfig {self.name}>'

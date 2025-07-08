@@ -473,7 +473,8 @@ def create_schedule():
             send_email_notifications=True,
             notification_email=None,  # Will use Global Settings email
             # Auto-upload settings (always enabled, uses Global Settings)
-            auto_upload_ftp=True
+            auto_upload_ftp=True,
+            last_file_upload=datetime.utcnow()  # Track when file was initially uploaded
         )
         schedule.calculate_next_run()
         
@@ -595,6 +596,7 @@ def replace_schedule_file():
             schedule.file_path = new_filepath
             schedule.original_filename = filename  # Store original filename
             schedule.updated_at = datetime.utcnow()
+            schedule.last_file_upload = datetime.utcnow()  # Track when file was uploaded/replaced
             
             db.session.commit()
             

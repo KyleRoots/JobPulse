@@ -191,11 +191,11 @@
                                             {{ schedule.file_path }}
                                         </p>
                                         <div class="row text-center">
-                                            <div class="col-sm-3">
+                                            <div class="col-6 col-sm-2">
                                                 <small class="text-muted d-block">Frequency</small>
                                                 <strong>Every {{ schedule.schedule_days }} days</strong>
                                             </div>
-                                            <div class="col-sm-3">
+                                            <div class="col-6 col-sm-2">
                                                 <small class="text-muted d-block">Last Run</small>
                                                 <strong>
                                                     {% if schedule.last_run %}
@@ -205,13 +205,23 @@
                                                     {% endif %}
                                                 </strong>
                                             </div>
-                                            <div class="col-sm-3">
+                                            <div class="col-6 col-sm-2">
                                                 <small class="text-muted d-block">Next Run</small>
                                                 <strong class="text-success">
                                                     {{ schedule.next_run.strftime('%b %d, %Y') }}
                                                 </strong>
                                             </div>
-                                            <div class="col-sm-3">
+                                            <div class="col-6 col-sm-3">
+                                                <small class="text-muted d-block">Last Upload</small>
+                                                <strong class="text-info">
+                                                    {% if schedule.last_file_upload %}
+                                                        {{ schedule.last_file_upload.strftime('%b %d, %Y') }}
+                                                    {% else %}
+                                                        Never
+                                                    {% endif %}
+                                                </strong>
+                                            </div>
+                                            <div class="col-6 col-sm-3">
                                                 <small class="text-muted d-block">Last Processed</small>
                                                 <strong>
                                                     {% set last_log = schedule.processing_logs | selectattr('success', 'equalto', True) | list | last %}
