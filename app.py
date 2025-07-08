@@ -637,9 +637,15 @@ def replace_schedule_file():
                 except Exception as e:
                     app.logger.error(f"Error uploading replacement file to SFTP: {str(e)}")
             
+            success_message = 'File replaced successfully'
+            if sftp_upload_success:
+                success_message += ' and uploaded to server'
+            elif schedule.auto_upload_ftp:
+                success_message += ' but failed to upload to server'
+            
             return jsonify({
                 'success': True,
-                'message': 'File replaced successfully' + (' and uploaded to server' if sftp_upload_success else ''),
+                'message': success_message,
                 'jobs_count': validation_result.get('jobs_count', 0),
                 'sftp_uploaded': sftp_upload_success
             })
