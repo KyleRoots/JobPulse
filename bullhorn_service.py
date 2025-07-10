@@ -411,9 +411,14 @@ class BullhornService:
             
             # Test authentication
             if self.authenticate():
-                # Test a simple API call - use settings endpoint instead of ping
-                url = f"{self.base_url}/settings/corporationId"
-                params = {'BhRestToken': self.rest_token}
+                # Test a simple API call - use a search query that should always work
+                url = f"{self.base_url}/search/Tearsheet"
+                params = {
+                    'query': 'id:[* TO *]',  # This query matches any tearsheet
+                    'fields': 'id',
+                    'count': 1,
+                    'BhRestToken': self.rest_token
+                }
                 
                 response = self.session.get(url, params=params)
                 logging.info(f"Test connection response: {response.status_code}")
