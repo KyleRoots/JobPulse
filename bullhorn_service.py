@@ -420,6 +420,8 @@ class BullhornService:
                     'BhRestToken': self.rest_token
                 }
                 
+                logging.info(f"Test connection URL: {url}")
+                logging.info(f"Test connection params: {params}")
                 response = self.session.get(url, params=params)
                 logging.info(f"Test connection response: {response.status_code}")
                 if response.status_code == 200:
