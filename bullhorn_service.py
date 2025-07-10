@@ -413,10 +413,10 @@ class BullhornService:
             
             # Test authentication
             if self.authenticate():
-                # Test a simple API call - use a search query that should always work
-                url = f"{self.base_url}/search/Tearsheet"
+                # Test a simple API call - use JobOrder which is a standard entity
+                url = f"{self.base_url}search/JobOrder"
                 params = {
-                    'query': 'id:[* TO *]',  # This query matches any tearsheet
+                    'query': 'id:[1 TO 999999]',  # Query for any job with ID between 1 and 999999
                     'fields': 'id',
                     'count': 1,
                     'BhRestToken': self.rest_token
