@@ -230,13 +230,15 @@ class BullhornService:
             
             rest_data = rest_response.json()
             self.rest_token = rest_data.get('BhRestToken')
-            self.base_url = rest_url
+            # Extract the actual REST URL from the response
+            self.base_url = rest_data.get('restUrl', rest_url)
             
             if not self.rest_token:
                 logging.error("No REST token in response")
                 return False
             
             logging.info(f"Bullhorn authentication successful. Base URL: {self.base_url}")
+            logging.info(f"REST Token (first 20 chars): {self.rest_token[:20]}...")
             return True
             
         except Exception as e:
