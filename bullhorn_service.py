@@ -17,6 +17,8 @@ class BullhornService:
         self.username = None
         self.password = None
         self.session = requests.Session()
+        self._auth_in_progress = False
+        self._last_auth_attempt = None
         self._load_credentials()
     
     def _load_credentials(self):
@@ -47,17 +49,46 @@ class BullhornService:
         Returns:
             bool: True if authentication successful, False otherwise
         """
+        # Check if we already have a valid token
+        if self.rest_token and self.base_url:
+            # Verify the token is still valid
+            try:
+                url = f"{self.base_url}/ping"
+                params = {'BhRestToken': self.rest_token}
+                response = self.session.get(url, params=params)
+                if response.status_code == 200:
+                    logging.info("Using existing valid Bullhorn token")
+                    return True
+            except:
+                pass
+        
+        # Prevent concurrent authentication attempts
+        if self._auth_in_progress:
+            logging.warning("Authentication already in progress, skipping duplicate attempt")
+            return False
+            
+        # Check if we just tried to authenticate (within last 5 seconds)
+        if self._last_auth_attempt:
+            time_since_last = datetime.now() - self._last_auth_attempt
+            if time_since_last.total_seconds() < 5:
+                logging.warning("Recent authentication attempt detected, skipping to prevent code reuse")
+                return False
+        
         if not all([self.client_id, self.client_secret, self.username, self.password]):
             logging.error("Missing Bullhorn credentials")
             return False
             
         try:
+            self._auth_in_progress = True
+            self._last_auth_attempt = datetime.now()
             # Try direct login first (simpler for API access)
             return self._direct_login()
             
         except Exception as e:
             logging.error(f"Bullhorn authentication failed: {str(e)}")
             return False
+        finally:
+            self._auth_in_progress = False
     
     def _direct_login(self) -> bool:
         """
@@ -129,6 +160,10 @@ class BullhornService:
                 location = auth_response.headers.get('Location', '')
                 if 'code=' in location:
                     auth_code = location.split('code=')[1].split('&')[0]
+                    # URL decode the auth code
+                    from urllib.parse import unquote
+                    auth_code = unquote(auth_code)
+                    logging.info(f"Got authorization code (first 10 chars): {auth_code[:10]}...")
                 elif 'error=' in location:
                     error = location.split('error=')[1].split('&')[0]
                     logging.error(f"OAuth authorization failed: {error}")
@@ -213,6 +248,10 @@ class BullhornService:
             logging.error(f"OAuth URL: {oauth_url if 'oauth_url' in locals() else 'Not set'}")
             logging.error(f"Auth endpoint: {auth_endpoint if 'auth_endpoint' in locals() else 'Not set'}")
             logging.error(f"Redirect URI: {redirect_uri if 'redirect_uri' in locals() else 'Not set'}")
+            
+            # Clear any partial authentication state
+            self.rest_token = None
+            self.base_url = None
             return False
     
     def get_job_orders(self, last_modified_since: Optional[datetime] = None) -> List[Dict]:
