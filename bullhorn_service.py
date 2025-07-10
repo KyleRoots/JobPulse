@@ -72,6 +72,7 @@ class BullhornService:
             login_info_params = {'username': self.username}
             
             response = self.session.get(login_info_url, params=login_info_params)
+            logging.info(f"Login info request to {login_info_url} with username: {self.username}")
             if response.status_code != 200:
                 logging.error(f"Failed to get login info: {response.status_code} - {response.text}")
                 return False
@@ -88,7 +89,7 @@ class BullhornService:
             rest_url = login_data['restUrl']
             
             # Step 2: Get authorization code
-            auth_endpoint = f"{oauth_url}/oauth/authorize"
+            auth_endpoint = f"{oauth_url}/authorize"
             
             # Use the whitelisted redirect URI based on environment
             # Bullhorn has whitelisted these specific URLs:
@@ -96,12 +97,8 @@ class BullhornService:
             # - https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback
             # - https://myticas.com/bullhorn_oauth_callback.php
             
-            # Check if we're in Replit workspace environment
-            if os.environ.get('REPL_SLUG') == 'workspace':
-                redirect_uri = "https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback"
-            else:
-                # Default to the development URL that was whitelisted
-                redirect_uri = "https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback"
+            # Always use the production redirect URI since we're in production
+            redirect_uri = "https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback"
             
             auth_params = {
                 'client_id': self.client_id,
@@ -115,8 +112,9 @@ class BullhornService:
             logging.info(f"Using redirect URI: {redirect_uri}")
             logging.info(f"Auth endpoint: {auth_endpoint}")
             
-            auth_response = self.session.post(auth_endpoint, data=auth_params)
+            auth_response = self.session.post(auth_endpoint, data=auth_params, allow_redirects=False)
             logging.info(f"Auth response status: {auth_response.status_code}")
+            logging.info(f"Auth response headers: {dict(auth_response.headers)}")
             
             if auth_response.status_code == 302:
                 # Check for authorization code in redirect
@@ -133,12 +131,20 @@ class BullhornService:
             else:
                 # Try to extract from response content for different OAuth implementations
                 response_text = auth_response.text
+                logging.info(f"Auth response text (first 500 chars): {response_text[:500]}")
+                
                 if '"code":"' in response_text:
                     import re
                     code_match = re.search(r'"code":"([^"]+)"', response_text)
                     auth_code = code_match.group(1) if code_match else None
+                elif 'code=' in response_text:
+                    # Try URL parameter style
+                    import re
+                    code_match = re.search(r'code=([^&\s]+)', response_text)
+                    auth_code = code_match.group(1) if code_match else None
                 else:
-                    logging.error(f"Unexpected auth response: {auth_response.status_code} - {response_text}")
+                    logging.error(f"Unexpected auth response: {auth_response.status_code}")
+                    logging.error(f"Full response text: {response_text}")
                     return False
             
             if not auth_code:
@@ -146,7 +152,7 @@ class BullhornService:
                 return False
             
             # Step 3: Exchange authorization code for access token
-            token_endpoint = f"{oauth_url}/oauth/token"
+            token_endpoint = f"{oauth_url}/token"
             token_data = {
                 'grant_type': 'authorization_code',
                 'code': auth_code,
@@ -193,7 +199,12 @@ class BullhornService:
         except Exception as e:
             logging.error(f"Direct login failed: {str(e)}")
             import traceback
-            logging.error(f"Traceback: {traceback.format_exc()}")
+            traceback_str = traceback.format_exc()
+            logging.error(f"Traceback: {traceback_str}")
+            # Log more details about the failure
+            logging.error(f"OAuth URL: {oauth_url if 'oauth_url' in locals() else 'Not set'}")
+            logging.error(f"Auth endpoint: {auth_endpoint if 'auth_endpoint' in locals() else 'Not set'}")
+            logging.error(f"Redirect URI: {redirect_uri if 'redirect_uri' in locals() else 'Not set'}")
             return False
     
     def get_job_orders(self, last_modified_since: Optional[datetime] = None) -> List[Dict]:
