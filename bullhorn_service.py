@@ -90,16 +90,18 @@ class BullhornService:
             # Step 2: Get authorization code
             auth_endpoint = f"{oauth_url}/oauth/authorize"
             
-            # Determine the correct redirect URI based on environment
-            if 'REPLIT_URL' in os.environ:
-                # Use REPLIT_URL if available (production deployments)
-                redirect_uri = f"{os.environ['REPLIT_URL']}/bullhorn/oauth/callback"
-            elif hasattr(request, 'url_root'):
-                # Use current request URL root if available
-                redirect_uri = f"{request.url_root}bullhorn/oauth/callback"
+            # Use the whitelisted redirect URI based on environment
+            # Bullhorn has whitelisted these specific URLs:
+            # - https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback
+            # - https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback
+            # - https://myticas.com/bullhorn_oauth_callback.php
+            
+            # Check if we're in Replit workspace environment
+            if os.environ.get('REPL_SLUG') == 'workspace':
+                redirect_uri = "https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback"
             else:
-                # Fallback for development
-                redirect_uri = "http://localhost:5000/bullhorn/oauth/callback"
+                # Default to the development URL that was whitelisted
+                redirect_uri = "https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback"
             
             auth_params = {
                 'client_id': self.client_id,
@@ -109,6 +111,9 @@ class BullhornService:
                 'password': self.password,
                 'action': 'Login'
             }
+            
+            logging.info(f"Using redirect URI: {redirect_uri}")
+            logging.info(f"Auth endpoint: {auth_endpoint}")
             
             auth_response = self.session.post(auth_endpoint, data=auth_params)
             logging.info(f"Auth response status: {auth_response.status_code}")

@@ -1,0 +1,77 @@
+Hi Kyle,
+
+The redirect URI's are updated to include the following:
+
+https://myticas.com/bullhorn_oauth_callback.php
+https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback
+https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback
+
+I'll therefore be closing this case. Have a great week!
+
+Thank you for contacting Bullhorn Support!
+
+Nathan Mach - Product Support Analyst
+
+
+--------------- Original Message ---------------
+From: Kyle Roots [kroots@myticas.com]
+Sent: 7/8/2025 8:14 PM
+To: bullhornsupporttickets@bullhorn.com
+Type: Re: Ticket 05848415: Redirect URI Whitelist [ ref:!00DU00YOky.!500Rn0c3xlg:ref ]
+
+Hi Nathan,
+
+ 
+
+The URIs have been provided in the original ticket, and the requested information you’re looking for is below:
+
+ 
+
+Client ID: cc648565-fdc2-4239-ac59-c545de9519dd
+
+Client Secret: xxxx1ETb
+
+ 
+
+Thanks!
+
+ 
+
+This is Kyle Roots's card. Their email is kroots@myticas.com. Their phone number is +1 613 799 2691.
+
+Image
+
+ 	
+Book time to meet with me
+
+ 
+
+ 
+
+From: Bullhorn Support <bullhornsupporttickets@bullhorn.com>
+Date: Tuesday, July 8, 2025 at 5:07 PM
+To: Kyle Roots <kroots@myticas.com>
+Subject: Ticket 05848415: Redirect URI Whitelist [ ref:!00DU00YOky.!500Rn0c3xlg:ref ]
+
+Hi Kyle,
+
+This is Nathan from Bullhorn Support.
+
+We can certainly whitelist multiple redirect URI's for you.
+
+Could you provide me with the Client ID and last 4 characters of your secret, please?
+Alternatively, I can also set up a new API key for you.
+
+Please let me know how you would like to proceed.
+
+Thank you for contacting Bullhorn Support!
+
+Nathan Mach - Product Support AnalystImage removed by sender.
+
+ref:!00DU00YOky.!500Rn0c3xlg:ref
+
+Bullhorn
+
+Visit help.bullhorn.com for all your questions, training, and to connect with Support.
+
+----------------------------- This email and any files transmitted with it are confidential and intended solely for the use of the individual or entity to whom they are addressed. If you have received this email in error please notify the system manager. This message contains confidential information and is intended only for the individual named. If you are not the named addressee you should not disseminate, distribute or copy this e-mail. Please notify the sender immediately by e-mail if you have received this e-mail by mistake and delete this e-mail from your system. If you are not the intended recipient you are notified that disclosing, copying, distributing or taking any action in reliance on the contents of this information is strictly prohibited.
