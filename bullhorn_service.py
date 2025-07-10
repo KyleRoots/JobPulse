@@ -406,21 +406,31 @@ class BullhornService:
         """
         try:
             if not self.client_id or not self.username:
+                logging.error("Missing client_id or username for Bullhorn connection test")
                 return False
             
             # Test authentication
             if self.authenticate():
-                # Test a simple API call
-                url = f"{self.base_url}/ping" if self.base_url else "https://rest.bullhornstaffing.com/rest-services/ping"
-                params = {'BhRestToken': self.rest_token} if self.rest_token else {}
+                # Test a simple API call - use settings endpoint instead of ping
+                url = f"{self.base_url}/settings/corporationId"
+                params = {'BhRestToken': self.rest_token}
                 
                 response = self.session.get(url, params=params)
-                return response.status_code == 200
+                logging.info(f"Test connection response: {response.status_code}")
+                if response.status_code == 200:
+                    logging.info("Bullhorn connection test successful")
+                    return True
+                else:
+                    logging.error(f"Test connection failed: {response.status_code} - {response.text}")
+                    return False
             
+            logging.error("Authentication failed in test_connection")
             return False
             
         except Exception as e:
             logging.error(f"Bullhorn connection test failed: {str(e)}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
             return False
     
     def compare_job_lists(self, previous_jobs: List[Dict], current_jobs: List[Dict]) -> Dict[str, List[Dict]]:
