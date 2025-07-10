@@ -97,9 +97,8 @@ class BullhornService:
             # - https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback
             # - https://myticas.com/bullhorn_oauth_callback.php
             
-            # Use the correct production redirect URI
-            # Check if we're running on the job-feed-refresh domain
-            redirect_uri = "https://job-feed-refresh.replit.app/bullhorn/oauth/callback"
+            # Use the whitelisted production redirect URI
+            redirect_uri = "https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback"
             
             auth_params = {
                 'client_id': self.client_id,
