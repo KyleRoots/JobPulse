@@ -109,7 +109,7 @@
                                             <h6 class="card-title">{{ monitor.name }}</h6>
                                             <p class="card-text text-muted">
                                                 <small>
-                                                    <i class="fas fa-list me-1"></i>Tearsheet: {{ monitor.tearsheet_name or monitor.tearsheet_id }}<br>
+                                                    <i class="fas fa-search me-1"></i>Query: {{ monitor.tearsheet_name }}<br>
                                                     <i class="fas fa-clock me-1"></i>Check every {{ monitor.check_interval_minutes }} minutes<br>
                                                     <i class="fas fa-calendar me-1"></i>Last check: 
                                                     {% if monitor.last_check %}

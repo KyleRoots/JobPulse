@@ -347,6 +347,52 @@ class BullhornService:
             logging.error(f"Error getting tearsheet jobs: {str(e)}")
             return []
     
+    def get_jobs_by_query(self, query: str) -> List[Dict]:
+        """
+        Get jobs using a custom search query
+        
+        Args:
+            query: Bullhorn search query (e.g., "status:Open AND isPublic:1")
+            
+        Returns:
+            List[Dict]: List of job dictionaries matching the query
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+        
+        try:
+            # Define fields to retrieve
+            fields = [
+                "id", "title", "isOpen", "status", "dateAdded", 
+                "dateLastModified", "clientCorporation(id,name)",
+                "clientContact(firstName,lastName)", "description",
+                "publicDescription", "numOpenings", "isPublic"
+            ]
+            
+            # Make API request
+            url = f"{self.base_url}search/JobOrder"
+            params = {
+                'query': query,
+                'fields': ','.join(fields),
+                'sort': '-dateLastModified',
+                'count': 500,  # Get more results for monitoring
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('data', [])
+            else:
+                logging.error(f"Failed to get jobs by query: {response.status_code} - {response.text}")
+                return []
+                
+        except Exception as e:
+            logging.error(f"Error getting jobs by query: {str(e)}")
+            return []
+    
     def get_tearsheets(self) -> List[Dict]:
         """
         Get all tearsheets from Bullhorn
@@ -359,12 +405,10 @@ class BullhornService:
                 return []
         
         try:
-            url = f"{self.base_url}/search/Tearsheet"
+            # In Bullhorn, tearsheets might be saved searches or lists
+            # Let's try using the savedSearch endpoint
+            url = f"{self.base_url}/services/SavedSearch"
             params = {
-                'query': 'isDeleted:0',
-                'fields': 'id,name,dateAdded,dateLastModified,jobOrders(total)',
-                'sort': '-dateLastModified',
-                'count': 50,
                 'BhRestToken': self.rest_token
             }
             

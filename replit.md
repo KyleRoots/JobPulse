@@ -124,6 +124,9 @@ Changelog:
 - July 08, 2025. Enhanced file replacement functionality to immediately upload new files to SFTP server when replaced (without reference number processing)
 - July 08, 2025. Added "Last Upload" timestamp tracking for better user transparency - shows when files were most recently replaced/uploaded
 - July 08, 2025. Final code cleanup and production readiness - optimized logging levels and verified all functionality
+- July 10, 2025. Restructured Bullhorn monitoring to use JobOrder search queries instead of tearsheets after discovering "Tearsheet" is not a valid Bullhorn entity
+- July 10, 2025. Updated monitor creation interface to accept custom search queries (e.g., "status:Open AND isPublic:1") for flexible job monitoring
+- July 10, 2025. Enhanced monitoring system to handle both query-based and tearsheet-based monitors for backward compatibility
 ```
 
 ## User Preferences

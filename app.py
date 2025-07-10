@@ -287,8 +287,13 @@ def process_bullhorn_monitors():
                         db.session.add(activity)
                         continue
                     
-                    # Get current jobs in the tearsheet
-                    current_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+                    # Get current jobs based on monitor type
+                    if monitor.tearsheet_id == 0:
+                        # Query-based monitor
+                        current_jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
+                    else:
+                        # Traditional tearsheet-based monitor
+                        current_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
                     
                     # Compare with previous snapshot if it exists
                     previous_jobs = []
@@ -386,13 +391,14 @@ def process_bullhorn_monitors():
                     monitor.last_check = current_time
                     monitor.calculate_next_check()
                     
-                    # Log successful check
-                    activity = BullhornActivity(
-                        monitor_id=monitor.id,
-                        activity_type='check_completed',
-                        details=f"Checked tearsheet {monitor.tearsheet_id}. Found {len(current_jobs)} jobs. {len(added_jobs)} added, {len(removed_jobs)} removed."
-                    )
-                    db.session.add(activity)
+                    # Log successful check (only if no changes were already logged)
+                    if not (added_jobs or removed_jobs or modified_jobs):
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='check_completed',
+                            details=f"Checked query: {monitor.tearsheet_name}. Found {len(current_jobs)} jobs. No changes detected."
+                        )
+                        db.session.add(activity)
                     
                     app.logger.info(f"Successfully processed Bullhorn monitor: {monitor.name}")
                     
@@ -1335,63 +1341,31 @@ def create_bullhorn_monitor():
     if request.method == 'POST':
         try:
             name = request.form.get('name')
-            tearsheet_names = request.form.getlist('tearsheet_name')  # Get multiple selections
+            job_search_query = request.form.get('job_search_query', '').strip()
             check_interval = int(request.form.get('check_interval_minutes', 60))
             notification_email = request.form.get('notification_email', '').strip()
             send_notifications = 'send_notifications' in request.form
             
             # Validate inputs
-            if not name or not tearsheet_names:
-                flash('Name and Tearsheet selection are required', 'error')
+            if not name or not job_search_query:
+                flash('Name and Job Search Query are required', 'error')
                 return redirect(url_for('create_bullhorn_monitor'))
             
-            # Initialize Bullhorn service
-            bullhorn_service = BullhornService()
-            monitors_created = []
+            # Create new monitor with search query instead of tearsheet ID
+            monitor = BullhornMonitor(
+                name=name,
+                tearsheet_id=0,  # We'll use 0 to indicate query-based monitor
+                tearsheet_name=job_search_query,  # Store the query in tearsheet_name field
+                check_interval_minutes=check_interval,
+                notification_email=notification_email if notification_email else None,
+                send_notifications=send_notifications,
+                next_check=datetime.utcnow()
+            )
             
-            # Create a monitor for each selected tearsheet
-            for tearsheet_name in tearsheet_names:
-                # Get tearsheet ID from name using Bullhorn API
-                tearsheet = bullhorn_service.get_tearsheet_by_name(tearsheet_name)
-                
-                if not tearsheet:
-                    flash(f'Tearsheet "{tearsheet_name}" not found in Bullhorn', 'error')
-                    continue
-                
-                tearsheet_id = tearsheet.get('id')
-                if not tearsheet_id:
-                    flash(f'Could not retrieve ID for tearsheet "{tearsheet_name}"', 'error')
-                    continue
-                
-                # Create monitor name based on whether single or multiple tearsheets
-                if len(tearsheet_names) == 1:
-                    monitor_name = name
-                else:
-                    monitor_name = f"{name} - {tearsheet_name}"
-                
-                # Create new monitor
-                monitor = BullhornMonitor(
-                    name=monitor_name,
-                    tearsheet_id=tearsheet_id,
-                    tearsheet_name=tearsheet_name,
-                    check_interval_minutes=check_interval,
-                    notification_email=notification_email if notification_email else None,
-                    send_notifications=send_notifications,
-                    next_check=datetime.utcnow()
-                )
-                
-                db.session.add(monitor)
-                monitors_created.append(tearsheet_name)
-            
+            db.session.add(monitor)
             db.session.commit()
             
-            if monitors_created:
-                if len(monitors_created) == 1:
-                    flash(f'Monitor "{name}" created successfully for tearsheet "{monitors_created[0]}"', 'success')
-                else:
-                    flash(f'Created {len(monitors_created)} monitors for tearsheets: {", ".join(monitors_created)}', 'success')
-            else:
-                flash('No monitors could be created. Please check your tearsheet selections.', 'error')
+            flash(f'Monitor "{name}" created successfully with search query: {job_search_query}', 'success')
             
             return redirect(url_for('bullhorn_dashboard'))
             
@@ -1454,12 +1428,19 @@ def test_bullhorn_monitor(monitor_id):
                 'message': 'Failed to connect to Bullhorn API. Check your credentials in Global Settings.'
             })
         
-        # Get jobs from tearsheet
-        jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+        # Get jobs based on monitor type
+        if monitor.tearsheet_id == 0:
+            # Query-based monitor
+            jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
+            message = f'Successfully connected to Bullhorn. Found {len(jobs)} jobs matching query: {monitor.tearsheet_name}'
+        else:
+            # Traditional tearsheet-based monitor
+            jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+            message = f'Successfully connected to Bullhorn. Found {len(jobs)} jobs in tearsheet {monitor.tearsheet_id}.'
         
         return jsonify({
             'success': True,
-            'message': f'Successfully connected to Bullhorn. Found {len(jobs)} jobs in tearsheet {monitor.tearsheet_id}.',
+            'message': message,
             'job_count': len(jobs)
         })
         
