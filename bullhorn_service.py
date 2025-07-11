@@ -327,15 +327,29 @@ class BullhornService:
                 return []
         
         try:
-            # Get tearsheet with associated jobs - handle pagination properly
-            url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
+            # Use search API to get all jobs for this tearsheet (more reliable than entity API)
+            # This approach works around the pagination limitation of the tearsheet entity endpoint
+            query = f"tearsheets.id:{tearsheet_id}"
+            
+            # Define fields to retrieve
+            fields = [
+                "id", "title", "isOpen", "status", "dateAdded", 
+                "dateLastModified", "clientCorporation(id,name)",
+                "clientContact(firstName,lastName)", "description",
+                "publicDescription", "numOpenings", "isPublic"
+            ]
+            
             all_jobs = []
             start = 0
             count = 200  # Max records per page
             
             while True:
+                # Make API request using search endpoint
+                url = f"{self.base_url}search/JobOrder"
                 params = {
-                    'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription)',
+                    'query': query,
+                    'fields': ','.join(fields),
+                    'sort': '-dateLastModified',
                     'start': start,
                     'count': count,
                     'BhRestToken': self.rest_token
@@ -345,25 +359,17 @@ class BullhornService:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    job_orders = data.get('data', {}).get('jobOrders', {})
+                    jobs_data = data.get('data', [])
+                    total = data.get('total', 0)
                     
-                    if isinstance(job_orders, dict):
-                        jobs_data = job_orders.get('data', [])
-                        total = job_orders.get('total', 0)
-                        
-                        # Add jobs from this page
-                        all_jobs.extend(jobs_data)
-                        
-                        # Check if we need to fetch more pages
-                        if len(jobs_data) < count or len(all_jobs) >= total:
-                            break
-                        
-                        start += count
-                    else:
-                        # Handle case where jobOrders is not a dict (empty or different format)
-                        if len(all_jobs) == 0:
-                            logging.warning(f"Tearsheet {tearsheet_id}: No jobs found or unexpected format")
+                    # Add jobs from this page
+                    all_jobs.extend(jobs_data)
+                    
+                    # Check if we need to fetch more pages
+                    if len(jobs_data) < count or len(all_jobs) >= total:
                         break
+                    
+                    start += count
                 else:
                     logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
                     break

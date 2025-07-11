@@ -137,6 +137,7 @@ Changelog:
 - July 11, 2025. Enhanced monitoring reliability - added false positive detection for job removals, increased API result count to 200 jobs, implemented verification logic to prevent incorrect removal notifications
 - July 11, 2025. Added job count transparency - monitors now display current total jobs in tearsheets, email notifications prominently show total job counts, enhanced monitoring logs with job totals for user verification
 - July 11, 2025. Fixed critical job count accuracy bug - implemented proper pagination handling in tearsheet API calls to ensure all jobs are retrieved, not just the first 20
+- July 11, 2025. Resolved tearsheet pagination limitation by switching from entity API to search API with 'tearsheets.id' query for accurate job retrieval
 ```
 
 ## User Preferences
