@@ -1462,8 +1462,22 @@ def bullhorn_settings():
         if request.form.get('action') == 'test':
             try:
                 app.logger.info("Testing Bullhorn connection from settings page")
-                bullhorn_service = BullhornService()
-                app.logger.info(f"Bullhorn service initialized - has credentials: {bool(bullhorn_service.client_id)}")
+                
+                # Get credentials from database
+                credentials = {}
+                for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+                    setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                    credentials[key] = setting.setting_value if setting else ''
+                
+                app.logger.info(f"Loaded credentials - Client ID exists: {bool(credentials.get('bullhorn_client_id'))}")
+                
+                # Initialize service with credentials
+                bullhorn_service = BullhornService(
+                    client_id=credentials.get('bullhorn_client_id'),
+                    client_secret=credentials.get('bullhorn_client_secret'),
+                    username=credentials.get('bullhorn_username'),
+                    password=credentials.get('bullhorn_password')
+                )
                 
                 result = bullhorn_service.test_connection()
                 app.logger.info(f"Bullhorn test result: {result}")
@@ -1472,7 +1486,7 @@ def bullhorn_settings():
                     flash('Successfully connected to Bullhorn API', 'success')
                 else:
                     # Check if credentials are missing
-                    if not bullhorn_service.client_id or not bullhorn_service.username:
+                    if not credentials.get('bullhorn_client_id') or not credentials.get('bullhorn_username'):
                         flash('Missing Bullhorn credentials. Please save your credentials first.', 'error')
                     else:
                         flash('Failed to connect to Bullhorn API. Please check your credentials.', 'error')

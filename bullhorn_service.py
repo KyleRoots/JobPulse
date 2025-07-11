@@ -37,13 +37,17 @@ class BullhornService:
                 'bullhorn_password': 'password'
             }
             
+            logging.info("Loading Bullhorn credentials from database...")
             for setting_key, attr_name in settings_map.items():
                 setting = GlobalSettings.query.filter_by(setting_key=setting_key).first()
                 if setting and setting.setting_value:
                     setattr(self, attr_name, setting.setting_value.strip())
+                    logging.info(f"Loaded {setting_key}: {'***' + setting.setting_value[-4:] if len(setting.setting_value) > 4 else '***'}")
+                else:
+                    logging.warning(f"No value found for {setting_key}")
                     
         except Exception as e:
-            logging.warning(f"Could not load Bullhorn credentials: {str(e)}")
+            logging.error(f"Could not load Bullhorn credentials: {str(e)}")
         
     def authenticate(self) -> bool:
         """
