@@ -1455,6 +1455,21 @@ def test_bullhorn_monitor(monitor_id):
 def bullhorn_settings():
     """Manage Bullhorn API credentials in Global Settings"""
     if request.method == 'POST':
+        # Check if this is a test action
+        if request.form.get('action') == 'test':
+            try:
+                bullhorn_service = BullhornService()
+                if bullhorn_service.test_connection():
+                    flash('Successfully connected to Bullhorn API', 'success')
+                else:
+                    flash('Failed to connect to Bullhorn API. Please check your credentials.', 'error')
+            except Exception as e:
+                app.logger.error(f"Error testing Bullhorn connection: {str(e)}")
+                flash(f'Connection test failed: {str(e)}', 'error')
+            
+            return redirect(url_for('bullhorn_settings'))
+        
+        # Otherwise, it's a save action
         try:
             # Update Bullhorn settings
             settings_to_update = [
