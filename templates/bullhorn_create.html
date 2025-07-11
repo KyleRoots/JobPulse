@@ -126,19 +126,6 @@
                                 </div>
                                 {% endif %}
                                 
-                                <!-- Manual Tearsheet ID Entry -->
-                                <div class="mb-3">
-                                    <label for="manual_tearsheet_id" class="form-label">
-                                        <i class="fas fa-hashtag me-1"></i>Enter Tearsheet ID Manually
-                                    </label>
-                                    <input type="number" class="form-control" id="manual_tearsheet_id" name="manual_tearsheet_id" 
-                                           placeholder="e.g., 150" min="1">
-                                    <div class="form-text">
-                                        <i class="fas fa-lightbulb me-1"></i>
-                                        If you know the specific tearsheet ID, enter it here. You can find this in your Bullhorn URL when viewing a tearsheet.
-                                    </div>
-                                </div>
-                                
                                 {% if not tearsheets %}
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-1"></i>
@@ -204,6 +191,34 @@
                                     </label>
                                     <div class="form-text">
                                         When enabled, you'll receive emails whenever jobs are added to or removed from the tearsheet
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Manual Tearsheet ID Entry - Only show for tearsheet monitoring -->
+                            <div id="manual-tearsheet-section" class="mb-4" style="display: none;">
+                                <div class="card border-secondary">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-hashtag me-1"></i>Enter Tearsheet ID Manually
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="manual_tearsheet_id" class="form-label">Tearsheet ID</label>
+                                            <input type="number" class="form-control" id="manual_tearsheet_id" name="manual_tearsheet_id" 
+                                                   placeholder="e.g., 150" min="1">
+                                            <div class="form-text">
+                                                <i class="fas fa-lightbulb me-1"></i>
+                                                If you know the specific tearsheet ID, enter it here. You can find this in your Bullhorn URL when viewing a tearsheet.
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <strong>Finding your tearsheet ID:</strong> Go to your tearsheet in Bullhorn and look at the URL. 
+                                            It will contain something like "tearsheet/123" where 123 is the ID.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -281,21 +296,25 @@
             const submitButton = form.querySelector('button[type="submit"]');
             const tearsheetOptions = document.getElementById('tearsheet-options');
             const queryOptions = document.getElementById('query-options');
+            const manualTearsheetSection = document.getElementById('manual-tearsheet-section');
             const monitorTypeCards = document.querySelectorAll('.monitor-type-card');
             const tearsheetRadio = document.getElementById('type_tearsheet');
             const queryRadio = document.getElementById('type_query');
             
             // Handle monitor type selection
             function updateMonitorType() {
-                if (tearsheetRadio.checked) {
-                    tearsheetOptions.style.display = 'block';
-                    queryOptions.style.display = 'none';
-                    // Note: tearsheet validation is handled in form submission
+                if (tearsheetRadio && tearsheetRadio.checked) {
+                    if (tearsheetOptions) tearsheetOptions.style.display = 'block';
+                    if (queryOptions) queryOptions.style.display = 'none';
+                    if (manualTearsheetSection) manualTearsheetSection.style.display = 'block';
+                    
                     const queryInput = document.getElementById('job_search_query');
                     if (queryInput) queryInput.required = false;
                 } else {
-                    tearsheetOptions.style.display = 'none';
-                    queryOptions.style.display = 'block';
+                    if (tearsheetOptions) tearsheetOptions.style.display = 'none';
+                    if (queryOptions) queryOptions.style.display = 'block';
+                    if (manualTearsheetSection) manualTearsheetSection.style.display = 'none';
+                    
                     const queryInput = document.getElementById('job_search_query');
                     if (queryInput) queryInput.required = true;
                 }
@@ -324,9 +343,12 @@
             // Handle form submission
             form.addEventListener('submit', function(e) {
                 // Validate tearsheet selection if tearsheet monitoring is selected
-                if (tearsheetRadio.checked) {
-                    const tearsheetId = document.getElementById('tearsheet_id').value;
-                    const manualTearsheetId = document.getElementById('manual_tearsheet_id').value;
+                if (tearsheetRadio && tearsheetRadio.checked) {
+                    const tearsheetDropdown = document.getElementById('tearsheet_id');
+                    const manualTearsheetInput = document.getElementById('manual_tearsheet_id');
+                    
+                    const tearsheetId = tearsheetDropdown ? tearsheetDropdown.value : '';
+                    const manualTearsheetId = manualTearsheetInput ? manualTearsheetInput.value : '';
                     
                     if (!tearsheetId && !manualTearsheetId) {
                         e.preventDefault();
@@ -335,8 +357,10 @@
                     }
                 }
                 
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Monitor...';
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Monitor...';
+                }
             });
         });
     </script>
