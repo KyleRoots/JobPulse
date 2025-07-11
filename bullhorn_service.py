@@ -327,26 +327,54 @@ class BullhornService:
                 return []
         
         try:
-            # Get tearsheet with associated jobs
+            # Get tearsheet with associated jobs - handle pagination properly
             url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
-            params = {
-                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription)',
-                'count': 200,  # Ensure we get all jobs, not just the first 20
-                'BhRestToken': self.rest_token
-            }
+            all_jobs = []
+            start = 0
+            count = 200  # Max records per page
             
-            response = self.session.get(url, params=params)
-            
-            if response.status_code == 200:
-                data = response.json()
-                job_orders = data.get('data', {}).get('jobOrders', {})
-                if isinstance(job_orders, dict):
-                    return job_orders.get('data', [])
+            while True:
+                params = {
+                    'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription)',
+                    'start': start,
+                    'count': count,
+                    'BhRestToken': self.rest_token
+                }
+                
+                response = self.session.get(url, params=params)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    job_orders = data.get('data', {}).get('jobOrders', {})
+                    
+                    if isinstance(job_orders, dict):
+                        jobs_data = job_orders.get('data', [])
+                        total = job_orders.get('total', 0)
+                        
+                        # Add jobs from this page
+                        all_jobs.extend(jobs_data)
+                        
+                        # Log pagination info for debugging (only if there are jobs or pagination is needed)
+                        if total > 0 or start > 0:
+                            logging.info(f"Tearsheet {tearsheet_id}: Got {len(jobs_data)} jobs (start={start}, total={total})")
+                        
+                        # Check if we need to fetch more pages
+                        if len(jobs_data) < count or len(all_jobs) >= total:
+                            break
+                        
+                        start += count
+                    else:
+                        # Handle case where jobOrders is not a dict (empty or different format)
+                        logging.warning(f"Tearsheet {tearsheet_id}: jobOrders not in expected format: {type(job_orders)}")
+                        break
                 else:
-                    return []
-            else:
-                logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
-                return []
+                    logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
+                    break
+            
+            # Only log final count if there are jobs or if we had pagination
+            if len(all_jobs) > 0 or start > 0:
+                logging.info(f"Tearsheet {tearsheet_id}: Final count = {len(all_jobs)} jobs")
+            return all_jobs
                 
         except Exception as e:
             logging.error(f"Error getting tearsheet jobs: {str(e)}")
