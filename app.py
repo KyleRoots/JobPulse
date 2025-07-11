@@ -1461,11 +1461,21 @@ def bullhorn_settings():
         # Check if this is a test action
         if request.form.get('action') == 'test':
             try:
+                app.logger.info("Testing Bullhorn connection from settings page")
                 bullhorn_service = BullhornService()
-                if bullhorn_service.test_connection():
+                app.logger.info(f"Bullhorn service initialized - has credentials: {bool(bullhorn_service.client_id)}")
+                
+                result = bullhorn_service.test_connection()
+                app.logger.info(f"Bullhorn test result: {result}")
+                
+                if result:
                     flash('Successfully connected to Bullhorn API', 'success')
                 else:
-                    flash('Failed to connect to Bullhorn API. Please check your credentials.', 'error')
+                    # Check if credentials are missing
+                    if not bullhorn_service.client_id or not bullhorn_service.username:
+                        flash('Missing Bullhorn credentials. Please save your credentials first.', 'error')
+                    else:
+                        flash('Failed to connect to Bullhorn API. Please check your credentials.', 'error')
             except Exception as e:
                 app.logger.error(f"Error testing Bullhorn connection: {str(e)}")
                 flash(f'Connection test failed: {str(e)}', 'error')
