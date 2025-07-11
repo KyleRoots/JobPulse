@@ -71,7 +71,11 @@ class BullhornService:
         if self._last_auth_attempt:
             time_since_last = datetime.now() - self._last_auth_attempt
             if time_since_last.total_seconds() < 5:
-                logging.warning("Recent authentication attempt detected, skipping to prevent code reuse")
+                logging.warning(f"Recent authentication attempt detected ({time_since_last.total_seconds():.1f}s ago), skipping to prevent code reuse")
+                # If we have a valid token, return True
+                if self.rest_token and self.base_url:
+                    logging.info("But we have a valid token, so returning True")
+                    return True
                 return False
         
         if not all([self.client_id, self.client_secret, self.username, self.password]):
@@ -444,12 +448,19 @@ class BullhornService:
             bool: True if connection successful, False otherwise
         """
         try:
+            logging.info("Starting Bullhorn connection test")
+            
             if not self.client_id or not self.username:
-                logging.error("Missing client_id or username for Bullhorn connection test")
+                logging.error(f"Missing credentials - client_id: {bool(self.client_id)}, username: {bool(self.username)}")
                 return False
             
+            logging.info(f"Credentials present - client_id: {self.client_id}, username: {self.username}")
+            
             # Test authentication
-            if self.authenticate():
+            auth_result = self.authenticate()
+            logging.info(f"Authentication result: {auth_result}")
+            
+            if auth_result:
                 # Test a simple API call - use JobOrder which is a standard entity
                 url = f"{self.base_url}search/JobOrder"
                 params = {
@@ -463,18 +474,19 @@ class BullhornService:
                 logging.info(f"Test connection params: {params}")
                 response = self.session.get(url, params=params)
                 logging.info(f"Test connection response: {response.status_code}")
+                
                 if response.status_code == 200:
-                    logging.info("Bullhorn connection test successful")
+                    logging.info("Bullhorn connection test successful - returning True")
                     return True
                 else:
                     logging.error(f"Test connection failed: {response.status_code} - {response.text}")
                     return False
-            
-            logging.error("Authentication failed in test_connection")
-            return False
+            else:
+                logging.error("Authentication failed in test_connection")
+                return False
             
         except Exception as e:
-            logging.error(f"Bullhorn connection test failed: {str(e)}")
+            logging.error(f"Bullhorn connection test failed with exception: {str(e)}")
             import traceback
             logging.error(f"Traceback: {traceback.format_exc()}")
             return False

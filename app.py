@@ -1495,7 +1495,12 @@ def test_bullhorn_connection():
     try:
         bullhorn_service = BullhornService()
         
-        if bullhorn_service.test_connection():
+        # Log the test attempt
+        app.logger.info("Testing Bullhorn connection from API endpoint")
+        result = bullhorn_service.test_connection()
+        app.logger.info(f"Test connection result: {result}")
+        
+        if result:
             return jsonify({
                 'success': True,
                 'message': 'Successfully connected to Bullhorn API'
