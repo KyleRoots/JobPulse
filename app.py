@@ -1459,10 +1459,8 @@ def create_bullhorn_monitor():
             except Exception:
                 continue
                 
-        if tearsheets:
-            flash(f'Found {len(tearsheets)} tearsheets. If your tearsheet is not listed, you can enter its ID manually or use custom search queries.', 'info')
-        else:
-            flash('Unable to load tearsheets automatically. You can enter a tearsheet ID manually or use custom search queries.', 'info')
+        # Don't show flash messages for tearsheet loading - keep the interface clean
+        # Users can still use the dropdown if tearsheets are found, or manual entry if not
             
     except Exception as e:
         flash('Could not connect to Bullhorn. Please check your API credentials.', 'error')
