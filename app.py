@@ -958,28 +958,14 @@ def upload_file():
         
         # Generate output filename (preserve original name without "updated_" prefix)
         output_filename = original_filename
-        # Try using current working directory instead of temp folder
+        # Use current working directory for output
         output_filepath = os.path.join(os.getcwd(), f"{unique_id}_{output_filename}")
-        app.logger.info(f"Using output path: {output_filepath}")
         
         # Process the file
         result = processor.process_xml(input_filepath, output_filepath)
         
         # Clean up input file
         os.remove(input_filepath)
-        
-        # Debug: Check if output file exists immediately after processing
-        import time
-        app.logger.info(f"Output file path: {output_filepath}")
-        app.logger.info(f"Output file exists immediately: {os.path.exists(output_filepath)}")
-        
-        # Brief pause to check if timing issue
-        time.sleep(0.1)
-        app.logger.info(f"Output file exists after 0.1s: {os.path.exists(output_filepath)}")
-        
-        # List files in temp directory to see what's there
-        temp_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if 'myticas-job-feed-dice.xml' in f]
-        app.logger.info(f"Files in temp directory containing 'myticas-job-feed-dice.xml': {temp_files}")
         
         if result['success']:
             flash(f'Successfully processed {result["jobs_processed"]} jobs with unique reference numbers', 'success')
@@ -988,7 +974,6 @@ def upload_file():
             sftp_uploaded = False
             try:
                 sftp_settings = db.session.query(GlobalSettings).filter_by(setting_key='sftp_enabled').first()
-                app.logger.info(f"SFTP enabled setting: {sftp_settings.setting_value if sftp_settings else 'None'}")
                 
                 if sftp_settings and sftp_settings.setting_value.lower() == 'true':
                     # Get SFTP credentials
@@ -997,8 +982,6 @@ def upload_file():
                     password = db.session.query(GlobalSettings).filter_by(setting_key='sftp_password').first()
                     directory = db.session.query(GlobalSettings).filter_by(setting_key='sftp_directory').first()
                     port = db.session.query(GlobalSettings).filter_by(setting_key='sftp_port').first()
-                    
-                    app.logger.info(f"SFTP credentials check - hostname: {hostname is not None}, username: {username is not None}, password: {password is not None}")
                     
                     if all([hostname, username, password]):
                         from ftp_service import FTPService
@@ -1012,8 +995,6 @@ def upload_file():
                             use_sftp=True
                         )
                         
-                        app.logger.info(f"Attempting SFTP upload to {hostname.setting_value}")
-                        app.logger.info(f"Upload file check - file exists: {os.path.exists(output_filepath)}")
                         # Upload file with original name
                         upload_success = ftp_service.upload_file(output_filepath, original_filename)
                         
@@ -1024,8 +1005,6 @@ def upload_file():
                             flash(f'File processed but upload to server failed', 'warning')
                     else:
                         flash(f'File processed but SFTP credentials not configured', 'warning')
-                else:
-                    app.logger.info("SFTP upload disabled or not configured")
             except Exception as e:
                 app.logger.error(f"SFTP upload error: {str(e)}")
                 flash(f'File processed but upload to server failed: {str(e)}', 'warning')
@@ -1634,21 +1613,14 @@ def test_email_notification(monitor_id):
 def bullhorn_settings():
     """Manage Bullhorn API credentials in Global Settings"""
     if request.method == 'POST':
-        app.logger.info(f"Bullhorn settings POST received with action: {request.form.get('action')}")
-        app.logger.info(f"Form data: {dict(request.form)}")
-        
         # Check if this is a test action
         if request.form.get('action') == 'test':
             try:
-                app.logger.info("Testing Bullhorn connection from settings page")
-                
                 # Get credentials from database
                 credentials = {}
                 for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
                     setting = GlobalSettings.query.filter_by(setting_key=key).first()
                     credentials[key] = setting.setting_value if setting else ''
-                
-                app.logger.info(f"Loaded credentials - Client ID exists: {bool(credentials.get('bullhorn_client_id'))}")
                 
                 # Initialize service with credentials
                 bullhorn_service = BullhornService(
