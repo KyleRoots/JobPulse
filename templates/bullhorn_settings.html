@@ -112,7 +112,21 @@
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-save me-2"></i>Save Settings
                                 </button>
-                                <button type="button" class="btn btn-outline-info" id="testConnectionBtn">
+                                <button type="button" class="btn btn-outline-info" onclick="(function(){
+                                    const resultDiv = document.getElementById('connectionTestResult');
+                                    resultDiv.style.display = 'block';
+                                    resultDiv.innerHTML = '<div class=\'alert alert-info\'><div class=\'spinner-border spinner-border-sm me-2\' role=\'status\'></div>Testing connection to Bullhorn API...</div>';
+                                    fetch('/api/bullhorn/test-connection', {method: 'POST', headers: {'Content-Type': 'application/json'}})
+                                    .then(r => r.json())
+                                    .then(data => {
+                                        resultDiv.innerHTML = data.success ? 
+                                            '<div class=\'alert alert-success\'><i class=\'fas fa-check-circle me-2\'></i>' + data.message + '</div>' : 
+                                            '<div class=\'alert alert-danger\'><i class=\'fas fa-exclamation-triangle me-2\'></i>' + data.message + '</div>';
+                                    })
+                                    .catch(err => {
+                                        resultDiv.innerHTML = '<div class=\'alert alert-danger\'><i class=\'fas fa-exclamation-triangle me-2\'></i>Connection test failed: ' + err.message + '</div>';
+                                    });
+                                })()">
                                     <i class="fas fa-vial me-2"></i>Test Connection
                                 </button>
                             </div>
