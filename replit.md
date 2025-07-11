@@ -127,6 +127,8 @@ Changelog:
 - July 10, 2025. Restructured Bullhorn monitoring to use JobOrder search queries instead of tearsheets after discovering "Tearsheet" is not a valid Bullhorn entity
 - July 10, 2025. Updated monitor creation interface to accept custom search queries (e.g., "status:Open AND isPublic:1") for flexible job monitoring
 - July 10, 2025. Enhanced monitoring system to handle both query-based and tearsheet-based monitors for backward compatibility
+- July 11, 2025. Updated Bullhorn authentication to use production URL (https://job-feed-refresh.replit.app) after successful whitelisting by Bullhorn Support
+- July 11, 2025. Verified successful authentication and API connectivity with production environment - system ready for live monitoring
 ```
 
 ## User Preferences

@@ -124,20 +124,13 @@ class BullhornService:
             
             # Use the whitelisted redirect URI based on environment
             # Bullhorn has whitelisted these specific URLs:
+            # - https://job-feed-refresh.replit.app/bullhorn/oauth/callback (PRODUCTION)
             # - https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback
             # - https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback
             # - https://myticas.com/bullhorn_oauth_callback.php
             
-            # Determine the redirect URI based on the environment
-            # First check for a hardcoded domain in environment variable
-            if os.environ.get('BULLHORN_REDIRECT_DOMAIN'):
-                redirect_uri = f"https://{os.environ.get('BULLHORN_REDIRECT_DOMAIN')}/bullhorn/oauth/callback"
-            # Otherwise use one of the whitelisted URLs
-            elif os.environ.get('REPL_SLUG') == 'workspace':
-                redirect_uri = "https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback"
-            else:
-                # Fallback to the dev URL that was whitelisted
-                redirect_uri = "https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback"
+            # Use the production URL since it's been whitelisted
+            redirect_uri = "https://job-feed-refresh.replit.app/bullhorn/oauth/callback"
             
             auth_params = {
                 'client_id': self.client_id,
