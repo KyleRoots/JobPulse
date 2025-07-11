@@ -1315,18 +1315,38 @@ def bullhorn_dashboard():
     monitors = BullhornMonitor.query.filter_by(is_active=True).all()
     recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(20).all()
     
-    # Check if Bullhorn is connected
+    # Check if Bullhorn is connected and get job counts
     bullhorn_connected = False
+    monitor_job_counts = {}
+    
     try:
         bullhorn_service = BullhornService()
         bullhorn_connected = bullhorn_service.test_connection()
+        
+        # Get job counts for each monitor if connected
+        if bullhorn_connected:
+            for monitor in monitors:
+                try:
+                    if monitor.tearsheet_id == 0:
+                        # Query-based monitor
+                        jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
+                    else:
+                        # Traditional tearsheet-based monitor
+                        jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+                    
+                    monitor_job_counts[monitor.id] = len(jobs)
+                except Exception as e:
+                    app.logger.warning(f"Could not get job count for monitor {monitor.name}: {str(e)}")
+                    monitor_job_counts[monitor.id] = None
+                    
     except Exception as e:
         app.logger.debug(f"Bullhorn connection check failed: {str(e)}")
     
     return render_template('bullhorn.html', 
                          monitors=monitors, 
                          recent_activities=recent_activities,
-                         bullhorn_connected=bullhorn_connected)
+                         bullhorn_connected=bullhorn_connected,
+                         monitor_job_counts=monitor_job_counts)
 
 @app.route('/bullhorn/create', methods=['GET', 'POST'])
 def create_bullhorn_monitor():

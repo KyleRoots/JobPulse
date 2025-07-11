@@ -108,11 +108,16 @@
                                         <div class="card-body">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <h6 class="card-title mb-0">{{ monitor.name }}</h6>
-                                                {% if monitor.tearsheet_id == 0 %}
-                                                    <span class="badge bg-secondary">Query</span>
-                                                {% else %}
-                                                    <span class="badge bg-primary">Tearsheet</span>
-                                                {% endif %}
+                                                <div class="d-flex gap-2">
+                                                    {% if monitor.tearsheet_id == 0 %}
+                                                        <span class="badge bg-secondary">Query</span>
+                                                    {% else %}
+                                                        <span class="badge bg-primary">Tearsheet</span>
+                                                    {% endif %}
+                                                    {% if monitor_job_counts[monitor.id] is not none %}
+                                                        <span class="badge bg-info">{{ monitor_job_counts[monitor.id] }} jobs</span>
+                                                    {% endif %}
+                                                </div>
                                             </div>
                                             <p class="card-text text-muted">
                                                 <small>
