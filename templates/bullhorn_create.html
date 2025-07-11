@@ -103,24 +103,47 @@
 
                             <!-- Tearsheet Selection -->
                             <div id="tearsheet-options" class="mb-3">
-                                <label for="tearsheet_id" class="form-label">
+                                <label for="tearsheet_selection" class="form-label">
                                     <i class="fas fa-list me-1"></i>Select Tearsheet
                                 </label>
+                                
+                                <!-- Available Tearsheets -->
                                 {% if tearsheets %}
-                                <select class="form-select" id="tearsheet_id" name="tearsheet_id">
-                                    <option value="">Choose a tearsheet...</option>
-                                    {% for tearsheet in tearsheets %}
-                                    <option value="{{ tearsheet.id }}">{{ tearsheet.name }}</option>
-                                    {% endfor %}
-                                </select>
-                                <div class="form-text">
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    Select the tearsheet you want to monitor for job changes
+                                <div class="mb-3">
+                                    <select class="form-select" id="tearsheet_id" name="tearsheet_id">
+                                        <option value="">Choose from available tearsheets...</option>
+                                        {% for tearsheet in tearsheets %}
+                                        <option value="{{ tearsheet.id }}">{{ tearsheet.name }} (ID: {{ tearsheet.id }})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Select from the tearsheets found in your Bullhorn account
+                                    </div>
                                 </div>
-                                {% else %}
-                                <div class="alert alert-warning">
-                                    <i class="fas fa-exclamation-triangle me-1"></i>
-                                    <strong>No tearsheets found:</strong> Check your Bullhorn connection or use Custom Search instead.
+                                <div class="text-center mb-3">
+                                    <span class="text-muted">OR</span>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Manual Tearsheet ID Entry -->
+                                <div class="mb-3">
+                                    <label for="manual_tearsheet_id" class="form-label">
+                                        <i class="fas fa-hashtag me-1"></i>Enter Tearsheet ID Manually
+                                    </label>
+                                    <input type="number" class="form-control" id="manual_tearsheet_id" name="manual_tearsheet_id" 
+                                           placeholder="e.g., 150" min="1">
+                                    <div class="form-text">
+                                        <i class="fas fa-lightbulb me-1"></i>
+                                        If you know the specific tearsheet ID, enter it here. You can find this in your Bullhorn URL when viewing a tearsheet.
+                                    </div>
+                                </div>
+                                
+                                {% if not tearsheets %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <strong>Tip:</strong> To find your tearsheet ID, go to your tearsheet in Bullhorn and look at the URL. 
+                                    It will contain something like "tearsheet/123" where 123 is the ID.
                                 </div>
                                 {% endif %}
                             </div>
@@ -267,13 +290,14 @@
                 if (tearsheetRadio.checked) {
                     tearsheetOptions.style.display = 'block';
                     queryOptions.style.display = 'none';
-                    document.getElementById('tearsheet_id').required = true;
-                    document.getElementById('job_search_query').required = false;
+                    // Note: tearsheet validation is handled in form submission
+                    const queryInput = document.getElementById('job_search_query');
+                    if (queryInput) queryInput.required = false;
                 } else {
                     tearsheetOptions.style.display = 'none';
                     queryOptions.style.display = 'block';
-                    document.getElementById('tearsheet_id').required = false;
-                    document.getElementById('job_search_query').required = true;
+                    const queryInput = document.getElementById('job_search_query');
+                    if (queryInput) queryInput.required = true;
                 }
             }
             
@@ -298,7 +322,19 @@
             updateMonitorType();
             
             // Handle form submission
-            form.addEventListener('submit', function() {
+            form.addEventListener('submit', function(e) {
+                // Validate tearsheet selection if tearsheet monitoring is selected
+                if (tearsheetRadio.checked) {
+                    const tearsheetId = document.getElementById('tearsheet_id').value;
+                    const manualTearsheetId = document.getElementById('manual_tearsheet_id').value;
+                    
+                    if (!tearsheetId && !manualTearsheetId) {
+                        e.preventDefault();
+                        alert('Please select a tearsheet from the dropdown or enter a tearsheet ID manually');
+                        return;
+                    }
+                }
+                
                 submitButton.disabled = true;
                 submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Monitor...';
             });

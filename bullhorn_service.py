@@ -410,31 +410,54 @@ class BullhornService:
         
         tearsheets = []
         
-        # Test common tearsheet IDs (1-200) to find available ones
-        for tearsheet_id in range(1, 201):
-            try:
-                url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
-                params = {
-                    'fields': 'id,name,description,dateAdded',
-                    'BhRestToken': self.rest_token
-                }
-                
-                response = self.session.get(url, params=params)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    tearsheet = data.get('data', {})
-                    if tearsheet:
-                        tearsheets.append(tearsheet)
-                elif response.status_code == 404:
-                    continue  # Tearsheet doesn't exist, try next ID
-                else:
-                    # Other error, stop searching
-                    break
+        # Test common tearsheet IDs, focusing on most likely ranges first
+        # Start with lower IDs first as they're more likely to exist
+        id_ranges = [
+            range(1, 51),      # 1-50: Most common range
+            range(51, 101),    # 51-100: Less common
+            range(101, 201),   # 101-200: Rare
+        ]
+        
+        for id_range in id_ranges:
+            consecutive_failures = 0
+            
+            for tearsheet_id in id_range:
+                try:
+                    url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
+                    params = {
+                        'fields': 'id,name,description,dateAdded',
+                        'BhRestToken': self.rest_token
+                    }
                     
-            except Exception as e:
-                logging.error(f"Error getting tearsheet {tearsheet_id}: {str(e)}")
-                continue
+                    response = self.session.get(url, params=params, timeout=5)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        tearsheet = data.get('data', {})
+                        if tearsheet:
+                            tearsheets.append(tearsheet)
+                            consecutive_failures = 0
+                    elif response.status_code == 404:
+                        consecutive_failures += 1
+                        # If we hit too many consecutive 404s, skip to next range
+                        if consecutive_failures >= 20:
+                            break
+                    else:
+                        # Other error, try a few more then stop
+                        consecutive_failures += 1
+                        if consecutive_failures >= 5:
+                            break
+                        
+                except Exception as e:
+                    logging.error(f"Error getting tearsheet {tearsheet_id}: {str(e)}")
+                    consecutive_failures += 1
+                    if consecutive_failures >= 5:
+                        break
+                    continue
+            
+            # If we found some tearsheets, we can stop here for faster loading
+            if tearsheets and len(tearsheets) >= 5:
+                break
         
         return tearsheets
     

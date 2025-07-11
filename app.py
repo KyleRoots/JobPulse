@@ -1353,17 +1353,36 @@ def create_bullhorn_monitor():
             
             # Handle tearsheet-based monitoring
             if monitor_type == 'tearsheet':
-                tearsheet_id = request.form.get('tearsheet_id')
+                # Check for both dropdown and manual entry
+                tearsheet_id = request.form.get('tearsheet_id') or request.form.get('manual_tearsheet_id')
+                
                 if not tearsheet_id:
-                    flash('Tearsheet selection is required', 'error')
+                    flash('Please select a tearsheet from the dropdown or enter a tearsheet ID manually', 'error')
                     return redirect(url_for('create_bullhorn_monitor'))
                 
                 # Get tearsheet name for reference
                 try:
                     bullhorn_service = BullhornService()
-                    tearsheets = bullhorn_service.get_tearsheets()
-                    tearsheet_name = next((t['name'] for t in tearsheets if str(t['id']) == tearsheet_id), f"Tearsheet {tearsheet_id}")
-                except:
+                    
+                    # Try to get the tearsheet name by accessing it directly
+                    if bullhorn_service.authenticate():
+                        url = f"{bullhorn_service.base_url}entity/Tearsheet/{tearsheet_id}"
+                        params = {
+                            'fields': 'id,name,description',
+                            'BhRestToken': bullhorn_service.rest_token
+                        }
+                        response = bullhorn_service.session.get(url, params=params, timeout=5)
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            tearsheet = data.get('data', {})
+                            tearsheet_name = tearsheet.get('name', f"Tearsheet {tearsheet_id}")
+                        else:
+                            tearsheet_name = f"Tearsheet {tearsheet_id}"
+                    else:
+                        tearsheet_name = f"Tearsheet {tearsheet_id}"
+                        
+                except Exception:
                     tearsheet_name = f"Tearsheet {tearsheet_id}"
                 
                 monitor = BullhornMonitor(
@@ -1410,14 +1429,45 @@ def create_bullhorn_monitor():
             flash(f'Error creating monitor: {str(e)}', 'error')
             return redirect(url_for('create_bullhorn_monitor'))
     
-    # For GET request, load tearsheets from Bullhorn
+    # For GET request, provide tearsheet options
+    # Since tearsheet loading can be slow, we'll provide a manual entry option
+    # alongside any successfully loaded tearsheets
+    tearsheets = []
+    
     try:
         bullhorn_service = BullhornService()
-        tearsheets = bullhorn_service.get_tearsheets()
-        return render_template('bullhorn_create.html', tearsheets=tearsheets)
+        
+        # Quick check - try a few known tearsheet IDs
+        known_ids = [1, 2, 3, 4, 5, 10, 20, 50, 100]
+        
+        for ts_id in known_ids:
+            try:
+                url = f"{bullhorn_service.base_url}entity/Tearsheet/{ts_id}"
+                if bullhorn_service.base_url and bullhorn_service.rest_token:
+                    params = {
+                        'fields': 'id,name,description',
+                        'BhRestToken': bullhorn_service.rest_token
+                    }
+                    response = bullhorn_service.session.get(url, params=params, timeout=3)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        tearsheet = data.get('data', {})
+                        if tearsheet and tearsheet.get('name'):
+                            tearsheets.append(tearsheet)
+                            
+            except Exception:
+                continue
+                
+        if tearsheets:
+            flash(f'Found {len(tearsheets)} tearsheets. If your tearsheet is not listed, you can enter its ID manually or use custom search queries.', 'info')
+        else:
+            flash('Unable to load tearsheets automatically. You can enter a tearsheet ID manually or use custom search queries.', 'info')
+            
     except Exception as e:
-        flash('Could not load tearsheets from Bullhorn. Please check your API credentials.', 'error')
-        return render_template('bullhorn_create.html', tearsheets=[])
+        flash('Could not connect to Bullhorn. Please check your API credentials.', 'error')
+        
+    return render_template('bullhorn_create.html', tearsheets=tearsheets)
 
 @app.route('/bullhorn/monitor/<int:monitor_id>')
 def bullhorn_monitor_details(monitor_id):
