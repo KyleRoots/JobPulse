@@ -1534,6 +1534,102 @@ def test_bullhorn_monitor(monitor_id):
             'message': f'Error: {str(e)}'
         })
 
+@app.route('/bullhorn/monitor/<int:monitor_id>/test-email', methods=['POST'])
+def test_email_notification(monitor_id):
+    """Send a test email notification to show what the user will receive"""
+    try:
+        monitor = BullhornMonitor.query.get_or_404(monitor_id)
+        
+        # Get email address from Global Settings or monitor-specific setting
+        email_address = monitor.notification_email
+        if not email_address:
+            # Fall back to global notification email
+            global_email = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+            if global_email:
+                email_address = global_email.setting_value
+        
+        if not email_address:
+            return jsonify({
+                'success': False,
+                'message': 'No notification email configured. Please set an email address in Global Settings or the monitor settings.'
+            })
+        
+        # Create sample job data to show what notifications look like
+        sample_added_jobs = [
+            {
+                'id': 12345,
+                'title': 'Senior Software Engineer',
+                'status': 'Open',
+                'clientCorporation': {'name': 'Tech Innovators Inc.'}
+            },
+            {
+                'id': 12346,
+                'title': 'Data Analyst',
+                'status': 'Open',
+                'clientCorporation': {'name': 'Analytics Solutions Corp.'}
+            }
+        ]
+        
+        sample_removed_jobs = [
+            {
+                'id': 11111,
+                'title': 'Marketing Coordinator',
+                'status': 'Closed',
+                'clientCorporation': {'name': 'Creative Agency Ltd.'}
+            }
+        ]
+        
+        sample_modified_jobs = [
+            {
+                'id': 11223,
+                'title': 'Full Stack Developer',
+                'status': 'Open',
+                'clientCorporation': {'name': 'StartupXYZ'},
+                'changes': [
+                    {'field': 'title', 'from': 'Junior Full Stack Developer', 'to': 'Full Stack Developer'},
+                    {'field': 'status', 'from': 'Pending', 'to': 'Open'}
+                ]
+            }
+        ]
+        
+        sample_summary = {
+            'total_previous': 8,
+            'total_current': 10,
+            'added_count': 2,
+            'removed_count': 1,
+            'modified_count': 1,
+            'net_change': 2
+        }
+        
+        # Send the test email
+        email_service = EmailService()
+        email_sent = email_service.send_bullhorn_notification(
+            to_email=email_address,
+            monitor_name=f"{monitor.name} [TEST EMAIL]",
+            added_jobs=sample_added_jobs,
+            removed_jobs=sample_removed_jobs,
+            modified_jobs=sample_modified_jobs,
+            summary=sample_summary
+        )
+        
+        if email_sent:
+            return jsonify({
+                'success': True,
+                'message': f'Test email notification sent successfully to {email_address}. Check your inbox to see what real notifications will look like.'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to send test email. Please check your email configuration in Global Settings.'
+            })
+        
+    except Exception as e:
+        app.logger.error(f"Error sending test email notification: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        })
+
 @app.route('/bullhorn/settings', methods=['GET', 'POST'])
 def bullhorn_settings():
     """Manage Bullhorn API credentials in Global Settings"""

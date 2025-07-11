@@ -102,6 +102,11 @@
                             <button onclick="testMonitor({{ monitor.id }})" class="btn btn-primary">
                                 <i class="fas fa-vial me-2"></i>Test Monitor
                             </button>
+                            {% if monitor.send_notifications %}
+                            <button onclick="sendTestEmail({{ monitor.id }})" class="btn btn-info ms-2">
+                                <i class="fas fa-envelope me-2"></i>Send Test Email
+                            </button>
+                            {% endif %}
                             <form method="POST" action="{{ url_for('delete_bullhorn_monitor', monitor_id=monitor.id) }}" 
                                   class="d-inline ms-2" onsubmit="return confirm('Are you sure you want to delete this monitor?')">
                                 <button type="submit" class="btn btn-danger">
@@ -267,6 +272,66 @@
                         Error testing monitor: ${error.message}
                     </div>
                 `;
+            });
+        }
+        
+        function sendTestEmail(monitorId) {
+            if (!confirm('This will send a test email notification with sample data. Are you sure you want to proceed?')) {
+                return;
+            }
+            
+            const button = event.target;
+            const originalText = button.innerHTML;
+            
+            // Disable button and show loading
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+            
+            fetch(`/bullhorn/monitor/${monitorId}/test-email`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-success alert-dismissible fade show';
+                    alert.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>
+                        ${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    `;
+                    document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
+                } else {
+                    // Show error message
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-danger alert-dismissible fade show';
+                    alert.innerHTML = `
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    `;
+                    document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
+                }
+            })
+            .catch(error => {
+                // Show error message
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-danger alert-dismissible fade show';
+                alert.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error sending test email: ${error.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
+            })
+            .finally(() => {
+                // Re-enable button
+                button.disabled = false;
+                button.innerHTML = originalText;
             });
         }
     </script>
