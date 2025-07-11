@@ -456,6 +456,15 @@ class BullhornService:
             
             logging.info(f"Credentials present - client_id: {self.client_id}, username: {self.username}")
             
+            # Check if we need to wait for cooldown
+            if self._last_auth_attempt:
+                time_since_last = datetime.now() - self._last_auth_attempt
+                if time_since_last.total_seconds() < 5:
+                    wait_time = 5 - time_since_last.total_seconds()
+                    logging.info(f"Waiting {wait_time:.1f}s for auth cooldown")
+                    import time
+                    time.sleep(wait_time)
+            
             # Test authentication
             auth_result = self.authenticate()
             logging.info(f"Authentication result: {auth_result}")

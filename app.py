@@ -1497,6 +1497,9 @@ def test_bullhorn_connection():
         
         # Log the test attempt
         app.logger.info("Testing Bullhorn connection from API endpoint")
+        app.logger.info(f"Service has client_id: {bool(bullhorn_service.client_id)}")
+        app.logger.info(f"Service has username: {bool(bullhorn_service.username)}")
+        
         result = bullhorn_service.test_connection()
         app.logger.info(f"Test connection result: {result}")
         
@@ -1506,13 +1509,21 @@ def test_bullhorn_connection():
                 'message': 'Successfully connected to Bullhorn API'
             })
         else:
+            # Check if credentials are missing
+            if not bullhorn_service.client_id or not bullhorn_service.username:
+                message = 'Missing Bullhorn credentials. Please save your credentials first.'
+            else:
+                message = 'Failed to connect to Bullhorn API. Please check your credentials.'
+                
             return jsonify({
                 'success': False,
-                'message': 'Failed to connect to Bullhorn API. Please check your credentials.'
+                'message': message
             })
             
     except Exception as e:
         app.logger.error(f"Error testing Bullhorn connection: {str(e)}")
+        import traceback
+        app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
             'success': False,
             'message': f'Connection test failed: {str(e)}'
