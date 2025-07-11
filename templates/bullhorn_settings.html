@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ATS Settings - XML Processor</title>
+    <title>ATS API Settings - XML Processor</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -40,7 +40,7 @@
                     {% endif %}
                 {% endwith %}
 
-                <!-- Bullhorn API Settings -->
+                <!-- Settings Form -->
                 <div class="card shadow-sm">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
@@ -49,7 +49,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <form method="POST" id="bullhornSettingsForm">
+                        <form method="POST">
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
@@ -58,7 +58,7 @@
                                         </label>
                                         <input type="text" class="form-control" id="bullhorn_client_id" 
                                                name="bullhorn_client_id" value="{{ settings.bullhorn_client_id or '' }}"
-                                               placeholder="Your Bullhorn OAuth Client ID">
+                                               placeholder="e.g., abc123de-f456-7890-ab12-cd34ef567890">
                                         <div class="form-text">
                                             OAuth Client ID provided by Bullhorn
                                         </div>
@@ -71,7 +71,7 @@
                                         </label>
                                         <input type="password" class="form-control" id="bullhorn_client_secret" 
                                                name="bullhorn_client_secret" value="{{ settings.bullhorn_client_secret or '' }}"
-                                               placeholder="Your Bullhorn OAuth Client Secret">
+                                               placeholder="Your OAuth Client Secret">
                                         <div class="form-text">
                                             OAuth Client Secret provided by Bullhorn
                                         </div>
@@ -109,7 +109,7 @@
                             </div>
 
                             <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" name="action" value="save" class="btn btn-primary">
                                     <i class="fas fa-save me-2"></i>Save Settings
                                 </button>
                                 <button type="submit" name="action" value="test" class="btn btn-outline-info">
@@ -119,9 +119,6 @@
                         </form>
                     </div>
                 </div>
-
-                <!-- Connection Test Result -->
-                <div id="connectionTestResult" class="mt-3" style="display: none;"></div>
 
                 <!-- Help Section -->
                 <div class="card shadow-sm mt-4">
@@ -155,7 +152,7 @@
                                 <p class="card-text text-muted">For immediate testing and development</p>
                                 <div class="input-group mb-3">
                                     <input type="text" class="form-control" id="devRedirectUri" value="{{ request.url_root }}bullhorn/oauth/callback" readonly>
-                                    <button class="btn btn-outline-secondary" onclick="copyToClipboard('devRedirectUri', this)">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('devRedirectUri', this)">
                                         <i class="fas fa-copy"></i> Copy
                                     </button>
                                 </div>
@@ -165,8 +162,8 @@
                                 <div class="input-group mb-3">
                                     <input type="text" class="form-control" id="prodRedirectUri" 
                                            placeholder="https://your-domain.com/bullhorn/oauth/callback"
-                                           value="https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback">
-                                    <button class="btn btn-outline-secondary" onclick="copyToClipboard('prodRedirectUri', this)">
+                                           value="https://job-feed-refresh.replit.app/bullhorn/oauth/callback">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('prodRedirectUri', this)">
                                         <i class="fas fa-copy"></i> Copy
                                     </button>
                                 </div>
@@ -214,106 +211,15 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Force cache refresh
-        console.log('Page loaded at:', new Date().toISOString());
-        function testConnection(event) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            
-            const resultDiv = document.getElementById('connectionTestResult');
-            
-            // Show loading state
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = `
-                <div class="alert alert-info">
-                    <div class="d-flex align-items-center">
-                        <div class="spinner-border spinner-border-sm me-3" role="status">
-                            <span class="visually-hidden">Testing...</span>
-                        </div>
-                        <div>Testing connection to Bullhorn API...</div>
-                    </div>
-                </div>
-            `;
-
-            // Test the connection
-            fetch('/api/bullhorn/test-connection', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => {
-                console.log('Response status:', response.status);
-                console.log('Response OK:', response.ok);
-                return response.json();
-            })
-            .then(data => {
-                console.log('Response data:', data);
-                console.log('Success value:', data.success);
-                console.log('Message:', data.message);
-                
-                if (data.success === true) {
-                    resultDiv.innerHTML = `
-                        <div class="alert alert-success">
-                            <i class="fas fa-check-circle me-2"></i>
-                            ${data.message}
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            ${data.message || 'Failed to connect to Bullhorn API. Please check your credentials.'}
-                        </div>
-                    `;
-                }
-            })
-            .catch(error => {
-                console.error('Fetch error:', error);
-                resultDiv.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Connection test failed: ${error.message}
-                    </div>
-                `;
-            });
-            
-            return false;
-        }
-        
-        // Add event listener when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, adding event listener');
-            const testBtn = document.getElementById('testConnectionBtn');
-            if (testBtn) {
-                testBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Test button clicked via event listener');
-                    testConnection(e);
-                });
-            }
-        });
-        
         function copyToClipboard(inputId, button) {
             const input = document.getElementById(inputId);
-            const value = input.value;
-            
-            navigator.clipboard.writeText(value).then(function() {
-                // Show success feedback
-                const originalHtml = button.innerHTML;
-                button.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                button.classList.remove('btn-outline-secondary');
-                button.classList.add('btn-success');
-                
-                setTimeout(function() {
-                    button.innerHTML = originalHtml;
-                    button.classList.remove('btn-success');
-                    button.classList.add('btn-outline-secondary');
-                }, 2000);
-            });
+            input.select();
+            document.execCommand('copy');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i> Copied';
+            setTimeout(() => {
+                button.innerHTML = originalText;
+            }, 2000);
         }
     </script>
 </body>

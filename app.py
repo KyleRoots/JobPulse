@@ -1455,6 +1455,9 @@ def test_bullhorn_monitor(monitor_id):
 def bullhorn_settings():
     """Manage Bullhorn API credentials in Global Settings"""
     if request.method == 'POST':
+        app.logger.info(f"Bullhorn settings POST received with action: {request.form.get('action')}")
+        app.logger.info(f"Form data: {dict(request.form)}")
+        
         # Check if this is a test action
         if request.form.get('action') == 'test':
             try:
@@ -1470,31 +1473,32 @@ def bullhorn_settings():
             return redirect(url_for('bullhorn_settings'))
         
         # Otherwise, it's a save action
-        try:
-            # Update Bullhorn settings
-            settings_to_update = [
-                ('bullhorn_client_id', request.form.get('bullhorn_client_id', '')),
-                ('bullhorn_client_secret', request.form.get('bullhorn_client_secret', '')),
-                ('bullhorn_username', request.form.get('bullhorn_username', '')),
-                ('bullhorn_password', request.form.get('bullhorn_password', '')),
-            ]
+        elif request.form.get('action') == 'save' or not request.form.get('action'):
+            try:
+                # Update Bullhorn settings
+                settings_to_update = [
+                    ('bullhorn_client_id', request.form.get('bullhorn_client_id', '')),
+                    ('bullhorn_client_secret', request.form.get('bullhorn_client_secret', '')),
+                    ('bullhorn_username', request.form.get('bullhorn_username', '')),
+                    ('bullhorn_password', request.form.get('bullhorn_password', '')),
+                ]
+                
+                for key, value in settings_to_update:
+                    setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                    if setting:
+                        setting.setting_value = value
+                    else:
+                        setting = GlobalSettings(setting_key=key, setting_value=value)
+                        db.session.add(setting)
+                
+                db.session.commit()
+                flash('Bullhorn settings updated successfully', 'success')
+                
+            except Exception as e:
+                app.logger.error(f"Error updating Bullhorn settings: {str(e)}")
+                flash(f'Error updating settings: {str(e)}', 'error')
             
-            for key, value in settings_to_update:
-                setting = GlobalSettings.query.filter_by(setting_key=key).first()
-                if setting:
-                    setting.setting_value = value
-                else:
-                    setting = GlobalSettings(setting_key=key, setting_value=value)
-                    db.session.add(setting)
-            
-            db.session.commit()
-            flash('Bullhorn settings updated successfully', 'success')
-            
-        except Exception as e:
-            app.logger.error(f"Error updating Bullhorn settings: {str(e)}")
-            flash(f'Error updating settings: {str(e)}', 'error')
-        
-        return redirect(url_for('bullhorn_settings'))
+            return redirect(url_for('bullhorn_settings'))
     
     # Get current settings
     settings = {}
