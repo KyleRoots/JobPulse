@@ -328,9 +328,9 @@ class BullhornService:
         
         try:
             # Get tearsheet with associated jobs
-            url = f"{self.base_url}/entity/Tearsheet/{tearsheet_id}"
+            url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
             params = {
-                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified)',
+                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription)',
                 'BhRestToken': self.rest_token
             }
             
@@ -338,7 +338,11 @@ class BullhornService:
             
             if response.status_code == 200:
                 data = response.json()
-                return data.get('data', {}).get('jobOrders', {}).get('data', [])
+                job_orders = data.get('data', {}).get('jobOrders', {})
+                if isinstance(job_orders, dict):
+                    return job_orders.get('data', [])
+                else:
+                    return []
             else:
                 logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
                 return []
@@ -395,7 +399,7 @@ class BullhornService:
     
     def get_tearsheets(self) -> List[Dict]:
         """
-        Get all tearsheets from Bullhorn
+        Get available tearsheets from Bullhorn by testing common IDs
         
         Returns:
             List[Dict]: List of tearsheet dictionaries
@@ -404,26 +408,35 @@ class BullhornService:
             if not self.authenticate():
                 return []
         
-        try:
-            # In Bullhorn, tearsheets might be saved searches or lists
-            # Let's try using the savedSearch endpoint
-            url = f"{self.base_url}/services/SavedSearch"
-            params = {
-                'BhRestToken': self.rest_token
-            }
-            
-            response = self.session.get(url, params=params)
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('data', [])
-            else:
-                logging.error(f"Failed to get tearsheets: {response.status_code} - {response.text}")
-                return []
+        tearsheets = []
+        
+        # Test common tearsheet IDs (1-200) to find available ones
+        for tearsheet_id in range(1, 201):
+            try:
+                url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
+                params = {
+                    'fields': 'id,name,description,dateAdded',
+                    'BhRestToken': self.rest_token
+                }
                 
-        except Exception as e:
-            logging.error(f"Error getting tearsheets: {str(e)}")
-            return []
+                response = self.session.get(url, params=params)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    tearsheet = data.get('data', {})
+                    if tearsheet:
+                        tearsheets.append(tearsheet)
+                elif response.status_code == 404:
+                    continue  # Tearsheet doesn't exist, try next ID
+                else:
+                    # Other error, stop searching
+                    break
+                    
+            except Exception as e:
+                logging.error(f"Error getting tearsheet {tearsheet_id}: {str(e)}")
+                continue
+        
+        return tearsheets
     
     def get_tearsheet_by_name(self, name: str) -> Optional[Dict]:
         """

@@ -106,10 +106,21 @@
                                 <div class="col-md-6 col-lg-4 mb-3">
                                     <div class="card h-100">
                                         <div class="card-body">
-                                            <h6 class="card-title">{{ monitor.name }}</h6>
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="card-title mb-0">{{ monitor.name }}</h6>
+                                                {% if monitor.tearsheet_id == 0 %}
+                                                    <span class="badge bg-secondary">Query</span>
+                                                {% else %}
+                                                    <span class="badge bg-primary">Tearsheet</span>
+                                                {% endif %}
+                                            </div>
                                             <p class="card-text text-muted">
                                                 <small>
-                                                    <i class="fas fa-search me-1"></i>Query: {{ monitor.tearsheet_name }}<br>
+                                                    {% if monitor.tearsheet_id == 0 %}
+                                                        <i class="fas fa-search me-1"></i>Query: {{ monitor.tearsheet_name }}<br>
+                                                    {% else %}
+                                                        <i class="fas fa-clipboard-list me-1"></i>Tearsheet: {{ monitor.tearsheet_name }}<br>
+                                                    {% endif %}
                                                     <i class="fas fa-clock me-1"></i>Check every {{ monitor.check_interval_minutes }} minutes<br>
                                                     <i class="fas fa-calendar me-1"></i>Last check: 
                                                     {% if monitor.last_check %}

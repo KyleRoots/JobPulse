@@ -1341,36 +1341,72 @@ def create_bullhorn_monitor():
     if request.method == 'POST':
         try:
             name = request.form.get('name')
-            job_search_query = request.form.get('job_search_query', '').strip()
+            monitor_type = request.form.get('monitor_type')
             check_interval = int(request.form.get('check_interval_minutes', 60))
             notification_email = request.form.get('notification_email', '').strip()
             send_notifications = 'send_notifications' in request.form
             
             # Validate inputs
-            if not name or not job_search_query:
-                flash('Name and Job Search Query are required', 'error')
+            if not name or not monitor_type:
+                flash('Name and Monitor Type are required', 'error')
                 return redirect(url_for('create_bullhorn_monitor'))
             
-            # Create new monitor with search query instead of tearsheet ID
-            monitor = BullhornMonitor(
-                name=name,
-                tearsheet_id=0,  # We'll use 0 to indicate query-based monitor
-                tearsheet_name=job_search_query,  # Store the query in tearsheet_name field
-                check_interval_minutes=check_interval,
-                notification_email=notification_email if notification_email else None,
-                send_notifications=send_notifications,
-                next_check=datetime.utcnow()
-            )
+            # Handle tearsheet-based monitoring
+            if monitor_type == 'tearsheet':
+                tearsheet_id = request.form.get('tearsheet_id')
+                if not tearsheet_id:
+                    flash('Tearsheet selection is required', 'error')
+                    return redirect(url_for('create_bullhorn_monitor'))
+                
+                # Get tearsheet name for reference
+                try:
+                    bullhorn_service = BullhornService()
+                    tearsheets = bullhorn_service.get_tearsheets()
+                    tearsheet_name = next((t['name'] for t in tearsheets if str(t['id']) == tearsheet_id), f"Tearsheet {tearsheet_id}")
+                except:
+                    tearsheet_name = f"Tearsheet {tearsheet_id}"
+                
+                monitor = BullhornMonitor(
+                    name=name,
+                    tearsheet_id=int(tearsheet_id),
+                    tearsheet_name=tearsheet_name,
+                    check_interval_minutes=check_interval,
+                    notification_email=notification_email if notification_email else None,
+                    send_notifications=send_notifications,
+                    next_check=datetime.utcnow()
+                )
+                
+                flash(f'Monitor "{name}" created successfully for tearsheet: {tearsheet_name}', 'success')
+            
+            # Handle query-based monitoring
+            elif monitor_type == 'query':
+                job_search_query = request.form.get('job_search_query', '').strip()
+                if not job_search_query:
+                    flash('Job Search Query is required', 'error')
+                    return redirect(url_for('create_bullhorn_monitor'))
+                
+                monitor = BullhornMonitor(
+                    name=name,
+                    tearsheet_id=0,  # 0 indicates query-based monitor
+                    tearsheet_name=job_search_query,  # Store query in tearsheet_name field
+                    check_interval_minutes=check_interval,
+                    notification_email=notification_email if notification_email else None,
+                    send_notifications=send_notifications,
+                    next_check=datetime.utcnow()
+                )
+                
+                flash(f'Monitor "{name}" created successfully with search query: {job_search_query}', 'success')
+            
+            else:
+                flash('Invalid monitor type', 'error')
+                return redirect(url_for('create_bullhorn_monitor'))
             
             db.session.add(monitor)
             db.session.commit()
             
-            flash(f'Monitor "{name}" created successfully with search query: {job_search_query}', 'success')
-            
             return redirect(url_for('bullhorn_dashboard'))
             
         except Exception as e:
-            app.logger.error(f"Error creating Bullhorn monitor: {str(e)}")
             flash(f'Error creating monitor: {str(e)}', 'error')
             return redirect(url_for('create_bullhorn_monitor'))
     
@@ -1380,7 +1416,6 @@ def create_bullhorn_monitor():
         tearsheets = bullhorn_service.get_tearsheets()
         return render_template('bullhorn_create.html', tearsheets=tearsheets)
     except Exception as e:
-        app.logger.error(f"Error loading tearsheets: {str(e)}")
         flash('Could not load tearsheets from Bullhorn. Please check your API credentials.', 'error')
         return render_template('bullhorn_create.html', tearsheets=[])
 
