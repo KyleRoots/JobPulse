@@ -20,8 +20,11 @@ import shutil
 import threading
 import time
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging for production
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Global progress tracker for manual operations
 progress_tracker = {}
