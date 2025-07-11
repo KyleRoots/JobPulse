@@ -9,17 +9,20 @@ from urllib.parse import urlencode
 class BullhornService:
     """Service for interacting with Bullhorn ATS/CRM API"""
     
-    def __init__(self):
+    def __init__(self, client_id=None, client_secret=None, username=None, password=None):
         self.base_url = None
         self.rest_token = None
-        self.client_id = None
-        self.client_secret = None
-        self.username = None
-        self.password = None
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.username = username
+        self.password = password
         self.session = requests.Session()
         self._auth_in_progress = False
         self._last_auth_attempt = None
-        self._load_credentials()
+        
+        # Only load from DB if no credentials provided
+        if not any([client_id, client_secret, username, password]):
+            self._load_credentials()
     
     def _load_credentials(self):
         """Load Bullhorn credentials from Global Settings"""

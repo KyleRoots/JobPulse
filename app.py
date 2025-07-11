@@ -1561,6 +1561,16 @@ def test_bullhorn_connection():
 @app.route('/test-bullhorn')
 def test_bullhorn():
     """Simple test page for Bullhorn connection"""
+    # Get current settings
+    settings = {}
+    for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+        setting = GlobalSettings.query.filter_by(setting_key=key).first()
+        settings[key] = setting.setting_value if setting else ''
+    
+    # Log the current state
+    app.logger.info(f"Test Bullhorn page - Client ID exists: {bool(settings.get('bullhorn_client_id'))}")
+    app.logger.info(f"Test Bullhorn page - Username exists: {bool(settings.get('bullhorn_username'))}")
+    
     return render_template('test_bullhorn.html')
 
 @app.route('/bullhorn/oauth/callback')
