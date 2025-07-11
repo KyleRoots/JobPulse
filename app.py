@@ -1529,6 +1529,11 @@ def test_bullhorn_connection():
             'message': f'Connection test failed: {str(e)}'
         })
 
+@app.route('/test-bullhorn')
+def test_bullhorn():
+    """Simple test page for Bullhorn connection"""
+    return render_template('test_bullhorn.html')
+
 @app.route('/bullhorn/oauth/callback')
 def bullhorn_oauth_callback():
     """Handle Bullhorn OAuth callback"""
