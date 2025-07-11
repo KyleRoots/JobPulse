@@ -359,12 +359,13 @@ def process_bullhorn_monitors():
                             details=json.dumps({
                                 'summary': summary,
                                 'changes_detected': True,
+                                'total_jobs': len(current_jobs),
                                 'timestamp': datetime.utcnow().isoformat()
                             })
                         )
                         db.session.add(summary_activity)
                         
-                        app.logger.info(f"Bullhorn monitor {monitor.name}: {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified")
+                        app.logger.info(f"Bullhorn monitor {monitor.name}: {len(current_jobs)} total jobs, {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified")
                     
                     # Send email notification if there are changes and notifications are enabled
                     if (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications:
@@ -406,7 +407,7 @@ def process_bullhorn_monitors():
                         activity = BullhornActivity(
                             monitor_id=monitor.id,
                             activity_type='check_completed',
-                            details=f"Checked query: {monitor.tearsheet_name}. Found {len(current_jobs)} jobs. No changes detected."
+                            details=f"Checked {monitor.tearsheet_name}. Found {len(current_jobs)} jobs. No changes detected."
                         )
                         db.session.add(activity)
                     
@@ -1462,9 +1463,32 @@ def bullhorn_monitor_details(monitor_id):
     monitor = BullhornMonitor.query.get_or_404(monitor_id)
     activities = BullhornActivity.query.filter_by(monitor_id=monitor_id).order_by(BullhornActivity.created_at.desc()).limit(50).all()
     
+    # Get current job count
+    current_job_count = None
+    try:
+        # Initialize Bullhorn service
+        bullhorn_service = BullhornService()
+        
+        if bullhorn_service.test_connection():
+            # Get current jobs based on monitor type
+            if monitor.tearsheet_id == 0:
+                # Query-based monitor
+                current_jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
+            else:
+                # Traditional tearsheet-based monitor
+                current_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+            
+            current_job_count = len(current_jobs)
+        else:
+            app.logger.warning(f"Could not connect to Bullhorn to get job count for monitor {monitor.name}")
+            
+    except Exception as e:
+        app.logger.error(f"Error getting job count for monitor {monitor.name}: {str(e)}")
+    
     return render_template('bullhorn_details.html', 
                          monitor=monitor, 
-                         activities=activities)
+                         activities=activities,
+                         current_job_count=current_job_count)
 
 @app.route('/bullhorn/monitor/<int:monitor_id>/delete', methods=['POST'])
 def delete_bullhorn_monitor(monitor_id):

@@ -73,6 +73,11 @@
                                 <p><strong>Created:</strong> {{ monitor.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
                             </div>
                             <div class="col-md-6">
+                                <p><strong>Current Job Count:</strong> 
+                                    <span class="badge bg-info fs-6" id="current-job-count">
+                                        <i class="fas fa-briefcase me-1"></i>{{ current_job_count if current_job_count is not none else 'Loading...' }}
+                                    </span>
+                                </p>
                                 <p><strong>Last Check:</strong> 
                                     {% if monitor.last_check %}
                                         {{ monitor.last_check.strftime('%Y-%m-%d %H:%M') }}

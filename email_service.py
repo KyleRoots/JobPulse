@@ -252,6 +252,7 @@ class EmailService:
                     <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-top: 15px;">
                         <h4 style="margin: 0 0 10px 0; color: #495057;">📊 Change Summary</h4>
                         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <span style="color: #007bff; font-weight: bold; background-color: #cfe2ff; padding: 4px 8px; border-radius: 4px;">🎯 Current Total: {summary.get('total_current', 0)}</span>
                             <span style="color: #28a745; font-weight: bold;">✅ Added: {len(added_jobs)}</span>
                             <span style="color: #dc3545; font-weight: bold;">❌ Removed: {len(removed_jobs)}</span>
                             <span style="color: #fd7e14; font-weight: bold;">🔄 Modified: {len(modified_jobs)}</span>

@@ -135,6 +135,7 @@ Changelog:
 - July 11, 2025. Added comprehensive test email notification system - users can now preview exact email format with realistic sample data before actual job changes occur
 - July 11, 2025. Final production cleanup - removed test files (explore_tearsheet_alternatives.py, test_tearsheet_api.py), reduced excessive debug logging, optimized code for deployment readiness
 - July 11, 2025. Enhanced monitoring reliability - added false positive detection for job removals, increased API result count to 200 jobs, implemented verification logic to prevent incorrect removal notifications
+- July 11, 2025. Added job count transparency - monitors now display current total jobs in tearsheets, email notifications prominently show total job counts, enhanced monitoring logs with job totals for user verification
 ```
 
 ## User Preferences
