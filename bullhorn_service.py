@@ -331,6 +331,7 @@ class BullhornService:
             url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
             params = {
                 'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription)',
+                'count': 200,  # Ensure we get all jobs, not just the first 20
                 'BhRestToken': self.rest_token
             }
             

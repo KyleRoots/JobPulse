@@ -310,6 +310,16 @@ def process_bullhorn_monitors():
                     modified_jobs = changes.get('modified', [])
                     summary = changes.get('summary', {})
                     
+                    # Verify "removed" jobs to prevent false positives
+                    # If there are supposedly removed jobs but current jobs count is unexpectedly low, 
+                    # this might be an API retrieval issue - skip processing removed jobs
+                    if removed_jobs and len(current_jobs) < len(previous_jobs) * 0.8:
+                        app.logger.warning(f"Monitor {monitor.name}: Detected potential API retrieval issue. "
+                                         f"Current jobs: {len(current_jobs)}, Previous: {len(previous_jobs)}. "
+                                         f"Skipping removal notifications to prevent false positives.")
+                        removed_jobs = []  # Don't process removals if we suspect API issues
+                        summary['removed_count'] = 0  # Update summary
+                    
                     # Log activities
                     for job in added_jobs:
                         activity = BullhornActivity(
