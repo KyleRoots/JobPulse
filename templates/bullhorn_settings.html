@@ -237,9 +237,17 @@
                     'Content-Type': 'application/json',
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response OK:', response.ok);
+                return response.json();
+            })
             .then(data => {
-                if (data.success) {
+                console.log('Response data:', data);
+                console.log('Success value:', data.success);
+                console.log('Message:', data.message);
+                
+                if (data.success === true) {
                     resultDiv.innerHTML = `
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle me-2"></i>
@@ -250,12 +258,13 @@
                     resultDiv.innerHTML = `
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            ${data.message}
+                            ${data.message || 'Failed to connect to Bullhorn API. Please check your credentials.'}
                         </div>
                     `;
                 }
             })
             .catch(error => {
+                console.error('Fetch error:', error);
                 resultDiv.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-triangle me-2"></i>
