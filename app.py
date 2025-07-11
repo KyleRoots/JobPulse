@@ -1480,7 +1480,6 @@ def bullhorn_settings():
                 )
                 
                 result = bullhorn_service.test_connection()
-                app.logger.info(f"Bullhorn test result: {result}")
                 
                 if result:
                     flash('Successfully connected to Bullhorn API', 'success')
@@ -1491,7 +1490,6 @@ def bullhorn_settings():
                     else:
                         flash('Failed to connect to Bullhorn API. Please check your credentials.', 'error')
             except Exception as e:
-                app.logger.error(f"Error testing Bullhorn connection: {str(e)}")
                 flash(f'Connection test failed: {str(e)}', 'error')
             
             return redirect(url_for('bullhorn_settings'))
@@ -1519,7 +1517,6 @@ def bullhorn_settings():
                 flash('Bullhorn settings updated successfully', 'success')
                 
             except Exception as e:
-                app.logger.error(f"Error updating Bullhorn settings: {str(e)}")
                 flash(f'Error updating settings: {str(e)}', 'error')
             
             return redirect(url_for('bullhorn_settings'))
@@ -1532,60 +1529,7 @@ def bullhorn_settings():
     
     return render_template('bullhorn_settings.html', settings=settings)
 
-@app.route('/api/bullhorn/test-connection', methods=['POST'])
-def test_bullhorn_connection():
-    """Test Bullhorn API connection"""
-    try:
-        bullhorn_service = BullhornService()
-        
-        # Log the test attempt
-        app.logger.info("Testing Bullhorn connection from API endpoint")
-        app.logger.info(f"Service has client_id: {bool(bullhorn_service.client_id)}")
-        app.logger.info(f"Service has username: {bool(bullhorn_service.username)}")
-        
-        result = bullhorn_service.test_connection()
-        app.logger.info(f"Test connection result: {result}")
-        
-        if result:
-            return jsonify({
-                'success': True,
-                'message': 'Successfully connected to Bullhorn API'
-            })
-        else:
-            # Check if credentials are missing
-            if not bullhorn_service.client_id or not bullhorn_service.username:
-                message = 'Missing Bullhorn credentials. Please save your credentials first.'
-            else:
-                message = 'Failed to connect to Bullhorn API. Please check your credentials.'
-                
-            return jsonify({
-                'success': False,
-                'message': message
-            })
-            
-    except Exception as e:
-        app.logger.error(f"Error testing Bullhorn connection: {str(e)}")
-        import traceback
-        app.logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            'success': False,
-            'message': f'Connection test failed: {str(e)}'
-        })
 
-@app.route('/test-bullhorn')
-def test_bullhorn():
-    """Simple test page for Bullhorn connection"""
-    # Get current settings
-    settings = {}
-    for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
-        setting = GlobalSettings.query.filter_by(setting_key=key).first()
-        settings[key] = setting.setting_value if setting else ''
-    
-    # Log the current state
-    app.logger.info(f"Test Bullhorn page - Client ID exists: {bool(settings.get('bullhorn_client_id'))}")
-    app.logger.info(f"Test Bullhorn page - Username exists: {bool(settings.get('bullhorn_username'))}")
-    
-    return render_template('test_bullhorn.html')
 
 @app.route('/bullhorn/oauth/callback')
 def bullhorn_oauth_callback():
@@ -1606,7 +1550,6 @@ def bullhorn_oauth_callback():
         return redirect(url_for('bullhorn_settings'))
         
     except Exception as e:
-        app.logger.error(f"Error in OAuth callback: {str(e)}")
         flash(f'OAuth callback error: {str(e)}', 'error')
         return redirect(url_for('bullhorn_settings'))
 

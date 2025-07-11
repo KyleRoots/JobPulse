@@ -37,17 +37,13 @@ class BullhornService:
                 'bullhorn_password': 'password'
             }
             
-            logging.info("Loading Bullhorn credentials from database...")
             for setting_key, attr_name in settings_map.items():
                 setting = GlobalSettings.query.filter_by(setting_key=setting_key).first()
                 if setting and setting.setting_value:
                     setattr(self, attr_name, setting.setting_value.strip())
-                    logging.info(f"Loaded {setting_key}: {'***' + setting.setting_value[-4:] if len(setting.setting_value) > 4 else '***'}")
-                else:
-                    logging.warning(f"No value found for {setting_key}")
                     
         except Exception as e:
-            logging.error(f"Could not load Bullhorn credentials: {str(e)}")
+            logging.warning(f"Could not load Bullhorn credentials: {str(e)}")
         
     def authenticate(self) -> bool:
         """
@@ -454,57 +450,28 @@ class BullhornService:
         Returns:
             bool: True if connection successful, False otherwise
         """
+        if not all([self.client_id, self.username]):
+            return False
+            
         try:
-            logging.info("Starting Bullhorn connection test")
-            
-            if not self.client_id or not self.username:
-                logging.error(f"Missing credentials - client_id: {bool(self.client_id)}, username: {bool(self.username)}")
-                return False
-            
-            logging.info(f"Credentials present - client_id: {self.client_id}, username: {self.username}")
-            
-            # Check if we need to wait for cooldown
-            if self._last_auth_attempt:
-                time_since_last = datetime.now() - self._last_auth_attempt
-                if time_since_last.total_seconds() < 5:
-                    wait_time = 5 - time_since_last.total_seconds()
-                    logging.info(f"Waiting {wait_time:.1f}s for auth cooldown")
-                    import time
-                    time.sleep(wait_time)
-            
             # Test authentication
-            auth_result = self.authenticate()
-            logging.info(f"Authentication result: {auth_result}")
-            
-            if auth_result:
-                # Test a simple API call - use JobOrder which is a standard entity
-                url = f"{self.base_url}search/JobOrder"
-                params = {
-                    'query': 'id:[1 TO 999999]',  # Query for any job with ID between 1 and 999999
-                    'fields': 'id',
-                    'count': 1,
-                    'BhRestToken': self.rest_token
-                }
-                
-                logging.info(f"Test connection URL: {url}")
-                logging.info(f"Test connection params: {params}")
-                response = self.session.get(url, params=params)
-                logging.info(f"Test connection response: {response.status_code}")
-                
-                if response.status_code == 200:
-                    logging.info("Bullhorn connection test successful - returning True")
-                    return True
-                else:
-                    logging.error(f"Test connection failed: {response.status_code} - {response.text}")
-                    return False
-            else:
-                logging.error("Authentication failed in test_connection")
+            if not self.authenticate():
                 return False
+            
+            # Test a simple API call
+            url = f"{self.base_url}search/JobOrder"
+            params = {
+                'query': 'id:[1 TO 999999]',
+                'fields': 'id',
+                'count': 1,
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params)
+            return response.status_code == 200
             
         except Exception as e:
-            logging.error(f"Bullhorn connection test failed with exception: {str(e)}")
-            import traceback
-            logging.error(f"Traceback: {traceback.format_exc()}")
+            logging.error(f"Bullhorn connection test failed: {str(e)}")
             return False
     
     def compare_job_lists(self, previous_jobs: List[Dict], current_jobs: List[Dict]) -> Dict[str, List[Dict]]:
