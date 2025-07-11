@@ -354,10 +354,6 @@ class BullhornService:
                         # Add jobs from this page
                         all_jobs.extend(jobs_data)
                         
-                        # Log pagination info for debugging (only if there are jobs or pagination is needed)
-                        if total > 0 or start > 0:
-                            logging.info(f"Tearsheet {tearsheet_id}: Got {len(jobs_data)} jobs (start={start}, total={total})")
-                        
                         # Check if we need to fetch more pages
                         if len(jobs_data) < count or len(all_jobs) >= total:
                             break
@@ -365,15 +361,12 @@ class BullhornService:
                         start += count
                     else:
                         # Handle case where jobOrders is not a dict (empty or different format)
-                        logging.warning(f"Tearsheet {tearsheet_id}: jobOrders not in expected format: {type(job_orders)}")
+                        if len(all_jobs) == 0:
+                            logging.warning(f"Tearsheet {tearsheet_id}: No jobs found or unexpected format")
                         break
                 else:
                     logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
                     break
-            
-            # Only log final count if there are jobs or if we had pagination
-            if len(all_jobs) > 0 or start > 0:
-                logging.info(f"Tearsheet {tearsheet_id}: Final count = {len(all_jobs)} jobs")
             return all_jobs
                 
         except Exception as e:
