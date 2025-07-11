@@ -139,6 +139,7 @@ Changelog:
 - July 11, 2025. Fixed critical job count accuracy bug - implemented proper pagination handling in tearsheet API calls to ensure all jobs are retrieved, not just the first 20
 - July 11, 2025. Resolved tearsheet pagination limitation by switching from entity API to search API with 'tearsheets.id' query for accurate job retrieval
 - July 11, 2025. Implemented hybrid approach for job count accuracy - uses entity API as authoritative source to validate and limit search results, ensuring monitors display exact tearsheet counts matching Bullhorn
+- July 11, 2025. Enhanced ATS monitoring dashboard with live job count badges - displays current job counts for all monitors in main overview for complete at-a-glance visibility
 ```
 
 ## User Preferences
