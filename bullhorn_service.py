@@ -327,8 +327,29 @@ class BullhornService:
                 return []
         
         try:
-            # Use search API to get all jobs for this tearsheet (more reliable than entity API)
-            # This approach works around the pagination limitation of the tearsheet entity endpoint
+            # First get the entity API count for validation
+            entity_url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
+            entity_params = {
+                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription)',
+                'BhRestToken': self.rest_token
+            }
+            
+            entity_response = self.session.get(entity_url, params=entity_params)
+            entity_total = 0
+            
+            if entity_response.status_code == 200:
+                entity_data = entity_response.json()
+                job_orders = entity_data.get('data', {}).get('jobOrders', {})
+                if isinstance(job_orders, dict):
+                    entity_total = job_orders.get('total', 0)
+                    logging.info(f"Tearsheet {tearsheet_id}: Entity API reports {entity_total} total jobs")
+                    
+                    # If there are 5 or fewer jobs, use the entity API data directly (no pagination needed)
+                    if entity_total <= 5:
+                        entity_jobs = job_orders.get('data', [])
+                        return entity_jobs
+            
+            # For larger tearsheets, use search API to get all jobs
             query = f"tearsheets.id:{tearsheet_id}"
             
             # Define fields to retrieve
@@ -373,6 +394,11 @@ class BullhornService:
                 else:
                     logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
                     break
+            # Validate against entity API count and limit results if needed
+            if entity_total > 0 and len(all_jobs) > entity_total:
+                logging.warning(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs but entity API indicates {entity_total}. Limiting to entity count.")
+                all_jobs = all_jobs[:entity_total]
+            
             return all_jobs
                 
         except Exception as e:
