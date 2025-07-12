@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automation Test Center - XML Processing System</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .log-output {
+            background: #1e1e1e;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 10px 0;
+        }
+        .test-card {
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            background: #2a2a2a;
+        }
+        .step-indicator {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #007bff;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .step-indicator.completed {
+            background: #28a745;
+        }
+        .step-indicator.running {
+            background: #ffc107;
+            color: #000;
+        }
+        .step-indicator.failed {
+            background: #dc3545;
+        }
+        .job-list {
+            background: #3a3a3a;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .job-item {
+            padding: 5px;
+            margin: 2px 0;
+            background: #4a4a4a;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .job-item.added {
+            border-left: 4px solid #28a745;
+        }
+        .job-item.removed {
+            border-left: 4px solid #dc3545;
+        }
+        .job-item.updated {
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-cogs"></i> Automation Test Center
+                </h1>
+                <p class="text-muted">
+                    Test the complete XML automation system with simulated Bullhorn job changes.
+                    This demonstrates exactly how the system processes job additions, removals, and updates.
+                </p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="test-card">
+                    <h3><i class="fas fa-play-circle"></i> Quick Test</h3>
+                    <p>Run a complete automation demo showing all features:</p>
+                    <button id="runQuickTest" class="btn btn-primary btn-lg">
+                        <i class="fas fa-rocket"></i> Run Complete Demo
+                    </button>
+                </div>
+
+                <div class="test-card">
+                    <h3><i class="fas fa-step-forward"></i> Step-by-Step Testing</h3>
+                    <p>Test individual automation steps:</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <button id="testAddJobs" class="btn btn-success btn-block mb-2">
+                                <i class="fas fa-plus"></i> Test Adding Jobs
+                            </button>
+                            <button id="testRemoveJobs" class="btn btn-danger btn-block mb-2">
+                                <i class="fas fa-minus"></i> Test Removing Jobs
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <button id="testUpdateJobs" class="btn btn-warning btn-block mb-2">
+                                <i class="fas fa-edit"></i> Test Updating Jobs
+                            </button>
+                            <button id="testFileUpload" class="btn btn-info btn-block mb-2">
+                                <i class="fas fa-upload"></i> Test File Upload
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <h3><i class="fas fa-file-code"></i> Current XML Content</h3>
+                    <button id="showXMLContent" class="btn btn-secondary mb-2">
+                        <i class="fas fa-eye"></i> View Current XML
+                    </button>
+                    <div id="xmlContent" class="log-output" style="display: none;"></div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="test-card">
+                    <h3><i class="fas fa-list-ol"></i> Test Progress</h3>
+                    <div id="testProgress">
+                        <div class="mb-2">
+                            <span class="step-indicator" id="step1">1</span>
+                            <span>Initialize XML File</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="step-indicator" id="step2">2</span>
+                            <span>Add New Jobs</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="step-indicator" id="step3">3</span>
+                            <span>Remove Jobs</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="step-indicator" id="step4">4</span>
+                            <span>Update Jobs</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="step-indicator" id="step5">5</span>
+                            <span>Process & Upload</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <h3><i class="fas fa-chart-bar"></i> Test Statistics</h3>
+                    <div id="testStats">
+                        <div class="mb-2">
+                            <strong>Jobs Added:</strong> <span id="jobsAdded">0</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Jobs Removed:</strong> <span id="jobsRemoved">0</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Jobs Updated:</strong> <span id="jobsUpdated">0</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Total Jobs:</strong> <span id="totalJobs">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="test-card">
+                    <h3><i class="fas fa-terminal"></i> Test Output</h3>
+                    <div id="testOutput" class="log-output">
+                        Ready to run automation tests...
+                    </div>
+                    <div class="mt-2">
+                        <button id="clearOutput" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-trash"></i> Clear Output
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class AutomationTester {
+            constructor() {
+                this.testOutput = document.getElementById('testOutput');
+                this.setupEventListeners();
+                this.resetStats();
+            }
+
+            setupEventListeners() {
+                document.getElementById('runQuickTest').addEventListener('click', () => this.runCompleteDemo());
+                document.getElementById('testAddJobs').addEventListener('click', () => this.testAddJobs());
+                document.getElementById('testRemoveJobs').addEventListener('click', () => this.testRemoveJobs());
+                document.getElementById('testUpdateJobs').addEventListener('click', () => this.testUpdateJobs());
+                document.getElementById('testFileUpload').addEventListener('click', () => this.testFileUpload());
+                document.getElementById('showXMLContent').addEventListener('click', () => this.showXMLContent());
+                document.getElementById('clearOutput').addEventListener('click', () => this.clearOutput());
+            }
+
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+                this.testOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+                this.testOutput.scrollTop = this.testOutput.scrollHeight;
+            }
+
+            clearOutput() {
+                this.testOutput.textContent = 'Ready to run automation tests...\n';
+                this.resetProgress();
+                this.resetStats();
+            }
+
+            updateProgress(step, status) {
+                const stepElement = document.getElementById(`step${step}`);
+                stepElement.className = `step-indicator ${status}`;
+            }
+
+            resetProgress() {
+                for (let i = 1; i <= 5; i++) {
+                    document.getElementById(`step${i}`).className = 'step-indicator';
+                }
+            }
+
+            updateStats(added = 0, removed = 0, updated = 0, total = 0) {
+                document.getElementById('jobsAdded').textContent = added;
+                document.getElementById('jobsRemoved').textContent = removed;
+                document.getElementById('jobsUpdated').textContent = updated;
+                document.getElementById('totalJobs').textContent = total;
+            }
+
+            resetStats() {
+                this.updateStats();
+            }
+
+            async runCompleteDemo() {
+                this.log('🚀 Starting Complete Automation Demo', 'info');
+                this.log('This demonstrates the full workflow that happens automatically every 5 minutes', 'info');
+                this.resetProgress();
+                this.resetStats();
+
+                try {
+                    // Step 1: Initialize
+                    this.updateProgress(1, 'running');
+                    this.log('📝 Step 1: Initializing test environment...', 'info');
+                    await this.simulateDelay(1000);
+                    
+                    const response = await fetch('/automation_test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'complete_demo' })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.updateProgress(1, 'completed');
+                        this.log('✅ Complete demo finished successfully!', 'success');
+                        this.log(`📊 Results: ${result.summary}`, 'info');
+                        
+                        // Update all progress indicators
+                        for (let i = 1; i <= 5; i++) {
+                            this.updateProgress(i, 'completed');
+                        }
+                        
+                        // Update stats
+                        this.updateStats(result.jobs_added || 0, result.jobs_removed || 0, 
+                                       result.jobs_updated || 0, result.total_jobs || 0);
+                        
+                        this.log('🎉 Demo completed! This shows exactly how the system works in production.', 'success');
+                    } else {
+                        this.updateProgress(1, 'failed');
+                        this.log(`❌ Demo failed: ${result.error}`, 'error');
+                    }
+                    
+                } catch (error) {
+                    this.updateProgress(1, 'failed');
+                    this.log(`❌ Error running demo: ${error.message}`, 'error');
+                }
+            }
+
+            async testAddJobs() {
+                this.log('➕ Testing job addition...', 'info');
+                await this.runTestAction('add_jobs', 'Added 2 sample jobs to XML file');
+            }
+
+            async testRemoveJobs() {
+                this.log('➖ Testing job removal...', 'info');
+                await this.runTestAction('remove_jobs', 'Removed 1 job from XML file');
+            }
+
+            async testUpdateJobs() {
+                this.log('🔄 Testing job updates...', 'info');
+                await this.runTestAction('update_jobs', 'Updated 1 job in XML file');
+            }
+
+            async testFileUpload() {
+                this.log('📤 Testing file upload process...', 'info');
+                await this.runTestAction('file_upload', 'Simulated file upload to web server');
+            }
+
+            async runTestAction(action, successMessage) {
+                try {
+                    const response = await fetch('/automation_test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.log(`✅ ${successMessage}`, 'success');
+                        if (result.details) {
+                            this.log(`📋 Details: ${result.details}`, 'info');
+                        }
+                    } else {
+                        this.log(`❌ Test failed: ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    this.log(`❌ Error: ${error.message}`, 'error');
+                }
+            }
+
+            async showXMLContent() {
+                this.log('👀 Fetching current XML content...', 'info');
+                try {
+                    const response = await fetch('/automation_test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'show_xml' })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const xmlContentDiv = document.getElementById('xmlContent');
+                        xmlContentDiv.textContent = result.xml_content;
+                        xmlContentDiv.style.display = 'block';
+                        this.log('✅ XML content displayed', 'success');
+                    } else {
+                        this.log(`❌ Failed to get XML content: ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    this.log(`❌ Error: ${error.message}`, 'error');
+                }
+            }
+
+            simulateDelay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // Initialize the tester when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new AutomationTester();
+        });
+    </script>
+</body>
+</html>

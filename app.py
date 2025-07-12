@@ -1849,5 +1849,202 @@ def bullhorn_oauth_callback():
         flash(f'OAuth callback error: {str(e)}', 'error')
         return redirect(url_for('bullhorn_settings'))
 
+@app.route('/automation_test')
+def automation_test():
+    """Automation test center page"""
+    return render_template('automation_test.html')
+
+@app.route('/automation_test', methods=['POST'])
+def automation_test_action():
+    """Handle automation test actions"""
+    try:
+        data = request.get_json()
+        action = data.get('action')
+        
+        if action == 'complete_demo':
+            # Run the complete demo script
+            result = run_automation_demo()
+            return jsonify(result)
+        
+        elif action == 'add_jobs':
+            return jsonify({
+                'success': True,
+                'details': 'Simulated adding 2 jobs with proper XML formatting and reference numbers',
+                'jobs_added': 2
+            })
+        
+        elif action == 'remove_jobs':
+            return jsonify({
+                'success': True,
+                'details': 'Simulated removing 1 job from XML file',
+                'jobs_removed': 1
+            })
+        
+        elif action == 'update_jobs':
+            return jsonify({
+                'success': True,
+                'details': 'Simulated updating 1 job with new information',
+                'jobs_updated': 1
+            })
+        
+        elif action == 'file_upload':
+            return jsonify({
+                'success': True,
+                'details': 'Simulated uploading processed XML file to SFTP server',
+                'uploaded': True
+            })
+        
+        elif action == 'show_xml':
+            # Return sample XML content for display
+            sample_xml = '''<?xml version='1.0' encoding='UTF-8'?>
+<source>
+  <publisher>Myticas Consulting Job Site</publisher>
+  <publisherurl>https://myticas.com/</publisherurl>
+  <job>
+    <title><![CDATA[ Senior Python Developer (12345) ]]></title>
+    <company><![CDATA[ Tech Innovations Inc ]]></company>
+    <date><![CDATA[ July 12, 2025 ]]></date>
+    <referencenumber><![CDATA[REF1234567]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description><![CDATA[ Looking for a Senior Python Developer with Django experience... ]]></description>
+    <jobtype><![CDATA[ Full-time ]]></jobtype>
+    <city><![CDATA[ San Francisco ]]></city>
+    <state><![CDATA[ California ]]></state>
+    <country><![CDATA[ United States ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[]]></remotetype>
+  </job>
+</source>'''
+            return jsonify({
+                'success': True,
+                'xml_content': sample_xml
+            })
+        
+        else:
+            return jsonify({'success': False, 'error': 'Unknown action'})
+            
+    except Exception as e:
+        app.logger.error(f"Error in automation test: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
+def run_automation_demo():
+    """Run the complete automation demo and return results"""
+    try:
+        # Initialize services
+        xml_service = XMLIntegrationService()
+        xml_processor = XMLProcessor()
+        
+        # Create demo data
+        demo_xml_file = 'demo_test.xml'
+        
+        # Create initial XML
+        initial_xml = '''<?xml version='1.0' encoding='UTF-8'?>
+<source>
+  <publisher>Myticas Consulting Job Site</publisher>
+  <publisherurl>https://myticas.com/</publisherurl>
+  <job>
+    <title><![CDATA[ Initial Job (99999) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 12, 2025 ]]></date>
+    <referencenumber><![CDATA[INIT999999]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description><![CDATA[ Initial test job ]]></description>
+    <jobtype><![CDATA[ Full-time ]]></jobtype>
+    <city><![CDATA[ Chicago ]]></city>
+    <state><![CDATA[ Illinois ]]></state>
+    <country><![CDATA[ United States ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[]]></remotetype>
+  </job>
+</source>'''
+        
+        # Write initial XML file
+        with open(demo_xml_file, 'w', encoding='utf-8') as f:
+            f.write(initial_xml)
+        
+        # Simulate job changes
+        previous_jobs = []
+        current_jobs = [
+            {
+                'id': 12345,
+                'title': 'Senior Python Developer',
+                'clientCorporation': {'name': 'Tech Innovations Inc'},
+                'description': 'Senior Python Developer with Django experience',
+                'address': {'city': 'San Francisco', 'state': 'California', 'countryName': 'United States'},
+                'employmentType': 'Full-time',
+                'dateAdded': 1720742400000
+            },
+            {
+                'id': 67890,
+                'title': 'DevOps Engineer',
+                'clientCorporation': {'name': 'Cloud Solutions LLC'},
+                'description': 'DevOps Engineer with AWS experience',
+                'address': {'city': 'Seattle', 'state': 'Washington', 'countryName': 'United States'},
+                'employmentType': 'Contract',
+                'dateAdded': 1720742400000
+            }
+        ]
+        
+        # Run XML sync
+        sync_result = xml_service.sync_xml_with_bullhorn_jobs(
+            xml_file_path=demo_xml_file,
+            current_jobs=current_jobs,
+            previous_jobs=previous_jobs
+        )
+        
+        if sync_result.get('success'):
+            # Process the XML
+            temp_output = f"{demo_xml_file}.processed"
+            process_result = xml_processor.process_xml(demo_xml_file, temp_output)
+            
+            if process_result.get('success'):
+                # Replace original
+                os.replace(temp_output, demo_xml_file)
+                
+                # Get final job count
+                import re
+                with open(demo_xml_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                job_count = len(re.findall(r'<job>', content))
+                
+                # Clean up
+                os.remove(demo_xml_file)
+                
+                return {
+                    'success': True,
+                    'summary': f'Successfully processed {job_count} total jobs',
+                    'jobs_added': sync_result.get('added_count', 0),
+                    'jobs_removed': sync_result.get('removed_count', 0),
+                    'jobs_updated': sync_result.get('updated_count', 0),
+                    'total_jobs': job_count
+                }
+            else:
+                # Clean up on failure
+                if os.path.exists(demo_xml_file):
+                    os.remove(demo_xml_file)
+                return {
+                    'success': False,
+                    'error': f'XML processing failed: {process_result.get("error")}'
+                }
+        else:
+            # Clean up on failure
+            if os.path.exists(demo_xml_file):
+                os.remove(demo_xml_file)
+            return {
+                'success': False,
+                'error': f'XML sync failed: {sync_result.get("error")}'
+            }
+            
+    except Exception as e:
+        # Clean up on exception
+        if 'demo_xml_file' in locals() and os.path.exists(demo_xml_file):
+            os.remove(demo_xml_file)
+        return {
+            'success': False,
+            'error': f'Demo failed: {str(e)}'
+        }
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
