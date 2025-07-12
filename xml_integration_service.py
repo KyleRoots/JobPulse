@@ -140,6 +140,23 @@ class XMLIntegrationService:
             self.logger.warning(f"Error formatting date {date_str}: {str(e)}")
             return datetime.now().strftime('%B %d, %Y')
     
+    def _clean_extra_whitespace(self, xml_file_path: str):
+        """Clean up extra blank lines in XML file"""
+        try:
+            with open(xml_file_path, 'r') as f:
+                content = f.read()
+            
+            # Remove multiple consecutive blank lines between publisherurl and first job
+            import re
+            # Replace multiple blank lines with single line
+            content = re.sub(r'</publisherurl>\n\s*\n+\s*<job>', '</publisherurl>\n  <job>', content)
+            
+            with open(xml_file_path, 'w') as f:
+                f.write(content)
+                
+        except Exception as e:
+            self.logger.error(f"Error cleaning whitespace: {str(e)}")
+    
     def add_job_to_xml(self, xml_file_path: str, bullhorn_job: Dict) -> bool:
         """
         Add a new job to the XML file at the top (first position after </publisherurl>)
@@ -248,9 +265,21 @@ class XMLIntegrationService:
                     # Set proper spacing after publisherurl
                     publisher_url.tail = "\n  "
                 
+                # Also clean up any extra whitespace between elements
+                # Find all jobs and ensure proper spacing
+                jobs = root.findall('job')
+                if jobs:
+                    # Ensure the first job has proper spacing from publisherurl
+                    first_job = jobs[0]
+                    # Remove any extra whitespace before the first job
+                    publisher_url.tail = "\n  "
+                
                 # Write updated XML back to file
                 with open(xml_file_path, 'wb') as f:
                     tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+                    
+                # Post-process to remove extra blank lines
+                self._clean_extra_whitespace(xml_file_path)
                 return True
             else:
                 self.logger.warning(f"Job with ID {job_id} not found in XML")

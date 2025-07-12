@@ -2,16 +2,13 @@
 <source>
   <publisher>Myticas Consulting Job Site</publisher>
   <publisherurl>https://myticas.com/</publisherurl>
-  
-  
-  
   <job>
-    <title><![CDATA[ Senior Python Developer - UPDATED (12345) ]]></title>
+    <title><![CDATA[ Senior Python Developer (12345) ]]></title>
     <company><![CDATA[ Tech Innovations Inc ]]></company>
     <date><![CDATA[ July 12, 2024 ]]></date>
     <referencenumber><![CDATA[TYBVQ4DZSL]]></referencenumber>
     <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ Senior Python Developer with Django and FastAPI experience - UPDATED ]]></description>
+    <description><![CDATA[ Senior Python Developer with Django and FastAPI experience ]]></description>
     <jobtype><![CDATA[ Full-time ]]></jobtype>
     <city><![CDATA[ San Francisco ]]></city>
     <state><![CDATA[ California ]]></state>

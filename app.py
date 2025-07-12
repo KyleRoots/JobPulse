@@ -1860,6 +1860,8 @@ def bullhorn_oauth_callback():
 @app.route('/automation_test')
 def automation_test():
     """Automation test center page"""
+    # Reset test file to original state
+    reset_test_file()
     return render_template('automation_test.html')
 
 @app.route('/automation_test', methods=['POST'])
@@ -1936,6 +1938,55 @@ def automation_test_action():
     except Exception as e:
         app.logger.error(f"Error in automation test: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
+
+def reset_test_file():
+    """Reset the test file to its original clean state"""
+    try:
+        # Original clean XML content
+        original_xml = '''<?xml version='1.0' encoding='UTF-8'?>
+<source>
+  <publisher>Myticas Consulting Job Site</publisher>
+  <publisherurl>https://myticas.com/</publisherurl>
+  <job>
+    <title><![CDATA[ Senior Python Developer (12345) ]]></title>
+    <company><![CDATA[ Tech Innovations Inc ]]></company>
+    <date><![CDATA[ July 12, 2024 ]]></date>
+    <referencenumber><![CDATA[TYBVQ4DZSL]]></referencenumber>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ Senior Python Developer with Django and FastAPI experience ]]></description>
+    <jobtype><![CDATA[ Full-time ]]></jobtype>
+    <city><![CDATA[ San Francisco ]]></city>
+    <state><![CDATA[ California ]]></state>
+    <country><![CDATA[ United States ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[  ]]></remotetype>
+  </job>
+  <job>
+    <title><![CDATA[ Initial Job (99999) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 12, 2025 ]]></date>
+    <referencenumber><![CDATA[ZNLCP9YE8X]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description><![CDATA[ Initial test job ]]></description>
+    <jobtype><![CDATA[ Full-time ]]></jobtype>
+    <city><![CDATA[ Chicago ]]></city>
+    <state><![CDATA[ Illinois ]]></state>
+    <country><![CDATA[ United States ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[]]></remotetype>
+  </job>
+</source>'''
+        
+        # Write the clean XML to the demo file
+        with open('demo_test_current.xml', 'w') as f:
+            f.write(original_xml)
+            
+        app.logger.info("Test file reset to original clean state")
+        
+    except Exception as e:
+        app.logger.error(f"Error resetting test file: {str(e)}")
 
 def run_automation_demo():
     """Run the complete automation demo and return results"""

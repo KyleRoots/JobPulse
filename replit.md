@@ -176,6 +176,7 @@ Changelog:
 - July 12, 2025. Enhanced Automation Test Center with improved reference number handling - only new jobs receive unique reference numbers during testing, existing jobs preserve their numbers, added navigation buttons for easy return to main dashboard screens
 - July 12, 2025. Fixed XML formatting preservation issue - new jobs now maintain proper indentation and formatting structure matching existing jobs in the XML file
 - July 12, 2025. Enhanced XML whitespace handling - job removal now properly cleans up whitespace to eliminate extra blank lines between publisherurl and job elements
+- July 12, 2025. Added automatic test file reset functionality - Automation Test Center now starts with clean test environment, removing "- UPDATED" test data from previous sessions
 ```
 
 ## User Preferences
