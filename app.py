@@ -1895,8 +1895,24 @@ def automation_test_action():
             })
         
         elif action == 'show_xml':
-            # Return sample XML content for display
-            sample_xml = '''<?xml version='1.0' encoding='UTF-8'?>
+            # Check if there's a recent demo file to show
+            demo_file = 'demo_test_current.xml'
+            if os.path.exists(demo_file):
+                try:
+                    with open(demo_file, 'r', encoding='utf-8') as f:
+                        xml_content = f.read()
+                    return jsonify({
+                        'success': True,
+                        'xml_content': xml_content
+                    })
+                except Exception as e:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Error reading demo file: {str(e)}'
+                    })
+            else:
+                # Return sample XML content for display
+                sample_xml = '''<?xml version='1.0' encoding='UTF-8'?>
 <source>
   <publisher>Myticas Consulting Job Site</publisher>
   <publisherurl>https://myticas.com/</publisherurl>
@@ -1916,10 +1932,11 @@ def automation_test_action():
     <remotetype><![CDATA[]]></remotetype>
   </job>
 </source>'''
-            return jsonify({
-                'success': True,
-                'xml_content': sample_xml
-            })
+                return jsonify({
+                    'success': True,
+                    'xml_content': sample_xml,
+                    'note': 'This is sample XML content. Run the Complete Demo first to see actual processed results.'
+                })
         
         else:
             return jsonify({'success': False, 'error': 'Unknown action'})
@@ -1936,7 +1953,7 @@ def run_automation_demo():
         xml_processor = XMLProcessor()
         
         # Create demo data
-        demo_xml_file = 'demo_test.xml'
+        demo_xml_file = 'demo_test_current.xml'
         
         # Create initial XML
         initial_xml = '''<?xml version='1.0' encoding='UTF-8'?>
@@ -2009,8 +2026,8 @@ def run_automation_demo():
                     content = f.read()
                 job_count = len(re.findall(r'<job>', content))
                 
-                # Clean up
-                os.remove(demo_xml_file)
+                # Keep the file for viewing (don't clean up immediately)
+                # It will be overwritten on next demo run
                 
                 return {
                     'success': True,
