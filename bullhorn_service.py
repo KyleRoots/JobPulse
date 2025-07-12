@@ -196,7 +196,13 @@ class BullhornService:
                 'redirect_uri': redirect_uri
             }
             
-            token_response = self.session.post(token_endpoint, data=token_data)
+            # Set explicit headers for token exchange
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            }
+            
+            token_response = self.session.post(token_endpoint, data=token_data, headers=headers)
             if token_response.status_code != 200:
                 logging.error(f"Failed to get access token: {token_response.status_code} - {token_response.text}")
                 return False

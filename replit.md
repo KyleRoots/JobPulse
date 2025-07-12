@@ -172,6 +172,7 @@ Changelog:
 - July 12, 2025. Implemented comprehensive test file download system - users can now download actual processed XML files to verify exact formatting, job structure, and reference number generation
 - July 12, 2025. Added SFTP timeout protection for testing interface - prevents system hanging during real-time testing while maintaining full functionality for automated processing cycles
 - July 12, 2025. Production optimization and code cleanup - optimized database connections, improved error handling, enhanced logging configuration, removed debug mode, and optimized XML parsing for better performance
+- July 12, 2025. Fixed critical Bullhorn API authentication issue - resolved POST vs GET method error and added proper Content-Type headers for token exchange, restoring full API connectivity and monitor functionality
 ```
 
 ## User Preferences
