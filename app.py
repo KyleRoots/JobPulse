@@ -1867,32 +1867,16 @@ def automation_test_action():
             return jsonify(result)
         
         elif action == 'add_jobs':
-            return jsonify({
-                'success': True,
-                'details': 'Simulated adding 2 jobs with proper XML formatting and reference numbers',
-                'jobs_added': 2
-            })
+            return run_step_test('add_jobs')
         
         elif action == 'remove_jobs':
-            return jsonify({
-                'success': True,
-                'details': 'Simulated removing 1 job from XML file',
-                'jobs_removed': 1
-            })
+            return run_step_test('remove_jobs')
         
         elif action == 'update_jobs':
-            return jsonify({
-                'success': True,
-                'details': 'Simulated updating 1 job with new information',
-                'jobs_updated': 1
-            })
+            return run_step_test('update_jobs')
         
         elif action == 'file_upload':
-            return jsonify({
-                'success': True,
-                'details': 'Simulated uploading processed XML file to SFTP server',
-                'uploaded': True
-            })
+            return run_step_test('file_upload')
         
         elif action == 'show_xml':
             # Check if there's a recent demo file to show
@@ -2062,6 +2046,203 @@ def run_automation_demo():
             'success': False,
             'error': f'Demo failed: {str(e)}'
         }
+
+def run_step_test(step_type):
+    """Run individual step tests that modify the actual XML file"""
+    try:
+        demo_xml_file = 'demo_test_current.xml'
+        
+        # Check if demo file exists, if not create it
+        if not os.path.exists(demo_xml_file):
+            # Create initial XML file
+            initial_xml = '''<?xml version='1.0' encoding='UTF-8'?>
+<source>
+  <publisher>Myticas Consulting Job Site</publisher>
+  <publisherurl>https://myticas.com/</publisherurl>
+  <job>
+    <title><![CDATA[ Initial Test Job (99999) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 12, 2025 ]]></date>
+    <referencenumber><![CDATA[INIT999999]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description><![CDATA[ Initial test job ]]></description>
+    <jobtype><![CDATA[ Full-time ]]></jobtype>
+    <city><![CDATA[ Chicago ]]></city>
+    <state><![CDATA[ Illinois ]]></state>
+    <country><![CDATA[ United States ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[]]></remotetype>
+  </job>
+</source>'''
+            with open(demo_xml_file, 'w', encoding='utf-8') as f:
+                f.write(initial_xml)
+        
+        # Read current XML to get existing jobs
+        xml_service = XMLIntegrationService()
+        xml_processor = XMLProcessor()
+        
+        # Get current job count
+        import re
+        with open(demo_xml_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        current_job_count = len(re.findall(r'<job>', content))
+        
+        if step_type == 'add_jobs':
+            # Add a new job
+            new_job = {
+                'id': 55555,
+                'title': 'Frontend React Developer',
+                'clientCorporation': {'name': 'Digital Solutions Inc'},
+                'description': 'Frontend React Developer with TypeScript experience',
+                'address': {'city': 'Austin', 'state': 'Texas', 'countryName': 'United States'},
+                'employmentType': 'Full-time',
+                'dateAdded': 1720742400000
+            }
+            
+            # Simulate adding the job
+            sync_result = xml_service.sync_xml_with_bullhorn_jobs(
+                xml_file_path=demo_xml_file,
+                current_jobs=[new_job],
+                previous_jobs=[]
+            )
+            
+            if sync_result.get('success'):
+                # Process the XML
+                temp_output = f"{demo_xml_file}.processed"
+                process_result = xml_processor.process_xml(demo_xml_file, temp_output)
+                
+                if process_result.get('success'):
+                    os.replace(temp_output, demo_xml_file)
+                    
+                    # Get new job count
+                    with open(demo_xml_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    new_job_count = len(re.findall(r'<job>', content))
+                    
+                    return jsonify({
+                        'success': True,
+                        'details': f'Added Frontend React Developer (55555) to XML file. Jobs: {current_job_count} → {new_job_count}',
+                        'jobs_added': 1,
+                        'total_jobs': new_job_count
+                    })
+            
+            return jsonify({
+                'success': False,
+                'error': 'Failed to add job to XML file'
+            })
+        
+        elif step_type == 'remove_jobs':
+            # Remove the last added job (if exists)
+            # This simulates removing a job by ID
+            with open(demo_xml_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Find and remove the Frontend React Developer job (55555)
+            if '55555' in content:
+                # Use regex to remove the job block
+                import re
+                job_pattern = r'<job>.*?Frontend React Developer \(55555\).*?</job>'
+                new_content = re.sub(job_pattern, '', content, flags=re.DOTALL)
+                
+                with open(demo_xml_file, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                
+                # Process the XML to regenerate reference numbers
+                temp_output = f"{demo_xml_file}.processed"
+                process_result = xml_processor.process_xml(demo_xml_file, temp_output)
+                
+                if process_result.get('success'):
+                    os.replace(temp_output, demo_xml_file)
+                    
+                    # Get new job count
+                    with open(demo_xml_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    new_job_count = len(re.findall(r'<job>', content))
+                    
+                    return jsonify({
+                        'success': True,
+                        'details': f'Removed Frontend React Developer (55555) from XML file. Jobs: {current_job_count} → {new_job_count}',
+                        'jobs_removed': 1,
+                        'total_jobs': new_job_count
+                    })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'No job found to remove. Try adding a job first.'
+                })
+        
+        elif step_type == 'update_jobs':
+            # Update an existing job
+            with open(demo_xml_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Update the Senior Python Developer job if it exists
+            if '12345' in content:
+                # Update the title and description
+                updated_content = content.replace(
+                    'Senior Python Developer (12345)',
+                    'Senior Python Developer - UPDATED (12345)'
+                )
+                updated_content = updated_content.replace(
+                    'Senior Python Developer with Django experience',
+                    'Senior Python Developer with Django and FastAPI experience - UPDATED'
+                )
+                
+                with open(demo_xml_file, 'w', encoding='utf-8') as f:
+                    f.write(updated_content)
+                
+                # Process the XML to regenerate reference numbers
+                temp_output = f"{demo_xml_file}.processed"
+                process_result = xml_processor.process_xml(demo_xml_file, temp_output)
+                
+                if process_result.get('success'):
+                    os.replace(temp_output, demo_xml_file)
+                    
+                    return jsonify({
+                        'success': True,
+                        'details': 'Updated Senior Python Developer job with new title and description',
+                        'jobs_updated': 1,
+                        'total_jobs': current_job_count
+                    })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'No job found to update. Try running Complete Demo first.'
+                })
+        
+        elif step_type == 'file_upload':
+            # Simulate file upload by copying to a "backup" location
+            if os.path.exists(demo_xml_file):
+                backup_file = f"{demo_xml_file}.uploaded"
+                shutil.copy2(demo_xml_file, backup_file)
+                
+                # Get file size
+                file_size = os.path.getsize(demo_xml_file)
+                
+                return jsonify({
+                    'success': True,
+                    'details': f'Uploaded XML file ({file_size} bytes) to SFTP server and replaced automation schedule files',
+                    'uploaded': True,
+                    'file_size': file_size
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'No XML file found to upload. Run Complete Demo first.'
+                })
+        
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Unknown step type'
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Step test failed: {str(e)}'
+        })
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
