@@ -1942,7 +1942,7 @@ def automation_test_action():
 def reset_test_file():
     """Reset the test file to its original clean state"""
     try:
-        # Original clean XML content
+        # Original clean XML content with consistent formatting
         original_xml = '''<?xml version='1.0' encoding='UTF-8'?>
 <source>
   <publisher>Myticas Consulting Job Site</publisher>
@@ -1979,8 +1979,7 @@ def reset_test_file():
   </job>
 </source>'''
         
-        # Write the clean XML to the demo file
-        with open('demo_test_current.xml', 'w') as f:
+        with open('demo_test_current.xml', 'w', encoding='utf-8') as f:
             f.write(original_xml)
             
         app.logger.info("Test file reset to original clean state")

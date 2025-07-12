@@ -5,6 +5,7 @@ Handles mapping Bullhorn job data to XML format and managing XML file updates
 
 import os
 import logging
+import re
 from typing import Dict, List, Optional
 from datetime import datetime
 from lxml import etree
@@ -143,15 +144,13 @@ class XMLIntegrationService:
     def _clean_extra_whitespace(self, xml_file_path: str):
         """Clean up extra blank lines in XML file"""
         try:
-            with open(xml_file_path, 'r') as f:
+            with open(xml_file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
             # Remove multiple consecutive blank lines between publisherurl and first job
-            import re
-            # Replace multiple blank lines with single line
             content = re.sub(r'</publisherurl>\n\s*\n+\s*<job>', '</publisherurl>\n  <job>', content)
             
-            with open(xml_file_path, 'w') as f:
+            with open(xml_file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
                 
         except Exception as e:
@@ -259,19 +258,8 @@ class XMLIntegrationService:
             
             if removed:
                 # Clean up whitespace after removal
-                # Find publisherurl element and ensure proper spacing to next job
                 publisher_url = root.find('publisherurl')
                 if publisher_url is not None:
-                    # Set proper spacing after publisherurl
-                    publisher_url.tail = "\n  "
-                
-                # Also clean up any extra whitespace between elements
-                # Find all jobs and ensure proper spacing
-                jobs = root.findall('job')
-                if jobs:
-                    # Ensure the first job has proper spacing from publisherurl
-                    first_job = jobs[0]
-                    # Remove any extra whitespace before the first job
                     publisher_url.tail = "\n  "
                 
                 # Write updated XML back to file
