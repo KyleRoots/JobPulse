@@ -2212,19 +2212,76 @@ def run_step_test(step_type):
                 })
         
         elif step_type == 'file_upload':
-            # Simulate file upload by copying to a "backup" location
+            # Real file upload test with download capability
             if os.path.exists(demo_xml_file):
-                backup_file = f"{demo_xml_file}.uploaded"
-                shutil.copy2(demo_xml_file, backup_file)
+                # Create a processed version for download
+                processed_filename = f"test_processed_{int(time.time())}.xml"
+                shutil.copy2(demo_xml_file, processed_filename)
                 
-                # Get file size
+                # Get file size and content info
                 file_size = os.path.getsize(demo_xml_file)
+                with open(demo_xml_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                job_count = len(re.findall(r'<job>', content))
+                
+                # Try actual SFTP upload if credentials are available
+                upload_success = False
+                upload_message = ""
+                
+                try:
+                    # Get SFTP settings from global settings
+                    sftp_settings = {}
+                    for key in ['sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_directory']:
+                        setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                        if setting:
+                            sftp_settings[key] = setting.setting_value
+                    
+                    if all(sftp_settings.get(key) for key in ['sftp_hostname', 'sftp_username', 'sftp_password']):
+                        # Real SFTP upload
+                        ftp_service = FTPService(
+                            hostname=sftp_settings['sftp_hostname'],
+                            username=sftp_settings['sftp_username'],
+                            password=sftp_settings['sftp_password'],
+                            target_directory=sftp_settings.get('sftp_directory', '/'),
+                            use_sftp=True
+                        )
+                        
+                        upload_success = ftp_service.upload_file(demo_xml_file, 'test-automation-demo.xml')
+                        upload_message = "Real SFTP upload completed" if upload_success else "SFTP upload failed"
+                    else:
+                        upload_message = "SFTP credentials not configured - simulated upload"
+                        upload_success = True  # Simulate success for demo
+                        
+                except Exception as e:
+                    upload_message = f"SFTP upload error: {str(e)}"
+                    upload_success = False
+                
+                # Generate download key for the processed file
+                import uuid
+                download_key = str(uuid.uuid4())
+                
+                # Store download info in session or temporary storage
+                # For this demo, we'll create a simple mapping
+                download_info = {
+                    'file_path': processed_filename,
+                    'original_name': 'test-automation-demo.xml',
+                    'timestamp': time.time()
+                }
+                
+                # Store in a simple file-based cache (in production, use Redis or database)
+                import json
+                cache_file = f"download_cache_{download_key}.json"
+                with open(cache_file, 'w') as f:
+                    json.dump(download_info, f)
                 
                 return jsonify({
                     'success': True,
-                    'details': f'Uploaded XML file ({file_size} bytes) to SFTP server and replaced automation schedule files',
-                    'uploaded': True,
-                    'file_size': file_size
+                    'details': f'{upload_message}. XML file ({file_size} bytes, {job_count} jobs) processed and available for download',
+                    'uploaded': upload_success,
+                    'file_size': file_size,
+                    'job_count': job_count,
+                    'download_key': download_key,
+                    'download_url': f'/test_download/{download_key}'
                 })
             else:
                 return jsonify({
@@ -2243,6 +2300,42 @@ def run_step_test(step_type):
             'success': False,
             'error': f'Step test failed: {str(e)}'
         })
+
+@app.route('/test_download/<download_key>')
+def test_download(download_key):
+    """Download test XML file"""
+    try:
+        # Load download info from cache
+        cache_file = f"download_cache_{download_key}.json"
+        if not os.path.exists(cache_file):
+            flash('Download link expired or invalid', 'error')
+            return redirect(url_for('automation_test'))
+        
+        import json
+        with open(cache_file, 'r') as f:
+            download_info = json.load(f)
+        
+        file_path = download_info['file_path']
+        original_name = download_info['original_name']
+        
+        if not os.path.exists(file_path):
+            flash('Test file not found', 'error')
+            return redirect(url_for('automation_test'))
+        
+        # Clean up cache file after use
+        os.remove(cache_file)
+        
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=original_name,
+            mimetype='application/xml'
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Test download error: {str(e)}")
+        flash('Download failed', 'error')
+        return redirect(url_for('automation_test'))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

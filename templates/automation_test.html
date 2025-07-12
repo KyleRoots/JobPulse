@@ -332,6 +332,17 @@
                         if (result.details) {
                             this.log(`📋 Details: ${result.details}`, 'info');
                         }
+                        if (result.download_key) {
+                            this.log(`📥 Download processed file: ${window.location.origin}${result.download_url}`, 'info');
+                            // Create download link
+                            const downloadLink = document.createElement('a');
+                            downloadLink.href = result.download_url;
+                            downloadLink.textContent = 'Download Test XML File';
+                            downloadLink.className = 'btn btn-sm btn-outline-primary mt-2';
+                            downloadLink.style.display = 'block';
+                            downloadLink.style.width = 'fit-content';
+                            this.testOutput.appendChild(downloadLink);
+                        }
                     } else {
                         this.log(`❌ Test failed: ${result.error}`, 'error');
                     }
