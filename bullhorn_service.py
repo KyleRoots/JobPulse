@@ -352,12 +352,16 @@ class BullhornService:
             # For larger tearsheets, use search API to get all jobs
             query = f"tearsheets.id:{tearsheet_id}"
             
-            # Define fields to retrieve
+            # Define fields to retrieve (enhanced for XML mapping)
             fields = [
                 "id", "title", "isOpen", "status", "dateAdded", 
                 "dateLastModified", "clientCorporation(id,name)",
                 "clientContact(firstName,lastName)", "description",
-                "publicDescription", "numOpenings", "isPublic"
+                "publicDescription", "numOpenings", "isPublic",
+                "address(city,state,countryName)", "employmentType",
+                "salary", "salaryUnit", "isDeleted", "businessSector",
+                "categories(id,name)", "onSite", "benefits", "bonusPackage",
+                "degreeList", "skillList", "certificationList"
             ]
             
             all_jobs = []

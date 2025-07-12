@@ -206,7 +206,8 @@ class EmailService:
                                  added_jobs: list,
                                  removed_jobs: list,
                                  modified_jobs: list = None,
-                                 summary: dict = None) -> bool:
+                                 summary: dict = None,
+                                 xml_sync_info: dict = None) -> bool:
         """
         Send email notification for Bullhorn tearsheet changes
         
@@ -217,6 +218,7 @@ class EmailService:
             removed_jobs: List of jobs that were removed
             modified_jobs: List of jobs that were modified (optional)
             summary: Summary statistics of changes (optional)
+            xml_sync_info: Information about XML file updates (optional)
             
         Returns:
             bool: True if email sent successfully, False otherwise
@@ -377,7 +379,27 @@ class EmailService:
                     <p style="margin: 8px 0 0 0; font-size: 11px; color: #6c757d; font-style: italic;">
                         💡 Tip: Copy and paste the Job ID into Bullhorn's search to quickly locate and review any job.
                     </p>
-                </div>
+                </div>"""
+
+            # Add XML sync information if available
+            if xml_sync_info and xml_sync_info.get('success'):
+                html_content += f"""
+                <div style="background-color: #e8f8e8; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                    <h3 style="color: #2c3e50; margin-top: 0;">🔄 XML File Updates</h3>
+                    <p style="font-size: 14px; margin-bottom: 5px;">
+                        <strong>XML files have been automatically updated and uploaded:</strong>
+                    </p>
+                    <ul style="margin-left: 20px; margin-bottom: 0;">
+                        <li><strong>{xml_sync_info.get('added_count', 0)}</strong> jobs added to XML</li>
+                        <li><strong>{xml_sync_info.get('removed_count', 0)}</strong> jobs removed from XML</li>
+                        <li><strong>{xml_sync_info.get('updated_count', 0)}</strong> jobs updated in XML</li>
+                    </ul>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px; margin-bottom: 0;">
+                        ✅ Reference numbers regenerated and files uploaded to web server
+                    </p>
+                </div>"""
+
+            html_content += """
             </body>
             </html>
             """

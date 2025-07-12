@@ -48,14 +48,37 @@ This is a Flask-based web application designed to process XML job feed files and
 ### 4. Application Entry Point (`main.py`)
 - Simple import module for deployment compatibility
 
+### 5. XML Integration Service (`xml_integration_service.py`)
+- Automatically syncs Bullhorn job changes with XML files
+- Maps Bullhorn job data to XML format with proper formatting
+- Handles job additions, removals, and updates in XML files
+- Ensures job IDs are properly formatted in parentheses after titles
+- Generates unique reference numbers for new jobs
+
+### 6. Complete Automation Workflow
+- Monitors Bullhorn tearsheets for job changes every 5 minutes
+- Automatically updates XML files when jobs are added/removed
+- Regenerates reference numbers and processes updated files
+- Uploads modified files to SFTP server automatically
+- Sends comprehensive email notifications with XML sync information
+
 ## Data Flow
 
+### Manual Upload Flow
 1. **File Upload**: User selects XML file via drag-and-drop or file picker
 2. **Client Validation**: JavaScript validates file type and size
 3. **Server Processing**: Flask receives file and stores in temporary directory
 4. **XML Validation**: XMLProcessor validates structure and required elements
 5. **Reference Number Processing**: System generates/updates reference numbers
 6. **Response**: User receives feedback on processing status
+
+### Automated Bullhorn Integration Flow
+1. **Monitor Check**: System checks Bullhorn tearsheets every 5 minutes
+2. **Job Comparison**: Compares current jobs with previous snapshot
+3. **XML Sync**: Automatically updates XML files with job changes
+4. **Reference Processing**: Regenerates reference numbers for updated files
+5. **File Upload**: Uploads modified files to SFTP server
+6. **Email Notification**: Sends detailed reports with XML sync information
 
 ## External Dependencies
 
@@ -140,6 +163,11 @@ Changelog:
 - July 11, 2025. Resolved tearsheet pagination limitation by switching from entity API to search API with 'tearsheets.id' query for accurate job retrieval
 - July 11, 2025. Implemented hybrid approach for job count accuracy - uses entity API as authoritative source to validate and limit search results, ensuring monitors display exact tearsheet counts matching Bullhorn
 - July 11, 2025. Enhanced ATS monitoring dashboard with live job count badges - displays current job counts for all monitors in main overview for complete at-a-glance visibility
+- July 12, 2025. Completed comprehensive XML integration system - automatically syncs Bullhorn job changes with XML files, updating job listings with proper formatting and reference numbers
+- July 12, 2025. Enhanced monitoring system with full automation - when jobs are added/removed from tearsheets, system automatically updates XML files, regenerates reference numbers, and uploads to SFTP server
+- July 12, 2025. Implemented seamless file replacement automation - modified XML files are automatically processed and replace both automation cycle files and web server versions
+- July 12, 2025. Enhanced email notifications to include XML sync information - users receive detailed reports on XML file updates including job counts and upload status
+- July 12, 2025. Completed full automation testing and verification - all core functionality tested and working correctly, system ready for production use
 ```
 
 ## User Preferences

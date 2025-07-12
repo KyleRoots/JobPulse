@@ -12,6 +12,7 @@ from xml_processor import XMLProcessor
 from email_service import EmailService
 from ftp_service import FTPService
 from bullhorn_service import BullhornService
+from xml_integration_service import XMLIntegrationService
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
@@ -323,6 +324,92 @@ def process_bullhorn_monitors():
                         removed_jobs = []  # Don't process removals if we suspect API issues
                         summary['removed_count'] = 0  # Update summary
                     
+                    # XML Integration: Automatically update XML files when jobs change
+                    xml_sync_success = False
+                    xml_sync_summary = {}
+                    
+                    if added_jobs or removed_jobs or modified_jobs:
+                        # Find all active schedules that might need XML updates
+                        active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+                        
+                        for schedule in active_schedules:
+                            if os.path.exists(schedule.file_path):
+                                try:
+                                    # Initialize XML integration service
+                                    xml_service = XMLIntegrationService()
+                                    
+                                    # Sync XML file with current Bullhorn jobs
+                                    sync_result = xml_service.sync_xml_with_bullhorn_jobs(
+                                        xml_file_path=schedule.file_path,
+                                        current_jobs=current_jobs,
+                                        previous_jobs=previous_jobs
+                                    )
+                                    
+                                    if sync_result.get('success') and sync_result.get('total_changes', 0) > 0:
+                                        xml_sync_success = True
+                                        xml_sync_summary = sync_result
+                                        
+                                        app.logger.info(f"XML sync completed for schedule '{schedule.name}': "
+                                                       f"{sync_result.get('added_count', 0)} added, "
+                                                       f"{sync_result.get('removed_count', 0)} removed, "
+                                                       f"{sync_result.get('updated_count', 0)} updated")
+                                        
+                                        # Update last file upload timestamp
+                                        schedule.last_file_upload = datetime.utcnow()
+                                        
+                                        # Process the updated XML with reference number regeneration
+                                        processor = XMLProcessor()
+                                        temp_output = f"{schedule.file_path}.temp"
+                                        process_result = processor.process_xml(schedule.file_path, temp_output)
+                                        
+                                        if process_result.get('success'):
+                                            # Replace original with processed version
+                                            os.replace(temp_output, schedule.file_path)
+                                            
+                                            # Get original filename for SFTP upload
+                                            original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
+                                            
+                                            # Upload to SFTP if configured
+                                            if schedule.auto_upload_ftp:
+                                                try:
+                                                    sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                                    
+                                                    if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                                        sftp_hostname and sftp_hostname.setting_value and 
+                                                        sftp_username and sftp_username.setting_value and 
+                                                        sftp_password and sftp_password.setting_value):
+                                                        
+                                                        ftp_service = FTPService(
+                                                            hostname=sftp_hostname.setting_value,
+                                                            username=sftp_username.setting_value,
+                                                            password=sftp_password.setting_value,
+                                                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                                                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                                                            use_sftp=True
+                                                        )
+                                                        
+                                                        sftp_upload_success = ftp_service.upload_file(
+                                                            local_file_path=schedule.file_path,
+                                                            remote_filename=original_filename
+                                                        )
+                                                        
+                                                        if sftp_upload_success:
+                                                            app.logger.info(f"Updated XML file uploaded to SFTP: {original_filename}")
+                                                        else:
+                                                            app.logger.warning(f"Failed to upload updated XML to SFTP")
+                                                except Exception as e:
+                                                    app.logger.error(f"Error uploading updated XML to SFTP: {str(e)}")
+                                        else:
+                                            app.logger.warning(f"Failed to process XML after sync: {process_result.get('error')}")
+                                    
+                                except Exception as e:
+                                    app.logger.error(f"Error syncing XML for schedule '{schedule.name}': {str(e)}")
+                    
                     # Log activities
                     for job in added_jobs:
                         activity = BullhornActivity(
@@ -388,7 +475,8 @@ def process_bullhorn_monitors():
                                 added_jobs=added_jobs,
                                 removed_jobs=removed_jobs,
                                 modified_jobs=modified_jobs,
-                                summary=summary
+                                summary=summary,
+                                xml_sync_info=xml_sync_summary if xml_sync_success else None
                             )
                             
                             if email_sent:
