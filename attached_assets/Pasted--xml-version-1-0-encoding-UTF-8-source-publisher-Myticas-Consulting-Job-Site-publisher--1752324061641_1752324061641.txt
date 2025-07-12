@@ -2,6 +2,22 @@
 <source>
   <publisher>Myticas Consulting Job Site</publisher>
   <publisherurl>https://myticas.com/</publisherurl>
+  
+  <job>
+    <title><![CDATA[ DevOps Engineer (67890) ]]></title>
+    <company><![CDATA[ Cloud Solutions LLC ]]></company>
+    <date><![CDATA[ July 12, 2024 ]]></date>
+    <referencenumber><![CDATA[11M2R0GBS4]]></referencenumber>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ DevOps Engineer with AWS experience ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[ Seattle ]]></city>
+    <state><![CDATA[ Washington ]]></state>
+    <country><![CDATA[ United States ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[  ]]></remotetype>
+  </job>
   <job>
     <title><![CDATA[ Senior Python Developer - UPDATED (12345) ]]></title>
     <company><![CDATA[ Tech Innovations Inc ]]></company>

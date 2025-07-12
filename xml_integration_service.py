@@ -241,6 +241,13 @@ class XMLIntegrationService:
                         break
             
             if removed:
+                # Clean up whitespace after removal
+                # Find publisherurl element and ensure proper spacing to next job
+                publisher_url = root.find('publisherurl')
+                if publisher_url is not None:
+                    # Set proper spacing after publisherurl
+                    publisher_url.tail = "\n  "
+                
                 # Write updated XML back to file
                 with open(xml_file_path, 'wb') as f:
                     tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
