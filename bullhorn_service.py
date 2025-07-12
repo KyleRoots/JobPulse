@@ -143,7 +143,7 @@ class BullhornService:
             logging.info(f"Using redirect URI: {redirect_uri}")
             logging.info(f"Auth endpoint: {auth_endpoint}")
             
-            auth_response = self.session.post(auth_endpoint, data=auth_params, allow_redirects=False)
+            auth_response = self.session.get(auth_endpoint, params=auth_params, allow_redirects=False)
             logging.info(f"Auth response status: {auth_response.status_code}")
             logging.info(f"Auth response headers: {dict(auth_response.headers)}")
             
