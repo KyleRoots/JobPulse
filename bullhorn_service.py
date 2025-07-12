@@ -57,33 +57,20 @@ class BullhornService:
         Returns:
             bool: True if authentication successful, False otherwise
         """
-        # Check if we already have a valid token
-        if self.rest_token and self.base_url:
-            # Verify the token is still valid
-            try:
-                url = f"{self.base_url}/ping"
-                params = {'BhRestToken': self.rest_token}
-                response = self.session.get(url, params=params)
-                if response.status_code == 200:
-                    logging.info("Using existing valid Bullhorn token")
-                    return True
-            except:
-                pass
+        # Force fresh authentication by clearing any cached tokens
+        self.rest_token = None
+        self.base_url = None
         
         # Prevent concurrent authentication attempts
         if self._auth_in_progress:
             logging.warning("Authentication already in progress, skipping duplicate attempt")
             return False
             
-        # Check if we just tried to authenticate (within last 5 seconds)
+        # Check if we just tried to authenticate (within last 30 seconds - extended to handle server issues)
         if self._last_auth_attempt:
             time_since_last = datetime.now() - self._last_auth_attempt
-            if time_since_last.total_seconds() < 5:
-                logging.warning(f"Recent authentication attempt detected ({time_since_last.total_seconds():.1f}s ago), skipping to prevent code reuse")
-                # If we have a valid token, return True
-                if self.rest_token and self.base_url:
-                    logging.info("But we have a valid token, so returning True")
-                    return True
+            if time_since_last.total_seconds() < 30:
+                logging.warning(f"Recent authentication attempt detected ({time_since_last.total_seconds():.1f}s ago), skipping to prevent overload")
                 return False
         
         if not all([self.client_id, self.client_secret, self.username, self.password]):
