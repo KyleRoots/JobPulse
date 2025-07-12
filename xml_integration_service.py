@@ -169,19 +169,34 @@ class XMLIntegrationService:
                 self.logger.error("No publisherurl element found in XML")
                 return False
             
-            # Create new job element
+            # Create new job element with proper formatting
             job_element = etree.Element('job')
+            job_element.text = "\n    "  # Add newline and indentation after opening <job> tag
             
-            # Add all job fields with CDATA wrapping
+            # Add all job fields with CDATA wrapping and proper indentation
             for field, value in xml_job.items():
                 field_element = etree.SubElement(job_element, field)
                 field_element.text = etree.CDATA(f" {value} ")
+                field_element.tail = "\n    "  # Add proper indentation for each field
+            
+            # Fix the last element's tail to close the job properly
+            if len(job_element) > 0:
+                job_element[-1].tail = "\n  "  # Close job element indentation
             
             # Insert the new job as the first job (right after publisherurl)
             publisher_url_index = list(root).index(publisher_url)
+            
+            # Ensure proper spacing around the new job
+            if publisher_url.tail is None:
+                publisher_url.tail = "\n  "
+            else:
+                publisher_url.tail = "\n  "
+            
+            job_element.tail = "\n  "  # Add newline and indentation after the new job
+            
             root.insert(publisher_url_index + 1, job_element)
             
-            # Write updated XML back to file
+            # Write updated XML back to file with proper formatting
             with open(xml_file_path, 'wb') as f:
                 tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
             

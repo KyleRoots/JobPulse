@@ -173,6 +173,8 @@ Changelog:
 - July 12, 2025. Added SFTP timeout protection for testing interface - prevents system hanging during real-time testing while maintaining full functionality for automated processing cycles
 - July 12, 2025. Production optimization and code cleanup - optimized database connections, improved error handling, enhanced logging configuration, removed debug mode, and optimized XML parsing for better performance
 - July 12, 2025. Fixed critical Bullhorn API authentication issue - resolved POST vs GET method error and added proper Content-Type headers for token exchange, restoring full API connectivity and monitor functionality
+- July 12, 2025. Enhanced Automation Test Center with improved reference number handling - only new jobs receive unique reference numbers during testing, existing jobs preserve their numbers, added navigation buttons for easy return to main dashboard screens
+- July 12, 2025. Fixed XML formatting preservation issue - new jobs now maintain proper indentation and formatting structure matching existing jobs in the XML file
 ```
 
 ## User Preferences

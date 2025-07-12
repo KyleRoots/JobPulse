@@ -2,35 +2,7 @@
 <source>
   <publisher>Myticas Consulting Job Site</publisher>
   <publisherurl>https://myticas.com/</publisherurl>
-  <job>
-    <title><![CDATA[ Perfect Format Test Job (88888) ]]></title>
-    <company><![CDATA[ Format Test Company ]]></company>
-    <date><![CDATA[ July 12, 2024 ]]></date>
-    <referencenumber><![CDATA[ O5VSY3NC2V ]]></referencenumber>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ Testing perfect XML formatting ]]></description>
-    <jobtype><![CDATA[ Full-time ]]></jobtype>
-    <city><![CDATA[ Format City ]]></city>
-    <state><![CDATA[ Format State ]]></state>
-    <country><![CDATA[ United States ]]></country>
-    <category><![CDATA[  ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[  ]]></remotetype>
-  </job>
-  <job><title><![CDATA[ Test Formatting Job (77777) ]]></title>
-    <company><![CDATA[ Test Company ]]></company>
-    <date><![CDATA[ July 12, 2024 ]]></date>
-    <referencenumber><![CDATA[ FN5YRU6648 ]]></referencenumber>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ Test job for formatting verification ]]></description>
-    <jobtype><![CDATA[ Full-time ]]></jobtype>
-    <city><![CDATA[ Test City ]]></city>
-    <state><![CDATA[ Test State ]]></state>
-    <country><![CDATA[ United States ]]></country>
-    <category><![CDATA[  ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[  ]]></remotetype>
-  </job>
+  
   <job><title><![CDATA[ Frontend React Developer (55555) ]]></title><company><![CDATA[ Digital Solutions Inc ]]></company><date><![CDATA[ July 12, 2024 ]]></date><referencenumber><![CDATA[ RCOGIKSGLZ ]]></referencenumber><url><![CDATA[ https://myticas.com/ ]]></url><description><![CDATA[ Frontend React Developer with TypeScript experience ]]></description><jobtype><![CDATA[ Full-time ]]></jobtype><city><![CDATA[ Austin ]]></city><state><![CDATA[ Texas ]]></state><country><![CDATA[ United States ]]></country><category><![CDATA[  ]]></category><apply_email><![CDATA[ apply@myticas.com ]]></apply_email><remotetype><![CDATA[  ]]></remotetype></job><job><title><![CDATA[ Frontend React Developer (55555) ]]></title><company><![CDATA[ Digital Solutions Inc ]]></company><date><![CDATA[ July 12, 2024 ]]></date><referencenumber><![CDATA[ WGE3WG8N6L ]]></referencenumber><url><![CDATA[ https://myticas.com/ ]]></url><description><![CDATA[ Frontend React Developer with TypeScript experience ]]></description><jobtype><![CDATA[ Full-time ]]></jobtype><city><![CDATA[ Austin ]]></city><state><![CDATA[ Texas ]]></state><country><![CDATA[ United States ]]></country><category><![CDATA[  ]]></category><apply_email><![CDATA[ apply@myticas.com ]]></apply_email><remotetype><![CDATA[  ]]></remotetype></job><job>
     <title><![CDATA[ DevOps Engineer (67890) ]]></title>
     <company><![CDATA[ Cloud Solutions LLC ]]></company>
