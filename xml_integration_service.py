@@ -17,6 +17,7 @@ class XMLIntegrationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.xml_processor = XMLProcessor()
+        self._parser = etree.XMLParser(strip_cdata=False, recover=True)
     
     def map_bullhorn_job_to_xml(self, bullhorn_job: Dict) -> Dict:
         """
@@ -157,9 +158,8 @@ class XMLIntegrationService:
                 return False
             
             # Parse existing XML
-            parser = etree.XMLParser(strip_cdata=False)
             with open(xml_file_path, 'rb') as f:
-                tree = etree.parse(f, parser)
+                tree = etree.parse(f, self._parser)
             
             root = tree.getroot()
             
@@ -205,9 +205,8 @@ class XMLIntegrationService:
         """
         try:
             # Parse existing XML
-            parser = etree.XMLParser(strip_cdata=False)
             with open(xml_file_path, 'rb') as f:
-                tree = etree.parse(f, parser)
+                tree = etree.parse(f, self._parser)
             
             root = tree.getroot()
             

@@ -17,6 +17,11 @@ class BullhornService:
         self.username = username
         self.password = password
         self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'MyticasJobFeedAutomation/1.0',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        })
         self._auth_in_progress = False
         self._last_auth_attempt = None
         

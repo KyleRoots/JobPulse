@@ -26,6 +26,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+# Suppress verbose logging from external libraries
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('requests').setLevel(logging.WARNING)
 
 # Global progress tracker for manual operations
 progress_tracker = {}
@@ -38,7 +41,7 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-12345")
+app.secret_key = os.environ.get("SESSION_SECRET")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Database configuration
@@ -46,6 +49,8 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
+    "pool_size": 10,
+    "max_overflow": 20
 }
 
 # Initialize database
@@ -68,8 +73,11 @@ ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity
 with app.app_context():
     db.create_all()
 
-# Initialize scheduler
-scheduler = BackgroundScheduler()
+# Initialize scheduler with optimized settings
+scheduler = BackgroundScheduler(
+    timezone='UTC',
+    job_defaults={'coalesce': True, 'max_instances': 1}
+)
 scheduler.start()
 
 # Cleanup scheduler on exit
@@ -1428,7 +1436,7 @@ def bullhorn_dashboard():
                     monitor_job_counts[monitor.id] = None
                     
     except Exception as e:
-        app.logger.debug(f"Bullhorn connection check failed: {str(e)}")
+        app.logger.info(f"Bullhorn connection check failed: {str(e)}")
     
     return render_template('bullhorn.html', 
                          monitors=monitors, 
@@ -2353,4 +2361,4 @@ def test_download(download_key):
         return redirect(url_for('automation_test'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)
