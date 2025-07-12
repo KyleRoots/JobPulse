@@ -1419,10 +1419,20 @@ def bullhorn_dashboard():
         bullhorn_service = BullhornService()
         bullhorn_connected = bullhorn_service.test_connection()
         
-        # Get job counts for each monitor if connected
-        if bullhorn_connected:
-            for monitor in monitors:
-                try:
+        # Get job counts for each monitor - prioritize stored snapshots over fresh API calls
+        for monitor in monitors:
+            try:
+                # First, try to get count from stored snapshot
+                if monitor.last_job_snapshot:
+                    try:
+                        stored_jobs = json.loads(monitor.last_job_snapshot)
+                        monitor_job_counts[monitor.id] = len(stored_jobs)
+                        continue
+                    except (json.JSONDecodeError, TypeError):
+                        app.logger.warning(f"Invalid job snapshot for monitor {monitor.name}, fetching fresh")
+                
+                # If no valid stored snapshot, fetch fresh data (only if connected)
+                if bullhorn_connected:
                     if monitor.tearsheet_id == 0:
                         # Query-based monitor
                         jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
@@ -1431,9 +1441,17 @@ def bullhorn_dashboard():
                         jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
                     
                     monitor_job_counts[monitor.id] = len(jobs)
-                except Exception as e:
-                    app.logger.warning(f"Could not get job count for monitor {monitor.name}: {str(e)}")
+                    
+                    # Store the fresh data for future use
+                    monitor.last_job_snapshot = json.dumps(jobs)
+                    monitor.last_check = datetime.utcnow()
+                    db.session.commit()
+                else:
                     monitor_job_counts[monitor.id] = None
+                    
+            except Exception as e:
+                app.logger.warning(f"Could not get job count for monitor {monitor.name}: {str(e)}")
+                monitor_job_counts[monitor.id] = None
                     
     except Exception as e:
         app.logger.info(f"Bullhorn connection check failed: {str(e)}")

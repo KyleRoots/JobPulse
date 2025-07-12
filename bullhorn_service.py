@@ -357,7 +357,7 @@ class BullhornService:
                 "clientContact(firstName,lastName)", "description",
                 "publicDescription", "numOpenings", "isPublic",
                 "address(city,state,countryName)", "employmentType",
-                "salary", "salaryUnit", "isDeleted", "businessSector",
+                "salary", "salaryUnit", "isDeleted",
                 "categories(id,name)", "onSite", "benefits", "bonusPackage",
                 "degreeList", "skillList", "certificationList"
             ]
