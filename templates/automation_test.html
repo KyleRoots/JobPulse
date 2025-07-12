@@ -76,6 +76,22 @@
     <div class="container mt-4">
         <div class="row">
             <div class="col-12">
+                <!-- Navigation buttons -->
+                <div class="mb-3">
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                    <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-clock"></i> Schedule Automation
+                    </a>
+                    <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-outline-info me-2">
+                        <i class="fas fa-chart-line"></i> ATS Monitoring
+                    </a>
+                    <a href="{{ url_for('settings') }}" class="btn btn-outline-warning">
+                        <i class="fas fa-cog"></i> Global Settings
+                    </a>
+                </div>
+                
                 <h1 class="mb-4">
                     <i class="fas fa-cogs"></i> Automation Test Center
                 </h1>

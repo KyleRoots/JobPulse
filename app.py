@@ -2116,12 +2116,8 @@ def run_step_test(step_type):
             )
             
             if sync_result.get('success'):
-                # Process the XML
-                temp_output = f"{demo_xml_file}.processed"
-                process_result = xml_processor.process_xml(demo_xml_file, temp_output)
-                
-                if process_result.get('success'):
-                    os.replace(temp_output, demo_xml_file)
+                # Skip full processing for test - only sync jobs, don't regenerate all reference numbers
+                # Full processing with reference number regeneration only happens during scheduled automation
                     
                     # Get new job count
                     with open(demo_xml_file, 'r', encoding='utf-8') as f:
@@ -2156,24 +2152,20 @@ def run_step_test(step_type):
                 with open(demo_xml_file, 'w', encoding='utf-8') as f:
                     f.write(new_content)
                 
-                # Process the XML to regenerate reference numbers
-                temp_output = f"{demo_xml_file}.processed"
-                process_result = xml_processor.process_xml(demo_xml_file, temp_output)
+                # Skip full processing for test - only remove job, don't regenerate all reference numbers
+                # Full processing with reference number regeneration only happens during scheduled automation
+                    
+                # Get new job count
+                with open(demo_xml_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                new_job_count = len(re.findall(r'<job>', content))
                 
-                if process_result.get('success'):
-                    os.replace(temp_output, demo_xml_file)
-                    
-                    # Get new job count
-                    with open(demo_xml_file, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    new_job_count = len(re.findall(r'<job>', content))
-                    
-                    return jsonify({
-                        'success': True,
-                        'details': f'Removed Frontend React Developer (55555) from XML file. Jobs: {current_job_count} → {new_job_count}',
-                        'jobs_removed': 1,
-                        'total_jobs': new_job_count
-                    })
+                return jsonify({
+                    'success': True,
+                    'details': f'Removed Frontend React Developer (55555) from XML file. Jobs: {current_job_count} → {new_job_count}',
+                    'jobs_removed': 1,
+                    'total_jobs': new_job_count
+                })
             else:
                 return jsonify({
                     'success': False,
@@ -2200,19 +2192,15 @@ def run_step_test(step_type):
                 with open(demo_xml_file, 'w', encoding='utf-8') as f:
                     f.write(updated_content)
                 
-                # Process the XML to regenerate reference numbers
-                temp_output = f"{demo_xml_file}.processed"
-                process_result = xml_processor.process_xml(demo_xml_file, temp_output)
-                
-                if process_result.get('success'):
-                    os.replace(temp_output, demo_xml_file)
+                # Skip full processing for test - only update job, don't regenerate all reference numbers
+                # Full processing with reference number regeneration only happens during scheduled automation
                     
-                    return jsonify({
-                        'success': True,
-                        'details': 'Updated Senior Python Developer job with new title and description',
-                        'jobs_updated': 1,
-                        'total_jobs': current_job_count
-                    })
+                return jsonify({
+                    'success': True,
+                    'details': 'Updated Senior Python Developer job with new title and description',
+                    'jobs_updated': 1,
+                    'total_jobs': current_job_count
+                })
             else:
                 return jsonify({
                     'success': False,
