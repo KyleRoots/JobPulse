@@ -331,10 +331,22 @@ def process_bullhorn_monitors():
                                          f"Skipping removal notifications to prevent false positives.")
                         removed_jobs = []  # Don't process removals if we suspect API issues
                         summary['removed_count'] = 0  # Update summary
+                    else:
+                        # Log the removal detection for debugging
+                        if removed_jobs:
+                            app.logger.info(f"Monitor {monitor.name}: Detected {len(removed_jobs)} removed jobs. "
+                                          f"Current: {len(current_jobs)}, Previous: {len(previous_jobs)}. "
+                                          f"Proceeding with XML sync.")
                     
                     # XML Integration: Automatically update XML files when jobs change
                     xml_sync_success = False
                     xml_sync_summary = {}
+                    
+                    # Log detected changes for debugging
+                    if added_jobs or removed_jobs or modified_jobs:
+                        app.logger.info(f"Monitor {monitor.name}: Changes detected - "
+                                      f"Added: {len(added_jobs)}, Removed: {len(removed_jobs)}, "
+                                      f"Modified: {len(modified_jobs)}. Starting XML sync...")
                     
                     if added_jobs or removed_jobs or modified_jobs:
                         # Find all active schedules that might need XML updates
@@ -353,7 +365,7 @@ def process_bullhorn_monitors():
                                         previous_jobs=previous_jobs
                                     )
                                     
-                                    if sync_result.get('success') and sync_result.get('total_changes', 0) > 0:
+                                    if sync_result.get('success'):
                                         xml_sync_success = True
                                         xml_sync_summary = sync_result
                                         
@@ -361,6 +373,14 @@ def process_bullhorn_monitors():
                                                        f"{sync_result.get('added_count', 0)} added, "
                                                        f"{sync_result.get('removed_count', 0)} removed, "
                                                        f"{sync_result.get('updated_count', 0)} updated")
+                                        
+                                        # Log sync details for debugging
+                                        if sync_result.get('total_changes', 0) > 0:
+                                            app.logger.info(f"XML sync made {sync_result.get('total_changes', 0)} changes to {schedule.file_path}")
+                                        else:
+                                            app.logger.info(f"XML sync completed but no changes were needed for {schedule.file_path}")
+                                    else:
+                                        app.logger.error(f"XML sync failed for schedule '{schedule.name}': {sync_result.get('errors', [])}")
                                         
                                         # Update last file upload timestamp
                                         schedule.last_file_upload = datetime.utcnow()
@@ -504,6 +524,15 @@ def process_bullhorn_monitors():
                             details=f"Checked {monitor.tearsheet_name}. Found {len(current_jobs)} jobs. No changes detected."
                         )
                         db.session.add(activity)
+                    else:
+                        # Log XML sync result if changes were detected
+                        if xml_sync_success:
+                            activity = BullhornActivity(
+                                monitor_id=monitor.id,
+                                activity_type='xml_sync_completed',
+                                details=f"XML sync completed: {xml_sync_summary.get('added_count', 0)} added, {xml_sync_summary.get('removed_count', 0)} removed, {xml_sync_summary.get('updated_count', 0)} updated. SFTP upload: {xml_sync_summary.get('sftp_upload_success', False)}"
+                            )
+                            db.session.add(activity)
                     
                     app.logger.info(f"Successfully processed Bullhorn monitor: {monitor.name}")
                     
