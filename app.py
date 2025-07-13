@@ -370,39 +370,45 @@ def process_bullhorn_monitors():
                                         
                                         # Upload to SFTP if configured
                                         if schedule.auto_upload_ftp:
-                                                try:
-                                                    sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
-                                                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                                                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                                                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                                                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                                                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                            try:
+                                                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                                
+                                                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                                    sftp_hostname and sftp_hostname.setting_value and 
+                                                    sftp_username and sftp_username.setting_value and 
+                                                    sftp_password and sftp_password.setting_value):
                                                     
-                                                    if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
-                                                        sftp_hostname and sftp_hostname.setting_value and 
-                                                        sftp_username and sftp_username.setting_value and 
-                                                        sftp_password and sftp_password.setting_value):
-                                                        
-                                                        ftp_service = FTPService(
-                                                            hostname=sftp_hostname.setting_value,
-                                                            username=sftp_username.setting_value,
-                                                            password=sftp_password.setting_value,
-                                                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
-                                                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                                                            use_sftp=True
-                                                        )
-                                                        
-                                                        sftp_upload_success = ftp_service.upload_file(
-                                                            local_file_path=schedule.file_path,
-                                                            remote_filename=original_filename
-                                                        )
-                                                        
-                                                        if sftp_upload_success:
-                                                            app.logger.info(f"Updated XML file uploaded to SFTP: {original_filename}")
-                                                        else:
-                                                            app.logger.warning(f"Failed to upload updated XML to SFTP")
-                                                except Exception as e:
-                                                    app.logger.error(f"Error uploading updated XML to SFTP: {str(e)}")
+                                                    ftp_service = FTPService(
+                                                        hostname=sftp_hostname.setting_value,
+                                                        username=sftp_username.setting_value,
+                                                        password=sftp_password.setting_value,
+                                                        target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                                                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                                                        use_sftp=True
+                                                    )
+                                                    
+                                                    sftp_upload_success = ftp_service.upload_file(
+                                                        local_file_path=schedule.file_path,
+                                                        remote_filename=original_filename
+                                                    )
+                                                    
+                                                    if sftp_upload_success:
+                                                        app.logger.info(f"Updated XML file uploaded to SFTP: {original_filename}")
+                                                        xml_sync_summary['sftp_upload_success'] = True
+                                                    else:
+                                                        app.logger.warning(f"Failed to upload updated XML to SFTP")
+                                                        xml_sync_summary['sftp_upload_success'] = False
+                                                else:
+                                                    app.logger.warning(f"SFTP upload requested but credentials not configured")
+                                                    xml_sync_summary['sftp_upload_success'] = False
+                                            except Exception as e:
+                                                app.logger.error(f"Error uploading updated XML to SFTP: {str(e)}")
+                                                xml_sync_summary['sftp_upload_success'] = False
                                     
                                 except Exception as e:
                                     app.logger.error(f"Error syncing XML for schedule '{schedule.name}': {str(e)}")
