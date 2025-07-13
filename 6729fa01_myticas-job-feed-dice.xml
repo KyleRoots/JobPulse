@@ -1,7 +1,22 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='UTF-8'?>
 <source>
   <publisher>Myticas Consulting Job Site</publisher>
   <publisherurl>https://myticas.com/</publisherurl>
+  <job>
+    <title><![CDATA[ DevOps Specialist (32604) ]]></title>
+    <company><![CDATA[ Government of Alberta ]]></company>
+    <date><![CDATA[ July 10, 2025 ]]></date>
+    <referencenumber><![CDATA[LJ84CUGXWG]]></referencenumber>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <span style="font-size: 11.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 10.5pt;"><span style="background-color: yellow;"><span style=""><span style="color: rgb(29,45,62);">DESCRIPTION</span></span></span></span></strong></span></span><br> <br> <span style="font-size: 11.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 10.5pt;"><span style=""><span style="color: rgb(29,45,62);">Project Name:</span></span></span></strong><br> <span style="font-size: 10.5pt;"><span style=""><span style="color: rgb(29,45,62);">AIM DevOps Enablement and Integration</span></span></span></span></span><br> <br> <br> <span style="font-size: 11.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 10.5pt;"><span style=""><span style="color: rgb(29,45,62);">Scope:</span></span></span></strong><br> <span style="font-size: 10.5pt;"><span style=""><span style="color: rgb(29,45,62);">Enablement and integration of DevOps services with Cloud and on premise services.<br> <br> <strong>Duties: This is the standard description of services – revise as needed.</strong><br> <br> A DevOps Specialist manages service operations and designs robust deployment environments, automation pipelines, monitoring systems, and diagnostic tools to support continuous, iterative development. This role emphasizes collaboration with cross-functional teams and users to evolve service delivery in agile environments.<br> <br> <strong>Collaboration & Agile Integration</strong><br> <br> • Leads collaboration with cross-functional teams using agile methodologies to continuously improve services.<br> • Partners with stakeholders and product owners to understand service needs, size environments, and shape deployment strategies.<br> • Participates in project discovery activities, including fieldwork and technical user research, where relevant to infrastructure and operations.<br> <br> <strong>Deployment Engineering & CI/CD Pipelines</strong><br> <br> • Designs, implements, and maintains CI/CD pipelines in partnership with Full Stack Developers and QA Automation teams to support continuous delivery.<br> • Standardizes and documents reusable CI/CD pipeline templates for cloud and on-premise environments.<br> • Integrates DevSecOps workflows into CI/CD pipelines, embedding automated security scanning, code quality checks, and compliance validations using tools such as SonarQube and Veracode.<br> <br> <strong>Infrastructure Automation & Environment Management</strong><br> <br> • Architects and provisions infrastructure using Infrastructure as Code (IaC) tools such as Terraform, Bicep, Ansible, and AWS CloudFormation to enable consistent, repeatable deployments.<br> • Automates the setup and maintenance of deployment environments, supporting configuration, environment promotion, and blue-green deployment strategies.<br> • Supports identity and access management (IAM) across environments, including Azure AD and B2C integrations, role-based access control (RBAC), and single sign-on (SSO) configurations.<br> <br> <strong>Monitoring, Diagnostics & Service Reliability</strong><br> <br> • Implements and maintains automated monitoring, logging, and alerting solutions using platforms like Azure Monitor, AWS CloudWatch, Kibana, and Elasticsearch.<br> • Conducts diagnostics and performance tuning to ensure operational health, supporting proactive detection and resolution of service issues.<br> • Implements event-driven operations and self-healing workflows using messaging platforms such as Azure Service Bus or AWS SNS.<br> <br> <strong>Maintenance, Evaluation & Optimization</strong><br> <br> • Plans and coordinates service maintenance activities with minimal downtime and user disruption.<br> • Evaluates existing services for performance and reliability, identifying and recommending optimization opportunities based on analytical insights.<br> <br> <strong>Knowledge Sharing & Innovation</strong><br> <br> • Mentors developers and operations teams on DevOps tools, workflows, and best practices to foster adoption and continuous improvement.<br> • Leads knowledge transfer initiatives and builds onboarding frameworks for DevOps projects, infrastructure patterns, and toolchains.<br> • Contributes to innovation efforts by developing proof-of-concept pipelines, integrating emerging DevOps technologies, and exploring cost-performance optimization strategies.<br> <br> <strong>Other Duties</strong><br> <br> • Performs other responsibilities as required or assigned in support of DevOps and service delivery objectives.</span></span></span></span></span><br> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[ Edmonton ]]></city>
+    <state><![CDATA[ AB ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[  ]]></remotetype>
+  </job>
   <job>
     <title>
       <![CDATA[ Banking Technology Integration Consultant (32606) ]]>
@@ -12,8 +27,9 @@
     <date>
       <![CDATA[ July 11, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[21M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[66OZIJ0TBP]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>We are seeking an experienced Banking Technology Integration Consultant (Lockbox/Payments) Implementation Specialist to support a large financial institution&rsquo;s transformation project.</p>
 <p>This role focuses on the implementation and integration of cheque imaging, lockbox services, exception/returns handling, and ensuring compliance with North American regulatory requirements.</p>
@@ -67,8 +83,9 @@
     <date>
       <![CDATA[ July 10, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[20M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[WSSOKLQKZO]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Senior Technical Strategist</strong></p>
 <p>Location: Lansing, MI (Hybrid &ndash; On-site Tuesdays and Wednesdays)</p>
@@ -158,8 +175,9 @@
     <date>
       <![CDATA[ July 10, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[19M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[GWO8DU4XJE]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>Our client, a leading financial institution, is seeking a skilled&nbsp;<strong>Salesforce Business Analyst</strong>&nbsp;with hands-on experience in&nbsp;<strong>Salesforce Non-Profit Cloud and grantmaking processes</strong>&nbsp;to support a high-impact digital transformation initiative within their Banking Technology division.</p>
 <p>This role is ideal for a&nbsp;<strong>business-oriented professional</strong>&nbsp;who brings strong&nbsp;<strong>financial services experience</strong>, paired with&nbsp;<strong>Salesforce consulting expertise</strong>. The selected candidate will drive actionable insights and process improvements across Salesforce platforms, enabling smarter decision-making and operational efficiency.</p>
@@ -221,8 +239,9 @@
     <date>
       <![CDATA[ July 8, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[18M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[G537M0404M]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>Myticas Consulting is hiring an experienced&nbsp;<strong>SAP Data Migration Lead</strong>&nbsp;to join a long-term S/4HANA transformation engagement with a major Canadian enterprise client. The role will focus on leading complex SAP data migration activities with a strong emphasis on SAP BODS, technical leadership, and cross-functional collaboration with finance and business teams.</p>
 <p><strong>Key Responsibilities:</strong></p>
@@ -286,8 +305,9 @@
     <date>
       <![CDATA[ July 8, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[17M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[DID0EQ7QYG]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>Myticas Consulting is seeking an experienced&nbsp;<strong>Technical Lead</strong>&nbsp;for a short-term contract engagement supporting a&nbsp;<strong>Core Banking Assessment</strong>&nbsp;for a large Canadian financial institution.</p>
 <p>This role will involve both strategic and technical contributions and will be delivered in two phases: current state evaluation and future state solution recommendation.</p>
@@ -359,8 +379,9 @@
     <date>
       <![CDATA[ June 30, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[14M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[XSJUXW8TKY]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Job Title: QA Laboratory Sample Handler</strong></p>
 <p><strong>Contract Duration:</strong>&nbsp;6 months (with potential for extension)</p>
@@ -420,8 +441,9 @@
     <date>
       <![CDATA[ June 30, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[13M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[3Y39WFBEZI]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Technical Support and Customer Service Associate - REMOTE</strong></p>
 <p><strong>Contract: 12 months with possible CTH</strong></p>
@@ -487,8 +509,9 @@
     <date>
       <![CDATA[ June 26, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[12M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[P7V5G6FVEQ]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Job Title: Digital Content Specialist</strong></p>
 <p><strong>Location:</strong>&nbsp;On-Site &ndash; Grand Rapids, MI</p>
@@ -571,8 +594,9 @@
     <date>
       <![CDATA[ June 26, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[10M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[Z4OKVSL9ZC]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Lead Cloud Engineer</strong></p>
 <p><strong>ROLE:</strong></p>
@@ -639,8 +663,9 @@
     <date>
       <![CDATA[ June 24, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[9M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[4LEAKC4OTR]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>We are seeking a highly skilled&nbsp;<strong>Senior Software Engineer</strong>&nbsp;with expertise in&nbsp;<strong>Packet Processing</strong>&nbsp;to join our team. The ideal candidate will have extensive experience in designing and optimizing high-performance network systems, with a strong background in developing scalable, low-latency solutions for data-intensive environments. In this role, you will work on cutting-edge technologies to enhance network protocols and packet processing frameworks. Your contributions will play a key role in delivering robust, reliable, and efficient network operations, ensuring our systems meet the evolving demands of modern infrastructure.</p>
 <p><strong>Main Responsibilities:</strong></p>
@@ -717,8 +742,9 @@
     <date>
       <![CDATA[ June 24, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[8M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[KP1QJ5KDLN]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>As a Network Management System Developer, you&rsquo;ll be responsible for ensuring the smooth operation of our network by designing, implementing, testing and maintaining Operational Support Systems (OSS). Your role will be instrumental in optimizing network performance, enhancing efficiency, and ensuring a seamless customer experience.</p>
 <p><strong>Main Responsibilities</strong></p>
@@ -788,8 +814,9 @@
     <date>
       <![CDATA[ June 24, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[6M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[YVXTA5LUGI]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>The Senior IP Network Architect is a Subject Matter Expert (SME) on all aspects of the Network design and works with internal teams and external contractors to ensure designs, implementation decisions, validation plans and documentation reflect the business requirements and objectives of the program.</p>
 <p><strong>Networking</strong></p>
@@ -880,8 +907,9 @@
     <date>
       <![CDATA[ June 23, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[1M5MDWQ10]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[U9ETBC9WQ1]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>The Senior Technical Support Specialist will provide expert-level technical assistance and strategic support the customers, partners, and cross-functional teams. This role involves complex issue resolution, leadership in support process improvement, ownership of professional service projects focused on product customization and integrations, deploying software solutions, onboarding new customers, and proactive engagement in optimizing team tools, processes, and customer issues. This individual will drive support initiatives, lead escalations, and act as a liaison with the engineering team to implement solutions resolving customer-reported bugs and issues.</p>
 <p><strong>Requirements</strong></p>
@@ -976,8 +1004,9 @@
     <date>
       <![CDATA[ June 18, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[BLZV0O54]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[77P3MVRLX1]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>Our client, a global organization, is seeking two experienced&nbsp;<strong>SAP EWM Consultants</strong>&nbsp;for upcoming contract engagements. The successful candidates will support a hybrid work environment in the Greater Toronto Area and bring strong functional and technical expertise in Extended Warehouse Management.</p>
 <p><strong>Responsibilities:</strong></p>
@@ -1033,8 +1062,9 @@
     <date>
       <![CDATA[ June 18, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[ZREUA9DM]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[T7QT72LZIL]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Job Title: QA Sampler</strong></p>
 <p><strong>Location:</strong>&nbsp;Grand Rapids, MI</p>
@@ -1093,8 +1123,9 @@
     <date>
       <![CDATA[ June 18, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[FU5LEIY7]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[1572AU4BIG]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Job Title:</strong>&nbsp;Director, IT (PMO)</p>
 <p><strong>Location:</strong>&nbsp;Ottawa &ndash; Hybrid (3 Days On-Site, Mandatory and Non-Negotiable)</p>
@@ -1201,8 +1232,9 @@
     <date>
       <![CDATA[ June 13, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[8DILR275]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[YCYFJ176E3]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>EDW Sr. Healthcare Technical Analyst</strong></p>
 <p><strong>Job Title:&nbsp;</strong>Enterprise Data Warehouse (EDW) Informatica ETL Developer</p>
@@ -1279,8 +1311,9 @@
     <date>
       <![CDATA[ June 10, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[GUINLLIU]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[P6XAPS1H9Y]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>The Senior System Engineer will contribute to our clients program in conducting advance performance assessment studies for system configurations as needed to provide solution for complex customer needs. Using his / her expertise in satellite communications, orbital configuration and large communication networks, the candidate will define solutions with enough details to enable implementation across their system.</p>
 <p><strong>Main Responsibilities</strong></p>
@@ -1342,8 +1375,9 @@
     <date>
       <![CDATA[ June 10, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[QE2CYGWF]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[PLHYRVAD30]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Network &amp; Telecom Project Lead</strong></p>
 <p><strong>Location:</strong>&nbsp;Onsite &ndash; Winchester, VA</p>
@@ -1448,8 +1482,9 @@
     <date>
       <![CDATA[ June 9, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[1S69MBY1]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[0LGGMZ54LF]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Job Description: Software Architect &ndash; System Model Application</strong></p>
 <p>Our Software Development team architects, develops, tests, and maintains a state-of-the-art engineering software tool that runs on high-performance computing (HPC) infrastructure. This application is designed to model resource allocation and end-to-end communication system performance for a next-generation satellite constellation.</p>
@@ -1521,8 +1556,9 @@
     <date>
       <![CDATA[ June 6, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[IBC3Z1V7]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[JW074KJDXR]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Must Haves:</strong></p>
 <ul>
@@ -1612,8 +1648,9 @@
     <date>
       <![CDATA[ May 30, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[SJ1VM7LI]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[MARTFJZB8N]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Microsoft Power Platform Developer &ndash; Hybrid (Lansing, MI)</strong><br /><strong>Client:</strong>&nbsp;Myticas' direct client<br /><strong>Location:</strong>&nbsp;Lansing, MI (Hybrid &ndash; On-site 2 days per week)<br /><strong>Relocation:</strong>&nbsp;Open to local candidates and non-local candidates willing to relocate at their own expense.&nbsp;<em>Remote-only candidates will not be considered.</em></p>
 <hr />
@@ -1662,8 +1699,9 @@
     <date>
       <![CDATA[ May 28, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[TO45VHKB]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[8MT9OBOM7T]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Myticas Consulting has a direct client in need of a MES Analyst/SAP MII Developer in Manchester, Michigan.&nbsp;</strong>This is a&nbsp;<strong>HYBRID</strong>&nbsp;direct hire role. Prefer candidates located in Michigan.</p>
 <p>Provide business support to manufacturing operations utilizing the SAP MII platform custom-developed shop floor application. Maintain and develop SAP MII application for customized functionality as required for shop floor data collection and transactional execution. Manage interfaces to external systems (including OPC Servers, PLCs, and other connectors for collecting data) transforming as needed and loading into SAP ECC. Specific responsibilities and duties include:</p>
@@ -1726,8 +1764,9 @@
     <date>
       <![CDATA[ May 27, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[GOIOLATY]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[0HBPY2R6VU]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>Myticas direct client is seeking Senior Java AWS Developer/Engineer, Onsite/Hybrid at Chicago, IL.</p>
 <p>MUST be a US Citizen or Green Card Holder who is able/willing to work on W2 Contract ONLY.</p>
@@ -1783,8 +1822,9 @@
     <date>
       <![CDATA[ May 23, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[7AZQGYJS]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[WIPCOKO4R2]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p data-start="118" data-end="191"><strong data-start="118" data-end="191">Position: Senior ASIC Design Engineer &ndash; Optical Communication Systems</strong></p>
 <p data-start="193" data-end="621">Our client&rsquo;s team is expanding and seeking highly motivated, experienced professional engineers to help develop next-generation systems in a rapidly growing and competitive industry. This is an excellent opportunity to contribute to cutting-edge technologies in optical communication. Candidates must hold a degree in Electrical Engineering, Computer Engineering, Computer Science, or possess equivalent professional experience.</p>
@@ -1840,8 +1880,9 @@
     <date>
       <![CDATA[ May 22, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[4PKPPVVB]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[POEQO82VHC]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p data-start="120" data-end="194"><strong data-start="120" data-end="194">Job Title: Senior ASIC Design Engineer &ndash; Optical Communication Systems</strong></p>
 <p data-start="196" data-end="527">Our client&rsquo;s team is expanding and seeking highly motivated, experienced professional engineers to join in the development of next-generation systems within a fast-growing and competitive environment. Candidates must hold a degree in Electrical Engineering, Computer Engineering, Computer Science, or possess equivalent experience.</p>
@@ -1898,8 +1939,9 @@
     <date>
       <![CDATA[ May 19, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[ZL4395QF]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[04BY9MY127]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>Customer Support Engine</p>
 <p><strong>Customer Support Engineer &ndash; RAN (Radio Access Network)</strong></p>
@@ -1963,8 +2005,9 @@
     <date>
       <![CDATA[ May 12, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[E3D3Z71S]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[BJTZBCENWX]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>Our Winnipeg, Manitoba client is looking for an experienced&nbsp;<strong>SAP Tech/Integration Manager</strong>&nbsp;to lead the design phase of an SAP integration project involving SAP and non-SAP systems. This is a&nbsp;<strong><u>HYBRID</u></strong>&nbsp;model with the&nbsp;<strong><u>Majority of the work model will be on site in Winnipeg</u></strong>. The focus will be on end-to-end integration design within a Utilities industry context. This is a highly collaborative role requiring both technical leadership and business acumen.</p>
 <p><strong>Key Responsibilities:</strong></p>
@@ -2019,8 +2062,9 @@
     <date>
       <![CDATA[ May 12, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[F0JH2SJD]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[NNHY7E5LA7]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p>Our client, a global leader in the technology/software industry, is looking for a <strong>SAP Data Lead (BODS)</strong> at the <strong>Manager/Senior Manager</strong> level for a remote contract. The successful candidate will be responsible for leading data analysis efforts, ensuring data accuracy, and working with stakeholders across business and technical teams in an SAP environment.</p>
 <p><strong>Key Responsibilities:</strong></p>
@@ -2075,8 +2119,9 @@
     <date>
       <![CDATA[ May 2, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[K2YBKQC8]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[RLGNZ8BS77]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>Myticas' direct client is seeking an IT Systems/Laboratory Analyst</strong>- Hypid at Worcester, MA (<strong>4 days onsite&nbsp;</strong>at Worcester, MA).</p>
 <p><strong>Duration:</strong>&nbsp;6+ Months Contract (Possible further extension)</p>
@@ -2181,8 +2226,9 @@
     <date>
       <![CDATA[ April 29, 2025 ]]>
     </date>
-    <referencenumber><![CDATA[POOR8PGL]]></referencenumber>
-    <url><![CDATA[https://myticas.com/]]></url><description>
+    <referencenumber><![CDATA[SCH3CANIK0]]></referencenumber>
+    <url><![CDATA[https://myticas.com/]]></url>
+    <description>
       <![CDATA[ 
 <p><strong>RESPONSIBILITES</strong></p>
 <ul>

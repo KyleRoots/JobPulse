@@ -365,20 +365,11 @@ def process_bullhorn_monitors():
                                         # Update last file upload timestamp
                                         schedule.last_file_upload = datetime.utcnow()
                                         
-                                        # Process the updated XML with reference number regeneration
-                                        processor = XMLProcessor()
-                                        temp_output = f"{schedule.file_path}.temp"
-                                        process_result = processor.process_xml(schedule.file_path, temp_output)
+                                        # Get original filename for SFTP upload (no reference number regeneration for real-time monitoring)
+                                        original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
                                         
-                                        if process_result.get('success'):
-                                            # Replace original with processed version
-                                            os.replace(temp_output, schedule.file_path)
-                                            
-                                            # Get original filename for SFTP upload
-                                            original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
-                                            
-                                            # Upload to SFTP if configured
-                                            if schedule.auto_upload_ftp:
+                                        # Upload to SFTP if configured
+                                        if schedule.auto_upload_ftp:
                                                 try:
                                                     sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
                                                     sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
@@ -412,8 +403,6 @@ def process_bullhorn_monitors():
                                                             app.logger.warning(f"Failed to upload updated XML to SFTP")
                                                 except Exception as e:
                                                     app.logger.error(f"Error uploading updated XML to SFTP: {str(e)}")
-                                        else:
-                                            app.logger.warning(f"Failed to process XML after sync: {process_result.get('error')}")
                                     
                                 except Exception as e:
                                     app.logger.error(f"Error syncing XML for schedule '{schedule.name}': {str(e)}")

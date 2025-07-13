@@ -38,12 +38,8 @@ class XMLIntegrationService:
             # Add Bullhorn job ID in parentheses after title
             formatted_title = f"{title} ({job_id})"
             
-            # Extract company name
-            client_corp = bullhorn_job.get('clientCorporation', {})
-            if isinstance(client_corp, dict):
-                company_name = client_corp.get('name', 'Myticas Consulting')
-            else:
-                company_name = 'Myticas Consulting'
+            # Always use Myticas Consulting as company name
+            company_name = 'Myticas Consulting'
             
             # Extract location information
             address = bullhorn_job.get('address', {})

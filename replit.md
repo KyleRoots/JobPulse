@@ -180,6 +180,8 @@ Changelog:
 - July 12, 2025. Code cleanup and optimization - streamlined XML whitespace handling, improved file encoding consistency, optimized import statements, and enhanced code maintainability
 - July 12, 2025. Fixed job count display issue in monitoring dashboard - updated dashboard to prioritize stored job snapshots, resolved 'businessSector' API field error, and ensured proper job count updates during scheduled monitoring cycles
 - July 12, 2025. Final production verification - all systems tested and running perfectly, job counts accurately match Bullhorn tearsheet data, complete automation workflow verified, system ready for deployment
+- July 13, 2025. Fixed critical real-time monitoring issue - removed unnecessary reference number regeneration during Bullhorn job sync, ensuring only new jobs get unique reference numbers and existing jobs preserve their original numbers during real-time monitoring
+- July 13, 2025. Enhanced company field standardization - all new jobs added through Bullhorn integration now automatically use "Myticas Consulting" as company name regardless of source company data
 ```
 
 ## User Preferences
