@@ -379,8 +379,6 @@ def process_bullhorn_monitors():
                                             app.logger.info(f"XML sync made {sync_result.get('total_changes', 0)} changes to {schedule.file_path}")
                                         else:
                                             app.logger.info(f"XML sync completed but no changes were needed for {schedule.file_path}")
-                                    else:
-                                        app.logger.error(f"XML sync failed for schedule '{schedule.name}': {sync_result.get('errors', [])}")
                                         
                                         # Update last file upload timestamp
                                         schedule.last_file_upload = datetime.utcnow()
@@ -429,6 +427,8 @@ def process_bullhorn_monitors():
                                             except Exception as e:
                                                 app.logger.error(f"Error uploading updated XML to SFTP: {str(e)}")
                                                 xml_sync_summary['sftp_upload_success'] = False
+                                    else:
+                                        app.logger.error(f"XML sync failed for schedule '{schedule.name}': {sync_result.get('errors', [])}")
                                     
                                 except Exception as e:
                                     app.logger.error(f"Error syncing XML for schedule '{schedule.name}': {str(e)}")
@@ -512,7 +512,14 @@ def process_bullhorn_monitors():
                                 app.logger.warning(f"Failed to send Bullhorn notification for monitor: {monitor.name}")
                     
                     # Update monitor with new snapshot and next check time
-                    monitor.last_job_snapshot = json.dumps(current_jobs)
+                    # IMPORTANT: Only update snapshot if XML sync was successful or if no changes were detected
+                    # This prevents losing track of changes if the sync fails
+                    if xml_sync_success or not (added_jobs or removed_jobs or modified_jobs):
+                        monitor.last_job_snapshot = json.dumps(current_jobs)
+                        app.logger.info(f"Updated job snapshot for monitor {monitor.name}")
+                    else:
+                        app.logger.warning(f"Skipping snapshot update for monitor {monitor.name} due to failed XML sync")
+                    
                     monitor.last_check = current_time
                     monitor.calculate_next_check()
                     
