@@ -215,11 +215,39 @@
                                                     <span class="badge bg-warning">
                                                         <i class="fas fa-exclamation-triangle me-1"></i>Error
                                                     </span>
+                                                {% elif activity.activity_type == 'xml_sync_completed' %}
+                                                    <span class="badge bg-primary">
+                                                        <i class="fas fa-sync me-1"></i>XML Sync
+                                                    </span>
+                                                {% elif activity.activity_type == 'job_modified' %}
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-edit me-1"></i>Job Modified
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-info me-1"></i>{{ activity.activity_type.replace('_', ' ').title() }}
+                                                    </span>
                                                 {% endif %}
                                             </td>
                                             <td>
                                                 {% if activity.job_id %}
                                                     <strong>ID {{ activity.job_id }}:</strong> {{ activity.job_title or 'No title' }}
+                                                {% elif activity.activity_type == 'xml_sync_completed' %}
+                                                    <span class="text-muted">
+                                                        {% if activity.details %}
+                                                            {{ activity.details | truncate(60) }}
+                                                        {% else %}
+                                                            XML sync completed
+                                                        {% endif %}
+                                                    </span>
+                                                {% elif activity.activity_type == 'check_completed' %}
+                                                    <span class="text-muted">
+                                                        {% if activity.details %}
+                                                            {{ activity.details | truncate(60) }}
+                                                        {% else %}
+                                                            Check completed
+                                                        {% endif %}
+                                                    </span>
                                                 {% else %}
                                                     -
                                                 {% endif %}

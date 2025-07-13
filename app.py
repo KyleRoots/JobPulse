@@ -418,6 +418,9 @@ def process_bullhorn_monitors():
                                                     if sftp_upload_success:
                                                         app.logger.info(f"Updated XML file uploaded to SFTP: {original_filename}")
                                                         xml_sync_summary['sftp_upload_success'] = True
+                                                        
+                                                        # Update the schedule's last_file_upload timestamp  
+                                                        schedule.last_file_upload = datetime.utcnow()
                                                     else:
                                                         app.logger.warning(f"Failed to upload updated XML to SFTP")
                                                         xml_sync_summary['sftp_upload_success'] = False
@@ -1440,7 +1443,7 @@ def validate_file():
 def bullhorn_dashboard():
     """ATS monitoring dashboard"""
     monitors = BullhornMonitor.query.filter_by(is_active=True).all()
-    recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(20).all()
+    recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(50).all()
     
     # Check if Bullhorn is connected and get job counts
     bullhorn_connected = False

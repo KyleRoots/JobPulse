@@ -216,6 +216,7 @@
                                                 <strong class="text-info">
                                                     {% if schedule.last_file_upload %}
                                                         {{ schedule.last_file_upload.strftime('%b %d, %Y') }}
+                                                        <br><small class="text-muted">{{ schedule.last_file_upload.strftime('%H:%M UTC') }}</small>
                                                     {% else %}
                                                         Never
                                                     {% endif %}
