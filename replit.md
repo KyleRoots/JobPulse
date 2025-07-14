@@ -202,6 +202,7 @@ Changelog:
 - July 14, 2025. Added comprehensive logout functionality across all portal pages - users can now easily access logout from any screen without returning to main dashboard
 - July 14, 2025. Enhanced Schedule Automation with ATS activity logging - scheduled processing activities now log to ATS monitoring system and include comprehensive email notifications for complete transparency
 - July 14, 2025. Streamlined main dashboard by removing manual upload functionality - focusing entirely on automation core value with Schedule Automation, ATS Monitoring, Global Settings, and Test Automation as primary features
+- July 14, 2025. Enhanced Schedule Automation dashboard with precise next run timestamps - users can now see exact date and time (including UTC time) for upcoming automated reference number updates
 ```
 
 ## User Preferences

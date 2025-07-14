@@ -232,6 +232,7 @@
                                                 <small class="text-muted d-block">Next Run</small>
                                                 <strong class="text-success">
                                                     {{ schedule.next_run.strftime('%b %d, %Y') }}
+                                                    <br><small class="text-muted">{{ schedule.next_run.strftime('%H:%M UTC') }}</small>
                                                 </strong>
                                             </div>
                                             <div class="col-6 col-sm-3">
