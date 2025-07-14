@@ -49,7 +49,7 @@ class EmailService:
             # Create email
             status_icon = "✅" if sftp_upload_success else "❌"
             status_text = "Completed" if sftp_upload_success else "Not Complete"
-            subject = f"XML Processing {status_text}: {schedule_name}"
+            subject = f"Scheduled Reference Number Update {status_text}: {schedule_name}"
             
             html_content = f"""
             <html>
@@ -238,7 +238,7 @@ class EmailService:
             total_changes = len(added_jobs) + len(removed_jobs) + len(modified_jobs)
             
             # Prepare email content
-            subject = f"ATS Tearsheet Update: {monitor_name} ({total_changes} changes)"
+            subject = f"ATS Job Change Alert: {monitor_name} ({total_changes} changes)"
             
             # Build email body
             html_content = f"""
