@@ -348,7 +348,17 @@ def process_bullhorn_monitors():
                                       f"Added: {len(added_jobs)}, Removed: {len(removed_jobs)}, "
                                       f"Modified: {len(modified_jobs)}. Starting XML sync...")
                     
-                    if added_jobs or removed_jobs or modified_jobs:
+                    # Periodic orphan cleanup: every 10 monitoring cycles, check for orphaned jobs
+                    # This prevents accumulation of orphaned jobs in XML files
+                    perform_orphan_cleanup = False
+                    if not hasattr(monitor, 'cleanup_counter'):
+                        monitor.cleanup_counter = 0
+                    monitor.cleanup_counter += 1
+                    if monitor.cleanup_counter >= 10:
+                        perform_orphan_cleanup = True
+                        monitor.cleanup_counter = 0
+                    
+                    if added_jobs or removed_jobs or modified_jobs or perform_orphan_cleanup:
                         # Find all active schedules that might need XML updates
                         active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
                         
@@ -358,12 +368,43 @@ def process_bullhorn_monitors():
                                     # Initialize XML integration service
                                     xml_service = XMLIntegrationService()
                                     
-                                    # Sync XML file with current Bullhorn jobs
-                                    sync_result = xml_service.sync_xml_with_bullhorn_jobs(
-                                        xml_file_path=schedule.file_path,
-                                        current_jobs=current_jobs,
-                                        previous_jobs=previous_jobs
-                                    )
+                                    # Perform orphan cleanup if scheduled
+                                    if perform_orphan_cleanup:
+                                        # Get all current jobs from all monitors for comprehensive orphan detection
+                                        all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+                                        all_current_jobs = []
+                                        
+                                        for other_monitor in all_monitors:
+                                            if other_monitor.tearsheet_id == 0:
+                                                monitor_jobs = bullhorn_service.get_jobs_by_query(other_monitor.tearsheet_name)
+                                            else:
+                                                monitor_jobs = bullhorn_service.get_tearsheet_jobs(other_monitor.tearsheet_id)
+                                            all_current_jobs.extend(monitor_jobs)
+                                        
+                                        # Remove orphaned jobs
+                                        orphan_result = xml_service.remove_orphaned_jobs(schedule.file_path, all_current_jobs)
+                                        
+                                        if orphan_result.get('success') and orphan_result.get('removed_count', 0) > 0:
+                                            app.logger.info(f"Periodic cleanup: Removed {orphan_result['removed_count']} orphaned jobs from {schedule.file_path}")
+                                            
+                                            # Log orphan cleanup activity
+                                            activity = BullhornActivity(
+                                                monitor_id=monitor.id,
+                                                activity_type='orphan_cleanup',
+                                                details=f"Periodic cleanup: Removed {orphan_result['removed_count']} orphaned jobs"
+                                            )
+                                            db.session.add(activity)
+                                    
+                                    # Sync XML file with current Bullhorn jobs (only if there are actual changes)
+                                    if added_jobs or removed_jobs or modified_jobs:
+                                        sync_result = xml_service.sync_xml_with_bullhorn_jobs(
+                                            xml_file_path=schedule.file_path,
+                                            current_jobs=current_jobs,
+                                            previous_jobs=previous_jobs
+                                        )
+                                    else:
+                                        # No sync needed if only performing orphan cleanup
+                                        sync_result = {'success': True, 'total_changes': 0}
                                     
                                     if sync_result.get('success'):
                                         xml_sync_success = True
@@ -522,6 +563,86 @@ def process_bullhorn_monitors():
                         app.logger.info(f"Updated job snapshot for monitor {monitor.name}")
                     else:
                         app.logger.warning(f"Skipping snapshot update for monitor {monitor.name} due to failed XML sync")
+                        
+                    # Special handling for monitors with empty snapshots - initialize with current jobs
+                    if not monitor.last_job_snapshot or monitor.last_job_snapshot == '[]':
+                        monitor.last_job_snapshot = json.dumps(current_jobs)
+                        app.logger.info(f"Initialized empty snapshot for monitor {monitor.name} with {len(current_jobs)} jobs")
+                        
+                        # When initializing, also check for orphaned jobs in XML files
+                        if current_jobs:
+                            active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+                            for schedule in active_schedules:
+                                if os.path.exists(schedule.file_path):
+                                    try:
+                                        xml_service = XMLIntegrationService()
+                                        
+                                        # Get all current jobs from all monitors for orphan detection
+                                        all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+                                        all_current_jobs = []
+                                        
+                                        bullhorn_service = BullhornService()
+                                        if bullhorn_service.test_connection():
+                                            for other_monitor in all_monitors:
+                                                if other_monitor.tearsheet_id == 0:
+                                                    monitor_jobs = bullhorn_service.get_jobs_by_query(other_monitor.tearsheet_name)
+                                                else:
+                                                    monitor_jobs = bullhorn_service.get_tearsheet_jobs(other_monitor.tearsheet_id)
+                                                all_current_jobs.extend(monitor_jobs)
+                                        
+                                        # Check for and remove orphaned jobs
+                                        orphan_result = xml_service.remove_orphaned_jobs(schedule.file_path, all_current_jobs)
+                                        
+                                        if orphan_result.get('success') and orphan_result.get('removed_count', 0) > 0:
+                                            app.logger.info(f"Removed {orphan_result['removed_count']} orphaned jobs from {schedule.file_path}")
+                                            
+                                            # Log orphan cleanup activity
+                                            activity = BullhornActivity(
+                                                monitor_id=monitor.id,
+                                                activity_type='orphan_cleanup',
+                                                details=f"Removed {orphan_result['removed_count']} orphaned jobs during snapshot initialization"
+                                            )
+                                            db.session.add(activity)
+                                            
+                                            # Upload cleaned file to SFTP
+                                            if schedule.auto_upload_ftp:
+                                                try:
+                                                    sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                                    
+                                                    if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                                        sftp_hostname and sftp_hostname.setting_value and 
+                                                        sftp_username and sftp_username.setting_value and 
+                                                        sftp_password and sftp_password.setting_value):
+                                                        
+                                                        ftp_service = FTPService(
+                                                            hostname=sftp_hostname.setting_value,
+                                                            username=sftp_username.setting_value,
+                                                            password=sftp_password.setting_value,
+                                                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                                                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                                                            use_sftp=True
+                                                        )
+                                                        
+                                                        original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
+                                                        sftp_upload_success = ftp_service.upload_file(
+                                                            local_file_path=schedule.file_path,
+                                                            remote_filename=original_filename
+                                                        )
+                                                        
+                                                        if sftp_upload_success:
+                                                            app.logger.info(f"Uploaded cleaned XML file to SFTP: {original_filename}")
+                                                            schedule.last_file_upload = datetime.utcnow()
+                                                        else:
+                                                            app.logger.warning(f"Failed to upload cleaned XML to SFTP")
+                                                except Exception as e:
+                                                    app.logger.error(f"Error uploading cleaned XML to SFTP: {str(e)}")
+                                    except Exception as e:
+                                        app.logger.error(f"Error during orphan cleanup: {str(e)}")
                     
                     monitor.last_check = current_time
                     monitor.calculate_next_check()

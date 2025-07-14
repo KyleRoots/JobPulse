@@ -191,6 +191,8 @@ Changelog:
 - July 13, 2025. Completed successful end-to-end test - job 32593 (UX designer) detected, added to XML (now 32 jobs), uploaded to SFTP server, email notification sent, system fully operational for production monitoring
 - July 13, 2025. Enhanced activity tracking display - increased activity limit from 20 to 50 entries, added XML sync and job modification activity types, improved activity details display with truncated descriptions for better user visibility
 - July 13, 2025. Added timestamp precision to "Last Upload" field - scheduler now displays both date and time (HH:MM UTC) for better correlation with SFTP activity logs and monitoring transparency
+- July 14, 2025. Fixed critical monitoring bug - resolved issue where Cleveland monitor lost job snapshot causing job 32594 to become orphaned in XML file, implemented comprehensive orphaned job detection and automatic cleanup functionality
+- July 14, 2025. Enhanced monitoring reliability - added automatic snapshot initialization for empty monitors, periodic orphan cleanup every 10 cycles, and immediate orphan detection when monitors are reinitialized to prevent job tracking loss
 ```
 
 ## User Preferences
