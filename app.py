@@ -402,6 +402,28 @@ def process_bullhorn_monitors():
                                             current_jobs=current_jobs,
                                             previous_jobs=previous_jobs
                                         )
+                                        
+                                        # Verify sync success by checking if removed jobs were actually removed
+                                        if sync_result.get('success') and removed_jobs:
+                                            verification_failed = False
+                                            for removed_job in removed_jobs:
+                                                job_id = str(removed_job.get('id'))
+                                                # Check if job still exists in XML after removal
+                                                with open(schedule.file_path, 'r', encoding='utf-8') as f:
+                                                    xml_content = f.read()
+                                                    if f"({job_id})" in xml_content:
+                                                        app.logger.warning(f"Job {job_id} still exists in XML after removal attempt")
+                                                        # Force remove it manually
+                                                        manual_removal = xml_service.remove_job_from_xml(schedule.file_path, job_id)
+                                                        if manual_removal:
+                                                            app.logger.info(f"Manually removed job {job_id} from XML")
+                                                        else:
+                                                            verification_failed = True
+                                                            app.logger.error(f"Failed to manually remove job {job_id} from XML")
+                                            
+                                            if verification_failed:
+                                                sync_result['success'] = False
+                                                sync_result['errors'] = sync_result.get('errors', []) + ['XML sync verification failed']
                                     else:
                                         # No sync needed if only performing orphan cleanup
                                         sync_result = {'success': True, 'total_changes': 0}

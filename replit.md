@@ -193,6 +193,8 @@ Changelog:
 - July 13, 2025. Added timestamp precision to "Last Upload" field - scheduler now displays both date and time (HH:MM UTC) for better correlation with SFTP activity logs and monitoring transparency
 - July 14, 2025. Fixed critical monitoring bug - resolved issue where Cleveland monitor lost job snapshot causing job 32594 to become orphaned in XML file, implemented comprehensive orphaned job detection and automatic cleanup functionality
 - July 14, 2025. Enhanced monitoring reliability - added automatic snapshot initialization for empty monitors, periodic orphan cleanup every 10 cycles, and immediate orphan detection when monitors are reinitialized to prevent job tracking loss
+- July 14, 2025. Fixed critical XML sync bug where jobs marked as "removed" in activity logs weren't actually removed from XML files - added post-sync verification and manual cleanup retry logic to ensure complete synchronization
+- July 14, 2025. Enhanced navigation system across all portal pages - users can now access any primary section (Dashboard, Schedule Automation, ATS Monitoring, Global Settings, Test Automation) from any page without returning to main dashboard
 ```
 
 ## User Preferences
