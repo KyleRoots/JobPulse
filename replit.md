@@ -203,6 +203,7 @@ Changelog:
 - July 14, 2025. Enhanced Schedule Automation with ATS activity logging - scheduled processing activities now log to ATS monitoring system and include comprehensive email notifications for complete transparency
 - July 14, 2025. Streamlined main dashboard by removing manual upload functionality - focusing entirely on automation core value with Schedule Automation, ATS Monitoring, Global Settings, and Test Automation as primary features
 - July 14, 2025. Enhanced Schedule Automation dashboard with precise next run timestamps - users can now see exact date and time (including UTC time) for upcoming automated reference number updates
+- July 14, 2025. Fixed XML field handling for empty Bullhorn data - city, state, and all fields now show as blank instead of "None" when no data is available from Bullhorn, providing cleaner XML output
 ```
 
 ## User Preferences

@@ -47,6 +47,11 @@ class XMLIntegrationService:
             state = address.get('state', '') if address else ''
             country = address.get('countryName', 'United States') if address else 'United States'
             
+            # Ensure None values are converted to empty strings
+            city = city if city is not None else ''
+            state = state if state is not None else ''
+            country = country if country is not None else 'United States'
+            
             # If address fields are empty, try to extract from description
             if not city and not state:
                 description_text = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
@@ -72,20 +77,27 @@ class XMLIntegrationService:
             # Generate unique reference number
             reference_number = self.xml_processor.generate_reference_number()
             
+            # Helper function to clean field values
+            def clean_field_value(value):
+                """Convert None to empty string, ensure string type"""
+                if value is None:
+                    return ''
+                return str(value)
+            
             # Create XML job structure
             xml_job = {
-                'title': formatted_title,
-                'company': company_name,
-                'date': formatted_date,
-                'referencenumber': reference_number,
-                'url': 'https://myticas.com/',
-                'description': description,
-                'jobtype': job_type,
-                'city': city,
-                'state': state,
-                'country': country,
+                'title': clean_field_value(formatted_title),
+                'company': clean_field_value(company_name),
+                'date': clean_field_value(formatted_date),
+                'referencenumber': clean_field_value(reference_number),
+                'url': clean_field_value('https://myticas.com/'),
+                'description': clean_field_value(description),
+                'jobtype': clean_field_value(job_type),
+                'city': clean_field_value(city),
+                'state': clean_field_value(state),
+                'country': clean_field_value(country),
                 'category': '',  # Empty as per template
-                'apply_email': 'apply@myticas.com',
+                'apply_email': clean_field_value('apply@myticas.com'),
                 'remotetype': ''  # Empty as per template
             }
             
@@ -249,7 +261,9 @@ class XMLIntegrationService:
             # Add all job fields with CDATA wrapping and proper indentation
             for field, value in xml_job.items():
                 field_element = etree.SubElement(job_element, field)
-                field_element.text = etree.CDATA(f" {value} ")
+                # Convert None to empty string and ensure proper formatting
+                clean_value = value if value is not None else ''
+                field_element.text = etree.CDATA(f" {clean_value} ")
                 field_element.tail = "\n    "  # Add proper indentation for each field
             
             # Fix the last element's tail to close the job properly
