@@ -143,7 +143,7 @@
                             XML Job Feed Processor
                         </h1>
                         <p class="lead text-muted">
-                            Automatically update reference numbers in XML job feed files while preserving structure and content
+                            Complete automation for XML job feed reference number updates with ATS integration
                         </p>
                     </div>
                 </div>
@@ -161,58 +161,18 @@
                     {% endif %}
                 {% endwith %}
 
-                <!-- Upload Form -->
+                <!-- Main Dashboard -->
                 <div class="card shadow-sm">
                     <div class="card-body">
                         <h5 class="card-title mb-4">
-                            <i class="fas fa-upload me-2"></i>
-                            Upload XML Job Feed File
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            Automation Dashboard
                         </h5>
                         
-                        <form id="uploadForm" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
-                            <div class="upload-area" id="uploadArea">
-                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                                <h5>Click to select or drag and drop your XML file</h5>
-                                <p class="text-muted mb-0">Supports XML files up to 50MB</p>
-                                <input type="file" id="fileInput" name="file" accept=".xml" class="d-none" required>
-                            </div>
-                            
-                            <div id="fileInfo" class="file-info" style="display: none;">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <i class="fas fa-file-alt me-2"></i>
-                                        <span id="fileName"></span>
-                                    </div>
-                                    <div>
-                                        <span id="fileSize" class="badge bg-secondary"></span>
-                                    </div>
-                                </div>
-                                <div id="validationResult" class="mt-2" style="display: none;">
-                                    <small class="text-muted">
-                                        <i class="fas fa-check-circle text-success me-1"></i>
-                                        <span id="validationMessage"></span>
-                                    </small>
-                                </div>
-                            </div>
-                            
-                            <div class="progress-container" id="progressContainer">
-                                <div class="progress">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                         role="progressbar" 
-                                         style="width: 0%"
-                                         id="progressBar">
-                                    </div>
-                                </div>
-                                <small class="text-muted mt-2 d-block">Processing your XML file...</small>
-                            </div>
-                            
-                            <div class="d-grid gap-2 mt-4">
-                                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
-                                    <i class="fas fa-cogs me-2"></i>
-                                    Process XML File
-                                </button>
-                            </div>
-                        </form>
+                        <p class="text-muted mb-4">
+                            Your XML Job Feed Portal provides complete automation for reference number updates. 
+                            Use the tools below to set up automated processing, monitor ATS changes, and configure your settings.
+                        </p>
                         
                         <!-- Action Buttons -->
                         <div class="text-center mt-3">
@@ -252,23 +212,7 @@
                     </div>
                 </div>
 
-                <!-- Download Section -->
-                {% if download_key %}
-                <div class="download-section">
-                    <div class="text-center">
-                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                        <h4>Processing Complete!</h4>
-                        <p class="mb-3">
-                            Successfully processed <strong>{{ jobs_processed }}</strong> jobs with unique reference numbers.
-                        </p>
-                        <a href="{{ url_for('download_file', download_key=download_key) }}" 
-                           class="btn btn-success btn-lg">
-                            <i class="fas fa-download me-2"></i>
-                            Download {{ filename }}
-                        </a>
-                    </div>
-                </div>
-                {% endif %}
+
 
                 <!-- Features Section -->
                 <div class="row features-row mt-5">
@@ -292,10 +236,10 @@
                     </div>
                     <div class="col-md-4">
                         <div class="text-center">
-                            <i class="fas fa-tachometer-alt fa-2x text-warning mb-3"></i>
-                            <h5>High Performance</h5>
+                            <i class="fas fa-robot fa-2x text-warning mb-3"></i>
+                            <h5>Full Automation</h5>
                             <p class="text-muted">
-                                Efficiently processes large XML files with 2000+ job entries
+                                Complete hands-off automation with scheduling, monitoring, and file uploads
                             </p>
                         </div>
                     </div>
@@ -306,13 +250,13 @@
                     <div class="card-body">
                         <h5 class="card-title">
                             <i class="fas fa-info-circle me-2"></i>
-                            How it works
+                            How Automation Works
                         </h5>
                         <ol class="mb-0">
-                            <li><strong>Upload</strong> your XML job feed file using the form above</li>
-                            <li><strong>Validation</strong> ensures your XML structure is correct</li>
-                            <li><strong>Processing</strong> generates unique reference numbers for each job</li>
-                            <li><strong>Download</strong> your updated XML file with new reference numbers</li>
+                            <li><strong>Schedule Automation</strong> - Set up automatic reference number updates on your preferred schedule</li>
+                            <li><strong>ATS Monitoring</strong> - Monitor ATS tearsheets for job changes and automatically sync with XML files</li>
+                            <li><strong>SFTP Upload</strong> - Processed files are automatically uploaded to your server via SFTP</li>
+                            <li><strong>Email Notifications</strong> - Receive detailed reports on all processing activities</li>
                         </ol>
                     </div>
                 </div>
@@ -320,127 +264,6 @@
         </div>
     </div>
 
-    <!-- Progress Modal for Manual Uploads -->
-    <div class="modal fade" id="manualProgressModal" tabindex="-1" aria-labelledby="manualProgressModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="manualProgressModalLabel">
-                        <i class="fas fa-cogs me-2"></i>
-                        Processing XML File
-                    </h5>
-                </div>
-                <div class="modal-body">
-                    <div class="progress mb-3">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <div class="spinner-border spinner-border-sm me-3" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <div>
-                            <div class="fw-bold" id="manualProgressStep">Starting...</div>
-                            <small class="text-muted" id="manualProgressMessage">Preparing file for processing</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
-    
-    <!-- Manual Upload Progress Script -->
-    {% if manual_upload_id and show_progress %}
-    <script>
-        // Show progress modal for manual uploads
-        document.addEventListener('DOMContentLoaded', function() {
-            const uploadId = '{{ manual_upload_id }}';
-            const progressModal = new bootstrap.Modal(document.getElementById('manualProgressModal'));
-            
-            // Show the modal
-            progressModal.show();
-            
-            // Start polling for progress
-            pollManualUploadProgress(uploadId, progressModal);
-        });
-        
-        function pollManualUploadProgress(uploadId, modal) {
-            fetch(`/manual-upload-progress/${uploadId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        // Handle error
-                        document.getElementById('manualProgressStep').textContent = 'Error';
-                        document.getElementById('manualProgressMessage').textContent = data.error;
-                        document.querySelector('.progress-bar').style.width = '100%';
-                        document.querySelector('.progress-bar').classList.add('bg-danger');
-                        document.querySelector('.spinner-border').style.display = 'none';
-                        return;
-                    }
-                    
-                    // Update progress display
-                    document.getElementById('manualProgressStep').textContent = data.step;
-                    document.getElementById('manualProgressMessage').textContent = data.message;
-                    
-                    if (data.completed) {
-                        // Processing completed
-                        document.querySelector('.progress-bar').style.width = '100%';
-                        document.querySelector('.progress-bar').classList.remove('progress-bar-animated');
-                        document.querySelector('.spinner-border').style.display = 'none';
-                        
-                        if (data.error) {
-                            // Error occurred
-                            document.querySelector('.progress-bar').classList.add('bg-danger');
-                            document.getElementById('manualProgressStep').textContent = 'Error';
-                            document.getElementById('manualProgressMessage').textContent = data.error;
-                        } else {
-                            // Success
-                            document.querySelector('.progress-bar').classList.add('bg-success');
-                            document.getElementById('manualProgressStep').textContent = 'Complete!';
-                            
-                            // Build success message
-                            let successMessage = `Processed ${data.jobs_processed} jobs successfully`;
-                            if (data.sftp_uploaded) {
-                                successMessage += ' and uploaded to server';
-                            }
-                            document.getElementById('manualProgressMessage').textContent = successMessage;
-                            
-                            // Show download link after a brief delay
-                            setTimeout(() => {
-                                if (data.download_key) {
-                                    const downloadSection = document.querySelector('.download-section');
-                                    if (downloadSection) {
-                                        downloadSection.scrollIntoView({ behavior: 'smooth' });
-                                    }
-                                }
-                                modal.hide();
-                            }, 2000);
-                        }
-                    } else {
-                        // Still processing, continue polling
-                        setTimeout(() => pollManualUploadProgress(uploadId, modal), 1000);
-                        
-                        // Update progress bar based on step
-                        let progressWidth = '25%';
-                        if (data.step === 'processing') progressWidth = '50%';
-                        else if (data.step === 'uploading_sftp') progressWidth = '75%';
-                        else if (data.step === 'completed') progressWidth = '100%';
-                        
-                        document.querySelector('.progress-bar').style.width = progressWidth;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error polling progress:', error);
-                    document.getElementById('manualProgressStep').textContent = 'Error';
-                    document.getElementById('manualProgressMessage').textContent = 'Failed to get progress updates';
-                    document.querySelector('.progress-bar').style.width = '100%';
-                    document.querySelector('.progress-bar').classList.add('bg-danger');
-                    document.querySelector('.spinner-border').style.display = 'none';
-                });
-        }
-    </script>
-    {% endif %}
 </body>
 </html>

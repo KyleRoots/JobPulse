@@ -200,6 +200,8 @@ Changelog:
 - July 14, 2025. Fixed critical city/state mapping bug - system now intelligently extracts location information from job descriptions when Bullhorn address fields are empty, ensuring accurate city/state data in XML files for all jobs
 - July 14, 2025. Implemented secure authentication system with Flask-Login - created professional login page, admin user management (admin/MyticasXML2025!), and protected all routes with login requirements for enhanced security
 - July 14, 2025. Added comprehensive logout functionality across all portal pages - users can now easily access logout from any screen without returning to main dashboard
+- July 14, 2025. Enhanced Schedule Automation with ATS activity logging - scheduled processing activities now log to ATS monitoring system and include comprehensive email notifications for complete transparency
+- July 14, 2025. Streamlined main dashboard by removing manual upload functionality - focusing entirely on automation core value with Schedule Automation, ATS Monitoring, Global Settings, and Test Automation as primary features
 ```
 
 ## User Preferences

@@ -227,11 +227,43 @@ def process_scheduled_files():
                             except Exception as e:
                                 app.logger.error(f"Error sending email notification: {str(e)}")
                         
+                        # Log activity in ATS monitoring system
+                        activity_details = {
+                            'schedule_name': schedule.name,
+                            'jobs_processed': result.get('jobs_processed', 0),
+                            'file_path': schedule.file_path,
+                            'original_filename': original_filename,
+                            'sftp_upload_success': sftp_upload_success
+                        }
+                        
+                        # Create a general activity entry for scheduled processing
+                        activity_entry = BullhornActivity(
+                            monitor_id=None,  # No specific monitor - this is a general system activity
+                            activity_type='scheduled_processing',
+                            job_id=None,
+                            job_title=None,
+                            details=f"Scheduled processing completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs processed",
+                            notification_sent=schedule.send_email_notifications
+                        )
+                        db.session.add(activity_entry)
+                        app.logger.info(f"ATS activity logged for scheduled processing: {schedule.name}")
+                        
                     else:
                         # Clean up temp file on failure
                         if os.path.exists(temp_output):
                             os.remove(temp_output)
                         app.logger.error(f"Failed to process scheduled file: {schedule.file_path} - {result.get('error')}")
+                        
+                        # Log failure in ATS monitoring system
+                        activity_entry = BullhornActivity(
+                            monitor_id=None,
+                            activity_type='scheduled_processing_error',
+                            job_id=None,
+                            job_title=None,
+                            details=f"Scheduled processing failed for '{schedule.name}' - {result.get('error', 'Unknown error')}",
+                            notification_sent=False
+                        )
+                        db.session.add(activity_entry)
                         
                         # Send error notification email if configured (using Global Settings)
                         if schedule.send_email_notifications:
