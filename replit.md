@@ -205,6 +205,7 @@ Changelog:
 - July 14, 2025. Enhanced Schedule Automation dashboard with precise next run timestamps - users can now see exact date and time (including UTC time) for upcoming automated reference number updates
 - July 14, 2025. Fixed XML field handling for empty Bullhorn data - city, state, and all fields now show as blank instead of "None" when no data is available from Bullhorn, providing cleaner XML output
 - July 14, 2025. Enhanced email notification clarity - scheduled reference number updates now have distinct subject lines ("Scheduled Reference Number Update Complete") vs ATS job change alerts ("ATS Job Change Alert") to eliminate confusion about notification types
+- July 14, 2025. Fixed job 32608 title synchronization - corrected "Local to Chicago-Sr Project Management Consultant (A)" to "Sr Program Management Consultant" matching Bullhorn updates
 ```
 
 ## User Preferences
