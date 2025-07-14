@@ -47,6 +47,14 @@ class XMLIntegrationService:
             state = address.get('state', '') if address else ''
             country = address.get('countryName', 'United States') if address else 'United States'
             
+            # If address fields are empty, try to extract from description
+            if not city and not state:
+                description_text = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
+                extracted_location = self._extract_location_from_description(description_text)
+                if extracted_location:
+                    city = extracted_location.get('city', '')
+                    state = extracted_location.get('state', '')
+            
             # Handle employment type mapping
             employment_type = bullhorn_job.get('employmentType', '')
             job_type = self._map_employment_type(employment_type)
@@ -87,6 +95,59 @@ class XMLIntegrationService:
         except Exception as e:
             self.logger.error(f"Error mapping Bullhorn job to XML: {str(e)}")
             return None
+    
+    def _extract_location_from_description(self, description: str) -> Dict:
+        """
+        Extract city and state from job description text
+        
+        Args:
+            description: Job description text
+            
+        Returns:
+            Dict: Dictionary with 'city' and 'state' keys
+        """
+        import re
+        
+        # Common patterns for location in job descriptions
+        patterns = [
+            r'Location:\s*([^,]+),\s*([A-Z]{2})\b',  # "Location: Lansing, MI"
+            r'located in\s*([^,]+),\s*([A-Z]{2})\b',  # "located in Lansing, MI"
+            r'in\s*([^,]+),\s*([A-Z]{2})\s*\(',  # "in Lansing, MI (Hybrid"
+            r'([A-Za-z\s]+),\s*(Michigan|California|Texas|Florida|New York|Illinois|Pennsylvania|Ohio|Georgia|North Carolina|New Jersey|Virginia|Washington|Arizona|Massachusetts|Tennessee|Indiana|Maryland|Missouri|Wisconsin|Colorado|Minnesota|South Carolina|Alabama|Louisiana|Kentucky|Oregon|Oklahoma|Connecticut|Utah|Iowa|Nevada|Arkansas|Mississippi|Kansas|New Mexico|Nebraska|West Virginia|Idaho|Hawaii|New Hampshire|Maine|Montana|Rhode Island|Delaware|South Dakota|North Dakota|Alaska|Vermont|Wyoming)\b'  # Full state names
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, description, re.IGNORECASE)
+            if match:
+                city = match.group(1).strip()
+                state_raw = match.group(2).strip()
+                
+                # Convert state abbreviations to full names
+                state_map = {
+                    'MI': 'Michigan', 'CA': 'California', 'TX': 'Texas', 'FL': 'Florida',
+                    'NY': 'New York', 'IL': 'Illinois', 'PA': 'Pennsylvania', 'OH': 'Ohio',
+                    'GA': 'Georgia', 'NC': 'North Carolina', 'NJ': 'New Jersey', 'VA': 'Virginia',
+                    'WA': 'Washington', 'AZ': 'Arizona', 'MA': 'Massachusetts', 'TN': 'Tennessee',
+                    'IN': 'Indiana', 'MD': 'Maryland', 'MO': 'Missouri', 'WI': 'Wisconsin',
+                    'CO': 'Colorado', 'MN': 'Minnesota', 'SC': 'South Carolina', 'AL': 'Alabama',
+                    'LA': 'Louisiana', 'KY': 'Kentucky', 'OR': 'Oregon', 'OK': 'Oklahoma',
+                    'CT': 'Connecticut', 'UT': 'Utah', 'IA': 'Iowa', 'NV': 'Nevada',
+                    'AR': 'Arkansas', 'MS': 'Mississippi', 'KS': 'Kansas', 'NM': 'New Mexico',
+                    'NE': 'Nebraska', 'WV': 'West Virginia', 'ID': 'Idaho', 'HI': 'Hawaii',
+                    'NH': 'New Hampshire', 'ME': 'Maine', 'MT': 'Montana', 'RI': 'Rhode Island',
+                    'DE': 'Delaware', 'SD': 'South Dakota', 'ND': 'North Dakota', 'AK': 'Alaska',
+                    'VT': 'Vermont', 'WY': 'Wyoming'
+                }
+                
+                # Convert abbreviation to full name if needed
+                if state_raw.upper() in state_map:
+                    state = state_map[state_raw.upper()]
+                else:
+                    state = state_raw
+                
+                return {'city': city, 'state': state}
+        
+        return {}
     
     def _map_employment_type(self, employment_type: str) -> str:
         """Map Bullhorn employment type to XML job type"""
