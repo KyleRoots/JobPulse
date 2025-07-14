@@ -195,6 +195,7 @@ Changelog:
 - July 14, 2025. Enhanced monitoring reliability - added automatic snapshot initialization for empty monitors, periodic orphan cleanup every 10 cycles, and immediate orphan detection when monitors are reinitialized to prevent job tracking loss
 - July 14, 2025. Fixed critical XML sync bug where jobs marked as "removed" in activity logs weren't actually removed from XML files - added post-sync verification and manual cleanup retry logic to ensure complete synchronization
 - July 14, 2025. Enhanced navigation system across all portal pages - users can now access any primary section (Dashboard, Schedule Automation, ATS Monitoring, Global Settings, Test Automation) from any page without returning to main dashboard
+- July 14, 2025. Fixed critical city/state mapping bug - system now intelligently extracts location information from job descriptions when Bullhorn address fields are empty, ensuring accurate city/state data in XML files for all jobs
 ```
 
 ## User Preferences
