@@ -1217,6 +1217,7 @@ def run_schedule_now(schedule_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/upload-schedule-file', methods=['POST'])
+@login_required
 def upload_schedule_file():
     """Handle file upload for scheduling"""
     try:
@@ -1702,6 +1703,7 @@ def bullhorn_dashboard():
                          monitor_job_counts=monitor_job_counts)
 
 @app.route('/bullhorn/create', methods=['GET', 'POST'])
+@login_required
 def create_bullhorn_monitor():
     """Create a new Bullhorn monitor"""
     if request.method == 'POST':
@@ -2020,6 +2022,7 @@ def test_email_notification(monitor_id):
         })
 
 @app.route('/bullhorn/settings', methods=['GET', 'POST'])
+@login_required
 def bullhorn_settings():
     """Manage Bullhorn API credentials in Global Settings"""
     if request.method == 'POST':
