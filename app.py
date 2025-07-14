@@ -20,6 +20,8 @@ import atexit
 import shutil
 import threading
 import time
+from flask_login import LoginManager, current_user, login_required, UserMixin, login_user, logout_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Configure logging for production
 logging.basicConfig(
@@ -53,6 +55,19 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "max_overflow": 20
 }
 
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Please log in to access the XML Job Feed Portal.'
+
+@login_manager.user_loader
+def load_user(user_id):
+    User = globals().get('User')
+    if User:
+        return User.query.get(int(user_id))
+    return None
+
 # Initialize database
 db.init_app(app)
 
@@ -67,7 +82,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 # Import and initialize models
 from models import create_models
-ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity = create_models(db)
+User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity = create_models(db)
 
 # Initialize database tables
 with app.app_context():
@@ -719,12 +734,55 @@ scheduler.add_job(
     replace_existing=True
 )
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """User login page"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username or not password:
+            flash('Please enter both username and password.', 'error')
+            return render_template('login.html')
+        
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            # Update last login
+            user.last_login = datetime.utcnow()
+            db.session.commit()
+            
+            login_user(user)
+            flash(f'Welcome back, {user.username}!', 'success')
+            
+            # Redirect to originally requested page or index
+            next_page = request.args.get('next')
+            if next_page:
+                return redirect(next_page)
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid username or password.', 'error')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    """User logout"""
+    logout_user()
+    flash('You have been logged out successfully.', 'info')
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
     """Main page with file upload form"""
     return render_template('index.html')
 
 @app.route('/scheduler')
+@login_required
 def scheduler_dashboard():
     """Scheduling dashboard for automated processing"""
     # Get all active schedules
@@ -1205,6 +1263,7 @@ def upload_schedule_file():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload_file():
     """Handle file upload and processing with progress tracking"""
     try:
@@ -1405,6 +1464,7 @@ def download_file(download_key):
         return redirect(url_for('index'))
 
 @app.route('/settings')
+@login_required
 def settings():
     """Global settings page for SFTP and email configuration"""
     try:
@@ -1541,6 +1601,7 @@ def test_sftp_connection():
         })
 
 @app.route('/validate', methods=['POST'])
+@login_required
 def validate_file():
     """Validate XML file structure without processing"""
     try:
@@ -1583,6 +1644,7 @@ def validate_file():
         return jsonify({'valid': False, 'error': str(e)})
 
 @app.route('/bullhorn')
+@login_required
 def bullhorn_dashboard():
     """ATS monitoring dashboard"""
     monitors = BullhornMonitor.query.filter_by(is_active=True).all()
@@ -2053,6 +2115,7 @@ def bullhorn_oauth_callback():
         return redirect(url_for('bullhorn_settings'))
 
 @app.route('/automation_test')
+@login_required
 def automation_test():
     """Automation test center page"""
     # Reset test file to original state
