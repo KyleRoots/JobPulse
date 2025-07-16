@@ -125,6 +125,10 @@ class XMLIntegrationService:
             r'Location:\s*([^,]+),\s*([A-Z]{2})\b',  # "Location: Lansing, MI"
             r'located in\s*([^,]+),\s*([A-Z]{2})\b',  # "located in Lansing, MI"
             r'in\s*([^,]+),\s*([A-Z]{2})\s*\(',  # "in Lansing, MI (Hybrid"
+            r'client in\s*([^,]+),\s*([A-Z]{2})\b',  # "client in Springfield, IL"
+            r'based in\s*([^,]+),\s*([A-Z]{2})\b',  # "based in Chicago, IL"
+            r'office in\s*([^,]+),\s*([A-Z]{2})\b',  # "office in Denver, CO"
+            r'\b([A-Za-z\s]+),\s*([A-Z]{2})\b(?=\.\s|,\s|\s\()',  # "Springfield, IL." or "Springfield, IL ("
             r'([A-Za-z\s]+),\s*(Michigan|California|Texas|Florida|New York|Illinois|Pennsylvania|Ohio|Georgia|North Carolina|New Jersey|Virginia|Washington|Arizona|Massachusetts|Tennessee|Indiana|Maryland|Missouri|Wisconsin|Colorado|Minnesota|South Carolina|Alabama|Louisiana|Kentucky|Oregon|Oklahoma|Connecticut|Utah|Iowa|Nevada|Arkansas|Mississippi|Kansas|New Mexico|Nebraska|West Virginia|Idaho|Hawaii|New Hampshire|Maine|Montana|Rhode Island|Delaware|South Dakota|North Dakota|Alaska|Vermont|Wyoming)\b'  # Full state names
         ]
         

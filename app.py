@@ -209,6 +209,11 @@ def process_scheduled_files():
                                 if (email_enabled and email_enabled.setting_value == 'true' and 
                                     email_address and email_address.setting_value):
                                     
+                                    # Add 30-second delay before sending email to ensure XML updates are reflected
+                                    app.logger.info(f"Waiting 30 seconds before sending email notification for schedule: {schedule.name}")
+                                    import time
+                                    time.sleep(30)
+                                    
                                     email_service = EmailService()
                                     email_sent = email_service.send_processing_notification(
                                         to_email=email_address.setting_value,
@@ -632,6 +637,11 @@ def process_bullhorn_monitors():
                                 email_address = global_email.setting_value
                         
                         if email_address:
+                            # Add 30-second delay before sending email to ensure XML updates are reflected
+                            app.logger.info(f"Waiting 30 seconds before sending email notification for monitor: {monitor.name}")
+                            import time
+                            time.sleep(30)
+                            
                             email_service = EmailService()
                             email_sent = email_service.send_bullhorn_notification(
                                 to_email=email_address,
