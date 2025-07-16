@@ -120,21 +120,25 @@ class XMLIntegrationService:
         """
         import re
         
-        # Common patterns for location in job descriptions
+        # Strip HTML tags first for better pattern matching
+        clean_text = re.sub(r'<[^>]*>', '', description)
+        
+        # Common patterns for location in job descriptions (ordered from most specific to least specific)
         patterns = [
             r'Location:\s*([^,]+),\s*([A-Z]{2})\b',  # "Location: Lansing, MI"
-            r'located in\s*([^,]+),\s*([A-Z]{2})\b',  # "located in Lansing, MI"
-            r'in\s*([^,]+),\s*([A-Z]{2})\s*\(',  # "in Lansing, MI (Hybrid"
-            r'at\s*([^,]+),\s*([A-Z]{2})\s*\(',  # "at Waukegan, IL (Hybrid"
-            r'client in\s*([^,]+),\s*([A-Z]{2})\b',  # "client in Springfield, IL"
-            r'based in\s*([^,]+),\s*([A-Z]{2})\b',  # "based in Chicago, IL"
-            r'office in\s*([^,]+),\s*([A-Z]{2})\b',  # "office in Denver, CO"
+            r'experience at\s+([A-Za-z]+(?:\s+[A-Za-z]+)*),\s*([A-Z]{2})\b',  # "experience at Waukegan, IL"
+            r'located in\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "located in Lansing, MI"
+            r'client in\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "client in Springfield, IL"
+            r'based in\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "based in Chicago, IL"
+            r'office in\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "office in Denver, CO"
+            r'at\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\s*\(',  # "at Waukegan, IL (Hybrid"
+            r'at\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "at Waukegan, IL"
             r'\b([A-Za-z\s]+),\s*([A-Z]{2})\b(?=\.\s|,\s|\s\()',  # "Springfield, IL." or "Springfield, IL ("
             r'([A-Za-z\s]+),\s*(Michigan|California|Texas|Florida|New York|Illinois|Pennsylvania|Ohio|Georgia|North Carolina|New Jersey|Virginia|Washington|Arizona|Massachusetts|Tennessee|Indiana|Maryland|Missouri|Wisconsin|Colorado|Minnesota|South Carolina|Alabama|Louisiana|Kentucky|Oregon|Oklahoma|Connecticut|Utah|Iowa|Nevada|Arkansas|Mississippi|Kansas|New Mexico|Nebraska|West Virginia|Idaho|Hawaii|New Hampshire|Maine|Montana|Rhode Island|Delaware|South Dakota|North Dakota|Alaska|Vermont|Wyoming)\b'  # Full state names
         ]
         
         for pattern in patterns:
-            match = re.search(pattern, description, re.IGNORECASE)
+            match = re.search(pattern, clean_text, re.IGNORECASE)
             if match:
                 city = match.group(1).strip()
                 state_raw = match.group(2).strip()

@@ -234,6 +234,7 @@ Changelog:
 - July 16, 2025. Completed auto-refresh feature testing and verification - all functionality confirmed working: scrollable table, 5-minute intervals, countdown timer, preserved scroll position, visual indicators
 - July 16, 2025. Synchronized auto-refresh countdown with tearsheet monitoring schedule - countdown now shows actual time until next monitor run, refreshes align with APScheduler timing
 - July 16, 2025. Fixed critical duplicate job issue and location extraction bug - enhanced remove_job_from_xml to handle all duplicates, added "at City, ST" pattern for location extraction, manually cleaned up duplicate job 32632, verified city/state fields populate correctly
+- July 16, 2025. Resolved persistent location extraction issues - fixed regex pattern order and specificity to prevent incorrect matches, enhanced HTML content handling, corrected job 32632 location data (Waukegan, Illinois), completed comprehensive XML resync with 49 jobs
 ```
 
 ## User Preferences
