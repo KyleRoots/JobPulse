@@ -1905,6 +1905,33 @@ def bullhorn_dashboard():
                          bullhorn_connected=bullhorn_connected,
                          monitor_job_counts=monitor_job_counts)
 
+@app.route('/api/bullhorn/activities')
+@login_required
+def get_recent_activities():
+    """Get recent Bullhorn activities for auto-refresh"""
+    recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(50).all()
+    
+    # Return JSON data that can be used to update the activity table
+    activities_data = []
+    for activity in recent_activities:
+        activities_data.append({
+            'id': activity.id,
+            'monitor_name': activity.monitor.name,
+            'monitor_id': activity.monitor.id,
+            'activity_type': activity.activity_type,
+            'job_id': activity.job_id,
+            'job_title': activity.job_title,
+            'details': activity.details,
+            'notification_sent': activity.notification_sent,
+            'created_at': activity.created_at.strftime('%Y-%m-%d %H:%M')
+        })
+    
+    return jsonify({
+        'success': True,
+        'activities': activities_data,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
 @app.route('/bullhorn/create', methods=['GET', 'POST'])
 @login_required
 def create_bullhorn_monitor():
