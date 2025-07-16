@@ -222,6 +222,7 @@ Changelog:
 - July 16, 2025. Added XML job sorting functionality - implemented date-based sorting with newest jobs first, updated existing XML file with proper chronological order (newest to oldest), uploaded sorted file to SFTP server
 - July 16, 2025. Fixed monitoring interval defaults - updated 5 monitors from 15 minutes to 5 minutes, changed default interval in forms and models from 60 to 5 minutes
 - July 16, 2025. Restored XML file from backup and performed comprehensive sync - recovered 32 jobs from July 14 backup after accidental wipe, synced all 52 jobs from tearsheets resulting in 53 total jobs in XML
+- July 16, 2025. Fixed critical SFTP upload bug in monitoring cycle - upload code was incorrectly nested in error handling block making it unreachable, moved to success block ensuring automatic uploads work properly
 ```
 
 ## User Preferences

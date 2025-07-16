@@ -522,24 +522,6 @@ def process_bullhorn_monitors():
                                         
                                         # Update last file upload timestamp
                                         schedule.last_file_upload = datetime.utcnow()
-                                    else:
-                                        # XML sync failed - log comprehensive error details
-                                        xml_sync_success = False
-                                        xml_sync_summary = sync_result
-                                        
-                                        error_details = sync_result.get('errors', ['Unknown sync error'])
-                                        app.logger.error(f"XML sync failed for schedule '{schedule.name}': {'; '.join(error_details)}")
-                                        
-                                        # Log sync failure activity
-                                        activity = BullhornActivity(
-                                            monitor_id=monitor.id,
-                                            activity_type='xml_sync_failed',
-                                            details=f"XML sync failed for schedule '{schedule.name}': {'; '.join(error_details)}"
-                                        )
-                                        db.session.add(activity)
-                                        
-                                        # Don't proceed with SFTP upload if sync failed
-                                        continue
                                         
                                         # Get original filename for SFTP upload (no reference number regeneration for real-time monitoring)
                                         original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
