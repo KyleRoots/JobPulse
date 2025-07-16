@@ -206,6 +206,9 @@ Changelog:
 - July 14, 2025. Fixed XML field handling for empty Bullhorn data - city, state, and all fields now show as blank instead of "None" when no data is available from Bullhorn, providing cleaner XML output
 - July 14, 2025. Enhanced email notification clarity - scheduled reference number updates now have distinct subject lines ("Scheduled Reference Number Update Complete") vs ATS job change alerts ("ATS Job Change Alert") to eliminate confusion about notification types
 - July 14, 2025. Fixed job 32608 title synchronization - corrected "Local to Chicago-Sr Project Management Consultant (A)" to "Sr Program Management Consultant" matching Bullhorn updates
+- July 16, 2025. Resolved persistent email notification issue - fixed Clover monitor snapshot containing orphaned job 32571 that was correctly removed from tearsheet but caused repeated "job removed" notifications
+- July 16, 2025. Fixed missing location data for job 32612 - added "Nova Scotia" state field for Halifax position, correcting empty state value from Bullhorn source data
+- July 16, 2025. Confirmed data quality handling - system correctly preserves Bullhorn source data fidelity by showing empty fields when location information is null/missing in source system
 ```
 
 ## User Preferences
