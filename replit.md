@@ -230,6 +230,7 @@ Changelog:
 - July 16, 2025. Restored XML file with proper CDATA formatting after ElementTree processing broke all CDATA tags - reverted to previous version with 47 jobs, automated monitoring will resync any missing jobs
 - July 16, 2025. Added scrollable activity table to ATS monitoring interface - Recent Activity section now has independent scroll with sticky headers and 500px max height for better user experience
 - July 16, 2025. Implemented auto-refresh functionality for ATS monitoring activity section - table updates every 5 minutes matching monitor intervals, preserves scroll position, includes visual refresh indicator
+- July 16, 2025. Added countdown timer to auto-refresh indicator - shows remaining time until next refresh in MM:SS format, resets after each refresh cycle
 ```
 
 ## User Preferences

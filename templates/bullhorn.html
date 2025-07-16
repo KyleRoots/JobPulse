@@ -235,7 +235,7 @@
                             Recent Activity
                             <small class="text-muted ms-2" id="refreshIndicator">
                                 <i class="fas fa-sync fa-spin" style="display: none;"></i>
-                                <span class="refresh-status">Auto-refresh: 5 min</span>
+                                <span class="refresh-status">Auto-refresh: 5:00</span>
                             </small>
                         </h5>
                     </div>
@@ -412,7 +412,9 @@
         
         // Auto-refresh functionality for activity section
         let refreshInterval;
+        let countdownInterval;
         let lastRefreshTime = new Date();
+        let remainingSeconds = 300; // 5 minutes in seconds
         
         function getActivityBadge(activityType) {
             const badges = {
@@ -479,6 +481,37 @@
             lastRefreshTime = new Date();
         }
         
+        function updateCountdownDisplay() {
+            const refreshStatus = document.querySelector('#refreshIndicator .refresh-status');
+            if (refreshStatus) {
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+                const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                refreshStatus.textContent = `Auto-refresh: ${formattedTime}`;
+            }
+        }
+        
+        function startCountdown() {
+            remainingSeconds = 300; // Reset to 5 minutes
+            updateCountdownDisplay();
+            
+            countdownInterval = setInterval(() => {
+                remainingSeconds--;
+                updateCountdownDisplay();
+                
+                if (remainingSeconds <= 0) {
+                    remainingSeconds = 300; // Reset for next cycle
+                }
+            }, 1000);
+        }
+        
+        function stopCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+        }
+        
         function refreshActivities() {
             // Show refresh indicator
             const refreshIcon = document.querySelector('#refreshIndicator .fa-sync');
@@ -503,17 +536,20 @@
                     console.error('Error refreshing activities:', error);
                 })
                 .finally(() => {
-                    // Hide refresh indicator
-                    if (refreshIcon && refreshStatus) {
+                    // Hide refresh indicator and reset countdown
+                    if (refreshIcon) {
                         refreshIcon.style.display = 'none';
-                        refreshStatus.textContent = 'Auto-refresh: 5 min';
                     }
+                    
+                    remainingSeconds = 300; // Reset countdown after refresh
+                    updateCountdownDisplay();
                 });
         }
         
         function startAutoRefresh() {
             // Refresh every 5 minutes (300,000 milliseconds)
             refreshInterval = setInterval(refreshActivities, 300000);
+            startCountdown();
             console.log('Auto-refresh started - will refresh every 5 minutes');
         }
         
@@ -521,8 +557,9 @@
             if (refreshInterval) {
                 clearInterval(refreshInterval);
                 refreshInterval = null;
-                console.log('Auto-refresh stopped');
             }
+            stopCountdown();
+            console.log('Auto-refresh stopped');
         }
         
         // Start auto-refresh when page loads
