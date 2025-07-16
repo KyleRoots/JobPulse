@@ -41,7 +41,8 @@ class XMLIntegrationService:
             # Always use Myticas Consulting as company name
             company_name = 'Myticas Consulting'
             
-            # Extract location information
+            # Extract location information from Bullhorn structured fields only
+            # Use the address object for location data
             address = bullhorn_job.get('address', {})
             city = address.get('city', '') if address else ''
             state = address.get('state', '') if address else ''
@@ -51,14 +52,6 @@ class XMLIntegrationService:
             city = city if city is not None else ''
             state = state if state is not None else ''
             country = country if country is not None else 'United States'
-            
-            # If address fields are empty, try to extract from description
-            if not city and not state:
-                description_text = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
-                extracted_location = self._extract_location_from_description(description_text)
-                if extracted_location:
-                    city = extracted_location.get('city', '')
-                    state = extracted_location.get('state', '')
             
             # Handle employment type mapping
             employment_type = bullhorn_job.get('employmentType', '')

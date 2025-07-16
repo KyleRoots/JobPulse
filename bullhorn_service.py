@@ -328,7 +328,7 @@ class BullhornService:
             # First get the entity API count for validation
             entity_url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
             entity_params = {
-                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription)',
+                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription,address(city,state,countryName))',
                 'BhRestToken': self.rest_token
             }
             
@@ -427,7 +427,8 @@ class BullhornService:
                 "id", "title", "isOpen", "status", "dateAdded", 
                 "dateLastModified", "clientCorporation(id,name)",
                 "clientContact(firstName,lastName)", "description",
-                "publicDescription", "numOpenings", "isPublic"
+                "publicDescription", "numOpenings", "isPublic",
+                "address(city,state,countryName)"
             ]
             
             # Make API request
