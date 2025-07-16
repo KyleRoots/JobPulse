@@ -225,6 +225,7 @@ Changelog:
 - July 16, 2025. Fixed critical SFTP upload bug in monitoring cycle - upload code was incorrectly nested in error handling block making it unreachable, moved to success block ensuring automatic uploads work properly
 - July 16, 2025. Added 30-second delay before email notifications - ensures XML updates are reflected on web server before users receive notification emails
 - July 16, 2025. Fixed job 32541 blank location fields - updated to Chicago, Illinois and improved location extraction patterns to catch "client in City, ST" patterns
+- July 16, 2025. Restored XML file with proper CDATA formatting after ElementTree processing broke all CDATA tags - reverted to previous version with 47 jobs, automated monitoring will resync any missing jobs
 ```
 
 ## User Preferences
