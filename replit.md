@@ -228,6 +228,7 @@ Changelog:
 - July 16, 2025. Added 30-second delay before email notifications - ensures XML updates are reflected on web server before users receive notification emails
 - July 16, 2025. Fixed job 32541 blank location fields - updated to Chicago, Illinois and improved location extraction patterns to catch "client in City, ST" patterns
 - July 16, 2025. Restored XML file with proper CDATA formatting after ElementTree processing broke all CDATA tags - reverted to previous version with 47 jobs, automated monitoring will resync any missing jobs
+- July 16, 2025. Added scrollable activity table to ATS monitoring interface - Recent Activity section now has independent scroll with sticky headers and 400px max height for better user experience
 ```
 
 ## User Preferences
