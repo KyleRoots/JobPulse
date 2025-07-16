@@ -450,27 +450,56 @@ def process_bullhorn_monitors():
                                             previous_jobs=previous_jobs
                                         )
                                         
-                                        # Verify sync success by checking if removed jobs were actually removed
-                                        if sync_result.get('success') and removed_jobs:
-                                            verification_failed = False
+                                        # Enhanced verification and recovery for sync failures
+                                        if sync_result.get('success'):
+                                            # Verify all changes were applied correctly
+                                            verification_errors = []
+                                            
+                                            # Check removed jobs
                                             for removed_job in removed_jobs:
                                                 job_id = str(removed_job.get('id'))
-                                                # Check if job still exists in XML after removal
                                                 with open(schedule.file_path, 'r', encoding='utf-8') as f:
                                                     xml_content = f.read()
                                                     if f"({job_id})" in xml_content:
                                                         app.logger.warning(f"Job {job_id} still exists in XML after removal attempt")
-                                                        # Force remove it manually
+                                                        # Attempt manual removal with retry
                                                         manual_removal = xml_service.remove_job_from_xml(schedule.file_path, job_id)
                                                         if manual_removal:
                                                             app.logger.info(f"Manually removed job {job_id} from XML")
                                                         else:
-                                                            verification_failed = True
-                                                            app.logger.error(f"Failed to manually remove job {job_id} from XML")
+                                                            verification_errors.append(f"Failed to remove job {job_id}")
                                             
-                                            if verification_failed:
+                                            # Check modified jobs
+                                            for modified_job in modified_jobs:
+                                                job_id = str(modified_job.get('id'))
+                                                expected_title = modified_job.get('title', '')
+                                                if not xml_service._verify_job_update_in_xml(schedule.file_path, job_id, expected_title):
+                                                    app.logger.warning(f"Job {job_id} update verification failed, attempting recovery")
+                                                    # Attempt to update the job again
+                                                    update_success = xml_service.update_job_in_xml(schedule.file_path, modified_job)
+                                                    if not update_success:
+                                                        verification_errors.append(f"Failed to update job {job_id}")
+                                            
+                                            # Check added jobs
+                                            for added_job in added_jobs:
+                                                job_id = str(added_job.get('id'))
+                                                with open(schedule.file_path, 'r', encoding='utf-8') as f:
+                                                    xml_content = f.read()
+                                                    if f"({job_id})" not in xml_content:
+                                                        app.logger.warning(f"Job {job_id} missing from XML after addition attempt")
+                                                        # Attempt manual addition
+                                                        manual_addition = xml_service.add_job_to_xml(schedule.file_path, added_job)
+                                                        if not manual_addition:
+                                                            verification_errors.append(f"Failed to add job {job_id}")
+                                            
+                                            # Update sync result if verification failed
+                                            if verification_errors:
                                                 sync_result['success'] = False
-                                                sync_result['errors'] = sync_result.get('errors', []) + ['XML sync verification failed']
+                                                sync_result['errors'] = sync_result.get('errors', []) + verification_errors
+                                                app.logger.error(f"XML sync verification failed: {'; '.join(verification_errors)}")
+                                        else:
+                                            # Sync initially failed, log error details
+                                            app.logger.error(f"XML sync failed for schedule '{schedule.name}': {sync_result.get('errors', ['Unknown error'])}")
                                     else:
                                         # No sync needed if only performing orphan cleanup
                                         sync_result = {'success': True, 'total_changes': 0}
@@ -492,6 +521,24 @@ def process_bullhorn_monitors():
                                         
                                         # Update last file upload timestamp
                                         schedule.last_file_upload = datetime.utcnow()
+                                    else:
+                                        # XML sync failed - log comprehensive error details
+                                        xml_sync_success = False
+                                        xml_sync_summary = sync_result
+                                        
+                                        error_details = sync_result.get('errors', ['Unknown sync error'])
+                                        app.logger.error(f"XML sync failed for schedule '{schedule.name}': {'; '.join(error_details)}")
+                                        
+                                        # Log sync failure activity
+                                        activity = BullhornActivity(
+                                            monitor_id=monitor.id,
+                                            activity_type='xml_sync_failed',
+                                            details=f"XML sync failed for schedule '{schedule.name}': {'; '.join(error_details)}"
+                                        )
+                                        db.session.add(activity)
+                                        
+                                        # Don't proceed with SFTP upload if sync failed
+                                        continue
                                         
                                         # Get original filename for SFTP upload (no reference number regeneration for real-time monitoring)
                                         original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
@@ -540,8 +587,6 @@ def process_bullhorn_monitors():
                                             except Exception as e:
                                                 app.logger.error(f"Error uploading updated XML to SFTP: {str(e)}")
                                                 xml_sync_summary['sftp_upload_success'] = False
-                                    else:
-                                        app.logger.error(f"XML sync failed for schedule '{schedule.name}': {sync_result.get('errors', [])}")
                                     
                                 except Exception as e:
                                     app.logger.error(f"Error syncing XML for schedule '{schedule.name}': {str(e)}")

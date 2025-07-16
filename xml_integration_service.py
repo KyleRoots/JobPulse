@@ -447,9 +447,82 @@ class XMLIntegrationService:
                 'message': f'Error: {str(e)}'
             }
     
+    def _verify_job_exists_in_xml(self, xml_file_path: str, job_id: str) -> bool:
+        """
+        Verify if a job with the given ID exists in the XML file
+        
+        Args:
+            xml_file_path: Path to the XML file
+            job_id: Job ID to search for
+            
+        Returns:
+            bool: True if job exists, False otherwise
+        """
+        try:
+            with open(xml_file_path, 'rb') as f:
+                tree = etree.parse(f, self._parser)
+            
+            root = tree.getroot()
+            jobs = root.findall('job')
+            
+            for job in jobs:
+                title_element = job.find('title')
+                if title_element is not None and title_element.text:
+                    if f"({job_id})" in title_element.text:
+                        return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error verifying job existence in XML: {str(e)}")
+            return False
+    
+    def _verify_job_update_in_xml(self, xml_file_path: str, job_id: str, expected_title: str) -> bool:
+        """
+        Verify that a job was updated correctly in the XML file
+        
+        Args:
+            xml_file_path: Path to the XML file
+            job_id: Job ID to verify
+            expected_title: Expected title after update
+            
+        Returns:
+            bool: True if job exists with correct title, False otherwise
+        """
+        try:
+            with open(xml_file_path, 'rb') as f:
+                tree = etree.parse(f, self._parser)
+            
+            root = tree.getroot()
+            jobs = root.findall('job')
+            
+            for job in jobs:
+                title_element = job.find('title')
+                if title_element is not None and title_element.text:
+                    title_text = title_element.text.strip()
+                    # Check if this job contains the target job ID and expected title
+                    if f"({job_id})" in title_text:
+                        # Verify the title contains the expected content
+                        title_without_id = title_text.replace(f"({job_id})", "").strip()
+                        expected_without_id = expected_title.strip()
+                        
+                        if title_without_id == expected_without_id:
+                            self.logger.info(f"Verified job {job_id} update: title matches expected value")
+                            return True
+                        else:
+                            self.logger.warning(f"Job {job_id} title mismatch - Found: '{title_without_id}', Expected: '{expected_without_id}'")
+                            return False
+            
+            self.logger.error(f"Job {job_id} not found in XML after update")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error verifying job update in XML: {str(e)}")
+            return False
+    
     def update_job_in_xml(self, xml_file_path: str, bullhorn_job: Dict) -> bool:
         """
-        Update an existing job in the XML file
+        Update an existing job in the XML file with enhanced error handling and verification
         
         Args:
             xml_file_path: Path to the XML file
@@ -458,20 +531,99 @@ class XMLIntegrationService:
         Returns:
             bool: True if job was updated successfully, False otherwise
         """
-        try:
-            job_id = str(bullhorn_job.get('id', ''))
-            
-            # First remove the old version
-            if self.remove_job_from_xml(xml_file_path, job_id):
-                # Then add the updated version
-                return self.add_job_to_xml(xml_file_path, bullhorn_job)
-            else:
-                # If job wasn't found to remove, just add it as new
-                return self.add_job_to_xml(xml_file_path, bullhorn_job)
-            
-        except Exception as e:
-            self.logger.error(f"Error updating job in XML: {str(e)}")
-            return False
+        import shutil
+        import time
+        
+        job_id = str(bullhorn_job.get('id', ''))
+        job_title = bullhorn_job.get('title', 'Unknown')
+        
+        # Create backup of XML file before modification
+        backup_path = f"{xml_file_path}.backup_update_{int(time.time())}"
+        max_retries = 3
+        retry_delay = 1  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Create backup
+                shutil.copy2(xml_file_path, backup_path)
+                self.logger.info(f"Created backup at {backup_path} for job {job_id} update (attempt {attempt + 1})")
+                
+                # Verify job exists in XML before update
+                job_exists_before = self._verify_job_exists_in_xml(xml_file_path, job_id)
+                
+                # Step 1: Remove old version
+                removal_success = self.remove_job_from_xml(xml_file_path, job_id)
+                if not removal_success and job_exists_before:
+                    self.logger.warning(f"Failed to remove job {job_id} from XML on attempt {attempt + 1}")
+                    if attempt < max_retries - 1:
+                        # Restore backup and retry
+                        shutil.copy2(backup_path, xml_file_path)
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        self.logger.error(f"Failed to remove job {job_id} after {max_retries} attempts")
+                        return False
+                
+                # Step 2: Add updated version
+                addition_success = self.add_job_to_xml(xml_file_path, bullhorn_job)
+                if not addition_success:
+                    self.logger.error(f"Failed to add updated job {job_id} to XML on attempt {attempt + 1}")
+                    if attempt < max_retries - 1:
+                        # Restore backup and retry
+                        shutil.copy2(backup_path, xml_file_path)
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        self.logger.error(f"Failed to add updated job {job_id} after {max_retries} attempts")
+                        # Restore backup on final failure
+                        shutil.copy2(backup_path, xml_file_path)
+                        return False
+                
+                # Step 3: Verify the update was successful
+                verification_success = self._verify_job_update_in_xml(xml_file_path, job_id, job_title)
+                if not verification_success:
+                    self.logger.error(f"Job {job_id} update verification failed on attempt {attempt + 1}")
+                    if attempt < max_retries - 1:
+                        # Restore backup and retry
+                        shutil.copy2(backup_path, xml_file_path)
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        self.logger.error(f"Job {job_id} update verification failed after {max_retries} attempts")
+                        # Restore backup on final failure
+                        shutil.copy2(backup_path, xml_file_path)
+                        return False
+                
+                # Success - cleanup backup
+                try:
+                    import os
+                    os.remove(backup_path)
+                    self.logger.info(f"Successfully updated job {job_id} ({job_title}) in XML file")
+                except:
+                    pass  # Backup cleanup failure is not critical
+                
+                return True
+                
+            except Exception as e:
+                self.logger.error(f"Error updating job {job_id} in XML (attempt {attempt + 1}): {str(e)}")
+                if attempt < max_retries - 1:
+                    # Restore backup and retry
+                    try:
+                        shutil.copy2(backup_path, xml_file_path)
+                        time.sleep(retry_delay)
+                        continue
+                    except:
+                        pass
+                else:
+                    # Final attempt failed - restore backup
+                    try:
+                        shutil.copy2(backup_path, xml_file_path)
+                        self.logger.error(f"Restored backup after failed update for job {job_id}")
+                    except:
+                        pass
+                    return False
+        
+        return False
     
     def sync_xml_with_bullhorn_jobs(self, xml_file_path: str, current_jobs: List[Dict], 
                                    previous_jobs: List[Dict]) -> Dict:
