@@ -416,6 +416,35 @@
         let lastRefreshTime = new Date();
         let remainingSeconds = 300; // 5 minutes in seconds
         
+        function calculateTimeUntilNextMonitorRun() {
+            const now = new Date();
+            const currentMinutes = now.getMinutes();
+            const currentSeconds = now.getSeconds();
+            
+            // Monitor runs every 5 minutes at :02:01, :07:01, :12:01, :17:01, :22:01, :27:01, :32:01, :37:01, :42:01, :47:01, :52:01, :57:01
+            // Calculate next run time based on current time
+            const runMinutes = [2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57];
+            let nextMinute = 2; // Default to next hour
+            
+            for (let minute of runMinutes) {
+                if (currentMinutes < minute || (currentMinutes === minute && currentSeconds < 1)) {
+                    nextMinute = minute;
+                    break;
+                }
+            }
+            
+            let nextRun = new Date(now);
+            if (nextMinute === 2 && currentMinutes >= 57) {
+                // Next hour
+                nextRun.setHours(nextRun.getHours() + 1);
+            }
+            nextRun.setMinutes(nextMinute);
+            nextRun.setSeconds(1);
+            nextRun.setMilliseconds(0);
+            
+            return Math.max(0, Math.floor((nextRun - now) / 1000));
+        }
+        
         function getActivityBadge(activityType) {
             const badges = {
                 'job_added': '<span class="badge bg-success"><i class="fas fa-plus me-1"></i>Job Added</span>',
@@ -492,15 +521,17 @@
         }
         
         function startCountdown() {
-            remainingSeconds = 300; // Reset to 5 minutes
+            remainingSeconds = calculateTimeUntilNextMonitorRun();
             updateCountdownDisplay();
+            
+            console.log(`Countdown synced with monitor schedule: ${remainingSeconds} seconds until next run`);
             
             countdownInterval = setInterval(() => {
                 remainingSeconds--;
                 updateCountdownDisplay();
                 
                 if (remainingSeconds <= 0) {
-                    remainingSeconds = 300; // Reset for next cycle
+                    remainingSeconds = 300; // Reset for next 5-minute cycle
                 }
             }, 1000);
         }
@@ -541,16 +572,24 @@
                         refreshIcon.style.display = 'none';
                     }
                     
-                    remainingSeconds = 300; // Reset countdown after refresh
+                    remainingSeconds = 300; // Reset countdown to 5 minutes after refresh
                     updateCountdownDisplay();
                 });
         }
         
         function startAutoRefresh() {
-            // Refresh every 5 minutes (300,000 milliseconds)
-            refreshInterval = setInterval(refreshActivities, 300000);
+            // Calculate time until next monitor run and sync with it
+            const initialDelay = calculateTimeUntilNextMonitorRun() * 1000;
+            
+            // First refresh after the calculated delay to sync with monitor schedule
+            setTimeout(() => {
+                refreshActivities();
+                // Then refresh every 5 minutes (300,000 milliseconds)
+                refreshInterval = setInterval(refreshActivities, 300000);
+            }, initialDelay);
+            
             startCountdown();
-            console.log('Auto-refresh started - will refresh every 5 minutes');
+            console.log(`Auto-refresh started - will sync with monitor schedule in ${Math.floor(initialDelay/1000)} seconds`);
         }
         
         function stopAutoRefresh() {

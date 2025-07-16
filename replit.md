@@ -232,6 +232,7 @@ Changelog:
 - July 16, 2025. Implemented auto-refresh functionality for ATS monitoring activity section - table updates every 5 minutes matching monitor intervals, preserves scroll position, includes visual refresh indicator
 - July 16, 2025. Added countdown timer to auto-refresh indicator - shows remaining time until next refresh in MM:SS format, resets after each refresh cycle
 - July 16, 2025. Completed auto-refresh feature testing and verification - all functionality confirmed working: scrollable table, 5-minute intervals, countdown timer, preserved scroll position, visual indicators
+- July 16, 2025. Synchronized auto-refresh countdown with tearsheet monitoring schedule - countdown now shows actual time until next monitor run, refreshes align with APScheduler timing
 ```
 
 ## User Preferences
