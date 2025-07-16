@@ -329,22 +329,19 @@ def process_bullhorn_monitors():
             
             app.logger.info(f"Checking Bullhorn monitors. Found {len(due_monitors)} due monitors")
             
+            # Initialize Bullhorn service once for all monitors
+            bullhorn_service = BullhornService()
+            if not bullhorn_service.test_connection():
+                app.logger.error("Failed to connect to Bullhorn API for monitoring")
+                return
+            
+            # Track all jobs from all monitors for comprehensive sync
+            all_current_jobs_from_monitors = []
+            monitors_processed = []
+            
             for monitor in due_monitors:
                 app.logger.info(f"Processing Bullhorn monitor: {monitor.name} (ID: {monitor.id})")
                 try:
-                    # Initialize Bullhorn service
-                    bullhorn_service = BullhornService()
-                    
-                    if not bullhorn_service.test_connection():
-                        app.logger.warning(f"Bullhorn connection failed for monitor: {monitor.name}")
-                        # Log the error
-                        activity = BullhornActivity(
-                            monitor_id=monitor.id,
-                            activity_type='error',
-                            details='Failed to connect to Bullhorn API'
-                        )
-                        db.session.add(activity)
-                        continue
                     
                     # Get current jobs based on monitor type
                     if monitor.tearsheet_id == 0:
@@ -353,6 +350,10 @@ def process_bullhorn_monitors():
                     else:
                         # Traditional tearsheet-based monitor
                         current_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+                    
+                    # Add all jobs from this monitor to the comprehensive list
+                    all_current_jobs_from_monitors.extend(current_jobs)
+                    monitors_processed.append(monitor)
                     
                     # Compare with previous snapshot if it exists
                     previous_jobs = []
@@ -794,6 +795,139 @@ def process_bullhorn_monitors():
                     # Still update the next check time to avoid repeated failures
                     monitor.last_check = current_time
                     monitor.calculate_next_check()
+            
+            # After processing all individual monitors, perform comprehensive XML sync
+            if all_current_jobs_from_monitors and monitors_processed:
+                app.logger.info(f"Starting comprehensive XML sync with {len(all_current_jobs_from_monitors)} total jobs from {len(monitors_processed)} monitors")
+                
+                try:
+                    # Find all active schedules that need XML updates
+                    active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+                    
+                    for schedule in active_schedules:
+                        if os.path.exists(schedule.file_path):
+                            try:
+                                # Initialize XML integration service
+                                xml_service = XMLIntegrationService()
+                                
+                                # Check current jobs in XML against all Bullhorn jobs
+                                from xml.etree import ElementTree as ET
+                                
+                                # Get job IDs currently in XML
+                                xml_job_ids = set()
+                                try:
+                                    tree = ET.parse(schedule.file_path)
+                                    root = tree.getroot()
+                                    jobs = root.findall('.//job')
+                                    
+                                    for job in jobs:
+                                        title_elem = job.find('title')
+                                        if title_elem is not None and title_elem.text:
+                                            import re
+                                            match = re.search(r'\((\d+)\)', title_elem.text)
+                                            if match:
+                                                xml_job_ids.add(match.group(1))
+                                except Exception as e:
+                                    app.logger.error(f"Error parsing XML file {schedule.file_path}: {str(e)}")
+                                    continue
+                                
+                                # Get all job IDs from Bullhorn
+                                bullhorn_job_ids = {str(job.get('id')) for job in all_current_jobs_from_monitors if job.get('id')}
+                                
+                                # Find differences
+                                missing_job_ids = bullhorn_job_ids - xml_job_ids
+                                orphaned_job_ids = xml_job_ids - bullhorn_job_ids
+                                
+                                app.logger.info(f"Comprehensive sync analysis for {schedule.name}: "
+                                              f"{len(xml_job_ids)} in XML, {len(bullhorn_job_ids)} in Bullhorn, "
+                                              f"{len(missing_job_ids)} missing, {len(orphaned_job_ids)} orphaned")
+                                
+                                total_changes = 0
+                                
+                                # Add missing jobs
+                                if missing_job_ids:
+                                    app.logger.info(f"Adding {len(missing_job_ids)} missing jobs to XML")
+                                    for job in all_current_jobs_from_monitors:
+                                        if str(job.get('id')) in missing_job_ids:
+                                            if xml_service.add_job_to_xml(schedule.file_path, job):
+                                                total_changes += 1
+                                                app.logger.info(f"Added job {job.get('id')}: {job.get('title', 'Unknown')}")
+                                
+                                # Remove orphaned jobs
+                                if orphaned_job_ids:
+                                    app.logger.info(f"Removing {len(orphaned_job_ids)} orphaned jobs from XML")
+                                    for job_id in orphaned_job_ids:
+                                        if xml_service.remove_job_from_xml(schedule.file_path, job_id):
+                                            total_changes += 1
+                                            app.logger.info(f"Removed orphaned job {job_id}")
+                                
+                                # Process reference numbers if changes were made
+                                if total_changes > 0:
+                                    app.logger.info(f"Processing reference numbers after {total_changes} changes")
+                                    try:
+                                        from xml_processor import XMLProcessor
+                                        processor = XMLProcessor()
+                                        result = processor.process_file(schedule.file_path, schedule.file_path)
+                                        if result['success']:
+                                            app.logger.info(f"Reference numbers processed: {result.get('jobs_processed', 0)} jobs")
+                                        else:
+                                            app.logger.error(f"Error processing reference numbers: {result.get('error', 'Unknown error')}")
+                                    except Exception as e:
+                                        app.logger.error(f"Error processing reference numbers: {str(e)}")
+                                    
+                                    # Upload to SFTP if configured
+                                    if schedule.auto_upload_ftp:
+                                        try:
+                                            sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                            sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                            sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                            sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                            sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                            sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                            
+                                            if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                                sftp_hostname and sftp_hostname.setting_value and 
+                                                sftp_username and sftp_username.setting_value and 
+                                                sftp_password and sftp_password.setting_value):
+                                                
+                                                ftp_service = FTPService(
+                                                    hostname=sftp_hostname.setting_value,
+                                                    username=sftp_username.setting_value,
+                                                    password=sftp_password.setting_value,
+                                                    target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                                                    port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                                                    use_sftp=True
+                                                )
+                                                
+                                                original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
+                                                sftp_upload_success = ftp_service.upload_file(
+                                                    local_file_path=schedule.file_path,
+                                                    remote_filename=original_filename
+                                                )
+                                                
+                                                if sftp_upload_success:
+                                                    app.logger.info(f"Uploaded updated XML to SFTP: {original_filename}")
+                                                    schedule.last_file_upload = datetime.utcnow()
+                                                    
+                                                    # Log comprehensive sync activity
+                                                    activity = BullhornActivity(
+                                                        monitor_id=monitors_processed[0].id,  # Use first monitor for activity logging
+                                                        activity_type='xml_sync_completed',
+                                                        details=f"Comprehensive sync: {len(missing_job_ids)} added, {len(orphaned_job_ids)} removed. SFTP upload successful."
+                                                    )
+                                                    db.session.add(activity)
+                                                else:
+                                                    app.logger.warning(f"Failed to upload XML to SFTP")
+                                        except Exception as e:
+                                            app.logger.error(f"Error uploading to SFTP: {str(e)}")
+                                else:
+                                    app.logger.info(f"No changes needed for {schedule.name} - XML is already in sync")
+                                    
+                            except Exception as e:
+                                app.logger.error(f"Error during comprehensive XML sync for {schedule.name}: {str(e)}")
+                
+                except Exception as e:
+                    app.logger.error(f"Error during comprehensive XML sync: {str(e)}")
             
             # Commit all changes
             db.session.commit()

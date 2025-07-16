@@ -59,10 +59,12 @@ This is a Flask-based web application designed to process XML job feed files and
 
 ### 6. Complete Automation Workflow
 - Monitors Bullhorn tearsheets for job changes every 5 minutes
-- Automatically updates XML files when jobs are added/removed
+- Uses comprehensive sync approach - checks ALL jobs from ALL monitors against XML file
+- Automatically updates XML files when jobs are added/removed from any tearsheet
 - Regenerates reference numbers and processes updated files
 - Uploads modified files to SFTP server automatically
 - Sends comprehensive email notifications with XML sync information
+- Prevents missing jobs by ensuring XML always contains all jobs from all active monitors
 
 ## Data Flow
 
@@ -215,6 +217,8 @@ Changelog:
 - July 16, 2025. Fixed critical XML validation errors - corrected tag mismatches where state tags were closed with city tags, fixed duplicate job IDs in titles, ensured all text fields have proper CDATA wrapping
 - July 16, 2025. Comprehensive XML formatting corrections - all 31 jobs now have proper structure with CDATA tags, HTML entities in descriptions converted to actual HTML tags, dates populated with July 16, 2025
 - July 16, 2025. System verification complete - 5 active monitors tracking 50 jobs, XML validated and uploaded to SFTP, reference number automation scheduled and operational
+- July 16, 2025. Fixed critical XML sync architecture - replaced monitor-centric approach with comprehensive sync that checks ALL jobs from ALL monitors against XML file on every cycle
+- July 16, 2025. Implemented comprehensive monitoring solution - XML file now always contains complete job set from all tearsheets, preventing missing jobs issue discovered post-deployment
 ```
 
 ## User Preferences
