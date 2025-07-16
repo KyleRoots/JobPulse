@@ -233,6 +233,7 @@ Changelog:
 - July 16, 2025. Added countdown timer to auto-refresh indicator - shows remaining time until next refresh in MM:SS format, resets after each refresh cycle
 - July 16, 2025. Completed auto-refresh feature testing and verification - all functionality confirmed working: scrollable table, 5-minute intervals, countdown timer, preserved scroll position, visual indicators
 - July 16, 2025. Synchronized auto-refresh countdown with tearsheet monitoring schedule - countdown now shows actual time until next monitor run, refreshes align with APScheduler timing
+- July 16, 2025. Fixed critical duplicate job issue and location extraction bug - enhanced remove_job_from_xml to handle all duplicates, added "at City, ST" pattern for location extraction, manually cleaned up duplicate job 32632, verified city/state fields populate correctly
 ```
 
 ## User Preferences

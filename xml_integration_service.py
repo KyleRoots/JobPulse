@@ -125,6 +125,7 @@ class XMLIntegrationService:
             r'Location:\s*([^,]+),\s*([A-Z]{2})\b',  # "Location: Lansing, MI"
             r'located in\s*([^,]+),\s*([A-Z]{2})\b',  # "located in Lansing, MI"
             r'in\s*([^,]+),\s*([A-Z]{2})\s*\(',  # "in Lansing, MI (Hybrid"
+            r'at\s*([^,]+),\s*([A-Z]{2})\s*\(',  # "at Waukegan, IL (Hybrid"
             r'client in\s*([^,]+),\s*([A-Z]{2})\b',  # "client in Springfield, IL"
             r'based in\s*([^,]+),\s*([A-Z]{2})\b',  # "based in Chicago, IL"
             r'office in\s*([^,]+),\s*([A-Z]{2})\b',  # "office in Denver, CO"
@@ -402,8 +403,10 @@ class XMLIntegrationService:
             # Find job elements
             jobs = root.findall('job')
             removed = False
+            removed_count = 0
             
-            for job in jobs:
+            # Remove ALL jobs with the same job ID (in case of duplicates)
+            for job in jobs[:]:  # Use slice to avoid iteration issues during removal
                 title_element = job.find('title')
                 if title_element is not None and title_element.text:
                     title_text = title_element.text
@@ -411,8 +414,13 @@ class XMLIntegrationService:
                     if f"({job_id})" in title_text:
                         root.remove(job)
                         removed = True
-                        self.logger.info(f"Removed job with ID {job_id} from XML")
-                        break
+                        removed_count += 1
+                        self.logger.info(f"Removed job with ID {job_id} from XML (title: {title_text})")
+            
+            if removed_count > 1:
+                self.logger.warning(f"Found and removed {removed_count} duplicate jobs with ID {job_id}")
+            elif removed_count == 1:
+                self.logger.info(f"Removed job with ID {job_id} from XML")
             
             if removed:
                 # Clean up whitespace after removal
