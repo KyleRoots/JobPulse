@@ -63,8 +63,10 @@ This is a Flask-based web application designed to process XML job feed files and
 - Automatically updates XML files when jobs are added/removed from any tearsheet
 - Regenerates reference numbers and processes updated files
 - Uploads modified files to SFTP server automatically
-- Sends comprehensive email notifications with XML sync information
+- Waits 30 seconds to ensure XML propagation on web server
+- Sends comprehensive email notifications LAST with XML sync information
 - Prevents missing jobs by ensuring XML always contains all jobs from all active monitors
+- Email delivery always happens after XML sync and SFTP upload are complete
 
 ## Data Flow
 
