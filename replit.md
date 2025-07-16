@@ -219,6 +219,7 @@ Changelog:
 - July 16, 2025. System verification complete - 5 active monitors tracking 50 jobs, XML validated and uploaded to SFTP, reference number automation scheduled and operational
 - July 16, 2025. Fixed critical XML sync architecture - replaced monitor-centric approach with comprehensive sync that checks ALL jobs from ALL monitors against XML file on every cycle
 - July 16, 2025. Implemented comprehensive monitoring solution - XML file now always contains complete job set from all tearsheets, preventing missing jobs issue discovered post-deployment
+- July 16, 2025. Added XML job sorting functionality - implemented date-based sorting with newest jobs first, updated existing XML file with proper chronological order (newest to oldest), uploaded sorted file to SFTP server
 ```
 
 ## User Preferences

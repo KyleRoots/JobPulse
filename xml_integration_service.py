@@ -225,6 +225,89 @@ class XMLIntegrationService:
         except Exception as e:
             self.logger.error(f"Error cleaning whitespace: {str(e)}")
     
+    def sort_xml_jobs_by_date(self, xml_file_path: str, newest_first: bool = True) -> bool:
+        """
+        Sort all jobs in the XML file by date
+        
+        Args:
+            xml_file_path: Path to the XML file
+            newest_first: If True, sort newest jobs first (default), if False, oldest first
+            
+        Returns:
+            bool: True if sorting was successful, False otherwise
+        """
+        try:
+            # Parse existing XML
+            with open(xml_file_path, 'rb') as f:
+                tree = etree.parse(f, self._parser)
+            
+            root = tree.getroot()
+            
+            # Find all job elements
+            jobs = root.findall('job')
+            
+            if not jobs:
+                self.logger.info("No jobs found in XML file to sort")
+                return True
+            
+            # Create a list of (date_obj, job_element) tuples for sorting
+            job_date_pairs = []
+            
+            for job in jobs:
+                date_element = job.find('date')
+                if date_element is not None and date_element.text:
+                    # Parse the date string (format: "July 16, 2025")
+                    date_text = date_element.text.strip()
+                    try:
+                        date_obj = datetime.strptime(date_text, '%B %d, %Y')
+                        job_date_pairs.append((date_obj, job))
+                    except ValueError:
+                        # If date parsing fails, use current date as fallback
+                        self.logger.warning(f"Failed to parse date: {date_text}, using current date")
+                        job_date_pairs.append((datetime.now(), job))
+                else:
+                    # If no date found, use current date as fallback
+                    job_date_pairs.append((datetime.now(), job))
+            
+            # Sort by date (newest first if newest_first=True, oldest first if False)
+            job_date_pairs.sort(key=lambda x: x[0], reverse=newest_first)
+            
+            # Remove all existing job elements from the XML
+            for job in jobs:
+                root.remove(job)
+            
+            # Find the insertion point (after publisherurl)
+            publisher_url = root.find('publisherurl')
+            if publisher_url is None:
+                self.logger.error("No publisherurl element found in XML")
+                return False
+            
+            publisher_url_index = list(root).index(publisher_url)
+            
+            # Insert sorted jobs back into the XML
+            for i, (date_obj, job) in enumerate(job_date_pairs):
+                # Ensure proper spacing
+                if i == 0:
+                    publisher_url.tail = "\n  "
+                job.tail = "\n  "
+                
+                root.insert(publisher_url_index + 1 + i, job)
+            
+            # Write the sorted XML back to file
+            with open(xml_file_path, 'wb') as f:
+                tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+            
+            # Clean up extra whitespace
+            self._clean_extra_whitespace(xml_file_path)
+            
+            sort_order = "newest first" if newest_first else "oldest first"
+            self.logger.info(f"Successfully sorted {len(job_date_pairs)} jobs by date ({sort_order})")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error sorting XML jobs by date: {str(e)}")
+            return False
+    
     def add_job_to_xml(self, xml_file_path: str, bullhorn_job: Dict) -> bool:
         """
         Add a new job to the XML file at the top (first position after </publisherurl>)
