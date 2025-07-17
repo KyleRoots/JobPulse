@@ -1932,6 +1932,39 @@ def get_recent_activities():
         'timestamp': datetime.utcnow().isoformat()
     })
 
+@app.route('/api/bullhorn/monitors')
+@login_required
+def get_monitor_status():
+    """Get updated monitor information for auto-refresh"""
+    monitors = BullhornMonitor.query.filter_by(is_active=True).order_by(BullhornMonitor.name).all()
+    
+    monitors_data = []
+    for monitor in monitors:
+        # Get current job count from stored snapshot
+        job_count = 0
+        if monitor.last_job_snapshot:
+            try:
+                jobs = json.loads(monitor.last_job_snapshot)
+                job_count = len(jobs)
+            except:
+                job_count = 0
+        
+        monitors_data.append({
+            'id': monitor.id,
+            'name': monitor.name,
+            'last_check': monitor.last_check.strftime('%Y-%m-%d %H:%M') if monitor.last_check else 'Never',
+            'next_check': monitor.next_check.strftime('%Y-%m-%d %H:%M') if monitor.next_check else 'Not scheduled',
+            'job_count': job_count,
+            'is_active': monitor.is_active,
+            'check_interval_minutes': monitor.check_interval_minutes
+        })
+    
+    return jsonify({
+        'success': True,
+        'monitors': monitors_data,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
 @app.route('/bullhorn/create', methods=['GET', 'POST'])
 @login_required
 def create_bullhorn_monitor():

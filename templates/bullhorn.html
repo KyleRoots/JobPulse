@@ -162,7 +162,7 @@
                             <div class="row">
                                 {% for monitor in monitors %}
                                 <div class="col-md-6 col-lg-4 mb-3">
-                                    <div class="card h-100">
+                                    <div class="card h-100 monitor-card" data-monitor-id="{{ monitor.id }}">
                                         <div class="card-body">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <h6 class="card-title mb-0">{{ monitor.name }}</h6>
@@ -173,7 +173,7 @@
                                                         <span class="badge bg-primary">Tearsheet</span>
                                                     {% endif %}
                                                     {% if monitor_job_counts[monitor.id] is not none %}
-                                                        <span class="badge bg-info">{{ monitor_job_counts[monitor.id] }} jobs</span>
+                                                        <span class="badge bg-info job-count-badge">{{ monitor_job_counts[monitor.id] }} jobs</span>
                                                     {% endif %}
                                                 </div>
                                             </div>
@@ -185,12 +185,12 @@
                                                         <i class="fas fa-clipboard-list me-1"></i>Tearsheet: {{ monitor.tearsheet_name }}<br>
                                                     {% endif %}
                                                     <i class="fas fa-clock me-1"></i>Check every {{ monitor.check_interval_minutes }} minutes<br>
-                                                    <i class="fas fa-calendar me-1"></i>Last check: 
+                                                    <i class="fas fa-calendar me-1"></i><span class="last-check">Last check: 
                                                     {% if monitor.last_check %}
                                                         {{ monitor.last_check.strftime('%Y-%m-%d %H:%M') }}
                                                     {% else %}
                                                         Never
-                                                    {% endif %}
+                                                    {% endif %}</span>
                                                 </small>
                                             </p>
                                             <div class="d-flex gap-1">
@@ -510,6 +510,22 @@
             lastRefreshTime = new Date();
         }
         
+        function updateMonitorTimestamps(monitors) {
+            // Update "Last check" timestamps for all monitors
+            monitors.forEach(monitor => {
+                const lastCheckElement = document.querySelector(`.monitor-card[data-monitor-id="${monitor.id}"] .last-check`);
+                if (lastCheckElement) {
+                    lastCheckElement.textContent = `Last check: ${monitor.last_check}`;
+                }
+                
+                // Update job count badge if present
+                const jobCountElement = document.querySelector(`.monitor-card[data-monitor-id="${monitor.id}"] .job-count-badge`);
+                if (jobCountElement) {
+                    jobCountElement.textContent = monitor.job_count;
+                }
+            });
+        }
+        
         function updateCountdownDisplay() {
             const refreshStatus = document.querySelector('#refreshIndicator .refresh-status');
             if (refreshStatus) {
@@ -553,18 +569,29 @@
                 refreshStatus.textContent = 'Refreshing...';
             }
             
-            fetch('/api/bullhorn/activities')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateActivityTable(data.activities);
+            // Fetch both activities and updated monitor information
+            Promise.all([
+                fetch('/api/bullhorn/activities'),
+                fetch('/api/bullhorn/monitors')
+            ])
+                .then(responses => Promise.all(responses.map(r => r.json())))
+                .then(([activitiesData, monitorsData]) => {
+                    if (activitiesData.success) {
+                        updateActivityTable(activitiesData.activities);
                         console.log('Activity table refreshed at:', new Date().toLocaleTimeString());
                     } else {
-                        console.error('Failed to refresh activities:', data.error);
+                        console.error('Failed to refresh activities:', activitiesData.error);
+                    }
+                    
+                    if (monitorsData.success) {
+                        updateMonitorTimestamps(monitorsData.monitors);
+                        console.log('Monitor timestamps refreshed at:', new Date().toLocaleTimeString());
+                    } else {
+                        console.error('Failed to refresh monitor data:', monitorsData.error);
                     }
                 })
                 .catch(error => {
-                    console.error('Error refreshing activities:', error);
+                    console.error('Error refreshing data:', error);
                 })
                 .finally(() => {
                     // Hide refresh indicator and reset countdown
