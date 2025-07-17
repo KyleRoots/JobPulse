@@ -238,6 +238,7 @@ Changelog:
 - July 16, 2025. Fixed Bullhorn API location data issue - added address fields to all API queries, removed invalid direct city/state fields, updated XML mapping to use only structured address data, confirmed API now returns correct location data (job 32632: Chicago, IL)
 - July 16, 2025. Fixed countdown timer synchronization issue - aligned frontend countdown with APScheduler timing (:31 seconds), synchronized all monitors to run when APScheduler executes, eliminated timing mismatch between countdown and actual monitoring cycles
 - July 17, 2025. Fixed critical monitor timing desynchronization - monitors were 34 minutes overdue, updated all 5 monitors to align with APScheduler timing, restored proper 5-minute monitoring intervals
+- July 17, 2025. Fixed countdown timer and activity log synchronization - countdown was expecting :31 seconds but APScheduler runs at :08 seconds, updated countdown calculation to match actual monitoring timing, ensuring Recent Activity updates appear exactly when countdown reaches 0:00
 ```
 
 ## User Preferences
