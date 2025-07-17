@@ -237,6 +237,7 @@ Changelog:
 - July 16, 2025. Resolved persistent location extraction issues - fixed regex pattern order and specificity to prevent incorrect matches, enhanced HTML content handling, corrected job 32632 location data (Waukegan, Illinois), completed comprehensive XML resync with 49 jobs
 - July 16, 2025. Fixed Bullhorn API location data issue - added address fields to all API queries, removed invalid direct city/state fields, updated XML mapping to use only structured address data, confirmed API now returns correct location data (job 32632: Chicago, IL)
 - July 16, 2025. Fixed countdown timer synchronization issue - aligned frontend countdown with APScheduler timing (:31 seconds), synchronized all monitors to run when APScheduler executes, eliminated timing mismatch between countdown and actual monitoring cycles
+- July 17, 2025. Fixed critical monitor timing desynchronization - monitors were 34 minutes overdue, updated all 5 monitors to align with APScheduler timing, restored proper 5-minute monitoring intervals
 ```
 
 ## User Preferences
