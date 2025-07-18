@@ -250,6 +250,8 @@ Changelog:
 - July 18, 2025. Resolved false positive job detection issue - updated Ottawa monitor snapshot to include jobs 32638 and 32637, preventing these manually-added jobs from being repeatedly flagged as "new additions" in activity logs
 - July 18, 2025. Completed comprehensive Bullhorn integration enhancement - added three new field mappings to XML job nodes: employmentType → jobtype (Contract/Direct Hire/Contract to Hire), onSite → remotetype (Remote/Hybrid/Onsite), owner → assignedrecruiter (recruiter names from job owner field)
 - July 18, 2025. Successfully implemented enhanced XML processing - all 57 jobs in production XML file now include jobtype, remotetype, and assignedrecruiter fields with real-time Bullhorn data mapping, uploaded to production server for immediate availability
+- July 18, 2025. Fixed critical XML data corruption issues - corrected city/state values for jobs 32541 (Springfield, IL), 32542 (Springfield, IL), and 32553 (Chicago, IL) that had corrupted location data from XML parsing errors
+- July 18, 2025. Established data integrity policy - empty values from Bullhorn are preserved as empty in XML, with empty location and remotetype fields indicating human error requiring manual correction in Bullhorn before next sync
 ```
 
 ## User Preferences
