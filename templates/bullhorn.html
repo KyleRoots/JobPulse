@@ -416,33 +416,32 @@
         let lastRefreshTime = new Date();
         let remainingSeconds = 300; // 5 minutes in seconds
         
-        function calculateTimeUntilNextMonitorRun() {
-            const now = new Date();
-            const currentMinutes = now.getMinutes();
-            const currentSeconds = now.getSeconds();
-            
-            // APScheduler runs every 5 minutes at :08 seconds (04:08, 09:08, 14:08, 19:08, 24:08, 29:08, 34:08, 39:08, 44:08, 49:08, 54:08, 59:08)
-            // Calculate next run time based on current time
-            const runMinutes = [4, 9, 14, 19, 24, 29, 34, 39, 44, 49, 54, 59];
-            let nextMinute = 4; // Default to next hour
-            
-            for (let minute of runMinutes) {
-                if (currentMinutes < minute || (currentMinutes === minute && currentSeconds < 8)) {
-                    nextMinute = minute;
-                    break;
+        async function calculateTimeUntilNextMonitorRun() {
+            try {
+                // Fetch actual next_check time from database
+                const response = await fetch('/api/bullhorn/monitors');
+                const data = await response.json();
+                
+                if (data.success && data.monitors.length > 0) {
+                    // Use the first monitor's next_check time as reference
+                    const nextCheckStr = data.monitors[0].next_check;
+                    const nextCheckTime = new Date(nextCheckStr + ' UTC'); // Ensure UTC interpretation
+                    const now = new Date();
+                    
+                    const timeDiff = nextCheckTime - now;
+                    const secondsUntilRun = Math.max(0, Math.floor(timeDiff / 1000));
+                    
+                    console.log(`Next monitor run at: ${nextCheckTime.toLocaleTimeString()}, seconds until run: ${secondsUntilRun}`);
+                    return secondsUntilRun;
+                } else {
+                    console.warn('No monitors found, defaulting to 5-minute cycle');
+                    return 300;
                 }
+            } catch (error) {
+                console.error('Error fetching monitor schedule:', error);
+                // Fallback to 5-minute cycle
+                return 300;
             }
-            
-            let nextRun = new Date(now);
-            if (nextMinute === 4 && currentMinutes >= 59) {
-                // Next hour
-                nextRun.setHours(nextRun.getHours() + 1);
-            }
-            nextRun.setMinutes(nextMinute);
-            nextRun.setSeconds(8);
-            nextRun.setMilliseconds(0);
-            
-            return Math.max(0, Math.floor((nextRun - now) / 1000));
         }
         
         function getActivityBadge(activityType) {
@@ -536,8 +535,8 @@
             }
         }
         
-        function startCountdown() {
-            remainingSeconds = calculateTimeUntilNextMonitorRun();
+        async function startCountdown() {
+            remainingSeconds = await calculateTimeUntilNextMonitorRun();
             updateCountdownDisplay();
             
             console.log(`Countdown synced with monitor schedule: ${remainingSeconds} seconds until next run`);
@@ -604,9 +603,9 @@
                 });
         }
         
-        function startAutoRefresh() {
+        async function startAutoRefresh() {
             // Calculate time until next monitor run and sync with it
-            const initialDelay = calculateTimeUntilNextMonitorRun() * 1000;
+            const initialDelay = await calculateTimeUntilNextMonitorRun() * 1000;
             
             // First refresh after the calculated delay to sync with monitor schedule
             setTimeout(() => {
