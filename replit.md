@@ -241,6 +241,7 @@ Changelog:
 - July 17, 2025. Fixed countdown timer and activity log synchronization - countdown was expecting :31 seconds but APScheduler runs at :08 seconds, updated countdown calculation to match actual monitoring timing, ensuring Recent Activity updates appear exactly when countdown reaches 0:00
 - July 17, 2025. Added monitor timestamp synchronization - created API endpoint to fetch updated monitor information, enhanced auto-refresh to update both activity table and "Last check" timestamps simultaneously, added data attributes to monitor cards for dynamic timestamp updates
 - July 17, 2025. Fixed countdown timer synchronization with database - replaced hardcoded :08 seconds timing with dynamic database queries, countdown now fetches actual monitor next_check times from database ensuring perfect sync between countdown and monitor timestamp updates
+- July 18, 2025. Resolved APScheduler monitoring execution issue - APScheduler was running but not executing monitoring jobs in background, manual trigger reset system and restored proper functionality, all monitors now synchronized with next_check timestamps
 ```
 
 ## User Preferences
