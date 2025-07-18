@@ -255,6 +255,7 @@ Changelog:
 - July 18, 2025. Enhanced XML structure formatting - ensured all XML nodes are on separate lines, added assignedrecruiter node to all 49 jobs, and restored bhatsid nodes positioned after referencenumber elements with proper CDATA formatting
 - July 18, 2025. Fixed critical assignedrecruiter field mapping issue - discovered monitoring jobs were not fetching recruiter fields (assignedUsers, responseUser, owner) from Bullhorn API, updated both get_jobs_by_query and get_tearsheet_jobs methods to include these fields, manually populated all 57 jobs with actual recruiter names
 - July 18, 2025. Successfully populated assignedrecruiter fields for all jobs - system now maps 10 unique recruiters including Runa Parmar (16 jobs), Mike Gebara (10 jobs), Adam Gebara (8 jobs), Myticas Recruiter (7 jobs), and others, ensuring all future jobs automatically include recruiter assignments from Bullhorn
+- July 18, 2025. RESOLVED CRITICAL REMOTETYPE FIELD ISSUE - Fixed blank remotetype values in existing XML jobs by updating all 57 jobs with correct Bullhorn onSite field mappings (Hybrid, Remote, Onsite), uploaded updated XML file (256,694 bytes) to production SFTP server, system now fully operational with complete field mapping for all jobs
 ```
 
 ## User Preferences
