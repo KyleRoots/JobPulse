@@ -3,6 +3,7 @@ import os
 import random
 import string
 import time
+import re
 from lxml import etree
 from collections import defaultdict
 
@@ -61,6 +62,18 @@ class XMLProcessor:
         except Exception as e:
             self.logger.error(f"Error counting jobs: {str(e)}")
             return 0
+    
+    def extract_job_id_from_title(self, title):
+        """Extract job ID from title brackets (e.g., '32623' from 'Senior Engineer (32623)')"""
+        try:
+            # Look for numbers in parentheses at the end of the title
+            match = re.search(r'\((\d+)\)\s*$', title)
+            if match:
+                return match.group(1)
+            return ""
+        except Exception as e:
+            self.logger.error(f"Error extracting job ID from title '{title}': {str(e)}")
+            return ""
     
     def generate_reference_number(self, length=10):
         """Generate unique alphanumeric reference number"""
@@ -211,6 +224,96 @@ class XMLProcessor:
         except Exception as e:
             self.logger.error(f"Error validating uniqueness: {str(e)}")
             return False, str(e)
+    
+    def add_bhatsid_nodes(self, input_filepath, output_filepath):
+        """Add <bhatsid> nodes to all jobs in XML file, extracting job IDs from titles"""
+        try:
+            # Parse XML file with CDATA preservation
+            parser = etree.XMLParser(strip_cdata=False)
+            with open(input_filepath, 'rb') as f:
+                tree = etree.parse(f, parser)
+            
+            # Find all job elements
+            jobs = tree.findall('.//job')
+            
+            if not jobs:
+                return {
+                    'success': False,
+                    'error': 'No job elements found in XML'
+                }
+            
+            nodes_added = 0
+            
+            for job in jobs:
+                # Find the title element
+                title_element = job.find('title')
+                if title_element is None:
+                    continue
+                    
+                # Extract job ID from title
+                title_text = title_element.text or ""
+                job_id = self.extract_job_id_from_title(title_text)
+                
+                # Find the referencenumber element
+                ref_element = job.find('referencenumber')
+                if ref_element is None:
+                    continue
+                
+                # Check if bhatsid already exists
+                existing_bhatsid = job.find('bhatsid')
+                if existing_bhatsid is not None:
+                    # Update existing bhatsid
+                    existing_bhatsid.clear()
+                    existing_bhatsid.text = etree.CDATA(job_id) if job_id else etree.CDATA("")
+                else:
+                    # Create new bhatsid element
+                    bhatsid_element = etree.SubElement(job, 'bhatsid')
+                    bhatsid_element.text = etree.CDATA(job_id) if job_id else etree.CDATA("")
+                    
+                    # Move bhatsid to be right after referencenumber
+                    # Find the index of referencenumber
+                    ref_index = list(job).index(ref_element)
+                    
+                    # Remove bhatsid from its current position
+                    job.remove(bhatsid_element)
+                    
+                    # Insert bhatsid right after referencenumber
+                    job.insert(ref_index + 1, bhatsid_element)
+                
+                nodes_added += 1
+                
+                # Log progress for large files
+                if nodes_added % 10 == 0:
+                    self.logger.info(f"Added bhatsid nodes to {nodes_added} jobs...")
+            
+            # Write updated XML to output file preserving CDATA formatting
+            self.logger.info(f"Writing updated XML with bhatsid nodes to: {output_filepath}")
+            with open(output_filepath, 'wb') as f:
+                tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+                f.flush()
+                os.fsync(f.fileno())
+            
+            # Verify file was written
+            if os.path.exists(output_filepath):
+                file_size = os.path.getsize(output_filepath)
+                self.logger.info(f"Output file with bhatsid nodes written successfully, size: {file_size} bytes")
+            else:
+                self.logger.error("Output file was not created!")
+            
+            self.logger.info(f"Successfully added bhatsid nodes to {nodes_added} jobs")
+            
+            return {
+                'success': True,
+                'nodes_added': nodes_added,
+                'jobs_processed': len(jobs)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error adding bhatsid nodes: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
     
     def validate_xml_detailed(self, filepath):
         """Validate XML file structure and return detailed results"""

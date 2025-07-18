@@ -70,6 +70,9 @@ class XMLIntegrationService:
             # Generate unique reference number
             reference_number = self.xml_processor.generate_reference_number()
             
+            # Extract job ID from formatted title for bhatsid
+            bhatsid = self.xml_processor.extract_job_id_from_title(formatted_title)
+            
             # Helper function to clean field values
             def clean_field_value(value):
                 """Convert None to empty string, ensure string type"""
@@ -83,6 +86,7 @@ class XMLIntegrationService:
                 'company': clean_field_value(company_name),
                 'date': clean_field_value(formatted_date),
                 'referencenumber': clean_field_value(reference_number),
+                'bhatsid': clean_field_value(bhatsid),
                 'url': clean_field_value('https://myticas.com/'),
                 'description': clean_field_value(description),
                 'jobtype': clean_field_value(job_type),
