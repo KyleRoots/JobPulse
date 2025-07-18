@@ -360,7 +360,9 @@ class BullhornService:
                 "salary", "salaryUnit", "isDeleted",
                 "categories(id,name)", "onSite", "benefits", "bonusPackage",
                 "degreeList", "skillList", "certificationList",
-                "owner(firstName,lastName)"
+                "owner(firstName,lastName)",
+                "assignedUsers(firstName,lastName)",
+                "responseUser(firstName,lastName)"
             ]
             
             all_jobs = []
@@ -429,7 +431,11 @@ class BullhornService:
                 "dateLastModified", "clientCorporation(id,name)",
                 "clientContact(firstName,lastName)", "description",
                 "publicDescription", "numOpenings", "isPublic",
-                "address(city,state,countryName)"
+                "address(city,state,countryName)",
+                "employmentType", "onSite",
+                "assignedUsers(firstName,lastName)",
+                "responseUser(firstName,lastName)",
+                "owner(firstName,lastName)"
             ]
             
             # Make API request

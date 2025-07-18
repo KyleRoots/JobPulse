@@ -253,6 +253,8 @@ Changelog:
 - July 18, 2025. Fixed critical XML data corruption issues - corrected city/state values for jobs 32541 (Springfield, IL), 32542 (Springfield, IL), and 32553 (Chicago, IL) that had corrupted location data from XML parsing errors
 - July 18, 2025. Established data integrity policy - empty values from Bullhorn are preserved as empty in XML, with empty location and remotetype fields indicating human error requiring manual correction in Bullhorn before next sync
 - July 18, 2025. Enhanced XML structure formatting - ensured all XML nodes are on separate lines, added assignedrecruiter node to all 49 jobs, and restored bhatsid nodes positioned after referencenumber elements with proper CDATA formatting
+- July 18, 2025. Fixed critical assignedrecruiter field mapping issue - discovered monitoring jobs were not fetching recruiter fields (assignedUsers, responseUser, owner) from Bullhorn API, updated both get_jobs_by_query and get_tearsheet_jobs methods to include these fields, manually populated all 57 jobs with actual recruiter names
+- July 18, 2025. Successfully populated assignedrecruiter fields for all jobs - system now maps 10 unique recruiters including Runa Parmar (16 jobs), Mike Gebara (10 jobs), Adam Gebara (8 jobs), Myticas Recruiter (7 jobs), and others, ensuring all future jobs automatically include recruiter assignments from Bullhorn
 ```
 
 ## User Preferences

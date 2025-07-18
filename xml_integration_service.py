@@ -61,9 +61,12 @@ class XMLIntegrationService:
             onsite_value = bullhorn_job.get('onSite', '')
             remote_type = self._map_remote_type(onsite_value)
             
-            # Extract assigned recruiter from owner field
+            # Extract assigned recruiter from multiple possible fields
+            assigned_users = bullhorn_job.get('assignedUsers', {})
+            response_user = bullhorn_job.get('responseUser', {})
             owner = bullhorn_job.get('owner', {})
-            assigned_recruiter = self._extract_assigned_recruiter(owner)
+            
+            assigned_recruiter = self._extract_assigned_recruiter(assigned_users, response_user, owner)
             
             # Extract description (prefer publicDescription, fallback to description)
             description = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
@@ -211,14 +214,29 @@ class XMLIntegrationService:
         else:
             return 'Onsite'  # Default fallback
     
-    def _extract_assigned_recruiter(self, owner: dict) -> str:
-        """Extract recruiter name from owner field"""
+    def _extract_assigned_recruiter(self, assigned_users, response_user, owner) -> str:
+        """Extract recruiter name from multiple possible fields"""
         try:
-            if not owner:
-                return ''
+            # Check assignedUsers first (array of users)
+            if assigned_users and isinstance(assigned_users, dict):
+                users_data = assigned_users.get('data', [])
+                if isinstance(users_data, list) and users_data:
+                    first_user = users_data[0]
+                    if isinstance(first_user, dict):
+                        first_name = first_user.get('firstName', '')
+                        last_name = first_user.get('lastName', '')
+                        if first_name or last_name:
+                            return f"{first_name} {last_name}".strip()
             
-            # Get owner information (job owner/recruiter)
-            if isinstance(owner, dict):
+            # Check responseUser next (single user)
+            if response_user and isinstance(response_user, dict):
+                first_name = response_user.get('firstName', '')
+                last_name = response_user.get('lastName', '')
+                if first_name or last_name:
+                    return f"{first_name} {last_name}".strip()
+            
+            # Finally check owner (single user)
+            if owner and isinstance(owner, dict):
                 first_name = owner.get('firstName', '')
                 last_name = owner.get('lastName', '')
                 if first_name or last_name:
