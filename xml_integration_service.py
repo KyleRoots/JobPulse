@@ -840,11 +840,11 @@ class XMLIntegrationService:
                                        if str(job.get('id', '')) == current_id), None)
                     
                     if previous_job:
-                        # Simple comparison - check if dateLastModified is different
-                        current_modified = current_job.get('dateLastModified', '')
-                        previous_modified = previous_job.get('dateLastModified', '')
+                        # Comprehensive field comparison - check ALL relevant fields
+                        changed_fields = self._compare_job_fields(current_job, previous_job)
                         
-                        if current_modified != previous_modified:
+                        if changed_fields:
+                            self.logger.info(f"Job {current_id} has changed fields: {', '.join(changed_fields)}")
                             if self.update_job_in_xml(xml_file_path, current_job):
                                 updated_count += 1
                             else:
@@ -871,3 +871,121 @@ class XMLIntegrationService:
                 'total_changes': 0,
                 'errors': [str(e)]
             }
+    
+    def _compare_job_fields(self, current_job: Dict, previous_job: Dict) -> List[str]:
+        """
+        Compare all relevant job fields between current and previous job data
+        
+        Args:
+            current_job: Current Bullhorn job data
+            previous_job: Previous Bullhorn job data
+            
+        Returns:
+            List[str]: List of field names that have changed
+        """
+        changed_fields = []
+        
+        # Fields to monitor for changes (mapped to XML fields)
+        fields_to_monitor = {
+            'title': 'title',
+            'publicDescription': 'description',
+            'description': 'description',
+            'employmentType': 'jobtype',
+            'onSite': 'remotetype',
+            'address': 'location',
+            'assignedUsers': 'assignedrecruiter',
+            'responseUser': 'assignedrecruiter',
+            'owner': 'assignedrecruiter',
+            'dateAdded': 'date',
+            'dateLastModified': 'dateLastModified'
+        }
+        
+        try:
+            for bullhorn_field, xml_field in fields_to_monitor.items():
+                current_value = current_job.get(bullhorn_field, '')
+                previous_value = previous_job.get(bullhorn_field, '')
+                
+                # Handle special cases
+                if bullhorn_field == 'address':
+                    # Compare address object fields
+                    current_addr = current_value if isinstance(current_value, dict) else {}
+                    previous_addr = previous_value if isinstance(previous_value, dict) else {}
+                    
+                    if (current_addr.get('city', '') != previous_addr.get('city', '') or
+                        current_addr.get('state', '') != previous_addr.get('state', '') or
+                        current_addr.get('countryName', '') != previous_addr.get('countryName', '')):
+                        changed_fields.append(xml_field)
+                
+                elif bullhorn_field in ['assignedUsers', 'responseUser', 'owner']:
+                    # Compare recruiter assignment fields
+                    current_recruiter = self._extract_assigned_recruiter(
+                        current_job.get('assignedUsers', {}),
+                        current_job.get('responseUser', {}),
+                        current_job.get('owner', {})
+                    )
+                    previous_recruiter = self._extract_assigned_recruiter(
+                        previous_job.get('assignedUsers', {}),
+                        previous_job.get('responseUser', {}),
+                        previous_job.get('owner', {})
+                    )
+                    
+                    if current_recruiter != previous_recruiter and xml_field not in changed_fields:
+                        changed_fields.append(xml_field)
+                
+                elif bullhorn_field == 'publicDescription':
+                    # Prefer publicDescription over description
+                    current_desc = current_job.get('publicDescription', '') or current_job.get('description', '')
+                    previous_desc = previous_job.get('publicDescription', '') or previous_job.get('description', '')
+                    
+                    if current_desc != previous_desc:
+                        changed_fields.append(xml_field)
+                
+                elif bullhorn_field == 'description':
+                    # Skip if already checked via publicDescription
+                    if 'description' not in changed_fields:
+                        current_desc = current_job.get('publicDescription', '') or current_job.get('description', '')
+                        previous_desc = previous_job.get('publicDescription', '') or previous_job.get('description', '')
+                        
+                        if current_desc != previous_desc:
+                            changed_fields.append(xml_field)
+                
+                elif bullhorn_field == 'employmentType':
+                    # Map employment type for comparison
+                    current_type = self._map_employment_type(current_value)
+                    previous_type = self._map_employment_type(previous_value)
+                    
+                    if current_type != previous_type:
+                        changed_fields.append(xml_field)
+                
+                elif bullhorn_field == 'onSite':
+                    # Map remote type for comparison
+                    current_remote = self._map_remote_type(current_value)
+                    previous_remote = self._map_remote_type(previous_value)
+                    
+                    if current_remote != previous_remote:
+                        changed_fields.append(xml_field)
+                
+                else:
+                    # Direct field comparison
+                    if current_value != previous_value:
+                        changed_fields.append(xml_field)
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_changed_fields = []
+            for field in changed_fields:
+                if field not in seen:
+                    seen.add(field)
+                    unique_changed_fields.append(field)
+            
+            return unique_changed_fields
+            
+        except Exception as e:
+            self.logger.error(f"Error comparing job fields: {str(e)}")
+            # Fallback to dateLastModified comparison
+            current_modified = current_job.get('dateLastModified', '')
+            previous_modified = previous_job.get('dateLastModified', '')
+            
+            if current_modified != previous_modified:
+                return ['dateLastModified']
+            return []
