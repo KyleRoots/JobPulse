@@ -626,8 +626,8 @@ def process_bullhorn_monitors():
                         
                         app.logger.info(f"Bullhorn monitor {monitor.name}: {len(current_jobs)} total jobs, {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified")
                     
-                    # Send email notification if there are changes and notifications are enabled
-                    if (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications:
+                    # Send email notification only if there are changes, notifications are enabled, AND XML sync was successful
+                    if (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications and xml_sync_success:
                         # Get email address from Global Settings or monitor-specific setting
                         email_address = monitor.notification_email
                         if not email_address:
@@ -650,7 +650,7 @@ def process_bullhorn_monitors():
                                 removed_jobs=removed_jobs,
                                 modified_jobs=modified_jobs,
                                 summary=summary,
-                                xml_sync_info=xml_sync_summary if xml_sync_success else None
+                                xml_sync_info=xml_sync_summary
                             )
                             
                             if email_sent:
@@ -661,6 +661,8 @@ def process_bullhorn_monitors():
                                         activity.notification_sent = True
                             else:
                                 app.logger.warning(f"Failed to send Bullhorn notification for monitor: {monitor.name}")
+                    elif (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications and not xml_sync_success:
+                        app.logger.warning(f"Changes detected for monitor {monitor.name} but XML sync failed. Skipping email notification to prevent duplicate alerts.")
                     
                     # Update monitor with new snapshot and next check time
                     # IMPORTANT: Only update snapshot if XML sync was successful or if no changes were detected
