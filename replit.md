@@ -252,6 +252,7 @@ Changelog:
 - July 18, 2025. Successfully implemented enhanced XML processing - all 57 jobs in production XML file now include jobtype, remotetype, and assignedrecruiter fields with real-time Bullhorn data mapping, uploaded to production server for immediate availability
 - July 18, 2025. Fixed critical XML data corruption issues - corrected city/state values for jobs 32541 (Springfield, IL), 32542 (Springfield, IL), and 32553 (Chicago, IL) that had corrupted location data from XML parsing errors
 - July 18, 2025. Established data integrity policy - empty values from Bullhorn are preserved as empty in XML, with empty location and remotetype fields indicating human error requiring manual correction in Bullhorn before next sync
+- July 18, 2025. Enhanced XML structure formatting - ensured all XML nodes are on separate lines, added assignedrecruiter node to all 49 jobs, and restored bhatsid nodes positioned after referencenumber elements with proper CDATA formatting
 ```
 
 ## User Preferences
