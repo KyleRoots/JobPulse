@@ -684,7 +684,7 @@ class XMLIntegrationService:
     
     def update_job_in_xml(self, xml_file_path: str, bullhorn_job: Dict) -> bool:
         """
-        Update an existing job in the XML file with enhanced error handling and verification
+        Update an existing job in the XML file with enhanced error handling and CDATA preservation
         
         Args:
             xml_file_path: Path to the XML file
