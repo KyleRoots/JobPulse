@@ -57,6 +57,14 @@ class XMLIntegrationService:
             employment_type = bullhorn_job.get('employmentType', '')
             job_type = self._map_employment_type(employment_type)
             
+            # Handle remote type mapping  
+            onsite_value = bullhorn_job.get('onSite', '')
+            remote_type = self._map_remote_type(onsite_value)
+            
+            # Extract assigned recruiter from owner field
+            owner = bullhorn_job.get('owner', {})
+            assigned_recruiter = self._extract_assigned_recruiter(owner)
+            
             # Extract description (prefer publicDescription, fallback to description)
             description = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
             
@@ -95,7 +103,8 @@ class XMLIntegrationService:
                 'country': clean_field_value(country),
                 'category': '',  # Empty as per template
                 'apply_email': clean_field_value('apply@myticas.com'),
-                'remotetype': ''  # Empty as per template
+                'remotetype': clean_field_value(remote_type),
+                'assignedrecruiter': clean_field_value(assigned_recruiter)
             }
             
             self.logger.info(f"Mapped Bullhorn job {job_id} ({title}) to XML format")
@@ -171,16 +180,55 @@ class XMLIntegrationService:
         """Map Bullhorn employment type to XML job type"""
         employment_type = employment_type.lower() if employment_type else ''
         
-        if 'contract' in employment_type:
+        if 'contract to hire' in employment_type or 'contract-to-hire' in employment_type:
+            return 'Contract to Hire'
+        elif 'direct hire' in employment_type or 'permanent' in employment_type or 'full-time' in employment_type:
+            return 'Direct Hire'
+        elif 'contract' in employment_type:
             return 'Contract'
-        elif 'permanent' in employment_type or 'full-time' in employment_type:
-            return 'Full-time'
-        elif 'part-time' in employment_type:
-            return 'Part-time'
-        elif 'temporary' in employment_type:
-            return 'Temporary'
         else:
             return 'Contract'  # Default fallback
+    
+    def _map_remote_type(self, onsite_value) -> str:
+        """Map Bullhorn onSite value to XML remote type"""
+        # Handle both list and string formats from Bullhorn
+        if isinstance(onsite_value, list):
+            # If it's a list, take the first item
+            onsite_value = onsite_value[0] if onsite_value else ''
+        
+        onsite_value = onsite_value.lower() if onsite_value else ''
+        
+        if 'remote' in onsite_value:
+            return 'Remote'
+        elif 'hybrid' in onsite_value:
+            return 'Hybrid'
+        elif 'onsite' in onsite_value or 'on-site' in onsite_value:
+            return 'Onsite'
+        elif 'off-site' in onsite_value:
+            return 'Off-Site'
+        elif 'no preference' in onsite_value:
+            return 'No Preference'
+        else:
+            return 'Onsite'  # Default fallback
+    
+    def _extract_assigned_recruiter(self, owner: dict) -> str:
+        """Extract recruiter name from owner field"""
+        try:
+            if not owner:
+                return ''
+            
+            # Get owner information (job owner/recruiter)
+            if isinstance(owner, dict):
+                first_name = owner.get('firstName', '')
+                last_name = owner.get('lastName', '')
+                if first_name or last_name:
+                    return f"{first_name} {last_name}".strip()
+            
+            return ''
+            
+        except Exception as e:
+            self.logger.warning(f"Error extracting assigned recruiter: {str(e)}")
+            return ''
     
     def _clean_description(self, description: str) -> str:
         """Clean and format job description for XML"""

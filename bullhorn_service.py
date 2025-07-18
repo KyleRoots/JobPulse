@@ -359,7 +359,8 @@ class BullhornService:
                 "address(city,state,countryName)", "employmentType",
                 "salary", "salaryUnit", "isDeleted",
                 "categories(id,name)", "onSite", "benefits", "bonusPackage",
-                "degreeList", "skillList", "certificationList"
+                "degreeList", "skillList", "certificationList",
+                "owner(firstName,lastName)"
             ]
             
             all_jobs = []
