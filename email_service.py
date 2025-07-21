@@ -205,9 +205,9 @@ class EmailService:
                                  monitor_name: str,
                                  added_jobs: list,
                                  removed_jobs: list,
-                                 modified_jobs: list = None,
-                                 summary: dict = None,
-                                 xml_sync_info: dict = None) -> bool:
+                                 modified_jobs: list = [],
+                                 summary: dict = {},
+                                 xml_sync_info: dict = {}) -> bool:
         """
         Send email notification for Bullhorn tearsheet changes
         
