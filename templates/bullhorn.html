@@ -190,7 +190,13 @@
                                                         {{ monitor.last_check.strftime('%Y-%m-%d %H:%M') }}
                                                     {% else %}
                                                         Never
-                                                    {% endif %}</span>
+                                                    {% endif %}</span><br>
+                                                    <i class="fas fa-clock-o me-1"></i>Next check: 
+                                                    {% if monitor.next_check %}
+                                                        {{ monitor.next_check.strftime('%Y-%m-%d %H:%M') }}
+                                                    {% else %}
+                                                        Calculating...
+                                                    {% endif %}
                                                 </small>
                                             </p>
                                             <div class="d-flex gap-1">
@@ -233,10 +239,7 @@
                         <h5 class="card-title mb-0">
                             <i class="fas fa-history me-2"></i>
                             Recent Activity
-                            <small class="text-muted ms-2" id="refreshIndicator">
-                                <i class="fas fa-sync fa-spin" style="display: none;"></i>
-                                <span class="refresh-status">Auto-refresh: 5:00</span>
-                            </small>
+
                         </h5>
                     </div>
                     <div class="card-body">
@@ -409,241 +412,7 @@
                 `;
             });
         }
-        
-        // Auto-refresh functionality for activity section
-        let refreshInterval;
-        let countdownInterval;
-        let lastRefreshTime = new Date();
-        let remainingSeconds = 300; // 5 minutes in seconds
-        
-        async function calculateTimeUntilNextMonitorRun() {
-            try {
-                // Fetch actual next_check time from database
-                const response = await fetch('/api/bullhorn/monitors');
-                const data = await response.json();
-                
-                if (data.success && data.monitors.length > 0) {
-                    // Use the first monitor's next_check time as reference
-                    const nextCheckStr = data.monitors[0].next_check;
-                    const nextCheckTime = new Date(nextCheckStr + ' UTC'); // Ensure UTC interpretation
-                    const now = new Date();
-                    
-                    const timeDiff = nextCheckTime - now;
-                    const secondsUntilRun = Math.max(0, Math.floor(timeDiff / 1000));
-                    
-                    console.log(`Next monitor run at: ${nextCheckTime.toLocaleTimeString()}, seconds until run: ${secondsUntilRun}`);
-                    return secondsUntilRun;
-                } else {
-                    console.warn('No monitors found, defaulting to 5-minute cycle');
-                    return 300;
-                }
-            } catch (error) {
-                console.error('Error fetching monitor schedule:', error);
-                // Fallback to 5-minute cycle
-                return 300;
-            }
-        }
-        
-        function getActivityBadge(activityType) {
-            const badges = {
-                'job_added': '<span class="badge bg-success"><i class="fas fa-plus me-1"></i>Job Added</span>',
-                'job_removed': '<span class="badge bg-danger"><i class="fas fa-minus me-1"></i>Job Removed</span>',
-                'check_completed': '<span class="badge bg-info"><i class="fas fa-check me-1"></i>Check Completed</span>',
-                'error': '<span class="badge bg-warning"><i class="fas fa-exclamation-triangle me-1"></i>Error</span>',
-                'xml_sync_completed': '<span class="badge bg-primary"><i class="fas fa-sync me-1"></i>XML Sync</span>',
-                'job_modified': '<span class="badge bg-warning"><i class="fas fa-edit me-1"></i>Job Modified</span>'
-            };
-            return badges[activityType] || `<span class="badge bg-secondary"><i class="fas fa-info me-1"></i>${activityType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>`;
-        }
-        
-        function formatJobInfo(activity) {
-            if (activity.job_id) {
-                return `<strong>ID ${activity.job_id}:</strong> ${activity.job_title || 'No title'}`;
-            } else if (activity.activity_type === 'xml_sync_completed') {
-                return `<span class="text-muted">${activity.details ? activity.details.substring(0, 60) + (activity.details.length > 60 ? '...' : '') : 'XML sync completed'}</span>`;
-            } else if (activity.activity_type === 'check_completed') {
-                return `<span class="text-muted">${activity.details ? activity.details.substring(0, 60) + (activity.details.length > 60 ? '...' : '') : 'Check completed'}</span>`;
-            } else {
-                return '-';
-            }
-        }
-        
-        function updateActivityTable(activities) {
-            const tableContainer = document.querySelector('.activity-table-container');
-            if (!tableContainer) return;
-            
-            const currentScrollTop = tableContainer.scrollTop;
-            
-            // Update the table body
-            const tbody = document.querySelector('.activity-table-container tbody');
-            if (!tbody) return;
-            
-            tbody.innerHTML = '';
-            
-            activities.forEach(activity => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>
-                        <a href="/bullhorn/monitor/${activity.monitor_id}">${activity.monitor_name}</a>
-                    </td>
-                    <td>
-                        ${getActivityBadge(activity.activity_type)}
-                    </td>
-                    <td>
-                        ${formatJobInfo(activity)}
-                    </td>
-                    <td>
-                        <small class="text-muted">${activity.created_at}</small>
-                    </td>
-                    <td>
-                        ${activity.notification_sent ? '<i class="fas fa-envelope text-success" title="Email sent"></i>' : '<i class="fas fa-envelope-open text-muted" title="No email"></i>'}
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-            
-            // Restore scroll position
-            tableContainer.scrollTop = currentScrollTop;
-            
-            // Update last refresh time
-            lastRefreshTime = new Date();
-        }
-        
-        function updateMonitorTimestamps(monitors) {
-            // Update "Last check" timestamps for all monitors
-            monitors.forEach(monitor => {
-                const lastCheckElement = document.querySelector(`.monitor-card[data-monitor-id="${monitor.id}"] .last-check`);
-                if (lastCheckElement) {
-                    lastCheckElement.textContent = `Last check: ${monitor.last_check}`;
-                }
-                
-                // Update job count badge if present
-                const jobCountElement = document.querySelector(`.monitor-card[data-monitor-id="${monitor.id}"] .job-count-badge`);
-                if (jobCountElement) {
-                    jobCountElement.textContent = monitor.job_count;
-                }
-            });
-        }
-        
-        function updateCountdownDisplay() {
-            const refreshStatus = document.querySelector('#refreshIndicator .refresh-status');
-            if (refreshStatus) {
-                const minutes = Math.floor(remainingSeconds / 60);
-                const seconds = remainingSeconds % 60;
-                const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                refreshStatus.textContent = `Auto-refresh: ${formattedTime}`;
-            }
-        }
-        
-        async function startCountdown() {
-            remainingSeconds = await calculateTimeUntilNextMonitorRun();
-            updateCountdownDisplay();
-            
-            console.log(`Countdown synced with monitor schedule: ${remainingSeconds} seconds until next run`);
-            
-            countdownInterval = setInterval(() => {
-                remainingSeconds--;
-                updateCountdownDisplay();
-                
-                if (remainingSeconds <= 0) {
-                    remainingSeconds = 300; // Reset for next 5-minute cycle
-                }
-            }, 1000);
-        }
-        
-        function stopCountdown() {
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-                countdownInterval = null;
-            }
-        }
-        
-        function refreshActivities() {
-            // Show refresh indicator
-            const refreshIcon = document.querySelector('#refreshIndicator .fa-sync');
-            const refreshStatus = document.querySelector('#refreshIndicator .refresh-status');
-            
-            if (refreshIcon && refreshStatus) {
-                refreshIcon.style.display = 'inline';
-                refreshStatus.textContent = 'Refreshing...';
-            }
-            
-            // Fetch both activities and updated monitor information
-            Promise.all([
-                fetch('/api/bullhorn/activities'),
-                fetch('/api/bullhorn/monitors')
-            ])
-                .then(responses => Promise.all(responses.map(r => r.json())))
-                .then(([activitiesData, monitorsData]) => {
-                    if (activitiesData.success) {
-                        updateActivityTable(activitiesData.activities);
-                        console.log('Activity table refreshed at:', new Date().toLocaleTimeString());
-                    } else {
-                        console.error('Failed to refresh activities:', activitiesData.error);
-                    }
-                    
-                    if (monitorsData.success) {
-                        updateMonitorTimestamps(monitorsData.monitors);
-                        console.log('Monitor timestamps refreshed at:', new Date().toLocaleTimeString());
-                    } else {
-                        console.error('Failed to refresh monitor data:', monitorsData.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error refreshing data:', error);
-                })
-                .finally(() => {
-                    // Hide refresh indicator and reset countdown
-                    if (refreshIcon) {
-                        refreshIcon.style.display = 'none';
-                    }
-                    
-                    remainingSeconds = 300; // Reset countdown to 5 minutes after refresh
-                    updateCountdownDisplay();
-                });
-        }
-        
-        async function startAutoRefresh() {
-            // Calculate time until next monitor run and sync with it
-            const initialDelay = await calculateTimeUntilNextMonitorRun() * 1000;
-            
-            // First refresh after the calculated delay to sync with monitor schedule
-            setTimeout(() => {
-                refreshActivities();
-                // Then refresh every 5 minutes (300,000 milliseconds)
-                refreshInterval = setInterval(refreshActivities, 300000);
-            }, initialDelay);
-            
-            startCountdown();
-            console.log(`Auto-refresh started - will sync with monitor schedule in ${Math.floor(initialDelay/1000)} seconds`);
-        }
-        
-        function stopAutoRefresh() {
-            if (refreshInterval) {
-                clearInterval(refreshInterval);
-                refreshInterval = null;
-            }
-            stopCountdown();
-            console.log('Auto-refresh stopped');
-        }
-        
-        // Start auto-refresh when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            // Only start auto-refresh if we have activity data
-            if (document.querySelector('.activity-table-container')) {
-                startAutoRefresh();
-            }
-        });
-        
-        // Stop auto-refresh when user navigates away
-        window.addEventListener('beforeunload', function() {
-            stopAutoRefresh();
-        });
-        
-        // Optional: Add manual refresh button functionality
-        function manualRefresh() {
-            refreshActivities();
-        }
+
     </script>
 </body>
 </html>

@@ -259,6 +259,7 @@ Changelog:
 - July 18, 2025. IMPLEMENTED COMPREHENSIVE FIELD MONITORING - Enhanced monitoring system to track ALL relevant job fields (title, description, jobtype, remotetype, location, assignedrecruiter, date, dateLastModified) instead of just dateLastModified timestamp, ensuring no field changes are missed and providing detailed logging of specific field changes for better transparency
 - July 18, 2025. CRITICAL XML FORMATTING FIX - Resolved XML structure corruption that broke CDATA formatting during field updates, restored proper CDATA tags for all 57 jobs, fixed broken line breaks between XML elements, implemented formatting preservation methods in monitoring system, uploaded corrected XML file (237,816 bytes) to production server with verified CDATA integrity
 - July 19, 2025. FILENAME CONSISTENCY IMPLEMENTATION - Updated scheduler automation to use consistent filename "myticas-job-feed-dice.xml" matching web server, synchronized scheduled file with main XML file (both 237,816 bytes), verified all SFTP uploads use consistent filename regardless of internal storage paths
+- July 21, 2025. ENHANCED MONITORING TRANSPARENCY - Removed auto-refresh countdown functionality and added "Next check:" timestamps to each monitor display, providing users clear visibility into when next monitoring checkpoint will occur without requiring countdown synchronization, allows users to manually refresh browser at their chosen time for updates
 ```
 
 ## User Preferences
