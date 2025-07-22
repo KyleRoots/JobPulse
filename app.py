@@ -147,9 +147,11 @@ def process_scheduled_files():
                     )
                     db.session.add(log_entry)
                     
-                    # Update schedule
+                    # Update schedule timestamps FIRST (commit immediately to ensure persistence)
                     schedule.last_run = now
                     schedule.calculate_next_run()
+                    db.session.commit()  # Commit schedule update immediately
+                    app.logger.info(f"Updated schedule '{schedule.name}': next_run = {schedule.next_run}")
                     
                     if result.get('success'):
                         # Replace original file with updated version
@@ -305,7 +307,13 @@ def process_scheduled_files():
                     )
                     db.session.add(log_entry)
             
-            db.session.commit()
+            # Final commit for any remaining activity logging
+            try:
+                db.session.commit()
+                app.logger.info("Scheduled processing activity logging completed")
+            except Exception as e:
+                app.logger.error(f"Error committing activity logs: {str(e)}")
+                db.session.rollback()
             
         except Exception as e:
             app.logger.error(f"Error in scheduled processing: {str(e)}")
