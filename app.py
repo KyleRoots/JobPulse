@@ -813,22 +813,36 @@ def process_bullhorn_monitors():
                                 xml_service = XMLIntegrationService()
                                 
                                 # Check current jobs in XML against all Bullhorn jobs
-                                from xml.etree import ElementTree as ET
                                 
                                 # Get job IDs currently in XML
                                 xml_job_ids = set()
                                 try:
-                                    tree = ET.parse(schedule.file_path)
+                                    # Use lxml to properly handle CDATA sections
+                                    from lxml import etree
+                                    parser = etree.XMLParser(remove_blank_text=False, strip_cdata=False)
+                                    tree = etree.parse(schedule.file_path, parser)
                                     root = tree.getroot()
-                                    jobs = root.findall('.//job')
                                     
-                                    for job in jobs:
-                                        title_elem = job.find('title')
-                                        if title_elem is not None and title_elem.text:
-                                            import re
-                                            match = re.search(r'\((\d+)\)', title_elem.text)
-                                            if match:
-                                                xml_job_ids.add(match.group(1))
+                                    # Extract job IDs from bhatsid elements (more reliable than parsing titles)
+                                    for bhatsid_elem in root.xpath('.//bhatsid'):
+                                        if bhatsid_elem.text:
+                                            job_id = bhatsid_elem.text.strip()
+                                            if job_id:
+                                                xml_job_ids.add(job_id)
+                                                app.logger.debug(f"Found job ID in XML: {job_id}")
+                                    
+                                    # Fallback: Try to extract from titles if no bhatsid found
+                                    if not xml_job_ids:
+                                        app.logger.info("No bhatsid elements found, extracting from titles")
+                                        for job in root.xpath('.//job'):
+                                            title_elem = job.find('title')
+                                            if title_elem is not None and title_elem.text:
+                                                import re
+                                                match = re.search(r'\((\d+)\)', title_elem.text)
+                                                if match:
+                                                    xml_job_ids.add(match.group(1))
+                                    
+                                    app.logger.info(f"Found {len(xml_job_ids)} jobs in XML file")
                                 except Exception as e:
                                     app.logger.error(f"Error parsing XML file {schedule.file_path}: {str(e)}")
                                     continue
