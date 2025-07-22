@@ -20,12 +20,13 @@ class XMLIntegrationService:
         self.xml_processor = XMLProcessor()
         self._parser = etree.XMLParser(strip_cdata=False, recover=True)
     
-    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict) -> Dict:
+    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None) -> Dict:
         """
         Map Bullhorn job data to XML job structure
         
         Args:
             bullhorn_job: Dictionary containing Bullhorn job data
+            existing_reference_number: Optional existing reference number to preserve
             
         Returns:
             Dict: XML job structure with CDATA wrapped values
@@ -78,8 +79,11 @@ class XMLIntegrationService:
             date_added = bullhorn_job.get('dateAdded', '')
             formatted_date = self._format_date(date_added)
             
-            # Generate unique reference number
-            reference_number = self.xml_processor.generate_reference_number()
+            # Use existing reference number if provided, otherwise generate new one
+            if existing_reference_number:
+                reference_number = existing_reference_number
+            else:
+                reference_number = self.xml_processor.generate_reference_number()
             
             # Extract job ID from formatted title for bhatsid
             bhatsid = self.xml_processor.extract_job_id_from_title(formatted_title)
@@ -392,8 +396,28 @@ class XMLIntegrationService:
             bool: True if job was added successfully, False otherwise
         """
         try:
-            # Map Bullhorn job to XML format
-            xml_job = self.map_bullhorn_job_to_xml(bullhorn_job)
+            # First check if job already exists to preserve reference number
+            existing_reference_number = None
+            job_id = str(bullhorn_job.get('id', ''))
+            
+            try:
+                tree = etree.parse(xml_file_path, self._parser)
+                root = tree.getroot()
+                
+                # Find existing job by bhatsid
+                for job in root.xpath('.//job'):
+                    bhatsid_elem = job.find('.//bhatsid')
+                    if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
+                        ref_elem = job.find('.//referencenumber')
+                        if ref_elem is not None and ref_elem.text:
+                            existing_reference_number = ref_elem.text.strip()
+                            self.logger.info(f"Found existing reference number {existing_reference_number} for job {job_id}")
+                            break
+            except Exception as e:
+                self.logger.debug(f"Could not check for existing job: {e}")
+            
+            # Map Bullhorn job to XML format with existing reference number if found
+            xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number)
             if not xml_job:
                 return False
             
