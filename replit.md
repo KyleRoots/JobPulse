@@ -271,6 +271,7 @@ Changelog:
 - July 22, 2025. CRITICAL DUPLICATE DETECTION FIX - Fixed recurring "job_added" activity logs by ensuring monitor snapshots are updated after comprehensive sync adds jobs, preventing jobs from being repeatedly detected as "new" in subsequent monitoring cycles
 - July 22, 2025. XML DUPLICATE REMOVAL - Removed 6 duplicate jobs (32607, 32383, 32293, 32266, 32651, 32652) from XML files that were added multiple times with different reference numbers, cleaned both scheduled and main XML files from 74 to 68 unique jobs
 - July 22, 2025. CRITICAL REFERENCE NUMBER FIX - Fixed root cause of duplicate job creation by preserving existing reference numbers during comprehensive sync, preventing same jobs from being added with new reference numbers each time
+- July 22, 2025. DEEP FIX FOR UPDATE DUPLICATES - Fixed update_job_in_xml function that was removing jobs before checking reference numbers, causing updates to generate new reference numbers and create duplicates
 ```
 
 ## User Preferences

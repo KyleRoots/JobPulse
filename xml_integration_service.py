@@ -737,6 +737,24 @@ class XMLIntegrationService:
                 # Verify job exists in XML before update
                 job_exists_before = self._verify_job_exists_in_xml(xml_file_path, job_id)
                 
+                # CRITICAL FIX: Get existing reference number BEFORE removing the job
+                existing_reference_number = None
+                try:
+                    tree = etree.parse(xml_file_path, self._parser)
+                    root = tree.getroot()
+                    
+                    # Find existing job by bhatsid to preserve reference number
+                    for job in root.xpath('.//job'):
+                        bhatsid_elem = job.find('.//bhatsid')
+                        if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
+                            ref_elem = job.find('.//referencenumber')
+                            if ref_elem is not None and ref_elem.text:
+                                existing_reference_number = ref_elem.text.strip()
+                                self.logger.info(f"Preserving reference number {existing_reference_number} for job {job_id} update")
+                                break
+                except Exception as e:
+                    self.logger.warning(f"Could not get existing reference number: {e}")
+                
                 # Step 1: Remove old version
                 removal_success = self.remove_job_from_xml(xml_file_path, job_id)
                 if not removal_success and job_exists_before:
@@ -750,10 +768,67 @@ class XMLIntegrationService:
                         self.logger.error(f"Failed to remove job {job_id} after {max_retries} attempts")
                         return False
                 
-                # Step 2: Add updated version
-                addition_success = self.add_job_to_xml(xml_file_path, bullhorn_job)
+                # Step 2: Add updated version with preserved reference number
+                # Create a copy of bullhorn_job and add the preserved reference number
+                bullhorn_job_with_ref = bullhorn_job.copy()
+                if existing_reference_number:
+                    bullhorn_job_with_ref['_existing_reference_number'] = existing_reference_number
+                
+                # Map the job with preserved reference number
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number)
+                if not xml_job:
+                    self.logger.error(f"Failed to map job {job_id} to XML format")
+                    shutil.copy2(backup_path, xml_file_path)
+                    return False
+                
+                # Parse XML and add the job manually to ensure reference preservation
+                try:
+                    tree = etree.parse(xml_file_path, self._parser)
+                    root = tree.getroot()
+                    
+                    # Find the publisherurl element
+                    publisher_url = root.find('publisherurl')
+                    if publisher_url is None:
+                        self.logger.error("No publisherurl element found in XML")
+                        shutil.copy2(backup_path, xml_file_path)
+                        return False
+                    
+                    # Create new job element with proper formatting
+                    job_element = etree.Element('job')
+                    job_element.text = "\n    "  # Add newline and indentation after opening <job> tag
+                    
+                    # Add all job fields with CDATA wrapping and proper indentation
+                    for field, value in xml_job.items():
+                        field_element = etree.SubElement(job_element, field)
+                        clean_value = value if value is not None else ''
+                        field_element.text = etree.CDATA(f" {clean_value} ")
+                        field_element.tail = "\n    "  # Add proper indentation for each field
+                    
+                    # Fix the last element's tail to close the job properly
+                    if len(job_element) > 0:
+                        job_element[-1].tail = "\n  "  # Close job element indentation
+                    
+                    # Insert the new job as the first job (right after publisherurl)
+                    publisher_url_index = list(root).index(publisher_url)
+                    
+                    # Ensure proper spacing around the new job
+                    publisher_url.tail = "\n  "
+                    job_element.tail = "\n  "  # Add newline and indentation after the new job
+                    
+                    root.insert(publisher_url_index + 1, job_element)
+                    
+                    # Write updated XML back to file with proper formatting
+                    with open(xml_file_path, 'wb') as f:
+                        tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+                    
+                    self.logger.info(f"Successfully updated job {xml_job['title']} in XML file {xml_file_path}")
+                    addition_success = True
+                    
+                except Exception as e:
+                    self.logger.error(f"Failed to add updated job {job_id} to XML: {str(e)}")
+                    addition_success = False
+                
                 if not addition_success:
-                    self.logger.error(f"Failed to add updated job {job_id} to XML on attempt {attempt + 1}")
                     if attempt < max_retries - 1:
                         # Restore backup and retry
                         shutil.copy2(backup_path, xml_file_path)
