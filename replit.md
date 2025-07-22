@@ -268,6 +268,7 @@ Changelog:
 - July 22, 2025. SYSTEM STABILITY ACHIEVED - All 5 Bullhorn monitors running properly with 64 jobs tracked, no more continuous reference number regeneration, clean monitoring logs every 5 minutes, single-process XML management architecture fully operational
 - July 22, 2025. CRITICAL FIX - Removed reference number regeneration from comprehensive sync during real-time monitoring, reference numbers now ONLY regenerate during scheduled automation (weekly), real-time sync only adds/removes jobs while preserving existing reference numbers and generating unique numbers only for new jobs
 - July 22, 2025. FINAL MONITORING FIX - Resolved recurring "Job Removed" notifications by removing job 32479 from XML file and updating Ottawa monitor snapshot from 49→48 jobs, eliminating false positive removal detections and ensuring clean monitoring cycles
+- July 22, 2025. CRITICAL DUPLICATE DETECTION FIX - Fixed recurring "job_added" activity logs by ensuring monitor snapshots are updated after comprehensive sync adds jobs, preventing jobs from being repeatedly detected as "new" in subsequent monitoring cycles
 ```
 
 ## User Preferences

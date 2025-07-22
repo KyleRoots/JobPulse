@@ -965,6 +965,25 @@ def process_bullhorn_monitors():
                                             app.logger.error(f"Error uploading to SFTP: {str(e)}")
                                 else:
                                     app.logger.info(f"No changes needed for {schedule.name} - XML is already in sync")
+                                
+                                # CRITICAL: Update monitor snapshots after successful comprehensive sync
+                                # This prevents jobs from being repeatedly detected as "new"
+                                if (missing_job_ids or orphaned_job_ids) and xml_sync_success:
+                                    app.logger.info("Updating monitor snapshots after comprehensive sync")
+                                    
+                                    # Re-fetch current jobs from Bullhorn to update all monitor snapshots
+                                    for monitor in monitors_processed:
+                                        try:
+                                            if monitor.tearsheet_id:
+                                                updated_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+                                            else:
+                                                updated_jobs = bullhorn_service.get_jobs_by_query(monitor.search_query)
+                                            
+                                            if updated_jobs is not None:
+                                                monitor.last_job_snapshot = json.dumps(updated_jobs)
+                                                app.logger.info(f"Updated {monitor.name} snapshot with {len(updated_jobs)} jobs after comprehensive sync")
+                                        except Exception as e:
+                                            app.logger.error(f"Error updating snapshot for {monitor.name}: {str(e)}")
                                     
                             except Exception as e:
                                 app.logger.error(f"Error during comprehensive XML sync for {schedule.name}: {str(e)}")
