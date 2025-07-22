@@ -266,6 +266,7 @@ Changelog:
 - July 22, 2025. CRITICAL CONTINUOUS LOOP RESOLUTION - Fixed continuous XML update loop caused by conflicting processes (scheduled XML processing vs Bullhorn comprehensive sync), deactivated scheduled processing since Bullhorn monitoring handles all XML updates automatically every 5 minutes, system now runs single-process architecture eliminating file conflicts
 - July 22, 2025. DATABASE CONSTRAINT FIX - Resolved NotNullViolation error preventing schedule timestamp updates by making monitor_id nullable in bullhorn_activity table for scheduled processing activities, added immediate commit logic for schedule updates, improved error handling separation
 - July 22, 2025. SYSTEM STABILITY ACHIEVED - All 5 Bullhorn monitors running properly with 64 jobs tracked, no more continuous reference number regeneration, clean monitoring logs every 5 minutes, single-process XML management architecture fully operational
+- July 22, 2025. CRITICAL FIX - Removed reference number regeneration from comprehensive sync during real-time monitoring, reference numbers now ONLY regenerate during scheduled automation (weekly), real-time sync only adds/removes jobs while preserving existing reference numbers and generating unique numbers only for new jobs
 ```
 
 ## User Preferences

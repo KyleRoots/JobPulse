@@ -863,19 +863,12 @@ def process_bullhorn_monitors():
                                             total_changes += 1
                                             app.logger.info(f"Removed orphaned job {job_id}")
                                 
-                                # Process reference numbers if changes were made
+                                # IMPORTANT: Do NOT process reference numbers during real-time monitoring
+                                # Reference number regeneration should ONLY happen during scheduled automation
+                                # The comprehensive sync only adds/removes jobs while preserving existing reference numbers
+                                # New jobs added during sync get unique reference numbers automatically
                                 if total_changes > 0:
-                                    app.logger.info(f"Processing reference numbers after {total_changes} changes")
-                                    try:
-                                        from xml_processor import XMLProcessor
-                                        processor = XMLProcessor()
-                                        result = processor.process_file(schedule.file_path, schedule.file_path)
-                                        if result['success']:
-                                            app.logger.info(f"Reference numbers processed: {result.get('jobs_processed', 0)} jobs")
-                                        else:
-                                            app.logger.error(f"Error processing reference numbers: {result.get('error', 'Unknown error')}")
-                                    except Exception as e:
-                                        app.logger.error(f"Error processing reference numbers: {str(e)}")
+                                    app.logger.info(f"Comprehensive sync completed: {total_changes} changes made (reference numbers preserved)")
                                     
                                     # Upload to SFTP if configured
                                     if schedule.auto_upload_ftp:

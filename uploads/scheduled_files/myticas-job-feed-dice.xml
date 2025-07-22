@@ -3,6 +3,159 @@
   <publisher>Myticas Consulting Job Site</publisher>
   <publisherurl>https://myticas.com/</publisherurl>
   <job>
+    <title><![CDATA[ Senior System Engineer (32529) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ June 10, 2025 ]]></date>
+    <referencenumber><![CDATA[ 1USOYZJV6C ]]></referencenumber>
+    <bhatsid><![CDATA[ 32529 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p>The Senior System Engineer will contribute to our clients program in conducting advance performance assessment studies for system configurations as needed to provide solution for complex customer needs. Using his / her expertise in satellite communications, orbital configuration and large communication networks, the candidate will define solutions with enough details to enable implementation across their system. </p> <p><strong>Main Responsibilities</strong></p> <ul> <li>Develop new solutions to commercial needs using their system, including among others solutions for low latency high capacity services, hosted satellite (space relay) services, mobile services, and other new configurations to support opportunities. <li>Support sales activities by evaluating complex use cases using internal and commercially available simulation tools. <li>Evaluate system performance boundaries by incorporating realistic user traffic profiles and terminal mix. <li>Help prepare and manage feature development roadmap in collaboration with commercial and engineering teams by evaluating value-add. <li>Develop technical documentation and reports. <li>Prepare and deliver high quality technical presentations supporting the delivery of solutions. </ul> <p><strong>Education and Experience Required</strong></p> <ul> <li>B. Sc. in Electrical, Computer or System Engineering and a minimum of 5 years of relevant experience in satellite communications or other large communication systems. <li>Experience in system simulations and service performance assessments. <li>Programming experience in Matlab and / or Python. <li>Knowledge of radio communication systems and/or satellite communication is desirable (experience with link budgets is an asset). </ul> <p><strong>Specialized Knowledge, Skills and Abilities</strong></p> <ul> <li>Creative problem-solver with thorough attention to detail. <li>Highly collaborative team-player who can quickly earn the confidence of co-workers and teammates. <li>Excellent oral and written communication skills. <li>Experience with STK for orbital analyses is an asset. <li>Fluent in English, written and oral. <li>Computers running Windows and Linux </ul> ]]></description>
+    <jobtype><![CDATA[ Direct Hire ]]></jobtype>
+    <city><![CDATA[ Ottawa ]]></city>
+    <state><![CDATA[ ON ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Onsite ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
+  </job>
+  <job>
+    <title><![CDATA[ Senior Manager, Radio System Engineering (32647) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 21, 2025 ]]></date>
+    <referencenumber><![CDATA[ 30W9KVFLFK ]]></referencenumber>
+    <bhatsid><![CDATA[ 32647 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p>As the Senior Manager of Radio System Engineering, you will lead all technical aspects of radio system architecture, including air interface definition, concept of operations, functional specifications, and physical implementation of RF functions.</p> <hr> <p><strong>Main Responsibilities:</strong></p> <ul> <li> <p>Provide expert-level leadership in RF system development, including trade-offs involving ACP, PAR, out-of-band emissions, pass-band ripple, group delay, and more.</p> <li> <p>Support the finalization of radio system implementation involving agile multi-beam phased array antennas and beam hopping technology.</p> <li> <p>Define operational concepts for all phases of the system lifecycle such as user terminal commissioning, network entry, satellite handovers, time synchronization, and adaptive coding and modulation (ACM).</p> <li> <p>Act as the principal architect for defining air interfaces between user terminals, ground infrastructure, and satellite payloads.</p> <li> <p>Collaborate with RF, antenna, system, and terminal engineers to partition functionality between hardware and software components.</p> <li> <p>Provide input to the system modeling team on design assumptions and strategies for modeling link performance, accounting for impairments across system components.</p> <li> <p>Work closely with the Verification and Test team to ensure thorough validation of requirements and system performance.</p> <li> <p>Participate in relevant industry standards forums (e.g., DVB) and provide strategic recommendations to align internal systems with evolving standards.</p> </ul> <hr> <p><strong>Education & Experience – Required:</strong></p> <ul> <li> <p>Bachelor’s degree in Electrical, Computer, or Systems Engineering.</p> <li> <p>15+ years of experience in RF communications systems and/or RF equipment development.</p> <li> <p>Demonstrated experience taking RF systems from concept through iterative design, specification development, and low-rate production.</p> <li> <p>Strong background in system architecture, requirements management, and performance assessment for communication systems.</p> </ul> <hr> <p><strong>Education & Experience – Assets:</strong></p> <ul> <li> <p>Familiarity with DVB standards such as DVB-S2X and DVB-RCS2.</p> <li> <p>Solid understanding of digital communications, spread spectrum techniques, single and multi-carrier modulation (e.g., PSK, APSK, QAM).</p> <li> <p>Proficiency in MATLAB or equivalent tools for modeling and analyzing RF communication systems.</p> <li> <p>Deep knowledge of RF passive and active components and microwave frequency performance, including the effects of environmental factors such as rain fade.</p> <li> <p>Strong foundation in RF transceiver architecture and digital communication theory.</p> <li> <p>Excellent communication skills, with the ability to effectively engage stakeholders across engineering, management, and external partners.</p> <li> <p>Collaborative, adaptable, and capable of leading multidisciplinary teams in high-performance environments.</p> </ul> ]]></description>
+    <jobtype><![CDATA[ Direct Hire ]]></jobtype>
+    <city><![CDATA[ Ottawa ]]></city>
+    <state><![CDATA[  ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Onsite ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
+  </job>
+  <job>
+    <title><![CDATA[ RF Systems Engineer  (32648) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 21, 2025 ]]></date>
+    <referencenumber><![CDATA[ N6JRSJLUP7 ]]></referencenumber>
+    <bhatsid><![CDATA[ 32648 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ As a RF Systems Engineer, you’ll be responsible for simulating and modeling the terrestrial and in-orbit communication systems for Lightspeed and support the definition of the architecture. <h2>Main Responsibilities</h2> <ul> <li>Simulate and model communication systems <li>Work with system architects, RF engineers, antenna engineers, User Terminal and Landing Station engineers, to partition functions between hardware and software domains <li>Model RF link performance and manage link budgets accounting for impairments through the different elements in the system <li>Derive specifications for RF links and RF and antenna subsystems <li>Characterize and analyze system performance. Develop and maintain performance budgets <li>Provide technical support to regulatory, coordination, and market access teams </ul> <h2>Education & Experience Required</h2> <ul> <li>Bachelor's degree in electrical engineering with emphasis in RF/microwave circuits or communication theory <li>At least 5 years of relevant experience RF communication systems <li>Knowledge of digital communication systems, spread spectrum, single and multi-carrier techniques, modulation types such as PSK, APSK, QAM <li>Specific experience with modulation standard such as DVB-S2X and DVB-RCS2, as well as with Adaptive Coding and Modulation (ACM) methods <li>Good experience in MATLAB or other tools for modeling and analyzing RF communication systems </ul> <h2>Specialized Knowledge, Skills & Abilities</h2> <ul> <li>Experience performing analysis and simulation of communication systems <li>Thorough understanding of RF passive and active components <li>Good understanding of active antenna beam forming technologies including digital beam forming, and fast beam hopping <li>Experience characterizing radio performance at microwave frequencies, including rain fade and its effects on the communication links <li>Knowledge of RF transceiver architectures and digital communication theor </ul> ]]></description>
+    <jobtype><![CDATA[ Direct Hire ]]></jobtype>
+    <city><![CDATA[ Ottawa ]]></city>
+    <state><![CDATA[  ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Onsite ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
+  </job>
+  <job>
+    <title><![CDATA[ Systems Configuration Management Specialist (32646) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 21, 2025 ]]></date>
+    <referencenumber><![CDATA[ 5P896C8M0Q ]]></referencenumber>
+    <bhatsid><![CDATA[ 32646 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p><strong>Main Responsibilities</strong></p> <p><strong>Configuration Identification</strong></p> <ul> <li> <p>Support and coordinate activities to establish rules for configuration item (CI) selection and baseline content definition.</p> <li> <p>Assist in selecting configuration items at appropriate levels of the product structure, including determining required configuration documentation for each CI.</p> </ul> <p><strong>Asset and Physical Systems Configuration Management</strong></p> <ul> <li> <p>Define, develop, and manage processes, procedures, and tools to identify, document, and control physical assets for a large-scale communications system.</p> <li> <p>Provide support for export control compliance processes such as ITAR.</p> <li> <p>Maintain an inventory of system assets (hardware).</p> <li> <p>Control and document system, hardware, and software configurations, including both "as-designed" and "as-built" baselines.</p> </ul> <p><strong>Software Configuration Management – Release Monitoring</strong></p> <ul> <li> <p>Collaborate with technical teams and project management to define roles and responsibilities for configuration and release management.</p> <li> <p>Work with development, test environment, and verification teams to define and document processes for managing software releases.</p> <li> <p>For each release, verify required documentation is complete, approved, and captured, and ensure release packages are created in accordance with established procedures.</p> <li> <p>Confirm that pending or outstanding changes do not impact planned test or release activities.</p> <li> <p>Support development, lab, and test teams to ensure timely and accurate release execution.</p> <li> <p>Assist with impact assessments and update the CI Tree and related configuration documentation to reflect approved changes.</p> <li> <p>Support preparation and execution of configuration item status accounting and configuration audits.</p> <li> <p>Provide subject matter expertise on configuration management (CM) processes, standards, and systems.</p> <li> <p>Contribute to requirements management and traceability process documentation and improvement.</p> <li> <p>Develop training materials for CM identification, software/release management, and general CM procedures.</p> <li> <p>Participate in continuous improvement initiatives to enhance CM process efficiency, reliability, and cost-effectiveness.</p> </ul> <p><strong>Document and Library Management Support</strong></p> <ul> <li> <p>Initiate updates to documentation based on approved change requests.</p> <li> <p>Collaborate with document management personnel to track and complete implementation of documentation updates.</p> <li> <p>Ensure all released documents are logged, captured, and statused in the document management system.</p> <li> <p>Act as backup support for document management responsibilities when needed.</p> </ul> <p><strong>Education & Experience – Required</strong></p> <ul> <li> <p>Bachelor’s or college degree in engineering, science, or a related field (or equivalent combination of education and experience).</p> <li> <p>3–6 years of experience in an engineering design environment working with systems, hardware, software, and test teams.</p> <li> <p>2+ years of experience in configuration and/or data management.</p> <li> <p>2+ years of experience in release management.</p> <li> <p>Formal training, certification, or experience with CM standards (e.g., CM2, ANSI-EIA 649, ISO 10007).</p> </ul> <p><strong>Education & Experience – Assets</strong></p> <ul> <li> <p>Experience with software configuration management tools and processes.</p> <li> <p>Strong verbal and written communication skills with both technical and non-technical audiences.</p> <li> <p>Experience in high-performing, multidisciplinary development teams.</p> <li> <p>Collaborative, team-oriented, and self-driven.</p> <li> <p>Skilled in Microsoft Office at an intermediate level.</p> <li> <p>Bilingual in English and French is an asset (but not required).</p> </ul> ]]></description>
+    <jobtype><![CDATA[ Direct Hire ]]></jobtype>
+    <city><![CDATA[ Ottawa ]]></city>
+    <state><![CDATA[  ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Onsite ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
+  </job>
+  <job>
+    <title><![CDATA[ Ambulatory Clinical Informatics Analyst - Oracle Health/Cerner (32649) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 22, 2025 ]]></date>
+    <referencenumber><![CDATA[ XVI07LE3T5 ]]></referencenumber>
+    <bhatsid><![CDATA[ 32649 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p>Our client is seeking an experienced <strong>Ambulatory Clinical Informatics Analyst</strong> to support the OPOR (One Person One Record) Program’s Ambulatory Portfolio. This role requires a strong background in Oracle Health (Cerner) and will involve collaboration with clinicians, project leadership, and Oracle Health consultants to design, configure, and translate clinical workflows.</p> <p><strong>Key Responsibilities:</strong></p> <ul> <li> <p>Support ambulatory care design and configuration initiatives.</p> <li> <p>Facilitate strategy execution and knowledge translation to subject matter experts (SMEs).</p> <li> <p>Engage with clinicians to review and validate workflows.</p> <li> <p>Participate in organizational change management and co-facilitate design sessions.</p> <li> <p>Collaborate with Oracle Health consultants and internal project teams.</p> <li> <p>Identify risks/issues and contribute to resolution strategies.</p> <li> <p>Provide ongoing updates to OPOR project leadership.</p> </ul> <p><strong>Requirements:</strong></p> <ul> <li> <p>Degree/diploma in a health-related discipline (or equivalent experience).</p> <li> <p>5+ years of experience in a health-related field.</p> <li> <p>2+ years in Clinical Informatics or supporting large-scale CIS implementations (Oracle Health/Cerner strongly preferred).</p> <li> <p>Deep understanding of ambulatory/medicine clinic workflows and interdisciplinary coordination.</p> <li> <p>Familiarity with healthcare terminology, CIS systems, and clinical transformation projects.</p> <li> <p>Ability to influence and collaborate with a range of stakeholders.</p> <li> <p>Excellent communication and documentation skills.</p> <li> <p>Strong problem-solving and process analysis capabilities.</p> </ul> <p><strong>Preferred Qualifications:</strong></p> <ul> <li> <p>Prior knowledge or experience working within the Nova Scotia Health OPOR program.</p> <li> <p>Graphic design/communications experience is a plus.</p> <li> <p>Background in change management or healthcare IT adoption initiatives.</p> </ul> <p><strong>Work Model:</strong></p> <ul> <li> <p>Hybrid role with approximately 70% remote work.</p> <li> <p>Travel across Nova Scotia (up to 30%) as needed.</p> </ul> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[  ]]></city>
+    <state><![CDATA[ NS ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Hybrid ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
+  </job>
+  <job>
+    <title><![CDATA[ Business Intelligence (BI) Business Objects SQL Developer (32539) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ June 13, 2025 ]]></date>
+    <referencenumber><![CDATA[ IHCZANH8BQ ]]></referencenumber>
+    <bhatsid><![CDATA[ 32539 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p><strong>Business Intelligence (BI) Business Objects/SQL Developer </strong></p> <p><strong>Job Title:</strong> Business Intelligence (BI) Business Objects/SQL Developer</p> <p><strong>Location:</strong> Remote (with occasional travel to Springfield, IL)</p> <p><strong>Contract: </strong>12 months with possibly multiyear extension/s</p> <p><strong>Functional Description: </strong></p> <p>Clover Consulting (a Myticas Co.) is seeking a skilled and experienced BI BusinessObjects/SQL Developer to design, develop, and maintain business intelligence solutions using SAP BusinessObjects and SQL. This role supports Medicaid/CHIP claims and other healthcare data systems, ensuring accurate reporting and data integrity for state and federal stakeholders.</p> <p><strong>Key Responsibilities:</strong></p> <ul> <li>Design, develop, and maintain BusinessObjects reports using Medicaid/CHIP claims and subsystem data. <li>Write, optimize, and maintain complex SQL scripts and queries for data marts and reporting. <li>Create and manage BusinessObjects Universes and metadata layers. <li>Develop and maintain database systems to support efficient data storage and reporting. <li>Manage server backups and ensure system reliability. <li>Collaborate with stakeholders to gather requirements and recommend technical solutions. <li>Participate in unit, integration, and system testing. <li>Provide regular project updates to customers and maintain strong communication. <li>Mentor junior team members and provide technical training as needed. <li>Stay current with emerging technologies and industry best practices. <li>Perform additional duties as required to support project and organizational goals. </ul> <p><strong>Required Qualifications:</strong></p> <ul> <li>5+ years of experience in SAP BusinessObjects development and reporting including report Universe designing. <li>5+ years of SQL development, including 4+ years of performance tuning. <li>2+ years of experience in data warehouse projects. <li>2+ years of experience with Teradata (v15+), including SQL Assistant. <li>Strong communication skills and the ability to work directly with clients. <li>Bachelor’s or advanced degree in IT, Computer Science, Mathematics, Statistics, or a related field. <li>Excellent organizational skills and ability to manage multiple priorities. <li>Strong team collaboration and adaptability. </ul> <p><strong>Preferred Qualifications: </strong></p> <ul> <li>2+ years of experience as Business Objects server administrator <li>Familiarity with Medicaid, Medicare, or healthcare-related applications. <li>Experience with Tableau or BusinessObjects version upgrades. 2025 Business Intelligence (BI) Business Objects/S </ul> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[ Springfield ]]></city>
+    <state><![CDATA[ Illinois ]]></state>
+    <country><![CDATA[ United States                                                    ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Remote ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Dan Sifer ]]></assignedrecruiter>
+  </job>
+  <job>
+    <title><![CDATA[ Manufacturing Engineer (32643) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 21, 2025 ]]></date>
+    <referencenumber><![CDATA[ BMVPOE03A3 ]]></referencenumber>
+    <bhatsid><![CDATA[ 32643 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ Clover Consulting (a Myticas Co.) has a direct client in Grand Rapids, MI in need of a MANUFACTURING ENGINEER - willing to consider all experience levels - this is a contract role to start, with conversion to perm the goal. <br> <br> <br> Planned 2nd shift hours of 4pm-12pm/1am, to support production.<br> <br> We are hiring Associate to Sr. Manufacturing Engineer to lead and provide ongoing support through our manufacturing life cycle!<br> <br> What You Will Be Doing:<br> With general direction, will lead the introduction of new products into the facility, improve productivity and profitability of existing production procedures, and provide ongoing support through the manufacturing life cycle. Acts as a technical expert in process technology<br> <br> <em>Improvements:</em> Independently, with innovation and creativity, evaluates manufacturing processes to ensure optimal labor and material costs to increase productivity and profitability. Through justifications and evaluations, identifies prime areas for improvement. Tracks expenditures to ensure outlays are within budgeted amounts. Identifies, reduces, and eliminates worker exposure(s) to ergonomic stress(es) in the work place.<br> <br> <em>Floor Support</em>: Provides timely product and process support for any manufacturing area to diagnose problems and implement solutions to minimize interruptions to production.<br> <br> <em>Special Projects</em>: Leads the implementation of significant product, process, or other corporate change initiatives being introduced into the plant.<br> <br> <em>Strategic/Manufacturing Planning:</em> Provides advanced research to introduce/integrate new processes, equipment, and technologies into the company<br> <br> Your future team:??<br> You will be part of large and collaborative operations network at Steelcase.<br> <br> Who You Are:<br> Preferred Skills and Competencies <ul> <li>Very strong analysis skills: process, capacity, cost/benefit, waste stream, and quality tools. <li>Internal and external quality support/management <li>Knowledge in lean manufacturing techniques: flow, PQ, equipment reliability, and set up reduction. <li>Facilitation and negotiation skills <li>Knowledge of material handling <li>Productivity improvement techniques: RCI’s <li>Behavior sciences (logic, sociology, etc.) <li>Economics and financial analysis <li>Work measurement <li>Interpersonal skills <li>Computer skills; advanced level required to utilize Excel and Access programs <li>Experience in design, specification, purchase, and installation of new equipment <li>Experience in the Engineering Design Process <li>Knowledge of simulation, process modeling, and value stream mapping <li>Project management and leadership ability <li>Occupational Bio Mechanics/Human Factors Engineering <li>Strategic planning </ul> <br> Required Skills and Competencies <ul> <li>4 year technical degree or equivalent education </ul> <br> ]]></description>
+    <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
+    <city><![CDATA[ Grand Rapids ]]></city>
+    <state><![CDATA[ Michigan ]]></state>
+    <country><![CDATA[ United States                                                    ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Onsite ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Christine Carter ]]></assignedrecruiter>
+  </job>
+  <job>
+    <title><![CDATA[ Cloud Architect (32642) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 21, 2025 ]]></date>
+    <referencenumber><![CDATA[ W4P68YF3VD ]]></referencenumber>
+    <bhatsid><![CDATA[ 32642 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p>Myticas&apos; direct client, based in Lansing, MI, is seeking a <strong>Cloud Architect</strong> to work on a hybrid schedule in Lansing, MI (on-site 2 days per week).</p> <p><strong>Please Note:</strong></p> <ul> <li><strong>Position Location:</strong> Lansing, MI. The resource will follow a hybrid schedule and <strong>must</strong> be on-site from day one, two days a week (typically Tuesdays and Wednesdays). <li><strong>Local candidates are strongly preferred</strong>, but non-local candidates may apply if willing to relocate at their own expense and adhere to the hybrid schedule without delays. </ul> <hr> <h3><strong>Top Required Skills & Years of Experience:</strong></h3> <ul> <li><strong>Experience:</strong> 5+ years in the field. <li>Strong expertise in .NET, HTML, XML, SQL, SOAP, REST, PowerShell, IaC, Microsoft Azure, and Function Apps. <li>Hands-on experience writing and implementing Infrastructure as Code (IaC). <li>Comprehensive knowledge of Microsoft Azure, web-based systems, and client-server-based architecture. </ul> <hr> <h3><strong>Preferred Skills:</strong></h3> <ul> <li>Ability to conduct interviews and build effective relationships with system users. <li>Proficient in Microsoft Visio and Microsoft Office (Word, Excel, Access, PowerPoint). <li>Experience in analyzing, designing, programming, testing, implementing, and supporting web-based applications on the Microsoft/Windows platform (e.g., ASP.NET framework 4.8 or higher, .NET 6 or higher). </ul> <hr> <h3><strong>Job Summary:</strong></h3> <p>The <strong>Cloud Application Architect</strong> will serve as a technical expert for the Michigan Center for Educational Performance and Information (CEPI). This role involves designing and orchestrating the placement and interaction of application components to meet business requirements while balancing factors such as sustainability, cost control, standardization, security, compliance, and strategic alignment.</p> <p>This position will focus on IT system modernization initiatives within the CEPI portfolio and ensure seamless integration of the CEPI Cloud infrastructure with COTS packages, SaaS, Web Services, and other federal, state, and local government applications and services (both internal and external to the State).</p> <p>The Cloud Architect will provide technical expertise and leadership to the application development team, promoting usability, security, mobility, maintainability, and reusability. This role requires minimal supervision and involves significant collaboration with program managers and technology oversight groups. The architect will work as part of a team of architects/designers, supported by additional staff.</p> <hr> <h3><strong>Responsibilities:</strong></h3> <ul> <li>Lead the development and application of technical architecture strategies. <li>Analyze technical and business problems and recommend solutions to improve processes and enable productivity. <li>Collaborate with other architects and developers to select and adapt cloud architecture frameworks and tools to project needs. </ul> <hr> <h3><strong>Required Skills/Experience:</strong></h3> <ul> <li>In-depth knowledge of complex cloud application development environments and practices. <li>Ability to gather and analyze facts, define problems, and recommend solutions. <li>Thorough understanding of cloud application development architecture, frameworks, and tools. <li>Advanced knowledge of business requirements, network-based application orchestration, database management, and application development. <li>Expertise in advanced cloud application development and integration techniques. <li>Strong proficiency in .NET, HTML, XML, SQL, SOAP, REST, PowerShell, IaC, Microsoft Azure, and Function Apps. <li>Knowledge of secure coding and authorization concepts, relational database principles, web services, and microservices architecture. <li>Experience with distributed tracing and observability. <li>Proficient in creating and maintaining distributed applications using microservices. <li>Excellent technical documentation and presentation skills. <li>Strong problem-solving and troubleshooting abilities in high-stress environments. <li>Self-motivated, capable of managing tasks independently with minimal supervision. </ul> <hr> <h3><strong>Additional Qualifications:</strong></h3> <ul> <li>Knowledge/training in object-oriented analysis, design, and programming. <li>Familiarity with cloud application and database development methods. <li>Ability to prepare detailed instructions and documentation. <li>Capacity to establish and maintain effective relationships with clients and support teams. </ul> <p>This role requires a candidate who can work efficiently under pressure, handle complex assignments, and deliver optimum solutions in a timely manner. The ideal candidate will be proactive, technically skilled, and collaborative, ensuring successful delivery of cloud architecture projects.</p> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[ Lansing ]]></city>
+    <state><![CDATA[ MI ]]></state>
+    <country><![CDATA[ United States                                                    ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Hybrid ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
+  </job>
+  <job>
+    <title><![CDATA[ Jr Lab Technician (32645) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 21, 2025 ]]></date>
+    <referencenumber><![CDATA[ ZQ2BHO2BUP ]]></referencenumber>
+    <bhatsid><![CDATA[ 32645 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p>Myticas direct client is seeking<strong> Jr Lab Technician</strong> at Waukegan, IL <strong>(Hybrid-3 days onsite)</strong><br> <br> <strong>Duration: 6</strong><strong> months</strong><strong> (with a possibility of extension)</strong><br> <br> <strong>Description:</strong><br> <br> One of our direct clients is looking for a Jr Lab Technician who would be responsible for performing highly automated compound management department utilizing robotic instruments to manage the tasks of adding or removing samples from storage banks, along with electronic barcodes to facilitate record-keeping and sample preparation tailored to research scientists’ experimental needs. Automation not only accelerates sample delivery but also promises enhanced consistency of samples regarding concentration accuracy and the uniformity of physical properties across experimental runs. These improvements are crucial in advancing early drug discovery.<br> <br> Responsibilities:<br> <br> Work cross-functionally to develop a deep understanding of the scientific processes and identify key bottlenecks that could be improved with automation to increase research velocity.<br> • Develop appropriate automation protocols to meet the needs research scientists.<br> • Maintain instrumentation through routine maintenance and Standard Operating Procedures (SOPs) to minimize equipment downtime.<br> • Write and update protocols for new automation workflows using robotic-specific software for laboratory instruments, e.g., Tecan, Beckman Coulter, Agilent Technologies, and SPT.<br> • Draft, edit, and review laboratory Standard Operating Procedures for the automated platforms and the protocols necessary to support sample delivery.<br> • Promptly enter all data to support the needs of the research scientist.<br> • Interpret results, identify anomalies or unexpected outcomes, and provide appropriate remedies.<br> <br> Qualifications:<br> List required and preferred qualifications (up to 10). Include education, skills, and experience.<br> • Bachelor’s degree in a scientific discipline (e.g., biology, chemistry, or similar).<br> • Experience with robotic liquid handlers from Hamilton, TECAN, Agilent Technologies, or Beckman Coulter.<br> • Experience in compound management preferred.<br> • Ability to work upright and stationary and/or standing for typical working hours.<br> • Ability to lift and move objects up to 25 pounds.<br> • Ability to work in non-traditional work environments.<br> • Ability to use and learn standard office equipment and technology proficiently.<br> • May have exposure to potentially hazardous elements typically found in laboratory environments (PPE required).</p> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[ Chicago ]]></city>
+    <state><![CDATA[ IL ]]></state>
+    <country><![CDATA[ United States                                                    ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Hybrid ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
+  </job>
+  <job>
     <title><![CDATA[ SAP FICO Functional Lead - Oil & Gas (32637) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ July 18, 2025 ]]></date>
@@ -1132,27 +1285,6 @@
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
   </job>
   <job>
-    <title><![CDATA[ Cloud Operations Manager (Senior Lead, Operations) (32293) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ March 19, 2025 ]]></date>
-    <referencenumber><![CDATA[ YB88D7GLX1 ]]></referencenumber>
-    <bhatsid><![CDATA[32293]]></bhatsid>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ <p><strong>SCOPE</strong>
-    </p> <p>We are seeking a highly skilled and motivated Manager, Cloud Operations to lead and optimize our Azure cloud infrastructure and services. This role is critical in ensuring the scalability, reliability, and security of our cloud environments while driving operational excellence. The ideal candidate will have a deep understanding of cloud architectures, automation, and best-in-class operational practices.</p> <p><strong>RESPONSIBILITIES</strong>
-    </p> <ul> <li>Lead the Cloud Operations team to ensure high availability, performance, and security of cloud-based applications and services. <li>Develop and execute a strategic roadmap for cloud operations, aligning with business objectives. <li>Oversee incident management, disaster recovery, and business continuity strategies for cloud environments to support and align efforts to meet customer needs. <li>Drive automation and infrastructure-as-code (IaC) adoption to improve efficiency and reduce operational overhead. <li>Optimize cloud cost management and governance to ensure cost-effective usage of resources. <li>Collaborate with security, compliance, and IT teams to enforce best practices and regulatory requirements. <li>Establish and monitor KPIs, SLAs, and performance metrics to continuously improve service delivery. <li>Provide leadership, mentorship, and development opportunities for a team of cloud engineers and operations professionals. <li>Communicate proactively with customers and internal team members to deliver business value as a part of daily work management. <li>Stay up to date with emerging technologies, trends, and industry best practices to drive innovation. </ul> <p><strong>REQUIRED TECHNICAL SKILLS & QUALIFICATIONS</strong>
-    </p> <ul> <li>Bachelor&apos;s or Master&apos;s degree in Computer Science, Information Technology, or a related field. <li>Certifications in cloud technologies. <li>Industry-accepted certifications in management. <li>Domain knowledge of banking and financial institutions and/or large enterprise IT environment is desirable. <li>10+ years of experience in IT operations with at least 5 years focused on cloud services. <li>Proven experience in managing cloud environments (AWS or Azure) at an enterprise scale. <li>Strong understanding of automation tools (Terraform, Ansible, CloudFormation) and CI/CD pipelines. <li>Hands-on experience with monitoring, logging, and observability tools (Datadog, Splunk, Prometheus, Azure Monitoring, etc.). <li>Deep knowledge of networking, security best practices, and compliance frameworks (ISO, SOC2, NIST, etc.). <li>Strong leadership and team management skills with experience in developing high-performing teams. <li>Excellent problem-solving skills with a proactive approach to operational challenges. <li>Strong communication and stakeholder management skills. </ul> <p><strong>SOFT SKILLS</strong>
-    </p> <ul> <li>Customer-facing skills: Connect, Engage, Listen, Explain, Facilitate, Coordinate, Follow-through. <li>Strong, clear, and concise written and verbal communication skills. <li>Ability to communicate effectively at all levels of the organization. <li>Strong interpersonal skills and ability to foster team collaboration. <li>Ability to negotiate and convince. <li>Ability to identify innovative solutions to problems. <li>Out-of-the-box thinking approach. <li>Ability to conceptualize and articulate new approaches and solutions. <li>Ability to collaborate and communicate to achieve positive outcomes. <li>Detail-oriented. <li>Strong ability to prioritize and meet deadlines. <li>Able to work under stress and conflicting timelines when necessary. <li>Proactive with a strong desire to learn. <li>Self-driven, with high enthusiasm and ambition to succeed. </ul> ]]></description>
-    <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city><![CDATA[ Ottawa ]]></city>
-    <state><![CDATA[ ON ]]></state>
-    <country><![CDATA[ Canada                                                           ]]></country>
-    <category><![CDATA[  ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Hybrid ]]></remotetype>
-    <assignedrecruiter><![CDATA[ Dominic Scaletta ]]></assignedrecruiter>
-  </job>
-  <job>
     <title><![CDATA[ Senior  Software Technical Support Specialist (32305) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ March 24, 2025 ]]></date>
@@ -1406,23 +1538,6 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-  </job>
-  <job>
-    <title><![CDATA[ Product Line Manager - CIP (31639) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ July 10, 2024 ]]></date>
-    <referencenumber><![CDATA[ XN7F1JIM1D ]]></referencenumber>
-    <bhatsid><![CDATA[31639]]></bhatsid>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ <p>The recruitment team at Myticas Consulting is currently seeking an experienced Optical Networking resource who would be interested in working within the CIP vertical. </p> <p>We are looking for a candidate who is currently based in Canada since this is offered on a remote full-time permanent basis and requires the resource to be located within the country.</p> <p>The candidate in this role should have the following requirements:</p> <ul> <li>Highly experienced in CIP Optical Networking Deployment <li>Over 8 Years of Optical Networking expertise <li>Experience with Optical Network deployment and system development <li>Experience with Optical PLM <li>Experience with Operational Support Systems <li>Experience with Open Standards and Concepts </ul> ]]></description>
-    <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city><![CDATA[  ]]></city>
-    <state><![CDATA[  ]]></state>
-    <country><![CDATA[ United States                                                    ]]></country>
-    <category><![CDATA[  ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Remote ]]></remotetype>
-    <assignedrecruiter><![CDATA[ Amanda Messina ]]></assignedrecruiter>
   </job>
   <job>
     <title><![CDATA[  Senior Change Management Specialist (32612) ]]></title>
