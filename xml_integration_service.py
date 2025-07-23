@@ -36,8 +36,17 @@ class XMLIntegrationService:
             job_id = bullhorn_job.get('id', '')
             title = bullhorn_job.get('title', 'Untitled Position')
             
-            # Add Bullhorn job ID in parentheses after title
-            formatted_title = f"{title} ({job_id})"
+            # Extract clean job title - remove any existing job ID or code in parentheses
+            # This handles cases like "Local to MN-Hybrid, Attorney (J.D)(W-4499)" -> "Attorney"
+            # First remove any (W-####) or similar codes
+            clean_title = re.sub(r'\s*\([A-Z]+-?\d+\)\s*', '', title)
+            # Then remove any location prefixes like "Local to XX-Hybrid, "
+            clean_title = re.sub(r'^Local to [A-Z]{2}[^,]*,\s*', '', clean_title)
+            # Remove any other parenthetical content like (J.D)
+            clean_title = re.sub(r'\s*\([^)]+\)\s*', ' ', clean_title).strip()
+            
+            # Add Bullhorn job ID in parentheses after cleaned title
+            formatted_title = f"{clean_title} ({job_id})"
             
             # Always use Myticas Consulting as company name
             company_name = 'Myticas Consulting'

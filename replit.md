@@ -276,6 +276,8 @@ Changelog:
 - July 23, 2025. COMPREHENSIVE SNAPSHOT SYNCHRONIZATION - Resolved persistent duplicate detection issue where monitor snapshots weren't being updated after comprehensive sync. Added robust snapshot synchronization that runs after all monitoring completes, ensuring all monitors have current job data. Fixed scope issue with BullhornService instance. Ottawa monitor now correctly tracks all 53 jobs without repeated "new job" detections
 - July 23, 2025. PRODUCTION XML CLEANUP - Removed 106 duplicate jobs from production XML file (174 → 68 unique jobs), fixed all CDATA formatting issues, reduced file size from 3,508 to 1,374 lines, successfully deployed cleaned file to both web server and schedule automation repositories
 - July 23, 2025. CODE OPTIMIZATION - Fixed FTP service LSP errors (paramiko import scope issues), cleaned up 13 temporary files including test scripts and old backups, no functional changes made to preserve system stability
+- July 23, 2025. TITLE FORMATTING FIX - Updated XML integration service to properly clean job titles by removing location prefixes, job codes, and extra parenthetical content (e.g., "Local to MN-Hybrid, Attorney (J.D)(W-4499)" → "Attorney"), ensuring clean title display in XML feeds
+- July 23, 2025. MANUAL XML CORRECTIONS - Fixed job 32601 title from "Local to MN-Hybrid, Attorney (J.D)(W-4499) (32601)" to "Attorney (32601)", fixed job 32583 title and cleared corrupted location data (city was "ion Technology)", uploaded corrected XML to production
 ```
 
 ## User Preferences
