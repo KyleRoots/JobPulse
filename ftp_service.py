@@ -194,17 +194,18 @@ class FTPService:
             logging.info("SFTP connection test successful")
             return True
             
-        except paramiko.AuthenticationException as e:
-            logging.error(f"SFTP authentication failed: {e}")
-            return False
-        except paramiko.SSHException as e:
-            logging.error(f"SFTP SSH error: {e}")
-            return False
         except Exception as e:
-            logging.error(f"SFTP connection test failed: {e}")
+            # Check if it's a paramiko-specific exception
+            error_type = type(e).__name__
+            if 'AuthenticationException' in error_type:
+                logging.error(f"SFTP authentication failed: {e}")
+            elif 'SSHException' in error_type:
+                logging.error(f"SFTP SSH error: {e}")
+            else:
+                logging.error(f"SFTP connection test failed: {e}")
             return False
     
-    def list_directory(self, directory: str = None) -> list:
+    def list_directory(self, directory: Optional[str] = None) -> list:
         """
         List files in FTP directory
         
