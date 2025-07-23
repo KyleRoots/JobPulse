@@ -461,6 +461,48 @@ class BullhornService:
             logging.error(f"Error getting jobs by query: {str(e)}")
             return []
     
+    def get_job_by_id(self, job_id: int) -> Optional[Dict]:
+        """
+        Get a single job by its ID
+        
+        Args:
+            job_id: The job ID to retrieve
+            
+        Returns:
+            Dict containing job data or None if not found
+        """
+        # Use existing connection if available, skip test_connection to avoid auth throttling
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+            
+        try:
+            # Use the entity endpoint to get a specific job
+            url = f"{self.base_url}entity/JobOrder/{job_id}"
+            params = {
+                'fields': 'id,title,description,employmentType,onSite,address,assignedUsers,responseUser,owner,dateLastModified,customText1,customText2,customText3',
+                'BhRestToken': self.rest_token
+            }
+            
+            logging.info(f"Getting job {job_id} from {url}")
+            response = self.session.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if 'data' in data:
+                    logging.info(f"Successfully retrieved job {job_id}: {data['data'].get('title', 'No title')}")
+                    return data['data']
+                else:
+                    logging.warning(f"Job {job_id} not found in response")
+                    return None
+            else:
+                logging.error(f"Failed to get job {job_id}: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error getting job {job_id}: {str(e)}")
+            return None
+    
     def get_tearsheets(self) -> List[Dict]:
         """
         Get available tearsheets from Bullhorn by testing common IDs
