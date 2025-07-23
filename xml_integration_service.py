@@ -699,7 +699,7 @@ class XMLIntegrationService:
                     if f"({job_id})" in title_text:
                         # Verify the title contains the expected content
                         title_without_id = title_text.replace(f"({job_id})", "").strip()
-                        expected_without_id = expected_title.strip()
+                        expected_without_id = expected_title.replace(f"({job_id})", "").strip()
                         
                         if title_without_id == expected_without_id:
                             self.logger.info(f"Verified job {job_id} update: title matches expected value")
