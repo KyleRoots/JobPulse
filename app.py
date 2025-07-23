@@ -874,17 +874,27 @@ def process_bullhorn_monitors():
                                     for job_id in missing_job_ids:
                                         if job_id in unique_jobs_map:
                                             job = unique_jobs_map[job_id]
-                                            if xml_service.add_job_to_xml(schedule.file_path, job):
+                                            # Update BOTH the main XML file and the scheduled file
+                                            main_xml_path = 'myticas-job-feed.xml'
+                                            if xml_service.add_job_to_xml(main_xml_path, job):
                                                 total_changes += 1
                                                 app.logger.info(f"Added job {job.get('id')}: {job.get('title', 'Unknown')}")
+                                                # Also update scheduled file if different
+                                                if schedule.file_path != main_xml_path:
+                                                    xml_service.add_job_to_xml(schedule.file_path, job)
                                 
                                 # Remove orphaned jobs
                                 if orphaned_job_ids:
                                     app.logger.info(f"Removing {len(orphaned_job_ids)} orphaned jobs from XML")
                                     for job_id in orphaned_job_ids:
-                                        if xml_service.remove_job_from_xml(schedule.file_path, job_id):
+                                        # Update BOTH the main XML file and the scheduled file
+                                        main_xml_path = 'myticas-job-feed.xml'
+                                        if xml_service.remove_job_from_xml(main_xml_path, job_id):
                                             total_changes += 1
                                             app.logger.info(f"Removed orphaned job {job_id}")
+                                            # Also update scheduled file if different
+                                            if schedule.file_path != main_xml_path:
+                                                xml_service.remove_job_from_xml(schedule.file_path, job_id)
                                 
                                 # IMPORTANT: Do NOT process reference numbers during real-time monitoring
                                 # Reference number regeneration should ONLY happen during scheduled automation
@@ -918,9 +928,11 @@ def process_bullhorn_monitors():
                                                     use_sftp=True
                                                 )
                                                 
-                                                original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
+                                                # Upload the main XML file, not the scheduled file
+                                                main_xml_path = 'myticas-job-feed.xml'
+                                                original_filename = 'myticas-job-feed.xml'
                                                 sftp_upload_success = ftp_service.upload_file(
-                                                    local_file_path=schedule.file_path,
+                                                    local_file_path=main_xml_path,
                                                     remote_filename=original_filename
                                                 )
                                                 

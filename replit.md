@@ -281,6 +281,7 @@ Changelog:
 - July 23, 2025. CRITICAL EMAIL NOTIFICATION BUG FIX - Resolved job modification verification failure that prevented email notifications from being sent. Fixed string comparison bug in _verify_job_update_in_xml method where job IDs weren't being removed from expected titles during verification, causing xml_sync_success to remain False and blocking email alerts
 - July 23, 2025. MISSING JOB ADDITIONS RECOVERY - Added get_job_by_id method to BullhornService for individual job retrieval, manually retrieved and added jobs 32655 (Workflow Application Engineer) and 32269 (Development Lead Back-End) that were detected as "Job Added" but missing from XML due to comprehensive sync failure
 - July 23, 2025. XML FILENAME UPDATE - Renamed XML file from "myticas-job-feed-dice.xml" to "myticas-job-feed.xml" and updated all system references including database entries, scheduled files, and code dependencies to use the new filename
+- July 23, 2025. CRITICAL COMPREHENSIVE SYNC FIX - Fixed comprehensive sync updating wrong XML file (was updating scheduled file instead of main XML file), now correctly updates myticas-job-feed.xml and uploads it to SFTP, resolving issue where activity logs showed changes but XML file didn't reflect them
 ```
 
 ## User Preferences
