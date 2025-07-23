@@ -892,6 +892,7 @@ def process_bullhorn_monitors():
                                 # New jobs added during sync get unique reference numbers automatically
                                 if total_changes > 0:
                                     app.logger.info(f"Comprehensive sync completed: {total_changes} changes made (reference numbers preserved)")
+                                    xml_sync_success = True  # Set this for monitor snapshot updates
                                     
                                     # Upload to SFTP if configured
                                     if schedule.auto_upload_ftp:
@@ -988,19 +989,22 @@ def process_bullhorn_monitors():
                                             app.logger.error(f"Error uploading to SFTP: {str(e)}")
                                 else:
                                     app.logger.info(f"No changes needed for {schedule.name} - XML is already in sync")
+                                    xml_sync_success = True  # No changes needed is also a success
                                 
                                 # CRITICAL: Update monitor snapshots after successful comprehensive sync
                                 # This prevents jobs from being repeatedly detected as "new"
-                                if (missing_job_ids or orphaned_job_ids) and xml_sync_success:
+                                if (missing_job_ids or orphaned_job_ids) and total_changes > 0:
                                     app.logger.info("Updating monitor snapshots after comprehensive sync")
                                     
                                     # Re-fetch current jobs from Bullhorn to update all monitor snapshots
                                     for monitor in monitors_processed:
                                         try:
-                                            if monitor.tearsheet_id:
-                                                updated_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+                                            if monitor.tearsheet_id == 0:
+                                                # Query-based monitor
+                                                updated_jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
                                             else:
-                                                updated_jobs = bullhorn_service.get_jobs_by_query(monitor.search_query)
+                                                # Traditional tearsheet-based monitor
+                                                updated_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
                                             
                                             if updated_jobs is not None:
                                                 monitor.last_job_snapshot = json.dumps(updated_jobs)
@@ -1013,6 +1017,33 @@ def process_bullhorn_monitors():
                 
                 except Exception as e:
                     app.logger.error(f"Error during comprehensive XML sync: {str(e)}")
+            
+            # CRITICAL: After all processing, ensure ALL monitor snapshots are in sync
+            # This prevents jobs from being repeatedly detected as "new"
+            if monitors_processed:
+                app.logger.info("Synchronizing all monitor snapshots to prevent duplicate detections")
+                try:
+                    # Create a new Bullhorn service instance for snapshot sync
+                    sync_bullhorn_service = BullhornService()
+                    if sync_bullhorn_service.test_connection():
+                        all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+                        for monitor in all_monitors:
+                            try:
+                                # Re-fetch current jobs for this monitor
+                                if monitor.tearsheet_id == 0:
+                                    current_jobs = sync_bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
+                                else:
+                                    current_jobs = sync_bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+                                
+                                if current_jobs is not None:
+                                    monitor.last_job_snapshot = json.dumps(current_jobs)
+                                    app.logger.info(f"Synchronized {monitor.name} snapshot with {len(current_jobs)} jobs")
+                            except Exception as e:
+                                app.logger.error(f"Error synchronizing snapshot for {monitor.name}: {str(e)}")
+                    else:
+                        app.logger.error("Failed to connect to Bullhorn for snapshot synchronization")
+                except Exception as e:
+                    app.logger.error(f"Error during snapshot synchronization: {str(e)}")
             
             # Commit all changes
             db.session.commit()
