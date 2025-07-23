@@ -960,7 +960,7 @@ def process_bullhorn_monitors():
                                                             }
                                                             
                                                             # Send comprehensive sync notification
-                                                            from email_service import EmailService
+                                                            # EmailService already imported at the top of the file
                                                             email_service = EmailService()
                                                             
                                                             # Create dummy removed jobs data for orphaned jobs
