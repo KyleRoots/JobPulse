@@ -863,8 +863,17 @@ def process_bullhorn_monitors():
                                 # Add missing jobs
                                 if missing_job_ids:
                                     app.logger.info(f"Adding {len(missing_job_ids)} missing jobs to XML")
+                                    # De-duplicate jobs by ID to prevent adding the same job multiple times
+                                    unique_jobs_map = {}
                                     for job in all_current_jobs_from_monitors:
-                                        if str(job.get('id')) in missing_job_ids:
+                                        job_id = str(job.get('id'))
+                                        if job_id and job_id not in unique_jobs_map:
+                                            unique_jobs_map[job_id] = job
+                                    
+                                    # Now add only unique jobs
+                                    for job_id in missing_job_ids:
+                                        if job_id in unique_jobs_map:
+                                            job = unique_jobs_map[job_id]
                                             if xml_service.add_job_to_xml(schedule.file_path, job):
                                                 total_changes += 1
                                                 app.logger.info(f"Added job {job.get('id')}: {job.get('title', 'Unknown')}")

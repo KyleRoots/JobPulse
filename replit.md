@@ -272,6 +272,7 @@ Changelog:
 - July 22, 2025. XML DUPLICATE REMOVAL - Removed 6 duplicate jobs (32607, 32383, 32293, 32266, 32651, 32652) from XML files that were added multiple times with different reference numbers, cleaned both scheduled and main XML files from 74 to 68 unique jobs
 - July 22, 2025. CRITICAL REFERENCE NUMBER FIX - Fixed root cause of duplicate job creation by preserving existing reference numbers during comprehensive sync, preventing same jobs from being added with new reference numbers each time
 - July 22, 2025. DEEP FIX FOR UPDATE DUPLICATES - Fixed update_job_in_xml function that was removing jobs before checking reference numbers, causing updates to generate new reference numbers and create duplicates
+- July 23, 2025. PERMANENT DUPLICATE FIX - Identified and fixed root cause of duplicate job creation in comprehensive sync: jobs appearing in multiple tearsheets were being added multiple times. Implemented de-duplication logic in app.py to ensure each unique job is only added once, regardless of how many tearsheets contain it
 ```
 
 ## User Preferences
