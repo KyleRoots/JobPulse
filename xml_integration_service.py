@@ -128,7 +128,7 @@ class XMLIntegrationService:
             
         except Exception as e:
             self.logger.error(f"Error mapping Bullhorn job to XML: {str(e)}")
-            return None
+            return {}
     
     def _extract_location_from_description(self, description: str) -> Dict:
         """

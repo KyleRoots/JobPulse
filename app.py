@@ -1561,9 +1561,6 @@ def run_schedule_now(schedule_id):
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-        
-    except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error running schedule manually: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1638,7 +1635,7 @@ def upload_file():
             return redirect(url_for('index'))
         
         # Generate unique filename
-        original_filename = secure_filename(file.filename)
+        original_filename = secure_filename(file.filename or 'unknown.xml')
         unique_id = str(uuid.uuid4())[:8]
         input_filename = f"{unique_id}_{original_filename}"
         input_filepath = os.path.join(app.config['UPLOAD_FOLDER'], input_filename)
@@ -1682,15 +1679,15 @@ def upload_file():
                     directory = db.session.query(GlobalSettings).filter_by(setting_key='sftp_directory').first()
                     port = db.session.query(GlobalSettings).filter_by(setting_key='sftp_port').first()
                     
-                    if all([hostname, username, password]):
+                    if all([hostname, username, password]) and all([hostname.setting_value, username.setting_value, password.setting_value]):
                         from ftp_service import FTPService
                         
                         ftp_service = FTPService(
                             hostname=hostname.setting_value,
                             username=username.setting_value,
                             password=password.setting_value,
-                            target_directory=directory.setting_value if directory else "/",
-                            port=int(port.setting_value) if port else 2222,
+                            target_directory=directory.setting_value if directory and directory.setting_value else "/",
+                            port=int(port.setting_value) if port and port.setting_value else 2222,
                             use_sftp=True
                         )
                         
@@ -1970,7 +1967,7 @@ def validate_file():
             return jsonify({'valid': False, 'error': 'Invalid file type'})
         
         # Save temporary file for validation
-        temp_filename = f"temp_{str(uuid.uuid4())[:8]}_{secure_filename(file.filename)}"
+        temp_filename = f"temp_{str(uuid.uuid4())[:8]}_{secure_filename(file.filename or 'unknown.xml')}"
         temp_filepath = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
         file.save(temp_filepath)
         
