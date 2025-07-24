@@ -655,6 +655,67 @@ class XMLIntegrationService:
             self.logger.error(f"Error verifying job update in XML: {str(e)}")
             return False
     
+    def _check_if_update_needed(self, xml_file_path: str, bullhorn_job: Dict) -> bool:
+        """
+        Check if a job update is needed by comparing current XML data with Bullhorn data
+        
+        Args:
+            xml_file_path: Path to the XML file
+            bullhorn_job: Bullhorn job data to compare against
+            
+        Returns:
+            bool: True if update is needed, False if data already matches
+        """
+        try:
+            job_id = str(bullhorn_job.get('id', ''))
+            
+            # Parse existing XML
+            with open(xml_file_path, 'rb') as f:
+                tree = etree.parse(f, self._parser)
+            
+            root = tree.getroot()
+            
+            # Find the job by bhatsid
+            for job in root.xpath('.//job'):
+                bhatsid_elem = job.find('.//bhatsid')
+                if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
+                    # Extract current XML job data for comparison
+                    xml_data = {}
+                    for field in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter']:
+                        elem = job.find(field)
+                        if elem is not None and elem.text:
+                            xml_data[field] = elem.text.strip()
+                        else:
+                            xml_data[field] = ''
+                    
+                    # Map Bullhorn data to XML format for comparison
+                    bullhorn_xml_data = self.map_bullhorn_job_to_xml(bullhorn_job)
+                    if not bullhorn_xml_data:
+                        self.logger.warning(f"Could not map Bullhorn job {job_id} for comparison")
+                        return True  # Assume update needed if we can't compare
+                    
+                    # Compare key fields that can change
+                    comparison_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter']
+                    
+                    for field in comparison_fields:
+                        xml_value = xml_data.get(field, '').strip()
+                        bullhorn_value = str(bullhorn_xml_data.get(field, '')).strip()
+                        
+                        if xml_value != bullhorn_value:
+                            self.logger.info(f"Job {job_id} field '{field}' changed: '{xml_value}' → '{bullhorn_value}'")
+                            return True  # Update needed
+                    
+                    self.logger.debug(f"Job {job_id} data matches - no update needed")
+                    return False  # No update needed
+            
+            # Job not found in XML - this shouldn't happen in update context
+            self.logger.warning(f"Job {job_id} not found in XML for update comparison")
+            return True  # Assume update needed
+            
+        except Exception as e:
+            self.logger.error(f"Error checking if update needed for job {job_id}: {str(e)}")
+            return True  # Assume update needed if comparison fails
+    
     def update_job_in_xml(self, xml_file_path: str, bullhorn_job: Dict) -> bool:
         """
         Update an existing job in the XML file with enhanced error handling and CDATA preservation
@@ -664,13 +725,21 @@ class XMLIntegrationService:
             bullhorn_job: Updated Bullhorn job data dictionary
             
         Returns:
-            bool: True if job was updated successfully, False otherwise
+            bool: True if job was updated successfully, False if no update was needed or failed
         """
         import shutil
         import time
         
         job_id = str(bullhorn_job.get('id', ''))
         job_title = bullhorn_job.get('title', 'Unknown')
+        
+        # CRITICAL: Check if update is actually needed by comparing current XML data with Bullhorn data
+        update_needed = self._check_if_update_needed(xml_file_path, bullhorn_job)
+        if not update_needed:
+            self.logger.debug(f"No update needed for job {job_id} - data already matches")
+            return False  # No update was needed
+        
+        self.logger.info(f"Update needed for job {job_id} - proceeding with XML update")
         
         # Create backup of XML file before modification
         backup_path = f"{xml_file_path}.backup_update_{int(time.time())}"

@@ -916,6 +916,8 @@ def process_bullhorn_monitors():
                                 
                                 if modified_count > 0:
                                     app.logger.info(f"Updated {modified_count} jobs with latest Bullhorn data")
+                                else:
+                                    app.logger.debug(f"No job modifications detected during comprehensive sync")
                                 
                                 # IMPORTANT: Do NOT process reference numbers during real-time monitoring
                                 # Reference number regeneration should ONLY happen during scheduled automation
