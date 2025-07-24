@@ -51,8 +51,8 @@ class XMLIntegrationService:
             # Always use Myticas Consulting as company name
             company_name = 'Myticas Consulting'
             
-            # Extract location information from Bullhorn structured fields only
-            # Use the address object for location data
+            # Extract location information ONLY from Bullhorn structured address fields
+            # Never fallback to job description parsing for location data
             address = bullhorn_job.get('address', {})
             city = address.get('city', '') if address else ''
             state = address.get('state', '') if address else ''
@@ -130,67 +130,7 @@ class XMLIntegrationService:
             self.logger.error(f"Error mapping Bullhorn job to XML: {str(e)}")
             return {}
     
-    def _extract_location_from_description(self, description: str) -> Dict:
-        """
-        Extract city and state from job description text
-        
-        Args:
-            description: Job description text
-            
-        Returns:
-            Dict: Dictionary with 'city' and 'state' keys
-        """
-        import re
-        
-        # Strip HTML tags first for better pattern matching
-        clean_text = re.sub(r'<[^>]*>', '', description)
-        
-        # Common patterns for location in job descriptions (ordered from most specific to least specific)
-        patterns = [
-            r'Location:\s*([^,]+),\s*([A-Z]{2})\b',  # "Location: Lansing, MI"
-            r'experience at\s+([A-Za-z]+(?:\s+[A-Za-z]+)*),\s*([A-Z]{2})\b',  # "experience at Waukegan, IL"
-            r'located in\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "located in Lansing, MI"
-            r'client in\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "client in Springfield, IL"
-            r'based in\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "based in Chicago, IL"
-            r'office in\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "office in Denver, CO"
-            r'at\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\s*\(',  # "at Waukegan, IL (Hybrid"
-            r'at\s+([A-Za-z\s]{2,30}),\s*([A-Z]{2})\b',  # "at Waukegan, IL"
-            r'\b([A-Za-z\s]+),\s*([A-Z]{2})\b(?=\.\s|,\s|\s\()',  # "Springfield, IL." or "Springfield, IL ("
-            r'([A-Za-z\s]+),\s*(Michigan|California|Texas|Florida|New York|Illinois|Pennsylvania|Ohio|Georgia|North Carolina|New Jersey|Virginia|Washington|Arizona|Massachusetts|Tennessee|Indiana|Maryland|Missouri|Wisconsin|Colorado|Minnesota|South Carolina|Alabama|Louisiana|Kentucky|Oregon|Oklahoma|Connecticut|Utah|Iowa|Nevada|Arkansas|Mississippi|Kansas|New Mexico|Nebraska|West Virginia|Idaho|Hawaii|New Hampshire|Maine|Montana|Rhode Island|Delaware|South Dakota|North Dakota|Alaska|Vermont|Wyoming)\b'  # Full state names
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, clean_text, re.IGNORECASE)
-            if match:
-                city = match.group(1).strip()
-                state_raw = match.group(2).strip()
-                
-                # Convert state abbreviations to full names
-                state_map = {
-                    'MI': 'Michigan', 'CA': 'California', 'TX': 'Texas', 'FL': 'Florida',
-                    'NY': 'New York', 'IL': 'Illinois', 'PA': 'Pennsylvania', 'OH': 'Ohio',
-                    'GA': 'Georgia', 'NC': 'North Carolina', 'NJ': 'New Jersey', 'VA': 'Virginia',
-                    'WA': 'Washington', 'AZ': 'Arizona', 'MA': 'Massachusetts', 'TN': 'Tennessee',
-                    'IN': 'Indiana', 'MD': 'Maryland', 'MO': 'Missouri', 'WI': 'Wisconsin',
-                    'CO': 'Colorado', 'MN': 'Minnesota', 'SC': 'South Carolina', 'AL': 'Alabama',
-                    'LA': 'Louisiana', 'KY': 'Kentucky', 'OR': 'Oregon', 'OK': 'Oklahoma',
-                    'CT': 'Connecticut', 'UT': 'Utah', 'IA': 'Iowa', 'NV': 'Nevada',
-                    'AR': 'Arkansas', 'MS': 'Mississippi', 'KS': 'Kansas', 'NM': 'New Mexico',
-                    'NE': 'Nebraska', 'WV': 'West Virginia', 'ID': 'Idaho', 'HI': 'Hawaii',
-                    'NH': 'New Hampshire', 'ME': 'Maine', 'MT': 'Montana', 'RI': 'Rhode Island',
-                    'DE': 'Delaware', 'SD': 'South Dakota', 'ND': 'North Dakota', 'AK': 'Alaska',
-                    'VT': 'Vermont', 'WY': 'Wyoming'
-                }
-                
-                # Convert abbreviation to full name if needed
-                if state_raw.upper() in state_map:
-                    state = state_map[state_raw.upper()]
-                else:
-                    state = state_raw
-                
-                return {'city': city, 'state': state}
-        
-        return {}
+
     
     def _map_employment_type(self, employment_type: str) -> str:
         """Map Bullhorn employment type to XML job type"""
