@@ -921,7 +921,24 @@ def process_bullhorn_monitors():
                                         if xml_service.update_job_in_xml(main_xml_path, job):
                                             modified_count += 1
                                             total_changes += 1
-                                            app.logger.info(f"Updated job {job_id}: {job.get('title', 'Unknown')}")
+                                            
+                                            # Capture field changes for detailed notifications
+                                            field_changes = getattr(xml_service, '_last_field_changes', {})
+                                            change_details = []
+                                            for field, change_info in field_changes.items():
+                                                change_details.append(f"{change_info['display_name']}: '{change_info['old_value']}' → '{change_info['new_value']}'")
+                                            
+                                            app.logger.info(f"Updated job {job_id}: {job.get('title', 'Unknown')} - Changes: {', '.join(change_details)}")
+                                            
+                                            # Store modification details for email notifications
+                                            if 'modified_jobs' not in xml_sync_summary:
+                                                xml_sync_summary['modified_jobs'] = []
+                                            xml_sync_summary['modified_jobs'].append({
+                                                'id': job_id,
+                                                'title': job.get('title', 'Unknown'),
+                                                'field_changes': field_changes
+                                            })
+                                            
                                             # Also update scheduled file if different
                                             if schedule.file_path != main_xml_path:
                                                 xml_service.update_job_in_xml(schedule.file_path, job)
@@ -1016,12 +1033,15 @@ def process_bullhorn_monitors():
                                                             for job_id in orphaned_job_ids:
                                                                 removed_jobs_data.append({'id': job_id, 'title': f'Job {job_id} (removed)', 'status': 'Removed'})
                                                             
+                                                            # Include modified jobs with field changes from xml_sync_summary
+                                                            modified_jobs_data = xml_sync_summary.get('modified_jobs', [])
+                                                            
                                                             email_sent = email_service.send_bullhorn_notification(
                                                                 to_email=global_email.setting_value,
                                                                 monitor_name="Comprehensive Sync - All Monitors",
                                                                 added_jobs=added_jobs_data,
                                                                 removed_jobs=removed_jobs_data,
-                                                                modified_jobs=[],
+                                                                modified_jobs=modified_jobs_data,
                                                                 summary=email_summary,
                                                                 xml_sync_info={'status': 'success', 'sftp_upload': True, 'file': original_filename}
                                                             )

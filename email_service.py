@@ -333,7 +333,7 @@ class EmailService:
                 for job in modified_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    changes = job.get('changes', [])
+                    field_changes = job.get('field_changes', {})
                     html_content += f"""
                     <li style="margin-bottom: 15px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
                         <div style="margin-bottom: 4px;">
@@ -345,15 +345,27 @@ class EmailService:
                             </span>
                         </div>
                         <div style="margin-bottom: 4px;">
-                            <small style="color: #6c757d; font-weight: bold;">Changes:</small>
+                            <small style="color: #6c757d; font-weight: bold;">Field Changes:</small>
                         </div>
                         <ul style="margin-top: 5px; padding-left: 20px;">
                     """
-                    for change in changes:
-                        field = change['field']
-                        from_val = change['from']
-                        to_val = change['to']
-                        html_content += f"<li style='margin-bottom: 2px;'><strong>{field}:</strong> {from_val} → {to_val}</li>"
+                    
+                    if field_changes:
+                        for field, change_info in field_changes.items():
+                            display_name = change_info.get('display_name', field)
+                            old_value = change_info.get('old_value', '(empty)')
+                            new_value = change_info.get('new_value', '(empty)')
+                            html_content += f"""
+                            <li style='margin-bottom: 4px; padding: 4px; background-color: #fff; border-radius: 3px; border-left: 3px solid #fd7e14;'>
+                                <strong style="color: #856404;">{display_name}:</strong> 
+                                <span style="color: #dc3545; text-decoration: line-through;">{old_value}</span> 
+                                → 
+                                <span style="color: #28a745; font-weight: bold;">{new_value}</span>
+                            </li>
+                            """
+                    else:
+                        html_content += "<li style='color: #6c757d; font-style: italic;'>No specific field changes recorded</li>"
+                    
                     html_content += "</ul></li>"
                 
                 html_content += "</ul></div>"
