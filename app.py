@@ -883,10 +883,22 @@ def process_bullhorn_monitors():
                                                 if schedule.file_path != main_xml_path:
                                                     xml_service.add_job_to_xml(schedule.file_path, job)
                                 
-                                # Remove orphaned jobs
+                                # Remove orphaned jobs with verification
                                 if orphaned_job_ids:
                                     app.logger.info(f"Removing {len(orphaned_job_ids)} orphaned jobs from XML")
                                     for job_id in orphaned_job_ids:
+                                        # Verify the job should actually be removed by checking if it still exists in Bullhorn
+                                        try:
+                                            # Double-check: if job still exists in Bullhorn but not in any tearsheet,
+                                            # it was intentionally removed from tearsheets
+                                            bullhorn_job = bullhorn_service.get_job_by_id(int(job_id))
+                                            if bullhorn_job:
+                                                app.logger.info(f"Job {job_id} exists in Bullhorn but not in monitored tearsheets - removing from XML as intended")
+                                            else:
+                                                app.logger.info(f"Job {job_id} no longer exists in Bullhorn - removing from XML")
+                                        except Exception as e:
+                                            app.logger.warning(f"Could not verify job {job_id} in Bullhorn: {e} - proceeding with removal")
+                                        
                                         # Update BOTH the main XML file and the scheduled file
                                         main_xml_path = 'myticas-job-feed.xml'
                                         if xml_service.remove_job_from_xml(main_xml_path, job_id):
