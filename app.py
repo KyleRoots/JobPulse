@@ -898,16 +898,24 @@ def process_bullhorn_monitors():
                                 
                                 # Update modified jobs - check for existing jobs that need field updates
                                 app.logger.info("Checking for job modifications in comprehensive sync")
+                                modified_count = 0
                                 for job in all_current_jobs_from_monitors:
                                     job_id = str(job.get('id'))
                                     if job_id in xml_job_ids:  # Job exists in XML, check if it needs updating
                                         main_xml_path = 'myticas-job-feed.xml'
+                                        # Log the job data being checked
+                                        if job_id == '32658':  # Special logging for our problem job
+                                            app.logger.info(f"Checking job 32658 for updates - City: {job.get('address', {}).get('city')}")
                                         if xml_service.update_job_in_xml(main_xml_path, job):
+                                            modified_count += 1
                                             total_changes += 1
                                             app.logger.info(f"Updated job {job_id}: {job.get('title', 'Unknown')}")
                                             # Also update scheduled file if different
                                             if schedule.file_path != main_xml_path:
                                                 xml_service.update_job_in_xml(schedule.file_path, job)
+                                
+                                if modified_count > 0:
+                                    app.logger.info(f"Updated {modified_count} jobs with latest Bullhorn data")
                                 
                                 # IMPORTANT: Do NOT process reference numbers during real-time monitoring
                                 # Reference number regeneration should ONLY happen during scheduled automation
