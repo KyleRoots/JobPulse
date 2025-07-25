@@ -20,4 +20,7 @@ dependencies = [
     "flask-login>=0.6.3",
     "oauthlib>=3.3.1",
     "pyjwt>=2.10.1",
+    "openai>=1.97.1",
+    "pandas>=2.3.1",
+    "openpyxl>=3.1.5",
 ]

@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 from lxml import etree
 from xml_processor import XMLProcessor
+from job_classification_service import JobClassificationService
 
 
 class XMLIntegrationService:
@@ -18,6 +19,7 @@ class XMLIntegrationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.xml_processor = XMLProcessor()
+        self.job_classifier = JobClassificationService()
         self._parser = etree.XMLParser(strip_cdata=False, recover=True)
         # Store field changes for notifications
         self._last_field_changes = {}
@@ -99,6 +101,12 @@ class XMLIntegrationService:
             # Extract job ID from formatted title for bhatsid
             bhatsid = self.xml_processor.extract_job_id_from_title(formatted_title)
             
+            # Use AI to classify the job based on title and description
+            classification = self.job_classifier.classify_job(clean_title, description)
+            job_function = classification.get('job_function', '')
+            job_industry = classification.get('job_industry', '')
+            seniority_level = classification.get('seniority_level', '')
+            
             # Helper function to clean field values
             def clean_field_value(value):
                 """Convert None to empty string, ensure string type"""
@@ -122,7 +130,10 @@ class XMLIntegrationService:
                 'category': '',  # Empty as per template
                 'apply_email': clean_field_value('apply@myticas.com'),
                 'remotetype': clean_field_value(remote_type),
-                'assignedrecruiter': clean_field_value(assigned_recruiter)
+                'assignedrecruiter': clean_field_value(assigned_recruiter),
+                'jobfunction': clean_field_value(job_function),
+                'jobindustries': clean_field_value(job_industry),
+                'senoritylevel': clean_field_value(seniority_level)
             }
             
             self.logger.info(f"Mapped Bullhorn job {job_id} ({title}) to XML format")
@@ -682,9 +693,9 @@ class XMLIntegrationService:
             for job in root.xpath('.//job'):
                 bhatsid_elem = job.find('.//bhatsid')
                 if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
-                    # Extract current XML job data for comparison
+                    # Extract current XML job data for comparison (including AI classification fields)
                     xml_data = {}
-                    for field in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter']:
+                    for field in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 'jobfunction', 'jobindustries', 'senoritylevel']:
                         elem = job.find(field)
                         if elem is not None and elem.text:
                             xml_data[field] = elem.text.strip()
@@ -697,8 +708,8 @@ class XMLIntegrationService:
                         self.logger.warning(f"Could not map Bullhorn job {job_id} for comparison")
                         return True, {}  # Assume update needed if we can't compare
                     
-                    # Compare key fields that can change and track differences
-                    comparison_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter']
+                    # Compare key fields that can change and track differences (including AI classification fields)
+                    comparison_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 'jobfunction', 'jobindustries', 'senoritylevel']
                     changes_detected = False
                     
                     # Field display names for user-friendly notifications
@@ -709,7 +720,10 @@ class XMLIntegrationService:
                         'country': 'Country',
                         'jobtype': 'Employment Type',
                         'remotetype': 'Remote Type',
-                        'assignedrecruiter': 'Assigned Recruiter'
+                        'assignedrecruiter': 'Assigned Recruiter',
+                        'jobfunction': 'Job Function',
+                        'jobindustries': 'Job Industry',
+                        'senoritylevel': 'Seniority Level'
                     }
                     
                     for field in comparison_fields:

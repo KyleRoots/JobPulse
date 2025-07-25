@@ -2,7 +2,7 @@ modules = ["python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["openssl", "postgresql", "xcodebuild", "zlib"]
+packages = ["glibcLocales", "openssl", "postgresql", "xcodebuild", "zlib"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -34,4 +34,4 @@ localPort = 5000
 externalPort = 80
 
 [agent]
-integrations = ["python_log_in_with_replit==1.0.0", "python_database==1.0.0", "python_sendgrid==1.0.0"]
+integrations = ["python_openai==1.0.0", "python_sendgrid==1.0.0", "python_log_in_with_replit==1.0.0", "python_database==1.0.0"]
