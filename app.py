@@ -799,8 +799,15 @@ def process_bullhorn_monitors():
                     monitor.calculate_next_check()
             
             # After processing all individual monitors, perform comprehensive XML sync
-            if all_current_jobs_from_monitors and monitors_processed:
-                app.logger.info(f"Starting comprehensive XML sync with {len(all_current_jobs_from_monitors)} total jobs from {len(monitors_processed)} monitors")
+            # CRITICAL: Always run comprehensive sync when monitors are processed, even with no jobs
+            if monitors_processed:
+                total_jobs = len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0
+                app.logger.info(f"Starting comprehensive XML sync with {total_jobs} total jobs from {len(monitors_processed)} monitors")
+                
+                # Handle edge case: if no jobs from monitors, this means all tearsheets are empty
+                # In this case, we should remove ALL jobs from XML (complete cleanup)
+                if total_jobs == 0:
+                    app.logger.warning("No jobs found in any monitored tearsheet - this may indicate all tearsheets are empty or API issues")
                 
                 try:
                     # Find all active schedules that need XML updates
@@ -847,16 +854,50 @@ def process_bullhorn_monitors():
                                     app.logger.error(f"Error parsing XML file {schedule.file_path}: {str(e)}")
                                     continue
                                 
-                                # Get all job IDs from Bullhorn
-                                bullhorn_job_ids = {str(job.get('id')) for job in all_current_jobs_from_monitors if job.get('id')}
+                                # Get all job IDs from Bullhorn (handle empty list case)
+                                bullhorn_job_ids = set()
+                                if all_current_jobs_from_monitors:
+                                    bullhorn_job_ids = {str(job.get('id')) for job in all_current_jobs_from_monitors if job.get('id')}
                                 
-                                # Find differences
-                                missing_job_ids = bullhorn_job_ids - xml_job_ids
-                                orphaned_job_ids = xml_job_ids - bullhorn_job_ids
+                                # Find differences - enhanced logic
+                                missing_job_ids = bullhorn_job_ids - xml_job_ids  # Jobs in Bullhorn but not in XML
+                                orphaned_job_ids = xml_job_ids - bullhorn_job_ids  # Jobs in XML but not in any tearsheet
                                 
                                 app.logger.info(f"Comprehensive sync analysis for {schedule.name}: "
                                               f"{len(xml_job_ids)} in XML, {len(bullhorn_job_ids)} in Bullhorn, "
                                               f"{len(missing_job_ids)} missing, {len(orphaned_job_ids)} orphaned")
+                                
+                                # CRITICAL: Log detailed job IDs for troubleshooting
+                                if orphaned_job_ids:
+                                    app.logger.info(f"Orphaned job IDs detected: {sorted(list(orphaned_job_ids))}")
+                                    
+                                    # Additional safety check: cross-reference with monitor snapshots
+                                    confirmed_orphans = set()
+                                    for job_id in orphaned_job_ids:
+                                        found_in_monitor = False
+                                        for monitor in monitors_processed:
+                                            if monitor.last_job_snapshot:
+                                                try:
+                                                    snapshot_jobs = json.loads(monitor.last_job_snapshot)
+                                                    for job in snapshot_jobs:
+                                                        if str(job.get('id')) == job_id:
+                                                            found_in_monitor = True
+                                                            break
+                                                except:
+                                                    continue
+                                            if found_in_monitor:
+                                                break
+                                        
+                                        if not found_in_monitor:
+                                            confirmed_orphans.add(job_id)
+                                            app.logger.info(f"Job {job_id} confirmed orphaned - not in any monitor snapshot")
+                                        else:
+                                            app.logger.warning(f"Job {job_id} found in monitor snapshot but not in current tearsheet data - potential sync issue")
+                                    
+                                    # Update orphaned_job_ids to only confirmed orphans for safer removal
+                                    if confirmed_orphans != orphaned_job_ids:
+                                        app.logger.info(f"Refined orphaned jobs list: {len(confirmed_orphans)} confirmed vs {len(orphaned_job_ids)} detected")
+                                        orphaned_job_ids = confirmed_orphans
                                 
                                 total_changes = 0
                                 
@@ -883,30 +924,68 @@ def process_bullhorn_monitors():
                                                 if schedule.file_path != main_xml_path:
                                                     xml_service.add_job_to_xml(schedule.file_path, job)
                                 
-                                # Remove orphaned jobs with verification
+                                # Remove orphaned jobs with enhanced verification
                                 if orphaned_job_ids:
                                     app.logger.info(f"Removing {len(orphaned_job_ids)} orphaned jobs from XML")
+                                    
                                     for job_id in orphaned_job_ids:
-                                        # Verify the job should actually be removed by checking if it still exists in Bullhorn
-                                        try:
-                                            # Double-check: if job still exists in Bullhorn but not in any tearsheet,
-                                            # it was intentionally removed from tearsheets
-                                            bullhorn_job = bullhorn_service.get_job_by_id(int(job_id))
-                                            if bullhorn_job:
-                                                app.logger.info(f"Job {job_id} exists in Bullhorn but not in monitored tearsheets - removing from XML as intended")
-                                            else:
-                                                app.logger.info(f"Job {job_id} no longer exists in Bullhorn - removing from XML")
-                                        except Exception as e:
-                                            app.logger.warning(f"Could not verify job {job_id} in Bullhorn: {e} - proceeding with removal")
+                                        should_remove = False
+                                        removal_reason = ""
                                         
-                                        # Update BOTH the main XML file and the scheduled file
-                                        main_xml_path = 'myticas-job-feed.xml'
-                                        if xml_service.remove_job_from_xml(main_xml_path, job_id):
-                                            total_changes += 1
-                                            app.logger.info(f"Removed orphaned job {job_id}")
+                                        try:
+                                            # Enhanced verification: check if job still exists in Bullhorn
+                                            bullhorn_job = bullhorn_service.get_job_by_id(int(job_id))
+                                            
+                                            if bullhorn_job:
+                                                # Job exists in Bullhorn but not in any monitored tearsheet
+                                                is_open = bullhorn_job.get('isOpen', False)
+                                                status = bullhorn_job.get('status', 'Unknown')
+                                                
+                                                if not is_open or status.lower() in ['closed', 'inactive', 'cancelled']:
+                                                    should_remove = True
+                                                    removal_reason = f"Job {job_id} is closed/inactive in Bullhorn (status: {status}, isOpen: {is_open})"
+                                                else:
+                                                    should_remove = True
+                                                    removal_reason = f"Job {job_id} exists in Bullhorn but removed from all monitored tearsheets"
+                                                    
+                                                app.logger.info(f"Job {job_id} verification: {removal_reason}")
+                                            else:
+                                                # Job no longer exists in Bullhorn at all
+                                                should_remove = True
+                                                removal_reason = f"Job {job_id} no longer exists in Bullhorn - deleted/archived"
+                                                app.logger.info(removal_reason)
+                                                
+                                        except Exception as e:
+                                            # If we can't verify in Bullhorn, still remove from XML since it's not in any tearsheet
+                                            should_remove = True
+                                            removal_reason = f"Could not verify job {job_id} in Bullhorn ({e}) - removing since not in any tearsheet"
+                                            app.logger.warning(removal_reason)
+                                        
+                                        if should_remove:
+                                            # Update BOTH the main XML file and the scheduled file
+                                            main_xml_path = 'myticas-job-feed.xml'
+                                            main_removed = xml_service.remove_job_from_xml(main_xml_path, job_id)
+                                            
                                             # Also update scheduled file if different
+                                            sched_removed = True
                                             if schedule.file_path != main_xml_path:
-                                                xml_service.remove_job_from_xml(schedule.file_path, job_id)
+                                                sched_removed = xml_service.remove_job_from_xml(schedule.file_path, job_id)
+                                            
+                                            if main_removed and sched_removed:
+                                                total_changes += 1
+                                                app.logger.info(f"✅ Removed orphaned job {job_id}: {removal_reason}")
+                                                
+                                                # Log detailed removal activity
+                                                activity = BullhornActivity(
+                                                    monitor_id=monitors_processed[0].id if monitors_processed else None,
+                                                    activity_type='job_removed',
+                                                    details=f"Orphaned job removal: {removal_reason}"
+                                                )
+                                                db.session.add(activity)
+                                            else:
+                                                app.logger.error(f"❌ Failed to remove orphaned job {job_id} from XML files")
+                                        else:
+                                            app.logger.warning(f"⚠️ Skipping removal of job {job_id} - verification failed")
                                 
                                 # Update modified jobs - check for existing jobs that need field updates
                                 app.logger.info("Checking for job modifications in comprehensive sync")
