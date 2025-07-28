@@ -2204,7 +2204,6 @@ def bullhorn_dashboard():
                          monitor_job_counts=monitor_job_counts)
 
 @app.route('/api/system/health')
-@login_required
 def system_health_check():
     """System health check endpoint to detect scheduler timing issues"""
     try:
