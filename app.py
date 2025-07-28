@@ -106,8 +106,27 @@ def process_scheduled_files():
     """Process all scheduled files that are due for processing"""
     with app.app_context():
         try:
-            # Get all active schedules that are due
             now = datetime.utcnow()
+            
+            # Health check: Detect overdue schedules to prevent timing issues
+            overdue_schedules = ScheduleConfig.query.filter(
+                ScheduleConfig.is_active == True,
+                ScheduleConfig.next_run < now - timedelta(hours=1)
+            ).all()
+            
+            if overdue_schedules:
+                app.logger.warning(f"HEALTH CHECK: Found {len(overdue_schedules)} schedules overdue by >1 hour. Auto-correcting timing...")
+                for schedule in overdue_schedules:
+                    # Reset to next normal interval
+                    if schedule.interval_type == 'daily':
+                        schedule.next_run = now + timedelta(days=1)
+                    elif schedule.interval_type == 'weekly':
+                        schedule.next_run = now + timedelta(weeks=1)
+                    else:
+                        schedule.next_run = now + timedelta(hours=1)
+                db.session.commit()
+            
+            # Get all active schedules that are due
             due_schedules = ScheduleConfig.query.filter(
                 ScheduleConfig.is_active == True,
                 ScheduleConfig.next_run <= now
@@ -333,6 +352,18 @@ def process_bullhorn_monitors():
     with app.app_context():
         try:
             current_time = datetime.utcnow()
+            
+            # Health check: Detect overdue monitors to prevent timing issues
+            overdue_monitors = BullhornMonitor.query.filter(
+                BullhornMonitor.is_active == True,
+                BullhornMonitor.next_check < current_time - timedelta(minutes=10)
+            ).all()
+            
+            if overdue_monitors:
+                app.logger.warning(f"HEALTH CHECK: Found {len(overdue_monitors)} monitors overdue by >10 minutes. Auto-correcting timing...")
+                for monitor in overdue_monitors:
+                    monitor.next_check = current_time + timedelta(minutes=5)
+                db.session.commit()
             
             # Get all active monitors that are due for checking
             due_monitors = BullhornMonitor.query.filter(
@@ -2172,6 +2203,118 @@ def bullhorn_dashboard():
                          bullhorn_connected=bullhorn_connected,
                          monitor_job_counts=monitor_job_counts)
 
+@app.route('/api/system/health')
+@login_required
+def system_health_check():
+    """System health check endpoint to detect scheduler timing issues"""
+    try:
+        current_time = datetime.utcnow()
+        
+        # Check Bullhorn monitors for timing issues
+        overdue_monitors = BullhornMonitor.query.filter(
+            BullhornMonitor.is_active == True,
+            BullhornMonitor.next_check < current_time - timedelta(minutes=10)
+        ).all()
+        
+        # Check scheduled files for timing issues
+        overdue_schedules = ScheduleConfig.query.filter(
+            ScheduleConfig.is_active == True,
+            ScheduleConfig.next_run < current_time - timedelta(hours=1)
+        ).all()
+        
+        # Calculate overall health status
+        health_status = "healthy"
+        issues = []
+        
+        if overdue_monitors:
+            health_status = "warning"
+            issues.append(f"{len(overdue_monitors)} Bullhorn monitors overdue >10 minutes")
+        
+        if overdue_schedules:
+            health_status = "critical" if health_status == "warning" else "warning"
+            issues.append(f"{len(overdue_schedules)} schedules overdue >1 hour")
+        
+        # Get active monitor and schedule counts
+        active_monitors = BullhornMonitor.query.filter_by(is_active=True).count()
+        active_schedules = ScheduleConfig.query.filter_by(is_active=True).count()
+        
+        return jsonify({
+            'success': True,
+            'health_status': health_status,
+            'timestamp': current_time.isoformat(),
+            'issues': issues,
+            'system_info': {
+                'active_monitors': active_monitors,
+                'active_schedules': active_schedules,
+                'overdue_monitors': len(overdue_monitors),
+                'overdue_schedules': len(overdue_schedules)
+            },
+            'next_actions': {
+                'monitors_next_run': BullhornMonitor.query.filter_by(is_active=True).order_by(BullhornMonitor.next_check).first().next_check.isoformat() if active_monitors > 0 else None,
+                'schedules_next_run': ScheduleConfig.query.filter_by(is_active=True).order_by(ScheduleConfig.next_run).first().next_run.isoformat() if active_schedules > 0 else None
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'health_status': 'error',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        })
+
+@app.route('/api/system/fix-timing', methods=['POST'])
+@login_required
+def fix_system_timing():
+    """Admin endpoint to manually fix scheduler timing issues"""
+    try:
+        current_time = datetime.utcnow()
+        fixed_items = []
+        
+        # Fix overdue Bullhorn monitors
+        overdue_monitors = BullhornMonitor.query.filter(
+            BullhornMonitor.is_active == True,
+            BullhornMonitor.next_check < current_time - timedelta(minutes=10)
+        ).all()
+        
+        for monitor in overdue_monitors:
+            old_time = monitor.next_check
+            monitor.next_check = current_time + timedelta(minutes=5)
+            fixed_items.append(f"Monitor '{monitor.name}': {old_time} → {monitor.next_check}")
+        
+        # Fix overdue schedules
+        overdue_schedules = ScheduleConfig.query.filter(
+            ScheduleConfig.is_active == True,
+            ScheduleConfig.next_run < current_time - timedelta(hours=1)
+        ).all()
+        
+        for schedule in overdue_schedules:
+            old_time = schedule.next_run
+            if schedule.interval_type == 'daily':
+                schedule.next_run = current_time + timedelta(days=1)
+            elif schedule.interval_type == 'weekly':
+                schedule.next_run = current_time + timedelta(weeks=1)
+            else:
+                schedule.next_run = current_time + timedelta(hours=1)
+            fixed_items.append(f"Schedule '{schedule.name}': {old_time} → {schedule.next_run}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Fixed timing for {len(fixed_items)} items',
+            'fixed_items': fixed_items,
+            'timestamp': current_time.isoformat()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        })
+
 @app.route('/api/bullhorn/activities')
 @login_required
 def get_recent_activities():
@@ -2204,6 +2347,7 @@ def get_recent_activities():
 def get_monitor_status():
     """Get updated monitor information for auto-refresh"""
     monitors = BullhornMonitor.query.filter_by(is_active=True).order_by(BullhornMonitor.name).all()
+    current_time = datetime.utcnow()
     
     monitors_data = []
     for monitor in monitors:
@@ -2216,6 +2360,13 @@ def get_monitor_status():
             except:
                 job_count = 0
         
+        # Calculate if monitor is overdue (health check)
+        is_overdue = False
+        overdue_minutes = 0
+        if monitor.next_check and monitor.next_check < current_time:
+            overdue_minutes = int((current_time - monitor.next_check).total_seconds() / 60)
+            is_overdue = overdue_minutes > 10  # Consider overdue if >10 minutes late
+        
         monitors_data.append({
             'id': monitor.id,
             'name': monitor.name,
@@ -2223,7 +2374,9 @@ def get_monitor_status():
             'next_check': monitor.next_check.strftime('%Y-%m-%d %H:%M') if monitor.next_check else 'Not scheduled',
             'job_count': job_count,
             'is_active': monitor.is_active,
-            'check_interval_minutes': monitor.check_interval_minutes
+            'check_interval_minutes': monitor.check_interval_minutes,
+            'is_overdue': is_overdue,
+            'overdue_minutes': overdue_minutes
         })
     
     return jsonify({

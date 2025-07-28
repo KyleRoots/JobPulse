@@ -37,6 +37,19 @@
             z-index: 10;
             border-bottom: 2px solid var(--bs-border-color);
         }
+        /* Overdue monitor styling */
+        .monitor-card.overdue {
+            border-left: 4px solid var(--bs-danger) !important;
+            background: rgba(220, 53, 69, 0.1);
+        }
+        .overdue-indicator {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -175,6 +188,10 @@
                                                     {% if monitor_job_counts[monitor.id] is not none %}
                                                         <span class="badge bg-info job-count-badge">{{ monitor_job_counts[monitor.id] }} jobs</span>
                                                     {% endif %}
+                                                    <!-- Overdue indicator will be added by JavaScript -->
+                                                    <span class="badge bg-danger overdue-indicator" style="display: none;">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i>OVERDUE
+                                                    </span>
                                                 </div>
                                             </div>
                                             <p class="card-text text-muted">
@@ -412,6 +429,72 @@
                 `;
             });
         }
+
+        // Health monitoring and overdue detection
+        function checkSystemHealth() {
+            fetch('/api/system/health')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update page title with health status
+                        const healthIndicator = document.querySelector('.display-4');
+                        if (data.health_status !== 'healthy' && healthIndicator) {
+                            healthIndicator.innerHTML = `
+                                <i class="fas fa-building me-3"></i>
+                                ATS Monitoring 
+                                <span class="badge bg-warning ms-2">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Health Issues
+                                </span>
+                            `;
+                        }
+                    }
+                })
+                .catch(error => console.log('Health check failed:', error));
+        }
+
+        function updateMonitorStatus() {
+            fetch('/api/bullhorn/monitors')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.monitors) {
+                        data.monitors.forEach(monitor => {
+                            const monitorCard = document.querySelector(`[data-monitor-id="${monitor.id}"]`);
+                            if (monitorCard) {
+                                const overdueIndicator = monitorCard.querySelector('.overdue-indicator');
+                                
+                                if (monitor.is_overdue) {
+                                    // Show overdue indicator and style card
+                                    overdueIndicator.style.display = 'inline';
+                                    monitorCard.classList.add('overdue');
+                                    overdueIndicator.title = `Overdue by ${monitor.overdue_minutes} minutes`;
+                                } else {
+                                    // Hide overdue indicator and remove styling
+                                    overdueIndicator.style.display = 'none';
+                                    monitorCard.classList.remove('overdue');
+                                }
+                                
+                                // Update job count
+                                const jobCountBadge = monitorCard.querySelector('.job-count-badge');
+                                if (jobCountBadge && monitor.job_count !== null) {
+                                    jobCountBadge.textContent = `${monitor.job_count} jobs`;
+                                }
+                            }
+                        });
+                    }
+                })
+                .catch(error => console.log('Monitor status update failed:', error));
+        }
+
+        // Initialize health monitoring
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial checks
+            checkSystemHealth();
+            updateMonitorStatus();
+            
+            // Periodic monitoring (every 2 minutes)
+            setInterval(checkSystemHealth, 120000);
+            setInterval(updateMonitorStatus, 120000);
+        });
 
     </script>
 </body>
