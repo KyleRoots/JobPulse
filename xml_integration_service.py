@@ -158,6 +158,53 @@ class XMLIntegrationService:
         else:
             return 'Contract'  # Default fallback
     
+    def _validate_job_data(self, bullhorn_job: Dict) -> bool:
+        """Validate that essential job data is present"""
+        try:
+            job_id = bullhorn_job.get('id')
+            title = bullhorn_job.get('title')
+            
+            if not job_id or not title:
+                self.logger.error(f"Missing essential job data - ID: {job_id}, Title: {title}")
+                return False
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Error validating job data: {str(e)}")
+            return False
+    
+    def _verify_job_added_to_xml(self, xml_file_path: str, job_id: str, expected_title: str) -> bool:
+        """Verify that a job was actually added to the XML file"""
+        try:
+            with open(xml_file_path, 'rb') as f:
+                tree = etree.parse(f, self._parser)
+            
+            root = tree.getroot()
+            
+            # Look for job by bhatsid (most reliable)
+            for job in root.xpath('.//job'):
+                bhatsid_elem = job.find('.//bhatsid')
+                if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
+                    # Additional verification - check title contains job ID
+                    title_elem = job.find('.//title')
+                    if title_elem is not None and title_elem.text and f"({job_id})" in title_elem.text:
+                        self.logger.debug(f"Verified job {job_id} exists in XML with correct title format")
+                        return True
+            
+            # Alternative verification - look for job ID in title
+            for job in root.xpath('.//job'):
+                title_elem = job.find('.//title')
+                if title_elem is not None and title_elem.text and f"({job_id})" in title_elem.text:
+                    self.logger.debug(f"Verified job {job_id} exists in XML by title")
+                    return True
+            
+            self.logger.error(f"Job {job_id} not found in XML file during verification")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error verifying job {job_id} in XML: {str(e)}")
+            return False
+    
     def _map_remote_type(self, onsite_value) -> str:
         """Map Bullhorn onSite value to XML remote type"""
         # Handle both list and string formats from Bullhorn
@@ -357,83 +404,128 @@ class XMLIntegrationService:
         Returns:
             bool: True if job was added successfully, False otherwise
         """
-        try:
-            # First check if job already exists to preserve reference number
-            existing_reference_number = None
-            job_id = str(bullhorn_job.get('id', ''))
-            
+        max_retries = 3
+        retry_delay = 1  # seconds
+        
+        for attempt in range(max_retries):
             try:
-                tree = etree.parse(xml_file_path, self._parser)
+                job_id = str(bullhorn_job.get('id', ''))
+                job_title = bullhorn_job.get('title', 'Unknown Job')
+                
+                # Create backup before making changes
+                backup_path = f"{xml_file_path}.backup_add_{job_id}"
+                shutil.copy2(xml_file_path, backup_path)
+                
+                self.logger.info(f"Attempt {attempt + 1}/{max_retries}: Adding job {job_id} ({job_title}) to XML")
+                
+                # Verify job data is complete before proceeding
+                if not self._validate_job_data(bullhorn_job):
+                    self.logger.error(f"Job {job_id} failed validation - incomplete data")
+                    return False
+                
+                # First check if job already exists to preserve reference number
+                existing_reference_number = None
+                
+                try:
+                    tree = etree.parse(xml_file_path, self._parser)
+                    root = tree.getroot()
+                    
+                    # Find existing job by bhatsid
+                    for job in root.xpath('.//job'):
+                        bhatsid_elem = job.find('.//bhatsid')
+                        if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
+                            ref_elem = job.find('.//referencenumber')
+                            if ref_elem is not None and ref_elem.text:
+                                existing_reference_number = ref_elem.text.strip()
+                                self.logger.info(f"Found existing reference number {existing_reference_number} for job {job_id}")
+                                break
+                except Exception as e:
+                    self.logger.debug(f"Could not check for existing job: {e}")
+                
+                # Map Bullhorn job to XML format with existing reference number if found
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number)
+                if not xml_job or not xml_job.get('title') or not xml_job.get('referencenumber'):
+                    self.logger.error(f"Failed to map job {job_id} to XML format - invalid XML job data")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+                    return False
+                
+                # Parse existing XML
+                with open(xml_file_path, 'rb') as f:
+                    tree = etree.parse(f, self._parser)
+                
                 root = tree.getroot()
                 
-                # Find existing job by bhatsid
-                for job in root.xpath('.//job'):
-                    bhatsid_elem = job.find('.//bhatsid')
-                    if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
-                        ref_elem = job.find('.//referencenumber')
-                        if ref_elem is not None and ref_elem.text:
-                            existing_reference_number = ref_elem.text.strip()
-                            self.logger.info(f"Found existing reference number {existing_reference_number} for job {job_id}")
-                            break
+                # Find the publisherurl element
+                publisher_url = root.find('publisherurl')
+                if publisher_url is None:
+                    self.logger.error("No publisherurl element found in XML")
+                    return False
+                
+                # Create new job element with proper formatting
+                job_element = etree.Element('job')
+                job_element.text = "\n    "  # Add newline and indentation after opening <job> tag
+                
+                # Add all job fields with CDATA wrapping and proper indentation
+                for field, value in xml_job.items():
+                    field_element = etree.SubElement(job_element, field)
+                    # Convert None to empty string and ensure proper formatting
+                    clean_value = value if value is not None else ''
+                    field_element.text = etree.CDATA(f" {clean_value} ")
+                    field_element.tail = "\n    "  # Add proper indentation for each field
+                
+                # Fix the last element's tail to close the job properly
+                if len(job_element) > 0:
+                    job_element[-1].tail = "\n  "  # Close job element indentation
+                
+                # Insert the new job as the first job (right after publisherurl)
+                publisher_url_index = list(root).index(publisher_url)
+                
+                # Ensure proper spacing around the new job
+                if publisher_url.tail is None:
+                    publisher_url.tail = "\n  "
+                else:
+                    publisher_url.tail = "\n  "
+                
+                job_element.tail = "\n  "  # Add newline and indentation after the new job
+                
+                root.insert(publisher_url_index + 1, job_element)
+                
+                # Write updated XML back to file with proper formatting
+                with open(xml_file_path, 'wb') as f:
+                    tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+                
+                # Verify the job was actually added by checking the file
+                if self._verify_job_added_to_xml(xml_file_path, job_id, xml_job['title']):
+                    self.logger.info(f"Successfully added and verified job {job_id} ({xml_job['title']}) to XML file")
+                    # Clean up backup file on success
+                    if os.path.exists(backup_path):
+                        os.remove(backup_path)
+                    return True
+                else:
+                    self.logger.error(f"Verification failed: Job {job_id} was not properly added to XML")
+                    # Restore backup
+                    shutil.copy2(backup_path, xml_file_path)
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+                    return False
+                    
             except Exception as e:
-                self.logger.debug(f"Could not check for existing job: {e}")
-            
-            # Map Bullhorn job to XML format with existing reference number if found
-            xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number)
-            if not xml_job:
-                return False
-            
-            # Parse existing XML
-            with open(xml_file_path, 'rb') as f:
-                tree = etree.parse(f, self._parser)
-            
-            root = tree.getroot()
-            
-            # Find the publisherurl element
-            publisher_url = root.find('publisherurl')
-            if publisher_url is None:
-                self.logger.error("No publisherurl element found in XML")
-                return False
-            
-            # Create new job element with proper formatting
-            job_element = etree.Element('job')
-            job_element.text = "\n    "  # Add newline and indentation after opening <job> tag
-            
-            # Add all job fields with CDATA wrapping and proper indentation
-            for field, value in xml_job.items():
-                field_element = etree.SubElement(job_element, field)
-                # Convert None to empty string and ensure proper formatting
-                clean_value = value if value is not None else ''
-                field_element.text = etree.CDATA(f" {clean_value} ")
-                field_element.tail = "\n    "  # Add proper indentation for each field
-            
-            # Fix the last element's tail to close the job properly
-            if len(job_element) > 0:
-                job_element[-1].tail = "\n  "  # Close job element indentation
-            
-            # Insert the new job as the first job (right after publisherurl)
-            publisher_url_index = list(root).index(publisher_url)
-            
-            # Ensure proper spacing around the new job
-            if publisher_url.tail is None:
-                publisher_url.tail = "\n  "
-            else:
-                publisher_url.tail = "\n  "
-            
-            job_element.tail = "\n  "  # Add newline and indentation after the new job
-            
-            root.insert(publisher_url_index + 1, job_element)
-            
-            # Write updated XML back to file with proper formatting
-            with open(xml_file_path, 'wb') as f:
-                tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
-            
-            self.logger.info(f"Added job {xml_job['title']} to XML file {xml_file_path}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error adding job to XML: {str(e)}")
-            return False
+                self.logger.error(f"Attempt {attempt + 1} failed adding job {job_id}: {str(e)}")
+                # Restore backup on error
+                if os.path.exists(backup_path):
+                    shutil.copy2(backup_path, xml_file_path)
+                
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    self.logger.error(f"Failed to add job {job_id} after {max_retries} attempts")
+                    return False
+        
+        return False  # Should never reach here
     
     def remove_job_from_xml(self, xml_file_path: str, job_id: str) -> bool:
         """
