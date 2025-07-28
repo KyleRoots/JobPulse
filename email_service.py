@@ -333,40 +333,56 @@ class EmailService:
                 for job in modified_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    field_changes = job.get('field_changes', {})
+                    
+                    # Handle both old and new format for field changes
+                    if 'change_summary' in job:
+                        change_description = job['change_summary']
+                    elif 'field_changes' in job and isinstance(job['field_changes'], list):
+                        if job['field_changes']:
+                            change_description = f"Updated: {', '.join(job['field_changes'])}"
+                        else:
+                            change_description = "Job details updated"
+                    else:
+                        # Extract changes from job modifications 
+                        changes = job.get('changes', [])
+                        if changes:
+                            field_names = []
+                            for change in changes:
+                                field = change.get('field', '')
+                                if field == 'title':
+                                    field_names.append('title')
+                                elif field in ['publicDescription', 'description']:
+                                    field_names.append('description')
+                                elif field == 'employmentType':
+                                    field_names.append('employment type')
+                                elif field == 'onSite':
+                                    field_names.append('remote type')
+                                elif 'owner' in field or 'assignedUsers' in field:
+                                    field_names.append('assigned recruiter')
+                                elif 'address' in field.lower():
+                                    field_names.append('location')
+                                else:
+                                    field_names.append(field.lower())
+                            change_description = f"Updated: {', '.join(set(field_names))}" if field_names else "Job details updated"
+                        else:
+                            change_description = "Job details updated"
+                    
                     html_content += f"""
-                    <li style="margin-bottom: 15px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
+                    <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
                         <div style="margin-bottom: 4px;">
                             <strong style="color: #856404;">{job_title}</strong>
                         </div>
-                        <div style="margin-bottom: 8px;">
+                        <div style="margin-bottom: 4px;">
                             <span style="background-color: #fd7e14; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: bold;">
                                 Job ID: {job_id}
                             </span>
                         </div>
-                        <div style="margin-bottom: 4px;">
-                            <small style="color: #6c757d; font-weight: bold;">Field Changes:</small>
+                        <div style="color: #6c757d; font-style: italic;">
+                            {change_description}
                         </div>
-                        <ul style="margin-top: 5px; padding-left: 20px;">
+                        <small style="color: #6c757d;">Verify changes in Bullhorn using Job ID above</small>
+                    </li>
                     """
-                    
-                    if field_changes:
-                        for field, change_info in field_changes.items():
-                            display_name = change_info.get('display_name', field)
-                            old_value = change_info.get('old_value', '(empty)')
-                            new_value = change_info.get('new_value', '(empty)')
-                            html_content += f"""
-                            <li style='margin-bottom: 4px; padding: 4px; background-color: #fff; border-radius: 3px; border-left: 3px solid #fd7e14;'>
-                                <strong style="color: #856404;">{display_name}:</strong> 
-                                <span style="color: #dc3545; text-decoration: line-through;">{old_value}</span> 
-                                → 
-                                <span style="color: #28a745; font-weight: bold;">{new_value}</span>
-                            </li>
-                            """
-                    else:
-                        html_content += "<li style='color: #6c757d; font-style: italic;'>No specific field changes recorded</li>"
-                    
-                    html_content += "</ul></li>"
                 
                 html_content += "</ul></div>"
             

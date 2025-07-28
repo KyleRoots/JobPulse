@@ -640,12 +640,40 @@ def process_bullhorn_monitors():
                         db.session.add(activity)
                     
                     for job in modified_jobs:
+                        # Create concise field change summary instead of full job data
+                        changes = job.get('changes', [])
+                        field_changes = []
+                        for change in changes:
+                            field_name = change.get('field', '')
+                            if field_name == 'title':
+                                field_changes.append('title')
+                            elif field_name == 'publicDescription' or field_name == 'description':
+                                field_changes.append('description')
+                            elif field_name == 'dateLastModified':
+                                field_changes.append('date modified')
+                            elif field_name == 'employmentType':
+                                field_changes.append('employment type')
+                            elif field_name == 'onSite':
+                                field_changes.append('remote type')
+                            elif field_name == 'owner' or 'assignedUsers' in field_name:
+                                field_changes.append('assigned recruiter')
+                            elif 'address' in field_name.lower():
+                                field_changes.append('location')
+                            else:
+                                field_changes.append(field_name.lower())
+                        
+                        # Create concise summary
+                        if field_changes:
+                            change_summary = f"Updated: {', '.join(set(field_changes))}"
+                        else:
+                            change_summary = "Job details updated"
+                            
                         activity = BullhornActivity(
                             monitor_id=monitor.id,
                             activity_type='job_modified',
                             job_id=job.get('id'),
                             job_title=job.get('title'),
-                            details=json.dumps(job)
+                            details=change_summary
                         )
                         db.session.add(activity)
                     
@@ -1034,11 +1062,18 @@ def process_bullhorn_monitors():
                                             
                                             # Capture field changes for detailed notifications
                                             field_changes = getattr(xml_service, '_last_field_changes', {})
-                                            change_details = []
+                                            change_summaries = []
                                             for field, change_info in field_changes.items():
-                                                change_details.append(f"{change_info['display_name']}: '{change_info['old_value']}' → '{change_info['new_value']}'")
+                                                field_name = change_info.get('display_name', field)
+                                                change_summaries.append(field_name.lower())
                                             
-                                            app.logger.info(f"Updated job {job_id}: {job.get('title', 'Unknown')} - Changes: {', '.join(change_details)}")
+                                            # Create concise change summary
+                                            if change_summaries:
+                                                change_description = f"Updated: {', '.join(set(change_summaries))}"
+                                            else:
+                                                change_description = "Job details updated"
+                                                
+                                            app.logger.info(f"Updated job {job_id}: {job.get('title', 'Unknown')} - {change_description}")
                                             
                                             # Store modification details for email notifications
                                             if 'modified_jobs' not in xml_sync_summary:
@@ -1046,7 +1081,8 @@ def process_bullhorn_monitors():
                                             xml_sync_summary['modified_jobs'].append({
                                                 'id': job_id,
                                                 'title': job.get('title', 'Unknown'),
-                                                'field_changes': field_changes
+                                                'change_summary': change_description,
+                                                'field_changes': list(set(change_summaries))
                                             })
                                             
                                             # Also update scheduled file if different

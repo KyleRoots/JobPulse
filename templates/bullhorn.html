@@ -375,6 +375,9 @@
                                             <td>
                                                 {% if activity.job_id %}
                                                     <strong>ID {{ activity.job_id }}:</strong> {{ activity.job_title or 'No title' }}
+                                                    {% if activity.activity_type == 'job_modified' and activity.details %}
+                                                        <br><small class="text-muted">{{ activity.details }}</small>
+                                                    {% endif %}
                                                 {% elif activity.activity_type == 'xml_sync_completed' %}
                                                     <span class="text-muted">
                                                         {% if activity.details %}
