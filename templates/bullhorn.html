@@ -187,6 +187,11 @@
                                                     {% endif %}
                                                     {% if monitor_job_counts[monitor.id] is not none %}
                                                         <span class="badge bg-info job-count-badge">{{ monitor_job_counts[monitor.id] }} jobs</span>
+                                                        <button class="btn btn-sm btn-link p-0 ms-1 text-info" 
+                                                                onclick="viewMonitorJobs({{ monitor.id }}, '{{ monitor.name }}')"
+                                                                title="View current jobs from Bullhorn">
+                                                            <i class="fas fa-list"></i>
+                                                        </button>
                                                     {% endif %}
                                                     <!-- Overdue indicator will be added by JavaScript -->
                                                     <span class="badge bg-danger overdue-indicator" style="display: none;">
@@ -247,6 +252,62 @@
                                 </a>
                             </div>
                         {% endif %}
+                    </div>
+                </div>
+
+                <!-- Job Verification Modal -->
+                <div class="modal fade" id="jobListModal" tabindex="-1" aria-labelledby="jobListModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="jobListModalLabel">
+                                    <i class="fas fa-list me-2"></i>Current Jobs - <span id="monitorNameInModal"></span>
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="jobListLoading" class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading jobs...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Fetching current jobs from Bullhorn...</p>
+                                </div>
+                                <div id="jobListContent" style="display: none;">
+                                    <div class="mb-3">
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            This shows the current jobs pulled from Bullhorn for verification purposes.
+                                        </small>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th width="80">Job ID</th>
+                                                    <th>Title</th>
+                                                    <th>Location</th>
+                                                    <th>Type</th>
+                                                    <th>Status</th>
+                                                    <th>Date Modified</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="jobListTableBody">
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div id="jobListError" style="display: none;" class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Error loading jobs:</strong> <span id="jobListErrorMessage"></span>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-primary" onclick="refreshJobList()">
+                                    <i class="fas fa-sync me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -540,6 +601,113 @@
                     }
                 })
                 .catch(error => console.log('Activity update failed:', error));
+        }
+
+        // Job list modal functionality
+        let currentMonitorId = null;
+        let currentMonitorName = null;
+
+        function viewMonitorJobs(monitorId, monitorName) {
+            currentMonitorId = monitorId;
+            currentMonitorName = monitorName;
+            
+            // Update modal title
+            document.getElementById('monitorNameInModal').textContent = monitorName;
+            
+            // Show modal and loading state
+            const modal = new bootstrap.Modal(document.getElementById('jobListModal'));
+            modal.show();
+            
+            // Reset states
+            document.getElementById('jobListLoading').style.display = 'block';
+            document.getElementById('jobListContent').style.display = 'none';
+            document.getElementById('jobListError').style.display = 'none';
+            
+            // Load jobs
+            loadMonitorJobs(monitorId);
+        }
+
+        function loadMonitorJobs(monitorId) {
+            fetch(`/api/bullhorn/monitor/${monitorId}/jobs`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('jobListLoading').style.display = 'none';
+                    
+                    if (data.success) {
+                        displayJobList(data.jobs);
+                        document.getElementById('jobListContent').style.display = 'block';
+                    } else {
+                        document.getElementById('jobListErrorMessage').textContent = data.error || 'Unknown error occurred';
+                        document.getElementById('jobListError').style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('jobListLoading').style.display = 'none';
+                    document.getElementById('jobListErrorMessage').textContent = 'Network error: ' + error.message;
+                    document.getElementById('jobListError').style.display = 'block';
+                });
+        }
+
+        function displayJobList(jobs) {
+            const tbody = document.getElementById('jobListTableBody');
+            tbody.innerHTML = '';
+            
+            if (jobs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                            No jobs found for this monitor
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            jobs.forEach(job => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <span class="badge bg-secondary">${job.id}</span>
+                    </td>
+                    <td>
+                        <strong>${job.title || 'No Title'}</strong>
+                        ${job.id ? `<br><small class="text-muted">Job ID: ${job.id}</small>` : ''}
+                    </td>
+                    <td>
+                        ${job.city || ''} ${job.state ? ', ' + job.state : ''}
+                        ${job.country && job.country !== 'United States' ? '<br>' + job.country : ''}
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${job.employmentType || 'N/A'}</span>
+                        ${job.onSite ? `<br><small class="text-muted">${job.onSite}</small>` : ''}
+                    </td>
+                    <td>
+                        <span class="badge bg-${job.status === 'Open' ? 'success' : 'secondary'}">
+                            ${job.status || 'Unknown'}
+                        </span>
+                        ${job.isPublic ? '<br><span class="badge bg-primary">Public</span>' : ''}
+                    </td>
+                    <td>
+                        <small class="text-muted">
+                            ${job.dateLastModified ? new Date(job.dateLastModified).toLocaleDateString() + '<br>' + new Date(job.dateLastModified).toLocaleTimeString() : 'N/A'}
+                        </small>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function refreshJobList() {
+            if (currentMonitorId) {
+                // Reset states
+                document.getElementById('jobListLoading').style.display = 'block';
+                document.getElementById('jobListContent').style.display = 'none';
+                document.getElementById('jobListError').style.display = 'none';
+                
+                // Reload jobs
+                loadMonitorJobs(currentMonitorId);
+            }
         }
 
         // Initialize health monitoring

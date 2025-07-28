@@ -2607,6 +2607,66 @@ def test_bullhorn_monitor(monitor_id):
             'message': f'Error: {str(e)}'
         })
 
+@app.route('/api/bullhorn/monitor/<int:monitor_id>/jobs')
+def get_monitor_jobs(monitor_id):
+    """Get current jobs from Bullhorn for a specific monitor - for troubleshooting/verification"""
+    try:
+        monitor = BullhornMonitor.query.get_or_404(monitor_id)
+        
+        # Initialize Bullhorn service
+        bullhorn_service = BullhornService()
+        
+        if not bullhorn_service.test_connection():
+            return jsonify({
+                'success': False,
+                'error': 'Failed to connect to Bullhorn API. Please check your credentials.'
+            })
+        
+        # Get jobs based on monitor type
+        jobs = []
+        if monitor.tearsheet_id == 0:
+            # Query-based monitor
+            jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
+        else:
+            # Traditional tearsheet-based monitor
+            jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+        
+        # Format jobs for frontend display
+        formatted_jobs = []
+        for job in jobs:
+            formatted_job = {
+                'id': job.get('id'),
+                'title': job.get('title', 'No Title'),
+                'city': job.get('address', {}).get('city', '') if job.get('address') else '',
+                'state': job.get('address', {}).get('state', '') if job.get('address') else '',
+                'country': job.get('address', {}).get('countryName', '') if job.get('address') else '',
+                'employmentType': job.get('employmentType', ''),
+                'onSite': job.get('onSite', ''),
+                'status': job.get('status', ''),
+                'isPublic': job.get('isPublic', False),
+                'dateLastModified': job.get('dateLastModified', ''),
+                'owner': job.get('owner', {}).get('firstName', '') + ' ' + job.get('owner', {}).get('lastName', '') if job.get('owner') else ''
+            }
+            formatted_jobs.append(formatted_job)
+        
+        # Sort by job ID (descending) for consistent display
+        formatted_jobs.sort(key=lambda x: int(x['id']) if x['id'] else 0, reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'jobs': formatted_jobs,
+            'total_count': len(formatted_jobs),
+            'monitor_name': monitor.name,
+            'monitor_type': 'Query' if monitor.tearsheet_id == 0 else 'Tearsheet'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching jobs for monitor {monitor_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error fetching jobs: {str(e)}'
+        })
+
 @app.route('/bullhorn/monitor/<int:monitor_id>/test-email', methods=['POST'])
 def test_email_notification(monitor_id):
     """Send a test email notification to show what the user will receive"""
