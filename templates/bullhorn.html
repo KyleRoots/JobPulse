@@ -262,7 +262,7 @@
                     <div class="card-body">
                         {% if recent_activities %}
                             <div class="activity-table-container">
-                                <table class="table table-hover">
+                                <table class="table table-hover" id="activity-table">
                                     <thead>
                                         <tr>
                                             <th>Monitor</th>
@@ -485,15 +485,74 @@
                 .catch(error => console.log('Monitor status update failed:', error));
         }
 
+        function updateRecentActivity() {
+            fetch('/api/bullhorn/activities')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.activities) {
+                        const tbody = document.querySelector('#activity-table tbody');
+                        if (tbody) {
+                            // Store current scroll position
+                            const container = document.querySelector('.activity-table-container');
+                            const scrollTop = container ? container.scrollTop : 0;
+                            
+                            // Update table content
+                            tbody.innerHTML = '';
+                            data.activities.forEach(activity => {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td>
+                                        <a href="/bullhorn/monitor/${activity.monitor_id}" class="text-decoration-none">
+                                            ${activity.monitor_name}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-${activity.activity_type === 'check_completed' ? 'info' : 
+                                            activity.activity_type === 'job_added' ? 'success' : 
+                                            activity.activity_type === 'job_removed' ? 'warning' : 'primary'}">
+                                            ${activity.activity_type.replace('_', ' ').toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        ${activity.job_id ? 
+                                            `<span class="badge bg-secondary me-2">${activity.job_id}</span>` : ''}
+                                        ${activity.details || (activity.job_title || '')}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            ${activity.created_at}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        ${activity.notification_sent ? 
+                                            '<i class="fas fa-envelope text-success" title="Email sent"></i>' :
+                                            '<i class="fas fa-envelope-open text-muted" title="No email"></i>'}
+                                    </td>
+                                `;
+                                tbody.appendChild(row);
+                            });
+                            
+                            // Restore scroll position
+                            if (container) {
+                                container.scrollTop = scrollTop;
+                            }
+                        }
+                    }
+                })
+                .catch(error => console.log('Activity update failed:', error));
+        }
+
         // Initialize health monitoring
         document.addEventListener('DOMContentLoaded', function() {
             // Initial checks
             checkSystemHealth();
             updateMonitorStatus();
+            updateRecentActivity();
             
             // Periodic monitoring (every 2 minutes)
             setInterval(checkSystemHealth, 120000);
             setInterval(updateMonitorStatus, 120000);
+            setInterval(updateRecentActivity, 120000);
         });
 
     </script>
