@@ -643,6 +643,45 @@ class XMLIntegrationService:
             self.logger.error(f"Error detecting orphaned jobs: {str(e)}")
             return []
     
+    def _cleanup_old_backups(self, xml_file_path: str, keep_count: int = 3):
+        """
+        Clean up old backup files, keeping only the most recent ones
+        
+        Args:
+            xml_file_path: Path to the XML file
+            keep_count: Number of recent backup files to keep (default: 3)
+        """
+        import glob
+        import os
+        
+        try:
+            # Find all backup files for this XML file
+            backup_pattern = f"{xml_file_path}.backup_update_*"
+            backup_files = glob.glob(backup_pattern)
+            
+            if len(backup_files) <= keep_count:
+                return  # No cleanup needed
+            
+            # Sort backups by creation time (newest first)
+            backup_files.sort(key=lambda f: os.path.getctime(f), reverse=True)
+            
+            # Remove old backups beyond keep_count
+            files_to_remove = backup_files[keep_count:]
+            removed_count = 0
+            
+            for backup_file in files_to_remove:
+                try:
+                    os.remove(backup_file)
+                    removed_count += 1
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove old backup {backup_file}: {str(e)}")
+            
+            if removed_count > 0:
+                self.logger.info(f"Cleaned up {removed_count} old backup files, keeping {keep_count} most recent")
+                
+        except Exception as e:
+            self.logger.error(f"Error during backup cleanup: {str(e)}")
+    
     def remove_orphaned_jobs(self, xml_file_path: str, all_current_jobs: List[Dict]) -> Dict:
         """
         Remove jobs from XML file that are not in any current tearsheet
@@ -878,6 +917,9 @@ class XMLIntegrationService:
         backup_path = f"{xml_file_path}.backup_update_{int(time.time())}"
         max_retries = 3
         retry_delay = 1  # seconds
+        
+        # Clean up old backup files to keep only the 3 most recent
+        self._cleanup_old_backups(xml_file_path, keep_count=3)
         
         for attempt in range(max_retries):
             try:
