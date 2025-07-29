@@ -177,6 +177,16 @@ def process_scheduled_files():
                         os.replace(temp_output, schedule.file_path)
                         app.logger.info(f"Successfully processed scheduled file: {schedule.file_path}")
                         
+                        # CRITICAL: Sync main XML file with scheduled file to ensure consistency
+                        main_xml_path = 'myticas-job-feed.xml'
+                        if schedule.file_path != main_xml_path and os.path.exists(main_xml_path):
+                            try:
+                                # Copy the updated scheduled file to main XML file
+                                shutil.copy2(schedule.file_path, main_xml_path)
+                                app.logger.info(f"✅ Synchronized main XML file {main_xml_path} with scheduled file {schedule.file_path}")
+                            except Exception as sync_error:
+                                app.logger.error(f"❌ Failed to sync main XML file: {str(sync_error)}")
+                        
                         # Get original filename for email/FTP (use stored original filename if available)
                         original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
                         
@@ -1155,13 +1165,25 @@ def process_bullhorn_monitors():
                                                 total_changes += 1
                                                 app.logger.info(f"✅ Removed orphaned job {job_id}: {removal_reason}")
                                                 
-                                                # Log detailed removal activity
-                                                activity = BullhornActivity(
-                                                    monitor_id=monitors_processed[0].id if monitors_processed else None,
-                                                    activity_type='job_removed',
-                                                    details=f"Orphaned job removal: {removal_reason}"
-                                                )
-                                                db.session.add(activity)
+                                                # CRITICAL: Check if this job was already notified about before creating new activity
+                                                existing_removal = BullhornActivity.query.filter(
+                                                    BullhornActivity.job_id == job_id,
+                                                    BullhornActivity.activity_type == 'job_removed',
+                                                    BullhornActivity.notification_sent == True
+                                                ).first()
+                                                
+                                                if not existing_removal:
+                                                    # Log detailed removal activity only if not already notified
+                                                    activity = BullhornActivity(
+                                                        monitor_id=monitors_processed[0].id if monitors_processed else None,
+                                                        activity_type='job_removed',
+                                                        job_id=job_id,
+                                                        details=f"Orphaned job removal: {removal_reason}",
+                                                        notification_sent=False
+                                                    )
+                                                    db.session.add(activity)
+                                                else:
+                                                    app.logger.info(f"⏭️ Skipping duplicate notification for job {job_id} - already notified previously")
                                             else:
                                                 app.logger.error(f"❌ Failed to remove orphaned job {job_id} from XML files")
                                         else:
