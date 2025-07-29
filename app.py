@@ -712,8 +712,12 @@ def process_bullhorn_monitors():
                         
                         app.logger.info(f"Bullhorn monitor {monitor.name}: {len(current_jobs)} total jobs, {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified")
                     
-                    # Send email notification only if there are changes, notifications are enabled, AND XML sync was successful
-                    if (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications and xml_sync_success:
+                    # Send email notification ONLY for CRITICAL business changes (not repeated AI classification updates)
+                    critical_changes_exist = bool(added_jobs or removed_jobs or 
+                        [job for job in modified_jobs if any(field in job.get('field_changes', {}) 
+                        for field in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter'])])
+                    
+                    if critical_changes_exist and monitor.send_notifications and xml_sync_success:
                         # Get email address from Global Settings or monitor-specific setting
                         email_address = monitor.notification_email
                         if not email_address:

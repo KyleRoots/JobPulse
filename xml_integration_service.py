@@ -414,7 +414,8 @@ class XMLIntegrationService:
                 job_id = str(bullhorn_job.get('id', ''))
                 job_title = bullhorn_job.get('title', 'Unknown Job')
                 
-                # Create backup before making changes
+                # Clean up old backup files first, then create new backup
+                self._cleanup_old_backups(xml_file_path, keep_count=2)
                 backup_path = f"{xml_file_path}.backup_add_{job_id}"
                 shutil.copy2(xml_file_path, backup_path)
                 
@@ -841,8 +842,10 @@ class XMLIntegrationService:
                         self.logger.warning(f"Could not map Bullhorn job {job_id} for comparison")
                         return True, {}  # Assume update needed if we can't compare
                     
-                    # Compare key fields that can change and track differences (including AI classification fields)
-                    comparison_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 'jobfunction', 'jobindustries', 'senoritylevel']
+                    # Compare ONLY CRITICAL fields to avoid AI classification noise
+                    # AI classification fields (jobfunction, jobindustries, senoritylevel) are excluded
+                    # to prevent repeated notifications for minor AI variations
+                    comparison_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter']
                     changes_detected = False
                     
                     # Field display names for user-friendly notifications
@@ -873,7 +876,7 @@ class XMLIntegrationService:
                             self.logger.info(f"Job {job_id} field '{field}' changed: '{xml_value}' → '{bullhorn_value}'")
                     
                     if not changes_detected:
-                        self.logger.debug(f"Job {job_id} data matches - no update needed")
+                        self.logger.debug(f"Job {job_id} - no critical business changes detected (AI classification variations ignored)")
                     
                     return changes_detected, field_changes
             
@@ -918,8 +921,8 @@ class XMLIntegrationService:
         max_retries = 3
         retry_delay = 1  # seconds
         
-        # Clean up old backup files to keep only the 3 most recent
-        self._cleanup_old_backups(xml_file_path, keep_count=3)
+        # Clean up old backup files to keep only the 2 most recent (reduced for optimization)
+        self._cleanup_old_backups(xml_file_path, keep_count=2)
         
         for attempt in range(max_retries):
             try:
