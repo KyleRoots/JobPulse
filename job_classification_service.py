@@ -149,13 +149,19 @@ class JobClassificationService:
             self.logger.warning(f"Invalid job function '{job_function}' - not in predefined list")
             validated['job_function'] = ''
         
-        # Validate job industry
+        # Validate job industry with intelligent mapping
         job_industry = classification.get('job_industry', '')
         if job_industry in self.categories['job_industries']:
             validated['job_industry'] = job_industry
         else:
-            self.logger.warning(f"Invalid job industry '{job_industry}' - not in predefined list")
-            validated['job_industry'] = ''
+            # Try intelligent mapping for common AI suggestions
+            mapped_industry = self._map_industry_intelligently(job_industry)
+            if mapped_industry:
+                validated['job_industry'] = mapped_industry
+                self.logger.info(f"Mapped industry '{job_industry}' → '{mapped_industry}'")
+            else:
+                self.logger.warning(f"Could not map industry '{job_industry}' to predefined categories")
+                validated['job_industry'] = ''
         
         # Validate seniority level
         seniority_level = classification.get('seniority_level', '')
@@ -166,6 +172,66 @@ class JobClassificationService:
             validated['seniority_level'] = ''
         
         return validated
+    
+    def _map_industry_intelligently(self, suggested_industry: str) -> str:
+        """
+        Intelligently map AI-suggested industries to our predefined categories
+        
+        Args:
+            suggested_industry: Industry suggested by AI
+            
+        Returns:
+            str: Mapped industry from predefined list or empty string
+        """
+        if not suggested_industry:
+            return ''
+        
+        industry_lower = suggested_industry.lower()
+        valid_industries = self.categories['job_industries']
+        
+        # Direct mappings for common AI suggestions
+        mappings = {
+            'health care': 'Hospitals and Health Care',
+            'healthcare': 'Hospitals and Health Care', 
+            'medical': 'Medical Devices',
+            'manufacturing': 'Electrical/Electronic Manufacturing',
+            'information technology': 'Information Technology and Services',
+            'it services': 'Information Technology and Services',
+            'technology': 'Computer Software',
+            'software': 'Computer Software',
+            'legal': 'Legal Services',
+            'professional services': 'Professional Training and Coaching',
+            'oil & energy': 'Oil and Energy',
+            'oil and gas': 'Oil and Energy',
+            'energy': 'Oil and Energy'
+        }
+        
+        # Check direct mappings first
+        if industry_lower in mappings:
+            return mappings[industry_lower]
+        
+        # Pattern-based matching for partial matches
+        for pattern, target in mappings.items():
+            if pattern in industry_lower:
+                return target
+        
+        # Fuzzy matching - look for keywords in predefined industries
+        keywords_to_check = [
+            ('health', 'medical', 'hospital'),
+            ('manufacturing', 'industrial'),
+            ('technology', 'software', 'computer'),
+            ('legal', 'law'),
+            ('energy', 'oil'),
+            ('services', 'consulting')
+        ]
+        
+        for keyword_group in keywords_to_check:
+            if any(keyword in industry_lower for keyword in keyword_group):
+                for valid_industry in valid_industries:
+                    if any(keyword in valid_industry.lower() for keyword in keyword_group):
+                        return valid_industry
+        
+        return ''
     
     def get_available_categories(self) -> Dict[str, List[str]]:
         """Get all available categories for reference"""
