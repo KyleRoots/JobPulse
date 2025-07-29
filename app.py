@@ -3600,5 +3600,195 @@ def test_download(download_key):
         flash('Download failed', 'error')
         return redirect(url_for('automation_test'))
 
+# ========================================================================================
+# ATS MONITORING ROUTES
+# ========================================================================================
+
+@app.route('/ats-monitoring')
+@login_required
+def ats_monitoring():
+    """ATS monitoring dashboard"""
+    return render_template('ats_monitoring.html')
+
+@app.route('/api/monitors')
+@login_required
+def get_monitors():
+    """Get all active Bullhorn monitors"""
+    try:
+        monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+        monitor_data = []
+        
+        for monitor in monitors:
+            # Get current job count from snapshot
+            job_count = 0
+            if monitor.last_job_snapshot:
+                try:
+                    jobs = json.loads(monitor.last_job_snapshot)
+                    job_count = len(jobs) if isinstance(jobs, list) else 0
+                except:
+                    job_count = 0
+            
+            monitor_data.append({
+                'id': monitor.id,
+                'name': monitor.name,
+                'tearsheet_name': monitor.tearsheet_name,
+                'tearsheet_id': monitor.tearsheet_id,
+                'interval_minutes': monitor.interval_minutes,
+                'last_check': monitor.last_check.isoformat() if monitor.last_check else None,
+                'next_check': monitor.next_check.isoformat() if monitor.next_check else None,
+                'job_count': job_count,
+                'is_active': monitor.is_active
+            })
+        
+        return jsonify(monitor_data)
+    except Exception as e:
+        app.logger.error(f"Error fetching monitors: {str(e)}")
+        return jsonify([]), 500
+
+@app.route('/api/monitors/<int:monitor_id>', methods=['DELETE'])
+@login_required
+def delete_monitor(monitor_id):
+    """Delete a Bullhorn monitor"""
+    try:
+        monitor = BullhornMonitor.query.get_or_404(monitor_id)
+        monitor_name = monitor.name
+        
+        # Delete associated activities
+        BullhornActivity.query.filter_by(monitor_id=monitor_id).delete()
+        
+        # Delete the monitor
+        db.session.delete(monitor)
+        db.session.commit()
+        
+        app.logger.info(f"Deleted monitor: {monitor_name}")
+        return jsonify({'success': True, 'message': f'Monitor "{monitor_name}" deleted successfully'})
+    except Exception as e:
+        app.logger.error(f"Error deleting monitor: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/monitors/<int:monitor_id>/toggle', methods=['POST'])
+@login_required
+def toggle_monitor(monitor_id):
+    """Toggle monitor active status"""
+    try:
+        monitor = BullhornMonitor.query.get_or_404(monitor_id)
+        monitor.is_active = not monitor.is_active
+        
+        if monitor.is_active:
+            # Recalculate next check time when reactivating
+            monitor.calculate_next_check()
+        
+        db.session.commit()
+        
+        status = "activated" if monitor.is_active else "deactivated"
+        app.logger.info(f"Monitor {monitor.name} {status}")
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Monitor "{monitor.name}" {status}',
+            'is_active': monitor.is_active,
+            'next_check': monitor.next_check.isoformat() if monitor.next_check else None
+        })
+    except Exception as e:
+        app.logger.error(f"Error toggling monitor: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/activities')
+@login_required
+def get_activities():
+    """Get recent Bullhorn activities"""
+    try:
+        activities = BullhornActivity.query.order_by(BullhornActivity.timestamp.desc()).limit(50).all()
+        activity_data = []
+        
+        for activity in activities:
+            # Get monitor name
+            monitor_name = "Unknown"
+            if activity.monitor_id:
+                monitor = BullhornMonitor.query.get(activity.monitor_id)
+                if monitor:
+                    monitor_name = monitor.name
+            
+            activity_data.append({
+                'id': activity.id,
+                'timestamp': activity.timestamp.isoformat(),
+                'monitor_name': monitor_name,
+                'activity_type': activity.activity_type,
+                'details': activity.details[:200] + '...' if len(activity.details) > 200 else activity.details
+            })
+        
+        return jsonify(activity_data)
+    except Exception as e:
+        app.logger.error(f"Error fetching activities: {str(e)}")
+        return jsonify([]), 500
+
+@app.route('/api/system/health')
+@login_required
+def system_health():
+    """Get system health status"""
+    try:
+        monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+        current_time = datetime.utcnow()
+        
+        healthy_monitors = 0
+        overdue_monitors = 0
+        
+        for monitor in monitors:
+            if monitor.next_check and monitor.next_check < current_time - timedelta(minutes=10):
+                overdue_monitors += 1
+            else:
+                healthy_monitors += 1
+        
+        status = "healthy" if overdue_monitors == 0 else "warning"
+        
+        return jsonify({
+            'status': status,
+            'total_monitors': len(monitors),
+            'healthy_monitors': healthy_monitors,
+            'overdue_monitors': overdue_monitors,
+            'scheduler_status': 'running' if scheduler.running else 'stopped'
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting system health: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/monitors', methods=['POST'])
+@login_required
+def create_monitor():
+    """Create a new Bullhorn monitor"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('name') or not data.get('tearsheet_name'):
+            return jsonify({'success': False, 'error': 'Name and tearsheet name are required'}), 400
+        
+        # Create new monitor
+        monitor = BullhornMonitor(
+            name=data['name'],
+            tearsheet_name=data['tearsheet_name'],
+            tearsheet_id=data.get('tearsheet_id', 0),
+            interval_minutes=data.get('interval_minutes', 5),
+            is_active=True
+        )
+        monitor.calculate_next_check()
+        
+        db.session.add(monitor)
+        db.session.commit()
+        
+        app.logger.info(f"Created new monitor: {monitor.name}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Monitor "{monitor.name}" created successfully',
+            'monitor_id': monitor.id
+        })
+    except Exception as e:
+        app.logger.error(f"Error creating monitor: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)
