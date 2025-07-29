@@ -199,7 +199,7 @@
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Dan Sifer ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <jobindustries> Information Technology and Services </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -218,9 +218,9 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Christine Carter ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Marketing ]]></jobfunction>
-    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
-    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+    <jobfunction> Marketing </jobfunction>
+    <jobindustries> Marketing and Advertising </jobindustries>
+    <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
     <title><![CDATA[ IT Infrastructure Manager - Manufacturing (32619) ]]></title>
@@ -239,7 +239,7 @@
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Michelle Corino ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
-    <jobindustries><![CDATA[ Electrical/Electronic Manufacturing ]]></jobindustries>
+    <jobindustries> Electrical/Electronic Manufacturing </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -279,7 +279,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <jobindustries> Information Technology and Services </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -299,7 +299,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Project Management ]]></jobfunction>
-    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <jobindustries> Information Technology and Services </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -339,7 +339,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Legal Services ]]></jobindustries>
+    <jobindustries> Legal Services </jobindustries>
     <senoritylevel><![CDATA[ Entry level ]]></senoritylevel>
   </job>
   <job>
@@ -379,7 +379,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Project Management ]]></jobfunction>
-    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <jobindustries> Information Technology and Services </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -599,7 +599,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Dominic Scaletta ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Project Management ]]></jobfunction>
-    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <jobindustries> Information Technology and Services </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -619,7 +619,7 @@
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Customer Service ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <jobindustries> Computer Software </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -759,7 +759,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
   <jobfunction><![CDATA[ Consulting ]]></jobfunction>
-    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <jobindustries> Information Technology and Services </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1139,7 +1139,7 @@
       <remotetype><![CDATA[ Hybrid ]]></remotetype>
       <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Consulting ]]></jobfunction>
-    <jobindustries><![CDATA[ Professional Training and Coaching ]]></jobindustries>
+    <jobindustries> Professional Training and Coaching </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1379,7 +1379,7 @@
       <remotetype><![CDATA[ Hybrid ]]></remotetype>
       <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Consulting ]]></jobfunction>
-    <jobindustries><![CDATA[ Oil and Energy ]]></jobindustries>
+    <jobindustries> Oil and Energy </jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1439,7 +1439,7 @@
       <remotetype><![CDATA[ Onsite ]]></remotetype>
       <assignedrecruiter><![CDATA[ Christine Carter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Electrical/Electronic Manufacturing ]]></jobindustries>
+    <jobindustries> Electrical/Electronic Manufacturing </jobindustries>
     <senoritylevel><![CDATA[ Associate ]]></senoritylevel>
   </job>
   </source>
