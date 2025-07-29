@@ -6,6 +6,8 @@ Handles mapping Bullhorn job data to XML format and managing XML file updates
 import os
 import logging
 import re
+import shutil
+import time
 from typing import Dict, List, Optional
 from datetime import datetime
 from lxml import etree

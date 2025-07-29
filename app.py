@@ -927,14 +927,17 @@ def process_bullhorn_monitors():
             
             # After processing all individual monitors, perform comprehensive XML sync
             # CRITICAL: Always run comprehensive sync when monitors are processed, even with no jobs
+            app.logger.info(f"COMPREHENSIVE SYNC CHECK: monitors_processed = {len(monitors_processed) if monitors_processed else 0}, all_jobs = {len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0}")
             if monitors_processed:
                 total_jobs = len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0
-                app.logger.info(f"Starting comprehensive XML sync with {total_jobs} total jobs from {len(monitors_processed)} monitors")
+                app.logger.info(f"🔥 COMPREHENSIVE SYNC STARTING: {total_jobs} total jobs from {len(monitors_processed)} monitors")
                 
                 # Handle edge case: if no jobs from monitors, this means all tearsheets are empty
                 # In this case, we should remove ALL jobs from XML (complete cleanup)
                 if total_jobs == 0:
-                    app.logger.warning("No jobs found in any monitored tearsheet - this may indicate all tearsheets are empty or API issues")
+                    app.logger.warning("🚨 No jobs found in any monitored tearsheet - this may indicate all tearsheets are empty or API issues")
+                else:
+                    app.logger.info(f"🎯 COMPREHENSIVE SYNC: Found {total_jobs} jobs across all monitors - proceeding with XML comparison")
                 
                 try:
                     # CRITICAL FIX: Update main production XML files instead of just scheduled files
@@ -993,9 +996,24 @@ def process_bullhorn_monitors():
                                 if all_current_jobs_from_monitors:
                                     bullhorn_job_ids = {str(job.get('id')) for job in all_current_jobs_from_monitors if job.get('id')}
                                 
+                                app.logger.info(f"🔍 COMPARISON: XML has {len(xml_job_ids)} jobs, Bullhorn has {len(bullhorn_job_ids)} jobs")
+                                app.logger.info(f"🔍 First 5 XML job IDs: {list(xml_job_ids)[:5]}")
+                                app.logger.info(f"🔍 First 5 Bullhorn job IDs: {list(bullhorn_job_ids)[:5]}")
+                                if '32665' in bullhorn_job_ids:
+                                    app.logger.info(f"🎯 JOB 32665 FOUND in Bullhorn data!")
+                                if '32666' in bullhorn_job_ids:
+                                    app.logger.info(f"🎯 JOB 32666 FOUND in Bullhorn data!")
+                                
                                 # Find differences - enhanced logic
                                 missing_job_ids = bullhorn_job_ids - xml_job_ids  # Jobs in Bullhorn but not in XML
                                 orphaned_job_ids = xml_job_ids - bullhorn_job_ids  # Jobs in XML but not in any tearsheet
+                                
+                                app.logger.info(f"🚨 MISSING JOBS: {len(missing_job_ids)} jobs - {list(missing_job_ids)[:10]}")
+                                app.logger.info(f"🗑️ ORPHANED JOBS: {len(orphaned_job_ids)} jobs - {list(orphaned_job_ids)[:10]}")
+                                if '32665' in missing_job_ids:
+                                    app.logger.info(f"🎯 JOB 32665 IS MISSING from XML!")
+                                if '32666' in missing_job_ids:
+                                    app.logger.info(f"🎯 JOB 32666 IS MISSING from XML!")
                                 
                                 app.logger.info(f"Comprehensive sync analysis for {xml_filename}: "
                                               f"{len(xml_job_ids)} in XML, {len(bullhorn_job_ids)} in Bullhorn, "
@@ -1054,9 +1072,10 @@ def process_bullhorn_monitors():
                                             if xml_service.add_job_to_xml(main_xml_path, job):
                                                 total_changes += 1
                                                 app.logger.info(f"Added job {job.get('id')}: {job.get('title', 'Unknown')}")
-                                                # Also update scheduled file if different
-                                                if schedule.file_path != main_xml_path:
-                                                    xml_service.add_job_to_xml(schedule.file_path, job)
+                                                # Also update scheduled file
+                                                scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
+                                                if scheduled_xml_path != main_xml_path:
+                                                    xml_service.add_job_to_xml(scheduled_xml_path, job)
                                 
                                 # Remove orphaned jobs with enhanced verification
                                 if orphaned_job_ids:
@@ -1100,10 +1119,11 @@ def process_bullhorn_monitors():
                                             main_xml_path = 'myticas-job-feed.xml'
                                             main_removed = xml_service.remove_job_from_xml(main_xml_path, job_id)
                                             
-                                            # Also update scheduled file if different
+                                            # Also update scheduled file
+                                            scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
                                             sched_removed = True
-                                            if schedule.file_path != main_xml_path:
-                                                sched_removed = xml_service.remove_job_from_xml(schedule.file_path, job_id)
+                                            if scheduled_xml_path != main_xml_path:
+                                                sched_removed = xml_service.remove_job_from_xml(scheduled_xml_path, job_id)
                                             
                                             if main_removed and sched_removed:
                                                 total_changes += 1
@@ -1160,9 +1180,10 @@ def process_bullhorn_monitors():
                                                 'field_changes': list(set(change_summaries))
                                             })
                                             
-                                            # Also update scheduled file if different
-                                            if schedule.file_path != main_xml_path:
-                                                xml_service.update_job_in_xml(schedule.file_path, job)
+                                            # Also update scheduled file
+                                            scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
+                                            if scheduled_xml_path != main_xml_path:
+                                                xml_service.update_job_in_xml(scheduled_xml_path, job)
                                 
                                 if modified_count > 0:
                                     app.logger.info(f"Updated {modified_count} jobs with latest Bullhorn data")
@@ -1177,8 +1198,9 @@ def process_bullhorn_monitors():
                                     app.logger.info(f"Comprehensive sync completed: {total_changes} changes made (reference numbers preserved)")
                                     xml_sync_success = True  # Set this for monitor snapshot updates
                                     
-                                    # Upload to SFTP if configured
-                                    if schedule.auto_upload_ftp:
+                                    # Upload to SFTP if configured (check if any active schedule has SFTP enabled)
+                                    sftp_upload_enabled = any(sched.auto_upload_ftp for sched in active_schedules)
+                                    if sftp_upload_enabled:
                                         try:
                                             sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
                                             sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
@@ -1211,7 +1233,9 @@ def process_bullhorn_monitors():
                                                 
                                                 if sftp_upload_success:
                                                     app.logger.info(f"Uploaded updated XML to SFTP: {original_filename}")
-                                                    schedule.last_file_upload = datetime.utcnow()
+                                                    # Update last upload time for all active schedules
+                                                    for sched in active_schedules:
+                                                        sched.last_file_upload = datetime.utcnow()
                                                     
                                                     # Log comprehensive sync activity
                                                     activity = BullhornActivity(
@@ -1276,7 +1300,7 @@ def process_bullhorn_monitors():
                                         except Exception as e:
                                             app.logger.error(f"Error uploading to SFTP: {str(e)}")
                                 else:
-                                    app.logger.info(f"No changes needed for {schedule.name} - XML is already in sync")
+                                    app.logger.info(f"No changes needed - XML is already in sync")
                                     xml_sync_success = True  # No changes needed is also a success
                                 
                                 # CRITICAL: Update monitor snapshots after successful comprehensive sync
