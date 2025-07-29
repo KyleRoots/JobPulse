@@ -353,17 +353,36 @@ def process_bullhorn_monitors():
         try:
             current_time = datetime.utcnow()
             
-            # Health check: Detect overdue monitors to prevent timing issues
+            # PREVENTION LAYER 1: Enhanced auto-recovery for overdue monitors
             overdue_monitors = BullhornMonitor.query.filter(
                 BullhornMonitor.is_active == True,
                 BullhornMonitor.next_check < current_time - timedelta(minutes=10)
             ).all()
             
             if overdue_monitors:
-                app.logger.warning(f"HEALTH CHECK: Found {len(overdue_monitors)} monitors overdue by >10 minutes. Auto-correcting timing...")
+                app.logger.warning(f"AUTO-RECOVERY: Found {len(overdue_monitors)} monitors overdue by >10 minutes. Implementing comprehensive timing correction...")
                 for monitor in overdue_monitors:
+                    old_time = monitor.next_check
+                    monitor.last_check = current_time
                     monitor.next_check = current_time + timedelta(minutes=5)
-                db.session.commit()
+                    app.logger.info(f"AUTO-RECOVERY: {monitor.name} - Last: {monitor.last_check}, Next: {monitor.next_check} (was {old_time})")
+                
+                # CRITICAL: Immediate commit for timing corrections with error handling
+                try:
+                    db.session.commit()
+                    app.logger.info("AUTO-RECOVERY: Timing corrections successfully committed to database")
+                except Exception as e:
+                    app.logger.error(f"AUTO-RECOVERY: Failed to commit timing corrections: {str(e)}")
+                    db.session.rollback()
+                    # Try again with individual commits
+                    for monitor in overdue_monitors:
+                        try:
+                            monitor.last_check = current_time
+                            monitor.next_check = current_time + timedelta(minutes=5)
+                            db.session.commit()
+                        except Exception as individual_error:
+                            app.logger.error(f"AUTO-RECOVERY: Failed individual commit for {monitor.name}: {str(individual_error)}")
+                            db.session.rollback()
             
             # Get all active monitors that are due for checking
             due_monitors = BullhornMonitor.query.filter(
@@ -820,8 +839,39 @@ def process_bullhorn_monitors():
                                     except Exception as e:
                                         app.logger.error(f"Error during orphan cleanup: {str(e)}")
                     
+                    # PREVENTION LAYER 2: Update timing first and commit immediately
                     monitor.last_check = current_time
                     monitor.calculate_next_check()
+                    
+                    # CRITICAL: Immediate commit of timing data to prevent loss
+                    try:
+                        # Use SQLAlchemy's proper text() function for raw SQL
+                        from sqlalchemy import text
+                        timing_update_sql = text("""
+                        UPDATE bullhorn_monitor 
+                        SET last_check = :last_check, 
+                            next_check = :next_check 
+                        WHERE id = :monitor_id
+                        """)
+                        db.session.execute(timing_update_sql, {
+                            'last_check': current_time,
+                            'next_check': monitor.next_check,
+                            'monitor_id': monitor.id
+                        })
+                        db.session.commit()
+                        app.logger.debug(f"TIMING-COMMIT: {monitor.name} timing safely committed - Next: {monitor.next_check}")
+                    except Exception as timing_error:
+                        app.logger.error(f"TIMING-COMMIT: Failed to commit timing for {monitor.name}: {str(timing_error)}")
+                        db.session.rollback()
+                        # Fallback: set timing again and try with ORM
+                        try:
+                            monitor.last_check = current_time
+                            monitor.calculate_next_check()
+                            db.session.commit()
+                            app.logger.info(f"TIMING-FALLBACK: {monitor.name} timing committed via ORM fallback")
+                        except Exception as fallback_error:
+                            app.logger.error(f"TIMING-FALLBACK: Complete failure for {monitor.name}: {str(fallback_error)}")
+                            db.session.rollback()
                     
                     # Log successful check (only if no changes were already logged)
                     if not (added_jobs or removed_jobs or modified_jobs):
@@ -853,9 +903,27 @@ def process_bullhorn_monitors():
                     )
                     db.session.add(activity)
                     
-                    # Still update the next check time to avoid repeated failures
-                    monitor.last_check = current_time
-                    monitor.calculate_next_check()
+                    # PREVENTION LAYER 3: Even on error, ensure timing is updated and committed
+                    try:
+                        monitor.last_check = current_time
+                        monitor.calculate_next_check()
+                        from sqlalchemy import text
+                        timing_update_sql = text("""
+                        UPDATE bullhorn_monitor 
+                        SET last_check = :last_check, 
+                            next_check = :next_check 
+                        WHERE id = :monitor_id
+                        """)
+                        db.session.execute(timing_update_sql, {
+                            'last_check': current_time,
+                            'next_check': monitor.next_check,
+                            'monitor_id': monitor.id
+                        })
+                        db.session.commit()
+                        app.logger.info(f"ERROR-RECOVERY: {monitor.name} timing updated despite processing error")
+                    except Exception as timing_error:
+                        app.logger.error(f"ERROR-RECOVERY: Failed to update timing for {monitor.name}: {str(timing_error)}")
+                        db.session.rollback()
             
             # After processing all individual monitors, perform comprehensive XML sync
             # CRITICAL: Always run comprehensive sync when monitors are processed, even with no jobs
@@ -1257,6 +1325,38 @@ def process_bullhorn_monitors():
                         app.logger.error("Failed to connect to Bullhorn for snapshot synchronization")
                 except Exception as e:
                     app.logger.error(f"Error during snapshot synchronization: {str(e)}")
+            
+            # PREVENTION LAYER 4: Final proactive health check and backup timing
+            try:
+                app.logger.info("HEALTH-CHECK: Performing final timing verification...")
+                current_time_final = datetime.utcnow()
+                
+                # Check if any monitors are still showing as overdue after processing
+                still_overdue = BullhornMonitor.query.filter(
+                    BullhornMonitor.is_active == True,
+                    BullhornMonitor.next_check < current_time_final - timedelta(minutes=5)
+                ).all()
+                
+                if still_overdue:
+                    app.logger.warning(f"HEALTH-CHECK: Found {len(still_overdue)} monitors still overdue after processing. Implementing emergency timing reset...")
+                    for monitor in still_overdue:
+                        monitor.next_check = current_time_final + timedelta(minutes=5)
+                        app.logger.warning(f"EMERGENCY-RESET: {monitor.name} reset to {monitor.next_check}")
+                    db.session.commit()
+                
+                # Log final timing status for all monitors
+                all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+                healthy_count = 0
+                for monitor in all_monitors:
+                    if monitor.next_check > current_time_final:
+                        healthy_count += 1
+                    else:
+                        app.logger.warning(f"HEALTH-CHECK: Monitor {monitor.name} still has timing issue: Next={monitor.next_check}, Now={current_time_final}")
+                
+                app.logger.info(f"HEALTH-CHECK: Final status - {healthy_count}/{len(all_monitors)} monitors have healthy timing")
+                
+            except Exception as health_error:
+                app.logger.error(f"HEALTH-CHECK: Error during final health verification: {str(health_error)}")
             
             # Commit all changes
             db.session.commit()
@@ -2257,17 +2357,39 @@ def system_health_check():
             ScheduleConfig.next_run < current_time - timedelta(hours=1)
         ).all()
         
-        # Calculate overall health status
+        # Enhanced health status calculation with timing drift detection
         health_status = "healthy"
         issues = []
+        warnings = []
         
+        # Check for critically overdue monitors (>10 minutes)
         if overdue_monitors:
             health_status = "warning"
             issues.append(f"{len(overdue_monitors)} Bullhorn monitors overdue >10 minutes")
         
+        # Check for timing drift (monitors that will be overdue within 2 minutes)
+        drift_monitors = BullhornMonitor.query.filter(
+            BullhornMonitor.is_active == True,
+            BullhornMonitor.next_check < current_time + timedelta(minutes=2),
+            BullhornMonitor.next_check > current_time - timedelta(minutes=10)
+        ).all()
+        
+        if drift_monitors and health_status == "healthy":
+            warnings.append(f"{len(drift_monitors)} monitors approaching next check time")
+        
+        # Check for critically overdue schedules
         if overdue_schedules:
             health_status = "critical" if health_status == "warning" else "warning"
             issues.append(f"{len(overdue_schedules)} schedules overdue >1 hour")
+        
+        # Add timing accuracy metrics
+        all_active_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+        timing_accuracy = {
+            'healthy_monitors': len([m for m in all_active_monitors if m.next_check > current_time]),
+            'total_monitors': len(all_active_monitors),
+            'oldest_next_check': min([m.next_check for m in all_active_monitors]) if all_active_monitors else None,
+            'newest_next_check': max([m.next_check for m in all_active_monitors]) if all_active_monitors else None
+        }
         
         # Get active monitor and schedule counts
         active_monitors = BullhornMonitor.query.filter_by(is_active=True).count()
@@ -2278,15 +2400,25 @@ def system_health_check():
             'health_status': health_status,
             'timestamp': current_time.isoformat(),
             'issues': issues,
+            'warnings': warnings,
+            'timing_accuracy': timing_accuracy,
             'system_info': {
                 'active_monitors': active_monitors,
                 'active_schedules': active_schedules,
                 'overdue_monitors': len(overdue_monitors),
-                'overdue_schedules': len(overdue_schedules)
+                'overdue_schedules': len(overdue_schedules),
+                'drift_monitors': len(drift_monitors)
             },
             'next_actions': {
                 'monitors_next_run': BullhornMonitor.query.filter_by(is_active=True).order_by(BullhornMonitor.next_check).first().next_check.isoformat() if active_monitors > 0 else None,
                 'schedules_next_run': ScheduleConfig.query.filter_by(is_active=True).order_by(ScheduleConfig.next_run).first().next_run.isoformat() if active_schedules > 0 else None
+            },
+            'prevention_layers': {
+                'auto_recovery': 'Active - detects monitors >10min overdue',
+                'immediate_commits': 'Active - commits timing after each monitor',
+                'error_recovery': 'Active - updates timing even on processing errors', 
+                'final_health_check': 'Active - verifies timing after processing',
+                'enhanced_monitoring': 'Active - tracks timing drift and accuracy'
             }
         })
         
