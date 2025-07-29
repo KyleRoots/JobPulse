@@ -26,13 +26,14 @@ class XMLIntegrationService:
         # Store field changes for notifications
         self._last_field_changes = {}
     
-    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None) -> Dict:
+    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None) -> Dict:
         """
         Map Bullhorn job data to XML job structure
         
         Args:
             bullhorn_job: Dictionary containing Bullhorn job data
             existing_reference_number: Optional existing reference number to preserve
+            monitor_name: Optional monitor name to determine company assignment
             
         Returns:
             Dict: XML job structure with CDATA wrapped values
@@ -54,8 +55,12 @@ class XMLIntegrationService:
             # Add Bullhorn job ID in parentheses after cleaned title
             formatted_title = f"{clean_title} ({job_id})"
             
-            # Always use Myticas Consulting as company name
-            company_name = 'Myticas Consulting'
+            # Determine company name based on tearsheet/monitor
+            if monitor_name and 'Sponsored - STSI' in monitor_name:
+                company_name = 'STSI Group'
+                self.logger.info(f"Job {job_id} from STSI tearsheet - using company: STSI Group")
+            else:
+                company_name = 'Myticas Consulting'
             
             # Extract location information ONLY from Bullhorn structured address fields
             # Never fallback to job description parsing for location data
@@ -395,13 +400,14 @@ class XMLIntegrationService:
             self.logger.error(f"Error sorting XML jobs by date: {str(e)}")
             return False
     
-    def add_job_to_xml(self, xml_file_path: str, bullhorn_job: Dict) -> bool:
+    def add_job_to_xml(self, xml_file_path: str, bullhorn_job: Dict, monitor_name: Optional[str] = None) -> bool:
         """
         Add a new job to the XML file at the top (first position after </publisherurl>)
         
         Args:
             xml_file_path: Path to the XML file
             bullhorn_job: Bullhorn job data dictionary
+            monitor_name: Optional monitor name for company assignment
             
         Returns:
             bool: True if job was added successfully, False otherwise
@@ -446,7 +452,7 @@ class XMLIntegrationService:
                     self.logger.debug(f"Could not check for existing job: {e}")
                 
                 # Map Bullhorn job to XML format with existing reference number if found
-                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number)
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name)
                 if not xml_job or not xml_job.get('title') or not xml_job.get('referencenumber'):
                     self.logger.error(f"Failed to map job {job_id} to XML format - invalid XML job data")
                     if attempt < max_retries - 1:
@@ -888,7 +894,7 @@ class XMLIntegrationService:
             self.logger.error(f"Error checking if update needed for job {job_id}: {str(e)}")
             return True, {}  # Assume update needed if comparison fails
     
-    def update_job_in_xml(self, xml_file_path: str, bullhorn_job: Dict) -> bool:
+    def update_job_in_xml(self, xml_file_path: str, bullhorn_job: Dict, monitor_name: Optional[str] = None) -> bool:
         """
         Update an existing job in the XML file with enhanced error handling and CDATA preservation
         
@@ -971,7 +977,7 @@ class XMLIntegrationService:
                     bullhorn_job_with_ref['_existing_reference_number'] = existing_reference_number
                 
                 # Map the job with preserved reference number
-                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number)
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name)
                 if not xml_job:
                     self.logger.error(f"Failed to map job {job_id} to XML format")
                     shutil.copy2(backup_path, xml_file_path)

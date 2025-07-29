@@ -540,7 +540,7 @@ def process_bullhorn_monitors():
                                                 if not xml_service._verify_job_update_in_xml(schedule.file_path, job_id, expected_title):
                                                     app.logger.warning(f"Job {job_id} update verification failed, attempting recovery")
                                                     # Attempt to update the job again
-                                                    update_success = xml_service.update_job_in_xml(schedule.file_path, modified_job)
+                                                    update_success = xml_service.update_job_in_xml(schedule.file_path, modified_job, 'Scheduled Processing')
                                                     if not update_success:
                                                         verification_errors.append(f"Failed to update job {job_id}")
                                             
@@ -1060,26 +1060,48 @@ def process_bullhorn_monitors():
                                 # Add missing jobs
                                 if missing_job_ids:
                                     app.logger.info(f"Adding {len(missing_job_ids)} missing jobs to XML")
-                                    # De-duplicate jobs by ID to prevent adding the same job multiple times
+                                    # Create job-to-monitor mapping to track which monitor each job comes from
+                                    job_to_monitor_map = {}
                                     unique_jobs_map = {}
-                                    for job in all_current_jobs_from_monitors:
-                                        job_id = str(job.get('id'))
-                                        if job_id and job_id not in unique_jobs_map:
-                                            unique_jobs_map[job_id] = job
                                     
-                                    # Now add only unique jobs
+                                    # Build mapping by processing each monitor's jobs
+                                    for monitor in monitors_processed:
+                                        if monitor.last_job_snapshot:
+                                            try:
+                                                monitor_jobs = json.loads(monitor.last_job_snapshot)
+                                                for job in monitor_jobs:
+                                                    job_id = str(job.get('id'))
+                                                    if job_id:
+                                                        # Store job data
+                                                        if job_id not in unique_jobs_map:
+                                                            unique_jobs_map[job_id] = job
+                                                        
+                                                        # Track monitor associations - prioritize STSI
+                                                        if job_id not in job_to_monitor_map:
+                                                            job_to_monitor_map[job_id] = monitor.name
+                                                        elif 'Sponsored - STSI' in monitor.name:
+                                                            # STSI monitor takes priority for company assignment
+                                                            job_to_monitor_map[job_id] = monitor.name
+                                                            app.logger.info(f"Job {job_id} will use STSI company branding (monitor: {monitor.name})")
+                                            except Exception as e:
+                                                app.logger.warning(f"Error processing monitor {monitor.name} jobs: {str(e)}")
+                                    
+                                    # Now add only unique jobs with proper monitor context
                                     for job_id in missing_job_ids:
                                         if job_id in unique_jobs_map:
                                             job = unique_jobs_map[job_id]
+                                            monitor_name = job_to_monitor_map.get(job_id, 'Comprehensive Sync')
+                                            
                                             # Update BOTH the main XML file and the scheduled file
                                             main_xml_path = 'myticas-job-feed.xml'
-                                            if xml_service.add_job_to_xml(main_xml_path, job):
+                                            if xml_service.add_job_to_xml(main_xml_path, job, monitor_name):
                                                 total_changes += 1
-                                                app.logger.info(f"Added job {job.get('id')}: {job.get('title', 'Unknown')}")
+                                                company_info = " (STSI Group)" if 'Sponsored - STSI' in monitor_name else ""
+                                                app.logger.info(f"Added job {job.get('id')}: {job.get('title', 'Unknown')} from {monitor_name}{company_info}")
                                                 # Also update scheduled file
                                                 scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
                                                 if scheduled_xml_path != main_xml_path:
-                                                    xml_service.add_job_to_xml(scheduled_xml_path, job)
+                                                    xml_service.add_job_to_xml(scheduled_xml_path, job, monitor_name)
                                 
                                 # Remove orphaned jobs with enhanced verification
                                 if orphaned_job_ids:
@@ -1148,14 +1170,35 @@ def process_bullhorn_monitors():
                                 # Update modified jobs - check for existing jobs that need field updates
                                 app.logger.info(f"Checking for job modifications in comprehensive sync for {xml_filename}")
                                 modified_count = 0
+                                
+                                # Build job-to-monitor mapping for updates as well
+                                job_to_monitor_map = {}
+                                for monitor in monitors_processed:
+                                    if monitor.last_job_snapshot:
+                                        try:
+                                            monitor_jobs = json.loads(monitor.last_job_snapshot)
+                                            for job in monitor_jobs:
+                                                job_id = str(job.get('id'))
+                                                if job_id:
+                                                    # Track monitor associations - prioritize STSI
+                                                    if job_id not in job_to_monitor_map:
+                                                        job_to_monitor_map[job_id] = monitor.name
+                                                    elif 'Sponsored - STSI' in monitor.name:
+                                                        # STSI monitor takes priority for company assignment
+                                                        job_to_monitor_map[job_id] = monitor.name
+                                        except Exception as e:
+                                            app.logger.warning(f"Error processing monitor {monitor.name} jobs: {str(e)}")
+                                
                                 for job in all_current_jobs_from_monitors or []:
                                     job_id = str(job.get('id'))
                                     if job_id in xml_job_ids:  # Job exists in XML, check if it needs updating
                                         main_xml_path = 'myticas-job-feed.xml'
+                                        monitor_name = job_to_monitor_map.get(job_id, 'Comprehensive Sync')
+                                        
                                         # Log the job data being checked
                                         if job_id == '32658':  # Special logging for our problem job
                                             app.logger.info(f"Checking job 32658 for updates - City: {job.get('address', {}).get('city')}")
-                                        if xml_service.update_job_in_xml(main_xml_path, job):
+                                        if xml_service.update_job_in_xml(main_xml_path, job, monitor_name):
                                             modified_count += 1
                                             total_changes += 1
                                             
@@ -1171,8 +1214,9 @@ def process_bullhorn_monitors():
                                                 change_description = f"Updated: {', '.join(set(change_summaries))}"
                                             else:
                                                 change_description = "Job details updated"
-                                                
-                                            app.logger.info(f"Updated job {job_id}: {job.get('title', 'Unknown')} - {change_description}")
+                                            
+                                            company_info = " (STSI Group)" if 'Sponsored - STSI' in monitor_name else ""
+                                            app.logger.info(f"Updated job {job_id}: {job.get('title', 'Unknown')} - {change_description}{company_info}")
                                             
                                             # Store modification details for email notifications
                                             if 'modified_jobs' not in xml_sync_summary:
@@ -1187,7 +1231,7 @@ def process_bullhorn_monitors():
                                             # Also update scheduled file
                                             scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
                                             if scheduled_xml_path != main_xml_path:
-                                                xml_service.update_job_in_xml(scheduled_xml_path, job)
+                                                xml_service.update_job_in_xml(scheduled_xml_path, job, monitor_name)
                                 
                                 if modified_count > 0:
                                     app.logger.info(f"Updated {modified_count} jobs with latest Bullhorn data")
