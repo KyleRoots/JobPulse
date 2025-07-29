@@ -937,11 +937,18 @@ def process_bullhorn_monitors():
                     app.logger.warning("No jobs found in any monitored tearsheet - this may indicate all tearsheets are empty or API issues")
                 
                 try:
-                    # Find all active schedules that need XML updates
+                    # CRITICAL FIX: Update main production XML files instead of just scheduled files
+                    main_xml_files = [
+                        'myticas-job-feed.xml',
+                        'myticas-job-feed-scheduled.xml'
+                    ]
+                    
+                    # Find all active schedules for reference, but update main XML files
                     active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
                     
-                    for schedule in active_schedules:
-                        if os.path.exists(schedule.file_path):
+                    # Process each main XML file that needs updating
+                    for xml_filename in main_xml_files:
+                        if os.path.exists(xml_filename):
                             try:
                                 # Initialize XML integration service
                                 xml_service = XMLIntegrationService()
@@ -954,7 +961,7 @@ def process_bullhorn_monitors():
                                     # Use lxml to properly handle CDATA sections
                                     from lxml import etree
                                     parser = etree.XMLParser(remove_blank_text=False, strip_cdata=False)
-                                    tree = etree.parse(schedule.file_path, parser)
+                                    tree = etree.parse(xml_filename, parser)
                                     root = tree.getroot()
                                     
                                     # Extract job IDs from bhatsid elements (more reliable than parsing titles)
@@ -978,7 +985,7 @@ def process_bullhorn_monitors():
                                     
                                     app.logger.info(f"Found {len(xml_job_ids)} jobs in XML file")
                                 except Exception as e:
-                                    app.logger.error(f"Error parsing XML file {schedule.file_path}: {str(e)}")
+                                    app.logger.error(f"Error parsing XML file {xml_filename}: {str(e)}")
                                     continue
                                 
                                 # Get all job IDs from Bullhorn (handle empty list case)
@@ -990,7 +997,7 @@ def process_bullhorn_monitors():
                                 missing_job_ids = bullhorn_job_ids - xml_job_ids  # Jobs in Bullhorn but not in XML
                                 orphaned_job_ids = xml_job_ids - bullhorn_job_ids  # Jobs in XML but not in any tearsheet
                                 
-                                app.logger.info(f"Comprehensive sync analysis for {schedule.name}: "
+                                app.logger.info(f"Comprehensive sync analysis for {xml_filename}: "
                                               f"{len(xml_job_ids)} in XML, {len(bullhorn_job_ids)} in Bullhorn, "
                                               f"{len(missing_job_ids)} missing, {len(orphaned_job_ids)} orphaned")
                                 
@@ -1115,9 +1122,9 @@ def process_bullhorn_monitors():
                                             app.logger.warning(f"⚠️ Skipping removal of job {job_id} - verification failed")
                                 
                                 # Update modified jobs - check for existing jobs that need field updates
-                                app.logger.info("Checking for job modifications in comprehensive sync")
+                                app.logger.info(f"Checking for job modifications in comprehensive sync for {xml_filename}")
                                 modified_count = 0
-                                for job in all_current_jobs_from_monitors:
+                                for job in all_current_jobs_from_monitors or []:
                                     job_id = str(job.get('id'))
                                     if job_id in xml_job_ids:  # Job exists in XML, check if it needs updating
                                         main_xml_path = 'myticas-job-feed.xml'
