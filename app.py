@@ -644,7 +644,7 @@ def process_bullhorn_monitors():
                             activity_type='job_added',
                             job_id=job.get('id'),
                             job_title=job.get('title'),
-                            details=json.dumps(job)
+                            details=f"Job added: {job.get('id')}"
                         )
                         db.session.add(activity)
                     
@@ -654,7 +654,7 @@ def process_bullhorn_monitors():
                             activity_type='job_removed',
                             job_id=job.get('id'),
                             job_title=job.get('title'),
-                            details=json.dumps(job)
+                            details=f"Job removed: {job.get('id')}"
                         )
                         db.session.add(activity)
                     
