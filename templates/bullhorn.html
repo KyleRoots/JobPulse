@@ -116,19 +116,23 @@
             box-shadow: 0 4px 8px rgba(220, 53, 69, 0.2);
         }
         
-        /* Enhanced View button styling */
+        /* Enhanced View button styling - true outline-only matching Test/Delete */
         .monitor-card .btn-outline-info.view-btn {
-            background: rgba(13, 202, 240, 0.15);
-            border-color: rgba(13, 202, 240, 0.8);
-            color: #0dcaf0;
+            background: transparent !important;
+            border: 2px solid rgba(13, 202, 240, 0.6) !important;
+            color: #0dcaf0 !important;
             font-weight: 500;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
         
         .monitor-card .btn-outline-info.view-btn:hover {
-            background: rgba(13, 202, 240, 0.25);
-            border-color: #0dcaf0;
+            background: rgba(13, 202, 240, 0.1) !important;
+            border-color: #0dcaf0 !important;
+            color: #0dcaf0 !important;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(13, 202, 240, 0.4);
+            box-shadow: 0 4px 8px rgba(13, 202, 240, 0.2);
         }
         
         /* Enhanced Test button styling */
