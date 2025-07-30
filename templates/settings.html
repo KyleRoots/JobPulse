@@ -185,6 +185,42 @@
             background: linear-gradient(135deg, #e74c3c, #c0392b);
             border-color: #e74c3c;
         }
+        
+        /* Enhanced Test SFTP Connection button */
+        .btn-outline-info {
+            background: rgba(13, 202, 240, 0.1);
+            border-color: rgba(13, 202, 240, 0.6);
+            color: #0dcaf0;
+            font-weight: 500;
+            border-width: 1.5px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-outline-info:hover {
+            background: rgba(13, 202, 240, 0.2);
+            border-color: #0dcaf0;
+            color: #0dcaf0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
+        }
+        
+        /* Enhanced logout button styling */
+        .btn-outline-danger {
+            background: rgba(220, 53, 69, 0.1);
+            border-color: rgba(220, 53, 69, 0.6);
+            color: #dc3545;
+            font-weight: 500;
+            border-width: 1.5px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-outline-danger:hover {
+            background: rgba(220, 53, 69, 0.2);
+            border-color: #dc3545;
+            color: #dc3545;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
@@ -220,7 +256,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('ats_monitoring') }}">
+                            <a class="nav-link" href="{{ url_for('bullhorn_dashboard') }}">
                                 <i class="fas fa-building me-2"></i>ATS Monitor
                             </a>
                         </li>
