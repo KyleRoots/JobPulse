@@ -30,25 +30,10 @@ class BullhornService:
             self._load_credentials()
     
     def _load_credentials(self):
-        """Load Bullhorn credentials from Global Settings"""
-        try:
-            # Import here to avoid circular imports
-            from app import GlobalSettings
-            
-            settings_map = {
-                'bullhorn_client_id': 'client_id',
-                'bullhorn_client_secret': 'client_secret', 
-                'bullhorn_username': 'username',
-                'bullhorn_password': 'password'
-            }
-            
-            for setting_key, attr_name in settings_map.items():
-                setting = GlobalSettings.query.filter_by(setting_key=setting_key).first()
-                if setting and setting.setting_value:
-                    setattr(self, attr_name, setting.setting_value.strip())
-                    
-        except Exception as e:
-            logging.warning(f"Could not load Bullhorn credentials: {str(e)}")
+        """Load Bullhorn credentials - now handled by passing credentials directly"""
+        # This method is now a no-op since credentials are passed directly to __init__
+        # Keeping it for backward compatibility
+        pass
         
     def authenticate(self) -> bool:
         """

@@ -2478,7 +2478,20 @@ def bullhorn_dashboard():
     monitor_job_counts = {}
     
     try:
-        bullhorn_service = BullhornService()
+        # Load Bullhorn credentials from GlobalSettings
+        credentials = {}
+        for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+            setting = GlobalSettings.query.filter_by(setting_key=key).first()
+            if setting and setting.setting_value:
+                credentials[key] = setting.setting_value.strip()
+        
+        # Initialize BullhornService with credentials
+        bullhorn_service = BullhornService(
+            client_id=credentials.get('bullhorn_client_id'),
+            client_secret=credentials.get('bullhorn_client_secret'),
+            username=credentials.get('bullhorn_username'),
+            password=credentials.get('bullhorn_password')
+        )
         bullhorn_connected = bullhorn_service.test_connection()
         
         # Get job counts for each monitor - prioritize stored snapshots over fresh API calls
