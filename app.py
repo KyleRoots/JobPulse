@@ -3036,6 +3036,7 @@ def test_bullhorn_monitor(monitor_id):
         })
 
 @app.route('/api/bullhorn/monitor/<int:monitor_id>/jobs')
+@login_required
 def get_monitor_jobs(monitor_id):
     """Get current jobs from Bullhorn for a specific monitor - for troubleshooting/verification"""
     try:
