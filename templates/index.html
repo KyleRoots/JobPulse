@@ -444,9 +444,9 @@
                         <div class="col-lg-3 col-md-6">
                             <div class="professional-cards rounded-3 p-4 h-100 text-center">
                                 <div class="mb-3">
-                                    <i class="fas fa-bolt text-primary" style="font-size: 3.5rem; text-shadow: 0 4px 15px rgba(0,0,0,0.5);"></i>
+                                    <i class="fas fa-bolt text-warning" style="font-size: 3.5rem; text-shadow: 0 4px 15px rgba(0,0,0,0.5);"></i>
                                 </div>
-                                <h5 class="text-primary fw-bold mb-3" style="font-size: 1.3rem; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">AUTO-REFRESH</h5>
+                                <h5 class="text-warning fw-bold mb-3" style="font-size: 1.3rem; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">AUTO-REFRESH</h5>
                                 <p class="text-white mb-0" style="text-shadow: 0 1px 5px rgba(0,0,0,0.8); line-height: 1.5;">Set-and-forget automated job listing updates</p>
                             </div>
                         </div>
@@ -477,97 +477,106 @@
     </div>
     
     <!-- Springboard™ Control Center (Hidden Initially) -->
-    <div id="mainDashboard" class="container py-5" style="display: none;">
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
-                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+    <div id="mainDashboard" class="dashboard-container" style="display: none;">
+        <div class="hero-background">
+            <div class="container py-5">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
 
-        <!-- Dashboard Header -->
-        <div class="text-center mb-5">
-            <h2 class="display-6 mb-3">
-                <i class="fas fa-tachometer-alt me-3 text-primary"></i>
-                Springboard™ Control Center
-            </h2>
-            <p class="lead text-muted">
-                Professional automation platform dashboard
-            </p>
-            <button class="btn btn-outline-secondary btn-sm" onclick="showLaunchpad()">
-                <i class="fas fa-arrow-left me-2"></i>
-                Back to Launchpad
-            </button>
+                <!-- Control Center Header -->
+                <div class="text-center mb-5">
+                    <div class="hero-logo mb-4">
+                        <div class="logo-container">
+                            <div class="logo-refresh-icon">
+                                <i class="fas fa-sync-alt"></i>
+                            </div>
+                            <div class="logo-text-section">
+                                <h1 class="logo-text">Springboard™</h1>
+                                <p class="logo-tagline">Control Center</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-light btn-sm" onclick="showLaunchpad()">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Back to Launchpad
+                    </button>
+                </div>
+
+                <!-- Control Center Features Grid -->
+                <div class="row g-4 mb-5">
+                    <!-- Schedule Automation -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-clock text-info" style="font-size: 3.5rem; text-shadow: 0 4px 15px rgba(0,0,0,0.5);"></i>
+                            </div>
+                            <h5 class="text-info fw-bold mb-3" style="font-size: 1.3rem; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">SCHEDULE</h5>
+                            <p class="text-white mb-4" style="text-shadow: 0 1px 5px rgba(0,0,0,0.8); line-height: 1.5;">Configure automatic reference number updates</p>
+                            <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-info">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                Configure
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- ATS Monitoring -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-chart-line text-success" style="font-size: 3.5rem; text-shadow: 0 4px 15px rgba(0,0,0,0.5);"></i>
+                            </div>
+                            <h5 class="text-success fw-bold mb-3" style="font-size: 1.3rem; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">MONITOR</h5>
+                            <p class="text-white mb-4" style="text-shadow: 0 1px 5px rgba(0,0,0,0.8); line-height: 1.5;">Real-time Bullhorn tearsheet monitoring</p>
+                            <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-success">
+                                <i class="fas fa-eye me-2"></i>
+                                Monitor ATS
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Global Settings -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-cog text-secondary" style="font-size: 3.5rem; text-shadow: 0 4px 15px rgba(0,0,0,0.5);"></i>
+                            </div>
+                            <h5 class="text-secondary fw-bold mb-3" style="font-size: 1.3rem; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">SETTINGS</h5>
+                            <p class="text-white mb-4" style="text-shadow: 0 1px 5px rgba(0,0,0,0.8); line-height: 1.5;">Configure SFTP, email notifications, and system settings</p>
+                            <a href="{{ url_for('settings') }}" class="btn btn-secondary">
+                                <i class="fas fa-wrench me-2"></i>
+                                Configure
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Test Automation -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-vial text-warning" style="font-size: 3.5rem; text-shadow: 0 4px 15px rgba(0,0,0,0.5);"></i>
+                            </div>
+                            <h5 class="text-warning fw-bold mb-3" style="font-size: 1.3rem; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">TEST</h5>
+                            <p class="text-white mb-4" style="text-shadow: 0 1px 5px rgba(0,0,0,0.8); line-height: 1.5;">Test workflows and verify automation processes</p>
+                            <a href="{{ url_for('automation_test') }}" class="btn btn-warning">
+                                <i class="fas fa-play me-2"></i>
+                                Run Tests
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <!-- Main Dashboard Grid -->
-        <div class="row g-4 mb-5">
-            <!-- Schedule Automation -->
-            <div class="col-md-6 col-lg-3">
-                <div class="professional-cards rounded-3 p-4 h-100 text-center">
-                    <div class="mb-3">
-                        <i class="fas fa-clock fs-1 text-info"></i>
-                    </div>
-                    <h5 class="card-title">Schedule Automation</h5>
-                    <p class="text-muted flex-grow-1">Configure automatic reference number updates and scheduling</p>
-                    <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-info mt-auto">
-                        <i class="fas fa-calendar-alt me-2"></i>
-                        Configure Schedule
-                    </a>
-                </div>
-            </div>
-
-            <!-- ATS Monitoring -->
-            <div class="col-md-6 col-lg-3">
-                <div class="professional-cards rounded-3 p-4 h-100 text-center">
-                    <div class="mb-3">
-                        <i class="fas fa-chart-line fs-1 text-success"></i>
-                    </div>
-                    <h5 class="card-title">ATS Monitoring</h5>
-                    <p class="text-muted flex-grow-1">Real-time Bullhorn tearsheet monitoring and job tracking</p>
-                    <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-success mt-auto">
-                        <i class="fas fa-eye me-2"></i>
-                        Monitor ATS
-                    </a>
-                </div>
-            </div>
-
-            <!-- Global Settings -->
-            <div class="col-md-6 col-lg-3">
-                <div class="professional-cards rounded-3 p-4 h-100 text-center">
-                    <div class="mb-3">
-                        <i class="fas fa-cog fs-1 text-secondary"></i>
-                    </div>
-                    <h5 class="card-title">Global Settings</h5>
-                    <p class="text-muted flex-grow-1">Configure SFTP, email notifications, and system settings</p>
-                    <a href="{{ url_for('settings') }}" class="btn btn-secondary mt-auto">
-                        <i class="fas fa-wrench me-2"></i>
-                        System Settings
-                    </a>
-                </div>
-            </div>
-
-            <!-- Test Automation -->
-            <div class="col-md-6 col-lg-3">
-                <div class="professional-cards rounded-3 p-4 h-100 text-center">
-                    <div class="mb-3">
-                        <i class="fas fa-vial fs-1 text-warning"></i>
-                    </div>
-                    <h5 class="card-title">Test Automation</h5>
-                    <p class="text-muted flex-grow-1">Test workflows and verify automation processes</p>
-                    <a href="{{ url_for('automation_test') }}" class="btn btn-warning mt-auto">
-                        <i class="fas fa-play me-2"></i>
-                        Run Tests
-                    </a>
-                </div>
-            </div>
-        </div>
+    </div>
 
         <!-- System Information -->
         <div class="professional-cards rounded-3 p-4">
@@ -631,9 +640,17 @@
             // Check if user came from internal navigation (has referrer)
             const referrer = document.referrer;
             const currentHost = window.location.host;
+            const currentURL = window.location.href;
             
-            // If coming from internal navigation, automatically show dashboard
-            if (referrer && referrer.includes(currentHost) && referrer !== window.location.href) {
+            // Only launch if:
+            // 1. Coming from internal navigation (has referrer)
+            // 2. Referrer is from same host 
+            // 3. Referrer is NOT the current page (not a refresh)
+            // 4. Current page is the root page (/)
+            if (referrer && 
+                referrer.includes(currentHost) && 
+                referrer !== currentURL &&
+                window.location.pathname === '/') {
                 // Add small delay to ensure page is loaded
                 setTimeout(() => {
                     launchDashboard();
