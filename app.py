@@ -1252,6 +1252,22 @@ def process_bullhorn_monitors():
                                                 'field_changes': list(set(change_summaries))
                                             })
                                             
+                                            # CRITICAL FIX: Queue notification for job modification
+                                            if not hasattr(app, '_pending_notifications'):
+                                                app._pending_notifications = []
+                                            app._pending_notifications.append({
+                                                'monitor_name': monitor_name,
+                                                'added_jobs': [],
+                                                'removed_jobs': [],
+                                                'modified_jobs': [{
+                                                    'id': job_id,
+                                                    'title': job.get('title', 'Unknown'),
+                                                    'change_summary': change_description,
+                                                    'field_changes': field_changes
+                                                }],
+                                                'total_jobs': 0  # Will be updated by comprehensive sync summary
+                                            })
+                                            
                                             # Also update scheduled file
                                             scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
                                             if scheduled_xml_path != main_xml_path:
