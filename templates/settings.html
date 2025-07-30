@@ -3,13 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - XML Job Feed Processor</title>
+    <title>Global Settings - Springboard™</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+        }
         .settings-card {
-            background-color: var(--bs-dark);
-            border: 1px solid var(--bs-border-color);
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .settings-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: all 0.5s ease;
+        }
+        
+        .settings-card:hover::before {
+            left: 100%;
+        }
+        
+        .settings-card:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
         }
         
         .form-label {
@@ -56,58 +86,133 @@
             background-color: var(--bs-gray-500) !important;
             border-color: var(--bs-gray-300) !important;
         }
+        
+        .springboard-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .springboard-logo {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            margin-bottom: 0.5rem;
+        }
+        
+        .lyntrix-attribution {
+            font-family: 'Kalam', cursive;
+            font-size: 0.9rem;
+            color: #A8B8C8;
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+        
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #E8F0FF;
+            margin-bottom: 0.5rem;
+        }
+        
+        .springboard-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            text-align: center;
+            padding: 15px 0;
+            font-size: 0.85rem;
+            color: #8F9BA8;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .content-container {
+            margin-bottom: 80px;
+        }
+        
+        .nav-pills .nav-link {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #ffffff;
+            margin: 0 0.25rem;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-pills .nav-link:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .nav-pills .nav-link.active {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            border-color: #e74c3c;
+        }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container py-5">
+    <div class="container py-5 content-container">
         <div class="row justify-content-center">
             <div class="col-lg-8">
-                <!-- Header -->
-                <div class="text-center mb-5">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h1 class="display-5 mb-3">
-                                <i class="fas fa-cog me-3"></i>
-                                Global Settings
-                            </h1>
-                            <p class="lead text-muted">
-                                Configure SFTP upload and email notification settings
-                            </p>
-                        </div>
+                <!-- Springboard Header -->
+                <div class="springboard-header">
+                    <div class="springboard-logo">
+                        <i class="fas fa-sync-alt me-2" style="animation: spin 4s linear infinite;"></i>
+                        Springboard™
                     </div>
-                    
-                    <!-- Navigation Menu -->
-                    <div class="text-center mb-4">
-                        <div class="d-flex flex-wrap justify-content-center gap-2">
-                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-home me-2"></i>
-                                <span class="d-none d-sm-inline">Main </span>Dashboard
+                    <div class="lyntrix-attribution">powered by Lyntrix AI</div>
+                    <div class="page-title">Global Settings</div>
+                    <p class="lead text-muted">
+                        Configure SFTP upload and email notification settings
+                    </p>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="text-center mb-4">
+                    <ul class="nav nav-pills justify-content-center">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="fas fa-home me-2"></i>Dashboard
                             </a>
-                            <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-outline-info">
-                                <i class="fas fa-clock me-2"></i>
-                                <span class="d-none d-sm-inline">Schedule </span>Automation
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('scheduler_dashboard') }}">
+                                <i class="fas fa-clock me-2"></i>Schedule
                             </a>
-                            <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-outline-warning">
-                                <i class="fas fa-building me-2"></i>
-                                <span class="d-none d-sm-inline">ATS </span>Monitoring
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('ats_monitoring') }}">
+                                <i class="fas fa-building me-2"></i>ATS Monitor
                             </a>
-                            <a href="{{ url_for('automation_test') }}" class="btn btn-outline-success">
-                                <i class="fas fa-vial me-2"></i>
-                                <span class="d-none d-sm-inline">Test </span>Automation
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active">
+                                <i class="fas fa-cog me-2"></i>Settings
                             </a>
-                        </div>
-                        <!-- User Info and Logout -->
-                        <div class="d-flex justify-content-center align-items-center gap-3 mt-3">
-                            <small class="text-muted">
-                                <i class="fas fa-user me-1"></i>
-                                Logged in as: <strong>{{ current_user.username }}</strong>
-                            </small>
-                            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
-                                <i class="fas fa-sign-out-alt me-1"></i>
-                                Logout
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('automation_test') }}">
+                                <i class="fas fa-play me-2"></i>Test
                             </a>
-                        </div>
-                    </div>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- User Info and Logout -->
+                <div class="d-flex justify-content-center align-items-center gap-3 mb-4">
+                    <small class="text-muted">
+                        <i class="fas fa-user me-1"></i>
+                        Logged in as: <strong>{{ current_user.username }}</strong>
+                    </small>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-sign-out-alt me-1"></i>
+                        Logout
+                    </a>
                 </div>
 
                 <!-- Flash Messages -->
@@ -322,5 +427,10 @@
             });
         }
     </script>
+    
+    <!-- Springboard Footer -->
+    <div class="springboard-footer">
+        © 2025 Lyntrix Solutions
+    </div>
 </body>
 </html>

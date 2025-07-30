@@ -1,12 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Automation Test Center - XML Processing System</title>
+    <title>Test Automation - Springboard™</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+        }
         .log-output {
             background: #1e1e1e;
             color: #e0e0e0;
@@ -70,52 +74,146 @@
         .job-item.updated {
             border-left: 4px solid #ffc107;
         }
+        
+        .springboard-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .springboard-logo {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            margin-bottom: 0.5rem;
+        }
+        
+        .lyntrix-attribution {
+            font-family: 'Kalam', cursive;
+            font-size: 0.9rem;
+            color: #A8B8C8;
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+        
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #E8F0FF;
+            margin-bottom: 0.5rem;
+        }
+        
+        .springboard-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            text-align: center;
+            padding: 15px 0;
+            font-size: 0.85rem;
+            color: #8F9BA8;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .content-container {
+            margin-bottom: 80px;
+        }
+        
+        .nav-pills .nav-link {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #ffffff;
+            margin: 0 0.25rem;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-pills .nav-link:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .nav-pills .nav-link.active {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            border-color: #e74c3c;
+        }
+        
+        .test-card, .card {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .test-card:hover, .card:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+        }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-4">
+    <div class="container py-5 content-container">
         <div class="row">
             <div class="col-12">
-                <!-- Navigation buttons -->
-                <div class="text-center mb-4">
-                    <div class="d-flex flex-wrap justify-content-center gap-2">
-                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-home me-2"></i>
-                            <span class="d-none d-sm-inline">Main </span>Dashboard
-                        </a>
-                        <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-outline-info">
-                            <i class="fas fa-clock me-2"></i>
-                            <span class="d-none d-sm-inline">Schedule </span>Automation
-                        </a>
-                        <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-outline-warning">
-                            <i class="fas fa-building me-2"></i>
-                            <span class="d-none d-sm-inline">ATS </span>Monitoring
-                        </a>
-                        <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-cog me-2"></i>
-                            <span class="d-none d-sm-inline">Global </span>Settings
-                        </a>
+                <!-- Springboard Header -->
+                <div class="springboard-header">
+                    <div class="springboard-logo">
+                        <i class="fas fa-sync-alt me-2" style="animation: spin 4s linear infinite;"></i>
+                        Springboard™
                     </div>
-                    <!-- User Info and Logout -->
-                    <div class="d-flex justify-content-center align-items-center gap-3 mt-3">
-                        <small class="text-muted">
-                            <i class="fas fa-user me-1"></i>
-                            Logged in as: <strong>{{ current_user.username }}</strong>
-                        </small>
-                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-sign-out-alt me-1"></i>
-                            Logout
-                        </a>
-                    </div>
+                    <div class="lyntrix-attribution">powered by Lyntrix AI</div>
+                    <div class="page-title">Test Automation</div>
+                    <p class="lead text-muted">Test the complete XML automation system with simulated Bullhorn job changes</p>
                 </div>
                 
-                <h1 class="mb-4">
-                    <i class="fas fa-cogs"></i> Automation Test Center
-                </h1>
-                <p class="text-muted">
-                    Test the complete XML automation system with simulated Bullhorn job changes.
-                    This demonstrates exactly how the system processes job additions, removals, and updates.
-                </p>
+                <!-- Navigation -->
+                <div class="text-center mb-4">
+                    <ul class="nav nav-pills justify-content-center">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('index') }}">
+                                <i class="fas fa-home me-2"></i>Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('scheduler_dashboard') }}">
+                                <i class="fas fa-clock me-2"></i>Schedule
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('ats_monitoring') }}">
+                                <i class="fas fa-building me-2"></i>ATS Monitor
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('settings') }}">
+                                <i class="fas fa-cog me-2"></i>Settings
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active">
+                                <i class="fas fa-play me-2"></i>Test
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- User Info and Logout -->
+                <div class="d-flex justify-content-center align-items-center gap-3 mb-4">
+                    <small class="text-muted">
+                        <i class="fas fa-user me-1"></i>
+                        Logged in as: <strong>{{ current_user.username }}</strong>
+                    </small>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-sign-out-alt me-1"></i>
+                        Logout
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -418,5 +516,10 @@
             new AutomationTester();
         });
     </script>
+    
+    <!-- Springboard Footer -->
+    <div class="springboard-footer">
+        © 2025 Lyntrix Solutions
+    </div>
 </body>
 </html>
