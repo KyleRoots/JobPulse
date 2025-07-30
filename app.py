@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime
 import json
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify
 from werkzeug.utils import secure_filename
@@ -1359,6 +1360,24 @@ def process_bullhorn_monitors():
                                                                 if email_sent:
                                                                     notifications_sent += 1
                                                                     app.logger.info(f"✅ Email notification sent for monitor: {notification['monitor_name']}")
+                                                                    
+                                                                    # Mark related activities as notification_sent = True
+                                                                    try:
+                                                                        # Update job_modified, job_added, job_removed activities for this notification
+                                                                        activities_to_update = BullhornActivity.query.filter(
+                                                                            BullhornActivity.monitor_id == notification.get('monitor_id'),
+                                                                            BullhornActivity.notification_sent == False,
+                                                                            BullhornActivity.created_at >= notification.get('timestamp', datetime.now())
+                                                                        ).all()
+                                                                        
+                                                                        for activity in activities_to_update:
+                                                                            activity.notification_sent = True
+                                                                        
+                                                                        db.session.commit()
+                                                                        app.logger.info(f"📧 Marked {len(activities_to_update)} activities as notification_sent=True")
+                                                                    except Exception as db_error:
+                                                                        app.logger.error(f"Error updating notification_sent status: {str(db_error)}")
+                                                                        db.session.rollback()
                                                                 else:
                                                                     app.logger.warning(f"❌ Failed to send email notification for monitor: {notification['monitor_name']}")
                                                             except Exception as e:
@@ -1405,6 +1424,24 @@ def process_bullhorn_monitors():
                                                 if email_sent:
                                                     notifications_sent += 1
                                                     app.logger.info(f"✅ Email notification sent for monitor: {notification['monitor_name']}")
+                                                    
+                                                    # Mark related activities as notification_sent = True
+                                                    try:
+                                                        # Update job_modified, job_added, job_removed activities for this notification
+                                                        activities_to_update = BullhornActivity.query.filter(
+                                                            BullhornActivity.monitor_id == notification.get('monitor_id'),
+                                                            BullhornActivity.notification_sent == False,
+                                                            BullhornActivity.created_at >= notification.get('timestamp', datetime.now())
+                                                        ).all()
+                                                        
+                                                        for activity in activities_to_update:
+                                                            activity.notification_sent = True
+                                                        
+                                                        db.session.commit()
+                                                        app.logger.info(f"📧 Marked {len(activities_to_update)} activities as notification_sent=True")
+                                                    except Exception as db_error:
+                                                        app.logger.error(f"Error updating notification_sent status: {str(db_error)}")
+                                                        db.session.rollback()
                                                 else:
                                                     app.logger.warning(f"❌ Failed to send email notification for monitor: {notification['monitor_name']}")
                                             except Exception as e:
