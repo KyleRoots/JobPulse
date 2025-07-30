@@ -617,37 +617,15 @@
                 dashboard.style.transition = 'opacity 0.5s ease-in-out';
                 dashboard.style.opacity = '1';
                 
-                // Smart scroll to dashboard after fade-in
-                setTimeout(() => {
-                    dashboard.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start' 
-                    });
-                }, 300);
+                // Keep users at top - no automatic scrolling
             }, 50);
         }
         
-        // Auto-launch dashboard if coming from navigation
+        // Users must manually click "Launch Platform" - no auto-launch
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if user came from internal navigation (has referrer)
-            const referrer = document.referrer;
-            const currentHost = window.location.host;
-            const currentURL = window.location.href;
-            
-            // Only launch if:
-            // 1. Coming from internal navigation (has referrer)
-            // 2. Referrer is from same host 
-            // 3. Referrer is NOT the current page (not a refresh)
-            // 4. Current page is the root page (/)
-            if (referrer && 
-                referrer.includes(currentHost) && 
-                referrer !== currentURL &&
-                window.location.pathname === '/') {
-                // Add small delay to ensure page is loaded
-                setTimeout(() => {
-                    launchDashboard();
-                }, 200);
-            }
+            // Always start at launchpad - users must manually launch platform
+            document.querySelector('.launchpad-container').style.display = 'flex';
+            document.getElementById('mainDashboard').style.display = 'none';
         });
         
         function showLaunchpad() {
