@@ -372,7 +372,7 @@
     </style>
 </head>
 <body>
-    <div class="launchpad-container d-flex align-items-center">
+    <div id="top" class="launchpad-container d-flex align-items-center">
         <div class="geometric-bg"></div>
         
         <div class="container position-relative">
@@ -633,19 +633,21 @@
             document.documentElement.scrollTop = 0;
             document.body.scrollTop = 0;
             
-            // Disable any auto-scroll behavior for good measure
+            // Check for URL fragment and force scroll to top
+            if (window.location.hash === '#top') {
+                window.scrollTo(0, 0);
+                // Remove the fragment from URL after forcing scroll
+                history.replaceState(null, null, window.location.pathname);
+            }
+            
+            // Multiple scroll prevention checks
             setTimeout(() => {
                 window.scrollTo(0, 0);
             }, 100);
             
-            // Extra aggressive scroll prevention
             setTimeout(() => {
                 window.scrollTo(0, 0);
-            }, 500);
-            
-            setTimeout(() => {
-                window.scrollTo(0, 0);
-            }, 1000);
+            }, 300);
         });
         
         function showLaunchpad() {

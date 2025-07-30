@@ -1456,7 +1456,8 @@ def login():
             next_page = request.args.get('next')
             if next_page:
                 return redirect(next_page)
-            return redirect(url_for('index'))
+            # Force scroll to top by adding fragment
+            return redirect(url_for('index') + '#top')
         else:
             flash('Invalid username or password.', 'error')
     
