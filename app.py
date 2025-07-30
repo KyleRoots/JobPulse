@@ -60,6 +60,24 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+def get_bullhorn_service():
+    """Helper function to create BullhornService with credentials from GlobalSettings"""
+    credentials = {}
+    for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+        try:
+            setting = GlobalSettings.query.filter_by(setting_key=key).first()
+            if setting and setting.setting_value:
+                credentials[key] = setting.setting_value.strip()
+        except Exception as e:
+            app.logger.error(f"Error loading credential {key}: {str(e)}")
+    
+    return BullhornService(
+        client_id=credentials.get('bullhorn_client_id'),
+        client_secret=credentials.get('bullhorn_client_secret'),
+        username=credentials.get('bullhorn_username'),
+        password=credentials.get('bullhorn_password')
+    )
 login_manager.login_message = 'Please log in to access the XML Job Feed Portal.'
 
 @login_manager.user_loader
@@ -404,7 +422,7 @@ def process_bullhorn_monitors():
             app.logger.info(f"Checking Bullhorn monitors. Found {len(due_monitors)} due monitors")
             
             # Initialize Bullhorn service once for all monitors
-            bullhorn_service = BullhornService()
+            bullhorn_service = get_bullhorn_service()
             if not bullhorn_service.test_connection():
                 app.logger.error("Failed to connect to Bullhorn API for monitoring")
                 return
@@ -782,7 +800,7 @@ def process_bullhorn_monitors():
                                         all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
                                         all_current_jobs = []
                                         
-                                        bullhorn_service = BullhornService()
+                                        bullhorn_service = get_bullhorn_service()
                                         if bullhorn_service.test_connection():
                                             for other_monitor in all_monitors:
                                                 if other_monitor.tearsheet_id == 0:
@@ -1484,7 +1502,7 @@ def process_bullhorn_monitors():
                 app.logger.info("Synchronizing all monitor snapshots to prevent duplicate detections")
                 try:
                     # Create a new Bullhorn service instance for snapshot sync
-                    sync_bullhorn_service = BullhornService()
+                    sync_bullhorn_service = get_bullhorn_service()
                     if sync_bullhorn_service.test_connection():
                         all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
                         for monitor in all_monitors:
@@ -2822,7 +2840,7 @@ def create_bullhorn_monitor():
                 
                 # Get tearsheet name for reference
                 try:
-                    bullhorn_service = BullhornService()
+                    bullhorn_service = get_bullhorn_service()
                     
                     # Try to get the tearsheet name by accessing it directly
                     if bullhorn_service.authenticate():
@@ -2895,7 +2913,7 @@ def create_bullhorn_monitor():
     tearsheets = []
     
     try:
-        bullhorn_service = BullhornService()
+        bullhorn_service = get_bullhorn_service()
         
         # Quick check - try a few known tearsheet IDs
         known_ids = [1, 2, 3, 4, 5, 10, 20, 50, 100]
@@ -2937,7 +2955,7 @@ def bullhorn_monitor_details(monitor_id):
     current_job_count = None
     try:
         # Initialize Bullhorn service
-        bullhorn_service = BullhornService()
+        bullhorn_service = get_bullhorn_service()
         
         if bullhorn_service.test_connection():
             # Get current jobs based on monitor type
@@ -2986,7 +3004,7 @@ def test_bullhorn_monitor(monitor_id):
         monitor = BullhornMonitor.query.get_or_404(monitor_id)
         
         # Initialize Bullhorn service
-        bullhorn_service = BullhornService()
+        bullhorn_service = get_bullhorn_service()
         
         if not bullhorn_service.test_connection():
             return jsonify({
@@ -3023,8 +3041,8 @@ def get_monitor_jobs(monitor_id):
     try:
         monitor = BullhornMonitor.query.get_or_404(monitor_id)
         
-        # Initialize Bullhorn service
-        bullhorn_service = BullhornService()
+        # Initialize Bullhorn service with credentials from GlobalSettings
+        bullhorn_service = get_bullhorn_service()
         
         if not bullhorn_service.test_connection():
             return jsonify({
