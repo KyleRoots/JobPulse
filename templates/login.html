@@ -172,6 +172,19 @@
             border-radius: 0 12px 12px 0;
         }
         
+        .forgot-password-link {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .forgot-password-link:hover {
+            color: #4FC3F7;
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+        
         .system-info {
             text-align: center;
             margin-top: 2rem;
@@ -255,6 +268,12 @@
                 <button type="submit" class="btn btn-login btn-lg">
                     <i class="fas fa-sign-in-alt"></i> Sign In
                 </button>
+            </div>
+            
+            <div class="text-center mt-3">
+                <a href="#" class="forgot-password-link">
+                    <i class="fas fa-question-circle me-1"></i>Forgot Password?
+                </a>
             </div>
         </form>
         
