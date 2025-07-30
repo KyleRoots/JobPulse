@@ -240,10 +240,10 @@ def process_scheduled_files():
                                 if (email_enabled and email_enabled.setting_value == 'true' and 
                                     email_address and email_address.setting_value):
                                     
-                                    # Add 30-second delay before sending email to ensure XML updates are reflected
-                                    app.logger.info(f"Waiting 30 seconds before sending email notification for schedule: {schedule.name}")
+                                    # Add 15-second delay before sending email to ensure XML updates are reflected
+                                    app.logger.info(f"Waiting 15 seconds before sending email notification for schedule: {schedule.name}")
                                     import time
-                                    time.sleep(30)
+                                    time.sleep(15)
                                     
                                     email_service = EmailService()
                                     email_sent = email_service.send_processing_notification(
@@ -1338,9 +1338,9 @@ def process_bullhorn_monitors():
                                                     if hasattr(app, '_pending_notifications') and app._pending_notifications:
                                                         app.logger.info(f"📧 Sending {len(app._pending_notifications)} pending notifications after successful comprehensive sync and SFTP upload")
                                                         
-                                                        # Add 30-second delay to ensure XML changes are reflected on web server
+                                                        # Add 15-second delay to ensure XML changes are reflected on web server
                                                         import time
-                                                        time.sleep(30)
+                                                        time.sleep(15)
                                                         
                                                         email_service = EmailService()
                                                         notifications_sent = 0
@@ -1384,9 +1384,9 @@ def process_bullhorn_monitors():
                                     if hasattr(app, '_pending_notifications') and app._pending_notifications:
                                         app.logger.info(f"📧 Sending {len(app._pending_notifications)} pending notifications (no XML changes needed)")
                                         
-                                        # Add 30-second delay to ensure consistency with web server
+                                        # Add 15-second delay to ensure consistency with web server
                                         import time
-                                        time.sleep(30)
+                                        time.sleep(15)
                                         
                                         email_service = EmailService()
                                         notifications_sent = 0
