@@ -113,6 +113,61 @@
             box-shadow: 0 4px 12px rgba(13, 202, 240, 0.4) !important;
         }
         
+        /* Consistent button styling for all outline buttons */
+        .btn-outline-secondary {
+            background: rgba(108, 117, 125, 0.15) !important;
+            border: 2px solid rgba(108, 117, 125, 0.8) !important;
+            color: #6c757d !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .btn-outline-secondary:hover {
+            background: rgba(108, 117, 125, 0.25) !important;
+            border-color: #6c757d !important;
+            color: #ffffff !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4) !important;
+        }
+        
+        .btn-outline-warning {
+            background: rgba(255, 193, 7, 0.15) !important;
+            border: 2px solid rgba(255, 193, 7, 0.8) !important;
+            color: #ffc107 !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .btn-outline-warning:hover {
+            background: rgba(255, 193, 7, 0.25) !important;
+            border-color: #ffc107 !important;
+            color: #000000 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4) !important;
+        }
+        
+        .btn-outline-success {
+            background: rgba(25, 135, 84, 0.15) !important;
+            border: 2px solid rgba(25, 135, 84, 0.8) !important;
+            color: #198754 !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .btn-outline-success:hover {
+            background: rgba(25, 135, 84, 0.25) !important;
+            border-color: #198754 !important;
+            color: #ffffff !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(25, 135, 84, 0.4) !important;
+        }
+        
         .springboard-footer {
             position: fixed;
             bottom: 0;
@@ -151,40 +206,28 @@
                     </p>
                 </div>
                 
-                <!-- Navigation -->
+                <!-- Navigation - Consistent with other pages -->
                 <div class="text-center mb-4">
-                    <ul class="nav nav-pills justify-content-center">
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('index') }}">
-                                <i class="fas fa-home me-2"></i>Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('scheduler_dashboard') }}">
-                                <i class="fas fa-clock me-2"></i>Schedule
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('bullhorn_dashboard') }}">
-                                <i class="fas fa-building me-2"></i>ATS Monitor
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('settings') }}">
-                                <i class="fas fa-cog me-2"></i>Settings
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active">
-                                <i class="fas fa-key me-2"></i>API Settings
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('automation_test') }}">
-                                <i class="fas fa-play me-2"></i>Test
-                            </a>
-                        </li>
-                    </ul>
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home me-2"></i>Dashboard
+                        </a>
+                        <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-outline-info">
+                            <i class="fas fa-clock me-2"></i>Schedule
+                        </a>
+                        <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-outline-warning">
+                            <i class="fas fa-building me-2"></i>ATS Monitor
+                        </a>
+                        <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-cog me-2"></i>Settings
+                        </a>
+                        <a href="{{ url_for('bullhorn_settings') }}" class="btn btn-primary">
+                            <i class="fas fa-key me-2"></i>API Settings
+                        </a>
+                        <a href="{{ url_for('automation_test') }}" class="btn btn-outline-success">
+                            <i class="fas fa-play me-2"></i>Test
+                        </a>
+                    </div>
                 </div>
                 
                 <!-- User Info and Logout -->
@@ -367,10 +410,10 @@
 
                         <h6 class="mt-4">5. Support Resources</h6>
                         <ul>
-                            <li><a href="https://bullhorn.github.io/rest-api-docs/" target="_blank" class="text-decoration-none">
+                            <li><a href="https://bullhorn.github.io/rest-api-docs/" target="_blank" class="text-decoration-none" style="color: #17a2b8; font-weight: 500;">
                                 Bullhorn REST API Documentation <i class="fas fa-external-link-alt"></i>
                             </a></li>
-                            <li><a href="https://supportforums.bullhorn.com/" target="_blank" class="text-decoration-none">
+                            <li><a href="https://supportforums.bullhorn.com/" target="_blank" class="text-decoration-none" style="color: #17a2b8; font-weight: 500;">
                                 Bullhorn Support Forums <i class="fas fa-external-link-alt"></i>
                             </a></li>
                             <li><strong>Bullhorn Support:</strong> Contact through your Bullhorn account portal</li>
