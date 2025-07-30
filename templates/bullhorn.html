@@ -128,6 +128,22 @@
             box-shadow: 0 4px 12px rgba(13, 202, 240, 0.4);
         }
         
+        /* Enhanced Test button styling */
+        .monitor-card .btn-outline-warning.test-btn {
+            background: rgba(255, 193, 7, 0.15);
+            border-color: rgba(255, 193, 7, 0.8);
+            color: #ffc107;
+            font-weight: 500;
+        }
+        
+        .monitor-card .btn-outline-warning.test-btn:hover {
+            background: rgba(255, 193, 7, 0.25);
+            border-color: #ffc107;
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+        }
+        
         /* Modal table styling to match activity table */
         .modal-content .table-responsive {
             border-radius: 12px;
@@ -158,21 +174,22 @@
         }
         
         /* Enhanced logout button styling */
-        .btn-danger {
-            background: rgba(220, 53, 69, 0.15);
-            border-color: rgba(220, 53, 69, 0.8);
-            color: #dc3545;
-            font-weight: 500;
-            border-width: 1.5px;
-            transition: all 0.3s ease;
+        .btn-outline-danger {
+            background: rgba(139, 69, 19, 0.9) !important;
+            border: 2px solid rgba(205, 92, 92, 0.8) !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease !important;
         }
         
-        .btn-danger:hover {
-            background: rgba(220, 53, 69, 0.25);
-            border-color: #dc3545;
-            color: #ffffff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+        .btn-outline-danger:hover {
+            background: rgba(165, 42, 42, 1) !important;
+            border-color: rgba(220, 20, 60, 1) !important;
+            color: #ffffff !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5) !important;
         }
         /* Overdue monitor styling */
         .monitor-card.overdue {
@@ -424,9 +441,10 @@
                                                     {% endif %}
                                                     {% if monitor_job_counts[monitor.id] is not none %}
                                                         <span class="badge bg-info job-count-badge">{{ monitor_job_counts[monitor.id] }} jobs</span>
-                                                        <button class="btn btn-sm btn-link p-0 ms-1 text-info" 
+                                                        <button class="btn btn-sm btn-link p-0 ms-1" 
                                                                 onclick="viewMonitorJobs({{ monitor.id }}, '{{ monitor.name }}')"
-                                                                title="View current jobs from Bullhorn">
+                                                                title="View current jobs from Bullhorn"
+                                                                style="color: #ffd700 !important; text-shadow: 0 0 5px rgba(255, 215, 0, 0.8);">
                                                             <i class="fas fa-list"></i>
                                                         </button>
                                                     {% endif %}
@@ -464,7 +482,7 @@
                                                     <i class="fas fa-eye me-1"></i>View
                                                 </a>
                                                 <button onclick="testMonitor({{ monitor.id }})" 
-                                                        class="btn btn-sm btn-outline-info">
+                                                        class="btn btn-sm btn-outline-warning test-btn">
                                                     <i class="fas fa-vial me-1"></i>Test
                                                 </button>
                                                 <form method="POST" action="{{ url_for('delete_bullhorn_monitor', monitor_id=monitor.id) }}" 
