@@ -2465,8 +2465,13 @@ def validate_file():
 @login_required
 def bullhorn_dashboard():
     """ATS monitoring dashboard"""
-    monitors = BullhornMonitor.query.filter_by(is_active=True).all()
-    recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(50).all()
+    try:
+        monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+        recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(50).all()
+    except Exception as e:
+        app.logger.error(f"Error querying database in bullhorn_dashboard: {str(e)}")
+        monitors = []
+        recent_activities = []
     
     # Check if Bullhorn is connected and get job counts
     bullhorn_connected = False
@@ -2518,6 +2523,47 @@ def bullhorn_dashboard():
                          recent_activities=recent_activities,
                          bullhorn_connected=bullhorn_connected,
                          monitor_job_counts=monitor_job_counts)
+
+@app.route('/test-bullhorn')
+def test_bullhorn_page():
+    """Test page that doesn't require authentication"""
+    try:
+        # Try to render the bullhorn template without any data
+        return render_template('bullhorn.html', 
+                             monitors=[], 
+                             recent_activities=[],
+                             bullhorn_connected=False,
+                             monitor_job_counts={})
+    except Exception as e:
+        return f"Error rendering template: {str(e)}", 500
+
+@app.route('/health')
+def simple_health_check():
+    """Simple health check that doesn't require authentication"""
+    try:
+        # Test database connection
+        db_ok = False
+        try:
+            db.session.execute(text('SELECT 1')).scalar()
+            db_ok = True
+        except:
+            pass
+            
+        return jsonify({
+            'status': 'ok',
+            'timestamp': datetime.utcnow().isoformat(),
+            'database': db_ok,
+            'session_configured': bool(app.secret_key),
+            'login_manager_configured': bool(app.login_manager),
+            'templates_exist': os.path.exists('templates/bullhorn.html'),
+            'bullhorn_template_size': os.path.getsize('templates/bullhorn.html') if os.path.exists('templates/bullhorn.html') else 0
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 @app.route('/api/system/health')
 def system_health_check():
