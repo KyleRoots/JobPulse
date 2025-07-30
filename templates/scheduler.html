@@ -311,47 +311,26 @@
                     </ul>
                 </div>
                 
-                <!-- Header Actions -->
-                <div class="page-header d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                    <div>
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-home me-2"></i>
-                                <span class="d-none d-sm-inline">Main </span>Dashboard
-                            </a>
-                            <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-outline-warning">
-                                <i class="fas fa-building me-2"></i>
-                                <span class="d-none d-sm-inline">ATS </span>Monitoring
-                            </a>
-                            <a href="{{ url_for('settings') }}" class="btn btn-outline-info">
-                                <i class="fas fa-cog me-2"></i>
-                                <span class="d-none d-sm-inline">Global </span>Settings
-                            </a>
-                            <a href="{{ url_for('automation_test') }}" class="btn btn-outline-success">
-                                <i class="fas fa-vial me-2"></i>
-                                <span class="d-none d-sm-inline">Test </span>Automation
-                            </a>
-                        </div>
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
-                            <i class="fas fa-plus me-2"></i>
-                            <span class="d-none d-sm-inline">New </span>Schedule
-                        </button>
-                        <!-- User Info and Logout -->
-                        <div class="d-flex align-items-center gap-2 mt-2">
-                            <small class="text-muted">
-                                <i class="fas fa-user me-1"></i>{{ current_user.username }}
-                            </small>
-                            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
-                                <i class="fas fa-sign-out-alt me-1"></i>Logout
-                            </a>
-                        </div>
+                <!-- Main Content Header with Clean Actions -->
+                <div class="text-center mb-4">
+                    <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
+                        <i class="fas fa-plus me-2"></i>New Schedule
+                    </button>
+                    
+                    <!-- User Info -->
+                    <div class="mt-3">
+                        <small class="text-muted me-3">
+                            <i class="fas fa-user me-1"></i>{{ current_user.username }}
+                        </small>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-sign-out-alt me-1"></i>Logout
+                        </a>
                     </div>
                 </div>
 
                 <!-- Active Schedules -->
-                <div class="row">
-                    <div class="col-lg-8 col-md-12">
+                <div class="row justify-content-center">
+                    <div class="col-lg-10 col-xl-8">
                         <h4 class="mb-3">
                             <i class="fas fa-calendar-check me-2"></i>
                             Active Schedules

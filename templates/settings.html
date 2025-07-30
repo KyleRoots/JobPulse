@@ -8,8 +8,29 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
             min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        .geometric-bg {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
+            animation: drift 30s linear infinite;
+            z-index: -1;
+        }
+        
+        @keyframes drift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-60px, -60px) rotate(360deg); }
         }
         .settings-card {
             background: rgba(255,255,255,0.08);
@@ -40,6 +61,18 @@
             border-color: rgba(255,255,255,0.3);
             transform: translateY(-4px);
             box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+        }
+        
+        /* Static card without hover effects */
+        .settings-card.no-hover:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.15);
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .settings-card.no-hover::before {
+            display: none;
         }
         
         .form-label {
@@ -156,6 +189,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div class="geometric-bg"></div>
     <div class="container py-5 content-container">
         <div class="row justify-content-center">
             <div class="col-lg-8">
@@ -356,7 +390,7 @@
 
 
                 <!-- Usage Information -->
-                <div class="card settings-card mt-4">
+                <div class="card settings-card no-hover mt-4">
                     <div class="card-body">
                         <h5 class="card-title">
                             <i class="fas fa-info-circle me-2"></i>
