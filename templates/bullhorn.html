@@ -662,9 +662,13 @@
                                         {% for activity in recent_activities %}
                                         <tr>
                                             <td>
+                                                {% if activity.monitor %}
                                                 <a href="{{ url_for('bullhorn_monitor_details', monitor_id=activity.monitor.id) }}">
                                                     {{ activity.monitor.name }}
                                                 </a>
+                                                {% else %}
+                                                <span class="text-muted">Scheduled Processing</span>
+                                                {% endif %}
                                             </td>
                                             <td>
                                                 {% if activity.activity_type == 'job_added' %}
