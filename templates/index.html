@@ -617,7 +617,13 @@
                 dashboard.style.transition = 'opacity 0.5s ease-in-out';
                 dashboard.style.opacity = '1';
                 
-                // Keep users at top - no automatic scrolling
+                // Scroll to control center when manually launched
+                setTimeout(() => {
+                    dashboard.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }, 300);
             }, 50);
         }
         
@@ -626,6 +632,16 @@
             // Always start at launchpad - users must manually launch platform
             document.querySelector('.launchpad-container').style.display = 'flex';
             document.getElementById('mainDashboard').style.display = 'none';
+            
+            // Force scroll to top on page load to override any browser state
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+            
+            // Disable any auto-scroll behavior for good measure
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+            }, 100);
         });
         
         function showLaunchpad() {
