@@ -2735,8 +2735,8 @@ def get_recent_activities():
     for activity in recent_activities:
         activities_data.append({
             'id': activity.id,
-            'monitor_name': activity.monitor.name,
-            'monitor_id': activity.monitor.id,
+            'monitor_name': activity.monitor.name if activity.monitor else 'Scheduled Processing',
+            'monitor_id': activity.monitor.id if activity.monitor else None,
             'activity_type': activity.activity_type,
             'job_id': activity.job_id,
             'job_title': activity.job_title,

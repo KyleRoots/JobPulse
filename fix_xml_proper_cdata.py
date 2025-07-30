@@ -32,10 +32,11 @@ def fix_xml_descriptions(input_file, output_file):
         flags=re.DOTALL
     )
     
-    # Fix other fields that need CDATA but don't have HTML entities
+    # Fix ALL fields to have CDATA wrapping
     fields_to_wrap = ['referencenumber', 'title', 'company', 'city', 'state', 'country',
                       'jobtype', 'remotetype', 'assignedrecruiter', 
-                      'jobfunction', 'jobindustries', 'senoritylevel']
+                      'jobfunction', 'jobindustries', 'senoritylevel',
+                      'date', 'bhatsid', 'url', 'category', 'apply_email']
     
     for field in fields_to_wrap:
         # Check if field already has CDATA
@@ -43,10 +44,8 @@ def fix_xml_descriptions(input_file, output_file):
         
         def wrap_in_cdata(match):
             content = match.group(1).strip()
-            if content:
-                return f'<{field}><![CDATA[{content}]]></{field}>'
-            else:
-                return f'<{field}></{field}>'
+            # Always wrap in CDATA, even if empty
+            return f'<{field}><![CDATA[{content}]]></{field}>'
         
         content = re.sub(pattern, wrap_in_cdata, content, flags=re.DOTALL)
     
