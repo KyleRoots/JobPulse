@@ -209,43 +209,21 @@
                     </ul>
                 </div>
                 
-                <!-- Header Actions -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                    <div>
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-home me-2"></i>
-                                <span class="d-none d-sm-inline">Main </span>Dashboard
-                            </a>
-                            <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-outline-info">
-                                <i class="fas fa-clock me-2"></i>
-                                <span class="d-none d-sm-inline">Schedule </span>Automation
-                            </a>
-                            <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-cog me-2"></i>
-                                <span class="d-none d-sm-inline">Global </span>Settings
-                            </a>
-                            <a href="{{ url_for('automation_test') }}" class="btn btn-outline-success">
-                                <i class="fas fa-vial me-2"></i>
-                                <span class="d-none d-sm-inline">Test </span>Automation
-                            </a>
+                <!-- Clean User Info and Logout -->
+                <div class="text-center mb-4">
+                    <div class="d-flex justify-content-center align-items-center gap-3">
+                        <div class="text-center">
+                            <small class="text-muted d-block mb-1">
+                                <i class="fas fa-user me-1"></i>Logged in as
+                            </small>
+                            <span class="badge bg-primary">{{ current_user.username }}</span>
                         </div>
-                        <div class="d-flex flex-wrap gap-2">
+                        <div class="d-flex gap-2">
                             <a href="{{ url_for('bullhorn_settings') }}" class="btn btn-outline-info">
                                 <i class="fas fa-cog me-2"></i>ATS Settings
                             </a>
-                            <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
-                                <i class="fas fa-plus me-2"></i>Create Monitor
-                            </a>
-                        </div>
-                        <!-- User Info and Logout -->
-                        <div class="d-flex align-items-center gap-2 mt-2">
-                            <small class="text-muted">
-                                <i class="fas fa-user me-1"></i>{{ current_user.username }}
-                            </small>
-                            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
-                                <i class="fas fa-sign-out-alt me-1"></i>Logout
+                            <a href="{{ url_for('logout') }}" class="btn btn-danger">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
                             </a>
                         </div>
                     </div>
@@ -311,11 +289,14 @@
 
                 <!-- Active Monitors -->
                 <div class="card shadow-sm mb-4">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-desktop me-2"></i>
                             Active Monitors ({{ monitors|length }})
                         </h5>
+                        <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Create Monitor
+                        </a>
                     </div>
                     <div class="card-body">
                         {% if monitors %}
