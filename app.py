@@ -2478,12 +2478,15 @@ def bullhorn_dashboard():
     monitor_job_counts = {}
     
     try:
-        # Load Bullhorn credentials from GlobalSettings
+        # Load Bullhorn credentials from GlobalSettings (already available at module level)
         credentials = {}
         for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
-            setting = GlobalSettings.query.filter_by(setting_key=key).first()
-            if setting and setting.setting_value:
-                credentials[key] = setting.setting_value.strip()
+            try:
+                setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                if setting and setting.setting_value:
+                    credentials[key] = setting.setting_value.strip()
+            except Exception as e:
+                app.logger.error(f"Error loading credential {key}: {str(e)}")
         
         # Initialize BullhornService with credentials
         bullhorn_service = BullhornService(
