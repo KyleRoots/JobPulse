@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Springboard™ - Launch Your Job Feed Automation</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        /* Concept 2: Futuristic Tech with Particle Animation */
+        .tech-background {
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .particle {
+            position: absolute;
+            background: #00d4ff;
+            border-radius: 50%;
+            opacity: 0.7;
+            animation: float-particles 20s infinite linear;
+        }
+        
+        .particle:nth-child(1) { width: 2px; height: 2px; left: 10%; animation-delay: 0s; }
+        .particle:nth-child(2) { width: 3px; height: 3px; left: 20%; animation-delay: 2s; }
+        .particle:nth-child(3) { width: 1px; height: 1px; left: 30%; animation-delay: 4s; }
+        .particle:nth-child(4) { width: 4px; height: 4px; left: 40%; animation-delay: 6s; }
+        .particle:nth-child(5) { width: 2px; height: 2px; left: 50%; animation-delay: 8s; }
+        .particle:nth-child(6) { width: 3px; height: 3px; left: 60%; animation-delay: 10s; }
+        .particle:nth-child(7) { width: 1px; height: 1px; left: 70%; animation-delay: 12s; }
+        .particle:nth-child(8) { width: 2px; height: 2px; left: 80%; animation-delay: 14s; }
+        .particle:nth-child(9) { width: 3px; height: 3px; left: 90%; animation-delay: 16s; }
+        
+        @keyframes float-particles {
+            from { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.7; }
+            90% { opacity: 0.7; }
+            to { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+        
+        .springboard-brand {
+            font-family: 'Arial', sans-serif;
+            font-size: 5rem;
+            font-weight: 900;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .springboard-brand::before {
+            content: 'SPRINGBOARD';
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: linear-gradient(45deg, #00d4ff, #7b68ee, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            z-index: -1;
+        }
+        
+        .tech-trademark {
+            font-size: 1.5rem;
+            color: #00d4ff;
+            font-weight: 300;
+            position: relative;
+            top: -2rem;
+            text-shadow: 0 0 20px #00d4ff;
+        }
+        
+        .tech-subtitle {
+            font-size: 1.2rem;
+            color: #a0a9c0;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-top: -1rem;
+        }
+        
+        .hologram-card {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .hologram-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            transition: all 0.3s ease;
+            opacity: 0;
+        }
+        
+        .hologram-card:hover::before {
+            opacity: 1;
+            animation: scan 1.5s ease-in-out;
+        }
+        
+        @keyframes scan {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+        
+        .hologram-card:hover {
+            border-color: #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+            transform: translateY(-5px);
+        }
+        
+        .launch-button {
+            background: linear-gradient(45deg, #00d4ff, #7b68ee);
+            border: none;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 1rem 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .launch-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.5s ease;
+        }
+        
+        .launch-button:hover::before {
+            left: 100%;
+        }
+        
+        .launch-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="tech-background d-flex align-items-center">
+        <!-- Particle Animation -->
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+        
+        <div class="container">
+            <div class="row justify-content-center text-center">
+                <div class="col-lg-10">
+                    <!-- Main Brand -->
+                    <div class="mb-5">
+                        <h1 class="springboard-brand mb-0">
+                            SPRINGBOARD<span class="tech-trademark">™</span>
+                        </h1>
+                        <p class="tech-subtitle mb-4">
+                            Next-Generation Job Feed Automation
+                        </p>
+                        
+                        <div class="d-flex justify-content-center mb-5">
+                            <button class="launch-button btn btn-lg px-5 me-3" onclick="showDashboard()">
+                                <i class="fas fa-rocket me-2"></i>
+                                Initialize System
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tech Stats -->
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-3">
+                            <div class="hologram-card rounded p-4 h-100 text-center">
+                                <div class="fs-2 text-info mb-2">
+                                    <i class="fas fa-microchip"></i>
+                                </div>
+                                <h6 class="text-info">AI-POWERED</h6>
+                                <p class="text-muted small mb-0">OpenAI Integration</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="hologram-card rounded p-4 h-100 text-center">
+                                <div class="fs-2 text-success mb-2">
+                                    <i class="fas fa-satellite-dish"></i>
+                                </div>
+                                <h6 class="text-success">REAL-TIME</h6>
+                                <p class="text-muted small mb-0">Live Monitoring</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="hologram-card rounded p-4 h-100 text-center">
+                                <div class="fs-2 text-warning mb-2">
+                                    <i class="fas fa-shield"></i>
+                                </div>
+                                <h6 class="text-warning">SECURE</h6>
+                                <p class="text-muted small mb-0">Enterprise Grade</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="hologram-card rounded p-4 h-100 text-center">
+                                <div class="fs-2 text-danger mb-2">
+                                    <i class="fas fa-bolt"></i>
+                                </div>
+                                <h6 class="text-danger">AUTOMATED</h6>
+                                <p class="text-muted small mb-0">Zero Touch</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Hidden Dashboard Section -->
+    <div id="dashboardSection" class="container py-5" style="display: none;">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="text-center mb-5">
+            <h2 class="display-6 mb-3">
+                <i class="fas fa-tachometer-alt me-3 text-info"></i>
+                System Dashboard
+            </h2>
+            <p class="lead text-muted">
+                Springboard™ Automation Control Center
+            </p>
+        </div>
+
+        <!-- Dashboard Controls -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-6 col-lg-3">
+                <div class="hologram-card rounded p-4 h-100 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-clock fs-1 text-info"></i>
+                    </div>
+                    <h5 class="card-title">Schedule Automation</h5>
+                    <p class="text-muted flex-grow-1">Set up automatic reference number updates</p>
+                    <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-info mt-3">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Configure
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+                <div class="hologram-card rounded p-4 h-100 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-chart-line fs-1 text-success"></i>
+                    </div>
+                    <h5 class="card-title">ATS Monitoring</h5>
+                    <p class="text-muted flex-grow-1">Real-time tearsheet monitoring</p>
+                    <a href="{{ url_for('bullhorn') }}" class="btn btn-success mt-3">
+                        <i class="fas fa-eye me-2"></i>
+                        Monitor
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+                <div class="hologram-card rounded p-4 h-100 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-cog fs-1 text-secondary"></i>
+                    </div>
+                    <h5 class="card-title">Global Settings</h5>
+                    <p class="text-muted flex-grow-1">Configure SFTP and email settings</p>
+                    <a href="{{ url_for('settings') }}" class="btn btn-secondary mt-3">
+                        <i class="fas fa-wrench me-2"></i>
+                        Settings
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+                <div class="hologram-card rounded p-4 h-100 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-vial fs-1 text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Test Automation</h5>
+                    <p class="text-muted flex-grow-1">Test and verify automation workflows</p>
+                    <a href="{{ url_for('automation_test') }}" class="btn btn-warning mt-3">
+                        <i class="fas fa-play me-2"></i>
+                        Test
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Info -->
+        <div class="hologram-card rounded p-4">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <h5 class="mb-3">
+                        <i class="fas fa-info-circle me-2 text-info"></i>
+                        Springboard™ Automation Pipeline
+                    </h5>
+                    <ol class="mb-0">
+                        <li><strong>Schedule Automation</strong> - Set up automatic reference number updates on your preferred schedule</li>
+                        <li><strong>ATS Monitoring</strong> - Monitor ATS tearsheets for job changes and automatically sync with XML files</li>
+                        <li><strong>SFTP Upload</strong> - Processed files are automatically uploaded to your server via SFTP</li>
+                        <li><strong>Email Notifications</strong> - Receive detailed reports on all processing activities</li>
+                    </ol>
+                </div>
+                <div class="col-lg-4 text-center">
+                    <i class="fas fa-project-diagram fs-1 text-muted mb-3"></i>
+                    <p class="text-muted small">Next-generation automation platform</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showDashboard() {
+            document.querySelector('.tech-background').style.display = 'none';
+            document.getElementById('dashboardSection').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

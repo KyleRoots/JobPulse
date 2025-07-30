@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Springboard™ - Professional Automation Launchpad</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        /* Concept 3: Professional Launch Pad with Dynamic Typography */
+        .launchpad-container {
+            min-height: 100vh;
+            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .geometric-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
+            animation: drift 30s linear infinite;
+        }
+        
+        @keyframes drift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-60px, -60px) rotate(360deg); }
+        }
+        
+        .springboard-hero-text {
+            font-family: 'Arial Black', sans-serif;
+            font-size: 6rem;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 6px 30px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+            margin: 0;
+            line-height: 0.9;
+        }
+        
+        .springboard-s {
+            display: inline-block;
+            color: #f39c12;
+            text-shadow: 0 0 30px #f39c12;
+            animation: pulse-glow 3s ease-in-out infinite;
+            font-size: 7rem;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { text-shadow: 0 0 30px #f39c12, 0 0 60px #f39c12; transform: scale(1); }
+            50% { text-shadow: 0 0 50px #f39c12, 0 0 100px #f39c12; transform: scale(1.05); }
+        }
+        
+        .trademark-pro {
+            font-size: 1.8rem;
+            color: #e74c3c;
+            font-weight: 300;
+            position: relative;
+            top: -3rem;
+            right: -0.5rem;
+            animation: sparkle 4s ease-in-out infinite;
+        }
+        
+        @keyframes sparkle {
+            0%, 100% { opacity: 1; transform: rotate(0deg); }
+            25% { opacity: 0.7; transform: rotate(5deg); }
+            75% { opacity: 0.7; transform: rotate(-5deg); }
+        }
+        
+        .professional-tagline {
+            font-size: 1.6rem;
+            color: #ecf0f1;
+            font-weight: 300;
+            text-transform: capitalize;
+            letter-spacing: 0.05em;
+            margin-top: -2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .launch-trajectory {
+            position: relative;
+            margin: 3rem 0;
+        }
+        
+        .trajectory-line {
+            width: 300px;
+            height: 2px;
+            background: linear-gradient(90deg, #3498db, #e74c3c, #f39c12);
+            margin: 0 auto;
+            position: relative;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .trajectory-line::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+            animation: trajectory-sweep 3s ease-in-out infinite;
+        }
+        
+        @keyframes trajectory-sweep {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .launch-rocket {
+            position: absolute;
+            right: -20px;
+            top: -15px;
+            font-size: 2rem;
+            color: #e74c3c;
+            animation: rocket-launch 3s ease-in-out infinite;
+        }
+        
+        @keyframes rocket-launch {
+            0%, 90% { transform: translateX(0) rotate(45deg); }
+            95% { transform: translateX(10px) rotate(50deg); }
+            100% { transform: translateX(0) rotate(45deg); }
+        }
+        
+        .professional-cards {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .professional-cards::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: all 0.5s ease;
+        }
+        
+        .professional-cards:hover::before {
+            left: 100%;
+        }
+        
+        .professional-cards:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+        }
+        
+        .launch-controls {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-top: 2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .primary-launch-btn {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            border: none;
+            color: white;
+            font-weight: 700;
+            font-size: 1.2rem;
+            padding: 1.2rem 3rem;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.3);
+        }
+        
+        .primary-launch-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease;
+        }
+        
+        .primary-launch-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .primary-launch-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(231, 76, 60, 0.4);
+        }
+        
+        .secondary-btn {
+            background: transparent;
+            border: 2px solid #3498db;
+            color: #3498db;
+            font-weight: 600;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.3s ease;
+        }
+        
+        .secondary-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #27ae60;
+            margin-right: 8px;
+            animation: status-pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes status-pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 10px #27ae60; }
+            50% { opacity: 0.6; box-shadow: 0 0 20px #27ae60; }
+        }
+    </style>
+</head>
+<body>
+    <div class="launchpad-container d-flex align-items-center">
+        <div class="geometric-bg"></div>
+        
+        <div class="container position-relative">
+            <div class="row justify-content-center text-center">
+                <div class="col-lg-10">
+                    <!-- Main Brand Display -->
+                    <div class="mb-5">
+                        <h1 class="springboard-hero-text">
+                            <span class="springboard-s">S</span>PRINGBOARD<span class="trademark-pro">™</span>
+                        </h1>
+                        <p class="professional-tagline">
+                            Professional Job Feed Automation Platform
+                        </p>
+                        
+                        <!-- Launch Trajectory Animation -->
+                        <div class="launch-trajectory">
+                            <div class="trajectory-line">
+                                <i class="fas fa-rocket launch-rocket"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- System Status -->
+                        <div class="mb-4">
+                            <span class="status-indicator"></span>
+                            <span class="text-light">System Online & Ready</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Feature Showcase -->
+                    <div class="row g-4 mb-5">
+                        <div class="col-lg-3 col-md-6">
+                            <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                                <div class="mb-3">
+                                    <i class="fas fa-brain fs-1 text-warning"></i>
+                                </div>
+                                <h6 class="text-warning fw-bold">AI INTELLIGENCE</h6>
+                                <p class="small text-light mb-0">OpenAI-powered job classification and processing</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                                <div class="mb-3">
+                                    <i class="fas fa-sync-alt fs-1 text-info"></i>
+                                </div>
+                                <h6 class="text-info fw-bold">REAL-TIME SYNC</h6>
+                                <p class="small text-light mb-0">Live Bullhorn ATS integration and monitoring</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                                <div class="mb-3">
+                                    <i class="fas fa-shield-alt fs-1 text-success"></i>
+                                </div>
+                                <h6 class="text-success fw-bold">ENTERPRISE SECURITY</h6>
+                                <p class="small text-light mb-0">Bank-grade security and reliability standards</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                                <div class="mb-3">
+                                    <i class="fas fa-bolt fs-1 text-danger"></i>
+                                </div>
+                                <h6 class="text-danger fw-bold">ZERO-TOUCH AUTO</h6>
+                                <p class="small text-light mb-0">Fully automated workflow processing</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Launch Controls -->
+                    <div class="launch-controls">
+                        <div class="row align-items-center">
+                            <div class="col-lg-8">
+                                <h5 class="text-light mb-2">
+                                    <i class="fas fa-rocket me-2"></i>
+                                    Ready to Launch Your Automation?
+                                </h5>
+                                <p class="text-light mb-3 mb-lg-0">
+                                    Access the full Springboard™ control center and configure your job feed automation workflows.
+                                </p>
+                            </div>
+                            <div class="col-lg-4 text-center text-lg-end">
+                                <button class="primary-launch-btn me-3" onclick="launchDashboard()">
+                                    <i class="fas fa-play me-2"></i>
+                                    Launch Platform
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Dashboard Section (Hidden Initially) -->
+    <div id="mainDashboard" class="container py-5" style="display: none;">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Dashboard Header -->
+        <div class="text-center mb-5">
+            <h2 class="display-6 mb-3">
+                <i class="fas fa-tachometer-alt me-3 text-primary"></i>
+                Springboard™ Control Center
+            </h2>
+            <p class="lead text-muted">
+                Professional automation platform dashboard
+            </p>
+            <button class="btn btn-outline-secondary btn-sm" onclick="showLaunchpad()">
+                <i class="fas fa-arrow-left me-2"></i>
+                Back to Launchpad
+            </button>
+        </div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="row g-4 mb-5">
+            <!-- Schedule Automation -->
+            <div class="col-md-6 col-lg-3">
+                <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-clock fs-1 text-info"></i>
+                    </div>
+                    <h5 class="card-title">Schedule Automation</h5>
+                    <p class="text-muted flex-grow-1">Configure automatic reference number updates and scheduling</p>
+                    <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-info mt-auto">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Configure Schedule
+                    </a>
+                </div>
+            </div>
+
+            <!-- ATS Monitoring -->
+            <div class="col-md-6 col-lg-3">
+                <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-chart-line fs-1 text-success"></i>
+                    </div>
+                    <h5 class="card-title">ATS Monitoring</h5>
+                    <p class="text-muted flex-grow-1">Real-time Bullhorn tearsheet monitoring and job tracking</p>
+                    <a href="{{ url_for('bullhorn') }}" class="btn btn-success mt-auto">
+                        <i class="fas fa-eye me-2"></i>
+                        Monitor ATS
+                    </a>
+                </div>
+            </div>
+
+            <!-- Global Settings -->
+            <div class="col-md-6 col-lg-3">
+                <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-cog fs-1 text-secondary"></i>
+                    </div>
+                    <h5 class="card-title">Global Settings</h5>
+                    <p class="text-muted flex-grow-1">Configure SFTP, email notifications, and system settings</p>
+                    <a href="{{ url_for('settings') }}" class="btn btn-secondary mt-auto">
+                        <i class="fas fa-wrench me-2"></i>
+                        System Settings
+                    </a>
+                </div>
+            </div>
+
+            <!-- Test Automation -->
+            <div class="col-md-6 col-lg-3">
+                <div class="professional-cards rounded-3 p-4 h-100 text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-vial fs-1 text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Test Automation</h5>
+                    <p class="text-muted flex-grow-1">Test workflows and verify automation processes</p>
+                    <a href="{{ url_for('automation_test') }}" class="btn btn-warning mt-auto">
+                        <i class="fas fa-play me-2"></i>
+                        Run Tests
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Information -->
+        <div class="professional-cards rounded-3 p-4">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <h5 class="mb-3">
+                        <i class="fas fa-info-circle me-2 text-primary"></i>
+                        Springboard™ Automation Workflow
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ol class="mb-0">
+                                <li class="mb-2"><strong>Schedule Automation</strong> - Set up automatic reference number updates on your preferred schedule</li>
+                                <li class="mb-2"><strong>ATS Monitoring</strong> - Monitor ATS tearsheets for job changes and automatically sync with XML files</li>
+                            </ol>
+                        </div>
+                        <div class="col-md-6">
+                            <ol start="3" class="mb-0">
+                                <li class="mb-2"><strong>SFTP Upload</strong> - Processed files are automatically uploaded to your server via SFTP</li>
+                                <li class="mb-2"><strong>Email Notifications</strong> - Receive detailed reports on all processing activities</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 text-center">
+                    <i class="fas fa-project-diagram fs-1 text-muted mb-3"></i>
+                    <p class="text-muted">Enterprise-grade automation platform designed for professional deployment</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function launchDashboard() {
+            document.querySelector('.launchpad-container').style.display = 'none';
+            document.getElementById('mainDashboard').style.display = 'block';
+            
+            // Add smooth fade-in effect
+            const dashboard = document.getElementById('mainDashboard');
+            dashboard.style.opacity = '0';
+            dashboard.style.display = 'block';
+            
+            setTimeout(() => {
+                dashboard.style.transition = 'opacity 0.5s ease-in-out';
+                dashboard.style.opacity = '1';
+            }, 50);
+        }
+        
+        function showLaunchpad() {
+            document.getElementById('mainDashboard').style.display = 'none';
+            document.querySelector('.launchpad-container').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
