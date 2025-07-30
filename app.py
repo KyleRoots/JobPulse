@@ -744,8 +744,11 @@ def process_bullhorn_monitors():
                     # CRITICAL TIMING FIX: Store notification data for sending AFTER comprehensive sync completes
                     # This ensures emails are sent AFTER XML files are uploaded to web server
                     critical_changes_exist = bool(added_jobs or removed_jobs or 
-                        [job for job in modified_jobs if any(field in job.get('field_changes', {}) 
-                        for field in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter'])])
+                        [job for job in modified_jobs if any(change.get('field', '') in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 'publicDescription', 'description', 'employmentType', 'onSite', 'owner'] or 'assignedUsers' in change.get('field', '') or 'address' in change.get('field', '').lower()
+                        for change in job.get('changes', []))])
+                    
+                    if critical_changes_exist:
+                        app.logger.info(f"Critical changes detected for monitor {monitor.name}: {len(added_jobs)} added, {len(removed_jobs)} removed, {len(modified_jobs)} modified jobs")
                     
                     if critical_changes_exist and monitor.send_notifications:
                         # Get email address from Global Settings or monitor-specific setting
