@@ -1203,26 +1203,6 @@
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
-      <title><![CDATA[ Senior Full Stack Developer (.NET 8 / Angular 17) (32481) ]]></title>
-      <company><![CDATA[ Myticas Consulting ]]></company>
-      <date><![CDATA[ May 26, 2025 ]]></date>
-      <referencenumber><![CDATA[ E37W35ISQO ]]></referencenumber>
-      <bhatsid><![CDATA[ 32481 ]]></bhatsid>
-      <url><![CDATA[ https://myticas.com/ ]]></url>
-      <description><![CDATA[ <p><strong>Job Title:</strong> Senior Full Stack Developer<br> <strong>Location:</strong> Remote / Ontario, Canada</p> <p><strong>Must-Have Qualifications:</strong></p> <ul> <li> <p>Bachelor’s degree in Computer Science, Engineering, or a related field</p> <li> <p>Minimum of 5 years of experience in front-end development using frameworks such as React.js or Angular (preferably Angular 17)</p> <li> <p>Minimum of 5 years of experience in back-end software development using C# and .NET (preferably .NET 8)</p> <li> <p>Strong proficiency in working with SQL and NoSQL databases</p> <li> <p>Hands-on experience with Microsoft Azure services, including App Services, Functions, Logic Apps, Service Bus, Cosmos DB, Azure SQL, and Key Vault</p> <li> <p>Solid understanding of object-oriented programming (OOP) principles</p> <li> <p>Proficiency with Azure DevOps, Git repositories, CI/CD pipelines, and deployment automation</p> <li> <p>Familiarity with generative AI and/or machine learning tools such as GitHub Copilot, Cursor, or AI agents</p> </ul> <p><strong>Nice-to-Have Qualifications:</strong></p> <ul> <li> <p>Experience developing web applications using .NET Core</p> <li> <p>Knowledge of cross-platform development frameworks</p> <li> <p>Familiarity with the ABP Framework (ABP.io)</p> <li> <p>Experience with containerization tools such as Docker and orchestration platforms like Azure Kubernetes Service (AKS)</p> <li> <p>Understanding of Agile methodologies, particularly Scrum</p> <li> <p>Strong analytical, communication, and collaboration skills</p> <li> <p>Microsoft certifications, such as Azure Developer Associate</p> <li> <p>Development experience in other cloud environments, such as AWS or Google Cloud Platform (GCP)</p> </ul> ]]></description>
-      <jobtype><![CDATA[ Contract ]]></jobtype>
-      <city><![CDATA[ Toronto ]]></city>
-      <state><![CDATA[ ON ]]></state>
-      <country><![CDATA[ Canada ]]></country>
-      <category><![CDATA[  ]]></category>
-      <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-      <remotetype><![CDATA[ Remote ]]></remotetype>
-      <assignedrecruiter><![CDATA[ Michael Theodossiou ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
-    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
-  </job>
-  <job>
       <title><![CDATA[ D365 Finance Configuration Consultant (32537) ]]></title>
       <company><![CDATA[ Myticas Consulting ]]></company>
       <date><![CDATA[ June 12, 2025 ]]></date>
