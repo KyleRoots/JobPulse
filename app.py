@@ -1315,56 +1315,10 @@ def process_bullhorn_monitors():
                                                     )
                                                     db.session.add(activity)
                                                     
-                                                    # Send email notification for comprehensive sync changes
-                                                    if missing_job_ids or orphaned_job_ids:
-                                                        # Get email address from Global Settings
-                                                        global_email = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                                                        email_notifications_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                                                        
-                                                        if (email_notifications_enabled and email_notifications_enabled.setting_value == 'true' and 
-                                                            global_email and global_email.setting_value):
-                                                            
-                                                            # Prepare jobs data for email
-                                                            added_jobs_data = []
-                                                            for job in all_current_jobs_from_monitors:
-                                                                if str(job.get('id')) in missing_job_ids:
-                                                                    added_jobs_data.append(job)
-                                                            
-                                                            # Create summary for email
-                                                            email_summary = {
-                                                                'total_current': len(bullhorn_job_ids),
-                                                                'added_count': len(missing_job_ids),
-                                                                'removed_count': len(orphaned_job_ids),
-                                                                'modified_count': 0,
-                                                                'net_change': len(missing_job_ids) - len(orphaned_job_ids)
-                                                            }
-                                                            
-                                                            # Send comprehensive sync notification
-                                                            # EmailService already imported at the top of the file
-                                                            email_service = EmailService()
-                                                            
-                                                            # Create dummy removed jobs data for orphaned jobs
-                                                            removed_jobs_data = []
-                                                            for job_id in orphaned_job_ids:
-                                                                removed_jobs_data.append({'id': job_id, 'title': f'Job {job_id} (removed)', 'status': 'Removed'})
-                                                            
-                                                            # Include modified jobs with field changes from xml_sync_summary
-                                                            modified_jobs_data = xml_sync_summary.get('modified_jobs', [])
-                                                            
-                                                            email_sent = email_service.send_bullhorn_notification(
-                                                                to_email=global_email.setting_value,
-                                                                monitor_name="Comprehensive Sync - All Monitors",
-                                                                added_jobs=added_jobs_data,
-                                                                removed_jobs=removed_jobs_data,
-                                                                modified_jobs=modified_jobs_data,
-                                                                summary=email_summary,
-                                                                xml_sync_info={'status': 'success', 'sftp_upload': True, 'file': original_filename}
-                                                            )
-                                                            
-                                                            if email_sent:
-                                                                app.logger.info(f"Comprehensive sync notification sent for {len(missing_job_ids)} added, {len(orphaned_job_ids)} removed jobs")
-                                                            else:
-                                                                app.logger.warning("Failed to send comprehensive sync notification")
+                                                    # NOTE: Comprehensive sync email notifications disabled per user request
+                                                    # Individual tearsheet-specific notifications are still sent when monitors detect changes
+                                                    # This prevents duplicate broad "All Monitors" emails while maintaining focused tearsheet alerts
+                                                    app.logger.info(f"Comprehensive sync completed: {len(missing_job_ids)} jobs added, {len(orphaned_job_ids)} jobs removed (email notification disabled)")
                                                 else:
                                                     app.logger.warning(f"Failed to upload XML to SFTP")
                                         except Exception as e:
