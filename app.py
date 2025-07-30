@@ -722,12 +722,13 @@ def process_bullhorn_monitors():
                         
                         app.logger.info(f"Bullhorn monitor {monitor.name}: {len(current_jobs)} total jobs, {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified")
                     
-                    # Send email notification ONLY for CRITICAL business changes (not repeated AI classification updates)
+                    # CRITICAL TIMING FIX: Store notification data for sending AFTER comprehensive sync completes
+                    # This ensures emails are sent AFTER XML files are uploaded to web server
                     critical_changes_exist = bool(added_jobs or removed_jobs or 
                         [job for job in modified_jobs if any(field in job.get('field_changes', {}) 
                         for field in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter'])])
                     
-                    if critical_changes_exist and monitor.send_notifications and xml_sync_success:
+                    if critical_changes_exist and monitor.send_notifications:
                         # Get email address from Global Settings or monitor-specific setting
                         email_address = monitor.notification_email
                         if not email_address:
@@ -737,32 +738,22 @@ def process_bullhorn_monitors():
                                 email_address = global_email.setting_value
                         
                         if email_address:
-                            # Add 30-second delay before sending email to ensure XML updates are reflected
-                            app.logger.info(f"Waiting 30 seconds before sending email notification for monitor: {monitor.name}")
-                            import time
-                            time.sleep(30)
+                            # Store notification data for sending after comprehensive sync
+                            if not hasattr(app, '_pending_notifications'):
+                                app._pending_notifications = []
                             
-                            email_service = EmailService()
-                            email_sent = email_service.send_bullhorn_notification(
-                                to_email=email_address,
-                                monitor_name=monitor.name,
-                                added_jobs=added_jobs,
-                                removed_jobs=removed_jobs,
-                                modified_jobs=modified_jobs,
-                                summary=summary,
-                                xml_sync_info=xml_sync_summary
-                            )
-                            
-                            if email_sent:
-                                app.logger.info(f"Bullhorn notification sent for monitor: {monitor.name}")
-                                # Mark activities as notified
-                                for activity in db.session.new:
-                                    if isinstance(activity, BullhornActivity) and activity.monitor_id == monitor.id:
-                                        activity.notification_sent = True
-                            else:
-                                app.logger.warning(f"Failed to send Bullhorn notification for monitor: {monitor.name}")
-                    elif (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications and not xml_sync_success:
-                        app.logger.warning(f"Changes detected for monitor {monitor.name} but XML sync failed. Skipping email notification to prevent duplicate alerts.")
+                            app._pending_notifications.append({
+                                'monitor_name': monitor.name,
+                                'email_address': email_address,
+                                'added_jobs': added_jobs.copy() if added_jobs else [],
+                                'removed_jobs': removed_jobs.copy() if removed_jobs else [],
+                                'modified_jobs': modified_jobs.copy() if modified_jobs else [],
+                                'summary': summary,
+                                'xml_sync_info': xml_sync_summary.copy() if xml_sync_summary else {}
+                            })
+                            app.logger.info(f"Notification queued for monitor {monitor.name} - will send AFTER comprehensive sync completes")
+                    elif (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications:
+                        app.logger.info(f"Changes detected for monitor {monitor.name} but will wait for comprehensive sync before sending notification")
                     
                     # Update monitor with new snapshot and next check time
                     # IMPORTANT: Only update snapshot if XML sync was successful or if no changes were detected
@@ -1067,9 +1058,9 @@ def process_bullhorn_monitors():
                                 
                                 total_changes = 0
                                 
-                                # Add missing jobs
+                                # Add missing jobs (NEW JOBS ONLY - no reference number regeneration)
                                 if missing_job_ids:
-                                    app.logger.info(f"Adding {len(missing_job_ids)} missing jobs to XML")
+                                    app.logger.info(f"Adding {len(missing_job_ids)} NEW jobs to XML")
                                     # Create job-to-monitor mapping to track which monitor each job comes from
                                     job_to_monitor_map = {}
                                     unique_jobs_map = {}
@@ -1092,11 +1083,10 @@ def process_bullhorn_monitors():
                                                         elif 'Sponsored - STSI' in monitor.name:
                                                             # STSI monitor takes priority for company assignment
                                                             job_to_monitor_map[job_id] = monitor.name
-                                                            app.logger.info(f"Job {job_id} will use STSI company branding (monitor: {monitor.name})")
                                             except Exception as e:
                                                 app.logger.warning(f"Error processing monitor {monitor.name} jobs: {str(e)}")
                                     
-                                    # Now add only unique jobs with proper monitor context
+                                    # Now add only unique NEW jobs with proper monitor context
                                     for job_id in missing_job_ids:
                                         if job_id in unique_jobs_map:
                                             job = unique_jobs_map[job_id]
@@ -1107,7 +1097,19 @@ def process_bullhorn_monitors():
                                             if xml_service.add_job_to_xml(main_xml_path, job, monitor_name):
                                                 total_changes += 1
                                                 company_info = " (STSI Group)" if 'Sponsored - STSI' in monitor_name else ""
-                                                app.logger.info(f"Added job {job.get('id')}: {job.get('title', 'Unknown')} from {monitor_name}{company_info}")
+                                                app.logger.info(f"✅ Added NEW job {job.get('id')}: {job.get('title', 'Unknown')} from {monitor_name}{company_info}")
+                                                
+                                                # Log meaningful activity for NEW job only
+                                                activity = BullhornActivity(
+                                                    monitor_id=None,  # Comprehensive sync
+                                                    activity_type='job_added',
+                                                    job_id=job_id,
+                                                    summary=f"New job added: {job.get('title', 'Unknown')} ({job_id})",
+                                                    details=f"Job added from {monitor_name}",
+                                                    notification_sent=False
+                                                )
+                                                db.session.add(activity)
+                                                
                                                 # Also update scheduled file
                                                 scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
                                                 if scheduled_xml_path != main_xml_path:
@@ -1165,7 +1167,7 @@ def process_bullhorn_monitors():
                                                 total_changes += 1
                                                 app.logger.info(f"✅ Removed orphaned job {job_id}: {removal_reason}")
                                                 
-                                                # CRITICAL: Check if this job was already notified about before creating new activity
+                                                # Log meaningful activity for removed job only (avoid duplicates)
                                                 existing_removal = BullhornActivity.query.filter(
                                                     BullhornActivity.job_id == job_id,
                                                     BullhornActivity.activity_type == 'job_removed',
@@ -1315,10 +1317,44 @@ def process_bullhorn_monitors():
                                                     )
                                                     db.session.add(activity)
                                                     
-                                                    # NOTE: Comprehensive sync email notifications disabled per user request
-                                                    # Individual tearsheet-specific notifications are still sent when monitors detect changes
-                                                    # This prevents duplicate broad "All Monitors" emails while maintaining focused tearsheet alerts
-                                                    app.logger.info(f"Comprehensive sync completed: {len(missing_job_ids)} jobs added, {len(orphaned_job_ids)} jobs removed (email notification disabled)")
+                                                    # CRITICAL FIX: Send all pending individual tearsheet notifications AFTER comprehensive sync and SFTP upload complete
+                                                    # This ensures emails are sent AFTER XML files are uploaded to web server
+                                                    if hasattr(app, '_pending_notifications') and app._pending_notifications:
+                                                        app.logger.info(f"📧 Sending {len(app._pending_notifications)} pending notifications after successful comprehensive sync and SFTP upload")
+                                                        
+                                                        # Add 30-second delay to ensure XML changes are reflected on web server
+                                                        import time
+                                                        time.sleep(30)
+                                                        
+                                                        email_service = EmailService()
+                                                        notifications_sent = 0
+                                                        for notification in app._pending_notifications:
+                                                            try:
+                                                                email_sent = email_service.send_bullhorn_notification(
+                                                                    to_email=notification['email_address'],
+                                                                    monitor_name=notification['monitor_name'],
+                                                                    added_jobs=notification['added_jobs'],
+                                                                    removed_jobs=notification['removed_jobs'],
+                                                                    modified_jobs=notification['modified_jobs'],
+                                                                    summary=notification['summary'],
+                                                                    xml_sync_info=notification['xml_sync_info']
+                                                                )
+                                                                
+                                                                if email_sent:
+                                                                    notifications_sent += 1
+                                                                    app.logger.info(f"✅ Email notification sent for monitor: {notification['monitor_name']}")
+                                                                else:
+                                                                    app.logger.warning(f"❌ Failed to send email notification for monitor: {notification['monitor_name']}")
+                                                            except Exception as e:
+                                                                app.logger.error(f"Error sending notification for {notification['monitor_name']}: {str(e)}")
+                                                        
+                                                        # Clear pending notifications after processing
+                                                        app._pending_notifications = []
+                                                        app.logger.info(f"📧 Email processing complete: {notifications_sent}/{len(app._pending_notifications)} notifications sent successfully")
+                                                    else:
+                                                        app.logger.debug("No pending notifications to send after comprehensive sync")
+                                                    
+                                                    app.logger.info(f"🎯 Comprehensive sync completed: {len(missing_job_ids)} jobs added, {len(orphaned_job_ids)} jobs removed. Individual tearsheet notifications sent after SFTP upload.")
                                                 else:
                                                     app.logger.warning(f"Failed to upload XML to SFTP")
                                         except Exception as e:
@@ -1326,6 +1362,41 @@ def process_bullhorn_monitors():
                                 else:
                                     app.logger.info(f"No changes needed - XML is already in sync")
                                     xml_sync_success = True  # No changes needed is also a success
+                                    
+                                    # CRITICAL FIX: Send pending notifications even when no XML changes are needed
+                                    # This handles cases where monitors detected changes but XML was already current
+                                    if hasattr(app, '_pending_notifications') and app._pending_notifications:
+                                        app.logger.info(f"📧 Sending {len(app._pending_notifications)} pending notifications (no XML changes needed)")
+                                        
+                                        # Add 30-second delay to ensure consistency with web server
+                                        import time
+                                        time.sleep(30)
+                                        
+                                        email_service = EmailService()
+                                        notifications_sent = 0
+                                        for notification in app._pending_notifications:
+                                            try:
+                                                email_sent = email_service.send_bullhorn_notification(
+                                                    to_email=notification['email_address'],
+                                                    monitor_name=notification['monitor_name'],
+                                                    added_jobs=notification['added_jobs'],
+                                                    removed_jobs=notification['removed_jobs'],
+                                                    modified_jobs=notification['modified_jobs'],
+                                                    summary=notification['summary'],
+                                                    xml_sync_info=notification['xml_sync_info']
+                                                )
+                                                
+                                                if email_sent:
+                                                    notifications_sent += 1
+                                                    app.logger.info(f"✅ Email notification sent for monitor: {notification['monitor_name']}")
+                                                else:
+                                                    app.logger.warning(f"❌ Failed to send email notification for monitor: {notification['monitor_name']}")
+                                            except Exception as e:
+                                                app.logger.error(f"Error sending notification for {notification['monitor_name']}: {str(e)}")
+                                        
+                                        # Clear pending notifications after processing
+                                        app._pending_notifications = []
+                                        app.logger.info(f"📧 Email processing complete: {notifications_sent} notifications sent successfully")
                                 
                                 # CRITICAL: Update monitor snapshots after successful comprehensive sync
                                 # This prevents jobs from being repeatedly detected as "new"

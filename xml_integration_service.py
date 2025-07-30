@@ -26,7 +26,7 @@ class XMLIntegrationService:
         # Store field changes for notifications
         self._last_field_changes = {}
     
-    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None) -> Dict:
+    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False) -> Dict:
         """
         Map Bullhorn job data to XML job structure
         
@@ -108,11 +108,19 @@ class XMLIntegrationService:
             # Extract job ID from formatted title for bhatsid
             bhatsid = self.xml_processor.extract_job_id_from_title(formatted_title)
             
-            # Use AI to classify the job based on title and description
-            classification = self.job_classifier.classify_job(clean_title, description)
-            job_function = classification.get('job_function', '')
-            job_industry = classification.get('job_industry', '')
-            seniority_level = classification.get('seniority_level', '')
+            # Use AI to classify the job based on title and description (skip during real-time monitoring for performance)
+            if skip_ai_classification:
+                # For real-time monitoring, use empty values to prevent timeouts
+                job_function = ''
+                job_industry = ''
+                seniority_level = ''
+                self.logger.debug(f"Skipped AI classification for job {job_id} during real-time sync")
+            else:
+                # Full AI classification for scheduled processing or manual operations
+                classification = self.job_classifier.classify_job(clean_title, description)
+                job_function = classification.get('job_function', '')
+                job_industry = classification.get('job_industry', '')
+                seniority_level = classification.get('seniority_level', '')
             
             # Helper function to clean field values
             def clean_field_value(value):
@@ -451,8 +459,8 @@ class XMLIntegrationService:
                 except Exception as e:
                     self.logger.debug(f"Could not check for existing job: {e}")
                 
-                # Map Bullhorn job to XML format with existing reference number if found
-                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name)
+                # Map Bullhorn job to XML format with existing reference number if found (skip AI for performance)
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=True)
                 if not xml_job or not xml_job.get('title') or not xml_job.get('referencenumber'):
                     self.logger.error(f"Failed to map job {job_id} to XML format - invalid XML job data")
                     if attempt < max_retries - 1:
@@ -842,8 +850,8 @@ class XMLIntegrationService:
                         else:
                             xml_data[field] = ''
                     
-                    # Map Bullhorn data to XML format for comparison
-                    bullhorn_xml_data = self.map_bullhorn_job_to_xml(bullhorn_job)
+                    # Map Bullhorn data to XML format for comparison (skip AI classification for performance)
+                    bullhorn_xml_data = self.map_bullhorn_job_to_xml(bullhorn_job, skip_ai_classification=True)
                     if not bullhorn_xml_data:
                         self.logger.warning(f"Could not map Bullhorn job {job_id} for comparison")
                         return True, {}  # Assume update needed if we can't compare
@@ -976,8 +984,8 @@ class XMLIntegrationService:
                 if existing_reference_number:
                     bullhorn_job_with_ref['_existing_reference_number'] = existing_reference_number
                 
-                # Map the job with preserved reference number
-                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name)
+                # Map the job with preserved reference number (skip AI classification for performance during real-time updates)
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=True)
                 if not xml_job:
                     self.logger.error(f"Failed to map job {job_id} to XML format")
                     shutil.copy2(backup_path, xml_file_path)
