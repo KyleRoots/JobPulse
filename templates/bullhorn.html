@@ -66,6 +66,68 @@
             border-bottom: 2px solid rgba(255,255,255,0.15);
         }
         
+        /* CRITICAL FIX: Prevent text wrapping in activity table */
+        .activity-table-container .table td,
+        .activity-table-container .table th {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+            vertical-align: middle;
+        }
+        
+        /* Specific column width optimization */
+        .activity-table-container .table th:nth-child(1),
+        .activity-table-container .table td:nth-child(1) {
+            min-width: 120px;
+            max-width: 150px;
+        }
+        
+        .activity-table-container .table th:nth-child(2),
+        .activity-table-container .table td:nth-child(2) {
+            min-width: 100px;
+            max-width: 120px;
+        }
+        
+        .activity-table-container .table th:nth-child(3),
+        .activity-table-container .table td:nth-child(3) {
+            min-width: 200px;
+            max-width: 300px;
+        }
+        
+        .activity-table-container .table th:nth-child(4),
+        .activity-table-container .table td:nth-child(4) {
+            min-width: 110px;
+            max-width: 110px;
+        }
+        
+        .activity-table-container .table th:nth-child(5),
+        .activity-table-container .table td:nth-child(5) {
+            min-width: 50px;
+            max-width: 50px;
+            text-align: center;
+        }
+        
+        /* Ensure badges don't wrap */
+        .activity-table-container .badge {
+            white-space: nowrap;
+            font-size: 0.75rem;
+        }
+        
+        /* Monitor name links */
+        .activity-table-container td a {
+            color: #fff;
+            text-decoration: none;
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .activity-table-container td a:hover {
+            color: #3498db;
+            text-decoration: underline;
+        }
+        
         /* Enhanced button styling for ATS Monitoring */
         .monitor-card .btn {
             font-weight: 500;
