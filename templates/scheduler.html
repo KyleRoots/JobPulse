@@ -8,15 +8,45 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
             min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        .geometric-bg {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
+            animation: drift 30s linear infinite;
+            z-index: -1;
+        }
+        
+        @keyframes drift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-60px, -60px) rotate(360deg); }
         }
         .schedule-card {
-            background-color: var(--bs-secondary-bg-subtle);
-            border: 1px solid var(--bs-border-color);
-            border-radius: 8px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 1rem;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .schedule-card:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
         }
         .schedule-active {
             border-color: var(--bs-success);
@@ -28,16 +58,19 @@
             opacity: 0.7;
         }
         .file-picker-area {
-            border: 2px dashed var(--bs-border-color);
-            border-radius: 8px;
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 12px;
             padding: 2rem;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
         }
         .file-picker-area:hover {
-            border-color: var(--bs-primary);
-            background-color: var(--bs-primary-bg-subtle);
+            border-color: rgba(52, 152, 219, 0.8);
+            background: rgba(52, 152, 219, 0.1);
+            transform: translateY(-2px);
         }
 
         /* Mobile Responsive Styles for Scheduler */
@@ -232,6 +265,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div class="geometric-bg"></div>
     <div class="container py-5 content-container">
         <div class="row">
             <div class="col-12">
