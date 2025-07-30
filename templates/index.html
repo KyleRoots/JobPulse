@@ -617,8 +617,13 @@
                 dashboard.style.transition = 'opacity 0.5s ease-in-out';
                 dashboard.style.opacity = '1';
                 
-                // Keep users at control center when manually launched
-                // Note: Temporarily disabled scrolling to debug auto-scroll issue
+                // Scroll to control center when manually launched
+                setTimeout(() => {
+                    dashboard.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }, 300);
             }, 50);
         }
         

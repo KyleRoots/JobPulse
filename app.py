@@ -1450,7 +1450,7 @@ def login():
             db.session.commit()
             
             login_user(user)
-            flash(f'Welcome back, {user.username}!', 'success')
+            # Removed welcome message for cleaner login experience
             
             # Redirect to originally requested page or index
             next_page = request.args.get('next')
