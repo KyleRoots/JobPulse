@@ -1325,6 +1325,7 @@ def process_bullhorn_monitors():
                                                 sftp_hostname and sftp_hostname.setting_value and 
                                                 sftp_username and sftp_username.setting_value and 
                                                 sftp_password and sftp_password.setting_value):
+                                                from ftp_service import FTPService
                                                 
                                                 ftp_service = FTPService(
                                                     hostname=sftp_hostname.setting_value,
