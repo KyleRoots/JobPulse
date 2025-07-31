@@ -6,6 +6,11 @@ This Flask-based web application processes XML job feed files to update referenc
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (July 31, 2025)
+- **EMAIL NOTIFICATION SYSTEM FULLY RESOLVED**: Fixed critical email delivery issues where monitoring detected job changes but notifications weren't being sent, processed 246+ accumulated pending notifications
+- **EMAIL SERVICE CONFIGURATION FIXED**: Corrected GlobalSettings email address lookup logic and updated email service to handle both full Bullhorn objects and simplified job data formats
+- **PRODUCTION TESTING VERIFIED**: Test email successfully sent to kroots@myticas.com confirming full system functionality
+
 ## System Architecture
 
 ### Frontend
