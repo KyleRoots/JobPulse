@@ -286,7 +286,31 @@ class EmailService:
                 for job in modified_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})</li>"
+                    changes = job.get('changes', [])
+                    
+                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})"
+                    
+                    # Display field changes with before/after values
+                    if changes:
+                        html_content += "<br><small>Changes: "
+                        change_details = []
+                        for change in changes:
+                            field_name = change.get('display_name', change.get('field', 'Unknown'))
+                            old_value = change.get('from', change.get('old', ''))
+                            new_value = change.get('to', change.get('new', ''))
+                            
+                            # Truncate long values for better readability
+                            if len(str(old_value)) > 50:
+                                old_value = str(old_value)[:47] + "..."
+                            if len(str(new_value)) > 50:
+                                new_value = str(new_value)[:47] + "..."
+                            
+                            change_details.append(f"<span style='color: #856404;'>{field_name}:</span> <span style='color: #dc3545; text-decoration: line-through;'>{old_value}</span> → <span style='color: #28a745; font-weight: bold;'>{new_value}</span>")
+                        
+                        html_content += "; ".join(change_details)
+                        html_content += "</small>"
+                    
+                    html_content += "</li>"
                 
                 html_content += "</ul></div>"
             

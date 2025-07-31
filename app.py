@@ -750,12 +750,31 @@ def process_bullhorn_monitors():
                     
                     # CRITICAL TIMING FIX: Store notification data for sending AFTER comprehensive sync completes
                     # This ensures emails are sent AFTER XML files are uploaded to web server
-                    critical_changes_exist = bool(added_jobs or removed_jobs or 
-                        [job for job in modified_jobs if any(change.get('field', '') in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 'publicDescription', 'description', 'employmentType', 'onSite', 'owner'] or 'assignedUsers' in change.get('field', '') or 'address' in change.get('field', '').lower()
-                        for change in job.get('changes', []))])
+                    
+                    # Enhanced critical changes detection with better field mapping
+                    critical_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 
+                                      'publicDescription', 'description', 'employmentType', 'onSite', 'owner', 'address',
+                                      'assignedUsers', 'responseUser']
+                    
+                    critical_modifications = []
+                    if modified_jobs:
+                        for job in modified_jobs:
+                            job_changes = job.get('changes', [])
+                            for change in job_changes:
+                                field_name = change.get('field', '')
+                                # Check if this is a critical field (business-related, not AI classification)
+                                if any(critical_field in field_name for critical_field in critical_fields):
+                                    critical_modifications.append({
+                                        'id': job.get('id'),
+                                        'title': job.get('title', f'Job {job.get("id")}'),
+                                        'changes': job_changes
+                                    })
+                                    break  # Found critical change, no need to check other changes for this job
+                    
+                    critical_changes_exist = bool(added_jobs or removed_jobs or critical_modifications)
                     
                     if critical_changes_exist:
-                        app.logger.info(f"Critical changes detected for monitor {monitor.name}: {len(added_jobs)} added, {len(removed_jobs)} removed, {len(modified_jobs)} modified jobs")
+                        app.logger.info(f"🔔 Critical changes detected for monitor {monitor.name}: {len(added_jobs)} added, {len(removed_jobs)} removed, {len(critical_modifications)} critically modified jobs")
                     
                     if critical_changes_exist and monitor.send_notifications:
                         # Get email address from Global Settings or monitor-specific setting
@@ -771,18 +790,26 @@ def process_bullhorn_monitors():
                             if not hasattr(app, '_pending_notifications'):
                                 app._pending_notifications = []
                             
-                            app._pending_notifications.append({
+                            # Enhanced notification with better modified job details
+                            notification_data = {
                                 'monitor_name': monitor.name,
+                                'monitor_id': monitor.id,
                                 'email_address': email_address,
                                 'added_jobs': added_jobs.copy() if added_jobs else [],
                                 'removed_jobs': removed_jobs.copy() if removed_jobs else [],
-                                'modified_jobs': modified_jobs.copy() if modified_jobs else [],
+                                'modified_jobs': critical_modifications.copy() if critical_modifications else [],
+                                'total_jobs': len(current_jobs),
                                 'summary': summary,
-                                'xml_sync_info': xml_sync_summary.copy() if xml_sync_summary else {}
-                            })
-                            app.logger.info(f"Notification queued for monitor {monitor.name} - will send AFTER comprehensive sync completes")
+                                'xml_sync_info': xml_sync_summary.copy() if xml_sync_summary else {},
+                                'timestamp': datetime.now()
+                            }
+                            
+                            app._pending_notifications.append(notification_data)
+                            app.logger.info(f"📧 Notification queued for monitor {monitor.name} - will send AFTER comprehensive sync completes (critical changes: {len(critical_modifications)} modified, {len(added_jobs)} added, {len(removed_jobs)} removed)")
                     elif (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications:
-                        app.logger.info(f"Changes detected for monitor {monitor.name} but will wait for comprehensive sync before sending notification")
+                        app.logger.info(f"Changes detected for monitor {monitor.name} but no critical fields modified - skipping notification")
+                    elif (added_jobs or removed_jobs or modified_jobs):
+                        app.logger.info(f"Changes detected for monitor {monitor.name} but notifications disabled")
                     
                     # Update monitor with new snapshot and next check time
                     # IMPORTANT: Only update snapshot if XML sync was successful or if no changes were detected
