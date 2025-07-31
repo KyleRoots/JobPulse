@@ -289,18 +289,21 @@ class XMLIntegrationService:
         """Map recruiter names to LinkedIn-style tags for XML"""
         # Define recruiter name to LinkedIn tag mapping
         recruiter_mapping = {
-            'Michael Theodossiou': '#LI-MIT',  # Note: Also maps to #LI-MAT - needs clarification
-            'Myticas Recruiter': '#LI-RS',    # Note: Same as Reena Setya - needs clarification
+            'Michael Theodossiou': '#LI-MIT',
+            'Myticas Recruiter': '#LI-MYT',    # Changed to avoid conflict with Reena Setya
             'Runa Parmar': '#LI-RP',
             'Adam Gebara': '#LI-AG',
-            'Dan Sifer': '#LI-DS',             # Note: Same as Dominic Scaletta - needs clarification
+            'Dan Sifer': '#LI-DS',
             'Mike Gebara': '#LI-MG',
             'Christine Carter': '#LI-CC',
             'Michelle Corino': '#LI-MC',
             'Amanda Messina': '#LI-AM',
-            'Dominic Scaletta': '#LI-DS',      # Note: Same as Dan Sifer - needs clarification
+            'Dominic Scaletta': '#LI-DSC',     # Changed to avoid conflict with Dan Sifer
             'Bryan Chinzorig': '#LI-BC',
-            'Reena Setya': '#LI-RS'            # Note: Same as Myticas Recruiter - needs clarification
+            'Reena Setya': '#LI-RS',
+            # Additional names found in XML file - may need mapping
+            'Nick Theodossiou': 'Nick Theodossiou',     # No mapping provided
+            'Matheo Theodossiou': 'Matheo Theodossiou' # No mapping provided
         }
         
         # Check for exact match first
