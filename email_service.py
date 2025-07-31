@@ -264,23 +264,30 @@ class EmailService:
                     <ul style="margin: 0; padding-left: 20px;">
                 """
                 for job in added_jobs:
-                    job_id = job.get('id', 'N/A')
-                    job_title = job.get('title', 'No title')
-                    
-                    # Extract account manager information
-                    account_manager = "Not specified"
-                    if job.get('owner') and isinstance(job['owner'], dict):
-                        first_name = job['owner'].get('firstName', '').strip()
-                        last_name = job['owner'].get('lastName', '').strip()
-                        if first_name or last_name:
-                            account_manager = f"{first_name} {last_name}".strip()
-                    elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
-                        first_user = job['assignedUsers'][0]
-                        if isinstance(first_user, dict):
-                            first_name = first_user.get('firstName', '').strip()
-                            last_name = first_user.get('lastName', '').strip()
+                    # Handle both full Bullhorn objects and simplified job objects
+                    if isinstance(job, dict):
+                        job_id = job.get('id', 'N/A')
+                        job_title = job.get('title', 'No title')
+                        
+                        # Try to extract account manager information (for full objects)
+                        account_manager = "Not specified"
+                        if job.get('owner') and isinstance(job.get('owner'), dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
                             if first_name or last_name:
                                 account_manager = f"{first_name} {last_name}".strip()
+                        elif job.get('assignedUsers') and isinstance(job.get('assignedUsers'), list) and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                    else:
+                        # Handle string or other formats
+                        job_id = str(job)
+                        job_title = str(job)
+                        account_manager = "Not specified"
                     
                     html_content += f"""<li><strong>{job_title}</strong> (ID: {job_id})<br>
                                       <small style="color: #666;">Account Manager: {account_manager}</small></li>"""
@@ -294,23 +301,30 @@ class EmailService:
                     <ul style="margin: 0; padding-left: 20px;">
                 """
                 for job in removed_jobs:
-                    job_id = job.get('id', 'N/A')
-                    job_title = job.get('title', 'No title')
-                    
-                    # Extract account manager information
-                    account_manager = "Not specified"
-                    if job.get('owner') and isinstance(job['owner'], dict):
-                        first_name = job['owner'].get('firstName', '').strip()
-                        last_name = job['owner'].get('lastName', '').strip()
-                        if first_name or last_name:
-                            account_manager = f"{first_name} {last_name}".strip()
-                    elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
-                        first_user = job['assignedUsers'][0]
-                        if isinstance(first_user, dict):
-                            first_name = first_user.get('firstName', '').strip()
-                            last_name = first_user.get('lastName', '').strip()
+                    # Handle both full Bullhorn objects and simplified job objects
+                    if isinstance(job, dict):
+                        job_id = job.get('id', 'N/A')
+                        job_title = job.get('title', 'No title')
+                        
+                        # Try to extract account manager information (for full objects)
+                        account_manager = "Not specified"
+                        if job.get('owner') and isinstance(job.get('owner'), dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
                             if first_name or last_name:
                                 account_manager = f"{first_name} {last_name}".strip()
+                        elif job.get('assignedUsers') and isinstance(job.get('assignedUsers'), list) and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                    else:
+                        # Handle string or other formats
+                        job_id = str(job)
+                        job_title = str(job)
+                        account_manager = "Not specified"
                     
                     html_content += f"""<li><strong>{job_title}</strong> (ID: {job_id})<br>
                                       <small style="color: #666;">Account Manager: {account_manager}</small></li>"""
@@ -324,24 +338,32 @@ class EmailService:
                     <ul style="margin: 0; padding-left: 20px;">
                 """
                 for job in modified_jobs:
-                    job_id = job.get('id', 'N/A')
-                    job_title = job.get('title', 'No title')
-                    changes = job.get('changes', [])
-                    
-                    # Extract account manager information
-                    account_manager = "Not specified"
-                    if job.get('owner') and isinstance(job['owner'], dict):
-                        first_name = job['owner'].get('firstName', '').strip()
-                        last_name = job['owner'].get('lastName', '').strip()
-                        if first_name or last_name:
-                            account_manager = f"{first_name} {last_name}".strip()
-                    elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
-                        first_user = job['assignedUsers'][0]
-                        if isinstance(first_user, dict):
-                            first_name = first_user.get('firstName', '').strip()
-                            last_name = first_user.get('lastName', '').strip()
+                    # Handle both full Bullhorn objects and simplified job objects
+                    if isinstance(job, dict):
+                        job_id = job.get('id', 'N/A')
+                        job_title = job.get('title', 'No title')
+                        changes = job.get('changes', [])
+                        
+                        # Try to extract account manager information (for full objects)
+                        account_manager = "Not specified"
+                        if job.get('owner') and isinstance(job.get('owner'), dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
                             if first_name or last_name:
                                 account_manager = f"{first_name} {last_name}".strip()
+                        elif job.get('assignedUsers') and isinstance(job.get('assignedUsers'), list) and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                    else:
+                        # Handle string or other formats
+                        job_id = str(job)
+                        job_title = str(job)
+                        changes = []
+                        account_manager = "Not specified"
                     
                     html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})<br>"
                     html_content += f"<small style='color: #666;'>Account Manager: {account_manager}</small>"

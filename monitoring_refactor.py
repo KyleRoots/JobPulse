@@ -542,8 +542,15 @@ class MonitoringService:
             # Send email (no delay here - comprehensive sync already waited)
             email_service = EmailService()
             
+            # Get email address - use monitor's email or fallback to global setting
+            to_email = monitor.notification_email
+            if not to_email:
+                # Fallback to global notification email
+                global_email_setting = self.GlobalSettings.query.filter_by(setting_key='notification_email').first()
+                to_email = global_email_setting.setting_value if global_email_setting else 'kroots@myticas.com'
+            
             success = email_service.send_bullhorn_notification(
-                to_email=settings.get('email_address', 'kroots@myticas.com'),
+                to_email=to_email,
                 monitor_name=monitor.name,
                 added_jobs=added_jobs,
                 removed_jobs=removed_jobs,
