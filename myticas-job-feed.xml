@@ -1,6 +1,26 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='UTF-8'?>
 <source>
   <publisherurl>https://myticas.com</publisherurl>
+  <job>
+    <title><![CDATA[ Senior MS Dynamics 365 Solutions Architect (32301) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ March 21, 2025 ]]></date>
+    <referencenumber><![CDATA[ ENJSQVAQ03 ]]></referencenumber>
+    <bhatsid><![CDATA[ 32301 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p><strong>Job Description: Microsoft Dynamics 365 Solutions Architect</strong></p> <p>Our client based in New Brunswick is looking for an experienced Microsoft Dynamics 365 Solutions Architect lead for a HYBRID model. The candidate will lead our client&apos;s Dynamics 365 initiatives. The ideal candidate has progressed through roles such as Functional Consultant to Solutions Architect, possesses broad sector experience, and excels in client-facing scenarios. This role requires managing various workstreams, including point of sales and finance, ensuring effective integration, and supporting business development with a comprehensive understanding of the overall strategy.</p> <p><strong>Key Responsibilities:</strong></p> <ul> <li>Lead the design and implementation of Microsoft Dynamics 365 solutions. <li>Engage with frontline stakeholders, demonstrating excellent communication skills. <li>Manage all workstreams involved in the project, ensuring effective integration. <li>Support business development with a comprehensive understanding of the big picture. </ul> <p><strong>Ideal Candidate Profile:</strong></p> <ul> <li>Progressed through roles to become a Solutions Architect, ideally starting as a Functional Consultant. <li>Possesses broad sector experience. <li>Client-facing with excellent communication skills, able to engage with frontline stakeholders. <li>Capable of managing all workstreams involved in the project (e.g., point of sales, finance) and integrating them effectively. <li>Supports business development with a comprehensive understanding of the big picture. </ul> <p><strong>Preferred Background:</strong></p> <ul> <li>Experience with Big 4 firms or other global professional services organizations. </ul> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[  ]]></city>
+    <state><![CDATA[ NB ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Hybrid ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+  </job>
   <job>
     <title><![CDATA[ High Speed Analog Principal Engineer (32629) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
@@ -13,13 +33,13 @@
     <city><![CDATA[ Sunnyvale ]]></city>
     <state><![CDATA[ CA ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category>  </category>
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction> Engineering </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ SAP FICO/RTR Lead (32631) ]]></title>
@@ -33,19 +53,13 @@
     <city><![CDATA[ Winnipeg ]]></city>
     <state><![CDATA[ MB ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category>  </category>
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>
-&lt;![CDATA[ Finance ]]&gt;
-</jobfunction>
-    <jobindustries>
-&lt;![CDATA[ Utilities ]]&gt;
-</jobindustries>
-    <senoritylevel>
-&lt;![CDATA[ Mid-Senior level ]]&gt;
-</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Business Intelligence Business Objects SQL Developer (32539) ]]></title>
@@ -59,13 +73,13 @@
     <city><![CDATA[ Springfield ]]></city>
     <state><![CDATA[ Illinois ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Dan Sifer ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Drupal Developer (32659) ]]></title>
@@ -79,13 +93,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior IT Project Manager (32567) ]]></title>
@@ -99,13 +113,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Dominic Scaletta ]]></assignedrecruiter>
-    <jobfunction>Project Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ RF Systems Engineer (32648) ]]></title>
@@ -119,13 +133,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Telecommunications</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Salesforce Developer (32666) ]]></title>
@@ -139,13 +153,13 @@
     <city><![CDATA[ Lansing ]]></city>
     <state><![CDATA[ MI ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ DevOps Technical Analyst (32638) ]]></title>
@@ -159,13 +173,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Mixed Signal IC Design Engineer (32627) ]]></title>
@@ -179,13 +193,13 @@
     <city><![CDATA[ Sunnyvale ]]></city>
     <state><![CDATA[ CA ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Lab Technician (32645) ]]></title>
@@ -199,13 +213,13 @@
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ IL ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Science</jobfunction>
-    <jobindustries>Biotechnology</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Science ]]></jobfunction>
+    <jobindustries><![CDATA[ Biotechnology ]]></jobindustries>
+    <senoritylevel><![CDATA[ Entry level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ ASIC Development Engineer (32477) ]]></title>
@@ -219,33 +233,13 @@
     <city><![CDATA[ Mountain View ]]></city>
     <state><![CDATA[ CA ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
-  </job>
-  <job>
-    <title><![CDATA[ Security &amp; Controls Solution Designer (32364) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ April 14, 2025 ]]></date>
-    <referencenumber><![CDATA[ 55BLG81OSD ]]></referencenumber>
-    <bhatsid><![CDATA[ 32364 ]]></bhatsid>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ &lt;p&gt;Our Montreal Based client is looking for an experienced &lt;strong&gt;Security &amp; Controls Solution Designer&lt;/strong&gt; for a long term Remote contract. The ideal candidate will be responsible for developing and documenting &lt;strong&gt;Identity and Access Management (IAM)&lt;/strong&gt; security solutions to ensure alignment between design and operational execution. This role involves creating &lt;strong&gt;Solution Design Documents (SDDs)&lt;/strong&gt; covering IAM automation, RBAC, SoX controls, and Segregation of Duties (SoD).&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Develop and maintain detailed &lt;strong&gt;Solution Design Documents (SDDs)&lt;/strong&gt; for IAM security implementations &lt;li&gt;Collaborate with security, governance, and project teams to gather and validate technical requirements &lt;li&gt;Align all designs with organizational security policies and ensure proper approvals &lt;li&gt;Support test strategy creation and confirm design compliance throughout the project lifecycle &lt;li&gt;Maintain accurate, consistent, and clear documentation for all IAM solutions &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Required Qualifications:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Strong background in &lt;strong&gt;IAM Security&lt;/strong&gt;, with expertise in &lt;strong&gt;SAP&lt;/strong&gt;, &lt;strong&gt;Saviynt&lt;/strong&gt;, &lt;strong&gt;Active Directory&lt;/strong&gt;, and &lt;strong&gt;ServiceNow&lt;/strong&gt; &lt;li&gt;Experience with &lt;strong&gt;IAM Automation&lt;/strong&gt;, &lt;strong&gt;Role-Based Access Control (RBAC)&lt;/strong&gt;, &lt;strong&gt;SoX Controls&lt;/strong&gt;, and &lt;strong&gt;Segregation of Duties (SoD)&lt;/strong&gt; &lt;li&gt;Excellent &lt;strong&gt;technical writing and documentation skills&lt;/strong&gt; &lt;li&gt;Ability to effectively communicate and collaborate with security, architecture, and project stakeholders &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Technical Expertise:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;SAP, Saviynt, Active Directory, ServiceNow &lt;li&gt;IAM automation &amp; RBAC frameworks &lt;li&gt;SoX compliance and SoD principles &lt;li&gt;Security solution design best practices &lt;/ul&gt; ]]></description>
-    <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city><![CDATA[ Montreal ]]></city>
-    <state><![CDATA[ QC ]]></state>
-    <country><![CDATA[ Canada ]]></country>
-    <category />
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Remote ]]></remotetype>
-    <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Design</jobfunction>
-    <jobindustries>Computer and Network Security</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Optical Resident Engineer (32419) ]]></title>
@@ -259,13 +253,13 @@
     <city><![CDATA[ Charlotte ]]></city>
     <state><![CDATA[ NC ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior FPGA Developer (32589) ]]></title>
@@ -276,36 +270,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;p&gt;&lt;strong&gt;Overview &amp; Role Focus&lt;/strong&gt;&lt;/p&gt; &lt;p&gt;This role is centered on innovating and advancing state-of-the-art video processing and transport capabilities, delivering high-performance solutions on some of the most integrated poadcast hardware platforms available today. The successful candidate will work hands-on with FPGA design, real-time media interfaces, and poadcast protocol implementation, playing a key role across architecture, development, testing, and cross-functional support.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Lead the development and continuous improvement of advanced video transport and processing features within tightly integrated poadcast hardware. &lt;li&gt;Design RTL for real-time, high-throughput media systems involving advanced interfaces—such as PCIe, memory, and specialized hardware acceleration (e.g., video scaling, HDR/SDR conversion). &lt;li&gt;Implement FPGA-based real-time transport protocols like SMPTE 2110 and SDI. &lt;li&gt;Participate in architectural planning: advise on FPGA density, schematic reviews, clocking strategies, and thermal considerations. &lt;li&gt;Build complete IO ring designs across modern FPGAs (Arria10, Stratix-10, Ultrascale+, MPSoC, Agilex) and validate pin-outs/IP within Quartus and Vivado environments. &lt;li&gt;Define and negotiate high-level design specs, assist in part selection, and align with aggressive project timelines. &lt;li&gt;Contribute to design specifications and documentation used by cross-functional teams. &lt;li&gt;Collaborate closely with peers on design verification and testing of FPGA and hardware systems. &lt;li&gt;Tackle debugging with a methodical and efficient approach. &lt;li&gt;Support team members throughout the entire New Product Introduction (NPI) lifecycle—from design through manufacturing to customer support. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Required Skills &amp; Background&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;5+ years in FPGA and hardware development, with a strong preference for experience in video/audio-centric technologies. &lt;li&gt;Intermediate to senior-level expertise in FPGA architecture and core components. &lt;li&gt;Deep understanding of high-speed serial interfaces, clock domains, timing closure, and transceiver integration. &lt;li&gt;Proficiency in Verilog, SystemVerilog, and TCL scripting; capable of creating testbenches and running simulations (e.g., VCS). &lt;li&gt;Familiarity with modern Intel and Xilinx FPGA families and their development/debugging toolchains. &lt;li&gt;Hands-on experience with interfaces like DDR3/DDR4, HBM, PLLs, and gigabit transceivers. &lt;li&gt;Skilled in lab-based debugging using oscilloscopes, JBERTs, network analyzers, waveform monitors, etc. &lt;li&gt;Embedded system awareness—experience with Linux, C/C++, bash scripting, and networking considered valuable. &lt;li&gt;Broadcast studio domain knowledge is highly desirable, especially within video production and distribution workflows. &lt;li&gt;A strong grasp of digital video/audio standards and signal integrity is considered a plus. &lt;li&gt;Driven and independent, yet collaborative—equally adept at working solo or influencing poader team strategies. &lt;li&gt;Quick learner with a creative mindset and ability to push ideas from concept to market. &lt;li&gt;Comfortable making bold decisions that balance quality, speed, and cost for optimal business outcomes. &lt;li&gt;Effective communicator with sharp observational skills and a problem-solving mindset. &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Direct Hire ]]></jobtype>
-    <city />
+    <city/>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ No Preference ]]></remotetype>
     <assignedrecruiter><![CDATA[ Michael Theodossiou ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
-  </job>
-  <job>
-    <title><![CDATA[ Senior Organizational Change Management Consultant – Bilingual (32523) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ June 09, 2025 ]]></date>
-    <referencenumber><![CDATA[ 6EYL9HMDSS ]]></referencenumber>
-    <bhatsid><![CDATA[ 32523 ]]></bhatsid>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ &lt;p&gt;&lt;strong&gt;Description:&lt;/strong&gt;&lt;br&gt; Our client is seeking a Senior-level Organizational Change Management (OCM) Consultant to support a post-acquisition workforce integration project&lt;strong&gt; ON-SITE in Montreal. &lt;/strong&gt;The consultant will lead change initiatives focused on people transitions (not technology), partnering closely with leadership and cross-functional teams.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Develop and execute change management and communication plans.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Lead stakeholder engagement, organizational design, training, and workforce transition activities.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Collaborate with leadership to guide workforce integration across business functions.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Support organizational design and HR transformation efforts.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Manage multiple stakeholders and ensure strong change adoption.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Required Skills:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;5+ years of OCM consulting or advisory experience.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong experience with: change management, stakeholder engagement, communications, organizational design, workforce strategies, HR transformation.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Excellent communication skills (verbal &amp; written) in both French and English.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong project leadership, adaptability, and problem-solving capabilities.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Bachelor’s or Master’s degree in Business, HR, Psychology or related fields.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Previous consulting (Big 4 or advisory firm) experience is an asset.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Additional Notes:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Must be available to work onsite; no remote option.&lt;/p&gt; &lt;/ul&gt; ]]></description>
-    <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city><![CDATA[ Montreal ]]></city>
-    <state><![CDATA[ QC ]]></state>
-    <country><![CDATA[ Canada ]]></country>
-    <category />
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Hybrid ]]></remotetype>
-    <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Broadcast Media ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Lead Custom Analog Layout Engineeer (32628) ]]></title>
@@ -319,13 +293,13 @@
     <city><![CDATA[ Sunnyvale ]]></city>
     <state><![CDATA[ CA ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ EDW Sr. Healthcare Technical Analyst (32542) ]]></title>
@@ -339,13 +313,13 @@
     <city><![CDATA[ Springfield ]]></city>
     <state><![CDATA[ Illinois ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Dan Sifer ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ High Performance Computing Administrator (32447) ]]></title>
@@ -359,13 +333,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Telecommunications</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ High-Speed Analog ASIC Engineer (32624) ]]></title>
@@ -379,13 +353,13 @@
     <city><![CDATA[ Sunnyvale ]]></city>
     <state><![CDATA[ CA ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior System Engineer (32529) ]]></title>
@@ -399,13 +373,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Principal ASIC Verification Engineer (32625) ]]></title>
@@ -419,13 +393,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Mixed -Signal ASIC Design Engineer (32626) ]]></title>
@@ -439,13 +413,13 @@
     <city><![CDATA[ Sunnyvale ]]></city>
     <state><![CDATA[ CA ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Systems Configuration Identification Specialist (32646) ]]></title>
@@ -457,15 +431,15 @@
     <description><![CDATA[ &lt;p&gt;&lt;strong&gt;Main Responsibilities&lt;/strong&gt;&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Configuration Identification&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Support and coordinate activities to establish rules for configuration item (CI) selection and baseline content definition.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Assist in selecting configuration items at appropriate levels of the product structure, including determining required configuration documentation for each CI.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Asset and Physical Systems Configuration Management&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Define, develop, and manage processes, procedures, and tools to identify, document, and control physical assets for a large-scale communications system.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Provide support for export control compliance processes such as ITAR.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Maintain an inventory of system assets (hardware).&lt;/p&gt; &lt;li&gt; &lt;p&gt;Control and document system, hardware, and software configurations, including both "as-designed" and "as-built" baselines.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Software Configuration Management – Release Monitoring&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Collaborate with technical teams and project management to define roles and responsibilities for configuration and release management.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Work with development, test environment, and verification teams to define and document processes for managing software releases.&lt;/p&gt; &lt;li&gt; &lt;p&gt;For each release, verify required documentation is complete, approved, and captured, and ensure release packages are created in accordance with established procedures.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Confirm that pending or outstanding changes do not impact planned test or release activities.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Support development, lab, and test teams to ensure timely and accurate release execution.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Assist with impact assessments and update the CI Tree and related configuration documentation to reflect approved changes.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Support preparation and execution of configuration item status accounting and configuration audits.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Provide subject matter expertise on configuration management (CM) processes, standards, and systems.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Contribute to requirements management and traceability process documentation and improvement.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Develop training materials for CM identification, software/release management, and general CM procedures.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Participate in continuous improvement initiatives to enhance CM process efficiency, reliability, and cost-effectiveness.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Document and Library Management Support&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Initiate updates to documentation based on approved change requests.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Collaborate with document management personnel to track and complete implementation of documentation updates.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Ensure all released documents are logged, captured, and statused in the document management system.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Act as backup support for document management responsibilities when needed.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Education &amp; Experience – Required&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Bachelor’s or college degree in engineering, science, or a related field (or equivalent combination of education and experience).&lt;/p&gt; &lt;li&gt; &lt;p&gt;3–6 years of experience in an engineering design environment working with systems, hardware, software, and test teams.&lt;/p&gt; &lt;li&gt; &lt;p&gt;2+ years of experience in configuration and/or data management.&lt;/p&gt; &lt;li&gt; &lt;p&gt;2+ years of experience in release management.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Formal training, certification, or experience with CM standards (e.g., CM2, ANSI-EIA 649, ISO 10007).&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Education &amp; Experience – Assets&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Experience with software configuration management tools and processes.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong verbal and written communication skills with both technical and non-technical audiences.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience in high-performing, multidisciplinary development teams.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Collaborative, team-oriented, and self-driven.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Skilled in Microsoft Office at an intermediate level.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Bilingual in English and French is an asset (but not required).&lt;/p&gt; &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Direct Hire ]]></jobtype>
     <city><![CDATA[ Ottawa ]]></city>
-    <state />
+    <state/>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Full Stack Developer - .Net, Angular, JavaScript (32575) ]]></title>
@@ -476,16 +450,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;span style="font-size: 12.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;&lt;strong&gt;&lt;span style=""&gt;POSITION OVERVIEW&lt;/span&gt;&lt;/strong&gt;&lt;br&gt; &lt;br&gt; Looking for a &lt;strong&gt;&lt;span style=""&gt;Senior .NET Full Stack Developer&lt;/span&gt;&lt;/strong&gt; to support the architecture and development of critical application features. The ideal candidate is a well-rounded developer who enjoys both front-end and back-end work, and thrives in collaborative, agile, and remote-first teams.&lt;/span&gt;&lt;/span&gt;&lt;br&gt; &lt;br&gt; &lt;br&gt; &lt;span style="font-size: 12.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;&lt;strong&gt;&lt;span style=""&gt;CORE QUALIFICATIONS&lt;/span&gt;&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt; &lt;ul&gt; &lt;li&gt;5+ years of experience in full-stack development delivering scalable, production-ready solutions &lt;li&gt;Strong knowledge of:&lt;br&gt; • C#, ASP.NET MVC&lt;br&gt; • Entity Framework and SQL Server&lt;br&gt; • JavaScript, HTML5, CSS &lt;li&gt;Solid understanding of software architecture principles, design patterns, and clean coding standards &lt;li&gt;Hands-on experience with Git and modern source control practices &lt;li&gt;Bachelor’s in Computer Science or equivalent practical experience &lt;li&gt;Must be authorized to work in the U.S. &lt;li&gt;Open to limited travel (2–4 times annually) for team collaboration &lt;/ul&gt; &lt;br&gt; &lt;span style="font-size: 12.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;&lt;strong&gt;&lt;span style=""&gt;PREFERRED EXPERIENCE / NICE TO HAVE&lt;/span&gt;&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt; &lt;ul&gt; &lt;li&gt;Experience with modern .NET (.NET Core / .NET 6+) &lt;li&gt;Familiarity with Microsoft Azure and DevOps tools &lt;li&gt;Understanding of containerization (Docker, Linux containers) &lt;li&gt;Proficiency with RESTful API development &lt;li&gt;Exposure to cloud-based services (Azure preferred, AWS acceptable) &lt;li&gt;Experience with modern front-end frameworks like React, Angular, or Vue.js &lt;li&gt;Knowledge of CI/CD tools such as Azure DevOps, GitHub Actions, or Jenkins &lt;li&gt;Test-driven development (TDD) and experience with testing frameworks (xUnit, MSTest, NUnit, Jest, Mocha) &lt;li&gt;Security/authentication protocols (OAuth2, OpenID Connect, IdentityServer) &lt;li&gt;Event-driven architecture and messaging systems (e.g., RabbitMQ, Azure Service Bus, Kafka) &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Direct Hire ]]></jobtype>
-    <city />
-    <state />
+    <city/>
+    <state/>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Michael Theodossiou ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Cloud Site Reliability Engineer - Azure/AWS (34084) ]]></title>
@@ -496,16 +470,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;p&gt;&lt;strong&gt;Cloud Site Reliability Engineer – AWS &amp; Azure&lt;/strong&gt;&lt;br&gt; &lt;br&gt; &lt;br&gt; &lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Oversee the design and improvement of infrastructure using SRE best practices, including IaC, recovery automation, and systems that detect and resolve issues independently. &lt;li&gt;Manage and fine-tune critical services across both cloud and on-prem environments: Kubernetes clusters, CI/CD pipelines, artifact registries, and custom workloads. &lt;li&gt;Enhance observability through intelligent logging, metrics, tracing, and alerting. Ensuring systems are transparent and actionable in real time. &lt;li&gt;Champion automation by eliminating repetitive tasks, from deployment workflows to security audits, through scripting and tooling. &lt;li&gt;Elevate the developer experience for 80+ engineers and researchers by streamlining secure, reliable workflows across hybrid and cloud-native platforms. &lt;li&gt;Take ownership of IAM governance across platforms like Azure AD and AWS IAM. Implement lifecycle automation, auditing, and access controls. &lt;li&gt;Foster a culture of operational excellence with strong practices around security, incident management, and resilience engineering. &lt;li&gt;Act as a trusted partner to developers and researchers, enabling their speed and innovation without compromising stability. &lt;/ul&gt; &lt;p&gt;&lt;br&gt; &lt;strong&gt;Experience&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Experience in Site Reliability Engineering, DevOps, or Systems Engineering within fast-paced, technically demanding environments. &lt;li&gt;Strong background in Linux systems and cloud infrastructure, with hands-on experience in AWS (primary) and Azure environments. &lt;li&gt;Solid command of Kubernetes and container orchestration in production environments. &lt;li&gt;Expertise in Infrastructure as Code tools such as Ansible, building reproducible, scalable infrastructure is second nature to you. &lt;li&gt;Deep experience in observability and incident response: you know how to set up effective monitoring, handle incidents, and lead blameless post-mortems. &lt;li&gt;A security-first mindset, especially when it comes to protecting distributed systems and developer workflows. &lt;li&gt;Proven ability to support and optimize CI/CD pipelines, container image builds, and artifact lifecycle management. &lt;li&gt;Strong communication and collaboration skills. You build trust across teams and advocate for thoughtful, scalable solutions. &lt;li&gt;Bonus if you’ve worked with event-driven architectures using technologies like Kafka. &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
-    <city />
-    <state />
+    <city/>
+    <state/>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Nick Theodossiou ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Banking Technology Integration Consultant - Lockbox/Payments (32606) ]]></title>
@@ -519,13 +493,13 @@
     <city><![CDATA[ Scarborough ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ FPGA Developer, Senior (32549) ]]></title>
@@ -536,16 +510,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;p&gt;&lt;strong&gt;Overview:&lt;/strong&gt;&lt;br /&gt; A leading provider of real-time video processing technology is seeking a &lt;strong&gt;Senior FPGA Developer&lt;/strong&gt; to join its core signal processing team. This group is responsible for developing high-performance media transport and processing systems used by global clients in live production, broadcast, and media environments.&lt;/p&gt; &lt;p&gt;This is an opportunity to work on cutting-edge, high-bandwidth systems built on advanced FPGA platforms—delivering critical real-time features that enable professional-grade media production. You’ll be surrounded by a highly experienced team that values innovation, collaboration, and practical problem solving.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Design and implement RTL for advanced real-time media systems with interfaces including memory, PCIe, and hardware-accelerated video processing.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Develop transport protocol implementations (e.g., SDI, SMPTE 2110) within FPGAs.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Collaborate on system architecture—reviewing schematics, optimizing clocking, thermal considerations, and FPGA resource allocation.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Perform full IO ring designs for leading FPGA families (e.g., Arria10, Stratix-10, Ultrascale+, Agilex).&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Define and document high-level system requirements; support component selection and scheduling.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Create simulation testbenches (Verilog/SystemVerilog); perform functional verification and debugging.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Collaborate cross-functionally with software, hardware, and manufacturing teams through the full product lifecycle.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Mentor peers and support technical knowledge sharing within the team.&lt;/p&gt; &lt;/li&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Requirements:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;5+ years of hands-on FPGA design experience, preferably with exposure to video or audio systems.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Strong Verilog/SystemVerilog and scripting skills (TCL).&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Experience with Intel and/or Xilinx FPGAs and their respective toolchains (Quartus, Vivado).&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Familiarity with high-speed serial interfaces, DDR3/4, HBM, PLLs, and signal integrity principles.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Excellent debugging and validation skills; proficiency with lab tools (oscilloscopes, logic analyzers, WFMs, etc.).&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Background in embedded systems (Linux, bash, C/C++) considered a plus.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Understanding of media production workflows and digital video standards (SMPTE, HDR, SDI) is advantageous.&lt;/p&gt; &lt;/li&gt; &lt;li&gt; &lt;p&gt;Ability to work independently and collaboratively in a fast-paced engineering environment.&lt;/p&gt; &lt;/li&gt; &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Direct Hire ]]></jobtype>
-    <city />
-    <state />
+    <city/>
+    <state/>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Michael Theodossiou ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Broadcast Media ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Technical Manager, Customer Support (32657) ]]></title>
@@ -559,13 +533,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Customer Service ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ IT Infrastructure Manager - Manufacturing (32619) ]]></title>
@@ -579,13 +553,13 @@
     <city><![CDATA[ Auburn Hills ]]></city>
     <state><![CDATA[ Michigan ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Michelle Corino ]]></assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Electrical/Electronic Manufacturing</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Electrical/Electronic Manufacturing ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Legal Analyst/Attorney (34082) ]]></title>
@@ -599,13 +573,13 @@
     <city><![CDATA[ Minneapolis ]]></city>
     <state><![CDATA[ MN ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Legal Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Legal ]]></jobfunction>
+    <jobindustries><![CDATA[ Legal Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Data Warehouse Sr. Business Analyst (34075) ]]></title>
@@ -619,13 +593,13 @@
     <city><![CDATA[ Springfied ]]></city>
     <state><![CDATA[ Illinois ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Michelle Corino ]]></assignedrecruiter>
-    <jobfunction>Analyst</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior AWS Cloud Project Manager (32652) ]]></title>
@@ -639,13 +613,13 @@
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ IL ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior ASIC Design &amp; Product Integration Engineer (32623) ]]></title>
@@ -659,13 +633,13 @@
     <city><![CDATA[ Sunnyvale ]]></city>
     <state><![CDATA[ CA ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ ASIC Development Engineer (32476) ]]></title>
@@ -679,13 +653,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ SAP FICO Functional Lead (32637) ]]></title>
@@ -699,13 +673,13 @@
     <city><![CDATA[ Vancouver ]]></city>
     <state><![CDATA[ BC ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Oil and Energy ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Change Management Specialist (32612) ]]></title>
@@ -719,13 +693,13 @@
     <city><![CDATA[ Halifax ]]></city>
     <state><![CDATA[ NS ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Other</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Professional Training and Coaching ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Internal Controls Analyst - SOX/ICFR (32579) ]]></title>
@@ -739,13 +713,13 @@
     <city><![CDATA[ Toronto ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Finance ]]></jobfunction>
+    <jobindustries><![CDATA[ Capital Markets ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Software Developer - Network Management System (32445) ]]></title>
@@ -759,13 +733,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Packet Processing Software Developer (32079) ]]></title>
@@ -779,13 +753,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ SAP Data Migration Lead (32597) ]]></title>
@@ -799,13 +773,13 @@
     <city><![CDATA[ Calgary ]]></city>
     <state><![CDATA[ AB ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Technical Systems Administrator/Trainer (32661) ]]></title>
@@ -819,13 +793,13 @@
     <city><![CDATA[ Irvine ]]></city>
     <state><![CDATA[ CA ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Cloud Operations Manager (32293) ]]></title>
@@ -839,13 +813,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Dominic Scaletta ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ French Legal Invoice Analyst/Initial Reviewer (32444) ]]></title>
@@ -859,13 +833,13 @@
     <city><![CDATA[ Minneapolis ]]></city>
     <state><![CDATA[ MN ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Legal Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Legal Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Entry level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ NMS Developer (32446) ]]></title>
@@ -879,13 +853,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Technical Product Manager (34086) ]]></title>
@@ -899,13 +873,13 @@
     <city><![CDATA[ Coppell ]]></city>
     <state><![CDATA[ TX ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Product Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Product Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ IP Network Architect (32569) ]]></title>
@@ -919,13 +893,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer and Network Security</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior SAP EWM consultant (32622) ]]></title>
@@ -939,13 +913,13 @@
     <city><![CDATA[ Winnipeg ]]></city>
     <state><![CDATA[ MB ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Cloud Operations Engineer (32574) ]]></title>
@@ -959,13 +933,13 @@
     <city><![CDATA[ Vancouver ]]></city>
     <state><![CDATA[ British Columbia ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Dominic Scaletta ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer and Network Security ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Back-End Developer - Intermediate/Senior (32266) ]]></title>
@@ -979,13 +953,13 @@
     <city><![CDATA[ Toronto ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Matheo Theodossiou ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ IT Director - PMO (32554) ]]></title>
@@ -999,13 +973,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Amanda Messina ]]></assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Executive</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Director ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Project Manager - Bilingual &amp; Remote with Some Travel (32531) ]]></title>
@@ -1016,16 +990,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;&lt;strong&gt;Job Title:&lt;/strong&gt; Senior Project Manager (Bilingual – Remote with Some Travel)&lt;br&gt; &lt;strong&gt;Client:&lt;/strong&gt; National HR &amp; Benefits Services Provider&lt;/span&gt;&lt;/span&gt;&lt;br&gt; &lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;&lt;strong&gt;Term:&lt;/strong&gt; 6-Month Contract + Extension&lt;br&gt; &lt;strong&gt;Location:&lt;/strong&gt; Remote – Ontario/Quebec(occasional travel to Montrea,, QC&lt;br&gt; &lt;strong&gt;Start:&lt;/strong&gt; ASAP&lt;/span&gt;&lt;/span&gt;&lt;br&gt; &lt;br&gt; &lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;&lt;strong&gt;Overview:&lt;/strong&gt;&lt;br&gt; Our client, a leading provider of employee-focused business services, is seeking a &lt;strong&gt;Senior Project Manager&lt;/strong&gt; to lead &lt;strong&gt;business integration efforts&lt;/strong&gt; across their internal operations teams. Reporting to the VP of Finance, this role will help streamline processes across Finance, HR, and Technology functions. It is best suited for a bilingual PM with &lt;strong&gt;strong stakeholder management&lt;/strong&gt; and experience supporting &lt;strong&gt;organizational consolidation or cross-functional business alignment.&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt; &lt;br&gt; &lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;&lt;strong&gt;Must-Haves:&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt; &lt;ul&gt; &lt;li style="margin: 0.0cm;"&gt;&lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;8+ years’ experience in project management&lt;/span&gt;&lt;/span&gt; &lt;li style="margin: 0.0cm;"&gt;&lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;Demonstrated success in managing business integration initiatives (Specifically: Post M&amp;A (Mergers &amp; Acquisitions / Organizational Consolidations) Experience)&lt;/span&gt;&lt;/span&gt; &lt;li style="margin: 0.0cm;"&gt;&lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;Excellent communication and stakeholder engagement skills&lt;/span&gt;&lt;/span&gt; &lt;li style="margin: 0.0cm;"&gt;&lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;Fully bilingual (English and French)&lt;/span&gt;&lt;/span&gt; &lt;li style="margin: 0.0cm;"&gt;&lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;Background in group benefits, HR services, or financial operations is a strong asset&lt;/span&gt;&lt;/span&gt; &lt;li style="margin: 0.0cm;"&gt;&lt;span style="font-size: 11.0pt;"&gt;&lt;span style="font-family: Aptos , sans-serif;"&gt;Familiarity with &lt;strong&gt;Workday&lt;/strong&gt; is a definite plus or like ERP (I.e. Oracle, SAP etc..)&lt;/span&gt;&lt;/span&gt; &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city />
+    <city/>
     <state><![CDATA[ QC ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Dominic Scaletta ]]></assignedrecruiter>
-    <jobfunction>Project Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Business Supplies and Equipment ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Technical Manager, Professional Services (32658) ]]></title>
@@ -1039,13 +1013,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Full-Stack Developer (34085) ]]></title>
@@ -1059,13 +1033,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Bilingual Salesforce Business Analyst – Grantmaking (32602) ]]></title>
@@ -1079,13 +1053,13 @@
     <city><![CDATA[ Montreal ]]></city>
     <state><![CDATA[ QC ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Analyst</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Workflow Application Engineer (32655) ]]></title>
@@ -1099,13 +1073,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ D365 trainer with SharePoint experience (32662) ]]></title>
@@ -1116,16 +1090,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;p&gt;Our client is seeking a highly experienced &lt;strong&gt;D365 Trainer with SharePoint expertise&lt;/strong&gt; to support a national training and information management initiative. The ideal candidate will have a deep understanding of Microsoft 365 (D365), SharePoint (on-premise and online), and experience in developing training programs, videos, and instructional content for users across varied departments and time zones.&lt;br&gt; &lt;u&gt;&lt;strong&gt;Mandatory Active SECRET clearance&lt;/strong&gt;&lt;/u&gt;&lt;/p&gt; &lt;hr&gt; &lt;h3&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/h3&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Develop and deliver &lt;strong&gt;training videos&lt;/strong&gt; and &lt;strong&gt;step-by-step guides&lt;/strong&gt; for users on SharePoint (on-premise) and Defence 365 features.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Build and maintain a &lt;strong&gt;SharePoint Online Training site&lt;/strong&gt; with how-to content, videos, and best practices.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Conduct training sessions for &lt;strong&gt;new Site Owners&lt;/strong&gt; using training packages and sandbox environments.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Collaborate with the Communications (CO) and Information Management (IM) teams to design onboarding/orientation training for new team members.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Design and deploy &lt;strong&gt;Power Apps&lt;/strong&gt; for automating team member intake forms and leadership processes.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Create an internal &lt;strong&gt;Wiki&lt;/strong&gt; with approval workflows to replace DWAN-only resources on D365.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Support users in navigating the Microsoft Tenant environment post-launch.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Perform &lt;strong&gt;daily web administration&lt;/strong&gt; for over 1,200 SharePoint sites.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Lead &lt;strong&gt;biweekly Information Management Working Groups&lt;/strong&gt; and L1/L2 sessions to distribute updates and training.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Host &lt;strong&gt;monthly deployed Information Management sessions&lt;/strong&gt; for field IMOs.&lt;/p&gt; &lt;/ul&gt; &lt;hr&gt; &lt;h3&gt;&lt;strong&gt;Qualifications:&lt;/strong&gt;&lt;/h3&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Proven expertise in &lt;strong&gt;D365&lt;/strong&gt; and &lt;strong&gt;SharePoint (Online &amp; On-Premise)&lt;/strong&gt;&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience in instructional design and e-learning/training video creation&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong experience with Power Apps and workflow automation&lt;/p&gt; &lt;li&gt; &lt;p&gt;Comfortable presenting to and training users of varying technical skill levels&lt;/p&gt; &lt;li&gt; &lt;p&gt;Ability to manage and administer large-scale SharePoint environments&lt;/p&gt; &lt;li&gt; &lt;p&gt;Active &lt;strong&gt;SECRET clearance&lt;/strong&gt; required&lt;/p&gt; &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city />
-    <state />
+    <city/>
+    <state/>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Other</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Education ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ SAP Functional Lead – Project Systems - PS (32621) ]]></title>
@@ -1139,13 +1113,13 @@
     <city><![CDATA[ Winnipeg ]]></city>
     <state><![CDATA[ MB ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Business &amp; Program Management Consultant (32660) ]]></title>
@@ -1159,13 +1133,13 @@
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ IL ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Biotechnology ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Local to Chicago-Sr Business Systems Analyst (32632) ]]></title>
@@ -1179,13 +1153,13 @@
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ IL ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Analyst</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Sr Program Management Consultant (32608) ]]></title>
@@ -1199,13 +1173,13 @@
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ IL ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Management Consulting ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Design Verification Specialist (32630) ]]></title>
@@ -1219,33 +1193,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Design</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
-  </job>
-  <job>
-    <title><![CDATA[ Cloud Production/Application Support Analyst (32517) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ June 06, 2025 ]]></date>
-    <referencenumber><![CDATA[ 39I9FNKF3Q ]]></referencenumber>
-    <bhatsid><![CDATA[ 32517 ]]></bhatsid>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ &lt;p&gt;&lt;strong&gt;POSITION OVERVIEW:&lt;/strong&gt;&lt;br&gt; We are seeking a &lt;strong&gt;Cloud Support Analyst (Level II)&lt;/strong&gt; to join a growing technology operations team. Reporting into a senior leadership role within the cloud support function, this individual will work directly with internal users and stakeholders to resolve issues related to enterprise systems and data. The role also involves identifying opportunities to enhance system functionality and streamline operational processes. This position requires regular engagement with third-party vendors on implementations, enhancements, and complex troubleshooting initiatives.&lt;/p&gt; &lt;hr&gt; &lt;p&gt;&lt;strong&gt;KEY RESPONSIBILITIES:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Apply process and workflow methodologies to enhance support outcomes&lt;/p&gt; &lt;li&gt; &lt;p&gt;Demonstrate strong business acumen and understanding of organizational systems&lt;/p&gt; &lt;li&gt; &lt;p&gt;Collaborate effectively within both immediate and cross-functional teams&lt;/p&gt; &lt;li&gt; &lt;p&gt;Manage assigned tasks and engagements with minimal supervision&lt;/p&gt; &lt;li&gt; &lt;p&gt;Build credibility quickly through professional presence and subject-matter expertise&lt;/p&gt; &lt;li&gt; &lt;p&gt;Operate effectively in an office-based setting&lt;/p&gt; &lt;li&gt; &lt;p&gt;Navigate high-demand environments with fast turnarounds&lt;/p&gt; &lt;li&gt; &lt;p&gt;Provide occasional support across global time zones&lt;/p&gt; &lt;/ul&gt; &lt;hr&gt; &lt;p&gt;&lt;strong&gt;QUALIFICATIONS:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Post-secondary education in IT, computer science, or a related field&lt;/p&gt; &lt;li&gt; &lt;p&gt;Proven experience supporting enterprise-grade cloud platforms (e.g., Azure, AWS, GCP)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong SQL skills used in root cause analysis and issue resolution&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience working with databases and scripting for support-related automation&lt;/p&gt; &lt;li&gt; &lt;p&gt;Certifications in one or more cloud technologies&lt;/p&gt; &lt;li&gt; &lt;p&gt;Familiarity with at least one programming language (e.g., Java)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Exposure to automation tools or scripting repeatable support tasks&lt;/p&gt; &lt;/ul&gt; ]]></description>
-    <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
-    <city><![CDATA[ Toronto ]]></city>
-    <state><![CDATA[ ON ]]></state>
-    <country><![CDATA[ Canada ]]></country>
-    <category />
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Hybrid ]]></remotetype>
-    <assignedrecruiter><![CDATA[ Matheo Theodossiou ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Electrical/Electronic Manufacturing</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Product Line Manager - CIP (32607) ]]></title>
@@ -1256,16 +1210,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;p&gt;The recruitment team at Myticas Consulting is currently seeking an experienced Optical Networking resource who would be interested in working within the CIP vertical. &lt;/p&gt; &lt;p&gt;We are looking for a candidate who is currently based in Canada since this is offered on a remote full-time permanent basis and requires the resource to be located within the country.&lt;/p&gt; &lt;p&gt;The candidate in this role should have the following requirements:&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Highly experienced in CIP Optical Networking Deployment &lt;li&gt;Over 8 Years of Optical Networking expertise &lt;li&gt;Experience with Optical Network deployment and system development &lt;li&gt;Experience with Optical PLM &lt;li&gt;Experience with Operational Support Systems &lt;li&gt;Experience with Open Standards and Concepts &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Direct Hire ]]></jobtype>
-    <city />
-    <state />
+    <city/>
+    <state/>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Amanda Messina ]]></assignedrecruiter>
-    <jobfunction>Product Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Product Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Employment Equity Resource - Federal Job Evaluation &amp; Pay Equity Compliance (34080) ]]></title>
@@ -1279,13 +1233,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ Ontario ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Design</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Civic and Social Organization ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ EDW Informatica ETL Developer (32541) ]]></title>
@@ -1299,13 +1253,13 @@
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ Illinois ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Michelle Corino ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Software Architect – System Model Application (32513) ]]></title>
@@ -1319,13 +1273,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ D365 Finance Configuration Consultant (32537) ]]></title>
@@ -1336,16 +1290,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;p&gt;Our client is in the build stage of a D365 Finance &amp; Operations and Commerce implementation for a retail organization based in New Brunswick. The go-live is targeted for August 2026.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Role Overview:&lt;/strong&gt;&lt;br&gt; We are seeking an experienced &lt;strong&gt;Finance Configuration Consultant&lt;/strong&gt; with deep expertise in &lt;strong&gt;Microsoft D365 F&amp;O&lt;/strong&gt;. The ideal candidate will lead client-facing design sessions, provide hands-on system configuration, and support testing initiatives across the Finance workstreams.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Facilitate and lead finance-related design workshops&lt;/p&gt; &lt;li&gt; &lt;p&gt;Configure the D365 F&amp;O system to meet business requirements&lt;/p&gt; &lt;li&gt; &lt;p&gt;Support client-side testing and validation activities&lt;/p&gt; &lt;li&gt; &lt;p&gt;Collaborate with business stakeholders and technical teams&lt;/p&gt; &lt;li&gt; &lt;p&gt;Provide input and expertise on best practices for D365 Finance implementations&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Qualifications:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Minimum 10 years of experience in Microsoft D365 Finance&lt;/p&gt; &lt;li&gt; &lt;p&gt;Hands-on configuration experience across core finance modules&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong communication and client engagement skills&lt;/p&gt; &lt;li&gt; &lt;p&gt;Microsoft certification in D365 Finance (asset)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience in retail or public sector projects (asset)&lt;/p&gt; &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city />
+    <city/>
     <state><![CDATA[ NB ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Technical Support and Customer Service Associate (32581) ]]></title>
@@ -1356,16 +1310,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;strong&gt;Technical Support and Customer Service Associate &lt;/strong&gt;&lt;strong&gt;- REMOTE&lt;br&gt; &lt;br&gt; Contract: 12 months with possible CTH&lt;/strong&gt;&lt;br&gt; &lt;strong&gt;Schedule: 3rd shift - 12 am to 9 am, Tuesday thru Saturday&lt;br&gt; Work Type: Fully Remote&lt;/strong&gt;&lt;br&gt; &lt;br&gt; Myticas is actively seeking a &lt;strong&gt;Technical Support and &lt;/strong&gt;&lt;strong&gt;Customer Service Associate &lt;/strong&gt;for a direct client to join their &lt;strong&gt;Personal Support Center (PSC)&lt;/strong&gt; team. This role is perfect for someone with a passion for helping others, a knack for troubleshooting, and the ability to thrive in a fast-paced, tech-forward environment.&lt;br&gt; &lt;br&gt; As a PSC Associate, you’ll be the first point of contact for users via phone, email, and chat—working to resolve technical issues, answer questions, and ensure a seamless customer experience. You'll be supported by extensive training, a detailed knowledge base, and a collaborative team ready to help you grow.&lt;br&gt; &lt;br&gt; &lt;strong&gt;What You’ll Do:&lt;/strong&gt; &lt;ul&gt; &lt;li&gt;Provide Tier 1 technical support for software, hardware, and connectivity issues &lt;li&gt;Assist with password resets, software installations, VPN setups, and general troubleshooting &lt;li&gt;Escalate complex issues to senior team members when needed &lt;li&gt;Maintain clear, professional communication across all customer interactions &lt;li&gt;Simultaneously manage support requests via phone, email, and chat &lt;li&gt;Accurately log cases using tools like ServiceNow and Zendesk &lt;/ul&gt; &lt;strong&gt;What We’re Looking For:&lt;/strong&gt; &lt;ul&gt; &lt;li&gt;Strong customer service and communication skills &lt;li&gt;Comfort working in a flexible, 24/7/365 support environment &lt;li&gt;Ability to adapt to new tools, systems, and processes quickly &lt;li&gt;Team player who’s open to ongoing feedback, learning, and development &lt;/ul&gt; &lt;strong&gt;Why Join Us:&lt;/strong&gt; &lt;ul&gt; &lt;li&gt;Hands-on training and mentoring &lt;li&gt;Access to a robust internal knowledge base &lt;li&gt;Opportunities to collaborate with tech experts and leadership &lt;li&gt;A supportive team environment where growth is encouraged &lt;/ul&gt; If you're ready to jump into a dynamic support role where no two days are the same, apply now or reach out to learn more. We’re excited to meet you! ]]></description>
     <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city />
-    <state />
+    <city/>
+    <state/>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ Michelle Corino ]]></assignedrecruiter>
-    <jobfunction>Customer Service</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Entry level</senoritylevel>
+    <jobfunction><![CDATA[ Customer Service ]]></jobfunction>
+    <jobindustries><![CDATA[ Consumer Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Associate ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Digital Content Specialist (32576) ]]></title>
@@ -1379,13 +1333,13 @@
     <city><![CDATA[ Ada ]]></city>
     <state><![CDATA[ Michigan ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Christine Carter ]]></assignedrecruiter>
-    <jobfunction>Other</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Marketing ]]></jobfunction>
+    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Manufacturing Engineer (32643) ]]></title>
@@ -1399,13 +1353,13 @@
     <city><![CDATA[ Grand Rapids ]]></city>
     <state><![CDATA[ Michigan ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Christine Carter ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Electrical/Electronic Manufacturing</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Electrical/Electronic Manufacturing ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Digital Marketing Consultant (32563) ]]></title>
@@ -1419,13 +1373,13 @@
     <city><![CDATA[ Ada ]]></city>
     <state><![CDATA[ Michigan ]]></state>
     <country><![CDATA[ United States ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Christine Carter ]]></assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Ambulatory Clinical Informatics Analyst - Oracle Health/Cerner (32649) ]]></title>
@@ -1436,16 +1390,16 @@
     <url><![CDATA[ https://myticas.com/ ]]></url>
     <description><![CDATA[ &lt;p&gt;Our client is seeking an experienced &lt;strong&gt;Ambulatory Clinical Informatics Analyst&lt;/strong&gt; to support the OPOR (One Person One Record) Program’s Ambulatory Portfolio. This role requires a strong background in Oracle Health (Cerner) and will involve collaboration with clinicians, project leadership, and Oracle Health consultants to design, configure, and translate clinical workflows.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Support ambulatory care design and configuration initiatives.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Facilitate strategy execution and knowledge translation to subject matter experts (SMEs).&lt;/p&gt; &lt;li&gt; &lt;p&gt;Engage with clinicians to review and validate workflows.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Participate in organizational change management and co-facilitate design sessions.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Collaborate with Oracle Health consultants and internal project teams.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Identify risks/issues and contribute to resolution strategies.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Provide ongoing updates to OPOR project leadership.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Requirements:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Degree/diploma in a health-related discipline (or equivalent experience).&lt;/p&gt; &lt;li&gt; &lt;p&gt;5+ years of experience in a health-related field.&lt;/p&gt; &lt;li&gt; &lt;p&gt;2+ years in Clinical Informatics or supporting large-scale CIS implementations (Oracle Health/Cerner strongly preferred).&lt;/p&gt; &lt;li&gt; &lt;p&gt;Deep understanding of ambulatory/medicine clinic workflows and interdisciplinary coordination.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Familiarity with healthcare terminology, CIS systems, and clinical transformation projects.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Ability to influence and collaborate with a range of stakeholders.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Excellent communication and documentation skills.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong problem-solving and process analysis capabilities.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Preferred Qualifications:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Prior knowledge or experience working within the Nova Scotia Health OPOR program.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Graphic design/communications experience is a plus.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Background in change management or healthcare IT adoption initiatives.&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Work Model:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Hybrid role with approximately 70% remote work.&lt;/p&gt; &lt;li&gt; &lt;p&gt;Travel across Nova Scotia (up to 30%) as needed.&lt;/p&gt; &lt;/ul&gt; ]]></description>
     <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city />
+    <city/>
     <state><![CDATA[ NS ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior Manager, Radio System Engineering (32647) ]]></title>
@@ -1459,13 +1413,13 @@
     <city><![CDATA[ Ottawa ]]></city>
     <state><![CDATA[ ON ]]></state>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Internal Audit Consultant – Banking Sector (34083) ]]></title>
@@ -1477,14 +1431,14 @@
     <description><![CDATA[ &lt;p&gt;Our client is seeking &lt;strong&gt;three experienced Internal Audit Consultants&lt;/strong&gt; to support the execution of a high-impact internal audit within the banking sector. The ideal candidates will bring strong expertise in internal audit practices, with a background in banking. Familiarity with &lt;strong&gt;Derivatives, Capital Market products, or Counterparty Credit Risk&lt;/strong&gt; is considered a strong asset.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Lead and support internal audit planning and execution&lt;/p&gt; &lt;li&gt; &lt;p&gt;Conduct walkthrough meetings with business stakeholders&lt;/p&gt; &lt;li&gt; &lt;p&gt;Perform control testing and validate audit evidence&lt;/p&gt; &lt;li&gt; &lt;p&gt;Draft internal audit reports with observations and actionable recommendations&lt;/p&gt; &lt;li&gt; &lt;p&gt;Collaborate with audit teams to ensure accurate and timely delivery&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Required Skills &amp; Experience:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;5+ years of Internal Audit and banking experience (mandatory)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong knowledge of financial controls, audit methodology, and risk management&lt;/p&gt; &lt;li&gt; &lt;p&gt;Familiarity with &lt;strong&gt;Derivatives, Capital Markets, or Credit Risk&lt;/strong&gt; (nice to have)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Excellent analytical, communication, and reporting skills&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Rank:&lt;/strong&gt; Senior Consultant&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Work Model:&lt;/strong&gt; Hybrid – Toronto-based, 2–3 days onsite per week preferred&lt;/p&gt; ]]></description>
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Toronto ]]></city>
-    <state />
+    <state/>
     <country><![CDATA[ Canada ]]></country>
-    <category />
+    <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
 </source>
