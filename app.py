@@ -3927,7 +3927,7 @@ def get_monitors():
                 'name': monitor.name,
                 'tearsheet_name': monitor.tearsheet_name,
                 'tearsheet_id': monitor.tearsheet_id,
-                'interval_minutes': monitor.interval_minutes,
+                'interval_minutes': monitor.check_interval_minutes,
                 'last_check': monitor.last_check.isoformat() if monitor.last_check else None,
                 'next_check': monitor.next_check.isoformat() if monitor.next_check else None,
                 'job_count': job_count,
@@ -3994,7 +3994,7 @@ def toggle_monitor(monitor_id):
 def get_activities():
     """Get recent Bullhorn activities"""
     try:
-        activities = BullhornActivity.query.order_by(BullhornActivity.timestamp.desc()).limit(50).all()
+        activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(50).all()
         activity_data = []
         
         for activity in activities:
@@ -4007,7 +4007,7 @@ def get_activities():
             
             activity_data.append({
                 'id': activity.id,
-                'timestamp': activity.timestamp.isoformat(),
+                'timestamp': activity.created_at.isoformat(),
                 'monitor_name': monitor_name,
                 'activity_type': activity.activity_type,
                 'details': activity.details[:200] + '...' if len(activity.details) > 200 else activity.details
