@@ -240,6 +240,13 @@ class EmailService:
                 logging.warning(f"xml_sync_info received as {type(xml_sync_info)}, converting to empty dict")
                 xml_sync_info = {}
             
+            # Debug logging to trace the issue
+            logging.info(f"Email notification data - added_jobs type: {type(added_jobs)}, modified_jobs type: {type(modified_jobs)}")
+            if added_jobs:
+                logging.info(f"First added job type: {type(added_jobs[0])}, content: {added_jobs[0]}")
+            if modified_jobs:
+                logging.info(f"First modified job type: {type(modified_jobs[0])}, content: {modified_jobs[0]}")
+            
             # Calculate total changes
             total_changes = len(added_jobs) + len(removed_jobs) + len(modified_jobs)
             
@@ -263,34 +270,38 @@ class EmailService:
                     <h3 style="color: #155724; margin: 0 0 10px 0;">Jobs Added ({len(added_jobs)})</h3>
                     <ul style="margin: 0; padding-left: 20px;">
                 """
-                for job in added_jobs:
-                    # Handle both full Bullhorn objects and simplified job objects
-                    if isinstance(job, dict):
-                        job_id = job.get('id', 'N/A')
-                        job_title = job.get('title', 'No title')
-                        
-                        # Try to extract account manager information (for full objects)
-                        account_manager = "Not specified"
-                        if job.get('owner') and isinstance(job.get('owner'), dict):
-                            first_name = job['owner'].get('firstName', '').strip()
-                            last_name = job['owner'].get('lastName', '').strip()
-                            if first_name or last_name:
-                                account_manager = f"{first_name} {last_name}".strip()
-                        elif job.get('assignedUsers') and isinstance(job.get('assignedUsers'), list) and len(job['assignedUsers']) > 0:
-                            first_user = job['assignedUsers'][0]
-                            if isinstance(first_user, dict):
-                                first_name = first_user.get('firstName', '').strip()
-                                last_name = first_user.get('lastName', '').strip()
+                for i, job in enumerate(added_jobs):
+                    try:
+                        # Handle both full Bullhorn objects and simplified job objects
+                        if isinstance(job, dict):
+                            job_id = job.get('id', 'N/A')
+                            job_title = job.get('title', 'No title')
+                            
+                            # Try to extract account manager information (for full objects)
+                            account_manager = "Not specified"
+                            if job.get('owner') and isinstance(job.get('owner'), dict):
+                                first_name = job['owner'].get('firstName', '').strip()
+                                last_name = job['owner'].get('lastName', '').strip()
                                 if first_name or last_name:
                                     account_manager = f"{first_name} {last_name}".strip()
-                    else:
-                        # Handle string or other formats
-                        job_id = str(job)
-                        job_title = str(job)
-                        account_manager = "Not specified"
-                    
-                    html_content += f"""<li><strong>{job_title}</strong> (ID: {job_id})<br>
-                                      <small style="color: #666;">Account Manager: {account_manager}</small></li>"""
+                            elif job.get('assignedUsers') and isinstance(job.get('assignedUsers'), list) and len(job['assignedUsers']) > 0:
+                                first_user = job['assignedUsers'][0]
+                                if isinstance(first_user, dict):
+                                    first_name = first_user.get('firstName', '').strip()
+                                    last_name = first_user.get('lastName', '').strip()
+                                    if first_name or last_name:
+                                        account_manager = f"{first_name} {last_name}".strip()
+                        else:
+                            # Handle string or other formats
+                            job_id = str(job)
+                            job_title = str(job)
+                            account_manager = "Not specified"
+                        
+                        html_content += f"""<li><strong>{job_title}</strong> (ID: {job_id})<br>
+                                          <small style="color: #666;">Account Manager: {account_manager}</small></li>"""
+                    except Exception as e:
+                        logging.error(f"Error processing added job {i}: {e}. Job data: {job}")
+                        html_content += f"""<li><strong>Error processing job {i}</strong></li>"""
                 
                 html_content += "</ul></div>"
             
@@ -372,18 +383,28 @@ class EmailService:
                     if changes:
                         html_content += "<br><small>Changes: "
                         change_details = []
-                        for change in changes:
-                            field_name = change.get('display_name', change.get('field', 'Unknown'))
-                            old_value = change.get('from', change.get('old', ''))
-                            new_value = change.get('to', change.get('new', ''))
-                            
-                            # Truncate long values for better readability
-                            if len(str(old_value)) > 50:
-                                old_value = str(old_value)[:47] + "..."
-                            if len(str(new_value)) > 50:
-                                new_value = str(new_value)[:47] + "..."
-                            
-                            change_details.append(f"<span style='color: #856404;'>{field_name}:</span> <span style='color: #dc3545; text-decoration: line-through;'>{old_value}</span> → <span style='color: #28a745; font-weight: bold;'>{new_value}</span>")
+                        
+                        # Handle both list of dictionaries and simple string format
+                        if isinstance(changes, list):
+                            for change in changes:
+                                if isinstance(change, dict):
+                                    field_name = change.get('display_name', change.get('field', 'Unknown'))
+                                    old_value = change.get('from', change.get('old', ''))
+                                    new_value = change.get('to', change.get('new', ''))
+                                    
+                                    # Truncate long values for better readability
+                                    if len(str(old_value)) > 50:
+                                        old_value = str(old_value)[:47] + "..."
+                                    if len(str(new_value)) > 50:
+                                        new_value = str(new_value)[:47] + "..."
+                                    
+                                    change_details.append(f"<span style='color: #856404;'>{field_name}:</span> <span style='color: #dc3545; text-decoration: line-through;'>{old_value}</span> → <span style='color: #28a745; font-weight: bold;'>{new_value}</span>")
+                                else:
+                                    # Handle string change entries
+                                    change_details.append(f"<span style='color: #856404;'>{str(change)}</span>")
+                        else:
+                            # Handle simple string format
+                            change_details.append(f"<span style='color: #856404;'>{str(changes)}</span>")
                         
                         html_content += "; ".join(change_details)
                         html_content += "</small>"
@@ -453,4 +474,6 @@ class EmailService:
                 
         except Exception as e:
             logging.error(f"Failed to send Bullhorn notification: {str(e)}")
+            import traceback
+            logging.error(f"Full traceback: {traceback.format_exc()}")
             return False
