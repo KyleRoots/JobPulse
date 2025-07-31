@@ -43,26 +43,6 @@
     <senoritylevel>&lt;![CDATA[ Mid-Senior level ]]&gt;</senoritylevel>
   </job>
   <job>
-    <title>&lt;![CDATA[ Security &amp; Controls Solution Designer (32364) ]]&gt;</title>
-    <company>&lt;![CDATA[ Myticas Consulting ]]&gt;</company>
-    <date>&lt;![CDATA[ April 14, 2025 ]]&gt;</date>
-    <referencenumber>&lt;![CDATA[ KTN4GBD54I ]]&gt;</referencenumber>
-    <bhatsid>&lt;![CDATA[ 32364 ]]&gt;</bhatsid>
-    <url>&lt;![CDATA[ https://myticas.com/ ]]&gt;</url>
-    <description>&lt;![CDATA[ &lt;p&gt;Our Montreal Based client is looking for an experienced &lt;strong&gt;Security &amp; Controls Solution Designer&lt;/strong&gt; for a long term Remote contract. The ideal candidate will be responsible for developing and documenting &lt;strong&gt;Identity and Access Management (IAM)&lt;/strong&gt; security solutions to ensure alignment between design and operational execution. This role involves creating &lt;strong&gt;Solution Design Documents (SDDs)&lt;/strong&gt; covering IAM automation, RBAC, SoX controls, and Segregation of Duties (SoD).&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Develop and maintain detailed &lt;strong&gt;Solution Design Documents (SDDs)&lt;/strong&gt; for IAM security implementations &lt;li&gt;Collaborate with security, governance, and project teams to gather and validate technical requirements &lt;li&gt;Align all designs with organizational security policies and ensure proper approvals &lt;li&gt;Support test strategy creation and confirm design compliance throughout the project lifecycle &lt;li&gt;Maintain accurate, consistent, and clear documentation for all IAM solutions &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Required Qualifications:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Strong background in &lt;strong&gt;IAM Security&lt;/strong&gt;, with expertise in &lt;strong&gt;SAP&lt;/strong&gt;, &lt;strong&gt;Saviynt&lt;/strong&gt;, &lt;strong&gt;Active Directory&lt;/strong&gt;, and &lt;strong&gt;ServiceNow&lt;/strong&gt; &lt;li&gt;Experience with &lt;strong&gt;IAM Automation&lt;/strong&gt;, &lt;strong&gt;Role-Based Access Control (RBAC)&lt;/strong&gt;, &lt;strong&gt;SoX Controls&lt;/strong&gt;, and &lt;strong&gt;Segregation of Duties (SoD)&lt;/strong&gt; &lt;li&gt;Excellent &lt;strong&gt;technical writing and documentation skills&lt;/strong&gt; &lt;li&gt;Ability to effectively communicate and collaborate with security, architecture, and project stakeholders &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Technical Expertise:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;SAP, Saviynt, Active Directory, ServiceNow &lt;li&gt;IAM automation &amp; RBAC frameworks &lt;li&gt;SoX compliance and SoD principles &lt;li&gt;Security solution design best practices &lt;/ul&gt; ]]&gt;</description>
-    <jobtype>&lt;![CDATA[ Contract ]]&gt;</jobtype>
-    <city>&lt;![CDATA[ Montreal ]]&gt;</city>
-    <state>&lt;![CDATA[ QC ]]&gt;</state>
-    <country>&lt;![CDATA[ Canada ]]&gt;</country>
-    <category>&lt;![CDATA[  ]]&gt;</category>
-    <apply_email>&lt;![CDATA[ apply@myticas.com ]]&gt;</apply_email>
-    <remotetype>&lt;![CDATA[ Remote ]]&gt;</remotetype>
-    <assignedrecruiter>&lt;![CDATA[ Runa Parmar ]]&gt;</assignedrecruiter>
-    <jobfunction>&lt;![CDATA[ Information Technology ]]&gt;</jobfunction>
-    <jobindustries>&lt;![CDATA[ Computer and Network Security ]]&gt;</jobindustries>
-    <senoritylevel>&lt;![CDATA[ Mid-Senior level ]]&gt;</senoritylevel>
-  </job>
-  <job>
     <title>&lt;![CDATA[ Mixed Signal IC Design Engineer (32627) ]]&gt;</title>
     <company>&lt;![CDATA[ Myticas Consulting ]]&gt;</company>
     <date>&lt;![CDATA[ July 16, 2025 ]]&gt;</date>
@@ -100,46 +80,6 @@
     <assignedrecruiter>&lt;![CDATA[ Myticas Recruiter ]]&gt;</assignedrecruiter>
     <jobfunction>&lt;![CDATA[ Consulting ]]&gt;</jobfunction>
     <jobindustries>&lt;![CDATA[ Biotechnology ]]&gt;</jobindustries>
-    <senoritylevel>&lt;![CDATA[ Mid-Senior level ]]&gt;</senoritylevel>
-  </job>
-  <job>
-    <title>&lt;![CDATA[ Security &amp; Controls Solution Designer (32364) ]]&gt;</title>
-    <company>&lt;![CDATA[ Myticas Consulting ]]&gt;</company>
-    <date>&lt;![CDATA[ April 14, 2025 ]]&gt;</date>
-    <referencenumber>&lt;![CDATA[ KTN4GBD54I ]]&gt;</referencenumber>
-    <bhatsid>&lt;![CDATA[ 32364 ]]&gt;</bhatsid>
-    <url>&lt;![CDATA[ https://myticas.com/ ]]&gt;</url>
-    <description>&lt;![CDATA[ &lt;p&gt;Our Montreal Based client is looking for an experienced &lt;strong&gt;Security &amp; Controls Solution Designer&lt;/strong&gt; for a long term Remote contract. The ideal candidate will be responsible for developing and documenting &lt;strong&gt;Identity and Access Management (IAM)&lt;/strong&gt; security solutions to ensure alignment between design and operational execution. This role involves creating &lt;strong&gt;Solution Design Documents (SDDs)&lt;/strong&gt; covering IAM automation, RBAC, SoX controls, and Segregation of Duties (SoD).&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Develop and maintain detailed &lt;strong&gt;Solution Design Documents (SDDs)&lt;/strong&gt; for IAM security implementations &lt;li&gt;Collaborate with security, governance, and project teams to gather and validate technical requirements &lt;li&gt;Align all designs with organizational security policies and ensure proper approvals &lt;li&gt;Support test strategy creation and confirm design compliance throughout the project lifecycle &lt;li&gt;Maintain accurate, consistent, and clear documentation for all IAM solutions &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Required Qualifications:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Strong background in &lt;strong&gt;IAM Security&lt;/strong&gt;, with expertise in &lt;strong&gt;SAP&lt;/strong&gt;, &lt;strong&gt;Saviynt&lt;/strong&gt;, &lt;strong&gt;Active Directory&lt;/strong&gt;, and &lt;strong&gt;ServiceNow&lt;/strong&gt; &lt;li&gt;Experience with &lt;strong&gt;IAM Automation&lt;/strong&gt;, &lt;strong&gt;Role-Based Access Control (RBAC)&lt;/strong&gt;, &lt;strong&gt;SoX Controls&lt;/strong&gt;, and &lt;strong&gt;Segregation of Duties (SoD)&lt;/strong&gt; &lt;li&gt;Excellent &lt;strong&gt;technical writing and documentation skills&lt;/strong&gt; &lt;li&gt;Ability to effectively communicate and collaborate with security, architecture, and project stakeholders &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Technical Expertise:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;SAP, Saviynt, Active Directory, ServiceNow &lt;li&gt;IAM automation &amp; RBAC frameworks &lt;li&gt;SoX compliance and SoD principles &lt;li&gt;Security solution design best practices &lt;/ul&gt; ]]&gt;</description>
-    <jobtype>&lt;![CDATA[ Contract ]]&gt;</jobtype>
-    <city>&lt;![CDATA[ Montreal ]]&gt;</city>
-    <state>&lt;![CDATA[ QC ]]&gt;</state>
-    <country>&lt;![CDATA[ Canada ]]&gt;</country>
-    <category>&lt;![CDATA[  ]]&gt;</category>
-    <apply_email>&lt;![CDATA[ apply@myticas.com ]]&gt;</apply_email>
-    <remotetype>&lt;![CDATA[ Remote ]]&gt;</remotetype>
-    <assignedrecruiter>&lt;![CDATA[ Runa Parmar ]]&gt;</assignedrecruiter>
-    <jobfunction>&lt;![CDATA[ Information Technology ]]&gt;</jobfunction>
-    <jobindustries>&lt;![CDATA[ Computer and Network Security ]]&gt;</jobindustries>
-    <senoritylevel>&lt;![CDATA[ Mid-Senior level ]]&gt;</senoritylevel>
-  </job>
-  <job>
-    <title>&lt;![CDATA[ Security &amp; Controls Solution Designer (32364) ]]&gt;</title>
-    <company>&lt;![CDATA[ Myticas Consulting ]]&gt;</company>
-    <date>&lt;![CDATA[ April 14, 2025 ]]&gt;</date>
-    <referencenumber>&lt;![CDATA[ KTN4GBD54I ]]&gt;</referencenumber>
-    <bhatsid>&lt;![CDATA[ 32364 ]]&gt;</bhatsid>
-    <url>&lt;![CDATA[ https://myticas.com/ ]]&gt;</url>
-    <description>&lt;![CDATA[ &lt;p&gt;Our Montreal Based client is looking for an experienced &lt;strong&gt;Security &amp; Controls Solution Designer&lt;/strong&gt; for a long term Remote contract. The ideal candidate will be responsible for developing and documenting &lt;strong&gt;Identity and Access Management (IAM)&lt;/strong&gt; security solutions to ensure alignment between design and operational execution. This role involves creating &lt;strong&gt;Solution Design Documents (SDDs)&lt;/strong&gt; covering IAM automation, RBAC, SoX controls, and Segregation of Duties (SoD).&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Develop and maintain detailed &lt;strong&gt;Solution Design Documents (SDDs)&lt;/strong&gt; for IAM security implementations &lt;li&gt;Collaborate with security, governance, and project teams to gather and validate technical requirements &lt;li&gt;Align all designs with organizational security policies and ensure proper approvals &lt;li&gt;Support test strategy creation and confirm design compliance throughout the project lifecycle &lt;li&gt;Maintain accurate, consistent, and clear documentation for all IAM solutions &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Required Qualifications:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Strong background in &lt;strong&gt;IAM Security&lt;/strong&gt;, with expertise in &lt;strong&gt;SAP&lt;/strong&gt;, &lt;strong&gt;Saviynt&lt;/strong&gt;, &lt;strong&gt;Active Directory&lt;/strong&gt;, and &lt;strong&gt;ServiceNow&lt;/strong&gt; &lt;li&gt;Experience with &lt;strong&gt;IAM Automation&lt;/strong&gt;, &lt;strong&gt;Role-Based Access Control (RBAC)&lt;/strong&gt;, &lt;strong&gt;SoX Controls&lt;/strong&gt;, and &lt;strong&gt;Segregation of Duties (SoD)&lt;/strong&gt; &lt;li&gt;Excellent &lt;strong&gt;technical writing and documentation skills&lt;/strong&gt; &lt;li&gt;Ability to effectively communicate and collaborate with security, architecture, and project stakeholders &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Technical Expertise:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;SAP, Saviynt, Active Directory, ServiceNow &lt;li&gt;IAM automation &amp; RBAC frameworks &lt;li&gt;SoX compliance and SoD principles &lt;li&gt;Security solution design best practices &lt;/ul&gt; ]]&gt;</description>
-    <jobtype>&lt;![CDATA[ Contract ]]&gt;</jobtype>
-    <city>&lt;![CDATA[ Montreal ]]&gt;</city>
-    <state>&lt;![CDATA[ QC ]]&gt;</state>
-    <country>&lt;![CDATA[ Canada ]]&gt;</country>
-    <category>&lt;![CDATA[  ]]&gt;</category>
-    <apply_email>&lt;![CDATA[ apply@myticas.com ]]&gt;</apply_email>
-    <remotetype>&lt;![CDATA[ Remote ]]&gt;</remotetype>
-    <assignedrecruiter>&lt;![CDATA[ Runa Parmar ]]&gt;</assignedrecruiter>
-    <jobfunction>&lt;![CDATA[ Information Technology ]]&gt;</jobfunction>
-    <jobindustries>&lt;![CDATA[ Computer and Network Security ]]&gt;</jobindustries>
     <senoritylevel>&lt;![CDATA[ Mid-Senior level ]]&gt;</senoritylevel>
   </job>
   <job>
