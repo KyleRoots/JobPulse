@@ -228,11 +228,17 @@ class EmailService:
                 logging.error("EmailService: No SendGrid API key available")
                 return False
             
-            # Prepare default values
+            # Prepare default values and type checking
             if modified_jobs is None:
                 modified_jobs = []
             if summary is None:
                 summary = {}
+            if xml_sync_info is None:
+                xml_sync_info = {}
+            # Ensure xml_sync_info is a dictionary
+            elif not isinstance(xml_sync_info, dict):
+                logging.warning(f"xml_sync_info received as {type(xml_sync_info)}, converting to empty dict")
+                xml_sync_info = {}
             
             # Calculate total changes
             total_changes = len(added_jobs) + len(removed_jobs) + len(modified_jobs)
@@ -382,7 +388,8 @@ class EmailService:
             """
 
             # Add XML sync information if available
-            if xml_sync_info and xml_sync_info.get('success'):
+            # Ensure xml_sync_info is a dictionary (handle cases where it might be a string or None)
+            if xml_sync_info and isinstance(xml_sync_info, dict) and xml_sync_info.get('success'):
                 html_content += f"""
                 <div style="background-color: #e8f8e8; padding: 15px; border-radius: 8px; margin-top: 20px;">
                     <h3 style="color: #2c3e50; margin-top: 0;">🔄 XML File Updates</h3>
