@@ -27,6 +27,12 @@ This is a Flask-based web application designed to process XML job feed files and
 - **Proxy Support**: ProxyFix middleware for deployment behind reverse proxies
 - **Security**: Login-protected routes with admin user management
 
+## Production XML Reference
+
+**Critical Production File Location:** https://myticas.com/myticas-job-feed.xml
+
+This production XML file serves as the authoritative source for troubleshooting and verification. It must remain identical to the schedule automation system version to ensure reference number updates target the correct jobs during scheduled processing cycles.
+
 ## Key Components
 
 ### 1. Flask Application (`app.py`)
