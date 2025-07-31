@@ -1423,7 +1423,7 @@
     <senoritylevel>&lt;![CDATA[ Mid-Senior level ]]&gt;</senoritylevel>
   </job>
   <job>
-    <title>&lt;![CDATA[ Cloud Operations Manager - Senior Lead, Operations (32293) ]]&gt;</title>
+    <title>&lt;![CDATA[ Senior Cloud Operations Manager (32293) ]]&gt;</title>
     <company>&lt;![CDATA[ Myticas Consulting ]]&gt;</company>
     <date>&lt;![CDATA[ March 19, 2025 ]]&gt;</date>
     <referencenumber>&lt;![CDATA[ YS2OCRMMM5 ]]&gt;</referencenumber>
@@ -1439,26 +1439,6 @@
     <remotetype>&lt;![CDATA[ Hybrid ]]&gt;</remotetype>
     <assignedrecruiter>&lt;![CDATA[ Dominic Scaletta ]]&gt;</assignedrecruiter>
     <jobfunction>&lt;![CDATA[ Information Technology ]]&gt;</jobfunction>
-    <jobindustries>&lt;![CDATA[ Computer Software ]]&gt;</jobindustries>
-    <senoritylevel>&lt;![CDATA[ Director ]]&gt;</senoritylevel>
-  </job>
-  <job>
-    <title>&lt;![CDATA[ Development Lead (32269) ]]&gt;</title>
-    <company>&lt;![CDATA[ Myticas Consulting ]]&gt;</company>
-    <date>&lt;![CDATA[ March 10, 2025 ]]&gt;</date>
-    <referencenumber>&lt;![CDATA[ 9TI3QTUVLR ]]&gt;</referencenumber>
-    <bhatsid>&lt;![CDATA[ 32269 ]]&gt;</bhatsid>
-    <url>&lt;![CDATA[ https://myticas.com/ ]]&gt;</url>
-    <description>&lt;![CDATA[ &lt;p&gt;&lt;strong&gt;POSITION OVERVIEW&lt;/strong&gt;&lt;/p&gt; &lt;p&gt;The Engineering/Development Lead will oversee the development and delivery of our SaaS products, ensuring technical excellence and alignment with business objectives. This role requires hands-on involvement in both front-end and back-end development, guiding a team of engineers to build scalable and secure applications.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;KEY RESPONSIBILITIES&lt;/strong&gt;&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Technical Leadership:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Lead the design, development, and maintenance of full-stack applications using technologies such as React (Prime React), Node.js, Express, and PostgreSQL. &lt;li&gt;Provide architectural guidance to ensure system scalability, performance, and security. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Team Development:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Mentor and support engineering team members, fostering a culture of collaboration and continuous improvement. &lt;li&gt;Conduct code reviews and facilitate knowledge sharing sessions to uphold coding standards and best practices. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Project Management:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Collaborate with cross-functional teams to translate business requirements into technical solutions. &lt;li&gt;Oversee project timelines, ensuring timely delivery of features and enhancements. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Quality Assurance:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Implement testing strategies to ensure the reliability and robustness of applications. &lt;li&gt;Monitor and optimize application performance, addressing any issues proactively. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Innovation and Continuous Learning:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Stay updated with emerging technologies and industry trends to drive innovation within the team. &lt;li&gt;Encourage the adoption of modern development tools and methodologies to enhance productivity. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;QUALIFICATIONS&lt;/strong&gt;&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Technical Expertise:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Proven experience as a Full Stack Developer with proficiency in front-end technologies (React (Prime React), JavaScript, HTML5, CSS3) and back-end development (Node.js, Express.js). &lt;li&gt;Hands-on experience with databases such as PostgreSQL and MongoDB. &lt;li&gt;Experience in designing and building RESTful and GraphQL APIs. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Leadership Skills:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Demonstrated ability to lead and mentor engineering teams. &lt;li&gt;Strong problem-solving skills and the ability to make informed technical decisions. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Soft Skills:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Excellent communication and collaboration abilities. &lt;li&gt;Adaptability to work in a fast-paced environment and manage multiple priorities. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Education:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Bachelor's degree in Computer Science, Engineering, or a related field. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;PREFERRED QUALIFICATIONS&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Experience with cloud platforms, particularly Microsoft Azure. &lt;li&gt;Familiarity with Agile development methodologies. &lt;/ul&gt; &lt;p&gt;This role is pivotal in driving the technical direction of our products and ensuring the successful execution of our development projects.&lt;/p&gt; ]]&gt;</description>
-    <jobtype>&lt;![CDATA[ Contract to Hire ]]&gt;</jobtype>
-    <city>&lt;![CDATA[ Toronto ]]&gt;</city>
-    <state>&lt;![CDATA[ ON ]]&gt;</state>
-    <country>&lt;![CDATA[ Canada ]]&gt;</country>
-    <category>&lt;![CDATA[  ]]&gt;</category>
-    <apply_email>&lt;![CDATA[ apply@myticas.com ]]&gt;</apply_email>
-    <remotetype>&lt;![CDATA[ Hybrid ]]&gt;</remotetype>
-    <assignedrecruiter>&lt;![CDATA[ Matheo Theodossiou ]]&gt;</assignedrecruiter>
-    <jobfunction>&lt;![CDATA[ Engineering ]]&gt;</jobfunction>
     <jobindustries>&lt;![CDATA[ Computer Software ]]&gt;</jobindustries>
     <senoritylevel>&lt;![CDATA[ Director ]]&gt;</senoritylevel>
   </job>
