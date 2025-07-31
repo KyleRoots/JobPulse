@@ -2697,6 +2697,54 @@ def trigger_health_check():
             'error': str(e)
         }), 500
 
+@app.route('/api/bullhorn/monitoring-cycles', methods=['GET'])
+@login_required
+def get_monitoring_cycles():
+    """Get information about monitoring cycles and timing"""
+    try:
+        monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+        
+        current_time = datetime.utcnow()
+        cycle_info = []
+        
+        for monitor in monitors:
+            next_check = monitor.next_check
+            if next_check:
+                time_until_next = (next_check - current_time).total_seconds()
+                is_overdue = time_until_next < 0
+                
+                cycle_info.append({
+                    'monitor_id': monitor.id,
+                    'monitor_name': monitor.name,
+                    'next_check': next_check.isoformat() + 'Z',
+                    'time_until_next_seconds': int(time_until_next),
+                    'is_overdue': is_overdue,
+                    'overdue_minutes': abs(time_until_next / 60) if is_overdue else 0,
+                    'interval_minutes': monitor.check_interval,
+                    'last_check': monitor.last_check.isoformat() + 'Z' if monitor.last_check else None
+                })
+        
+        # Calculate next global monitoring cycle (when any monitor will run next)
+        next_global_cycle = None
+        if cycle_info:
+            next_times = [info for info in cycle_info if not info['is_overdue']]
+            if next_times:
+                next_global_cycle = min(next_times, key=lambda x: x['time_until_next_seconds'])
+        
+        return jsonify({
+            'success': True,
+            'current_time': current_time.isoformat() + 'Z',
+            'monitors': cycle_info,
+            'next_global_cycle': next_global_cycle,
+            'total_active_monitors': len(monitors)
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting monitoring cycles: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/system/health')
 def system_health_check():
     """System health check endpoint to detect scheduler timing issues"""

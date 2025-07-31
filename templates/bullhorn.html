@@ -643,12 +643,19 @@
 
                 <!-- Recent Activity -->
                 <div class="card shadow-sm">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-history me-2"></i>
                             Recent Activity
-
                         </h5>
+                        <div class="d-flex align-items-center gap-3">
+                            <div id="cycle-sync-status" class="d-flex align-items-center">
+                                <div class="badge bg-success">
+                                    <i class="fas fa-sync me-1"></i>Synced with Monitor Cycles
+                                </div>
+                            </div>
+                            <small class="text-muted">Last 50 entries</small>
+                        </div>
                     </div>
                     <div class="card-body">
                         {% if recent_activities %}
@@ -659,7 +666,7 @@
                                             <th>Monitor</th>
                                             <th>Activity</th>
                                             <th>Job</th>
-                                            <th>Time</th>
+                                            <th>Cycle Time</th>
                                             <th>Status</th>
                                         </tr>
                                     </thead>
@@ -734,8 +741,12 @@
                                             </td>
                                             <td>
                                                 <small class="text-muted">
-                                                    {{ activity.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                                    {{ activity.created_at.strftime('%H:%M:%S') }} UTC
                                                 </small>
+                                                <br>
+                                                <span class="badge bg-light text-dark" style="font-size: 0.7em;">
+                                                    {{ activity.created_at.strftime('%m/%d') }}
+                                                </span>
                                             </td>
                                             <td>
                                                 {% if activity.notification_sent %}
@@ -884,6 +895,17 @@
         }
 
         function updateRecentActivity() {
+            // Show syncing indicator
+            const syncStatus = document.getElementById('cycle-sync-status');
+            if (syncStatus) {
+                syncStatus.innerHTML = `
+                    <div class="badge bg-warning">
+                        <div class="spinner-border spinner-border-sm me-1" style="width: 0.8rem; height: 0.8rem;"></div>
+                        Syncing...
+                    </div>
+                `;
+            }
+            
             fetch('/api/bullhorn/activities')
                 .then(response => response.json())
                 .then(data => {
@@ -894,32 +916,59 @@
                             const container = document.querySelector('.activity-table-container');
                             const scrollTop = container ? container.scrollTop : 0;
                             
-                            // Update table content
+                            // Update table content with enhanced timing display
                             tbody.innerHTML = '';
                             data.activities.forEach(activity => {
                                 const row = document.createElement('tr');
+                                
+                                // Parse activity timestamp
+                                const activityTime = new Date(activity.created_at);
+                                const timeStr = activityTime.toLocaleTimeString('en-US', { 
+                                    hour12: false, 
+                                    timeZone: 'UTC',
+                                    hour: '2-digit', 
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                });
+                                const dateStr = activityTime.toLocaleDateString('en-US', {
+                                    month: 'numeric',
+                                    day: 'numeric'
+                                });
+                                
+                                // Determine if this activity is from current monitoring cycle (within last 6 minutes)
+                                const now = new Date();
+                                const timeDiff = now - activityTime;
+                                const isCurrentCycle = timeDiff < (6 * 60 * 1000); // 6 minutes
+                                
                                 row.innerHTML = `
                                     <td>
                                         <a href="/bullhorn/monitor/${activity.monitor_id}" class="text-decoration-none">
-                                            ${activity.monitor_name}
+                                            ${activity.monitor_name || 'Scheduled Processing'}
                                         </a>
                                     </td>
                                     <td>
                                         <span class="badge bg-${activity.activity_type === 'check_completed' ? 'info' : 
                                             activity.activity_type === 'job_added' ? 'success' : 
-                                            activity.activity_type === 'job_removed' ? 'warning' : 'primary'}">
-                                            ${activity.activity_type.replace('_', ' ').toUpperCase()}
+                                            activity.activity_type === 'job_removed' ? 'warning' : 
+                                            activity.activity_type === 'job_modified' ? 'primary' :
+                                            activity.activity_type === 'xml_sync_completed' ? 'secondary' : 'dark'}">
+                                            ${activity.activity_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                         </span>
+                                        ${isCurrentCycle ? '<span class="badge bg-success ms-1" title="Current monitoring cycle"><i class="fas fa-clock"></i></span>' : ''}
                                     </td>
-                                    <td>
+                                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                         ${activity.job_id ? 
                                             `<span class="badge bg-secondary me-2">${activity.job_id}</span>` : ''}
                                         ${activity.details || (activity.job_title || '')}
                                     </td>
                                     <td>
                                         <small class="text-muted">
-                                            ${activity.created_at}
+                                            ${timeStr} UTC
                                         </small>
+                                        <br>
+                                        <span class="badge bg-light text-dark" style="font-size: 0.7em;">
+                                            ${dateStr}
+                                        </span>
                                     </td>
                                     <td>
                                         ${activity.notification_sent ? 
@@ -935,9 +984,37 @@
                                 container.scrollTop = scrollTop;
                             }
                         }
+                        
+                        // Update sync status to success
+                        if (syncStatus) {
+                            syncStatus.innerHTML = `
+                                <div class="badge bg-success">
+                                    <i class="fas fa-sync me-1"></i>Synced with Monitor Cycles
+                                </div>
+                            `;
+                        }
+                    } else {
+                        // Update sync status to error
+                        if (syncStatus) {
+                            syncStatus.innerHTML = `
+                                <div class="badge bg-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Sync Error
+                                </div>
+                            `;
+                        }
                     }
                 })
-                .catch(error => {});
+                .catch(error => {
+                    // Update sync status to error
+                    const syncStatus = document.getElementById('cycle-sync-status');
+                    if (syncStatus) {
+                        syncStatus.innerHTML = `
+                            <div class="badge bg-danger">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Sync Error
+                            </div>
+                        `;
+                    }
+                });
         }
 
         // Job list modal functionality
@@ -1112,12 +1189,52 @@
             });
         }
 
+        // Enhanced monitoring cycle synchronization
+        function getNextMonitoringCycleTime() {
+            // Monitors run every 5 minutes, typically at :03, :08, :13, :18, etc.
+            const now = new Date();
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+            
+            // Find next 5-minute interval
+            const nextInterval = Math.ceil(minutes / 5) * 5;
+            const nextCycleTime = new Date(now);
+            nextCycleTime.setMinutes(nextInterval, 3, 0); // Monitors typically run at :03 seconds
+            
+            if (nextCycleTime <= now) {
+                nextCycleTime.setHours(nextCycleTime.getHours() + 1, 0, 3, 0);
+            }
+            
+            return nextCycleTime;
+        }
+        
+        function syncWithMonitoringCycles() {
+            const nextCycle = getNextMonitoringCycleTime();
+            const now = new Date();
+            const timeUntilNext = nextCycle - now;
+            
+            // Update immediately if we're within 30 seconds of a cycle
+            if (timeUntilNext < 30000) {
+                setTimeout(() => {
+                    updateMonitorStatus();
+                    updateRecentActivity();
+                    checkSystemHealth();
+                }, timeUntilNext + 5000); // Wait 5 seconds after cycle starts
+            }
+            
+            // Set up the next sync
+            setTimeout(syncWithMonitoringCycles, Math.min(timeUntilNext, 60000)); // Check again in max 1 minute
+        }
+
         // Initialize health monitoring
         document.addEventListener('DOMContentLoaded', function() {
             // Initial checks
             checkSystemHealth();
             updateMonitorStatus();
             updateRecentActivity();
+            
+            // Start synchronized monitoring with cycles
+            syncWithMonitoringCycles();
             
             // Periodic monitoring (every 2 minutes)
             setInterval(checkSystemHealth, 120000);
