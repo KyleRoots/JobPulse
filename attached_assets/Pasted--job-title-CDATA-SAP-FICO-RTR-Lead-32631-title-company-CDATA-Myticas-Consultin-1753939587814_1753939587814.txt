@@ -1,0 +1,56 @@
+<job>
+<title>
+<![CDATA[ SAP FICO/RTR Lead (32631) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ July 16, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ MDUBKNN8QV ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32631 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ <p>Myticas Consulting is seeking an experienced <strong>SAP FICO/RTR Lead</strong> for a long-term HYBRID contract with a major utility and energy client. This is a senior-level <strong>techo-functional</strong> role requiring a mix of <strong>deep functional finance expertise</strong> and <strong>strong technical capabilities</strong> within the SAP ecosystem. The position requires frequent travel (50–70%) to Winnipeg, MB, and the consultant may be based anywhere in Canada.</p> <p><strong>Project Scope:</strong><br> The successful candidate will help develop methodologies, tools, and thought leadership in SAP Finance as part of a critical ERP initiative. The role requires strong hands-on knowledge of <strong>SAP Finance (FICO/RTR)</strong> and integration with other modules, along with experience in <strong>end-to-end implementations</strong> and <strong>strategic financial processes</strong>.</p> <hr> <p><strong>Key Responsibilities:</strong></p> <ul> <li> <p>Lead SAP FICO/RTR workstream across implementation and integration efforts</p> <li> <p>Provide hands-on configuration and design of SAP Finance modules (GL, AP, AR, AA, CO, Treasury, SAC-Planning, etc.)</p> <li> <p>Collaborate with business and technical teams to document requirements, define process flows, and ensure high-quality solution delivery</p> <li> <p>Integrate SAP FICO with PS, PM, MM, IS-U, and SCM modules</p> <li> <p>Contribute to finance strategy, reporting systems, and regulatory requirements specific to utilities</p> </ul> <hr> <p><strong>Key Qualifications:</strong></p> <ul> <li> <p>8+ years of SAP Finance experience across GL, AR, AP, AA, CO, etc.</p> <li> <p>Experience leading large-scale SAP S/4HANA implementations</p> <li> <p>Functional and technical experience with finance and cost accounting processes</p> <li> <p>Strong familiarity with SAP integrations across IS-U, MM, CS, EWM, PS</p> <li> <p>Understanding of Power & Utilities finance regulations is a plus</p> <li> <p>SAP Certifications highly preferred</p> <li> <p>Degree in Accounting, Finance, or Computer Science (MBA a strong asset)</p> <li> <p>Experience with Datasphere, SAC, and Analysis for Office is a bonus</p> </ul> <hr> <p><strong>Additional Details:</strong></p> <ul> <li> <p>Travel to Winnipeg is mandatory (50–70%)</p> <li> <p>Must be flexible with on-site scheduling</p> <li> <p>This is a client-facing leadership role requiring excellent communication and stakeholder engagement skills</p> </ul> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Winnipeg ]]>
+</city>
+<state>
+<![CDATA[ MB ]]>
+</state>
+<country>
+<![CDATA[ Canada ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ Runa Parmar ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>

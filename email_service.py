@@ -275,8 +275,6 @@ class EmailService:
                 for job in added_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    company = job.get('clientCorporation', {}).get('name', 'N/A') if isinstance(job.get('clientCorporation'), dict) else 'N/A'
-                    status = job.get('status', 'N/A')
                     html_content += f"""
                     <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
                         <div style="margin-bottom: 4px;">
@@ -287,7 +285,6 @@ class EmailService:
                                 Job ID: {job_id}
                             </span>
                         </div>
-                        <small style="color: #6c757d;">Company: {company} | Status: {status}</small>
                     </li>
                     """
                 
@@ -304,8 +301,6 @@ class EmailService:
                 for job in removed_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    company = job.get('clientCorporation', {}).get('name', 'N/A') if isinstance(job.get('clientCorporation'), dict) else 'N/A'
-                    status = job.get('status', 'N/A')
                     html_content += f"""
                     <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
                         <div style="margin-bottom: 4px;">
@@ -316,7 +311,6 @@ class EmailService:
                                 Job ID: {job_id}
                             </span>
                         </div>
-                        <small style="color: #6c757d;">Company: {company} | Status: {status}</small>
                     </li>
                     """
                 
@@ -334,38 +328,8 @@ class EmailService:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
                     
-                    # Handle both old and new format for field changes
-                    if 'change_summary' in job:
-                        change_description = job['change_summary']
-                    elif 'field_changes' in job and isinstance(job['field_changes'], list):
-                        if job['field_changes']:
-                            change_description = f"Updated: {', '.join(job['field_changes'])}"
-                        else:
-                            change_description = "Job details updated"
-                    else:
-                        # Extract changes from job modifications 
-                        changes = job.get('changes', [])
-                        if changes:
-                            field_names = []
-                            for change in changes:
-                                field = change.get('field', '')
-                                if field == 'title':
-                                    field_names.append('title')
-                                elif field in ['publicDescription', 'description']:
-                                    field_names.append('description')
-                                elif field == 'employmentType':
-                                    field_names.append('employment type')
-                                elif field == 'onSite':
-                                    field_names.append('remote type')
-                                elif 'owner' in field or 'assignedUsers' in field:
-                                    field_names.append('assigned recruiter')
-                                elif 'address' in field.lower():
-                                    field_names.append('location')
-                                else:
-                                    field_names.append(field.lower())
-                            change_description = f"Updated: {', '.join(set(field_names))}" if field_names else "Job details updated"
-                        else:
-                            change_description = "Job details updated"
+                    # Get simple change description from monitoring service
+                    change_description = job.get('changes', 'Job details updated')
                     
                     html_content += f"""
                     <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">

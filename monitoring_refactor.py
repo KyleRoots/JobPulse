@@ -238,7 +238,7 @@ class MonitoringService:
                 if job:
                     # Determine monitor name for proper company mapping
                     monitor_name = self.get_monitor_name_for_job(job_id, monitors)
-                    self.xml_service.add_job_to_xml(xml_file, job, monitor_name)
+                    self.xml_service.add_job_to_xml(xml_file, job, monitor_name, skip_ai_classification=False)
             
             # Update existing jobs
             existing_jobs = xml_job_ids.intersection(bullhorn_job_ids)
@@ -366,8 +366,73 @@ class MonitoringService:
     
     def send_monitor_notification(self, monitor, activities):
         """Send notification for a specific monitor's activities"""
-        # Implement notification logic here
-        pass
+        try:
+            from email_service import EmailService
+            import time
+            
+            # Get email settings
+            settings = {}
+            for setting in self.GlobalSettings.query.all():
+                settings[setting.setting_key] = setting.setting_value
+            
+            if settings.get('email_enabled') != 'true':
+                return
+            
+            # Group activities by type
+            added_jobs = []
+            removed_jobs = []
+            modified_jobs = []
+            
+            for activity in activities:
+                if activity.activity_type == 'job_added' and activity.job_id:
+                    added_jobs.append({
+                        'id': activity.job_id,
+                        'title': activity.job_title or 'Unknown'
+                    })
+                elif activity.activity_type == 'job_removed' and activity.job_id:
+                    removed_jobs.append({
+                        'id': activity.job_id,
+                        'title': activity.job_title or 'Unknown'
+                    })
+                elif activity.activity_type == 'job_modified' and activity.job_id:
+                    modified_jobs.append({
+                        'id': activity.job_id,
+                        'title': activity.job_title or 'Unknown',
+                        'changes': activity.details or 'Updated'
+                    })
+            
+            # Only send if there are actual job changes
+            if not (added_jobs or removed_jobs or modified_jobs):
+                return
+            
+            # Send email
+            email_service = EmailService()
+            time.sleep(15)  # Wait for XML to propagate
+            
+            success = email_service.send_bullhorn_notification(
+                to_email=settings.get('email_address', 'kroots@myticas.com'),
+                monitor_name=monitor.name,
+                added_jobs=added_jobs,
+                removed_jobs=removed_jobs,
+                modified_jobs=modified_jobs,
+                summary={
+                    'added': len(added_jobs),
+                    'removed': len(removed_jobs),
+                    'modified': len(modified_jobs)
+                }
+            )
+            
+            if success:
+                # Mark activities as sent
+                for activity in activities:
+                    activity.notification_sent = True
+                self.db.commit()
+                app.logger.info(f"Email sent for {monitor.name}: {len(activities)} activities")
+            else:
+                app.logger.error(f"Failed to send email for {monitor.name}")
+                
+        except Exception as e:
+            app.logger.error(f"Email notification error: {str(e)}")
     
     def perform_health_check(self):
         """Perform final health check on all monitors"""
