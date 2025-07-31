@@ -37,9 +37,9 @@
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
     <assignedrecruiter> Adam Gebara </assignedrecruiter>
-    <jobfunction> Engineering </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> SAP FICO/RTR Lead (32631) </title>
@@ -57,15 +57,9 @@
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
     <assignedrecruiter> Runa Parmar </assignedrecruiter>
-    <jobfunction>
-&lt;![CDATA[ Finance ]]&gt;
-</jobfunction>
-    <jobindustries>
-&lt;![CDATA[ Utilities ]]&gt;
-</jobindustries>
-    <senoritylevel>
-&lt;![CDATA[ Mid-Senior level ]]&gt;
-</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Business Intelligence Business Objects SQL Developer (32539)</title>
@@ -83,9 +77,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Dan Sifer</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Drupal Developer (32659)</title>
@@ -103,9 +97,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior IT Project Manager (32567)</title>
@@ -123,9 +117,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Dominic Scaletta</assignedrecruiter>
-    <jobfunction>Project Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>RF Systems Engineer (32648)</title>
@@ -143,9 +137,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Telecommunications</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Salesforce Developer (32666)</title>
@@ -163,9 +157,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>DevOps Technical Analyst (32638)</title>
@@ -183,9 +177,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Mixed Signal IC Design Engineer (32627)</title>
@@ -203,9 +197,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Lab Technician (32645)</title>
@@ -223,9 +217,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Science</jobfunction>
-    <jobindustries>Biotechnology</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Science ]]></jobfunction>
+    <jobindustries><![CDATA[ Biotechnology ]]></jobindustries>
+    <senoritylevel><![CDATA[ Entry level ]]></senoritylevel>
   </job>
   <job>
     <title>ASIC Development Engineer (32477)</title>
@@ -243,9 +237,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Optical Resident Engineer (32419)</title>
@@ -263,9 +257,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior FPGA Developer (32589)</title>
@@ -283,9 +277,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>No Preference</remotetype>
     <assignedrecruiter>Michael Theodossiou</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Broadcast Media ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Lead Custom Analog Layout Engineeer (32628)</title>
@@ -303,9 +297,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>EDW Sr. Healthcare Technical Analyst (32542)</title>
@@ -323,9 +317,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Dan Sifer</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>High Performance Computing Administrator (32447)</title>
@@ -343,9 +337,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Telecommunications</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>High-Speed Analog ASIC Engineer (32624)</title>
@@ -363,9 +357,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Consumer Electronics ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior System Engineer (32529)</title>
@@ -383,9 +377,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Principal ASIC Verification Engineer (32625)</title>
@@ -403,9 +397,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Mixed -Signal ASIC Design Engineer (32626)</title>
@@ -423,9 +417,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Systems Configuration Identification Specialist (32646)</title>
@@ -443,9 +437,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Full Stack Developer - .Net, Angular, JavaScript (32575)</title>
@@ -463,9 +457,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Michael Theodossiou</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Cloud Site Reliability Engineer - Azure/AWS (34084)</title>
@@ -483,9 +477,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Nick Theodossiou</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Banking Technology Integration Consultant - Lockbox/Payments (32606)</title>
@@ -503,9 +497,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>FPGA Developer, Senior (32549)</title>
@@ -523,9 +517,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Michael Theodossiou</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Broadcast Media ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Technical Manager, Customer Support (32657)</title>
@@ -543,9 +537,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Customer Service ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>IT Infrastructure Manager - Manufacturing (32619)</title>
@@ -563,9 +557,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Michelle Corino</assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Electrical/Electronic Manufacturing</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Electrical/Electronic Manufacturing ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Legal Analyst/Attorney (34082)</title>
@@ -583,9 +577,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Legal Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Legal ]]></jobfunction>
+    <jobindustries><![CDATA[ Alternative Dispute Resolution ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Data Warehouse Sr. Business Analyst (34075)</title>
@@ -603,9 +597,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Michelle Corino</assignedrecruiter>
-    <jobfunction>Analyst</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior AWS Cloud Project Manager (32652)</title>
@@ -623,9 +617,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior ASIC Design &amp; Product Integration Engineer (32623)</title>
@@ -643,9 +637,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>ASIC Development Engineer (32476)</title>
@@ -663,9 +657,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Semiconductors</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>SAP FICO Functional Lead (32637)</title>
@@ -683,9 +677,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Oil and Energy ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Change Management Specialist (32612)</title>
@@ -703,9 +697,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Other</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Professional Training and Coaching ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Internal Controls Analyst - SOX/ICFR (32579)</title>
@@ -723,9 +717,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Finance ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Software Developer - Network Management System (32445)</title>
@@ -743,9 +737,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Packet Processing Software Developer (32079)</title>
@@ -763,9 +757,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>SAP Data Migration Lead (32597)</title>
@@ -783,9 +777,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Technical Systems Administrator/Trainer (32661)</title>
@@ -803,9 +797,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Cloud Operations Manager (32293)</title>
@@ -823,9 +817,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Dominic Scaletta</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>French Legal Invoice Analyst/Initial Reviewer (32444)</title>
@@ -843,9 +837,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Legal Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Legal Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>NMS Developer (32446)</title>
@@ -863,9 +857,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Technical Product Manager (34086)</title>
@@ -883,9 +877,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Product Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Product Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>IP Network Architect (32569)</title>
@@ -903,9 +897,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer and Network Security</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior SAP EWM consultant (32622)</title>
@@ -923,9 +917,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Cloud Operations Engineer (32574)</title>
@@ -943,9 +937,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Dominic Scaletta</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer and Network Security ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Back-End Developer - Intermediate/Senior (32266)</title>
@@ -963,9 +957,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Matheo Theodossiou</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>IT Director - PMO (32554)</title>
@@ -983,9 +977,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Amanda Messina</assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Executive</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Director ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Project Manager - Bilingual &amp; Remote with Some Travel (32531)</title>
@@ -1003,9 +997,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Dominic Scaletta</assignedrecruiter>
-    <jobfunction>Project Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Business Supplies and Equipment ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Technical Manager, Professional Services (32658)</title>
@@ -1023,9 +1017,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Full-Stack Developer (34085)</title>
@@ -1043,9 +1037,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Bilingual Salesforce Business Analyst – Grantmaking (32602)</title>
@@ -1063,9 +1057,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Analyst</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Workflow Application Engineer (32655)</title>
@@ -1083,9 +1077,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>D365 trainer with SharePoint experience (32662)</title>
@@ -1103,9 +1097,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Other</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Education ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>SAP Functional Lead – Project Systems - PS (32621)</title>
@@ -1123,9 +1117,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Business &amp; Program Management Consultant (32660)</title>
@@ -1143,9 +1137,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Biotechnology ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Local to Chicago-Sr Business Systems Analyst (32632)</title>
@@ -1163,9 +1157,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Analyst</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Sr Program Management Consultant (32608)</title>
@@ -1183,9 +1177,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Myticas Recruiter</assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Design Verification Specialist (32630)</title>
@@ -1203,9 +1197,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Design</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Product Line Manager - CIP (32607)</title>
@@ -1223,9 +1217,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Amanda Messina</assignedrecruiter>
-    <jobfunction>Product Management</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Product Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Employment Equity Resource - Federal Job Evaluation &amp; Pay Equity Compliance (34080)</title>
@@ -1243,9 +1237,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Design</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Civic and Social Organization ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>EDW Informatica ETL Developer (32541)</title>
@@ -1263,9 +1257,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Michelle Corino</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Software Architect – System Model Application (32513)</title>
@@ -1283,9 +1277,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Mike Gebara</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Computer Software</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>D365 Finance Configuration Consultant (32537)</title>
@@ -1303,9 +1297,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Technical Support and Customer Service Associate (32581)</title>
@@ -1323,9 +1317,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Remote</remotetype>
     <assignedrecruiter>Michelle Corino</assignedrecruiter>
-    <jobfunction>Customer Service</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Entry level</senoritylevel>
+    <jobfunction><![CDATA[ Customer Service ]]></jobfunction>
+    <jobindustries><![CDATA[ Consumer Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Associate ]]></senoritylevel>
   </job>
   <job>
     <title>Digital Content Specialist (32576)</title>
@@ -1343,9 +1337,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Christine Carter</assignedrecruiter>
-    <jobfunction>Other</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Marketing ]]></jobfunction>
+    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Manufacturing Engineer (32643)</title>
@@ -1363,9 +1357,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Christine Carter</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Electrical/Electronic Manufacturing</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Electrical/Electronic Manufacturing ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Digital Marketing Consultant (32563)</title>
@@ -1383,9 +1377,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Christine Carter</assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Marketing ]]></jobfunction>
+    <jobindustries><![CDATA[ Management Consulting ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Ambulatory Clinical Informatics Analyst - Oracle Health/Cerner (32649)</title>
@@ -1403,9 +1397,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Information Technology</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Senior Manager, Radio System Engineering (32647)</title>
@@ -1423,9 +1417,9 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Onsite</remotetype>
     <assignedrecruiter>Adam Gebara</assignedrecruiter>
-    <jobfunction>Engineering</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title>Internal Audit Consultant – Banking Sector (34083)</title>
@@ -1443,8 +1437,8 @@
     <apply_email>apply@myticas.com</apply_email>
     <remotetype>Hybrid</remotetype>
     <assignedrecruiter>Runa Parmar</assignedrecruiter>
-    <jobfunction>Consulting</jobfunction>
-    <jobindustries>Information Technology and Services</jobindustries>
-    <senoritylevel>Mid-Senior level</senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
 </source>
