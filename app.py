@@ -488,6 +488,7 @@ def process_bullhorn_monitors():
                     # XML Integration: Automatically update XML files when jobs change
                     xml_sync_success = False
                     xml_sync_summary = {}
+                    comprehensive_sync_modifications = []
                     
                     # Log detected changes for debugging
                     if added_jobs or removed_jobs or modified_jobs:
@@ -1424,21 +1425,63 @@ def process_bullhorn_monitors():
                                                 'field_changes': list(set(change_summaries))
                                             })
                                             
-                                            # CRITICAL FIX: Queue notification for job modification
-                                            if not hasattr(app, '_pending_notifications'):
-                                                app._pending_notifications = []
-                                            app._pending_notifications.append({
+                                            # Store modification for notification - will be consolidated later
+                                            comprehensive_sync_modifications.append({
                                                 'monitor_name': monitor_name,
-                                                'added_jobs': [],
-                                                'removed_jobs': [],
-                                                'modified_jobs': [{
-                                                    'id': job_id,
-                                                    'title': job.get('title', 'Unknown'),
-                                                    'change_summary': change_description,
-                                                    'field_changes': field_changes
-                                                }],
-                                                'total_jobs': 0  # Will be updated by comprehensive sync summary
+                                                'job_id': job_id,
+                                                'title': job.get('title', 'Unknown'),
+                                                'change_summary': change_description,
+                                                'field_changes': field_changes
                                             })
+                                            
+                                            # CRITICAL FIX: Queue notification for job modification during comprehensive sync
+                                            # Find the monitor to get notification settings
+                                            monitor_for_notification = next((m for m in monitors_processed if m.name == monitor_name), None) 
+                                            if monitor_for_notification and monitor_for_notification.send_notifications:
+                                                # Get email address
+                                                email_address = monitor_for_notification.notification_email
+                                                if not email_address:
+                                                    global_email = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                                                    if global_email:
+                                                        email_address = global_email.setting_value
+                                                
+                                                if email_address:
+                                                    # Initialize _pending_notifications if not exists
+                                                    if not hasattr(app, '_pending_notifications'):
+                                                        app._pending_notifications = []
+                                                    
+                                                    # Check if notification for this monitor already exists
+                                                    existing = next((n for n in app._pending_notifications if n['monitor_name'] == monitor_name), None)
+                                                    if existing:
+                                                        # Add to existing notification
+                                                        existing['modified_jobs'].append({
+                                                            'id': job_id,
+                                                            'title': job.get('title', 'Unknown'),
+                                                            'change_summary': change_description,
+                                                            'field_changes': field_changes
+                                                        })
+                                                    else:
+                                                        # Create new notification
+                                                        notification_data = {
+                                                            'monitor_name': monitor_name,
+                                                            'monitor_id': monitor_for_notification.id,
+                                                            'email_address': email_address,
+                                                            'added_jobs': [],
+                                                            'removed_jobs': [],
+                                                            'modified_jobs': [{
+                                                                'id': job_id,
+                                                                'title': job.get('title', 'Unknown'),
+                                                                'change_summary': change_description,
+                                                                'field_changes': field_changes
+                                                            }],
+                                                            'total_jobs': len(json.loads(monitor_for_notification.last_job_snapshot)) if monitor_for_notification.last_job_snapshot else 0,
+                                                            'summary': {'modified_count': 1},
+                                                            'xml_sync_info': xml_sync_summary.copy() if xml_sync_summary else {},
+                                                            'timestamp': datetime.now()
+                                                        }
+                                                        app._pending_notifications.append(notification_data)
+                                                    
+                                                    app.logger.info(f"📧 Queued comprehensive sync modification notification for {monitor_name}: {job.get('title', 'Unknown')}")
                                             
                                             # Also update scheduled file
                                             scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
@@ -1560,7 +1603,7 @@ def process_bullhorn_monitors():
                                                     else:
                                                         app.logger.debug("No pending notifications to send after comprehensive sync")
                                                     
-                                                    app.logger.info(f"🎯 Comprehensive sync completed: {len(missing_job_ids)} jobs added, {len(orphaned_job_ids)} jobs removed. Individual tearsheet notifications sent after SFTP upload.")
+
                                                 else:
                                                     app.logger.warning(f"Failed to upload XML to SFTP")
                                         except Exception as e:
