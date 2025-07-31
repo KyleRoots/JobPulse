@@ -14,6 +14,7 @@ from email_service import EmailService
 from ftp_service import FTPService
 from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
+from monitor_health_service import MonitorHealthService
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
@@ -2670,6 +2671,32 @@ def trigger_job_sync():
             'error': str(e)
         }), 500
 
+@app.route('/api/trigger/health-check', methods=['POST'])
+@login_required
+def trigger_health_check():
+    """Manually trigger monitor health check"""
+    try:
+        app.logger.info("Manual health check triggered")
+        
+        # Create health service instance
+        health_service = MonitorHealthService(db.session, GlobalSettings, BullhornMonitor)
+        
+        # Run health check
+        result = health_service.check_monitor_health()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Health check completed successfully',
+            'timestamp': datetime.utcnow().isoformat(),
+            'result': result
+        })
+    except Exception as e:
+        app.logger.error(f"Manual health check error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/system/health')
 def system_health_check():
     """System health check endpoint to detect scheduler timing issues"""
@@ -4093,3 +4120,45 @@ def create_monitor():
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)
+
+def check_monitor_health():
+    """Check monitor health and send notifications for overdue monitors"""
+    with app.app_context():
+        try:
+            app.logger.info("Starting monitor health check...")
+            
+            # Create health service instance
+            health_service = MonitorHealthService(db.session, GlobalSettings, BullhornMonitor)
+            
+            # Perform health check
+            result = health_service.check_monitor_health()
+            
+            if result['status'] == 'completed':
+                if result['overdue_count'] > 0:
+                    app.logger.warning(f"Health check found {result['overdue_count']} overdue monitors")
+                    if result['notification_sent']:
+                        app.logger.info("Overdue monitor notification sent successfully")
+                else:
+                    app.logger.info("All monitors are healthy")
+                    
+                if result['corrected_count'] > 0:
+                    app.logger.info(f"Auto-corrected {result['corrected_count']} monitors")
+            else:
+                app.logger.error(f"Health check failed: {result.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            app.logger.error(f"Monitor health check error: {str(e)}")
+            import traceback
+            app.logger.error(traceback.format_exc())
+
+# Add monitor health check job - run every 15 minutes
+scheduler.add_job(
+    func=check_monitor_health,
+    trigger=IntervalTrigger(minutes=15),
+    id='check_monitor_health',
+    name='Monitor Health Check',
+    replace_existing=True
+)
+
+app.logger.info("Monitor health check system enabled - will check every 15 minutes for overdue monitors")
+
