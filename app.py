@@ -1514,27 +1514,6 @@ def process_bullhorn_monitors():
                                                         time.sleep(15)
                                                         app.logger.info(f"Sending {len(app._pending_notifications)} pending email notifications after successful XML sync and upload")
                                                         
-                                                        for notification in app._pending_notifications:
-                                                            try:
-                                                                send_bullhorn_notification(
-                                                                    monitor_name=notification['monitor_name'],
-                                                                    added_jobs=notification['added_jobs'],
-                                                                    removed_jobs=notification['removed_jobs'],
-                                                                    modified_jobs=notification['modified_jobs'],
-                                                                    total_jobs=notification.get('total_jobs', 0)
-                                                                )
-                                                                app.logger.info(f"Email notification sent for {notification['monitor_name']}")
-                                                            except Exception as e:
-                                                                app.logger.error(f"Failed to send email notification for {notification['monitor_name']}: {e}")
-                                                        
-                                                        # Clear pending notifications after sending
-                                                        app._pending_notifications = []
-                                                        app.logger.info("All pending email notifications processed")
-                                                        
-                                                        # Add 15-second delay to ensure XML changes are reflected on web server
-                                                        import time
-                                                        time.sleep(15)
-                                                        
                                                         email_service = EmailService()
                                                         notifications_sent = 0
                                                         for notification in app._pending_notifications:
