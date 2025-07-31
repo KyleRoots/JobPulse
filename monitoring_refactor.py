@@ -18,10 +18,16 @@ class MonitoringService:
         self.bullhorn = None
         self.xml_service = None
         self.email_service = None
-        # Import models
-        from app import BullhornMonitor, BullhornActivity
+        # Import models and services
+        from app import BullhornMonitor, BullhornActivity, GlobalSettings, ScheduleConfig
+        from ftp_service import FTPService
+        from xml_integration_service import XMLIntegrationService
         self.BullhornMonitor = BullhornMonitor
         self.BullhornActivity = BullhornActivity
+        self.GlobalSettings = GlobalSettings
+        self.FTPService = FTPService
+        self.ScheduleConfig = ScheduleConfig
+        self.xml_service = XMLIntegrationService()
     
     def process_all_monitors(self):
         """Main entry point - simplified monitoring process"""
@@ -255,7 +261,15 @@ class MonitoringService:
             # Try bhatsid elements first
             for bhatsid in root.xpath('.//bhatsid'):
                 if bhatsid.text:
-                    job_ids.add(bhatsid.text.strip())
+                    # Extract job ID from CDATA format like "<![CDATA[ 32079 ]]>"
+                    text = bhatsid.text.strip()
+                    # Remove CDATA wrapper if present
+                    if text.startswith('<![CDATA[') and text.endswith(']]>'):
+                        text = text[9:-3].strip()
+                    # Remove any remaining brackets
+                    text = text.strip('<>[]! ')
+                    if text.isdigit():
+                        job_ids.add(text)
             
             # Fallback to extracting from titles
             if not job_ids:
@@ -307,7 +321,7 @@ class MonitoringService:
             if result['success']:
                 app.logger.info("SFTP upload successful")
                 # Update last upload timestamp
-                for schedule in self.ScheduledProcessing.query.filter_by(is_active=True).all():
+                for schedule in self.ScheduleConfig.query.filter_by(is_active=True).all():
                     schedule.last_upload = datetime.utcnow()
                 self.db.commit()
             else:
@@ -320,7 +334,7 @@ class MonitoringService:
         """Send email notifications for pending activities"""
         try:
             # Get pending notifications
-            pending = BullhornActivity.query.filter_by(notification_sent=False).all()
+            pending = self.BullhornActivity.query.filter_by(notification_sent=False).all()
             if not pending:
                 return
             
