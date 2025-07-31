@@ -1061,6 +1061,11 @@
                                         ${activity.details || (activity.job_title || '')}
                                     </td>
                                     <td>
+                                        ${activity.account_manager ? 
+                                            `<span class="badge bg-info">${activity.account_manager}</span>` : 
+                                            '<span class="text-muted">-</span>'}
+                                    </td>
+                                    <td>
                                         <small class="text-muted">
                                             ${timeStr} UTC
                                         </small>

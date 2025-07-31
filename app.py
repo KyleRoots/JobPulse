@@ -3174,6 +3174,7 @@ def get_recent_activities():
             'activity_type': activity.activity_type,
             'job_id': activity.job_id,
             'job_title': activity.job_title,
+            'account_manager': activity.account_manager,
             'details': activity.details,
             'notification_sent': activity.notification_sent,
             'created_at': activity.created_at.strftime('%Y-%m-%d %H:%M')
