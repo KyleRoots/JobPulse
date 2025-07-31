@@ -151,44 +151,45 @@ class MonitoringService:
             return []
     
     def log_monitor_changes(self, monitor, changes, job_count):
-        """Log monitor changes as activities"""
+        """Log monitor changes as activities - ONLY actual changes"""
         added = changes.get('added', [])
         removed = changes.get('removed', [])
         modified = changes.get('modified', [])
         
-        # Log individual job changes
-        for job in added:
-            activity = self.BullhornActivity(
-                monitor_id=monitor.id,
-                activity_type='job_added',
-                job_id=str(job.get('id')),
-                job_title=job.get('title', 'Unknown'),
-                details=f"Job added to {monitor.name}"
-            )
-            self.db.add(activity)
-        
-        for job in removed:
-            activity = self.BullhornActivity(
-                monitor_id=monitor.id,
-                activity_type='job_removed',
-                job_id=str(job.get('id')),
-                job_title=job.get('title', 'Unknown'),
-                details=f"Job removed from {monitor.name}"
-            )
-            self.db.add(activity)
-        
-        for job in modified:
-            activity = self.BullhornActivity(
-                monitor_id=monitor.id,
-                activity_type='job_modified',
-                job_id=str(job.get('id')),
-                job_title=job.get('title', 'Unknown'),
-                details=f"Job modified in {monitor.name}"
-            )
-            self.db.add(activity)
-        
-        # Log check completed if no changes
-        if not (added or removed or modified):
+        # CRITICAL FIX: Only log if there are actual changes
+        if added or removed or modified:
+            # Log individual job changes ONLY
+            for job in added:
+                activity = self.BullhornActivity(
+                    monitor_id=monitor.id,
+                    activity_type='job_added',
+                    job_id=str(job.get('id')),
+                    job_title=job.get('title', 'Unknown'),
+                    details=f"Job added to {monitor.name}"
+                )
+                self.db.add(activity)
+            
+            for job in removed:
+                activity = self.BullhornActivity(
+                    monitor_id=monitor.id,
+                    activity_type='job_removed',
+                    job_id=str(job.get('id')),
+                    job_title=job.get('title', 'Unknown'),
+                    details=f"Job removed from {monitor.name}"
+                )
+                self.db.add(activity)
+            
+            for job in modified:
+                activity = self.BullhornActivity(
+                    monitor_id=monitor.id,
+                    activity_type='job_modified',
+                    job_id=str(job.get('id')),
+                    job_title=job.get('title', 'Unknown'),
+                    details=f"Job modified in {monitor.name}"
+                )
+                self.db.add(activity)
+        else:
+            # Only log "no changes" once per check
             activity = self.BullhornActivity(
                 monitor_id=monitor.id,
                 activity_type='check_completed',
@@ -203,16 +204,29 @@ class MonitoringService:
             
             # Process main XML files
             xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+            xml_sync_success = True
             
             for xml_file in xml_files:
                 if os.path.exists(xml_file):
-                    self.sync_xml_file(xml_file, all_jobs, monitors)
+                    if not self.sync_xml_file(xml_file, all_jobs, monitors):
+                        xml_sync_success = False
             
-            # Upload to SFTP if enabled
-            self.upload_to_sftp()
-            
-            # Send notifications if needed
-            self.send_pending_notifications()
+            # CRITICAL FIX: Only upload and send emails if XML sync was successful
+            if xml_sync_success:
+                # Upload to SFTP FIRST
+                sftp_success = self.upload_to_sftp()
+                
+                # Wait for SFTP propagation
+                if sftp_success:
+                    import time
+                    time.sleep(15)  # Wait for web server propagation
+                    
+                    # THEN send notifications (only if we have pending individual changes)
+                    self.send_pending_notifications()
+                else:
+                    app.logger.error("SFTP upload failed - skipping email notifications")
+            else:
+                app.logger.error("XML sync failed - skipping SFTP and email notifications")
             
         except Exception as e:
             app.logger.error(f"Comprehensive sync error: {str(e)}")
@@ -232,30 +246,28 @@ class MonitoringService:
             
             app.logger.info(f"XML sync for {xml_file}: {len(missing_jobs)} missing, {len(orphaned_jobs)} orphaned")
             
-            # Add missing jobs
-            for job_id in missing_jobs:
-                job = next((j for j in all_jobs if str(j.get('id')) == job_id), None)
-                if job:
-                    # Determine monitor name for proper company mapping
-                    monitor_name = self.get_monitor_name_for_job(job_id, monitors)
-                    self.xml_service.add_job_to_xml(xml_file, job, monitor_name)
-            
-            # Update existing jobs
-            existing_jobs = xml_job_ids.intersection(bullhorn_job_ids)
-            for job_id in existing_jobs:
-                job = next((j for j in all_jobs if str(j.get('id')) == job_id), None)
-                if job:
-                    monitor_name = self.get_monitor_name_for_job(job_id, monitors)
-                    self.xml_service.update_job_in_xml(xml_file, job, monitor_name)
-            
-            # Remove orphaned jobs
-            for job_id in orphaned_jobs:
-                self.xml_service.remove_job_from_xml(xml_file, job_id)
-            
-            app.logger.info(f"XML sync completed for {xml_file}")
+            # CRITICAL: Only sync if there are actual changes needed
+            if missing_jobs or orphaned_jobs:
+                # Add missing jobs
+                for job_id in missing_jobs:
+                    job = next((j for j in all_jobs if str(j.get('id')) == job_id), None)
+                    if job:
+                        monitor_name = self.get_monitor_name_for_job(job_id, monitors)
+                        self.xml_service.add_job_to_xml(xml_file, job, monitor_name)
+                
+                # Remove orphaned jobs
+                for job_id in orphaned_jobs:
+                    self.xml_service.remove_job_from_xml(xml_file, job_id)
+                
+                app.logger.info(f"XML sync completed for {xml_file} - {len(missing_jobs)} added, {len(orphaned_jobs)} removed")
+                return True
+            else:
+                app.logger.info(f"No XML changes needed for {xml_file}")
+                return False
             
         except Exception as e:
             app.logger.error(f"Error syncing {xml_file}: {str(e)}")
+            return False
     
     def get_xml_job_ids(self, xml_file):
         """Extract job IDs from XML file"""
@@ -315,7 +327,7 @@ class MonitoringService:
             
             if settings.get('sftp_enabled') != 'true' or not all(k in settings for k in ['sftp_hostname', 'sftp_username', 'sftp_password']):
                 app.logger.info("SFTP settings not configured, skipping upload")
-                return
+                return False
             
             ftp_service = self.FTPService(
                 hostname=settings['sftp_hostname'],
@@ -334,11 +346,14 @@ class MonitoringService:
                 for schedule in self.ScheduleConfig.query.filter_by(is_active=True).all():
                     schedule.last_file_upload = datetime.utcnow()
                 self.db.commit()
+                return True
             else:
                 app.logger.error(f"SFTP upload failed")
+                return False
                 
         except Exception as e:
             app.logger.error(f"SFTP upload error: {str(e)}")
+            return False
     
     def send_pending_notifications(self):
         """Send email notifications for pending activities"""
@@ -405,9 +420,8 @@ class MonitoringService:
             if not (added_jobs or removed_jobs or modified_jobs):
                 return
             
-            # Send email
+            # Send email (no delay here - comprehensive sync already waited)
             email_service = EmailService()
-            time.sleep(15)  # Wait for XML to propagate
             
             success = email_service.send_bullhorn_notification(
                 to_email=settings.get('email_address', 'kroots@myticas.com'),
