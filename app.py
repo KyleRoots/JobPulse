@@ -1283,6 +1283,52 @@ def process_bullhorn_monitors():
                                                 )
                                                 db.session.add(activity)
                                                 
+                                                # CRITICAL FIX: Queue notification for job addition during comprehensive sync
+                                                # Find the monitor to get notification settings
+                                                monitor_for_notification = next((m for m in monitors_processed if m.name == monitor_name), None)
+                                                if monitor_for_notification and monitor_for_notification.send_notifications:
+                                                    # Get email address
+                                                    email_address = monitor_for_notification.notification_email
+                                                    if not email_address:
+                                                        global_email = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                                                        if global_email:
+                                                            email_address = global_email.setting_value
+                                                    
+                                                    if email_address:
+                                                        # Initialize _pending_notifications if not exists
+                                                        if not hasattr(app, '_pending_notifications'):
+                                                            app._pending_notifications = []
+                                                        
+                                                        # Check if notification for this monitor already exists
+                                                        existing = next((n for n in app._pending_notifications if n['monitor_name'] == monitor_name), None)
+                                                        if existing:
+                                                            # Add to existing notification
+                                                            existing['added_jobs'].append({
+                                                                'id': job_id,
+                                                                'title': job.get('title', 'Unknown')
+                                                            })
+                                                            existing['summary']['added_count'] = existing['summary'].get('added_count', 0) + 1
+                                                        else:
+                                                            # Create new notification
+                                                            notification_data = {
+                                                                'monitor_name': monitor_name,
+                                                                'monitor_id': monitor_for_notification.id,
+                                                                'email_address': email_address,
+                                                                'added_jobs': [{
+                                                                    'id': job_id,
+                                                                    'title': job.get('title', 'Unknown')
+                                                                }],
+                                                                'removed_jobs': [],
+                                                                'modified_jobs': [],
+                                                                'total_jobs': len(json.loads(monitor_for_notification.last_job_snapshot)) if monitor_for_notification.last_job_snapshot else 0,
+                                                                'summary': {'added_count': 1},
+                                                                'xml_sync_info': xml_sync_summary.copy() if xml_sync_summary else {},
+                                                                'timestamp': datetime.now()
+                                                            }
+                                                            app._pending_notifications.append(notification_data)
+                                                        
+                                                        app.logger.info(f"📧 Queued comprehensive sync addition notification for {monitor_name}: {job.get('title', 'Unknown')}")
+                                                
                                                 # Also update scheduled file with AI classifications
                                                 scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
                                                 if scheduled_xml_path != main_xml_path:
@@ -1357,6 +1403,52 @@ def process_bullhorn_monitors():
                                                         notification_sent=False
                                                     )
                                                     db.session.add(activity)
+                                                    
+                                                    # CRITICAL FIX: Queue notification for job removal during comprehensive sync
+                                                    # Find any monitor that has notifications enabled for removal notifications
+                                                    notification_monitor = next((m for m in monitors_processed if m.send_notifications), None)
+                                                    if notification_monitor:
+                                                        # Get email address
+                                                        email_address = notification_monitor.notification_email
+                                                        if not email_address:
+                                                            global_email = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                                                            if global_email:
+                                                                email_address = global_email.setting_value
+                                                        
+                                                        if email_address:
+                                                            # Initialize _pending_notifications if not exists
+                                                            if not hasattr(app, '_pending_notifications'):
+                                                                app._pending_notifications = []
+                                                            
+                                                            # Check if notification for general removals already exists
+                                                            existing = next((n for n in app._pending_notifications if n['monitor_name'] == 'Comprehensive Sync'), None)
+                                                            if existing:
+                                                                # Add to existing notification
+                                                                existing['removed_jobs'].append({
+                                                                    'id': job_id,
+                                                                    'reason': removal_reason
+                                                                })
+                                                                existing['summary']['removed_count'] = existing['summary'].get('removed_count', 0) + 1
+                                                            else:
+                                                                # Create new notification
+                                                                notification_data = {
+                                                                    'monitor_name': 'Comprehensive Sync',
+                                                                    'monitor_id': notification_monitor.id,
+                                                                    'email_address': email_address,
+                                                                    'added_jobs': [],
+                                                                    'removed_jobs': [{
+                                                                        'id': job_id,
+                                                                        'reason': removal_reason
+                                                                    }],
+                                                                    'modified_jobs': [],
+                                                                    'total_jobs': 0,
+                                                                    'summary': {'removed_count': 1},
+                                                                    'xml_sync_info': xml_sync_summary.copy() if xml_sync_summary else {},
+                                                                    'timestamp': datetime.now()
+                                                                }
+                                                                app._pending_notifications.append(notification_data)
+                                                            
+                                                            app.logger.info(f"📧 Queued comprehensive sync removal notification for job {job_id}")
                                                 else:
                                                     app.logger.info(f"⏭️ Skipping duplicate notification for job {job_id} - already notified previously")
                                             else:

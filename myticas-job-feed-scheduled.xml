@@ -77,8 +77,8 @@
     <apply_email><![CDATA[  ]]></apply_email>
     <remotetype><![CDATA[  ]]></remotetype>
     <assignedrecruiter><![CDATA[  ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Marketing ]]></jobfunction>
-    <jobindustries><![CDATA[ Consumer Goods ]]></jobindustries>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Management Consulting ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -358,7 +358,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -418,7 +418,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -478,7 +478,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -597,7 +597,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Management ]]></jobfunction>
+    <jobfunction><![CDATA[ Customer Service ]]></jobfunction>
     <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
@@ -638,7 +638,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Legal ]]></jobfunction>
-    <jobindustries><![CDATA[ Legal Services ]]></jobindustries>
+    <jobindustries><![CDATA[ Alternative Dispute Resolution ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -818,7 +818,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -837,7 +837,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
     <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
@@ -1017,8 +1017,8 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Amanda Messina ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Project Management ]]></jobfunction>
-    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Director ]]></senoritylevel>
   </job>
   <job>
@@ -1158,7 +1158,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Consulting ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1359,7 +1359,7 @@
     <assignedrecruiter><![CDATA[ Michelle Corino ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Customer Service ]]></jobfunction>
     <jobindustries><![CDATA[ Consumer Services ]]></jobindustries>
-    <senoritylevel><![CDATA[ Entry level ]]></senoritylevel>
+    <senoritylevel><![CDATA[ Associate ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Digital Content Specialist (32576) ]]></title>
@@ -1437,8 +1437,8 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
