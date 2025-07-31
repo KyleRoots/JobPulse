@@ -58,7 +58,7 @@ class MonitoringService:
         current_time = datetime.utcnow()
         overdue_threshold = current_time - timedelta(minutes=10)
         
-        overdue_monitors = self.self.BullhornMonitor.query.filter(
+        overdue_monitors = self.BullhornMonitor.query.filter(
             self.BullhornMonitor.is_active == True,
             self.BullhornMonitor.next_check < overdue_threshold
         ).all()
@@ -79,7 +79,7 @@ class MonitoringService:
     def get_due_monitors(self):
         """Get all monitors due for checking"""
         current_time = datetime.utcnow()
-        return self.self.BullhornMonitor.query.filter(
+        return self.BullhornMonitor.query.filter(
             self.BullhornMonitor.is_active == True,
             self.BullhornMonitor.next_check <= current_time
         ).all()
@@ -371,7 +371,7 @@ class MonitoringService:
 def process_bullhorn_monitors_simple():
     """Simplified entry point for APScheduler"""
     # Import inside function to avoid circular imports
-    from app import app, db, BullhornMonitor, BullhornActivity, GlobalSettings, ScheduledProcessing
+    from app import app, db, BullhornMonitor, BullhornActivity, GlobalSettings, ScheduleConfig
     from xml_integration_service import XMLIntegrationService
     from bullhorn_service import BullhornService
     from email_service import EmailService
@@ -385,5 +385,5 @@ def process_bullhorn_monitors_simple():
         service.BullhornMonitor = BullhornMonitor
         service.BullhornActivity = BullhornActivity
         service.GlobalSettings = GlobalSettings
-        service.ScheduledProcessing = ScheduledProcessing
+        service.ScheduledProcessing = ScheduleConfig
         service.process_all_monitors()
