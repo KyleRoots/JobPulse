@@ -18,6 +18,10 @@ class MonitoringService:
         self.bullhorn = None
         self.xml_service = None
         self.email_service = None
+        # Import models
+        from app import BullhornMonitor, BullhornActivity
+        self.BullhornMonitor = BullhornMonitor
+        self.BullhornActivity = BullhornActivity
     
     def process_all_monitors(self):
         """Main entry point - simplified monitoring process"""
@@ -87,7 +91,9 @@ class MonitoringService:
     def init_bullhorn_connection(self) -> bool:
         """Initialize Bullhorn service connection"""
         try:
-            self.bullhorn = BullhornService()
+            # Import needed modules
+            from app import GlobalSettings, get_bullhorn_service
+            self.bullhorn = get_bullhorn_service()
             return self.bullhorn.test_connection()
         except Exception as e:
             app.logger.error(f"Bullhorn connection error: {str(e)}")
