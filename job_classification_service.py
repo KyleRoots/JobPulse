@@ -87,10 +87,11 @@ class JobClassificationService:
             {', '.join(self.categories['seniority_levels'])}
             
             Important rules:
-            1. You MUST select values ONLY from the provided lists
+            1. You MUST select values ONLY from the provided lists - DO NOT create custom values
             2. Select the SINGLE BEST match for each category
-            3. For seniority level, consider keywords like "Senior", "Junior", "Lead", "Manager", "Director", etc.
-            4. If unsure, choose "Not Applicable" for seniority level
+            3. For seniority level: "Senior" roles should map to "Mid-Senior level", NOT "Senior level"
+            4. Use "Executive" for C-level positions, "Director" for director roles
+            5. If uncertain about seniority, default to "Mid-Senior level" for experienced roles
             
             Return your response in this exact JSON format:
             {{
