@@ -10,7 +10,10 @@ import shutil
 import time
 from typing import Dict, List, Optional
 from datetime import datetime
-from lxml import etree
+try:
+    from lxml import etree
+except ImportError:
+    import xml.etree.ElementTree as etree
 from xml_processor import XMLProcessor
 from job_classification_service import JobClassificationService
 
@@ -530,9 +533,12 @@ class XMLIntegrationService:
                     return False
                     
             except Exception as e:
+                job_id = job_id if 'job_id' in locals() else 'unknown'
+                backup_path = backup_path if 'backup_path' in locals() else None
+                
                 self.logger.error(f"Attempt {attempt + 1} failed adding job {job_id}: {str(e)}")
                 # Restore backup on error
-                if os.path.exists(backup_path):
+                if backup_path and os.path.exists(backup_path):
                     shutil.copy2(backup_path, xml_file_path)
                 
                 if attempt < max_retries - 1:
