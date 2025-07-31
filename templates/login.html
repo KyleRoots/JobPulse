@@ -235,30 +235,7 @@
             z-index: 2;
         }
         
-        .jobpulse-logo::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 20%;
-            right: 20%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #e74c3c, #f39c12, #e74c3c, transparent);
-            border-radius: 1px;
-            animation: pulseLine 2s ease-in-out infinite;
-            z-index: 1;
-        }
-        
-        @keyframes pulseLine {
-            0%, 100% { 
-                opacity: 0.6; 
-                background: linear-gradient(90deg, transparent, #e74c3c, #f39c12, #e74c3c, transparent);
-            }
-            50% { 
-                opacity: 1; 
-                background: linear-gradient(90deg, transparent, #fff, #f39c12, #fff, transparent);
-                box-shadow: 0 0 10px rgba(231, 76, 60, 0.4);
-            }
-        }
+
     </style>
 </head>
 <body>

@@ -105,68 +105,9 @@
             z-index: 2;
         }
         
-        /* Pulse line across the resume icon only */
-        .logo-icon-wrapper::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 15%;
-            right: 15%;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, #e74c3c, #f39c12, #e74c3c, transparent);
-            border-radius: 2px;
-            animation: pulseLine 2s ease-in-out infinite;
-            z-index: 3;
-        }
+
         
-        /* Pulse dots for enhanced effect - contained within icon */
-        .logo-icon-wrapper::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 4px;
-            height: 4px;
-            background: #fff;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            animation: pulseLineTravel 2s ease-in-out infinite;
-            z-index: 4;
-            box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-        }
-        
-        @keyframes pulseLine {
-            0%, 100% { 
-                opacity: 0.6; 
-                background: linear-gradient(90deg, transparent, #e74c3c, #f39c12, #e74c3c, transparent);
-            }
-            50% { 
-                opacity: 1; 
-                background: linear-gradient(90deg, transparent, #fff, #f39c12, #fff, transparent);
-                box-shadow: 0 0 15px rgba(231, 76, 60, 0.6);
-            }
-        }
-        
-        @keyframes pulseLineTravel {
-            0% { 
-                left: 30%; 
-                opacity: 0; 
-                transform: translate(-50%, -50%) scale(0.5);
-            }
-            20% { 
-                opacity: 1; 
-                transform: translate(-50%, -50%) scale(1);
-            }
-            80% { 
-                opacity: 1; 
-                transform: translate(-50%, -50%) scale(1);
-            }
-            100% { 
-                left: 70%; 
-                opacity: 0; 
-                transform: translate(-50%, -50%) scale(0.5);
-            }
-        }
+
         
         @keyframes pulseDocument {
             0%, 100% { 
@@ -380,11 +321,7 @@
             .logo-icon {
                 font-size: 2rem;
             }
-            .logo-icon-wrapper::before {
-                left: 15%;
-                right: 15%;
-                height: 2px;
-            }
+
             .container {
                 padding-left: 15px;
                 padding-right: 15px;
