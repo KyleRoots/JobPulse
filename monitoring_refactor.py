@@ -61,7 +61,7 @@ class MonitoringService:
             
         except Exception as e:
             app.logger.error(f"Fatal error in monitoring service: {str(e)}")
-            self.db.session.rollback()
+            self.db.rollback()
     
     def fix_overdue_monitors(self):
         """Fix monitors that are overdue by more than 10 minutes"""
@@ -80,11 +80,11 @@ class MonitoringService:
                 monitor.next_check = current_time + timedelta(minutes=5)
             
             try:
-                self.db.session.commit()
+                self.db.commit()
                 app.logger.info("Timing corrections committed successfully")
             except Exception as e:
                 app.logger.error(f"Failed to fix timing: {str(e)}")
-                self.db.session.rollback()
+                self.db.rollback()
     
     def get_due_monitors(self):
         """Get all monitors due for checking"""
@@ -137,11 +137,11 @@ class MonitoringService:
             
             # Commit monitor updates immediately
             try:
-                self.db.session.commit()
+                self.db.commit()
                 app.logger.info(f"Monitor {monitor.name} updated successfully")
             except Exception as e:
                 app.logger.error(f"Failed to update monitor {monitor.name}: {str(e)}")
-                self.db.session.rollback()
+                self.db.rollback()
             
             return current_jobs
             
@@ -165,7 +165,7 @@ class MonitoringService:
                 job_title=job.get('title', 'Unknown'),
                 details=f"Job added to {monitor.name}"
             )
-            self.db.session.add(activity)
+            self.db.add(activity)
         
         for job in removed:
             activity = self.BullhornActivity(
@@ -175,7 +175,7 @@ class MonitoringService:
                 job_title=job.get('title', 'Unknown'),
                 details=f"Job removed from {monitor.name}"
             )
-            self.db.session.add(activity)
+            self.db.add(activity)
         
         for job in modified:
             activity = self.BullhornActivity(
@@ -185,7 +185,7 @@ class MonitoringService:
                 job_title=job.get('title', 'Unknown'),
                 details=f"Job modified in {monitor.name}"
             )
-            self.db.session.add(activity)
+            self.db.add(activity)
         
         # Log check completed if no changes
         if not (added or removed or modified):
@@ -194,7 +194,7 @@ class MonitoringService:
                 activity_type='check_completed',
                 details=f"Checked {monitor.tearsheet_name}. Found {job_count} jobs. No changes detected."
             )
-            self.db.session.add(activity)
+            self.db.add(activity)
     
     def run_comprehensive_sync(self, all_jobs, monitors):
         """Run comprehensive XML sync with all collected jobs"""
@@ -238,7 +238,7 @@ class MonitoringService:
                 if job:
                     # Determine monitor name for proper company mapping
                     monitor_name = self.get_monitor_name_for_job(job_id, monitors)
-                    self.xml_service.add_job_to_xml(xml_file, job, monitor_name, skip_ai_classification=False)
+                    self.xml_service.add_job_to_xml(xml_file, job, monitor_name)
             
             # Update existing jobs
             existing_jobs = xml_job_ids.intersection(bullhorn_job_ids)
@@ -456,11 +456,11 @@ class MonitoringService:
             activity_type='error',
             details=f"Error: {error_message}"
         )
-        self.db.session.add(activity)
+        self.db.add(activity)
         try:
-            self.db.session.commit()
+            self.db.commit()
         except:
-            self.db.session.rollback()
+            self.db.rollback()
 
 
 def process_bullhorn_monitors_simple():

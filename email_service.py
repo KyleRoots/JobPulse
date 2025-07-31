@@ -240,113 +240,53 @@ class EmailService:
             # Prepare email content
             subject = f"ATS Job Change Alert: {monitor_name} ({total_changes} changes)"
             
-            # Build email body
+            # Build simple email body - just the basics
             html_content = f"""
             <html>
-            <body style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h2 style="color: #333; margin-top: 0;">
-                        🔄 ATS Tearsheet Update
-                    </h2>
-                    <p><strong>Monitor:</strong> {monitor_name}</p>
-                    <p><strong>Checked at:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
-                    
-                    <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #495057;">📊 Change Summary</h4>
-                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                            <span style="color: #007bff; font-weight: bold; background-color: #cfe2ff; padding: 4px 8px; border-radius: 4px;">🎯 Current Total: {summary.get('total_current', 0)}</span>
-                            <span style="color: #28a745; font-weight: bold;">✅ Added: {len(added_jobs)}</span>
-                            <span style="color: #dc3545; font-weight: bold;">❌ Removed: {len(removed_jobs)}</span>
-                            <span style="color: #fd7e14; font-weight: bold;">🔄 Modified: {len(modified_jobs)}</span>
-                            <span style="color: #6c757d; font-weight: bold;">📈 Net Change: {summary.get('net_change', 0):+d}</span>
-                        </div>
-                    </div>
+                    <h2 style="color: #333; margin-top: 0;">ATS Job Changes</h2>
+                    <p><strong>Tearsheet:</strong> {monitor_name}</p>
+                    <p><strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}</p>
                 </div>
             """
             
             if added_jobs:
                 html_content += f"""
-                <div style="margin: 20px 0; background-color: #d4edda; padding: 15px; border-radius: 5px; border-left: 4px solid #28a745;">
-                    <h3 style="color: #155724; margin-bottom: 15px;">
-                        ✅ Jobs Added ({len(added_jobs)})
-                    </h3>
-                    <ul style="padding-left: 20px; margin: 0;">
+                <div style="margin: 15px 0; padding: 15px; background-color: #d4edda; border-radius: 5px;">
+                    <h3 style="color: #155724; margin: 0 0 10px 0;">Jobs Added ({len(added_jobs)})</h3>
+                    <ul style="margin: 0; padding-left: 20px;">
                 """
                 for job in added_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    html_content += f"""
-                    <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
-                        <div style="margin-bottom: 4px;">
-                            <strong style="color: #155724;">{job_title}</strong>
-                        </div>
-                        <div style="margin-bottom: 4px;">
-                            <span style="background-color: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: bold;">
-                                Job ID: {job_id}
-                            </span>
-                        </div>
-                    </li>
-                    """
+                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})</li>"
                 
                 html_content += "</ul></div>"
             
             if removed_jobs:
                 html_content += f"""
-                <div style="margin: 20px 0; background-color: #f8d7da; padding: 15px; border-radius: 5px; border-left: 4px solid #dc3545;">
-                    <h3 style="color: #721c24; margin-bottom: 15px;">
-                        ❌ Jobs Removed ({len(removed_jobs)})
-                    </h3>
-                    <ul style="padding-left: 20px; margin: 0;">
+                <div style="margin: 15px 0; padding: 15px; background-color: #f8d7da; border-radius: 5px;">
+                    <h3 style="color: #721c24; margin: 0 0 10px 0;">Jobs Removed ({len(removed_jobs)})</h3>
+                    <ul style="margin: 0; padding-left: 20px;">
                 """
                 for job in removed_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    html_content += f"""
-                    <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
-                        <div style="margin-bottom: 4px;">
-                            <strong style="color: #721c24;">{job_title}</strong>
-                        </div>
-                        <div style="margin-bottom: 4px;">
-                            <span style="background-color: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: bold;">
-                                Job ID: {job_id}
-                            </span>
-                        </div>
-                    </li>
-                    """
+                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})</li>"
                 
                 html_content += "</ul></div>"
             
             if modified_jobs:
                 html_content += f"""
-                <div style="margin: 20px 0; background-color: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #fd7e14;">
-                    <h3 style="color: #856404; margin-bottom: 15px;">
-                        🔄 Jobs Modified ({len(modified_jobs)})
-                    </h3>
-                    <ul style="padding-left: 20px; margin: 0;">
+                <div style="margin: 15px 0; padding: 15px; background-color: #fff3cd; border-radius: 5px;">
+                    <h3 style="color: #856404; margin: 0 0 10px 0;">Jobs Modified ({len(modified_jobs)})</h3>
+                    <ul style="margin: 0; padding-left: 20px;">
                 """
                 for job in modified_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    
-                    # Get simple change description from monitoring service
-                    change_description = job.get('changes', 'Job details updated')
-                    
-                    html_content += f"""
-                    <li style="margin-bottom: 12px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
-                        <div style="margin-bottom: 4px;">
-                            <strong style="color: #856404;">{job_title}</strong>
-                        </div>
-                        <div style="margin-bottom: 4px;">
-                            <span style="background-color: #fd7e14; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: bold;">
-                                Job ID: {job_id}
-                            </span>
-                        </div>
-                        <div style="color: #6c757d; font-style: italic;">
-                            {change_description}
-                        </div>
-                        <small style="color: #6c757d;">Verify changes in Bullhorn using Job ID above</small>
-                    </li>
-                    """
+                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})</li>"
                 
                 html_content += "</ul></div>"
             
@@ -357,21 +297,15 @@ class EmailService:
                 </div>
                 """
             
-            html_content += f"""
-                <div style="background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-top: 20px;">
-                    <h4 style="margin: 0 0 10px 0; color: #495057;">📋 Monitor Details</h4>
-                    <p style="margin: 0 0 10px 0; font-size: 14px;">
-                        <strong>Previous total:</strong> {summary.get('total_previous', 0)} jobs<br>
-                        <strong>Current total:</strong> {summary.get('total_current', 0)} jobs<br>
-                        <strong>Net change:</strong> {summary.get('net_change', 0):+d} jobs
-                    </p>
-                    <p style="margin: 0; font-size: 12px; color: #6c757d;">
-                        This is an automated notification from your XML Processing System's ATS integration.
-                    </p>
-                    <p style="margin: 8px 0 0 0; font-size: 11px; color: #6c757d; font-style: italic;">
-                        💡 Tip: Copy and paste the Job ID into Bullhorn's search to quickly locate and review any job.
-                    </p>
-                </div>"""
+            # Close email body
+            html_content += """
+                <p style="margin-top: 20px; font-size: 12px; color: #6c757d;">
+                    Best regards,<br>
+                    Springboard™ XML Processing System
+                </p>
+            </body>
+            </html>
+            """
 
             # Add XML sync information if available
             if xml_sync_info and xml_sync_info.get('success'):
