@@ -2633,6 +2633,36 @@ def simple_health_check():
             'traceback': traceback.format_exc()
         }), 500
 
+@app.route('/api/trigger/job-sync', methods=['POST'])
+@login_required  
+def trigger_job_sync():
+    """Manually trigger job synchronization for immediate processing"""
+    try:
+        from monitoring_refactor import MonitoringService
+        
+        # Run monitoring immediately
+        service = MonitoringService(db.session)
+        service.xml_service = XMLIntegrationService()
+        service.email_service = EmailService()
+        service.BullhornMonitor = BullhornMonitor
+        service.BullhornActivity = BullhornActivity
+        service.GlobalSettings = GlobalSettings
+        service.ScheduledProcessing = ScheduleConfig  # ScheduledProcessing is actually ScheduleConfig
+        
+        service.process_all_monitors()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Job sync triggered successfully',
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        app.logger.error(f"Manual job sync error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/system/health')
 def system_health_check():
     """System health check endpoint to detect scheduler timing issues"""

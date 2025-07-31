@@ -371,8 +371,7 @@ class MonitoringService:
 def process_bullhorn_monitors_simple():
     """Simplified entry point for APScheduler"""
     # Import inside function to avoid circular imports
-    from app import app, db
-    from models import BullhornMonitor, BullhornActivity, GlobalSettings, ScheduledProcessing
+    from app import app, db, BullhornMonitor, BullhornActivity, GlobalSettings, ScheduledProcessing
     from xml_integration_service import XMLIntegrationService
     from bullhorn_service import BullhornService
     from email_service import EmailService
