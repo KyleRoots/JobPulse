@@ -490,9 +490,14 @@
                             <i class="fas fa-desktop me-2"></i>
                             Active Monitors ({{ monitors|length }})
                         </h5>
-                        <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
-                            <i class="fas fa-plus me-2"></i>Create Monitor
-                        </a>
+                        <div>
+                            <button onclick="syncNow()" class="btn btn-success me-2" id="syncNowBtn">
+                                <i class="fas fa-sync-alt me-2"></i>Sync Now
+                            </button>
+                            <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Create Monitor
+                            </a>
+                        </div>
                     </div>
                     <div class="card-body">
                         {% if monitors %}
@@ -1040,6 +1045,71 @@
                 // Reload jobs
                 loadMonitorJobs(currentMonitorId);
             }
+        }
+
+        // Sync Now function
+        function syncNow() {
+            const btn = document.getElementById('syncNowBtn');
+            const originalHtml = btn.innerHTML;
+            
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-sync-alt fa-spin me-2"></i>Syncing...';
+            
+            // Call the instant sync endpoint
+            fetch('/api/trigger/job-sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success briefly
+                    btn.innerHTML = '<i class="fas fa-check me-2"></i>Sync Complete!';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-info');
+                    
+                    // Refresh the activity table
+                    updateRecentActivity();
+                    
+                    // Restore button after 3 seconds
+                    setTimeout(() => {
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+                        btn.classList.remove('btn-info');
+                        btn.classList.add('btn-success');
+                    }, 3000);
+                } else {
+                    // Show error
+                    btn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Sync Failed';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-danger');
+                    
+                    // Restore button after 3 seconds
+                    setTimeout(() => {
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+                        btn.classList.remove('btn-danger');
+                        btn.classList.add('btn-success');
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                // Show error
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Error';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-danger');
+                
+                // Restore button after 3 seconds
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-success');
+                }, 3000);
+            });
         }
 
         // Initialize health monitoring
