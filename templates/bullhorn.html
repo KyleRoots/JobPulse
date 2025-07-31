@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ATS Monitoring - Springboard™</title>
+    <title>ATS Monitoring - JobPulse™</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -294,12 +294,12 @@
             100% { opacity: 1; }
         }
         
-        .springboard-header {
+        .jobpulse-header {
             text-align: center;
             margin-bottom: 3rem;
         }
         
-        .springboard-logo {
+        .jobpulse-logo {
             font-size: 2.5rem;
             font-weight: 700;
             color: #ffffff;
@@ -322,7 +322,7 @@
             margin-bottom: 0.5rem;
         }
         
-        .springboard-footer {
+        .jobpulse-footer {
             position: fixed;
             bottom: 0;
             left: 0;
@@ -381,11 +381,11 @@
     <div class="container py-5 content-container">
         <div class="row">
             <div class="col-12">
-                <!-- Springboard Header -->
-                <div class="springboard-header">
-                    <div class="springboard-logo">
-                        <i class="fas fa-sync-alt me-2" style="animation: spin 4s linear infinite;"></i>
-                        Springboard™
+                <!-- JobPulse Header -->
+                <div class="jobpulse-header">
+                    <div class="jobpulse-logo">
+                        <i class="fas fa-heartbeat me-2" style="animation: spin 4s linear infinite;"></i>
+                        JobPulse™
                     </div>
                     <div class="lyntrix-attribution">powered by Lyntrix AI</div>
                     <div class="page-title">ATS Monitoring</div>
@@ -510,7 +510,7 @@
                         </h5>
                         <div>
                             <button onclick="syncNow()" class="btn btn-success me-2" id="syncNowBtn">
-                                <i class="fas fa-sync-alt me-2"></i>Sync Now
+                                <i class="fas fa-heartbeat me-2"></i>Sync Now
                             </button>
                             <button onclick="fixAIClassifications()" class="btn btn-outline-warning me-2 ai-fix-btn" id="aiFixBtn" title="Check and fix missing AI classifications">
                                 <i class="fas fa-brain me-2"></i>Fix AI Classifications
@@ -1152,7 +1152,7 @@
             
             // Show loading state
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-sync-alt fa-spin me-2"></i>Syncing...';
+            btn.innerHTML = '<i class="fas fa-heartbeat fa-spin me-2"></i>Syncing...';
             
             // Call the instant sync endpoint
             fetch('/api/trigger/job-sync', {
@@ -1361,8 +1361,8 @@
 
     </script>
     
-    <!-- Springboard Footer -->
-    <div class="springboard-footer">
+    <!-- JobPulse Footer -->
+    <div class="jobpulse-footer">
         © 2025 Lyntrix Solutions
     </div>
 </body>
