@@ -2697,6 +2697,135 @@ def trigger_health_check():
             'error': str(e)
         }), 500
 
+@app.route('/api/trigger/ai-classification-fix', methods=['POST'])
+@login_required
+def trigger_ai_classification_fix():
+    """Manually trigger AI classification fix for all jobs"""
+    try:
+        app.logger.info("Manual AI classification fix triggered")
+        
+        from job_classification_service import JobClassificationService
+        from lxml import etree
+        import os
+        
+        xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+        total_jobs_fixed = 0
+        
+        for xml_file in xml_files:
+            if not os.path.exists(xml_file):
+                continue
+                
+            try:
+                # Parse XML file
+                parser = etree.XMLParser(strip_cdata=False, recover=True)
+                tree = etree.parse(xml_file, parser)
+                root = tree.getroot()
+                
+                jobs = root.findall('.//job')
+                jobs_to_fix = []
+                
+                # Find jobs missing AI classifications
+                for job in jobs:
+                    job_id_elem = job.find('bhatsid')
+                    job_id = job_id_elem.text if job_id_elem is not None else 'Unknown'
+                    
+                    title_elem = job.find('title')
+                    title = title_elem.text if title_elem is not None else ''
+                    
+                    description_elem = job.find('description')
+                    description = description_elem.text if description_elem is not None else ''
+                    
+                    # Check if AI classifications are missing or empty
+                    jobfunction_elem = job.find('jobfunction')
+                    jobindustries_elem = job.find('jobindustries')
+                    senoritylevel_elem = job.find('senoritylevel')
+                    
+                    missing_ai = []
+                    if jobfunction_elem is None or not jobfunction_elem.text or jobfunction_elem.text.strip() == '':
+                        missing_ai.append('jobfunction')
+                    if jobindustries_elem is None or not jobindustries_elem.text or jobindustries_elem.text.strip() == '':
+                        missing_ai.append('jobindustries')
+                    if senoritylevel_elem is None or not senoritylevel_elem.text or senoritylevel_elem.text.strip() == '':
+                        missing_ai.append('senoritylevel')
+                    
+                    if missing_ai:
+                        jobs_to_fix.append({
+                            'job_id': job_id,
+                            'title': title,
+                            'description': description,
+                            'job_element': job,
+                            'missing_fields': missing_ai
+                        })
+                
+                # Fix missing AI classifications
+                if jobs_to_fix:
+                    app.logger.info(f"Found {len(jobs_to_fix)} jobs with missing AI classifications in {xml_file}")
+                    
+                    classification_service = JobClassificationService()
+                    
+                    for job_data in jobs_to_fix:
+                        try:
+                            # Get AI classifications for this job
+                            ai_result = classification_service.classify_job(
+                                job_data['title'], 
+                                job_data['description']
+                            )
+                            
+                            if ai_result and ai_result.get('success'):
+                                # Update missing AI fields
+                                if 'jobfunction' in job_data['missing_fields']:
+                                    jobfunction_elem = job_data['job_element'].find('jobfunction')
+                                    if jobfunction_elem is None:
+                                        jobfunction_elem = etree.SubElement(job_data['job_element'], 'jobfunction')
+                                        jobfunction_elem.tail = "\n    "
+                                    jobfunction_elem.text = etree.CDATA(f" {ai_result['job_function']} ")
+                                
+                                if 'jobindustries' in job_data['missing_fields']:
+                                    jobindustries_elem = job_data['job_element'].find('jobindustries')
+                                    if jobindustries_elem is None:
+                                        jobindustries_elem = etree.SubElement(job_data['job_element'], 'jobindustries')
+                                        jobindustries_elem.tail = "\n    "
+                                    jobindustries_elem.text = etree.CDATA(f" {ai_result['industries']} ")
+                                
+                                if 'senoritylevel' in job_data['missing_fields']:
+                                    senoritylevel_elem = job_data['job_element'].find('senoritylevel')
+                                    if senoritylevel_elem is None:
+                                        senoritylevel_elem = etree.SubElement(job_data['job_element'], 'senoritylevel')
+                                        senoritylevel_elem.tail = "\n  "
+                                    senoritylevel_elem.text = etree.CDATA(f" {ai_result['seniority_level']} ")
+                                
+                                total_jobs_fixed += 1
+                                app.logger.info(f"Fixed AI classifications for job {job_data['job_id']}")
+                                
+                        except Exception as e:
+                            app.logger.error(f"Error fixing AI classifications for job {job_data['job_id']}: {str(e)}")
+                    
+                    # Save updated XML file
+                    if total_jobs_fixed > 0:
+                        with open(xml_file, 'wb') as f:
+                            tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+                        
+                        app.logger.info(f"Updated {xml_file} with AI classifications for {len(jobs_to_fix)} jobs")
+                
+            except Exception as e:
+                app.logger.error(f"Error processing AI classifications in {xml_file}: {str(e)}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'AI classification fix completed successfully',
+            'fixed_count': total_jobs_fixed,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Manual AI classification fix error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+
 @app.route('/api/bullhorn/monitoring-cycles', methods=['GET'])
 @login_required
 def get_monitoring_cycles():

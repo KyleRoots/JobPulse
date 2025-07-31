@@ -56,9 +56,11 @@ class JobClassificationService:
         if not self.openai_client:
             self.logger.warning("OpenAI client not initialized - returning empty classifications")
             return {
+                'success': False,
                 'job_function': '',
-                'job_industry': '',
-                'seniority_level': ''
+                'industries': '',
+                'seniority_level': '',
+                'error': 'OpenAI client not initialized'
             }
         
         try:
@@ -116,18 +118,28 @@ class JobClassificationService:
             # Validate that returned values are in our predefined lists
             validated_result = self._validate_classification(result)
             
-            self.logger.info(f"Classified job '{job_title}': Function={validated_result['job_function']}, "
-                           f"Industry={validated_result['job_industry']}, "
-                           f"Seniority={validated_result['seniority_level']}")
+            # Add success flag and format keys to match monitoring expectations
+            final_result = {
+                'success': True,
+                'job_function': validated_result['job_function'],
+                'industries': validated_result['job_industry'], 
+                'seniority_level': validated_result['seniority_level']
+            }
             
-            return validated_result
+            self.logger.info(f"Classified job '{job_title}': Function={final_result['job_function']}, "
+                           f"Industry={final_result['industries']}, "
+                           f"Seniority={final_result['seniority_level']}")
+            
+            return final_result
             
         except Exception as e:
             self.logger.error(f"Error classifying job: {e}")
             return {
+                'success': False,
                 'job_function': '',
-                'job_industry': '',
-                'seniority_level': ''
+                'industries': '',
+                'seniority_level': '',
+                'error': str(e)
             }
     
     def _validate_classification(self, classification: Dict) -> Dict[str, str]:

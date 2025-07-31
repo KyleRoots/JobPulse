@@ -462,8 +462,8 @@ class XMLIntegrationService:
                 except Exception as e:
                     self.logger.debug(f"Could not check for existing job: {e}")
                 
-                # Map Bullhorn job to XML format with existing reference number if found (skip AI for performance)
-                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=True)
+                # Map Bullhorn job to XML format with existing reference number if found (ALWAYS include AI for completeness)
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=False)
                 if not xml_job or not xml_job.get('title') or not xml_job.get('referencenumber'):
                     self.logger.error(f"Failed to map job {job_id} to XML format - invalid XML job data")
                     if attempt < max_retries - 1:
