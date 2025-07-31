@@ -1116,7 +1116,9 @@ def process_bullhorn_monitors():
                                             
                                             # Update BOTH the main XML file and the scheduled file
                                             main_xml_path = 'myticas-job-feed.xml'
-                                            if xml_service.add_job_to_xml(main_xml_path, job, monitor_name):
+                                            # NEW JOBS during comprehensive sync should get AI classifications
+                                            # since this is not real-time individual monitoring
+                                            if xml_service.add_job_to_xml(main_xml_path, job, monitor_name, skip_ai_classification=False):
                                                 total_changes += 1
                                                 company_info = " (STSI Group)" if 'Sponsored - STSI' in monitor_name else ""
                                                 app.logger.info(f"✅ Added NEW job {job.get('id')}: {job.get('title', 'Unknown')} from {monitor_name}{company_info}")
@@ -1132,10 +1134,10 @@ def process_bullhorn_monitors():
                                                 )
                                                 db.session.add(activity)
                                                 
-                                                # Also update scheduled file
+                                                # Also update scheduled file with AI classifications
                                                 scheduled_xml_path = 'myticas-job-feed-scheduled.xml'
                                                 if scheduled_xml_path != main_xml_path:
-                                                    xml_service.add_job_to_xml(scheduled_xml_path, job, monitor_name)
+                                                    xml_service.add_job_to_xml(scheduled_xml_path, job, monitor_name, skip_ai_classification=False)
                                 
                                 # Remove orphaned jobs with enhanced verification
                                 if orphaned_job_ids:
