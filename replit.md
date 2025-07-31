@@ -10,6 +10,7 @@ Preferred communication style: Simple, everyday language.
 - **EMAIL NOTIFICATION SYSTEM FULLY RESOLVED**: Fixed critical email delivery issues where monitoring detected job changes but notifications weren't being sent, processed 246+ accumulated pending notifications
 - **EMAIL SERVICE CONFIGURATION FIXED**: Corrected GlobalSettings email address lookup logic and updated email service to handle both full Bullhorn objects and simplified job data formats
 - **PRODUCTION TESTING VERIFIED**: Test email successfully sent to kroots@myticas.com confirming full system functionality
+- **RECRUITER NAME MAPPING IMPLEMENTED**: Added LinkedIn-style tag mapping for <assignedrecruiter> field with 13 specific name mappings (e.g., Michael Theodossiou > #LI-MIT, Runa Parmar > #LI-RP, etc.)
 
 ## System Architecture
 

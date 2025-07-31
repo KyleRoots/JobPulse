@@ -2,6 +2,26 @@
 <source>
   <publisherurl>https://myticas.com</publisherurl>
   <job>
+    <title><![CDATA[ Robotic Power Automate Developer (34090) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 31, 2025 ]]></date>
+    <referencenumber><![CDATA[ HZOIFBU2TU ]]></referencenumber>
+    <bhatsid><![CDATA[ 34090 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p>Myticas Consulting is currently seeking <strong>2–3 Robotic Power Automate Developers</strong> to support a large-scale <strong>data migration project</strong> for a confidential financial services client. This is a <strong>hybrid role</strong> based in <strong>Montreal or Toronto</strong>, with a preference for <strong>Montreal-based candidates</strong>. Candidates must be open to periodic travel to Montreal (1–2 times/month, 3–4 days at a time) and <strong>working shifts during production events</strong>, including some evenings/weekends.</p> <hr> <h3><strong>Project Scope:</strong></h3> <p>The successful candidates will develop, optimize, and deploy automation workflows using <strong>Power Automate Desktop (RPA)</strong> and SQL. The role focuses on <strong>data transformation and integration into legacy mainframe systems</strong>, supporting business-critical migration activities with high compliance and quality standards.</p> <hr> <h3><strong>Key Responsibilities:</strong></h3> <ul> <li> <p>Design and deploy automation workflows using <strong>Power Automate Desktop (RPA)</strong></p> <li> <p>Collaborate with business and data teams to translate migration requirements into automated processes</p> <li> <p>Write and optimize complex SQL queries, stored procedures, and data validations</p> <li> <p>Automate ETL processes for integration with mainframe environments</p> <li> <p>Monitor, troubleshoot, and resolve workflow issues</p> <li> <p>Ensure security, compliance, and maintain clear documentation and audit trails</p> <li> <p>Participate in key migration events and be available for shift-based support when needed</p> </ul> <hr> <h3><strong>Required Skills & Qualifications:</strong></h3> <ul> <li> <p>4+ years of experience in <strong>Power Automate Desktop (RPA)</strong> development</p> <li> <p>Experience with <strong>Power Platform</strong> (solution creation and deployments)</p> <li> <p>Strong <strong>SQL development</strong> skills, including stored procedures and performance tuning</p> <li> <p>Previous experience with <strong>mainframe data integration or loading</strong></p> <li> <p>Understanding of <strong>RPA architecture</strong>, workflow orchestration, and automation lifecycle</p> <li> <p>Experience working in Agile or hybrid project settings</p> <li> <p>Strong communication and troubleshooting skills</p> </ul> <hr> <h3><strong>Nice-to-Have:</strong></h3> <ul> <li> <p>Familiarity with <strong>Power Automate Cloud flows</strong> or Power Platform integrations</p> <li> <p>Knowledge of <strong>SSIS, ADF, Informatica</strong>, or middleware tools</p> <li> <p>Exposure to <strong>COBOL datasets</strong> or legacy batch processing</p> <li> <p>Experience with <strong>data mapping</strong> and transformation logic</p> </ul> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[ Montreal ]]></city>
+    <state><![CDATA[  ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Hybrid ]]></remotetype>
+    <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Financial Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+  </job>
+  <job>
     <title><![CDATA[ Senior IAM Consultant (34089) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ July 31, 2025 ]]></date>
@@ -58,7 +78,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <jobindustries><![CDATA[  ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -97,8 +117,8 @@
     <apply_email><![CDATA[  ]]></apply_email>
     <remotetype><![CDATA[  ]]></remotetype>
     <assignedrecruiter><![CDATA[  ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <jobfunction><![CDATA[ Marketing ]]></jobfunction>
+    <jobindustries><![CDATA[ Consumer Goods ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -378,7 +398,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Adam Gebara ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -658,7 +678,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Legal ]]></jobfunction>
-    <jobindustries><![CDATA[ Legal Services ]]></jobindustries>
+    <jobindustries><![CDATA[ Alternative Dispute Resolution ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -818,7 +838,7 @@
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1238,7 +1258,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Myticas Recruiter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Project Management ]]></jobfunction>
-    <jobindustries><![CDATA[ Management Consulting ]]></jobindustries>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1258,7 +1278,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Mike Gebara ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1297,7 +1317,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Human Resources ]]></jobfunction>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
     <jobindustries><![CDATA[ Civic and Social Organization ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
@@ -1398,7 +1418,7 @@
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Christine Carter ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Marketing ]]></jobfunction>
-    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
+    <jobindustries><![CDATA[ Consumer Services ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1437,8 +1457,8 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ Christine Carter ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Marketing ]]></jobfunction>
-    <jobindustries><![CDATA[ Management Consulting ]]></jobindustries>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1458,7 +1478,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ Runa Parmar ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>

@@ -246,8 +246,10 @@ class XMLIntegrationService:
             return 'Onsite'  # Default fallback
     
     def _extract_assigned_recruiter(self, assigned_users, response_user, owner) -> str:
-        """Extract recruiter name from multiple possible fields"""
+        """Extract recruiter name from multiple possible fields and map to LinkedIn-style tag"""
         try:
+            recruiter_name = ''
+            
             # Check assignedUsers first (array of users)
             if assigned_users and isinstance(assigned_users, dict):
                 users_data = assigned_users.get('data', [])
@@ -257,27 +259,62 @@ class XMLIntegrationService:
                         first_name = first_user.get('firstName', '')
                         last_name = first_user.get('lastName', '')
                         if first_name or last_name:
-                            return f"{first_name} {last_name}".strip()
+                            recruiter_name = f"{first_name} {last_name}".strip()
             
             # Check responseUser next (single user)
-            if response_user and isinstance(response_user, dict):
+            if not recruiter_name and response_user and isinstance(response_user, dict):
                 first_name = response_user.get('firstName', '')
                 last_name = response_user.get('lastName', '')
                 if first_name or last_name:
-                    return f"{first_name} {last_name}".strip()
+                    recruiter_name = f"{first_name} {last_name}".strip()
             
             # Finally check owner (single user)
-            if owner and isinstance(owner, dict):
+            if not recruiter_name and owner and isinstance(owner, dict):
                 first_name = owner.get('firstName', '')
                 last_name = owner.get('lastName', '')
                 if first_name or last_name:
-                    return f"{first_name} {last_name}".strip()
+                    recruiter_name = f"{first_name} {last_name}".strip()
+            
+            # Apply recruiter name to LinkedIn-style tag mapping
+            if recruiter_name:
+                return self._map_recruiter_to_linkedin_tag(recruiter_name)
             
             return ''
             
         except Exception as e:
             self.logger.warning(f"Error extracting assigned recruiter: {str(e)}")
             return ''
+    
+    def _map_recruiter_to_linkedin_tag(self, recruiter_name: str) -> str:
+        """Map recruiter names to LinkedIn-style tags for XML"""
+        # Define recruiter name to LinkedIn tag mapping
+        recruiter_mapping = {
+            'Michael Theodossiou': '#LI-MIT',  # Note: Also maps to #LI-MAT - needs clarification
+            'Myticas Recruiter': '#LI-RS',    # Note: Same as Reena Setya - needs clarification
+            'Runa Parmar': '#LI-RP',
+            'Adam Gebara': '#LI-AG',
+            'Dan Sifer': '#LI-DS',             # Note: Same as Dominic Scaletta - needs clarification
+            'Mike Gebara': '#LI-MG',
+            'Christine Carter': '#LI-CC',
+            'Michelle Corino': '#LI-MC',
+            'Amanda Messina': '#LI-AM',
+            'Dominic Scaletta': '#LI-DS',      # Note: Same as Dan Sifer - needs clarification
+            'Bryan Chinzorig': '#LI-BC',
+            'Reena Setya': '#LI-RS'            # Note: Same as Myticas Recruiter - needs clarification
+        }
+        
+        # Check for exact match first
+        if recruiter_name in recruiter_mapping:
+            return recruiter_mapping[recruiter_name]
+        
+        # Check for case-insensitive match
+        for name, tag in recruiter_mapping.items():
+            if recruiter_name.lower() == name.lower():
+                return tag
+        
+        # If no mapping found, return the original name
+        self.logger.info(f"No LinkedIn tag mapping found for recruiter: {recruiter_name}")
+        return recruiter_name
     
     def _clean_description(self, description: str) -> str:
         """Clean and format job description for XML"""
