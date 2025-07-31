@@ -266,10 +266,7 @@ def process_scheduled_files():
                                 if (email_enabled and email_enabled.setting_value == 'true' and 
                                     email_address and email_address.setting_value):
                                     
-                                    # Add 15-second delay before sending email to ensure XML updates are reflected
-                                    app.logger.info(f"Waiting 15 seconds before sending email notification for schedule: {schedule.name}")
-                                    import time
-                                    time.sleep(15)
+                                    # Send email notification immediately after XML processing
                                     
                                     email_service = EmailService()
                                     email_sent = email_service.send_processing_notification(
@@ -1644,10 +1641,8 @@ def process_bullhorn_monitors():
                                                     # IMMEDIATE WORKFLOW: Send all pending notifications AFTER XML sync and SFTP upload complete
                                                     # This ensures users receive notifications only after XML is live on web server
                                                     if hasattr(app, '_pending_notifications') and app._pending_notifications:
-                                                        # Wait 15 seconds for SFTP propagation
-                                                        import time
-                                                        time.sleep(15)
-                                                        app.logger.info(f"Sending {len(app._pending_notifications)} pending email notifications after successful XML sync and upload")
+                                                        # Send notifications immediately after SFTP upload
+                                                        app.logger.info(f"Sending {len(app._pending_notifications)} pending email notifications immediately after successful XML sync and upload")
                                                         
                                                         email_service = EmailService()
                                                         notifications_sent = 0
@@ -1709,9 +1704,7 @@ def process_bullhorn_monitors():
                                     if hasattr(app, '_pending_notifications') and app._pending_notifications:
                                         app.logger.info(f"📧 Sending {len(app._pending_notifications)} pending notifications (no XML changes needed)")
                                         
-                                        # Add 15-second delay to ensure consistency with web server
-                                        import time
-                                        time.sleep(15)
+                                        # Send notifications immediately after XML sync completion
                                         
                                         email_service = EmailService()
                                         notifications_sent = 0
