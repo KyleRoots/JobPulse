@@ -305,27 +305,29 @@ class MonitoringService:
             for setting in self.GlobalSettings.query.all():
                 settings[setting.setting_key] = setting.setting_value
             
-            if not all(k in settings for k in ['sftp_hostname', 'sftp_username', 'sftp_password']):
+            if settings.get('sftp_enabled') != 'true' or not all(k in settings for k in ['sftp_hostname', 'sftp_username', 'sftp_password']):
                 app.logger.info("SFTP settings not configured, skipping upload")
                 return
             
-            ftp_service = FTPService(
+            ftp_service = self.FTPService(
                 hostname=settings['sftp_hostname'],
                 username=settings['sftp_username'],
                 password=settings['sftp_password'],
-                port=int(settings.get('sftp_port', '22'))
+                target_directory=settings.get('sftp_directory', '/'),
+                port=int(settings.get('sftp_port', '2222')),
+                use_sftp=True
             )
             
             # Upload main XML file
-            result = ftp_service.upload_file('myticas-job-feed.xml', 'myticas-job-feed.xml')
-            if result['success']:
+            success = ftp_service.upload_file('myticas-job-feed.xml', 'myticas-job-feed.xml')
+            if success:
                 app.logger.info("SFTP upload successful")
                 # Update last upload timestamp
                 for schedule in self.ScheduleConfig.query.filter_by(is_active=True).all():
-                    schedule.last_upload = datetime.utcnow()
+                    schedule.last_file_upload = datetime.utcnow()
                 self.db.commit()
             else:
-                app.logger.error(f"SFTP upload failed: {result.get('message')}")
+                app.logger.error(f"SFTP upload failed")
                 
         except Exception as e:
             app.logger.error(f"SFTP upload error: {str(e)}")
