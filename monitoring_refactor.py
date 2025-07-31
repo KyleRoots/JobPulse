@@ -240,6 +240,14 @@ class MonitoringService:
                     monitor_name = self.get_monitor_name_for_job(job_id, monitors)
                     self.xml_service.add_job_to_xml(xml_file, job, monitor_name)
             
+            # Update existing jobs
+            existing_jobs = xml_job_ids.intersection(bullhorn_job_ids)
+            for job_id in existing_jobs:
+                job = next((j for j in all_jobs if str(j.get('id')) == job_id), None)
+                if job:
+                    monitor_name = self.get_monitor_name_for_job(job_id, monitors)
+                    self.xml_service.update_job_in_xml(xml_file, job, monitor_name)
+            
             # Remove orphaned jobs
             for job_id in orphaned_jobs:
                 self.xml_service.remove_job_from_xml(xml_file, job_id)
