@@ -105,13 +105,13 @@
             z-index: 2;
         }
         
-        /* Pulse line across the resume icon */
+        /* Pulse line across the resume icon only */
         .logo-icon-wrapper::before {
             content: '';
             position: absolute;
             top: 50%;
-            left: -10px;
-            right: -10px;
+            left: 15%;
+            right: 15%;
             height: 3px;
             background: linear-gradient(90deg, transparent, #e74c3c, #f39c12, #e74c3c, transparent);
             border-radius: 2px;
@@ -119,20 +119,20 @@
             z-index: 3;
         }
         
-        /* Pulse dots for enhanced effect */
+        /* Pulse dots for enhanced effect - contained within icon */
         .logo-icon-wrapper::after {
             content: '';
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 6px;
-            height: 6px;
+            width: 4px;
+            height: 4px;
             background: #fff;
             border-radius: 50%;
             transform: translate(-50%, -50%);
             animation: pulseLineTravel 2s ease-in-out infinite;
             z-index: 4;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
         }
         
         @keyframes pulseLine {
@@ -149,7 +149,7 @@
         
         @keyframes pulseLineTravel {
             0% { 
-                left: 20%; 
+                left: 30%; 
                 opacity: 0; 
                 transform: translate(-50%, -50%) scale(0.5);
             }
@@ -162,7 +162,7 @@
                 transform: translate(-50%, -50%) scale(1);
             }
             100% { 
-                left: 80%; 
+                left: 70%; 
                 opacity: 0; 
                 transform: translate(-50%, -50%) scale(0.5);
             }
@@ -381,8 +381,8 @@
                 font-size: 2rem;
             }
             .logo-icon-wrapper::before {
-                left: -8px;
-                right: -8px;
+                left: 15%;
+                right: 15%;
                 height: 2px;
             }
             .container {
