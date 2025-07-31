@@ -9,11 +9,6 @@ import json
 import os
 from typing import List, Dict, Set, Tuple
 from flask import current_app as app
-from models import *
-from xml_integration_service import XMLIntegrationService
-from bullhorn_service import BullhornService
-from email_service import EmailService
-from ftp_service import FTPService
 
 class MonitoringService:
     """Simplified monitoring service that breaks down complex logic into manageable pieces"""
@@ -21,8 +16,8 @@ class MonitoringService:
     def __init__(self, db_session):
         self.db = db_session
         self.bullhorn = None
-        self.xml_service = XMLIntegrationService()
-        self.email_service = EmailService()
+        self.xml_service = None
+        self.email_service = None
     
     def process_all_monitors(self):
         """Main entry point - simplified monitoring process"""
@@ -63,9 +58,9 @@ class MonitoringService:
         current_time = datetime.utcnow()
         overdue_threshold = current_time - timedelta(minutes=10)
         
-        overdue_monitors = BullhornMonitor.query.filter(
-            BullhornMonitor.is_active == True,
-            BullhornMonitor.next_check < overdue_threshold
+        overdue_monitors = self.self.BullhornMonitor.query.filter(
+            self.BullhornMonitor.is_active == True,
+            self.BullhornMonitor.next_check < overdue_threshold
         ).all()
         
         if overdue_monitors:
@@ -81,12 +76,12 @@ class MonitoringService:
                 app.logger.error(f"Failed to fix timing: {str(e)}")
                 self.db.rollback()
     
-    def get_due_monitors(self) -> List[BullhornMonitor]:
+    def get_due_monitors(self):
         """Get all monitors due for checking"""
         current_time = datetime.utcnow()
-        return BullhornMonitor.query.filter(
-            BullhornMonitor.is_active == True,
-            BullhornMonitor.next_check <= current_time
+        return self.self.BullhornMonitor.query.filter(
+            self.BullhornMonitor.is_active == True,
+            self.BullhornMonitor.next_check <= current_time
         ).all()
     
     def init_bullhorn_connection(self) -> bool:
@@ -98,7 +93,7 @@ class MonitoringService:
             app.logger.error(f"Bullhorn connection error: {str(e)}")
             return False
     
-    def process_single_monitor(self, monitor: BullhornMonitor) -> List[Dict]:
+    def process_single_monitor(self, monitor):
         """Process a single monitor and return its jobs"""
         try:
             app.logger.info(f"Processing monitor: {monitor.name}")
@@ -143,7 +138,7 @@ class MonitoringService:
             self.log_error(monitor, str(e))
             return []
     
-    def log_monitor_changes(self, monitor: BullhornMonitor, changes: Dict, job_count: int):
+    def log_monitor_changes(self, monitor, changes, job_count):
         """Log monitor changes as activities"""
         added = changes.get('added', [])
         removed = changes.get('removed', [])
@@ -151,7 +146,7 @@ class MonitoringService:
         
         # Log individual job changes
         for job in added:
-            activity = BullhornActivity(
+            activity = self.BullhornActivity(
                 monitor_id=monitor.id,
                 activity_type='job_added',
                 job_id=str(job.get('id')),
@@ -161,7 +156,7 @@ class MonitoringService:
             self.db.add(activity)
         
         for job in removed:
-            activity = BullhornActivity(
+            activity = self.BullhornActivity(
                 monitor_id=monitor.id,
                 activity_type='job_removed',
                 job_id=str(job.get('id')),
@@ -171,7 +166,7 @@ class MonitoringService:
             self.db.add(activity)
         
         for job in modified:
-            activity = BullhornActivity(
+            activity = self.BullhornActivity(
                 monitor_id=monitor.id,
                 activity_type='job_modified',
                 job_id=str(job.get('id')),
@@ -182,14 +177,14 @@ class MonitoringService:
         
         # Log check completed if no changes
         if not (added or removed or modified):
-            activity = BullhornActivity(
+            activity = self.BullhornActivity(
                 monitor_id=monitor.id,
                 activity_type='check_completed',
                 details=f"Checked {monitor.tearsheet_name}. Found {job_count} jobs. No changes detected."
             )
             self.db.add(activity)
     
-    def run_comprehensive_sync(self, all_jobs: List[Dict], monitors: List[BullhornMonitor]):
+    def run_comprehensive_sync(self, all_jobs, monitors):
         """Run comprehensive XML sync with all collected jobs"""
         try:
             app.logger.info(f"Starting comprehensive sync with {len(all_jobs)} total jobs")
@@ -210,7 +205,7 @@ class MonitoringService:
         except Exception as e:
             app.logger.error(f"Comprehensive sync error: {str(e)}")
     
-    def sync_xml_file(self, xml_file: str, all_jobs: List[Dict], monitors: List[BullhornMonitor]):
+    def sync_xml_file(self, xml_file, all_jobs, monitors):
         """Sync a single XML file with Bullhorn jobs"""
         try:
             # Get current job IDs from XML
@@ -242,7 +237,7 @@ class MonitoringService:
         except Exception as e:
             app.logger.error(f"Error syncing {xml_file}: {str(e)}")
     
-    def get_xml_job_ids(self, xml_file: str) -> Set[str]:
+    def get_xml_job_ids(self, xml_file):
         """Extract job IDs from XML file"""
         job_ids = set()
         try:
@@ -270,7 +265,7 @@ class MonitoringService:
         
         return job_ids
     
-    def get_monitor_name_for_job(self, job_id: str, monitors: List[BullhornMonitor]) -> str:
+    def get_monitor_name_for_job(self, job_id, monitors):
         """Determine which monitor a job belongs to"""
         for monitor in monitors:
             if monitor.last_job_snapshot:
@@ -287,7 +282,7 @@ class MonitoringService:
         try:
             # Get SFTP settings
             settings = {}
-            for setting in GlobalSettings.query.all():
+            for setting in self.GlobalSettings.query.all():
                 settings[setting.setting_key] = setting.setting_value
             
             if not all(k in settings for k in ['sftp_hostname', 'sftp_username', 'sftp_password']):
@@ -306,7 +301,7 @@ class MonitoringService:
             if result['success']:
                 app.logger.info("SFTP upload successful")
                 # Update last upload timestamp
-                for schedule in ScheduledProcessing.query.filter_by(is_active=True).all():
+                for schedule in self.ScheduledProcessing.query.filter_by(is_active=True).all():
                     schedule.last_upload = datetime.utcnow()
                 self.db.commit()
             else:
@@ -332,14 +327,14 @@ class MonitoringService:
             
             # Send notifications for each monitor
             for monitor_id, activities in by_monitor.items():
-                monitor = BullhornMonitor.query.get(monitor_id)
+                monitor = self.BullhornMonitor.query.get(monitor_id)
                 if monitor:
                     self.send_monitor_notification(monitor, activities)
             
         except Exception as e:
             app.logger.error(f"Notification error: {str(e)}")
     
-    def send_monitor_notification(self, monitor: BullhornMonitor, activities: List[BullhornActivity]):
+    def send_monitor_notification(self, monitor, activities):
         """Send notification for a specific monitor's activities"""
         # Implement notification logic here
         pass
@@ -347,7 +342,7 @@ class MonitoringService:
     def perform_health_check(self):
         """Perform final health check on all monitors"""
         try:
-            all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+            all_monitors = self.BullhornMonitor.query.filter_by(is_active=True).all()
             healthy_count = 0
             
             for monitor in all_monitors:
@@ -359,9 +354,9 @@ class MonitoringService:
         except Exception as e:
             app.logger.error(f"Health check error: {str(e)}")
     
-    def log_error(self, monitor: BullhornMonitor, error_message: str):
+    def log_error(self, monitor, error_message):
         """Log an error for a monitor"""
-        activity = BullhornActivity(
+        activity = self.BullhornActivity(
             monitor_id=monitor.id,
             activity_type='error',
             details=f"Error: {error_message}"
@@ -375,6 +370,21 @@ class MonitoringService:
 
 def process_bullhorn_monitors_simple():
     """Simplified entry point for APScheduler"""
+    # Import inside function to avoid circular imports
+    from app import app, db
+    from models import BullhornMonitor, BullhornActivity, GlobalSettings, ScheduledProcessing
+    from xml_integration_service import XMLIntegrationService
+    from bullhorn_service import BullhornService
+    from email_service import EmailService
+    from ftp_service import FTPService
+    
     with app.app_context():
         service = MonitoringService(db.session)
+        # Initialize services inside app context
+        service.xml_service = XMLIntegrationService()
+        service.email_service = EmailService()
+        service.BullhornMonitor = BullhornMonitor
+        service.BullhornActivity = BullhornActivity
+        service.GlobalSettings = GlobalSettings
+        service.ScheduledProcessing = ScheduledProcessing
         service.process_all_monitors()

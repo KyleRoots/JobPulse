@@ -1587,9 +1587,18 @@ def process_bullhorn_monitors():
             app.logger.error(f"Error in Bullhorn monitor processing: {str(e)}")
             db.session.rollback()
 
+# Import the simplified monitoring service
+try:
+    from monitoring_refactor import process_bullhorn_monitors_simple
+    app.logger.info("Using refactored monitoring service for better reliability")
+    monitoring_func = process_bullhorn_monitors_simple
+except ImportError:
+    app.logger.warning("Using original complex monitoring function - refactored version not available")
+    monitoring_func = process_bullhorn_monitors
+
 # Add Bullhorn monitoring to scheduler
 scheduler.add_job(
-    func=process_bullhorn_monitors,
+    func=monitoring_func,
     trigger=IntervalTrigger(minutes=5),
     id='process_bullhorn_monitors',
     name='Process Bullhorn Monitors',
