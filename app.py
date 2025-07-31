@@ -1516,7 +1516,7 @@ def process_bullhorn_monitors():
                                             app.logger.error(f"Error updating snapshot for {monitor.name}: {str(e)}")
                                     
                             except Exception as e:
-                                app.logger.error(f"Error during comprehensive XML sync for {schedule.name}: {str(e)}")
+                                app.logger.error(f"Error during comprehensive XML sync for {xml_filename}: {str(e)}")
                 
                 except Exception as e:
                     app.logger.error(f"Error during comprehensive XML sync: {str(e)}")
