@@ -284,11 +284,17 @@ class XMLIntegrationService:
         if not description:
             return ''
         
+        import html
+        
+        # Convert HTML entities back to proper HTML tags for consistent formatting
+        # This ensures &lt;strong&gt; becomes <strong>, &lt;p&gt; becomes <p>, etc.
+        description = html.unescape(description)
+        
         # Remove excessive whitespace
         description = ' '.join(description.split())
         
-        # Ensure HTML content is properly formatted
-        # Note: We preserve HTML tags as they exist in the current XML structure
+        # Ensure HTML content is properly formatted within CDATA sections
+        # All HTML tags will now be consistent raw HTML format
         return description
     
     def _format_date(self, date_str: str) -> str:

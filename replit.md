@@ -29,7 +29,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Features
 - **Automated Workflow**: Monitors Bullhorn tearsheets every 5 minutes, syncs job changes to XML, regenerates reference numbers, uploads to SFTP, and sends email notifications. Ensures XML consistency with all active monitors.
-- **XML Integration Service**: Handles job additions, removals, and updates in XML files, ensuring job IDs are formatted and reference numbers generated.
+- **XML Integration Service**: Handles job additions, removals, and updates in XML files, ensuring job IDs are formatted and reference numbers generated. **HTML Consistency Fixed (July 31, 2025)**: All job descriptions now have consistent HTML formatting within CDATA sections.
 - **UI/UX**: Responsive dark-themed interface with real-time feedback and progress indicators.
 - **Security**: Login-protected routes and admin user management.
 
@@ -38,6 +38,7 @@ Preferred communication style: Simple, everyday language.
 - **File Upload Constraints**: XML files only, max 50MB, temporary storage, secure filename handling.
 - **Error Handling**: Comprehensive XML syntax error catching, user-friendly flash messages, server-side logging, client-side validation.
 - **AI-Powered Job Classification**: Integrates OpenAI GPT-4o to classify jobs (jobfunction, jobindustries, senoritylevel) based on title/description, using predefined Excel-based mappings.
+- **HTML Formatting Consistency**: Ensures all job descriptions have consistent HTML markup by converting HTML entities (e.g., `&lt;strong&gt;`) to proper HTML tags (e.g., `<strong>`) within CDATA sections.
 
 ## External Dependencies
 
