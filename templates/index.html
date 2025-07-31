@@ -102,6 +102,17 @@
             text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
         
+        @keyframes pulseDocument {
+            0%, 100% { 
+                transform: scale(1); 
+                text-shadow: 0 0 10px rgba(52, 152, 219, 0.6);
+            }
+            50% { 
+                transform: scale(1.1); 
+                text-shadow: 0 0 20px rgba(52, 152, 219, 0.9), 0 0 30px rgba(52, 152, 219, 0.6);
+            }
+        }
+        
         @keyframes logoRotate {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -382,7 +393,7 @@
                     <div class="mb-5">
                         <div class="logo-container mb-4">
                             <div class="logo-icon-wrapper">
-                                <i class="fas fa-heartbeat logo-icon"></i>
+                                <i class="fas fa-file-alt logo-icon"></i>
                             </div>
                             <h1 class="jobpulse-hero-text">
                                 <span class="jobpulse-j">J</span>OBPULSE<span class="trademark-pro">™</span>
@@ -490,7 +501,7 @@
                         <div class="logo-container">
                             <div class="text-center">
                                 <h1 class="logo-text d-flex align-items-center justify-content-center">
-                                    <i class="fas fa-heartbeat me-3" style="font-size: inherit;"></i>
+                                    <i class="fas fa-file-alt me-3" style="font-size: inherit;"></i>
                                     <span>JobPulse™</span>
                                 </h1>
                                 <p class="powered-by-text" style="font-family: 'Kalam', cursive; font-size: 0.9rem; color: #A8B8C8; margin: 0.25rem 0; font-weight: 400; letter-spacing: 0.2px;">powered by Lyntrix AI</p>
