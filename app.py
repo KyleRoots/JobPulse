@@ -25,9 +25,9 @@ import time
 from flask_login import LoginManager, current_user, login_required, UserMixin, login_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Configure logging for production
+# Configure logging for debugging account manager extraction
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 # Suppress verbose logging from external libraries
@@ -675,13 +675,31 @@ def process_bullhorn_monitors():
                     
                     # Log activities
                     for job in added_jobs:
-                        # Extract account manager from job data
+                        # Extract account manager from job data with debug logging
                         account_manager = None
-                        if job.get('owner') and isinstance(job['owner'], dict):
+                        job_id = job.get('id')
+                        
+                        # Debug: Log the job data structure for account manager fields
+                        if job_id:
+                            app.logger.debug(f"Job {job_id} userID field: {job.get('userID')}")
+                            app.logger.debug(f"Job {job_id} owner field: {job.get('owner')}")
+                            app.logger.debug(f"Job {job_id} assignedUsers field: {job.get('assignedUsers')}")
+                        
+                        # Priority 1: Extract from userID field (the correct field for account manager)
+                        if job.get('userID') and isinstance(job['userID'], dict):
+                            first_name = job['userID'].get('firstName', '').strip()
+                            last_name = job['userID'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from userID: {account_manager}")
+                        # Priority 2: Fallback to owner field
+                        elif job.get('owner') and isinstance(job['owner'], dict):
                             first_name = job['owner'].get('firstName', '').strip()
                             last_name = job['owner'].get('lastName', '').strip()
                             if first_name or last_name:
                                 account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from owner: {account_manager}")
+                        # Priority 3: Fallback to assignedUsers field
                         elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
                             first_user = job['assignedUsers'][0]
                             if isinstance(first_user, dict):
@@ -689,6 +707,10 @@ def process_bullhorn_monitors():
                                 last_name = first_user.get('lastName', '').strip()
                                 if first_name or last_name:
                                     account_manager = f"{first_name} {last_name}".strip()
+                                    app.logger.debug(f"Job {job_id} extracted account manager from assignedUsers: {account_manager}")
+                        
+                        if not account_manager:
+                            app.logger.debug(f"Job {job_id} - No account manager data found in userID, owner, or assignedUsers fields")
                         
                         activity = BullhornActivity(
                             monitor_id=monitor.id,
@@ -701,13 +723,31 @@ def process_bullhorn_monitors():
                         db.session.add(activity)
                     
                     for job in removed_jobs:
-                        # Extract account manager from job data
+                        # Extract account manager from job data with debug logging
                         account_manager = None
-                        if job.get('owner') and isinstance(job['owner'], dict):
+                        job_id = job.get('id')
+                        
+                        # Debug: Log the job data structure for account manager fields
+                        if job_id:
+                            app.logger.debug(f"Job {job_id} userID field: {job.get('userID')}")
+                            app.logger.debug(f"Job {job_id} owner field: {job.get('owner')}")
+                            app.logger.debug(f"Job {job_id} assignedUsers field: {job.get('assignedUsers')}")
+                        
+                        # Priority 1: Extract from userID field (the correct field for account manager)
+                        if job.get('userID') and isinstance(job['userID'], dict):
+                            first_name = job['userID'].get('firstName', '').strip()
+                            last_name = job['userID'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from userID: {account_manager}")
+                        # Priority 2: Fallback to owner field
+                        elif job.get('owner') and isinstance(job['owner'], dict):
                             first_name = job['owner'].get('firstName', '').strip()
                             last_name = job['owner'].get('lastName', '').strip()
                             if first_name or last_name:
                                 account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from owner: {account_manager}")
+                        # Priority 3: Fallback to assignedUsers field
                         elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
                             first_user = job['assignedUsers'][0]
                             if isinstance(first_user, dict):
@@ -715,6 +755,10 @@ def process_bullhorn_monitors():
                                 last_name = first_user.get('lastName', '').strip()
                                 if first_name or last_name:
                                     account_manager = f"{first_name} {last_name}".strip()
+                                    app.logger.debug(f"Job {job_id} extracted account manager from assignedUsers: {account_manager}")
+                        
+                        if not account_manager:
+                            app.logger.debug(f"Job {job_id} - No account manager data found in userID, owner, or assignedUsers fields")
                         
                         activity = BullhornActivity(
                             monitor_id=monitor.id,
@@ -727,13 +771,31 @@ def process_bullhorn_monitors():
                         db.session.add(activity)
                     
                     for job in modified_jobs:
-                        # Extract account manager from job data
+                        # Extract account manager from job data with debug logging
                         account_manager = None
-                        if job.get('owner') and isinstance(job['owner'], dict):
+                        job_id = job.get('id')
+                        
+                        # Debug: Log the job data structure for account manager fields
+                        if job_id:
+                            app.logger.debug(f"Job {job_id} userID field: {job.get('userID')}")
+                            app.logger.debug(f"Job {job_id} owner field: {job.get('owner')}")
+                            app.logger.debug(f"Job {job_id} assignedUsers field: {job.get('assignedUsers')}")
+                        
+                        # Priority 1: Extract from userID field (the correct field for account manager)
+                        if job.get('userID') and isinstance(job['userID'], dict):
+                            first_name = job['userID'].get('firstName', '').strip()
+                            last_name = job['userID'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from userID: {account_manager}")
+                        # Priority 2: Fallback to owner field
+                        elif job.get('owner') and isinstance(job['owner'], dict):
                             first_name = job['owner'].get('firstName', '').strip()
                             last_name = job['owner'].get('lastName', '').strip()
                             if first_name or last_name:
                                 account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from owner: {account_manager}")
+                        # Priority 3: Fallback to assignedUsers field
                         elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
                             first_user = job['assignedUsers'][0]
                             if isinstance(first_user, dict):
@@ -741,6 +803,10 @@ def process_bullhorn_monitors():
                                 last_name = first_user.get('lastName', '').strip()
                                 if first_name or last_name:
                                     account_manager = f"{first_name} {last_name}".strip()
+                                    app.logger.debug(f"Job {job_id} extracted account manager from assignedUsers: {account_manager}")
+                        
+                        if not account_manager:
+                            app.logger.debug(f"Job {job_id} - No account manager data found in userID, owner, or assignedUsers fields")
                         
                         # Create concise field change summary instead of full job data
                         changes = job.get('changes', [])

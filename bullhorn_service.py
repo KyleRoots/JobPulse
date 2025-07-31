@@ -347,7 +347,8 @@ class BullhornService:
                 "degreeList", "skillList", "certificationList",
                 "owner(firstName,lastName)",
                 "assignedUsers(firstName,lastName)",
-                "responseUser(firstName,lastName)"
+                "responseUser(firstName,lastName)",
+                "userID(firstName,lastName)"
             ]
             
             all_jobs = []
@@ -420,7 +421,8 @@ class BullhornService:
                 "employmentType", "onSite",
                 "assignedUsers(firstName,lastName)",
                 "responseUser(firstName,lastName)",
-                "owner(firstName,lastName)"
+                "owner(firstName,lastName)",
+                "userID(firstName,lastName)"
             ]
             
             # Make API request
@@ -465,7 +467,7 @@ class BullhornService:
             # Use the entity endpoint to get a specific job
             url = f"{self.base_url}entity/JobOrder/{job_id}"
             params = {
-                'fields': 'id,title,description,employmentType,onSite,address,assignedUsers,responseUser,owner,dateLastModified,customText1,customText2,customText3',
+                'fields': 'id,title,description,employmentType,onSite,address,assignedUsers,responseUser,owner,userID,dateLastModified,customText1,customText2,customText3',
                 'BhRestToken': self.rest_token
             }
             
