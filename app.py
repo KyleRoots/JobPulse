@@ -675,26 +675,73 @@ def process_bullhorn_monitors():
                     
                     # Log activities
                     for job in added_jobs:
+                        # Extract account manager from job data
+                        account_manager = None
+                        if job.get('owner') and isinstance(job['owner'], dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                        elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                        
                         activity = BullhornActivity(
                             monitor_id=monitor.id,
                             activity_type='job_added',
                             job_id=job.get('id'),
                             job_title=job.get('title'),
+                            account_manager=account_manager,
                             details=f"Job added: {job.get('id')}"
                         )
                         db.session.add(activity)
                     
                     for job in removed_jobs:
+                        # Extract account manager from job data
+                        account_manager = None
+                        if job.get('owner') and isinstance(job['owner'], dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                        elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                        
                         activity = BullhornActivity(
                             monitor_id=monitor.id,
                             activity_type='job_removed',
                             job_id=job.get('id'),
                             job_title=job.get('title'),
+                            account_manager=account_manager,
                             details=f"Job removed: {job.get('id')}"
                         )
                         db.session.add(activity)
                     
                     for job in modified_jobs:
+                        # Extract account manager from job data
+                        account_manager = None
+                        if job.get('owner') and isinstance(job['owner'], dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                        elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                        
                         # Create concise field change summary instead of full job data
                         changes = job.get('changes', [])
                         field_changes = []
@@ -728,6 +775,7 @@ def process_bullhorn_monitors():
                             activity_type='job_modified',
                             job_id=job.get('id'),
                             job_title=job.get('title'),
+                            account_manager=account_manager,
                             details=change_summary
                         )
                         db.session.add(activity)

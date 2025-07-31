@@ -260,7 +260,24 @@ class EmailService:
                 for job in added_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})</li>"
+                    
+                    # Extract account manager information
+                    account_manager = "Not specified"
+                    if job.get('owner') and isinstance(job['owner'], dict):
+                        first_name = job['owner'].get('firstName', '').strip()
+                        last_name = job['owner'].get('lastName', '').strip()
+                        if first_name or last_name:
+                            account_manager = f"{first_name} {last_name}".strip()
+                    elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                        first_user = job['assignedUsers'][0]
+                        if isinstance(first_user, dict):
+                            first_name = first_user.get('firstName', '').strip()
+                            last_name = first_user.get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                    
+                    html_content += f"""<li><strong>{job_title}</strong> (ID: {job_id})<br>
+                                      <small style="color: #666;">Account Manager: {account_manager}</small></li>"""
                 
                 html_content += "</ul></div>"
             
@@ -273,7 +290,24 @@ class EmailService:
                 for job in removed_jobs:
                     job_id = job.get('id', 'N/A')
                     job_title = job.get('title', 'No title')
-                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})</li>"
+                    
+                    # Extract account manager information
+                    account_manager = "Not specified"
+                    if job.get('owner') and isinstance(job['owner'], dict):
+                        first_name = job['owner'].get('firstName', '').strip()
+                        last_name = job['owner'].get('lastName', '').strip()
+                        if first_name or last_name:
+                            account_manager = f"{first_name} {last_name}".strip()
+                    elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                        first_user = job['assignedUsers'][0]
+                        if isinstance(first_user, dict):
+                            first_name = first_user.get('firstName', '').strip()
+                            last_name = first_user.get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                    
+                    html_content += f"""<li><strong>{job_title}</strong> (ID: {job_id})<br>
+                                      <small style="color: #666;">Account Manager: {account_manager}</small></li>"""
                 
                 html_content += "</ul></div>"
             
@@ -288,7 +322,23 @@ class EmailService:
                     job_title = job.get('title', 'No title')
                     changes = job.get('changes', [])
                     
-                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})"
+                    # Extract account manager information
+                    account_manager = "Not specified"
+                    if job.get('owner') and isinstance(job['owner'], dict):
+                        first_name = job['owner'].get('firstName', '').strip()
+                        last_name = job['owner'].get('lastName', '').strip()
+                        if first_name or last_name:
+                            account_manager = f"{first_name} {last_name}".strip()
+                    elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                        first_user = job['assignedUsers'][0]
+                        if isinstance(first_user, dict):
+                            first_name = first_user.get('firstName', '').strip()
+                            last_name = first_user.get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                    
+                    html_content += f"<li><strong>{job_title}</strong> (ID: {job_id})<br>"
+                    html_content += f"<small style='color: #666;'>Account Manager: {account_manager}</small>"
                     
                     # Display field changes with before/after values
                     if changes:

@@ -757,6 +757,7 @@
                                             <th>Monitor</th>
                                             <th>Activity</th>
                                             <th>Job</th>
+                                            <th>Account Manager</th>
                                             <th>Cycle Time</th>
                                             <th>Status</th>
                                         </tr>
@@ -828,6 +829,13 @@
                                                     </span>
                                                 {% else %}
                                                     -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if activity.account_manager %}
+                                                    <span class="badge bg-info">{{ activity.account_manager }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
                                                 {% endif %}
                                             </td>
                                             <td>

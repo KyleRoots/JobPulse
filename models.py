@@ -129,6 +129,7 @@ def create_models(db):
         activity_type = db.Column(db.String(20), nullable=False)  # 'job_added', 'job_removed', 'job_modified', 'check_completed', 'error'
         job_id = db.Column(db.Integer, nullable=True)  # Bullhorn job ID if applicable
         job_title = db.Column(db.String(255), nullable=True)
+        account_manager = db.Column(db.String(255), nullable=True)  # Account manager/owner name
         details = db.Column(db.Text, nullable=True)  # JSON or text details
         notification_sent = db.Column(db.Boolean, default=False)
         created_at = db.Column(db.DateTime, default=datetime.utcnow)
