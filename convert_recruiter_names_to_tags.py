@@ -26,7 +26,9 @@ def map_recruiter_name_to_tag(recruiter_name: str) -> str:
         'Amanda Messina': '#LI-AM',
         'Dominic Scaletta': '#LI-DSC',  # Changed from #LI-DS to avoid conflict
         'Bryan Chinzorig': '#LI-BC',
-        'Reena Setya': '#LI-RS'
+        'Reena Setya': '#LI-RS',
+        'Nick Theodossiou': '#LI-NT',
+        'Matheo Theodossiou': '#LI-MAT'
     }
     
     # Check for exact match first
@@ -75,7 +77,9 @@ def convert_xml_recruiter_names():
                 
                 if linkedin_tag != original_name:
                     logger.info(f"Converting '{original_name}' → '{linkedin_tag}'")
-                    element.text = linkedin_tag
+                    # Create CDATA section with proper formatting
+                    element.clear()
+                    element.text = f" {linkedin_tag} "
                     changes_made += 1
                 else:
                     logger.info(f"No mapping for '{original_name}', keeping original")

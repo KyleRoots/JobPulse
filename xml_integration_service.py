@@ -301,9 +301,8 @@ class XMLIntegrationService:
             'Dominic Scaletta': '#LI-DSC',     # Changed to avoid conflict with Dan Sifer
             'Bryan Chinzorig': '#LI-BC',
             'Reena Setya': '#LI-RS',
-            # Additional names found in XML file - may need mapping
-            'Nick Theodossiou': 'Nick Theodossiou',     # No mapping provided
-            'Matheo Theodossiou': 'Matheo Theodossiou' # No mapping provided
+            'Nick Theodossiou': '#LI-NT',
+            'Matheo Theodossiou': '#LI-MAT'
         }
         
         # Check for exact match first
