@@ -1357,10 +1357,30 @@ def process_bullhorn_monitors():
                                                     )
                                                     db.session.add(activity)
                                                     
-                                                    # CRITICAL FIX: Send all pending individual tearsheet notifications AFTER comprehensive sync and SFTP upload complete
-                                                    # This ensures emails are sent AFTER XML files are uploaded to web server
+                                                    # IMMEDIATE WORKFLOW: Send all pending notifications AFTER XML sync and SFTP upload complete
+                                                    # This ensures users receive notifications only after XML is live on web server
                                                     if hasattr(app, '_pending_notifications') and app._pending_notifications:
-                                                        app.logger.info(f"📧 Sending {len(app._pending_notifications)} pending notifications after successful comprehensive sync and SFTP upload")
+                                                        # Wait 15 seconds for SFTP propagation
+                                                        import time
+                                                        time.sleep(15)
+                                                        app.logger.info(f"Sending {len(app._pending_notifications)} pending email notifications after successful XML sync and upload")
+                                                        
+                                                        for notification in app._pending_notifications:
+                                                            try:
+                                                                send_bullhorn_notification(
+                                                                    monitor_name=notification['monitor_name'],
+                                                                    added_jobs=notification['added_jobs'],
+                                                                    removed_jobs=notification['removed_jobs'],
+                                                                    modified_jobs=notification['modified_jobs'],
+                                                                    total_jobs=notification.get('total_jobs', 0)
+                                                                )
+                                                                app.logger.info(f"Email notification sent for {notification['monitor_name']}")
+                                                            except Exception as e:
+                                                                app.logger.error(f"Failed to send email notification for {notification['monitor_name']}: {e}")
+                                                        
+                                                        # Clear pending notifications after sending
+                                                        app._pending_notifications = []
+                                                        app.logger.info("All pending email notifications processed")
                                                         
                                                         # Add 15-second delay to ensure XML changes are reflected on web server
                                                         import time

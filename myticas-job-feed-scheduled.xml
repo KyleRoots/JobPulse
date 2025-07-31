@@ -1283,26 +1283,6 @@
     <senoritylevel>&lt;![CDATA[ Director ]]&gt;</senoritylevel>
   </job>
   <job>
-    <title>&lt;![CDATA[ Senior Full Stack Developer (32481) ]]&gt;</title>
-    <company>&lt;![CDATA[ Myticas Consulting ]]&gt;</company>
-    <date>&lt;![CDATA[ May 26, 2025 ]]&gt;</date>
-    <referencenumber>&lt;![CDATA[ 5ZCKBGC6E5 ]]&gt;</referencenumber>
-    <bhatsid>&lt;![CDATA[ 32481 ]]&gt;</bhatsid>
-    <url>&lt;![CDATA[ https://myticas.com/ ]]&gt;</url>
-    <description>&lt;![CDATA[ &lt;p&gt;&lt;strong&gt;Job Title:&lt;/strong&gt; Senior Full Stack Developer&lt;br&gt; &lt;strong&gt;Location:&lt;/strong&gt; Remote / Ontario, Canada&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Must-Have Qualifications:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Bachelor’s degree in Computer Science, Engineering, or a related field&lt;/p&gt; &lt;li&gt; &lt;p&gt;Minimum of 5 years of experience in front-end development using frameworks such as React.js or Angular (preferably Angular 17)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Minimum of 5 years of experience in back-end software development using C# and .NET (preferably .NET 8)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong proficiency in working with SQL and NoSQL databases&lt;/p&gt; &lt;li&gt; &lt;p&gt;Hands-on experience with Microsoft Azure services, including App Services, Functions, Logic Apps, Service Bus, Cosmos DB, Azure SQL, and Key Vault&lt;/p&gt; &lt;li&gt; &lt;p&gt;Solid understanding of object-oriented programming (OOP) principles&lt;/p&gt; &lt;li&gt; &lt;p&gt;Proficiency with Azure DevOps, Git repositories, CI/CD pipelines, and deployment automation&lt;/p&gt; &lt;li&gt; &lt;p&gt;Familiarity with generative AI and/or machine learning tools such as GitHub Copilot, Cursor, or AI agents&lt;/p&gt; &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;Nice-to-Have Qualifications:&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Experience developing web applications using .NET Core&lt;/p&gt; &lt;li&gt; &lt;p&gt;Knowledge of cross-platform development frameworks&lt;/p&gt; &lt;li&gt; &lt;p&gt;Familiarity with the ABP Framework (ABP.io)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience with containerization tools such as Docker and orchestration platforms like Azure Kubernetes Service (AKS)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Understanding of Agile methodologies, particularly Scrum&lt;/p&gt; &lt;li&gt; &lt;p&gt;Strong analytical, communication, and collaboration skills&lt;/p&gt; &lt;li&gt; &lt;p&gt;Microsoft certifications, such as Azure Developer Associate&lt;/p&gt; &lt;li&gt; &lt;p&gt;Development experience in other cloud environments, such as AWS or Google Cloud Platform (GCP)&lt;/p&gt; &lt;/ul&gt; ]]&gt;</description>
-    <jobtype>&lt;![CDATA[ Contract ]]&gt;</jobtype>
-    <city>&lt;![CDATA[ Toronto ]]&gt;</city>
-    <state>&lt;![CDATA[ ON ]]&gt;</state>
-    <country>&lt;![CDATA[ Canada ]]&gt;</country>
-    <category>&lt;![CDATA[  ]]&gt;</category>
-    <apply_email>&lt;![CDATA[ apply@myticas.com ]]&gt;</apply_email>
-    <remotetype>&lt;![CDATA[ Remote ]]&gt;</remotetype>
-    <assignedrecruiter>&lt;![CDATA[ Michael Theodossiou ]]&gt;</assignedrecruiter>
-    <jobfunction>&lt;![CDATA[ Information Technology ]]&gt;</jobfunction>
-    <jobindustries>&lt;![CDATA[ Computer Software ]]&gt;</jobindustries>
-    <senoritylevel>&lt;![CDATA[ Mid-Senior level ]]&gt;</senoritylevel>
-  </job>
-  <job>
     <title>&lt;![CDATA[ ASIC Development Engineer (32477) ]]&gt;</title>
     <company>&lt;![CDATA[ Myticas Consulting ]]&gt;</company>
     <date>&lt;![CDATA[ May 22, 2025 ]]&gt;</date>
