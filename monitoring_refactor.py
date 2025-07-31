@@ -71,6 +71,8 @@ class MonitoringService:
         try:
             from job_classification_service import JobClassificationService
             
+            # PRIMARY FILE: myticas-job-feed.xml (main production file used by website)
+            # SECONDARY FILE: myticas-job-feed-scheduled.xml (backup/scheduled processing file)
             xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
             jobs_fixed = 0
             
@@ -321,7 +323,9 @@ class MonitoringService:
         try:
             app.logger.info(f"Starting comprehensive sync with {len(all_jobs)} total jobs")
             
-            # Process main XML files
+            # Process XML files - PRIMARY FILE FIRST for reference number automation
+            # myticas-job-feed.xml = MAIN production file (website source)
+            # myticas-job-feed-scheduled.xml = backup/scheduled file
             xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
             xml_sync_success = True
             
