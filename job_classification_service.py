@@ -216,7 +216,13 @@ class JobClassificationService:
             'professional services': 'Professional Training and Coaching',
             'oil & energy': 'Oil and Energy',
             'oil and gas': 'Oil and Energy',
-            'energy': 'Oil and Energy'
+            'energy': 'Oil and Energy',
+            'project management': 'Management Consulting',
+            'consulting': 'Management Consulting',
+            'management consulting': 'Management Consulting',
+            'business services': 'Management Consulting',
+            'other': 'Management Consulting',  # Default fallback
+            'general': 'Management Consulting'  # Default fallback
         }
         
         # Check direct mappings first

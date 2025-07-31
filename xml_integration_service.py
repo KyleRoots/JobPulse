@@ -122,7 +122,7 @@ class XMLIntegrationService:
                 # Full AI classification for scheduled processing or manual operations
                 classification = self.job_classifier.classify_job(clean_title, description)
                 job_function = classification.get('job_function', '')
-                job_industry = classification.get('job_industry', '')
+                job_industry = classification.get('industries', '')  # Fixed: using 'industries' not 'job_industry'
                 seniority_level = classification.get('seniority_level', '')
             
             # Helper function to clean field values
