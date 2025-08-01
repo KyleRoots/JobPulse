@@ -17,7 +17,7 @@ def upload_xml_files():
     hostname = os.environ.get('SFTP_HOSTNAME')
     username = os.environ.get('SFTP_USERNAME') 
     password = os.environ.get('SFTP_PASSWORD')
-    port = int(os.environ.get('SFTP_PORT', 22))
+    port = int(os.environ.get('SFTP_PORT', '22'))
     
     print(f"SFTP Server: {hostname}:{port}")
     print(f"Username: {username}")
@@ -27,11 +27,11 @@ def upload_xml_files():
         return False
     
     try:
-        # Initialize SFTP service
+        # Initialize SFTP service - ensure all credentials are strings
         sftp_service = FTPService(
-            hostname=hostname,
-            username=username,
-            password=password,
+            hostname=str(hostname),
+            username=str(username),
+            password=str(password),
             target_directory="/",
             port=port,
             use_sftp=True

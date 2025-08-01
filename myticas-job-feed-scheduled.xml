@@ -55,7 +55,7 @@
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
-    <assignedrecruiter><![CDATA[ #LI-MIT ]]></assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <assignedrecruiter><![CDATA[ #LI-MIT ]]></assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
     <jobindustries><![CDATA[ Computer and Network Security ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
@@ -285,7 +285,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-AG ]]></assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -380,7 +380,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-AG ]]></assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -399,7 +399,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-DS ]]></assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -437,7 +437,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-MG ]]></assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <jobindustries><![CDATA[ Consumer Electronics ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -778,8 +778,8 @@
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
-    <assignedrecruiter><![CDATA[ #LI-RP ]]></assignedrecruiter><jobfunction><![CDATA[ Finance ]]></jobfunction>
-    <jobindustries><![CDATA[ Capital Markets ]]></jobindustries>
+    <assignedrecruiter><![CDATA[ #LI-RP ]]></assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[  ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1121,7 +1121,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-RP ]]></assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
-    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1197,7 +1197,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-MG ]]></assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1387,7 +1387,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-RP ]]></assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
