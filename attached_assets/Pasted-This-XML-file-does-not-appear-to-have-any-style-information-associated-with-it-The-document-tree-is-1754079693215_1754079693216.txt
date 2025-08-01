@@ -1,0 +1,4484 @@
+This XML file does not appear to have any style information associated with it. The document tree is shown below.
+<source>
+<publisherurl>https://myticas.com</publisherurl>
+<job>
+<title>
+<![CDATA[ Job 32079 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32079 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32079 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32079 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32266 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32266 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32266 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32266 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32269 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32269 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32269 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32269 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32293 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32293 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32293 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32293 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32364 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32364 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32364 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32364 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32419 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32419 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32419 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32419 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32445 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32445 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32445 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32445 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32446 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32446 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32446 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32446 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32447 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32447 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32447 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32447 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32476 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32476 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32476 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32476 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32477 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32477 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32477 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32477 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32481 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32481 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32481 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32481 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32513 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32513 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32513 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32513 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32517 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32517 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32517 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32517 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32523 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32523 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32523 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32523 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32529 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32529 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32529 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32529 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32531 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32531 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32531 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32531 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32537 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32537 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32537 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32537 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32539 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32539 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32539 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32539 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32541 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32541 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32541 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32541 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32542 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32542 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32542 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32542 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32549 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32549 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32549 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32549 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32554 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32554 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32554 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32554 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32555 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32555 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32555 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32555 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32563 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32563 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32563 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32563 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32567 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32567 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32567 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32567 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32569 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32569 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32569 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32569 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32574 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32574 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32574 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32574 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32575 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32575 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32575 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32575 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32576 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32576 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32576 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32576 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32579 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32579 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32579 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32579 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32581 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32581 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32581 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32581 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32589 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32589 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32589 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32589 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32597 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32597 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32597 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32597 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32602 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32602 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32602 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32602 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32606 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32606 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32606 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32606 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32607 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32607 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32607 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32607 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32608 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32608 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32608 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32608 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32612 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32612 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32612 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32612 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32618 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32618 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32618 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32618 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32619 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32619 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32619 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32619 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32621 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32621 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32621 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32621 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32622 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32622 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32622 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32622 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32623 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32623 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32623 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32623 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32624 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32624 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32624 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32624 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32625 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32625 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32625 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32625 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32626 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32626 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32626 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32626 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32627 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32627 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32627 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32627 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32628 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32628 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32628 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32628 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32629 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32629 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32629 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32629 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32630 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32630 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32630 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32630 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32631 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32631 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32631 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32631 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32632 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32632 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32632 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32632 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32637 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32637 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32637 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32637 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32638 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32638 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32638 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32638 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32643 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32643 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32643 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32643 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32645 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32645 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32645 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32645 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32646 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32646 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32646 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32646 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32647 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32647 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32647 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32647 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32648 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32648 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32648 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32648 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32649 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32649 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32649 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32649 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32652 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32652 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32652 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32652 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32655 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32655 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32655 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32655 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32657 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32657 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32657 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32657 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32658 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32658 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32658 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32658 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32659 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32659 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32659 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32659 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32660 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32660 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32660 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32660 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32661 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32661 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32661 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32661 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 32662 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF32662 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 32662 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 32662 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34075 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34075 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34075 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34075 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34080 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34080 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34080 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34080 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34082 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34082 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34082 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34082 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34083 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34083 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34083 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34083 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34084 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34084 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34084 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34084 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34085 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34085 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34085 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34085 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34086 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34086 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34086 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34086 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34087 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34087 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34087 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34087 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34088 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34088 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34088 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34088 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34089 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34089 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34089 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34089 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Job 34090 ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ REF34090 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34090 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://myticas.com/ ]]>
+</url>
+<description>
+<![CDATA[ Job description for position 34090 ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MYT: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ ]]>
+</jobindustries>
+<senoritylevel>
+<![CDATA[ ]]>
+</senoritylevel>
+</job>
+</source>

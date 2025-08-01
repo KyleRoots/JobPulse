@@ -1371,3 +1371,69 @@ class XMLIntegrationService:
             if current_modified != previous_modified:
                 return ['dateLastModified']
             return []
+    
+    def regenerate_xml_from_jobs(self, jobs: List[Dict], xml_file_path: str) -> bool:
+        """
+        Regenerate an entire XML file from a list of Bullhorn jobs
+        
+        Args:
+            jobs: List of Bullhorn job dictionaries
+            xml_file_path: Path to the XML file to generate
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            self.logger.info(f"Regenerating {xml_file_path} with {len(jobs)} jobs")
+            
+            # Create a new XML structure
+            root = ET.Element('source')
+            publisher_url = ET.SubElement(root, 'publisherurl')
+            publisher_url.text = 'https://myticas.com'
+            
+            # Add each job
+            for job in jobs:
+                # Map the job to XML format
+                xml_job_data = self.map_bullhorn_job_to_xml(job)
+                
+                # Create job element
+                job_elem = ET.SubElement(root, 'job')
+                
+                # Add all job fields
+                for field_name, field_value in xml_job_data.items():
+                    field_elem = ET.SubElement(job_elem, field_name)
+                    # Wrap in CDATA
+                    field_elem.text = f"<![CDATA[{field_value}]]>" if field_value else "<![CDATA[]]>"
+            
+            # Format and write the XML
+            tree = ET.ElementTree(root)
+            
+            # Pretty print the XML
+            xml_str = ET.tostring(root, encoding='utf-8', method='xml').decode('utf-8')
+            
+            # Fix CDATA formatting (convert escaped CDATA tags back to proper format)
+            xml_str = xml_str.replace('&lt;![CDATA[', '<![CDATA[')
+            xml_str = xml_str.replace(']]&gt;', ']]>')
+            
+            # Add XML declaration and proper formatting
+            from xml.dom import minidom
+            dom = minidom.parseString(xml_str)
+            pretty_xml = dom.toprettyxml(indent="  ", encoding=None)
+            
+            # Remove extra blank lines
+            lines = pretty_xml.split('\n')
+            non_empty_lines = [line for line in lines if line.strip()]
+            pretty_xml = '\n'.join(non_empty_lines)
+            
+            # Write to file
+            with open(xml_file_path, 'w', encoding='utf-8') as f:
+                f.write(pretty_xml)
+            
+            self.logger.info(f"Successfully regenerated {xml_file_path}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error regenerating XML file: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
