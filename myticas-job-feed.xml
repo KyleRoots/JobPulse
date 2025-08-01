@@ -1,3 +1,4 @@
+<?xml version='1.0' encoding='UTF-8'?>
 <source>
   <publisherurl>https://myticas.com</publisherurl>
   <job>
@@ -37,7 +38,7 @@
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AM: Amanda Messina]]></assignedrecruiter>
     <jobfunction><![CDATA[ Product Management ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -617,7 +618,7 @@
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MG: Mike Gebara]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1117,7 +1118,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AG: Adam Gebara]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
     <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
@@ -1195,7 +1196,7 @@
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-DS: Dan Sifer]]></assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1404,7 +1405,7 @@
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MC: Michelle Corino]]></assignedrecruiter><jobfunction><![CDATA[ Customer Service ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <jobindustries><![CDATA[ Consumer Services ]]></jobindustries>
     <senoritylevel><![CDATA[ Associate ]]></senoritylevel>
   </job>
   <job>
@@ -1423,7 +1424,7 @@
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Onsite]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-CC: Christine Carter]]></assignedrecruiter><jobfunction><![CDATA[ Marketing ]]></jobfunction>
-    <jobindustries><![CDATA[ Consumer Services ]]></jobindustries>
+    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1461,7 +1462,7 @@
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Onsite]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-CC: Christine Carter]]></assignedrecruiter><jobfunction><![CDATA[ Marketing ]]></jobfunction>
-    <jobindustries><![CDATA[ Management Consulting ]]></jobindustries>
+    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   </source>
