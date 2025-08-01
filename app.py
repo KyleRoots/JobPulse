@@ -854,15 +854,16 @@ def process_bullhorn_monitors():
                     
                     # Log a summary activity for batch updates
                     if added_jobs or removed_jobs or modified_jobs:
+                        summary_details = json.dumps({
+                            'summary': summary,
+                            'changes_detected': True,
+                            'total_jobs': len(current_jobs),
+                            'timestamp': datetime.utcnow().isoformat()
+                        })
                         summary_activity = BullhornActivity(
                             monitor_id=monitor.id,
                             activity_type='check_completed',
-                            details=json.dumps({
-                                'summary': summary,
-                                'changes_detected': True,
-                                'total_jobs': len(current_jobs),
-                                'timestamp': datetime.utcnow().isoformat()
-                            })
+                            details=summary_details
                         )
                         db.session.add(summary_activity)
                         
