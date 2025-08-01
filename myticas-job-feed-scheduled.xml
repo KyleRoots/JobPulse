@@ -113,8 +113,8 @@
     <apply_email><![CDATA[  ]]></apply_email>
     <remotetype><![CDATA[  ]]></remotetype>
     <assignedrecruiter><![CDATA[  ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Marketing ]]></jobfunction>
-    <jobindustries><![CDATA[ Consumer Goods ]]></jobindustries>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -399,7 +399,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-DS ]]></assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -494,7 +494,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-AG ]]></assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Consumer Electronics ]]></jobindustries>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -778,8 +778,8 @@
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
-    <assignedrecruiter><![CDATA[ #LI-RP ]]></assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[  ]]></jobindustries>
+    <assignedrecruiter><![CDATA[ #LI-RP ]]></assignedrecruiter><jobfunction><![CDATA[ Finance ]]></jobfunction>
+    <jobindustries><![CDATA[ Capital Markets ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1216,7 +1216,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-AM ]]></assignedrecruiter><jobfunction><![CDATA[ Product Management ]]></jobfunction>
-    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -1406,7 +1406,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-AG ]]></assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
