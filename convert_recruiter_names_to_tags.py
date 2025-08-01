@@ -13,32 +13,34 @@ logger = logging.getLogger(__name__)
 
 def map_recruiter_name_to_tag(recruiter_name: str) -> str:
     """Map recruiter names to LinkedIn-style tags"""
-    # Define recruiter name to LinkedIn tag mapping
+    # Define recruiter name to LinkedIn tag mapping - REVISED LIST
     recruiter_mapping = {
-        'Michael Theodossiou': '#LI-MIT',
-        'Myticas Recruiter': '#LI-MYT',  # Changed from #LI-RS to avoid conflict
-        'Runa Parmar': '#LI-RP',
         'Adam Gebara': '#LI-AG',
-        'Dan Sifer': '#LI-DS',
-        'Mike Gebara': '#LI-MG',
-        'Christine Carter': '#LI-CC',
-        'Michelle Corino': '#LI-MC',
         'Amanda Messina': '#LI-AM',
-        'Dominic Scaletta': '#LI-DSC',  # Changed from #LI-DS to avoid conflict
         'Bryan Chinzorig': '#LI-BC',
-        'Reena Setya': '#LI-RS',
+        'Christine Carter': '#LI-CC',
+        'Dan Sifer': '#LI-DS',
+        'Dominic Scaletta': '#LI-DSC',
+        'Matheo Theodossiou': '#LI-MAT',
+        'Michael Theodossiou': '#LI-MIT',
+        'Michelle Corino': '#LI-MC',
+        'Mike Gebara': '#LI-MG',
+        'Myticas Recruiter': '#LI-RS',  # Now using #LI-RS
         'Nick Theodossiou': '#LI-NT',
-        'Matheo Theodossiou': '#LI-MAT'
+        'Reena Setya': '#LI-RS',        # Also using #LI-RS
+        'Runa Parmar': '#LI-RP'
     }
     
     # Check for exact match first
     if recruiter_name in recruiter_mapping:
-        return recruiter_mapping[recruiter_name]
+        # Return format with both tag and name
+        return f"{recruiter_mapping[recruiter_name]}: {recruiter_name}"
     
     # Check for case-insensitive match
     for name, tag in recruiter_mapping.items():
         if recruiter_name.lower() == name.lower():
-            return tag
+            # Return format with both tag and name
+            return f"{tag}: {name}"
     
     # If no mapping found, return the original name
     logger.warning(f"No LinkedIn tag mapping found for recruiter: {recruiter_name}")
