@@ -16,6 +16,7 @@ except ImportError:
     import xml.etree.ElementTree as etree
 from xml_processor import XMLProcessor
 from job_classification_service import JobClassificationService
+from xml_safeguards import XMLSafeguards
 
 
 class XMLIntegrationService:
@@ -25,6 +26,7 @@ class XMLIntegrationService:
         self.logger = logging.getLogger(__name__)
         self.xml_processor = XMLProcessor()
         self.job_classifier = JobClassificationService()
+        self.safeguards = XMLSafeguards()
         self._parser = etree.XMLParser(strip_cdata=False, recover=True)
         # Store field changes for notifications
         self._last_field_changes = {}
@@ -1437,3 +1439,38 @@ class XMLIntegrationService:
             import traceback
             traceback.print_exc()
             return False
+    
+    def _safe_write_xml(self, xml_file_path: str, tree, validation_callback=None):
+        """
+        Safely write XML file with validation and backup
+        
+        Args:
+            xml_file_path: Path to the XML file
+            tree: lxml tree object to write
+            validation_callback: Optional function to validate before writing
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        def write_xml_file(filepath):
+            with open(filepath, 'wb') as f:
+                tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
+            self._clean_extra_whitespace(filepath)
+            return True
+        
+        # Use safeguards for safe update
+        result = self.safeguards.safe_update_xml(
+            xml_file_path,
+            lambda fp: write_xml_file(fp)
+        )
+        
+        if result['success']:
+            self.logger.info(f"Safely wrote XML file: {xml_file_path}")
+            if result.get('warnings'):
+                self.logger.warning(f"Warnings: {result['warnings']}")
+        else:
+            self.logger.error(f"Failed to safely write XML: {result.get('error')}")
+            if result.get('rolled_back'):
+                self.logger.info("Changes were rolled back due to validation failure")
+        
+        return result['success']
