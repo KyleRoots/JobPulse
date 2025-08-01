@@ -117,9 +117,17 @@ with app.app_context():
 # Initialize scheduler with optimized settings
 scheduler = BackgroundScheduler(
     timezone='UTC',
-    job_defaults={'coalesce': True, 'max_instances': 1}
+    job_defaults={
+        'coalesce': True, 
+        'max_instances': 1,
+        'misfire_grace_time': 30
+    }
 )
 scheduler.start()
+
+# Import and apply optimizations
+from optimization_improvements import apply_optimizations
+optimizer = apply_optimizations(app, db, scheduler)
 
 # Cleanup scheduler on exit
 atexit.register(lambda: scheduler.shutdown())

@@ -17,9 +17,9 @@
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
     <assignedrecruiter> #LI-RP </assignedrecruiter>
-    <jobfunction> Consulting </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Robotic Power Automate Developer (34090) </title>
@@ -36,9 +36,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Financial Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Financial Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior IAM Consultant (34089) </title>
@@ -55,9 +55,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-MIT </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Computer and Network Security </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MIT </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer and Network Security ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Remote-Environmental Engineer (34088) </title>
@@ -74,9 +74,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Civil Engineering </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Civil Engineering ]]></jobindustries>
+    <senoritylevel><![CDATA[ Entry level ]]></senoritylevel>
   </job>
   <job>
     <title> SAP Data Migration Lead (34087) </title>
@@ -93,9 +93,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries>  </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> High Speed Analog Principal Engineer (32629) </title>
@@ -112,9 +112,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Semiconductors </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> SAP FICO/RTR Lead (32631) </title>
@@ -131,9 +131,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Utilities </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Business Intelligence Business Objects SQL Developer (32539) </title>
@@ -150,9 +150,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-DS </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-DS </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Drupal Developer (32659) </title>
@@ -169,9 +169,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior IT Project Manager (32567) </title>
@@ -188,9 +188,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-DSC </assignedrecruiter><jobfunction> Project Management </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-DSC </assignedrecruiter><jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> RF Systems Engineer (32648) </title>
@@ -207,28 +207,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Aviation and Aerospace </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
-  </job>
-  <job>
-    <title> Salesforce Developer (32666) </title>
-    <company> Myticas Consulting </company>
-    <date> July 28, 2025 </date>
-    <referencenumber> STHO7U5NYY </referencenumber>
-    <bhatsid> 32666 </bhatsid>
-    <url> https://myticas.com/ </url>
-    <description> &lt;p&gt;&lt;strong&gt;Job Title: Programmer Analyst 3 – Salesforce Developer&lt;/strong&gt;&lt;br&gt; &lt;strong&gt;Location:&lt;/strong&gt; Lansing, MI 48933 (Hybrid – Onsite 2 Days/Week)&lt;br&gt; &lt;strong&gt;Client:&lt;/strong&gt; Myticas&amp;apos; Direct Client&lt;br&gt; &lt;strong&gt;Work Schedule:&lt;/strong&gt; Hybrid (Onsite two days per week from day one)&lt;br&gt; &lt;strong&gt;Candidate Requirement:&lt;/strong&gt; Local candidates only (within a one-hour radius of Lansing, MI). No remote-only option available.&lt;/p&gt; &lt;hr&gt; &lt;h3&gt;&lt;strong&gt;Top Required Experience/Skills&lt;/strong&gt;&lt;/h3&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;Minimum 5 years of development and testing experience using Salesforce Apex in an enterprise software architecture environment&lt;/p&gt; &lt;li&gt; &lt;p&gt;At least 1 year of hands-on API integration experience&lt;/p&gt; &lt;li&gt; &lt;p&gt;Proven experience with Salesforce configuration and customizations using Apex, Visualforce, Triggers, Scheduled and Batch classes&lt;/p&gt; &lt;li&gt; &lt;p&gt;Familiarity with the Product Development Lifecycle and DevOps tools such as Git, Jenkins, and Azure DevOps&lt;/p&gt; &lt;/ul&gt; &lt;hr&gt; &lt;h3&gt;&lt;strong&gt;Job Summary&lt;/strong&gt;&lt;/h3&gt; &lt;p&gt;We are seeking an experienced and highly skilled &lt;strong&gt;Salesforce Developer&lt;/strong&gt; to join our team. The ideal candidate will possess extensive experience developing and testing solutions using Salesforce Apex within an enterprise environment. This role requires at least one year of hands-on API integration experience.&lt;/p&gt; &lt;p&gt;You will be responsible for designing, developing, and implementing robust Salesforce solutions across a range of platforms including Sales Cloud, Service Cloud, Marketing Cloud, and Salesforce Communities/Knowledge. Candidates should have strong hands-on experience with Salesforce customization and configuration using Apex, Visualforce, Triggers, and Batch processes.&lt;/p&gt; &lt;hr&gt; &lt;h3&gt;&lt;strong&gt;Required Skills &amp; Experience&lt;/strong&gt;&lt;/h3&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;5+ years of development/testing experience with Salesforce Apex in an enterprise software architecture environment&lt;/p&gt; &lt;li&gt; &lt;p&gt;1+ year of hands-on API integration experience&lt;/p&gt; &lt;li&gt; &lt;p&gt;Salesforce certifications are strongly preferred, especially:&lt;/p&gt; &lt;ul&gt; &lt;/ul&gt;&lt;li&gt; &lt;p&gt;Salesforce Certified Platform Developer I&lt;/p&gt; &lt;li&gt; &lt;p&gt;Salesforce Certified Platform Developer II&lt;/p&gt; &lt;/ul&gt; &lt;li&gt; &lt;p&gt;Practical experience developing and customizing Salesforce using Apex, Visualforce, Triggers, Scheduled and Batch classes&lt;/p&gt; &lt;li&gt; &lt;p&gt;Demonstrated experience building Salesforce solutions across one or more of the following:&lt;/p&gt; &lt;ul&gt; &lt;/ul&gt;&lt;li&gt; &lt;p&gt;Sales Cloud&lt;/p&gt; &lt;li&gt; &lt;p&gt;Service Cloud&lt;/p&gt; &lt;li&gt; &lt;p&gt;Marketing Cloud&lt;/p&gt; &lt;li&gt; &lt;p&gt;Salesforce Communities/Knowledge&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience integrating Salesforce with external applications using REST, SOAP APIs, OAuth, and Single Sign-On (SSO)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Solid understanding of the Salesforce deployment process and tools such as ANT, Change Sets, and Force.com IDE&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience with ETL tools&lt;/p&gt; &lt;li&gt; &lt;p&gt;Familiarity with Agile methodologies to deliver high-quality business and technical solutions on the Salesforce platform&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience with UI development technologies (preferred but not required), such as:&lt;/p&gt; &lt;ul&gt; &lt;/ul&gt;&lt;li&gt; &lt;p&gt;Bootstrap&lt;/p&gt; &lt;li&gt; &lt;p&gt;Lightning Design System (LDS)&lt;/p&gt; &lt;li&gt; &lt;p&gt;Lightning Components Development&lt;/p&gt; &lt;li&gt; &lt;p&gt;AngularJS, jQuery, JavaScript&lt;/p&gt; &lt;li&gt; &lt;p&gt;Experience mentoring or training junior developers is a plus&lt;/p&gt; &lt;li&gt; &lt;p&gt;Prior experience or understanding of the healthcare industry is a plus&lt;/p&gt; &lt;hr&gt; &lt;h3&gt;&lt;strong&gt;Additional Information&lt;/strong&gt;&lt;/h3&gt; &lt;ul&gt; &lt;li&gt; &lt;p&gt;This is a hybrid position and requires the candidate to be onsite in Lansing, MI two days per week&lt;/p&gt; &lt;li&gt; &lt;p&gt;Only local candidates within a one-hour commuting radius of Lansing, MI will be considered&lt;/p&gt; &lt;li&gt; &lt;p&gt;This role does not support remote-only work&lt;/p&gt; &lt;/ul&gt; </description>
-    <jobtype> Contract </jobtype>
-    <city> Lansing </city>
-    <state> MI </state>
-    <country> United States </country>
-    <category>  </category>
-    <apply_email> apply@myticas.com </apply_email>
-    <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> DevOps Technical Analyst (32638) </title>
@@ -245,9 +226,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Mixed Signal IC Design Engineer (32627) </title>
@@ -264,9 +245,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Computer Hardware </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Lab Technician (32645) </title>
@@ -283,9 +264,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Science </jobfunction>
-    <jobindustries> Biotechnology </jobindustries>
-    <senoritylevel> Entry level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Science ]]></jobfunction>
+    <jobindustries><![CDATA[ Biotechnology ]]></jobindustries>
+    <senoritylevel><![CDATA[ Entry level ]]></senoritylevel>
   </job>
   <job>
     <title> ASIC Development Engineer (32477) </title>
@@ -302,9 +283,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Telecommunications </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Optical Resident Engineer (32419) </title>
@@ -321,9 +302,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Telecommunications </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior FPGA Developer (32589) </title>
@@ -340,9 +321,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> No Preference </remotetype>
-    <assignedrecruiter> #LI-MIT </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Broadcast Media </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MIT </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Broadcast Media ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Lead Custom Analog Layout Engineeer (32628) </title>
@@ -359,9 +340,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Computer Hardware </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> EDW Sr. Healthcare Technical Analyst (32542) </title>
@@ -378,9 +359,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-DS </assignedrecruiter><jobfunction> Analyst </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-DS </assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> High Performance Computing Administrator (32447) </title>
@@ -397,9 +378,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> High-Speed Analog ASIC Engineer (32624) </title>
@@ -416,9 +397,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Semiconductors </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Consumer Electronics ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior System Engineer (32529) </title>
@@ -435,9 +416,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Aviation and Aerospace </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Principal ASIC Verification Engineer (32625) </title>
@@ -454,9 +435,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Computer Hardware </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Hardware ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Mixed -Signal ASIC Design Engineer (32626) </title>
@@ -473,9 +454,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Semiconductors </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Systems Configuration Identification Specialist (32646) </title>
@@ -492,9 +473,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Full Stack Developer - .Net, Angular, JavaScript (32575) </title>
@@ -511,9 +492,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-MIT </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MIT </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Cloud Site Reliability Engineer - Azure/AWS (34084) </title>
@@ -530,9 +511,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-NT </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-NT </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Banking Technology Integration Consultant - Lockbox/Payments (32606) </title>
@@ -549,9 +530,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Banking </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> FPGA Developer, Senior (32549) </title>
@@ -568,9 +549,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-MIT </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Broadcast Media </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MIT </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Broadcast Media ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Technical Manager, Customer Support (32657) </title>
@@ -587,9 +568,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Customer Service </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Customer Service ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> IT Infrastructure Manager - Manufacturing (32619) </title>
@@ -606,9 +587,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-MC </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Electrical/Electronic Manufacturing </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MC </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Electrical/Electronic Manufacturing ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Legal Analyst/Attorney (34082) </title>
@@ -625,9 +606,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Legal </jobfunction>
-    <jobindustries> Legal Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Legal ]]></jobfunction>
+    <jobindustries><![CDATA[ Legal Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Data Warehouse Sr. Business Analyst (34075) </title>
@@ -644,9 +625,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-MC </assignedrecruiter><jobfunction> Analyst </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MC </assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior AWS Cloud Project Manager (32652) </title>
@@ -663,9 +644,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Project Management </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior ASIC Design &amp;amp; Product Integration Engineer (32623) </title>
@@ -682,9 +663,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Semiconductors </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> ASIC Development Engineer (32476) </title>
@@ -701,9 +682,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Telecommunications </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> SAP FICO Functional Lead (32637) </title>
@@ -720,9 +701,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Oil and Energy </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Oil and Energy ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Change Management Specialist (32612) </title>
@@ -739,9 +720,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Professional Training and Coaching </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Professional Training and Coaching ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Internal Controls Analyst - SOX/ICFR (32579) </title>
@@ -758,9 +739,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Finance </jobfunction>
-    <jobindustries> Capital Markets </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Finance ]]></jobfunction>
+    <jobindustries><![CDATA[ Capital Markets ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Software Developer - Network Management System (32445) </title>
@@ -777,9 +758,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Networking </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Packet Processing Software Developer (32079) </title>
@@ -796,9 +777,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> SAP Data Migration Lead (32597) </title>
@@ -815,9 +796,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Technical Systems Administrator/Trainer (32661) </title>
@@ -834,9 +815,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Cloud Operations Manager (32293) </title>
@@ -853,9 +834,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-DSC </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-DSC </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> NMS Developer (32446) </title>
@@ -872,9 +853,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Networking </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Technical Product Manager (34086) </title>
@@ -891,9 +872,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Product Management </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Product Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> IP Network Architect (32569) </title>
@@ -910,9 +891,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Networking </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior SAP EWM consultant (32622) </title>
@@ -929,9 +910,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Utilities </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Cloud Operations Engineer (32574) </title>
@@ -948,9 +929,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-DSC </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer and Network Security </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-DSC </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer and Network Security ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> IT Director - PMO (32554) </title>
@@ -967,9 +948,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-AM </assignedrecruiter><jobfunction> Project Management </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Director </senoritylevel>
+    <assignedrecruiter> #LI-AM </assignedrecruiter><jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Director ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Project Manager - Bilingual &amp;amp; Remote with Some Travel (32531) </title>
@@ -986,9 +967,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-DSC </assignedrecruiter><jobfunction> Project Management </jobfunction>
-    <jobindustries> Business Supplies and Equipment </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-DSC </assignedrecruiter><jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Business Supplies and Equipment ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Technical Manager, Professional Services (32658) </title>
@@ -1005,9 +986,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Full-Stack Developer (34085) </title>
@@ -1024,9 +1005,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Bilingual Salesforce Business Analyst – Grantmaking (32602) </title>
@@ -1043,9 +1024,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Analyst </jobfunction>
-    <jobindustries> Banking </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Workflow Application Engineer (32655) </title>
@@ -1062,9 +1043,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> D365 trainer with SharePoint experience (32662) </title>
@@ -1081,9 +1062,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Education </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Education ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> SAP Functional Lead – Project Systems - PS (32621) </title>
@@ -1100,9 +1081,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Utilities ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Business &amp;amp; Program Management Consultant (32660) </title>
@@ -1119,9 +1100,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Biotechnology </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Biotechnology ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Local to Chicago-Sr Business Systems Analyst (32632) </title>
@@ -1138,9 +1119,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Analyst </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Sr Program Management Consultant (32608) </title>
@@ -1157,9 +1138,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction> Project Management </jobfunction>
-    <jobindustries> Information Technology and Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MYT </assignedrecruiter><jobfunction><![CDATA[ Project Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Design Verification Specialist (32630) </title>
@@ -1176,9 +1157,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Computer Hardware </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Semiconductors ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Product Line Manager - CIP (32607) </title>
@@ -1195,9 +1176,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-AM </assignedrecruiter><jobfunction> Product Management </jobfunction>
-    <jobindustries> Computer Networking </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AM </assignedrecruiter><jobfunction><![CDATA[ Product Management ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Networking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Employment Equity Resource - Federal Job Evaluation &amp;amp; Pay Equity Compliance (34080) </title>
@@ -1214,9 +1195,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Civic and Social Organization </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Civic and Social Organization ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> EDW Informatica ETL Developer (32541) </title>
@@ -1233,9 +1214,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-MC </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MC </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Software Architect – System Model Application (32513) </title>
@@ -1252,9 +1233,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction> Information Technology </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-MG </assignedrecruiter><jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> D365 Finance Configuration Consultant (32537) </title>
@@ -1271,9 +1252,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Technical Support and Customer Service Associate (32581) </title>
@@ -1290,9 +1271,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
-    <assignedrecruiter> #LI-MC </assignedrecruiter><jobfunction> Customer Service </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Associate </senoritylevel>
+    <assignedrecruiter> #LI-MC </assignedrecruiter><jobfunction><![CDATA[ Customer Service ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Associate ]]></senoritylevel>
   </job>
   <job>
     <title> Digital Content Specialist (32576) </title>
@@ -1309,9 +1290,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-CC </assignedrecruiter><jobfunction> Marketing </jobfunction>
-    <jobindustries> Consumer Services </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-CC </assignedrecruiter><jobfunction><![CDATA[ Marketing ]]></jobfunction>
+    <jobindustries><![CDATA[ Consumer Services ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Manufacturing Engineer (32643) </title>
@@ -1328,9 +1309,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-CC </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Electrical/Electronic Manufacturing </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-CC </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Electrical/Electronic Manufacturing ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Digital Marketing Consultant (32563) </title>
@@ -1347,9 +1328,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-CC </assignedrecruiter><jobfunction> Marketing </jobfunction>
-    <jobindustries> Management Consulting </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-CC </assignedrecruiter><jobfunction><![CDATA[ Marketing ]]></jobfunction>
+    <jobindustries><![CDATA[ Marketing and Advertising ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Ambulatory Clinical Informatics Analyst - Oracle Health/Cerner (32649) </title>
@@ -1366,9 +1347,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Analyst </jobfunction>
-    <jobindustries> Computer Software </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Senior Manager, Radio System Engineering (32647) </title>
@@ -1385,9 +1366,9 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
-    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction> Engineering </jobfunction>
-    <jobindustries> Aviation and Aerospace </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-AG </assignedrecruiter><jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title> Internal Audit Consultant – Banking Sector (34083) </title>
@@ -1404,8 +1385,8 @@
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
-    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction> Consulting </jobfunction>
-    <jobindustries> Banking </jobindustries>
-    <senoritylevel> Mid-Senior level </senoritylevel>
+    <assignedrecruiter> #LI-RP </assignedrecruiter><jobfunction><![CDATA[ Consulting ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
 </source>

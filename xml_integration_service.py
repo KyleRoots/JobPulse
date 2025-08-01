@@ -28,6 +28,8 @@ class XMLIntegrationService:
         self._parser = etree.XMLParser(strip_cdata=False, recover=True)
         # Store field changes for notifications
         self._last_field_changes = {}
+        # Cache for recruiter mappings
+        self._recruiter_cache = {}
     
     def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False) -> Dict:
         """
