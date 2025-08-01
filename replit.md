@@ -7,6 +7,10 @@ This Flask-based web application processes XML job feed files to update referenc
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 1, 2025)
+- **RECRUITER TAG FORMAT UPDATED**: Changed assignedrecruiter format to include both LinkedIn tag and name (e.g., `<assignedrecruiter><![CDATA[#LI-AG: Adam Gebara]]></assignedrecruiter>`) for auditing purposes
+- **RECRUITER MAPPING REVISED**: Updated to 14 approved recruiters only, with Myticas Recruiter and Reena Setya both using #LI-RS tag
+- **JOB 34089 DATA CORRECTED**: Fixed truncated description and incorrect country (now shows Canada instead of United States) with full job details from Bullhorn
+- **REFERENCE NUMBER PRESERVATION RULE**: Established critical rule that existing `<referencenumber>` values must be preserved during ad-hoc XML changes - new reference numbers only generated for new jobs or during scheduled automation
 - **CDATA FORMATTING PERMANENTLY FIXED**: Successfully restored CDATA formatting in both XML files using ensure_cdata_format.py script, uploaded to SFTP server with 946 CDATA sections per file
 - **LINKEDIN TAGS WITH CDATA FIXED**: Resolved issue where assignedrecruiter LinkedIn tags (#LI-) were missing CDATA wrapping - now all 74 recruiter tags have proper <![CDATA[#LI-XX]]> formatting
 - **APPLICATION OPTIMIZATION COMPLETED**: Implemented comprehensive performance improvements including database query optimization, memory-efficient XML processing, batch API calls, and enhanced error recovery systems without affecting existing functionality
@@ -53,6 +57,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Technical Implementation Details
 - **XML Processing Requirements**: Root element 'source', required elements (title, company, date, referencenumber), validation on first 10 jobs.
+- **Reference Number Preservation**: CRITICAL - When making ad-hoc XML changes, existing `<referencenumber>` values MUST be preserved. New reference numbers are only generated for new jobs or during scheduled automation refresh cycles.
 - **File Upload Constraints**: XML files only, max 50MB, temporary storage, secure filename handling.
 - **Error Handling**: Comprehensive XML syntax error catching, user-friendly flash messages, server-side logging, client-side validation.
 - **AI-Powered Job Classification**: Integrates OpenAI GPT-4o to classify jobs (jobfunction, jobindustries, senoritylevel) based on title/description, using predefined Excel-based mappings.
