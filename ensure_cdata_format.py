@@ -27,7 +27,8 @@ def ensure_cdata_formatting(xml_file):
     fields_to_wrap = [
         'title', 'company', 'description', 'city', 'state', 'country',
         'jobtype', 'category', 'email', 'remotetype', 'assignedrecruiter',
-        'jobfunction', 'jobindustries', 'senoritylevel', 'apply_email'
+        'jobfunction', 'jobindustries', 'senoritylevel', 'apply_email',
+        'date', 'referencenumber', 'bhatsid', 'url'
     ]
     
     changes_made = 0
