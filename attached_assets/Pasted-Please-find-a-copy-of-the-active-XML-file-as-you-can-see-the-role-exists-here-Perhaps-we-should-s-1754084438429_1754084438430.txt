@@ -1,0 +1,25 @@
+Please find a copy of the active XML file, as you can see, the role exists here. Perhaps we should start a new XML file from scratch. This means rebuilding it from the ground up, using the same CDATA and HTML formatting rules throughout, as well as the AI classifications and #LI- assigned recruiter nomenclature. We can pull all jobs within that XML file directly through the Bulhorn API and their corresponding fields.
+
+Once that is complete, we can revisit the logic behind the monitoring. To keep it simple yet effective, the logic should be as follows:
+- User is notified via email when a job is added to a tearsheet.
+- User is notified via email when a job is removed from a tearsheet.
+- User is notified via email when a job is modified within a tearsheet (e.g., job title, description, location fields (city/state/country), if the assigned recruiter changes, or if the remote type of the role changes, e.g., from hybrid to remote).
+- Only the points above are when a user should receive an email notification.
+
+Once the above is perfected, we need to perform the following within the XML file:
+- Add a job when it is added to a tearsheet.
+- Remove a job when it is removed from a tearsheet.
+- Modify a job when it has been changed in a tearsheet.
+- Ensure all CDATA formatting and HTML are intact in all cases.
+
+The tearsheets will be monitored every five minutes for changes. When a change is detected, the system will perform the appropriate actions.
+
+Since the goal is to keep the system monitoring as simple as possible, we can remove the 'comprehensive' sync, as I believe that has caused more issues than solutions at this point.
+
+Again, to reiterate, the end goal is to have a simple workflow setup at the Bullhorn tearsheet level that monitors for job activity and acts according to the rules we've established. We can also eliminate the need for the user to make the job 'public' in Bullhorn. From a simplicity standpoint, regardless of the job's status in Bullhorn, if it is in a tearsheet, it is tracked; if it isn't, it is not tracked. Simple as that.
+
+We also need the system to recognise jobs that have been removed from a tearsheet and then added back in.
+
+Lastly, all reference number values are only assigned unique ones if a new job is added to the XML file from the tearsheet association or when the scheduled automation runs, solely to update all reference number values throughout the XML file.
+
+All XML files, at the end of their update cycle—whether as part of the reference number automation or an activity log of a job being added, removed, or updated—must be uploaded as the newest, most recent file to both the web server and the automation scheduling section of the system so everything remains in sync and runs smoothly. 

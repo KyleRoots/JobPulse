@@ -108,7 +108,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 # Import and initialize models
 from models import create_models
-User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity = create_models(db)
+User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory = create_models(db)
 
 # Initialize database tables
 with app.app_context():

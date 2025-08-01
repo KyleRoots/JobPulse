@@ -139,4 +139,27 @@ def create_models(db):
         def __repr__(self):
             return f'<BullhornActivity {self.activity_type} - {self.job_title}>'
 
-    return User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity
+    class TearsheetJobHistory(db.Model):
+        """Track job state history for tearsheets to detect modifications"""
+        id = db.Column(db.Integer, primary_key=True)
+        tearsheet_id = db.Column(db.Integer, nullable=False)
+        job_id = db.Column(db.Integer, nullable=False)
+        job_title = db.Column(db.String(500), nullable=True)
+        job_description = db.Column(db.Text, nullable=True)
+        job_city = db.Column(db.String(255), nullable=True)
+        job_state = db.Column(db.String(255), nullable=True)
+        job_country = db.Column(db.String(255), nullable=True)
+        job_owner_name = db.Column(db.String(255), nullable=True)
+        job_remote_type = db.Column(db.String(100), nullable=True)
+        is_current = db.Column(db.Boolean, default=True)
+        timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+        
+        # Index for efficient lookups
+        __table_args__ = (
+            db.Index('idx_tearsheet_job_current', 'tearsheet_id', 'job_id', 'is_current'),
+        )
+        
+        def __repr__(self):
+            return f'<TearsheetJobHistory tearsheet={self.tearsheet_id} job={self.job_id}>'
+    
+    return User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory
