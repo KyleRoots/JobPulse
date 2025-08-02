@@ -2322,7 +2322,7 @@ def process_schedule_with_progress(schedule_id):
                 if (email_enabled and email_enabled.setting_value == 'true' and 
                     email_address and email_address.setting_value):
                     
-                    email_service = EmailService()
+                    email_service = get_email_service()
                     email_sent = email_service.send_processing_notification(
                         to_email=email_address.setting_value,
                         schedule_name=schedule.name,
@@ -2949,7 +2949,7 @@ def trigger_job_sync():
         # Run monitoring immediately
         service = MonitoringService(db.session)
         service.xml_service = XMLIntegrationService()
-        service.email_service = EmailService()
+        service.email_service = get_email_service()
         service.BullhornMonitor = BullhornMonitor
         service.BullhornActivity = BullhornActivity
         service.GlobalSettings = GlobalSettings
@@ -3767,7 +3767,7 @@ def test_email_notification(monitor_id):
         }
         
         # Send the test email
-        email_service = EmailService()
+        email_service = get_email_service()
         email_sent = email_service.send_bullhorn_notification(
             to_email=email_address,
             monitor_name=f"{monitor.name} [TEST EMAIL]",
