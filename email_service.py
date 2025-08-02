@@ -545,6 +545,27 @@ class EmailService:
 
             # Send email
             response = self.sg.send(message)
+            
+            # Extract SendGrid message ID from response headers
+            sendgrid_message_id = None
+            try:
+                if hasattr(response, 'headers') and hasattr(response.headers, 'get'):
+                    sendgrid_message_id = response.headers.get('X-Message-Id')
+            except Exception:
+                pass
+            
+            # Log email delivery
+            delivery_status = 'sent' if response.status_code == 202 else 'failed'
+            error_msg = None if response.status_code == 202 else f"SendGrid returned status code: {response.status_code}"
+            
+            self._log_email_delivery(
+                notification_type='bullhorn_notification',
+                recipient_email=to_email,
+                delivery_status=delivery_status,
+                sendgrid_message_id=sendgrid_message_id,
+                error_message=error_msg,
+                changes_summary=f"Monitor: {monitor_name}, Changes: {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified"
+            )
 
             if response.status_code == 202:
                 logging.info(
@@ -557,6 +578,14 @@ class EmailService:
                 return False
 
         except Exception as e:
+            # Log failed email delivery
+            self._log_email_delivery(
+                notification_type='bullhorn_notification',
+                recipient_email=to_email,
+                delivery_status='failed',
+                error_message=str(e),
+                changes_summary=f"Monitor: {monitor_name} - Failed to send notification"
+            )
             logging.error(f"Failed to send Bullhorn notification: {str(e)}")
             import traceback
             logging.error(f"Full traceback: {traceback.format_exc()}")
