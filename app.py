@@ -134,6 +134,14 @@ scheduler.start()
 from optimization_improvements import apply_optimizations
 optimizer = apply_optimizations(app, db, scheduler)
 
+# Initialize file consolidation service
+try:
+    from file_consolidation_service import FileConsolidationService
+    app.file_consolidation = FileConsolidationService()
+    app.logger.info("File consolidation service initialized")
+except Exception as e:
+    app.logger.warning(f"File consolidation service not available: {e}")
+
 # Cleanup scheduler on exit
 atexit.register(lambda: scheduler.shutdown())
 
@@ -2961,6 +2969,35 @@ def trigger_job_sync():
             'error': str(e)
         }), 500
 
+@app.route('/api/trigger/file-cleanup', methods=['POST'])
+@login_required
+def trigger_file_cleanup():
+    """Manually trigger file consolidation and cleanup"""
+    try:
+        app.logger.info("Manual file cleanup triggered")
+        
+        if hasattr(app, 'file_consolidation'):
+            results = app.file_consolidation.run_full_cleanup()
+            
+            return jsonify({
+                'success': True,
+                'message': 'File cleanup completed successfully',
+                'timestamp': datetime.utcnow().isoformat(),
+                'results': results
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'File consolidation service not available'
+            }), 500
+            
+    except Exception as e:
+        app.logger.error(f"Manual file cleanup error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/trigger/health-check', methods=['POST'])
 @login_required
 def trigger_health_check():
@@ -4690,4 +4727,25 @@ scheduler.add_job(
 )
 
 app.logger.info("Monitor health check system enabled - will check every 15 minutes for overdue monitors")
+
+# Schedule automatic file cleanup
+def schedule_file_cleanup():
+    """Schedule automatic file cleanup"""
+    with app.app_context():
+        if hasattr(app, 'file_consolidation'):
+            try:
+                results = app.file_consolidation.run_full_cleanup()
+                app.logger.info(f"Scheduled file cleanup completed: {results.get('summary', {})}")
+            except Exception as e:
+                app.logger.error(f"Scheduled file cleanup error: {e}")
+
+scheduler.add_job(
+    func=schedule_file_cleanup,
+    trigger="interval", 
+    hours=24,
+    id="file_cleanup_job",
+    name="Daily File Cleanup",
+    replace_existing=True
+)
+app.logger.info("Scheduled daily file cleanup job")
 

@@ -43,6 +43,7 @@ Preferred communication style: Simple, everyday language.
 - **Email Delivery Logging Architecture**: Comprehensive email tracking system with EmailDeliveryLog database model, tracks notification type, job details, delivery status, SendGrid message IDs, error messages, and changes summary. Includes web dashboard at /email-logs.
 - **Enhanced EmailService Integration**: EmailService class supports database logging for all email notifications, including individual job change notifications and bulk scheduled processing notifications.
 - **XML Safeguards**: Implemented `xml_safeguards.py` for automatic backups, XML structure validation, duplicate detection, file size verification, MD5 checksums, and rollback capabilities.
+- **Intelligent File Management**: Automated file consolidation with `file_consolidation_service.py` for backup archiving, duplicate detection, temp file cleanup, and storage optimization. Includes UI controls and daily scheduled cleanup.
 
 ## External Dependencies
 

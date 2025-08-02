@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-08-02T17:20:29.630583",
+  "total_files_scanned": 19488,
+  "total_size_mb": 724.6396770477295,
+  "categories": {
+    "xml_files": 8,
+    "backup_files": 0,
+    "temp_files": 22,
+    "log_files": 0,
+    "python_files": 8723,
+    "other_files": 10735
+  }
+}

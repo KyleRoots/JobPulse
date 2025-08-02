@@ -585,6 +585,9 @@
                             <button onclick="fixAIClassifications()" class="btn btn-outline-warning me-2 ai-fix-btn" id="aiFixBtn" title="Check and fix missing AI classifications">
                                 <i class="fas fa-brain me-2"></i>Fix AI Classifications
                             </button>
+                            <button onclick="triggerFileCleanup()" class="btn btn-outline-info me-2 cleanup-btn" id="cleanupBtn" title="Clean up temporary and backup files">
+                                <i class="fas fa-broom me-2"></i>File Cleanup
+                            </button>
                             <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
                                 <i class="fas fa-plus me-2"></i>Create Monitor
                             </a>
@@ -1362,6 +1365,77 @@
                     btn.disabled = false;
                     btn.classList.remove('btn-danger');
                     btn.classList.add('btn-outline-warning');
+                }, 3000);
+            });
+        }
+
+        // File cleanup trigger functionality
+        function triggerFileCleanup() {
+            const cleanupBtn = document.getElementById('cleanupBtn');
+            const originalText = cleanupBtn.innerHTML;
+            
+            // Disable button and show loading
+            cleanupBtn.disabled = true;
+            cleanupBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Cleaning...';
+            
+            fetch('/api/trigger/file-cleanup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const summary = data.results.summary;
+                    const filesRemoved = summary.total_files_removed || 0;
+                    const sizeFreed = summary.total_size_freed_mb || 0;
+                    
+                    // Show success message with details
+                    cleanupBtn.innerHTML = `<i class="fas fa-check me-2"></i>Cleaned (${filesRemoved} files, ${sizeFreed}MB)`;
+                    cleanupBtn.classList.remove('btn-outline-info');
+                    cleanupBtn.classList.add('btn-outline-success');
+                    
+                    showNotification(`File cleanup complete: removed ${filesRemoved} files, freed ${sizeFreed}MB`, 'success');
+                    
+                    // Reset button after delay
+                    setTimeout(() => {
+                        cleanupBtn.disabled = false;
+                        cleanupBtn.innerHTML = originalText;
+                        cleanupBtn.classList.remove('btn-outline-success');
+                        cleanupBtn.classList.add('btn-outline-info');
+                    }, 5000);
+                } else {
+                    // Show error
+                    cleanupBtn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Cleanup Failed';
+                    cleanupBtn.classList.remove('btn-outline-info');
+                    cleanupBtn.classList.add('btn-danger');
+                    
+                    showNotification(data.error || 'File cleanup failed', 'error');
+                    
+                    // Reset button after delay
+                    setTimeout(() => {
+                        cleanupBtn.disabled = false;
+                        cleanupBtn.innerHTML = originalText;
+                        cleanupBtn.classList.remove('btn-danger');
+                        cleanupBtn.classList.add('btn-outline-info');
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                // Handle network errors
+                cleanupBtn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Network Error';
+                cleanupBtn.classList.remove('btn-outline-info');
+                cleanupBtn.classList.add('btn-danger');
+                
+                showNotification('Error during file cleanup: ' + error.message, 'error');
+                
+                // Reset button after delay
+                setTimeout(() => {
+                    cleanupBtn.disabled = false;
+                    cleanupBtn.innerHTML = originalText;
+                    cleanupBtn.classList.remove('btn-danger');
+                    cleanupBtn.classList.add('btn-outline-info');
                 }, 3000);
             });
         }
