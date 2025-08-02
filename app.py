@@ -4570,7 +4570,7 @@ def email_logs():
     if notification_type:
         query = query.filter(EmailDeliveryLog.notification_type == notification_type)
     
-    logs = query.order_by(EmailDeliveryLog.created_at.desc()).paginate(
+    logs = query.order_by(EmailDeliveryLog.sent_at.desc()).paginate(
         page=page, 
         per_page=per_page, 
         error_out=False
@@ -4590,7 +4590,7 @@ def api_email_logs():
     if notification_type:
         query = query.filter(EmailDeliveryLog.notification_type == notification_type)
     
-    logs = query.order_by(EmailDeliveryLog.created_at.desc()).paginate(
+    logs = query.order_by(EmailDeliveryLog.sent_at.desc()).paginate(
         page=page, 
         per_page=per_page, 
         error_out=False
@@ -4608,7 +4608,7 @@ def api_email_logs():
             'error_message': log.error_message,
             'schedule_name': log.schedule_name,
             'changes_summary': log.changes_summary,
-            'created_at': log.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            'sent_at': log.sent_at.strftime('%Y-%m-%d %H:%M:%S')
         } for log in logs.items],
         'pagination': {
             'page': logs.page,

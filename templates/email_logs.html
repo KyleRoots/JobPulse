@@ -100,7 +100,7 @@
                                 {% for log in logs.items %}
                                 <tr>
                                     <td>
-                                        <small>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                                        <small>{{ log.sent_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
                                     </td>
                                     <td>
                                         {% if log.notification_type == 'job_added' %}
