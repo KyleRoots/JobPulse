@@ -161,5 +161,24 @@ def create_models(db):
         
         def __repr__(self):
             return f'<TearsheetJobHistory tearsheet={self.tearsheet_id} job={self.job_id}>'
+
+    class EmailDeliveryLog(db.Model):
+        """Log of email notifications sent for job changes"""
+        id = db.Column(db.Integer, primary_key=True)
+        notification_type = db.Column(db.String(50), nullable=False)  # 'job_added', 'job_removed', 'job_modified', 'scheduled_processing'
+        job_id = db.Column(db.String(20), nullable=True)  # Bullhorn job ID (null for scheduled processing)
+        job_title = db.Column(db.String(255), nullable=True)  # Job title for reference
+        recipient_email = db.Column(db.String(255), nullable=False)  # Email address notification was sent to
+        sent_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)  # When email was sent
+        delivery_status = db.Column(db.String(20), default='sent', nullable=False)  # 'sent', 'failed', 'pending'
+        sendgrid_message_id = db.Column(db.String(255), nullable=True)  # SendGrid message ID for tracking
+        error_message = db.Column(db.Text, nullable=True)  # Error details if delivery failed
+        
+        # Additional context fields
+        schedule_name = db.Column(db.String(100), nullable=True)  # For scheduled processing notifications
+        changes_summary = db.Column(db.Text, nullable=True)  # Summary of changes that triggered the notification
+        
+        def __repr__(self):
+            return f'<EmailDeliveryLog {self.notification_type} to {self.recipient_email}>'
     
-    return User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory
+    return User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog

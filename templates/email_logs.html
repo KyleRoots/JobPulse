@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block title %}Email Delivery Logs{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-envelope-circle-check me-2"></i>
+                    Email Delivery Logs
+                </h2>
+                <div class="d-flex gap-2">
+                    <select class="form-select" id="typeFilter" style="width: auto;">
+                        <option value="">All Types</option>
+                        <option value="job_added">Job Added</option>
+                        <option value="job_removed">Job Removed</option>
+                        <option value="job_modified">Job Modified</option>
+                        <option value="scheduled_processing">Scheduled Processing</option>
+                    </select>
+                    <button class="btn btn-outline-secondary" onclick="refreshLogs()">
+                        <i class="fas fa-refresh"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Sent</h6>
+                                    <h4 id="sentCount">0</h4>
+                                </div>
+                                <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Failed</h6>
+                                    <h4 id="failedCount">0</h4>
+                                </div>
+                                <i class="fas fa-times-circle fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Today</h6>
+                                    <h4 id="todayCount">0</h4>
+                                </div>
+                                <i class="fas fa-calendar-day fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Total</h6>
+                                    <h4 id="totalCount">{{ logs.total }}</h4>
+                                </div>
+                                <i class="fas fa-envelope fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Email Logs Table -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="emailLogsTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Date/Time</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Recipient</th>
+                                    <th>Job</th>
+                                    <th>Details</th>
+                                    <th>SendGrid ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs.items %}
+                                <tr>
+                                    <td>
+                                        <small>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                                    </td>
+                                    <td>
+                                        {% if log.notification_type == 'job_added' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-plus"></i> Added
+                                            </span>
+                                        {% elif log.notification_type == 'job_removed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-minus"></i> Removed
+                                            </span>
+                                        {% elif log.notification_type == 'job_modified' %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-edit"></i> Modified
+                                            </span>
+                                        {% elif log.notification_type == 'scheduled_processing' %}
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-clock"></i> Scheduled
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ log.notification_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.delivery_status == 'sent' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check"></i> Sent
+                                            </span>
+                                        {% elif log.delivery_status == 'failed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times"></i> Failed
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{{ log.delivery_status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ log.recipient_email }}</small>
+                                    </td>
+                                    <td>
+                                        {% if log.job_id %}
+                                            <div>
+                                                <strong>ID:</strong> {{ log.job_id }}<br>
+                                                <small class="text-muted">{{ log.job_title[:50] }}{% if log.job_title and log.job_title|length > 50 %}...{% endif %}</small>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.changes_summary %}
+                                            <small title="{{ log.changes_summary }}">
+                                                {{ log.changes_summary[:80] }}{% if log.changes_summary|length > 80 %}...{% endif %}
+                                            </small>
+                                        {% elif log.schedule_name %}
+                                            <small>Schedule: {{ log.schedule_name }}</small>
+                                        {% elif log.error_message %}
+                                            <small class="text-danger">{{ log.error_message[:50] }}{% if log.error_message|length > 50 %}...{% endif %}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.sendgrid_message_id %}
+                                            <code class="small">{{ log.sendgrid_message_id[:20] }}...</code>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if logs.pages > 1 %}
+                    <nav aria-label="Email logs pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if logs.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('email_logs', page=logs.prev_num) }}">Previous</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in logs.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num != logs.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('email_logs', page=page_num) }}">{{ page_num }}</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">…</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if logs.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('email_logs', page=logs.next_num) }}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshLogs() {
+    window.location.reload();
+}
+
+// Update statistics on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // You can implement AJAX calls to get real-time statistics
+    // For now, we'll calculate from the current page data
+    const rows = document.querySelectorAll('#emailLogsTable tbody tr');
+    let sentCount = 0;
+    let failedCount = 0;
+    let todayCount = 0;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    rows.forEach(row => {
+        const statusBadge = row.cells[2].querySelector('.badge');
+        const dateCell = row.cells[0].textContent.trim();
+        
+        if (statusBadge.textContent.includes('Sent')) {
+            sentCount++;
+        } else if (statusBadge.textContent.includes('Failed')) {
+            failedCount++;
+        }
+        
+        if (dateCell.startsWith(today)) {
+            todayCount++;
+        }
+    });
+    
+    document.getElementById('sentCount').textContent = sentCount;
+    document.getElementById('failedCount').textContent = failedCount;
+    document.getElementById('todayCount').textContent = todayCount;
+});
+
+// Type filter functionality
+document.getElementById('typeFilter').addEventListener('change', function() {
+    const selectedType = this.value;
+    if (selectedType) {
+        window.location.href = `{{ url_for('email_logs') }}?type=${selectedType}`;
+    } else {
+        window.location.href = `{{ url_for('email_logs') }}`;
+    }
+});
+</script>
+{% endblock %}

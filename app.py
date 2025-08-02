@@ -85,6 +85,11 @@ def get_bullhorn_service():
         username=credentials.get('bullhorn_username'),
         password=credentials.get('bullhorn_password')
     )
+
+def get_email_service():
+    """Helper function to create EmailService with database logging support"""
+    from email_service import EmailService
+    return EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
 login_manager.login_message = 'Please log in to access the XML Job Feed Portal.'
 
 @login_manager.user_loader
@@ -108,7 +113,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 # Import and initialize models
 from models import create_models
-User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory = create_models(db)
+User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog = create_models(db)
 
 # Initialize database tables
 with app.app_context():
@@ -276,7 +281,7 @@ def process_scheduled_files():
                                     
                                     # Send email notification immediately after XML processing
                                     
-                                    email_service = EmailService()
+                                    email_service = get_email_service()
                                     email_sent = email_service.send_processing_notification(
                                         to_email=email_address.setting_value,
                                         schedule_name=schedule.name,
@@ -342,7 +347,7 @@ def process_scheduled_files():
                                 if (email_enabled and email_enabled.setting_value == 'true' and 
                                     email_address and email_address.setting_value):
                                     
-                                    email_service = EmailService()
+                                    email_service = get_email_service()
                                     email_service.send_processing_error_notification(
                                         to_email=email_address.setting_value,
                                         schedule_name=schedule.name,
@@ -1653,7 +1658,7 @@ def process_bullhorn_monitors():
                                                         # Send notifications immediately after SFTP upload
                                                         app.logger.info(f"Sending {len(app._pending_notifications)} pending email notifications immediately after successful XML sync and upload")
                                                         
-                                                        email_service = EmailService()
+                                                        email_service = get_email_service()
                                                         notifications_sent = 0
                                                         for notification in app._pending_notifications:
                                                             try:
@@ -1715,7 +1720,7 @@ def process_bullhorn_monitors():
                                         
                                         # Send notifications immediately after XML sync completion
                                         
-                                        email_service = EmailService()
+                                        email_service = get_email_service()
                                         notifications_sent = 0
                                         for notification in app._pending_notifications:
                                             try:

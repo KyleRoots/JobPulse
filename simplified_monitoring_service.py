@@ -16,10 +16,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 class SimplifiedMonitoringService:
-    def __init__(self):
+    def __init__(self, db=None, EmailDeliveryLog=None):
         self.bullhorn = BullhornService()
         self.xml_service = XMLIntegrationService()
-        self.email_service = EmailService()
+        self.email_service = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
         self.ftp_service = FTPService()
         
         # Fields to monitor for modifications
@@ -240,41 +240,48 @@ class SimplifiedMonitoringService:
         return changes
     
     def send_notifications(self, tearsheet_name: str, changes: Dict):
-        """Send email notifications for changes"""
+        """Send individual email notifications for each job change with database logging"""
         if not any(changes.values()):
             return
-            
-        # Build email content
-        subject = f"Bullhorn Tearsheet Updates - {tearsheet_name}"
-        body_parts = []
         
-        if changes['added']:
-            body_parts.append(f"<h3>Jobs Added ({len(changes['added'])})</h3>")
-            for job in changes['added']:
-                body_parts.append(f"<li><strong>{job['title']}</strong> (ID: {job['id']})")
-                body_parts.append(f"<br>Location: {job['city']}, {job['state']}, {job['country']}")
-                body_parts.append(f"<br>Remote Type: {job['remote_type']}")
-                body_parts.append(f"<br>Recruiter: {job['owner_name']}</li><br>")
+        # Get notification email from settings (simplified approach)
+        notification_email = "kroots@myticas.com"  # Default recipient
         
-        if changes['removed']:
-            body_parts.append(f"<h3>Jobs Removed ({len(changes['removed'])})</h3>")
-            for job in changes['removed']:
-                body_parts.append(f"<li><strong>{job['title']}</strong> (ID: {job['id']})</li>")
+        # Send individual notifications for each added job
+        for job in changes.get('added', []):
+            self.email_service.send_job_change_notification(
+                to_email=notification_email,
+                notification_type='job_added',
+                job_id=str(job['id']),
+                job_title=job['title'],
+                changes_summary=f"Job added to {tearsheet_name} tearsheet. Location: {job['city']}, {job['state']}, {job['country']}. Recruiter: {job['owner_name']}"
+            )
+            logger.info(f"Sent job_added notification for job {job['id']}")
         
-        if changes['modified']:
-            body_parts.append(f"<h3>Jobs Modified ({len(changes['modified'])})</h3>")
-            for job in changes['modified']:
-                body_parts.append(f"<li><strong>{job['title']}</strong> (ID: {job['id']})")
-                body_parts.append("<br>Changes:")
-                for mod in job['modifications']:
-                    body_parts.append(f"<br>  • {mod}")
-                body_parts.append("</li><br>")
+        # Send individual notifications for each removed job
+        for job in changes.get('removed', []):
+            self.email_service.send_job_change_notification(
+                to_email=notification_email,
+                notification_type='job_removed',
+                job_id=str(job['id']),
+                job_title=job['title'],
+                changes_summary=f"Job removed from {tearsheet_name} tearsheet"
+            )
+            logger.info(f"Sent job_removed notification for job {job['id']}")
         
-        body = ''.join(body_parts)
+        # Send individual notifications for each modified job
+        for job in changes.get('modified', []):
+            modifications_text = '; '.join(job.get('modifications', []))
+            self.email_service.send_job_change_notification(
+                to_email=notification_email,
+                notification_type='job_modified',
+                job_id=str(job['id']),
+                job_title=job['title'],
+                changes_summary=f"Job modified in {tearsheet_name} tearsheet. Changes: {modifications_text}"
+            )
+            logger.info(f"Sent job_modified notification for job {job['id']}")
         
-        # Send email
-        self.email_service.send_notification_email(subject, body)
-        logger.info(f"Sent notification email for {tearsheet_name}")
+        logger.info(f"Completed individual notifications for {tearsheet_name} - {len(changes.get('added', []))} added, {len(changes.get('removed', []))} removed, {len(changes.get('modified', []))} modified")
     
     def upload_xml_files(self):
         """Upload XML files to FTP and ensure synchronization"""
