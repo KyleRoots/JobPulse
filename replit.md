@@ -7,6 +7,7 @@ This Flask-based web application processes XML job feed files to update referenc
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 2, 2025)
+- **ENHANCED MONITORING SAFEGUARDS**: Upgraded false positive detection from 80% to 95% retention threshold, added large batch removal protection (>10 jobs), and XML corruption detection to prevent future false alerts
 - **REFERENCE NUMBER SAFEGUARDS IMPLEMENTED**: Added preserve_references flag to rebuild script and established clear guidelines for scheduled automation vs ad-hoc fixes to prevent unintended reference number overwrites
 - **FALSE POSITIVE MONITORING RESOLVED**: Fixed monitoring alert that incorrectly reported 16 jobs removed - rebuilt XML from Bullhorn showing correct 70 jobs total, accepted new reference numbers as scheduled automation
 - **APPLICATION DEPLOYMENT READY**: Successfully completed email delivery logging system and initiated deployment process, all components tested and operational

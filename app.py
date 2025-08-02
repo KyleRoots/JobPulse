@@ -479,21 +479,44 @@ def process_bullhorn_monitors():
                     modified_jobs = changes.get('modified', [])
                     summary = changes.get('summary', {})
                     
-                    # Verify "removed" jobs to prevent false positives
-                    # If there are supposedly removed jobs but current jobs count is unexpectedly low, 
-                    # this might be an API retrieval issue - skip processing removed jobs
-                    if removed_jobs and len(current_jobs) < len(previous_jobs) * 0.8:
-                        app.logger.warning(f"Monitor {monitor.name}: Detected potential API retrieval issue. "
-                                         f"Current jobs: {len(current_jobs)}, Previous: {len(previous_jobs)}. "
-                                         f"Skipping removal notifications to prevent false positives.")
-                        removed_jobs = []  # Don't process removals if we suspect API issues
+                    # Enhanced safeguards to prevent false positives and detect XML corruption
+                    skip_removals = False
+                    
+                    if removed_jobs:
+                        current_count = len(current_jobs)
+                        previous_count = len(previous_jobs)
+                        removed_count = len(removed_jobs)
+                        
+                        # Stricter threshold: 95% retention expected for normal operations
+                        if current_count < previous_count * 0.95:
+                            app.logger.warning(f"Monitor {monitor.name}: Potential API retrieval issue detected. "
+                                             f"Current jobs: {current_count}, Previous: {previous_count}. "
+                                             f"Drop rate: {((previous_count - current_count) / previous_count * 100):.1f}%. "
+                                             f"Skipping removal processing to prevent false positives.")
+                            skip_removals = True
+                        
+                        # Additional safeguard: If more than 10 jobs removed at once, require manual verification
+                        elif removed_count > 10:
+                            app.logger.warning(f"Monitor {monitor.name}: Large batch removal detected ({removed_count} jobs). "
+                                             f"This may indicate data corruption or API issues. "
+                                             f"Skipping removal processing - manual verification recommended.")
+                            skip_removals = True
+                        
+                        # Detect potential XML corruption: If "previous" count is significantly lower than expected
+                        elif previous_count < 50 and current_count > previous_count * 1.2:
+                            app.logger.info(f"Monitor {monitor.name}: XML restoration detected. "
+                                          f"Previous XML had {previous_count} jobs, Bullhorn shows {current_count}. "
+                                          f"This appears to be data recovery, not job removals.")
+                            skip_removals = True
+                    
+                    if skip_removals:
+                        removed_jobs = []  # Don't process removals
                         summary['removed_count'] = 0  # Update summary
-                    else:
-                        # Log the removal detection for debugging
-                        if removed_jobs:
-                            app.logger.info(f"Monitor {monitor.name}: Detected {len(removed_jobs)} removed jobs. "
-                                          f"Current: {len(current_jobs)}, Previous: {len(previous_jobs)}. "
-                                          f"Proceeding with XML sync.")
+                    elif removed_jobs:
+                        # Log verified removals for debugging
+                        app.logger.info(f"Monitor {monitor.name}: Verified {len(removed_jobs)} job removals. "
+                                      f"Current: {len(current_jobs)}, Previous: {len(previous_jobs)}. "
+                                      f"Proceeding with XML sync.")
                     
                     # XML Integration: Automatically update XML files when jobs change
                     xml_sync_success = False
@@ -1644,11 +1667,16 @@ def process_bullhorn_monitors():
                                                     for sched in active_schedules:
                                                         sched.last_file_upload = datetime.utcnow()
                                                     
-                                                    # Log comprehensive sync activity
+                                                    # Log comprehensive sync activity with enhanced messaging
+                                                    if len(missing_job_ids) > len(orphaned_job_ids) and len(missing_job_ids) > 10:
+                                                        sync_details = f"Comprehensive sync: Data restoration - {len(missing_job_ids)} jobs restored, {len(orphaned_job_ids)} removed. SFTP upload successful."
+                                                    else:
+                                                        sync_details = f"Comprehensive sync: {len(missing_job_ids)} added, {len(orphaned_job_ids)} removed. SFTP upload successful."
+                                                    
                                                     activity = BullhornActivity(
                                                         monitor_id=monitors_processed[0].id,  # Use first monitor for activity logging
                                                         activity_type='xml_sync_completed',
-                                                        details=f"Comprehensive sync: {len(missing_job_ids)} added, {len(orphaned_job_ids)} removed. SFTP upload successful."
+                                                        details=sync_details
                                                     )
                                                     db.session.add(activity)
                                                     
