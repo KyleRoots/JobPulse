@@ -106,9 +106,10 @@ def get_all_tearsheet_jobs():
     logger.info(f"Total unique jobs across all tearsheets: {len(all_jobs)}")
     return list(all_jobs.values())
 
-def rebuild_xml_from_tearsheets():
+def rebuild_xml_from_tearsheets(preserve_references: bool = False):
     """Rebuild XML from all tearsheet jobs"""
-    logger.info("Starting complete XML rebuild from tearsheets...")
+    operation_type = "ad-hoc fix (preserving references)" if preserve_references else "scheduled automation (new references)"
+    logger.info(f"Starting complete XML rebuild from tearsheets ({operation_type})...")
     
     # Get all jobs
     jobs = get_all_tearsheet_jobs()
@@ -116,6 +117,13 @@ def rebuild_xml_from_tearsheets():
     if not jobs:
         logger.error("No jobs found in tearsheets")
         return False
+    
+    # Extract existing reference numbers if preserve_references is True
+    existing_references = {}
+    if preserve_references:
+        logger.info("Extracting existing reference numbers for preservation...")
+        existing_references = extract_existing_reference_numbers('myticas-job-feed.xml')
+        logger.info(f"Found {len(existing_references)} existing reference numbers to preserve")
     
     # Create XML integration service
     xml_service = XMLIntegrationService()
@@ -129,8 +137,12 @@ def rebuild_xml_from_tearsheets():
     
     for job_data in jobs:
         try:
-            # Map Bullhorn job data to XML format
-            xml_job_data = xml_service.map_bullhorn_job_to_xml(job_data)
+            # Use preserved reference number if available
+            job_id = str(job_data.get('id'))
+            existing_ref = existing_references.get(job_id) if preserve_references else None
+            
+            # Map Bullhorn job data to XML format with preserved reference if available
+            xml_job_data = xml_service.map_bullhorn_job_to_xml(job_data, existing_ref)
             
             if xml_job_data:
                 # Create job element
@@ -209,12 +221,45 @@ def rebuild_xml_from_tearsheets():
     
     return True
 
+def extract_existing_reference_numbers(xml_file_path: str) -> dict:
+    """Extract existing reference numbers from XML file"""
+    existing_refs = {}
+    try:
+        if os.path.exists(xml_file_path):
+            with open(xml_file_path, 'rb') as f:
+                tree = etree.parse(f)
+            root = tree.getroot()
+            
+            for job in root.xpath('.//job'):
+                bhatsid_elem = job.find('.//bhatsid')
+                ref_elem = job.find('.//referencenumber')
+                
+                if bhatsid_elem is not None and ref_elem is not None:
+                    job_id = bhatsid_elem.text.strip() if bhatsid_elem.text else None
+                    ref_number = ref_elem.text.strip() if ref_elem.text else None
+                    
+                    if job_id and ref_number:
+                        existing_refs[job_id] = ref_number
+                        
+    except Exception as e:
+        logger.warning(f"Could not extract existing reference numbers: {e}")
+    
+    return existing_refs
+
 def main():
     """Main function"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Rebuild XML files from Bullhorn tearsheets')
+    parser.add_argument('--preserve-references', action='store_true', 
+                       help='Preserve existing reference numbers (use for ad-hoc fixes)')
+    
+    args = parser.parse_args()
+    
     # Create backup directory if it doesn't exist
     os.makedirs('xml_backups', exist_ok=True)
     
-    success = rebuild_xml_from_tearsheets()
+    success = rebuild_xml_from_tearsheets(preserve_references=args.preserve_references)
     
     if success:
         logger.info("✅ XML rebuild completed successfully!")

@@ -7,6 +7,8 @@ This Flask-based web application processes XML job feed files to update referenc
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 2, 2025)
+- **REFERENCE NUMBER SAFEGUARDS IMPLEMENTED**: Added preserve_references flag to rebuild script and established clear guidelines for scheduled automation vs ad-hoc fixes to prevent unintended reference number overwrites
+- **FALSE POSITIVE MONITORING RESOLVED**: Fixed monitoring alert that incorrectly reported 16 jobs removed - rebuilt XML from Bullhorn showing correct 70 jobs total, accepted new reference numbers as scheduled automation
 - **APPLICATION DEPLOYMENT READY**: Successfully completed email delivery logging system and initiated deployment process, all components tested and operational
 - **NAVIGATION ENHANCED**: Added Email Logs button to settings page navigation and optimized email logs page navigation (Dashboard → Settings → Email Logs)
 - **EMAIL DELIVERY LOGGING SYSTEM FULLY OPERATIONAL**: Completed comprehensive EmailDeliveryLog database model with complete email tracking functionality, logs notification type, job details, delivery status, SendGrid message IDs, and error messages for troubleshooting
@@ -28,7 +30,11 @@ Preferred communication style: Simple, everyday language.
 - **RECRUITER TAG FORMAT UPDATED**: Changed assignedrecruiter format to include both LinkedIn tag and name (e.g., `<assignedrecruiter><![CDATA[#LI-AG: Adam Gebara]]></assignedrecruiter>`) for auditing purposes
 - **RECRUITER MAPPING REVISED**: Updated to 14 approved recruiters only, with Myticas Recruiter and Reena Setya both using #LI-RS tag
 - **JOB 34089 DATA CORRECTED**: Fixed truncated description and incorrect country (now shows Canada instead of United States) with full job details from Bullhorn
-- **REFERENCE NUMBER PRESERVATION RULE**: Established critical rule that existing `<referencenumber>` values must be preserved during ad-hoc XML changes - new reference numbers only generated for new jobs or during scheduled automation
+- **REFERENCE NUMBER PRESERVATION RULES**: 
+  - **Ad-hoc fixes**: Must preserve existing reference numbers to maintain external integrations and bookmarks
+  - **Scheduled automation**: May generate new reference numbers for comprehensive rebuilds (e.g., fixing data inconsistencies)
+  - **New jobs**: Always generate new unique reference numbers
+  - **Safeguard mechanism**: rebuild_xml_standalone.py includes --preserve-references flag for ad-hoc fixes
 - **CDATA FORMATTING PERMANENTLY FIXED**: Successfully restored CDATA formatting in both XML files using ensure_cdata_format.py script, uploaded to SFTP server with 946 CDATA sections per file
 - **LINKEDIN TAGS WITH CDATA FIXED**: Resolved issue where assignedrecruiter LinkedIn tags (#LI-) were missing CDATA wrapping - now all 74 recruiter tags have proper <![CDATA[#LI-XX]]> formatting
 - **APPLICATION OPTIMIZATION COMPLETED**: Implemented comprehensive performance improvements including database query optimization, memory-efficient XML processing, batch API calls, and enhanced error recovery systems without affecting existing functionality
@@ -82,6 +88,7 @@ Preferred communication style: Simple, everyday language.
 - **HTML Formatting Consistency**: Ensures all job descriptions have consistent HTML markup by converting HTML entities (e.g., `&lt;strong&gt;`) to proper HTML tags (e.g., `<strong>`) within CDATA sections.
 - **Email Delivery Logging Architecture**: Comprehensive email tracking system with EmailDeliveryLog database model, tracks notification_type (job_added/removed/modified/scheduled_processing), job_id, job_title, recipient_email, delivery_status (sent/failed), SendGrid message IDs, error messages, and detailed changes_summary. Includes web dashboard at /email-logs with statistics and filtering capabilities.
 - **Enhanced EmailService Integration**: EmailService class initialized with database logging support (db=db, EmailDeliveryLog=EmailDeliveryLog), automatically logs all email notifications through _log_email_delivery method, supports individual job change notifications and bulk scheduled processing notifications.
+- **Reference Number Process Documentation**: Created REFERENCE_NUMBER_PROCESS.md with clear guidelines for when to preserve vs regenerate reference numbers, includes command line examples and verification steps for future operations.
 
 ## External Dependencies
 
