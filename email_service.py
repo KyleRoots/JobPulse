@@ -88,8 +88,7 @@ class EmailService:
             
             The updated XML file with new reference numbers is attached to this email.
             
-            Best regards,
-            XML Processing System
+            JobPulse™ Processing & Automation System
             """
 
             # Create the email message
@@ -187,8 +186,7 @@ class EmailService:
                 
                 <p>Please check your XML file and schedule configuration, then try again.</p>
                 
-                <p>Best regards,<br>
-                XML Processing System</p>
+                <p>JobPulse™ Processing & Automation System</p>
             </body>
             </html>
             """
@@ -205,8 +203,7 @@ class EmailService:
             
             Please check your XML file and schedule configuration, then try again.
             
-            Best regards,
-            XML Processing System
+            JobPulse™ Processing & Automation System
             """
 
             # Create the email message
@@ -505,7 +502,6 @@ class EmailService:
             # Close email body
             html_content += """
                 <p style="margin-top: 20px; font-size: 12px; color: #6c757d;">
-                    Best regards,<br>
                     JobPulse™ Processing & Automation System
                 </p>
             </body>
@@ -647,8 +643,7 @@ class EmailService:
                 
                 <p>Your live XML feed at <a href="https://myticas.com/myticas-job-feed.xml">https://myticas.com/myticas-job-feed.xml</a> has been updated automatically.</p>
                 
-                <p>Best regards,<br>
-                Job Feed Monitoring System</p>
+                <p>JobPulse™ Processing & Automation System</p>
             </body>
             </html>
             """
@@ -668,8 +663,7 @@ class EmailService:
 
             Your live XML feed at https://myticas.com/myticas-job-feed.xml has been updated automatically.
 
-            Best regards,
-            Job Feed Monitoring System
+            JobPulse™ Processing & Automation System
             """
 
             # Create the email message
