@@ -506,7 +506,7 @@ class EmailService:
             html_content += """
                 <p style="margin-top: 20px; font-size: 12px; color: #6c757d;">
                     Best regards,<br>
-                    Springboard™ XML Processing System
+                    JobPulse™ Processing & Automation System
                 </p>
             </body>
             </html>

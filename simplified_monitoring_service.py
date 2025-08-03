@@ -240,48 +240,15 @@ class SimplifiedMonitoringService:
         return changes
     
     def send_notifications(self, tearsheet_name: str, changes: Dict):
-        """Send individual email notifications for each job change with database logging"""
+        """Individual notifications disabled - using bulk summary notifications instead"""
         if not any(changes.values()):
             return
         
-        # Get notification email from settings (simplified approach)
-        notification_email = "kroots@myticas.com"  # Default recipient
+        # Individual notifications disabled to prevent duplicate emails
+        # The main monitoring workflow sends bulk summary notifications via send_bullhorn_notification()
+        # which provides better consolidated summaries instead of individual emails per job change
         
-        # Send individual notifications for each added job
-        for job in changes.get('added', []):
-            self.email_service.send_job_change_notification(
-                to_email=notification_email,
-                notification_type='job_added',
-                job_id=str(job['id']),
-                job_title=job['title'],
-                changes_summary=f"Job added to {tearsheet_name} tearsheet. Location: {job['city']}, {job['state']}, {job['country']}. Recruiter: {job['owner_name']}"
-            )
-            logger.info(f"Sent job_added notification for job {job['id']}")
-        
-        # Send individual notifications for each removed job
-        for job in changes.get('removed', []):
-            self.email_service.send_job_change_notification(
-                to_email=notification_email,
-                notification_type='job_removed',
-                job_id=str(job['id']),
-                job_title=job['title'],
-                changes_summary=f"Job removed from {tearsheet_name} tearsheet"
-            )
-            logger.info(f"Sent job_removed notification for job {job['id']}")
-        
-        # Send individual notifications for each modified job
-        for job in changes.get('modified', []):
-            modifications_text = '; '.join(job.get('modifications', []))
-            self.email_service.send_job_change_notification(
-                to_email=notification_email,
-                notification_type='job_modified',
-                job_id=str(job['id']),
-                job_title=job['title'],
-                changes_summary=f"Job modified in {tearsheet_name} tearsheet. Changes: {modifications_text}"
-            )
-            logger.info(f"Sent job_modified notification for job {job['id']}")
-        
-        logger.info(f"Completed individual notifications for {tearsheet_name} - {len(changes.get('added', []))} added, {len(changes.get('removed', []))} removed, {len(changes.get('modified', []))} modified")
+        logger.info(f"Skipping individual notifications for {tearsheet_name} - {len(changes.get('added', []))} added, {len(changes.get('removed', []))} removed, {len(changes.get('modified', []))} modified (bulk notifications enabled)")
     
     def upload_xml_files(self):
         """Upload XML files to FTP and ensure synchronization"""
