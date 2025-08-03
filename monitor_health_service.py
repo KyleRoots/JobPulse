@@ -19,7 +19,8 @@ class MonitorHealthService:
         self.GlobalSettings = global_settings_model
         self.BullhornMonitor = bullhorn_monitor_model
         self.logger = logging.getLogger(__name__)
-        self.email_service = EmailService()
+        # Initialize email service with database logging support
+        self.email_service = None
         
     def check_monitor_health(self) -> Dict:
         """
@@ -127,6 +128,10 @@ class MonitorHealthService:
                 self.logger.warning("No notification email configured - skipping overdue alert")
                 return False
             
+            # Get email service with database logging support
+            from app import get_email_service
+            email_service = get_email_service()
+            
             # Prepare email content
             subject = f"🚨 SPRINGBOARD™ Monitor Alert: {len(overdue_monitors)} Overdue Monitors"
             
@@ -134,7 +139,7 @@ class MonitorHealthService:
             email_body = self._build_overdue_email_body(overdue_monitors, corrected_monitors)
             
             # Send notification
-            success = self.email_service.send_email(
+            success = email_service.send_email(
                 to_email=notification_email,
                 subject=subject,
                 html_content=email_body
