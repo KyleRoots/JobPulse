@@ -278,32 +278,45 @@ function handleFormSubmission(e) {
             const successModal = new bootstrap.Modal(document.getElementById('successModal'));
             const modalElement = document.getElementById('successModal');
             
+            // Function to close the browser tab/window
+            function closeTab() {
+                // Multiple methods to attempt closing the tab
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else if (window.opener) {
+                    window.close();
+                } else {
+                    // Try standard window.close()
+                    window.close();
+                    
+                    // If that doesn't work, try these alternatives
+                    setTimeout(() => {
+                        try {
+                            window.open('', '_self').close();
+                        } catch (e) {
+                            // As a last resort, clear the page
+                            document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;"><h2>Application submitted successfully!</h2><p>You can now close this tab.</p></div>';
+                        }
+                    }, 100);
+                }
+            }
+            
             // Function to handle modal close
             function closeModalAndTab() {
                 successModal.hide();
-                setTimeout(() => {
-                    try {
-                        window.close();
-                    } catch (e) {
-                        // If window.close() fails, redirect or show a message
-                        window.location.href = 'about:blank';
-                    }
-                }, 300);
+                setTimeout(closeTab, 200);
             }
             
             // Add event listeners to close tab when modal is dismissed
-            modalElement.addEventListener('hidden.bs.modal', function() {
-                try {
-                    window.close();
-                } catch (e) {
-                    window.location.href = 'about:blank';
-                }
-            });
+            modalElement.addEventListener('hidden.bs.modal', closeTab);
             
             // Handle close button clicks
             const closeButtons = modalElement.querySelectorAll('[data-bs-dismiss="modal"], .btn-close, .btn-custom');
             closeButtons.forEach(button => {
-                button.addEventListener('click', closeModalAndTab);
+                button.onclick = function(e) {
+                    e.preventDefault();
+                    closeModalAndTab();
+                };
             });
             
             // Also close tab when clicking outside modal
