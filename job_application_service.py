@@ -86,6 +86,11 @@ class JobApplicationService:
                 plain_text_content=Content("text/plain", text_content)
             )
             
+            # Add Myticas logo as inline attachment
+            logo_attachment = self._create_logo_attachment()
+            if logo_attachment:
+                message.add_attachment(logo_attachment)
+            
             # Add resume attachment
             if resume_file:
                 resume_attachment = self._create_attachment(resume_file, "resume")
@@ -143,7 +148,7 @@ class JobApplicationService:
                 
                 <!-- Myticas Branding -->
                 <div style="text-align: center; margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                    <img src="https://job-feed-refresh.replit.app/static/myticas-logo.png" alt="Myticas Consulting" style="max-width: 250px; height: auto; margin-bottom: 10px;">
+                    <img src="cid:myticas_logo" alt="Myticas Consulting" style="max-width: 250px; height: auto; margin-bottom: 10px;">
                     <p style="margin: 0; color: #6c757d; font-size: 14px; font-style: italic;">Job posting is on behalf of Myticas Consulting</p>
                 </div>
                 
@@ -272,4 +277,35 @@ JobPulse™ Processing & Automation System
             
         except Exception as e:
             logger.error(f"Error creating {file_type} attachment: {str(e)}")
+            return None
+    
+    def _create_logo_attachment(self) -> Optional[Attachment]:
+        """Create inline logo attachment for email"""
+        try:
+            logo_path = "static/myticas-logo.png"
+            
+            if not os.path.exists(logo_path):
+                logger.warning("Myticas logo file not found - skipping logo attachment")
+                return None
+            
+            # Read logo file
+            with open(logo_path, 'rb') as logo_file:
+                logo_content = logo_file.read()
+            
+            # Encode logo content
+            encoded_logo = base64.b64encode(logo_content).decode()
+            
+            # Create inline attachment
+            logo_attachment = Attachment(
+                file_content=encoded_logo,
+                file_type="image/png",
+                file_name="myticas-logo.png",
+                disposition="inline",
+                content_id="myticas_logo"
+            )
+            
+            return logo_attachment
+            
+        except Exception as e:
+            logger.error(f"Error creating logo attachment: {str(e)}")
             return None
