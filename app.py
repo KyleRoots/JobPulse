@@ -1320,9 +1320,8 @@ def process_bullhorn_monitors():
                                                     monitor_id=None,  # Comprehensive sync
                                                     activity_type='job_added',
                                                     job_id=job_id,
-                                                    summary=f"New job added: {job.get('title', 'Unknown')} ({job_id})",
-                                                    details=f"Job added from {monitor_name}",
-                                                    notification_sent=False
+                                                    job_title=job.get('title', 'Unknown'),
+                                                    details=f"New job added: {job.get('title', 'Unknown')} ({job_id}) from {monitor_name}"
                                                 )
                                                 db.session.add(activity)
                                                 
