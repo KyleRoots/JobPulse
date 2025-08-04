@@ -140,12 +140,6 @@ class JobApplicationService:
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f5f5f5; padding: 20px;">
             <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                 
-                <!-- Header -->
-                <div style="background: linear-gradient(135deg, #2c3e50 0%, #4a6741 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h1 style="margin: 0; font-size: 24px;">New Job Application</h1>
-                    <p style="margin: 5px 0 0 0; opacity: 0.9;">Received: {current_time}</p>
-                </div>
-                
                 <!-- Myticas Branding -->
                 <div style="text-align: center; margin-bottom: 10px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
                     <img src="cid:myticas_logo" alt="Myticas Consulting" style="max-width: 250px; height: auto; margin-bottom: 8px;">
@@ -220,9 +214,6 @@ class JobApplicationService:
         clean_job_title = urllib.parse.unquote(data['jobTitle']).replace('+', ' ')
         
         text_content = f"""
-NEW JOB APPLICATION
-Received: {current_time}
-
 Job posting is on behalf of Myticas Consulting
 
 POSITION DETAILS:
