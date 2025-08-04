@@ -177,7 +177,7 @@ class MonitorHealthService:
                 
                 <!-- Header -->
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 8px 8px 0 0;">
-                    <h1 style="margin: 0; font-size: 24px; font-weight: 600;">🚨 SPRINGBOARD™ Monitor Alert</h1>
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 600;">🚨 JobPulse™ Monitor Alert</h1>
                     <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Monitor Health Check - {current_time}</p>
                 </div>
                 

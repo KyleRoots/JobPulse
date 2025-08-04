@@ -639,11 +639,49 @@ class EmailService:
             </html>
             """
 
+            # Create plain text version
+            text_content = f"""
+ATS Job Changes
+Tearsheet: {monitor_name}
+Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
+
+"""
+            
+            if added_jobs:
+                text_content += f"Jobs Added ({len(added_jobs)}):\n"
+                for i, job in enumerate(added_jobs):
+                    if isinstance(job, dict):
+                        job_id = job.get('id', 'N/A')
+                        job_title = job.get('title', 'No title')
+                        text_content += f"  • {job_title} (ID: {job_id})\n"
+                text_content += "\n"
+            
+            if removed_jobs:
+                text_content += f"Jobs Removed ({len(removed_jobs)}):\n"
+                for job in removed_jobs:
+                    if isinstance(job, dict):
+                        job_id = job.get('id', 'N/A')
+                        job_title = job.get('title', 'No title')
+                        text_content += f"  • {job_title} (ID: {job_id})\n"
+                text_content += "\n"
+            
+            if modified_jobs:
+                text_content += f"Jobs Modified ({len(modified_jobs)}):\n"
+                for job in modified_jobs:
+                    if isinstance(job, dict):
+                        job_id = job.get('id', 'N/A')
+                        job_title = job.get('title', 'No title')
+                        text_content += f"  • {job_title} (ID: {job_id})\n"
+                text_content += "\n"
+            
+            text_content += "JobPulse™ Processing & Automation System"
+
             # Create email message
             message = Mail(from_email=Email(self.from_email),
                            to_emails=To(to_email),
                            subject=subject,
-                           html_content=Content("text/html", html_content))
+                           html_content=Content("text/html", html_content),
+                           plain_text_content=Content("text/plain", text_content))
 
             # Send email
             response = self.sg.send(message)
