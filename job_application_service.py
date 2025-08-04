@@ -147,8 +147,8 @@ class JobApplicationService:
                 </div>
                 
                 <!-- Myticas Branding -->
-                <div style="text-align: center; margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                    <img src="cid:myticas_logo" alt="Myticas Consulting" style="max-width: 250px; height: auto; margin-bottom: 10px;">
+                <div style="text-align: center; margin-bottom: 10px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                    <img src="cid:myticas_logo" alt="Myticas Consulting" style="max-width: 250px; height: auto; margin-bottom: 8px;">
                     <p style="margin: 0; color: #6c757d; font-size: 14px; font-style: italic;">Job posting is on behalf of Myticas Consulting</p>
                 </div>
                 
