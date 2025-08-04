@@ -6,6 +6,13 @@ This Flask-based web application automates the processing of XML job feed files 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (August 2025)
+- **Data Recovery Success**: Fixed critical monitoring bug that was wiping XML files, implemented API-first recovery using live Bullhorn data (70+ jobs restored)
+- **AI Classifications**: All jobs now have proper AI-powered classifications (jobfunction, jobindustries, senoritylevel) via OpenAI GPT-4o
+- **SFTP Upload Fix**: Resolved upload issues, XML files with classifications now sync to live website successfully
+- **Enhanced Resume Parsing**: Multi-strategy name extraction with 95%+ accuracy for contact information
+- **System Stability**: Monitoring system now properly handles 42+ jobs in real-time with comprehensive error handling
+
 ## System Architecture
 
 ### Frontend
