@@ -86,13 +86,6 @@ class JobApplicationService:
                 plain_text_content=Content("text/plain", text_content)
             )
             
-            # Add custom headers with source information for Bullhorn parser
-            from sendgrid.helpers.mail import Header
-            message.add_header(Header('X-Source', source))
-            message.add_header(Header('X-Candidate-Source', source))
-            message.add_header(Header('X-Application-Source', source))
-            message.add_header(Header('X-Bullhorn-Source', source))
-            
             # Add Myticas logo as inline attachment
             logo_attachment = self._create_logo_attachment()
             if logo_attachment:
