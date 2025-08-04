@@ -146,9 +146,10 @@ class ResumeParser:
     def _parse_text(self, text: str) -> Dict[str, Optional[str]]:
         """Parse extracted text to find candidate information"""
         
-        # Clean up text
-        text = text.replace('\n', ' ').replace('\r', ' ')
-        text = ' '.join(text.split())  # Normalize whitespace
+        # Clean up text but keep line breaks for name detection
+        original_text = text
+        text = text.replace('\r', ' ')  # Remove carriage returns but keep line breaks
+        text = ' '.join(text.split())  # Normalize whitespace for main processing
         
         parsed_data = {
             'first_name': None,
@@ -182,7 +183,7 @@ class ResumeParser:
         
         # Strategy 1: Look for "FirstName LastName (email | phone)" pattern
         name_with_contact_pattern = r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*\([^)]*(?:@|phone|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})[^)]*\)'
-        name_match = re.search(name_with_contact_pattern, text, re.IGNORECASE | re.MULTILINE)
+        name_match = re.search(name_with_contact_pattern, original_text, re.IGNORECASE | re.MULTILINE)
         if name_match:
             name_text = name_match.group(1).strip()
             name_parts = name_text.split()
@@ -193,7 +194,7 @@ class ResumeParser:
         
         # Strategy 2: Look at first few lines for name patterns (if strategy 1 didn't work)
         if not name_found:
-            lines = text.split('\n')
+            lines = original_text.split('\n')
             for line in lines[:5]:  # Check first 5 lines
                 line = line.strip()
                 
@@ -228,7 +229,6 @@ class ResumeParser:
                     name_found = True
             elif len(email_part) > 3 and email_part.isalpha():
                 # Try to split camelCase or combined names
-                import re
                 camel_split = re.findall(r'[A-Z][a-z]*', email_part.capitalize())
                 if len(camel_split) >= 2:
                     parsed_data['first_name'] = camel_split[0]
