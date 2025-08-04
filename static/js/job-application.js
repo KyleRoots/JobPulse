@@ -273,6 +273,27 @@ function handleFormSubmission(e) {
         if (data.success) {
             // Show success modal
             const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            const modalElement = document.getElementById('successModal');
+            
+            // Add event listeners to close tab when modal is dismissed
+            modalElement.addEventListener('hidden.bs.modal', function() {
+                window.close();
+            });
+            
+            // Also close tab when clicking outside modal or pressing Escape
+            modalElement.addEventListener('click', function(e) {
+                if (e.target === modalElement) {
+                    window.close();
+                }
+            });
+            
+            // Handle Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modalElement.classList.contains('show')) {
+                    window.close();
+                }
+            });
+            
             successModal.show();
         } else {
             alert('Error submitting application: ' + (data.error || 'Unknown error'));
