@@ -278,22 +278,45 @@ function handleFormSubmission(e) {
             const successModal = new bootstrap.Modal(document.getElementById('successModal'));
             const modalElement = document.getElementById('successModal');
             
+            // Function to handle modal close
+            function closeModalAndTab() {
+                successModal.hide();
+                setTimeout(() => {
+                    try {
+                        window.close();
+                    } catch (e) {
+                        // If window.close() fails, redirect or show a message
+                        window.location.href = 'about:blank';
+                    }
+                }, 300);
+            }
+            
             // Add event listeners to close tab when modal is dismissed
             modalElement.addEventListener('hidden.bs.modal', function() {
-                window.close();
+                try {
+                    window.close();
+                } catch (e) {
+                    window.location.href = 'about:blank';
+                }
             });
             
-            // Also close tab when clicking outside modal or pressing Escape
+            // Handle close button clicks
+            const closeButtons = modalElement.querySelectorAll('[data-bs-dismiss="modal"], .btn-close, .btn-custom');
+            closeButtons.forEach(button => {
+                button.addEventListener('click', closeModalAndTab);
+            });
+            
+            // Also close tab when clicking outside modal
             modalElement.addEventListener('click', function(e) {
                 if (e.target === modalElement) {
-                    window.close();
+                    closeModalAndTab();
                 }
             });
             
             // Handle Escape key
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' && modalElement.classList.contains('show')) {
-                    window.close();
+                    closeModalAndTab();
                 }
             });
             
