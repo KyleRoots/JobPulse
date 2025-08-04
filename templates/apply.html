@@ -21,12 +21,12 @@
         }
         
         .application-card {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             overflow: hidden;
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
         
         .application-header {
@@ -35,30 +35,24 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
-        .jobpulse-brand {
+        .myticas-brand {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .myticas-logo {
+            height: 60px;
             margin-bottom: 1rem;
         }
         
-        .jobpulse-brand i {
-            font-size: 2rem;
-            margin-right: 0.5rem;
-            color: #5cb3fd;
-        }
-        
-        .jobpulse-brand h1 {
+        .myticas-brand h1 {
             margin: 0;
             font-size: 1.8rem;
             font-weight: 600;
             color: white;
-        }
-        
-        .jobpulse-subtitle {
-            font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 1.5rem;
         }
         
         .application-header h2 {
@@ -80,7 +74,7 @@
         }
         
         .job-info {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 2rem;
@@ -104,7 +98,7 @@
             border: 1px solid rgba(255, 255, 255, 0.3);
             padding: 0.75rem;
             transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             color: white;
             backdrop-filter: blur(5px);
         }
@@ -126,7 +120,7 @@
             text-align: center;
             transition: all 0.3s ease;
             cursor: pointer;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(5px);
             color: white;
         }
@@ -229,13 +223,11 @@
     <div class="application-container">
         <div class="application-card">
             <div class="application-header">
-                <div class="jobpulse-brand">
-                    <i class="fas fa-clipboard-list"></i>
-                    <h1>JobPulse™</h1>
+                <div class="myticas-brand">
+                    <img src="{{ url_for('static', filename='myticas-logo-new.png') }}" alt="Myticas Consulting" class="myticas-logo">
+                    <h1>Myticas Job Application</h1>
                 </div>
-                <div class="jobpulse-subtitle">powered by Lynntrix AI</div>
-                <h2>Job Application</h2>
-                <p>Apply for your next opportunity</p>
+                <p>Apply below to the role of {{ job_title }}</p>
             </div>
             
             <div class="application-body">
