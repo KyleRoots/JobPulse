@@ -142,7 +142,7 @@ class JobApplicationService:
                 
                 <!-- Header -->
                 <div style="background: linear-gradient(135deg, #2c3e50 0%, #4a6741 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h1 style="margin: 0; font-size: 24px;">📋 New Job Application</h1>
+                    <h1 style="margin: 0; font-size: 24px;">New Job Application</h1>
                     <p style="margin: 5px 0 0 0; opacity: 0.9;">Received: {current_time}</p>
                 </div>
                 
