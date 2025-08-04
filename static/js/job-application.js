@@ -271,6 +271,9 @@ function handleFormSubmission(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // Reset submit button first
+            resetSubmitButton();
+            
             // Show success modal
             const successModal = new bootstrap.Modal(document.getElementById('successModal'));
             const modalElement = document.getElementById('successModal');
