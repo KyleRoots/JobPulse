@@ -162,45 +162,95 @@ class ResumeParser:
         if email_match:
             parsed_data['email'] = email_match.group().lower()
         
-        # Extract phone number
-        phone_match = re.search(self.patterns['phone'], text)
-        if phone_match:
-            # Format phone number consistently
-            phone = f"({phone_match.group(1)}) {phone_match.group(2)}-{phone_match.group(3)}"
-            parsed_data['phone'] = phone
+        # Extract phone number with multiple patterns
+        phone_patterns = [
+            r'(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})',  # Standard US format
+            r'(\d{3})[-.\s](\d{3})[-.\s](\d{4})',  # Simple format
+            r'\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})'  # Flexible format
+        ]
         
-        # Extract name (simple approach - look for capitalized words at start)
-        lines = text.split('\n')
-        potential_names = []
+        for pattern in phone_patterns:
+            phone_match = re.search(pattern, text)
+            if phone_match:
+                # Format phone number consistently
+                phone = f"({phone_match.group(1)}) {phone_match.group(2)}-{phone_match.group(3)}"
+                parsed_data['phone'] = phone
+                break
         
-        for line in lines[:10]:  # Check first 10 lines
-            line = line.strip()
-            if len(line) > 0 and len(line) < 50:  # Reasonable name length
-                # Look for lines with 2-3 capitalized words
-                words = line.split()
-                if 2 <= len(words) <= 3:
-                    if all(word[0].isupper() and word[1:].islower() for word in words if word.isalpha()):
-                        potential_names.append(words)
+        # Extract name using multiple strategies
+        name_found = False
         
-        # Use the first reasonable name found
-        if potential_names:
-            name_parts = potential_names[0]
+        # Strategy 1: Look for "FirstName LastName (email | phone)" pattern
+        name_with_contact_pattern = r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*\([^)]*(?:@|phone|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})[^)]*\)'
+        name_match = re.search(name_with_contact_pattern, text, re.IGNORECASE | re.MULTILINE)
+        if name_match:
+            name_text = name_match.group(1).strip()
+            name_parts = name_text.split()
             if len(name_parts) >= 2:
                 parsed_data['first_name'] = name_parts[0]
-                parsed_data['last_name'] = name_parts[-1]  # Last word as last name
+                parsed_data['last_name'] = name_parts[-1]
+                name_found = True
         
-        # Alternative name extraction from email if name not found
-        if not parsed_data['first_name'] and parsed_data['email']:
+        # Strategy 2: Look at first few lines for name patterns (if strategy 1 didn't work)
+        if not name_found:
+            lines = text.split('\n')
+            for line in lines[:5]:  # Check first 5 lines
+                line = line.strip()
+                
+                # Skip lines that are too long (likely not just a name)
+                if len(line) > 50 or len(line) < 3:
+                    continue
+                
+                # Skip lines with common header words
+                skip_words = ['resume', 'cv', 'curriculum', 'vitae', 'profile', 'contact', 'phone', 'email', 'address']
+                if any(skip_word in line.lower() for skip_word in skip_words):
+                    continue
+                
+                # Look for 2-3 capitalized words (potential name)
+                words = line.split()
+                if 2 <= len(words) <= 3:
+                    # Check if all words start with capital and are alphabetic
+                    if all(word[0].isupper() and word.replace('-', '').replace("'", "").isalpha() for word in words):
+                        parsed_data['first_name'] = words[0]
+                        parsed_data['last_name'] = words[-1]
+                        name_found = True
+                        break
+        
+        # Strategy 3: Extract from email if name still not found
+        if not name_found and parsed_data.get('email'):
             email_part = parsed_data['email'].split('@')[0]
-            # Look for common email patterns like firstname.lastname
+            # Common email patterns like firstname.lastname or firstnamelastname
             if '.' in email_part:
                 email_parts = email_part.split('.')
-                if len(email_parts) == 2:
+                if len(email_parts) == 2 and all(part.isalpha() for part in email_parts):
                     parsed_data['first_name'] = email_parts[0].capitalize()
                     parsed_data['last_name'] = email_parts[1].capitalize()
+                    name_found = True
+            elif len(email_part) > 3 and email_part.isalpha():
+                # Try to split camelCase or combined names
+                import re
+                camel_split = re.findall(r'[A-Z][a-z]*', email_part.capitalize())
+                if len(camel_split) >= 2:
+                    parsed_data['first_name'] = camel_split[0]
+                    parsed_data['last_name'] = camel_split[-1]
+                    name_found = True
+        
+# Name extraction strategies are now handled above
         
         # Log what was found
         found_items = [k for k, v in parsed_data.items() if v]
         logger.info(f"Resume parsing found: {', '.join(found_items)}")
+        
+        # Log the actual values for debugging (first few chars only for privacy)
+        debug_info = {}
+        for key, value in parsed_data.items():
+            if value:
+                if key == 'email':
+                    debug_info[key] = f"{value[:3]}***@{value.split('@')[1] if '@' in value else '***'}"
+                elif key == 'phone':
+                    debug_info[key] = f"{value[:6]}***"
+                else:
+                    debug_info[key] = f"{value[:3]}***" if len(value) > 3 else value
+        logger.info(f"Resume parsing values: {debug_info}")
         
         return parsed_data
