@@ -8,53 +8,84 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
         }
         
         .application-container {
-            max-width: 800px;
+            max-width: 700px;
             margin: 2rem auto;
             padding: 0 1rem;
         }
         
         .application-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
         .application-header {
-            background: linear-gradient(135deg, #2c3e50 0%, #4a6741 100%);
-            color: white;
-            padding: 2rem;
+            padding: 2.5rem 2rem 1.5rem 2rem;
             text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
-        .application-header h1 {
+        .jobpulse-brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+        
+        .jobpulse-brand i {
+            font-size: 2rem;
+            margin-right: 0.5rem;
+            color: #5cb3fd;
+        }
+        
+        .jobpulse-brand h1 {
             margin: 0;
             font-size: 1.8rem;
             font-weight: 600;
+            color: white;
+        }
+        
+        .jobpulse-subtitle {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 1.5rem;
+        }
+        
+        .application-header h2 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: white;
         }
         
         .application-header p {
             margin: 0.5rem 0 0 0;
-            opacity: 0.9;
-            font-size: 1rem;
+            opacity: 0.8;
+            font-size: 0.95rem;
         }
         
         .application-body {
             padding: 2rem;
+            color: white;
         }
         
         .job-info {
-            background: #f8f9fa;
-            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 2rem;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #5cb3fd;
+            backdrop-filter: blur(5px);
         }
         
         .form-section {
@@ -62,7 +93,7 @@
         }
         
         .form-section h3 {
-            color: #2c3e50;
+            color: white;
             margin-bottom: 1rem;
             font-size: 1.2rem;
             font-weight: 600;
@@ -70,84 +101,103 @@
         
         .form-control, .form-select {
             border-radius: 8px;
-            border: 2px solid #e9ecef;
+            border: 1px solid rgba(255, 255, 255, 0.3);
             padding: 0.75rem;
-            transition: border-color 0.3s ease;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(5px);
         }
         
         .form-control:focus, .form-select:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            border-color: #5cb3fd;
+            box-shadow: 0 0 0 0.2rem rgba(92, 179, 253, 0.25);
+            outline: 0;
+        }
+        
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.6);
         }
         
         .file-upload-area {
-            border: 2px dashed #dee2e6;
-            border-radius: 10px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
             padding: 2rem;
             text-align: center;
             transition: all 0.3s ease;
             cursor: pointer;
-            background: #f8f9fa;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+            color: white;
         }
         
         .file-upload-area:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
+            border-color: #5cb3fd;
+            background: rgba(92, 179, 253, 0.1);
         }
         
         .file-upload-area.dragover {
-            border-color: #667eea;
-            background: #e3f2fd;
+            border-color: #5cb3fd;
+            background: rgba(92, 179, 253, 0.15);
         }
         
         .file-upload-icon {
             font-size: 3rem;
-            color: #6c757d;
+            color: rgba(255, 255, 255, 0.7);
             margin-bottom: 1rem;
         }
         
         .file-info {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            border-radius: 5px;
+            background: rgba(92, 179, 253, 0.1);
+            border: 1px solid rgba(92, 179, 253, 0.3);
+            border-radius: 8px;
             padding: 0.75rem;
             margin-top: 0.5rem;
             display: none;
+            color: white;
+            backdrop-filter: blur(5px);
         }
         
         .validation-warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
             display: none;
+            color: white;
+            backdrop-filter: blur(5px);
         }
         
         .parsed-info {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
             display: none;
+            color: white;
+            backdrop-filter: blur(5px);
         }
         
         .submit-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #5cb3fd 0%, #4dabf7 100%);
             border: none;
             border-radius: 25px;
             padding: 0.75rem 2rem;
             color: white;
             font-weight: 600;
             font-size: 1.1rem;
-            transition: transform 0.3s ease;
+            transition: all 0.3s ease;
             width: 100%;
+            box-shadow: 0 4px 15px rgba(92, 179, 253, 0.3);
         }
         
         .submit-btn:hover {
             transform: translateY(-2px);
             color: white;
+            background: linear-gradient(135deg, #4dabf7 0%, #339af0 100%);
+            box-shadow: 0 8px 25px rgba(92, 179, 253, 0.4);
         }
         
         .submit-btn:disabled {
@@ -179,7 +229,12 @@
     <div class="application-container">
         <div class="application-card">
             <div class="application-header">
-                <h1><i class="fas fa-briefcase me-2"></i>Job Application</h1>
+                <div class="jobpulse-brand">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h1>JobPulse™</h1>
+                </div>
+                <div class="jobpulse-subtitle">powered by Lynntrix AI</div>
+                <h2>Job Application</h2>
                 <p>Apply for your next opportunity</p>
             </div>
             
@@ -239,7 +294,7 @@
                             <h5>Drag & drop your resume here</h5>
                             <p class="text-muted mb-3">or click to browse files</p>
                             <input type="file" id="resumeFile" name="resumeFile" accept=".pdf,.doc,.docx" required style="display: none;">
-                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('resumeFile').click(); event.stopPropagation();">
+                            <button type="button" class="btn btn-outline-light" onclick="document.getElementById('resumeFile').click(); event.stopPropagation();">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
                             <small class="d-block mt-2 text-muted">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
@@ -263,7 +318,7 @@
                             <h5>Drag & drop your cover letter here</h5>
                             <p class="text-muted mb-3">or click to browse files</p>
                             <input type="file" id="coverLetterFile" name="coverLetterFile" accept=".pdf,.doc,.docx" style="display: none;">
-                            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('coverLetterFile').click(); event.stopPropagation();">
+                            <button type="button" class="btn btn-outline-light" onclick="document.getElementById('coverLetterFile').click(); event.stopPropagation();">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
                             <small class="d-block mt-2 text-muted">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
