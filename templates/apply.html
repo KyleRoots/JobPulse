@@ -211,6 +211,58 @@
             display: none;
         }
         
+        /* Success Modal Styling */
+        .success-modal .modal-content {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+        
+        .success-modal .modal-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .success-modal .modal-body {
+            background: transparent;
+            color: white;
+        }
+        
+        .success-modal .modal-footer {
+            background: transparent;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .success-modal .btn-close {
+            filter: invert(1);
+            opacity: 0.8;
+        }
+        
+        .success-modal .btn-close:hover {
+            opacity: 1;
+        }
+        
+        .btn-custom {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 25px;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-custom:hover {
+            color: white;
+            background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+        }
+
         @media (max-width: 768px) {
             .application-container {
                 margin: 1rem auto;
@@ -357,19 +409,19 @@
     <!-- Success Modal -->
     <div class="modal fade" id="successModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+            <div class="modal-content success-modal">
+                <div class="modal-header">
                     <h5 class="modal-title">
                         <i class="fas fa-check-circle me-2"></i>Application Submitted Successfully
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" onclick="window.close()" aria-label="Close"></button>
+                    <button type="button" class="btn-close" onclick="window.close()" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p>Thank you for your application! We have received your information and will review it shortly.</p>
                     <p class="mb-0"><strong>What's next?</strong> Our team will review your application and contact you if your qualifications match our requirements.</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-success" onclick="window.close()">Close</button>
+                    <button type="button" class="btn btn-custom" onclick="window.close()">Close</button>
                 </div>
             </div>
         </div>
