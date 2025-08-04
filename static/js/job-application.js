@@ -14,19 +14,27 @@ function setupFileUpload(inputId, uploadAreaId, fileInfoId, fileNameId, isRequir
     const fileInfo = document.getElementById(fileInfoId);
     const fileName = document.getElementById(fileNameId);
     
+    if (!fileInput || !uploadArea || !fileInfo || !fileName) {
+        console.error('File upload elements not found:', inputId);
+        return;
+    }
+    
     // Drag and drop events
     uploadArea.addEventListener('dragover', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         uploadArea.classList.add('dragover');
     });
     
     uploadArea.addEventListener('dragleave', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         uploadArea.classList.remove('dragover');
     });
     
     uploadArea.addEventListener('drop', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         uploadArea.classList.remove('dragover');
         
         const files = e.dataTransfer.files;
@@ -35,38 +43,63 @@ function setupFileUpload(inputId, uploadAreaId, fileInfoId, fileNameId, isRequir
         }
     });
     
-    // Click to upload
-    uploadArea.addEventListener('click', function() {
-        fileInput.click();
+    // Click to upload - only on the upload area, not the button
+    uploadArea.addEventListener('click', function(e) {
+        // Don't trigger if clicking on the browse button
+        if (!e.target.closest('button')) {
+            fileInput.click();
+        }
     });
     
     // File input change
     fileInput.addEventListener('change', function(e) {
-        if (e.target.files.length > 0) {
+        console.log('File input changed:', e.target.files.length);
+        if (e.target.files && e.target.files.length > 0) {
             handleFileSelection(e.target.files[0], fileInput, uploadArea, fileInfo, fileName, isRequired);
         }
     });
 }
 
 function handleFileSelection(file, fileInput, uploadArea, fileInfo, fileName, isRequired) {
+    console.log('Handling file selection:', file.name, file.type, file.size);
+    
     // Validate file type
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!allowedTypes.includes(file.type)) {
-        alert('Please select a PDF, DOC, or DOCX file.');
+    
+    // Also allow common alternate MIME types
+    const additionalTypes = ['application/pdf', 'text/plain', 'application/octet-stream'];
+    const fileExtension = file.name.toLowerCase().split('.').pop();
+    const allowedExtensions = ['pdf', 'doc', 'docx'];
+    
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+        alert('Please select a PDF, DOC, or DOCX file. Selected file type: ' + file.type);
+        // Clear the file input
+        fileInput.value = '';
         return;
     }
     
     // Validate file size (10MB limit)
     const maxSize = 10 * 1024 * 1024; // 10MB in bytes
     if (file.size > maxSize) {
-        alert('File size must be less than 10MB.');
+        alert('File size must be less than 10MB. Selected file size: ' + (file.size / 1024 / 1024).toFixed(2) + 'MB');
+        // Clear the file input
+        fileInput.value = '';
         return;
     }
+    
+    console.log('File validation passed, updating UI');
     
     // Update UI
     uploadArea.style.display = 'none';
     fileInfo.style.display = 'block';
     fileName.textContent = file.name;
+    
+    // Create a new file list with the selected file and assign it to the input
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    
+    console.log('File input updated:', fileInput.files.length);
     
     // If this is a resume upload, trigger parsing
     if (isRequired && fileInput.id === 'resumeFile') {

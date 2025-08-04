@@ -239,7 +239,7 @@
                             <h5>Drag & drop your resume here</h5>
                             <p class="text-muted mb-3">or click to browse files</p>
                             <input type="file" id="resumeFile" name="resumeFile" accept=".pdf,.doc,.docx" required style="display: none;">
-                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('resumeFile').click()">
+                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('resumeFile').click(); event.stopPropagation();">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
                             <small class="d-block mt-2 text-muted">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
@@ -263,7 +263,7 @@
                             <h5>Drag & drop your cover letter here</h5>
                             <p class="text-muted mb-3">or click to browse files</p>
                             <input type="file" id="coverLetterFile" name="coverLetterFile" accept=".pdf,.doc,.docx" style="display: none;">
-                            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('coverLetterFile').click()">
+                            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('coverLetterFile').click(); event.stopPropagation();">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
                             <small class="d-block mt-2 text-muted">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
