@@ -90,7 +90,7 @@ def get_email_service():
     """Helper function to create EmailService with database logging support"""
     from email_service import EmailService
     return EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
-login_manager.login_message = 'Please log in to access the XML Job Feed Portal.'
+login_manager.login_message = 'Please log in to access the Job Feed Portal.'
 
 @login_manager.user_loader
 def load_user(user_id):
