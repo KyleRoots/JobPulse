@@ -2,6 +2,46 @@
 <source>
   <publisherurl>https://myticas.com</publisherurl>
   <job>
+    <title><![CDATA[ Cloud Site Reliability Engineer - Azure/AWS (34084) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 30, 2025 ]]></date>
+    <referencenumber><![CDATA[ 49ORX3QYKH ]]></referencenumber>
+    <bhatsid><![CDATA[ 34084 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p><strong>Cloud Site Reliability Engineer – AWS & Azure</strong><br> <br> <br> <strong>Responsibilities</strong></p> <ul> <li>Oversee the design and improvement of infrastructure using SRE best practices, including IaC, recovery automation, and systems that detect and resolve issues independently. <li>Manage and fine-tune critical services across both cloud and on-prem environments: Kubernetes clusters, CI/CD pipelines, artifact registries, and custom workloads. <li>Enhance observability through intelligent logging, metrics, tracing, and alerting. Ensuring systems are transparent and actionable in real time. <li>Champion automation by eliminating repetitive tasks, from deployment workflows to security audits, through scripting and tooling. <li>Elevate the developer experience for 80+ engineers and researchers by streamlining secure, reliable workflows across hybrid and cloud-native platforms. <li>Take ownership of IAM governance across platforms like Azure AD and AWS IAM. Implement lifecycle automation, auditing, and access controls. <li>Foster a culture of operational excellence with strong practices around security, incident management, and resilience engineering. <li>Act as a trusted partner to developers and researchers, enabling their speed and innovation without compromising stability. </ul> <p><br> <strong>Experience</strong></p> <ul> <li>Experience in Site Reliability Engineering, DevOps, or Systems Engineering within fast-paced, technically demanding environments. <li>Strong background in Linux systems and cloud infrastructure, with hands-on experience in AWS (primary) and Azure environments. <li>Solid command of Kubernetes and container orchestration in production environments. <li>Expertise in Infrastructure as Code tools such as Ansible, building reproducible, scalable infrastructure is second nature to you. <li>Deep experience in observability and incident response: you know how to set up effective monitoring, handle incidents, and lead blameless post-mortems. <li>A security-first mindset, especially when it comes to protecting distributed systems and developer workflows. <li>Proven ability to support and optimize CI/CD pipelines, container image builds, and artifact lifecycle management. <li>Strong communication and collaboration skills. You build trust across teams and advocate for thoughtful, scalable solutions. <li>Bonus if you’ve worked with event-driven architectures using technologies like Kafka. </ul> ]]></description>
+    <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
+    <city><![CDATA[  ]]></city>
+    <state><![CDATA[  ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Remote ]]></remotetype>
+    <assignedrecruiter><![CDATA[ #LI-DSC: Dominic Scaletta ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+  </job>
+  <job>
+    <title><![CDATA[ Senior Cloud Operations Manager (32293) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ March 19, 2025 ]]></date>
+    <referencenumber><![CDATA[ 6UW5AWP65H ]]></referencenumber>
+    <bhatsid><![CDATA[ 32293 ]]></bhatsid>
+    <url><![CDATA[ https://myticas.com/ ]]></url>
+    <description><![CDATA[ <p><strong>SCOPE</strong></p> <p>We are seeking a highly skilled and motivated Manager, Cloud Operations to lead and optimize our Azure cloud infrastructure and services. This role is critical in ensuring the scalability, reliability, and security of our cloud environments while driving operational excellence. The ideal candidate will have a deep understanding of cloud architectures, automation, and best-in-class operational practices.</p> <p><strong>RESPONSIBILITIES</strong></p> <ul> <li>Lead the Cloud Operations team to ensure high availability, performance, and security of cloud-based applications and services. <li>Develop and execute a strategic roadmap for cloud operations, aligning with business objectives. <li>Oversee incident management, disaster recovery, and business continuity strategies for cloud environments to support and align efforts to meet customer needs. <li>Drive automation and infrastructure-as-code (IaC) adoption to improve efficiency and reduce operational overhead. <li>Optimize cloud cost management and governance to ensure cost-effective usage of resources. <li>Collaborate with security, compliance, and IT teams to enforce best practices and regulatory requirements. <li>Establish and monitor KPIs, SLAs, and performance metrics to continuously improve service delivery. <li>Provide leadership, mentorship, and development opportunities for a team of cloud engineers and operations professionals. <li>Communicate proactively with customers and internal team members to deliver business value as a part of daily work management. <li>Stay up to date with emerging technologies, trends, and industry best practices to drive innovation. </ul> <p><strong>REQUIRED TECHNICAL SKILLS & QUALIFICATIONS</strong></p> <ul> <li>Bachelor's or Master's degree in Computer Science, Information Technology, or a related field. <li>Certifications in cloud technologies. <li>Industry-accepted certifications in management. <li>Domain knowledge of banking and financial institutions and/or large enterprise IT environment is desirable. <li>10+ years of experience in IT operations with at least 5 years focused on cloud services. <li>Proven experience in managing cloud environments (AWS or Azure) at an enterprise scale. <li>Strong understanding of automation tools (Terraform, Ansible, CloudFormation) and CI/CD pipelines. <li>Hands-on experience with monitoring, logging, and observability tools (Datadog, Splunk, Prometheus, Azure Monitoring, etc.). <li>Deep knowledge of networking, security best practices, and compliance frameworks (ISO, SOC2, NIST, etc.). <li>Strong leadership and team management skills with experience in developing high-performing teams. <li>Excellent problem-solving skills with a proactive approach to operational challenges. <li>Strong communication and stakeholder management skills. </ul> <p><strong>SOFT SKILLS</strong></p> <ul> <li>Customer-facing skills: Connect, Engage, Listen, Explain, Facilitate, Coordinate, Follow-through. <li>Strong, clear, and concise written and verbal communication skills. <li>Ability to communicate effectively at all levels of the organization. <li>Strong interpersonal skills and ability to foster team collaboration. <li>Ability to negotiate and convince. <li>Ability to identify innovative solutions to problems. <li>Out-of-the-box thinking approach. <li>Ability to conceptualize and articulate new approaches and solutions. <li>Ability to collaborate and communicate to achieve positive outcomes. <li>Detail-oriented. <li>Strong ability to prioritize and meet deadlines. <li>Able to work under stress and conflicting timelines when necessary. <li>Proactive with a strong desire to learn. <li>Self-driven, with high enthusiasm and ambition to succeed. </ul> ]]></description>
+    <jobtype><![CDATA[ Direct Hire ]]></jobtype>
+    <city><![CDATA[ Ottawa ]]></city>
+    <state><![CDATA[ ON ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Hybrid ]]></remotetype>
+    <assignedrecruiter><![CDATA[ #LI-MAT: Matheo Theodossiou ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+  </job>
+  <job>
     <title><![CDATA[ Senior Data Warehouse Business Analyst (34075) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ July 29, 2025 ]]></date>
@@ -222,26 +262,6 @@
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
-    <title><![CDATA[ Senior Cloud Operations Manager (32293) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ March 19, 2025 ]]></date>
-    <referencenumber><![CDATA[ 6UW5AWP65H ]]></referencenumber>
-    <bhatsid><![CDATA[ 32293 ]]></bhatsid>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ <p><strong>SCOPE</strong></p> <p>We are seeking a highly skilled and motivated Manager, Cloud Operations to lead and optimize our Azure cloud infrastructure and services. This role is critical in ensuring the scalability, reliability, and security of our cloud environments while driving operational excellence. The ideal candidate will have a deep understanding of cloud architectures, automation, and best-in-class operational practices.</p> <p><strong>RESPONSIBILITIES</strong></p> <ul> <li>Lead the Cloud Operations team to ensure high availability, performance, and security of cloud-based applications and services. <li>Develop and execute a strategic roadmap for cloud operations, aligning with business objectives. <li>Oversee incident management, disaster recovery, and business continuity strategies for cloud environments to support and align efforts to meet customer needs. <li>Drive automation and infrastructure-as-code (IaC) adoption to improve efficiency and reduce operational overhead. <li>Optimize cloud cost management and governance to ensure cost-effective usage of resources. <li>Collaborate with security, compliance, and IT teams to enforce best practices and regulatory requirements. <li>Establish and monitor KPIs, SLAs, and performance metrics to continuously improve service delivery. <li>Provide leadership, mentorship, and development opportunities for a team of cloud engineers and operations professionals. <li>Communicate proactively with customers and internal team members to deliver business value as a part of daily work management. <li>Stay up to date with emerging technologies, trends, and industry best practices to drive innovation. </ul> <p><strong>REQUIRED TECHNICAL SKILLS & QUALIFICATIONS</strong></p> <ul> <li>Bachelor's or Master's degree in Computer Science, Information Technology, or a related field. <li>Certifications in cloud technologies. <li>Industry-accepted certifications in management. <li>Domain knowledge of banking and financial institutions and/or large enterprise IT environment is desirable. <li>10+ years of experience in IT operations with at least 5 years focused on cloud services. <li>Proven experience in managing cloud environments (AWS or Azure) at an enterprise scale. <li>Strong understanding of automation tools (Terraform, Ansible, CloudFormation) and CI/CD pipelines. <li>Hands-on experience with monitoring, logging, and observability tools (Datadog, Splunk, Prometheus, Azure Monitoring, etc.). <li>Deep knowledge of networking, security best practices, and compliance frameworks (ISO, SOC2, NIST, etc.). <li>Strong leadership and team management skills with experience in developing high-performing teams. <li>Excellent problem-solving skills with a proactive approach to operational challenges. <li>Strong communication and stakeholder management skills. </ul> <p><strong>SOFT SKILLS</strong></p> <ul> <li>Customer-facing skills: Connect, Engage, Listen, Explain, Facilitate, Coordinate, Follow-through. <li>Strong, clear, and concise written and verbal communication skills. <li>Ability to communicate effectively at all levels of the organization. <li>Strong interpersonal skills and ability to foster team collaboration. <li>Ability to negotiate and convince. <li>Ability to identify innovative solutions to problems. <li>Out-of-the-box thinking approach. <li>Ability to conceptualize and articulate new approaches and solutions. <li>Ability to collaborate and communicate to achieve positive outcomes. <li>Detail-oriented. <li>Strong ability to prioritize and meet deadlines. <li>Able to work under stress and conflicting timelines when necessary. <li>Proactive with a strong desire to learn. <li>Self-driven, with high enthusiasm and ambition to succeed. </ul> ]]></description>
-    <jobtype><![CDATA[ Direct Hire ]]></jobtype>
-    <city><![CDATA[ Ottawa ]]></city>
-    <state><![CDATA[ ON ]]></state>
-    <country><![CDATA[ Canada                                                           ]]></country>
-    <category><![CDATA[ ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Hybrid ]]></remotetype>
-    <assignedrecruiter><![CDATA[ #LI-DSC: Dominic Scaletta ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
-    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
-  </job>
-  <job>
     <title><![CDATA[ Mixed Signal IC Design Engineer (32627) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ July 16, 2025 ]]></date>
@@ -300,26 +320,6 @@
     <jobfunction><![CDATA[ Project Management ]]></jobfunction>
     <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
     <senoritylevel><![CDATA[ Director ]]></senoritylevel>
-  </job>
-  <job>
-    <title><![CDATA[ Cloud Site Reliability Engineer - Azure/AWS (34084) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ July 30, 2025 ]]></date>
-    <referencenumber><![CDATA[ 49ORX3QYKH ]]></referencenumber>
-    <bhatsid><![CDATA[ 34084 ]]></bhatsid>
-    <url><![CDATA[ https://myticas.com/ ]]></url>
-    <description><![CDATA[ <p><strong>Cloud Site Reliability Engineer – AWS & Azure</strong><br> <br> <br> <strong>Responsibilities</strong></p> <ul> <li>Oversee the design and improvement of infrastructure using SRE best practices, including IaC, recovery automation, and systems that detect and resolve issues independently. <li>Manage and fine-tune critical services across both cloud and on-prem environments: Kubernetes clusters, CI/CD pipelines, artifact registries, and custom workloads. <li>Enhance observability through intelligent logging, metrics, tracing, and alerting. Ensuring systems are transparent and actionable in real time. <li>Champion automation by eliminating repetitive tasks, from deployment workflows to security audits, through scripting and tooling. <li>Elevate the developer experience for 80+ engineers and researchers by streamlining secure, reliable workflows across hybrid and cloud-native platforms. <li>Take ownership of IAM governance across platforms like Azure AD and AWS IAM. Implement lifecycle automation, auditing, and access controls. <li>Foster a culture of operational excellence with strong practices around security, incident management, and resilience engineering. <li>Act as a trusted partner to developers and researchers, enabling their speed and innovation without compromising stability. </ul> <p><br> <strong>Experience</strong></p> <ul> <li>Experience in Site Reliability Engineering, DevOps, or Systems Engineering within fast-paced, technically demanding environments. <li>Strong background in Linux systems and cloud infrastructure, with hands-on experience in AWS (primary) and Azure environments. <li>Solid command of Kubernetes and container orchestration in production environments. <li>Expertise in Infrastructure as Code tools such as Ansible, building reproducible, scalable infrastructure is second nature to you. <li>Deep experience in observability and incident response: you know how to set up effective monitoring, handle incidents, and lead blameless post-mortems. <li>A security-first mindset, especially when it comes to protecting distributed systems and developer workflows. <li>Proven ability to support and optimize CI/CD pipelines, container image builds, and artifact lifecycle management. <li>Strong communication and collaboration skills. You build trust across teams and advocate for thoughtful, scalable solutions. <li>Bonus if you’ve worked with event-driven architectures using technologies like Kafka. </ul> ]]></description>
-    <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
-    <city><![CDATA[ ]]></city>
-    <state><![CDATA[ ]]></state>
-    <country><![CDATA[ Canada                                                           ]]></country>
-    <category><![CDATA[ ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Remote ]]></remotetype>
-    <assignedrecruiter><![CDATA[ #LI-NT: Nick Theodossiou ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
-    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
     <title><![CDATA[ Employment Equity Resource - Federal Job Evaluation & Pay Equity Compliance (34080) ]]></title>

@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content, Attachment
 import base64
@@ -20,6 +20,62 @@ class EmailService:
         self.from_email = "kroots@myticas.com"  # Verified sender email
         self.db = db
         self.EmailDeliveryLog = EmailDeliveryLog
+
+    def _check_recent_notification(self, notification_type: str, recipient_email: str, 
+                                 monitor_name: str = None, schedule_name: str = None, 
+                                 minutes_threshold: int = 5) -> bool:
+        """
+        Check if a similar notification was sent recently to prevent duplicates
+        
+        Args:
+            notification_type: Type of notification to check
+            recipient_email: Email address to check
+            monitor_name: Monitor name for bullhorn notifications
+            schedule_name: Schedule name for processing notifications  
+            minutes_threshold: Time window in minutes to check for duplicates
+            
+        Returns:
+            bool: True if recent notification found (duplicate), False if safe to send
+        """
+        try:
+            if not self.db or not self.EmailDeliveryLog:
+                # If no database connection, allow sending (fail-safe approach)
+                return False
+            
+            # Calculate cutoff time
+            cutoff_time = datetime.utcnow() - timedelta(minutes=minutes_threshold)
+            
+            # Build base query
+            query = self.EmailDeliveryLog.query.filter(
+                self.EmailDeliveryLog.notification_type == notification_type,
+                self.EmailDeliveryLog.recipient_email == recipient_email,
+                self.EmailDeliveryLog.delivery_status == 'sent',
+                self.EmailDeliveryLog.created_at >= cutoff_time
+            )
+            
+            # Add specific filters based on notification type
+            if notification_type == 'bullhorn_notification' and monitor_name:
+                query = query.filter(
+                    self.EmailDeliveryLog.changes_summary.contains(f"Monitor: {monitor_name}")
+                )
+            elif notification_type in ['scheduled_processing', 'processing_error'] and schedule_name:
+                query = query.filter(
+                    self.EmailDeliveryLog.schedule_name == schedule_name
+                )
+            
+            recent_notification = query.first()
+            
+            if recent_notification:
+                logging.info(f"DUPLICATE PREVENTION: Blocking duplicate {notification_type} notification to {recipient_email} "
+                           f"(last sent: {recent_notification.created_at}, within {minutes_threshold}min threshold)")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Error checking for recent notifications: {str(e)}")
+            # Fail-safe: allow sending if check fails
+            return False
 
     def send_processing_notification(self,
                                      to_email: str,
@@ -45,6 +101,11 @@ class EmailService:
             if not self.api_key:
                 logging.error("EmailService: No SendGrid API key available")
                 return False
+            
+            # Check for recent duplicate notifications
+            if self._check_recent_notification('scheduled_processing', to_email, schedule_name=schedule_name):
+                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate processing notification for {schedule_name}")
+                return True  # Return True since we're intentionally not sending (not an error)
             # Read the XML file for attachment
             with open(xml_file_path, 'rb') as f:
                 xml_content = f.read()
@@ -169,6 +230,15 @@ class EmailService:
             bool: True if email sent successfully, False otherwise
         """
         try:
+            if not self.api_key:
+                logging.error("EmailService: No SendGrid API key available")
+                return False
+            
+            # Check for recent duplicate notifications
+            if self._check_recent_notification('processing_error', to_email, schedule_name=schedule_name):
+                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate error notification for {schedule_name}")
+                return True  # Return True since we're intentionally not sending (not an error)
+            
             subject = f"XML Processing Failed: {schedule_name}"
 
             html_content = f"""
@@ -216,6 +286,28 @@ class EmailService:
 
             # Send email
             response = self.sg.send(message)
+            
+            # Extract SendGrid message ID from response headers
+            sendgrid_message_id = None
+            try:
+                if hasattr(response, 'headers') and hasattr(response.headers, 'get'):
+                    sendgrid_message_id = response.headers.get('X-Message-Id')
+            except Exception:
+                pass
+            
+            # Log email delivery
+            delivery_status = 'sent' if response.status_code == 202 else 'failed'
+            error_msg = None if response.status_code == 202 else f"SendGrid returned status code: {response.status_code}"
+            
+            self._log_email_delivery(
+                notification_type='processing_error',
+                recipient_email=to_email,
+                delivery_status=delivery_status,
+                sendgrid_message_id=sendgrid_message_id,
+                error_message=error_msg,
+                schedule_name=schedule_name,
+                changes_summary=f"Processing error for schedule: {schedule_name}"
+            )
 
             if response.status_code == 202:
                 logging.info(
@@ -228,6 +320,15 @@ class EmailService:
                 return False
 
         except Exception as e:
+            # Log failed email delivery
+            self._log_email_delivery(
+                notification_type='processing_error',
+                recipient_email=to_email,
+                delivery_status='failed',
+                error_message=str(e),
+                schedule_name=schedule_name,
+                changes_summary=f"Processing error notification attempt for {schedule_name}"
+            )
             logging.error(f"Error sending error notification: {str(e)}")
             return False
 
@@ -258,6 +359,11 @@ class EmailService:
             if not self.api_key:
                 logging.error("EmailService: No SendGrid API key available")
                 return False
+            
+            # Check for recent duplicate notifications
+            if self._check_recent_notification('bullhorn_notification', to_email, monitor_name=monitor_name):
+                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate Bullhorn notification for {monitor_name}")
+                return True  # Return True since we're intentionally not sending (not an error)
 
             # Prepare default values and type checking
             if modified_jobs is None:
@@ -590,7 +696,8 @@ class EmailService:
     def send_job_change_notification(self, to_email: str, notification_type: str, 
                                    job_id: str, job_title: str, changes_summary: str = None) -> bool:
         """
-        Send email notification for job changes (added, removed, modified)
+        [DISABLED] Individual job change notifications have been disabled to prevent duplicate emails.
+        Use send_bullhorn_notification() for bulk summary notifications instead.
         
         Args:
             to_email: Recipient email address
@@ -600,127 +707,25 @@ class EmailService:
             changes_summary: Summary of changes made
             
         Returns:
-            bool: True if email sent successfully, False otherwise
+            bool: Always returns True (method disabled)
         """
-        try:
-            if not self.api_key:
-                logging.error("EmailService: No SendGrid API key available")
-                return False
-
-            # Create subject and content based on notification type
-            if notification_type == 'job_added':
-                subject = f"New Job Added: {job_title} (ID: {job_id})"
-                action_text = "added to"
-                icon = "➕"
-            elif notification_type == 'job_removed':
-                subject = f"Job Removed: {job_title} (ID: {job_id})"
-                action_text = "removed from"
-                icon = "➖"
-            elif notification_type == 'job_modified':
-                subject = f"Job Modified: {job_title} (ID: {job_id})"
-                action_text = "modified in"
-                icon = "✏️"
-            else:
-                subject = f"Job Change: {job_title} (ID: {job_id})"
-                action_text = "changed in"
-                icon = "🔄"
-
-            html_content = f"""
-            <html>
-            <body>
-                <h2>{icon} Job Feed Update</h2>
-                <p>A job has been <strong>{action_text}</strong> your XML feed.</p>
-                
-                <h3>Job Details:</h3>
-                <ul>
-                    <li><strong>Job ID:</strong> {job_id}</li>
-                    <li><strong>Job Title:</strong> {job_title}</li>
-                    <li><strong>Action:</strong> {notification_type.replace('_', ' ').title()}</li>
-                    <li><strong>Timestamp:</strong> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC</li>
-                </ul>
-                
-                {f'<h3>Changes Summary:</h3><p>{changes_summary}</p>' if changes_summary else ''}
-                
-                <p>Your live XML feed at <a href="https://myticas.com/myticas-job-feed.xml">https://myticas.com/myticas-job-feed.xml</a> has been updated automatically.</p>
-                
-                <p>JobPulse™ Processing & Automation System</p>
-            </body>
-            </html>
-            """
-
-            text_content = f"""
-            Job Feed Update
-
-            A job has been {action_text} your XML feed.
-
-            Job Details:
-            - Job ID: {job_id}
-            - Job Title: {job_title}
-            - Action: {notification_type.replace('_', ' ').title()}
-            - Timestamp: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
-
-            {f'Changes Summary: {changes_summary}' if changes_summary else ''}
-
-            Your live XML feed at https://myticas.com/myticas-job-feed.xml has been updated automatically.
-
-            JobPulse™ Processing & Automation System
-            """
-
-            # Create the email message
-            message = Mail(
-                from_email=Email(self.from_email),
-                to_emails=To(to_email),
-                subject=subject,
-                html_content=Content("text/html", html_content),
-                plain_text_content=Content("text/plain", text_content)
-            )
-
-            # Send email
-            response = self.sg.send(message)
-            
-            # Extract SendGrid message ID from response headers
-            sendgrid_message_id = None
-            try:
-                if hasattr(response, 'headers') and hasattr(response.headers, 'get'):
-                    sendgrid_message_id = response.headers.get('X-Message-Id')
-            except Exception:
-                pass
-            
-            # Log email delivery
-            delivery_status = 'sent' if response.status_code == 202 else 'failed'
-            error_msg = None if response.status_code == 202 else f"SendGrid returned status code: {response.status_code}"
-            
-            self._log_email_delivery(
-                notification_type=notification_type,
-                job_id=job_id,
-                job_title=job_title,
-                recipient_email=to_email,
-                delivery_status=delivery_status,
-                sendgrid_message_id=sendgrid_message_id,
-                error_message=error_msg,
-                changes_summary=changes_summary
-            )
-
-            if response.status_code == 202:
-                logging.info(f"Job change notification sent successfully to {to_email} for job {job_id}")
-                return True
-            else:
-                logging.error(f"Failed to send job change notification. Status code: {response.status_code}")
-                return False
-
-        except Exception as e:
-            # Log failed email delivery
-            self._log_email_delivery(
-                notification_type=notification_type,
-                job_id=job_id,
-                job_title=job_title,
-                recipient_email=to_email,
-                delivery_status='failed',
-                error_message=str(e),
-                changes_summary=changes_summary
-            )
-            logging.error(f"Error sending job change notification: {str(e)}")
-            return False
+        # DISABLED: Individual notifications were causing duplicate emails
+        # Use send_bullhorn_notification() for bulk summary notifications instead
+        logging.warning(f"INDIVIDUAL NOTIFICATIONS DISABLED: Attempted to send individual notification for job {job_id}. "
+                       f"Individual notifications are disabled to prevent duplicates. Use send_bullhorn_notification() instead.")
+        
+        # Log the blocked attempt for tracking
+        self._log_email_delivery(
+            notification_type=f"disabled_{notification_type}",
+            job_id=job_id,
+            job_title=job_title,
+            recipient_email=to_email,
+            delivery_status='blocked',
+            error_message="Individual notifications disabled - use bulk notifications instead",
+            changes_summary=f"Blocked individual notification: {notification_type} for job {job_id}"
+        )
+        
+        return True  # Return True to prevent error handling in calling code
 
     def _log_email_delivery(self, notification_type: str, job_id: str = None, job_title: str = None,
                           recipient_email: str = "", delivery_status: str = "sent", 
