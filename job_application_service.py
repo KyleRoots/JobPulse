@@ -86,6 +86,14 @@ class JobApplicationService:
                 plain_text_content=Content("text/plain", text_content)
             )
             
+            # Add custom headers with source information for Bullhorn parser
+            message.header = {
+                'X-Source': source,
+                'X-Candidate-Source': source,
+                'X-Application-Source': source,
+                'X-Bullhorn-Source': source
+            }
+            
             # Add Myticas logo as inline attachment
             logo_attachment = self._create_logo_attachment()
             if logo_attachment:
