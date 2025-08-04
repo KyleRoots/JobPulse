@@ -20,7 +20,7 @@ class JobApplicationService:
     
     def __init__(self):
         self.sendgrid_api_key = os.environ.get('SENDGRID_API_KEY')
-        self.from_email = "noreply@myticas.com"
+        self.from_email = "noreply@linkedin.com"
         self.to_email = "apply@myticas.com"
         self.resume_parser = ResumeParser()
         
