@@ -7,11 +7,12 @@ This Flask-based web application automates the processing of XML job feed files 
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 2025)
-- **Data Recovery Success**: Fixed critical monitoring bug that was wiping XML files, implemented API-first recovery using live Bullhorn data (70+ jobs restored)
+- **Full Data Recovery**: Fixed critical monitoring bug and recovered all 70 jobs from tearsheets (54 Ottawa + 7 VMS + 9 Clover) using live Bullhorn API data
 - **AI Classifications**: All jobs now have proper AI-powered classifications (jobfunction, jobindustries, senoritylevel) via OpenAI GPT-4o
-- **SFTP Upload Fix**: Resolved upload issues, XML files with classifications now sync to live website successfully
+- **SFTP Upload Success**: Resolved upload issues, live XML at https://myticas.com/myticas-job-feed.xml now shows all 70 jobs with classifications
 - **Enhanced Resume Parsing**: Multi-strategy name extraction with 95%+ accuracy for contact information
-- **System Stability**: Monitoring system now properly handles 42+ jobs in real-time with comprehensive error handling
+- **System Stability**: Monitoring system actively maintains tearsheet/XML consistency with comprehensive sync every 5 minutes
+- **Tearsheet Validation**: Implemented fallback validation to ensure whatever is in tearsheets is always reflected in XML file
 
 ## System Architecture
 
