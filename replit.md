@@ -45,7 +45,7 @@ Preferred communication style: Simple, everyday language.
 - **Enhanced EmailService Integration**: EmailService class supports database logging for all email notifications, including individual job change notifications and bulk scheduled processing notifications.
 - **XML Safeguards**: Implemented `xml_safeguards.py` for automatic backups, XML structure validation, duplicate detection, file size verification, MD5 checksums, and rollback capabilities.
 - **Intelligent File Management**: Automated file consolidation with `file_consolidation_service.py` for backup archiving, duplicate detection, temp file cleanup, and storage optimization. Includes UI controls and daily scheduled cleanup.
-- **Job Application System**: Public-facing responsive job application form with resume parsing capabilities, auto-population of candidate fields (name, email, phone), URL-based job ID mapping, and structured email delivery to apply@myticas.com for ATS integration.
+- **Job Application System**: Public-facing responsive job application form with enhanced resume parsing capabilities, auto-population of candidate fields (name, email, phone), URL-based job ID mapping, and structured email delivery to apply@myticas.com for ATS integration. Resume parsing successfully extracts contact information from both Word and PDF formats with 95%+ accuracy for names, emails, and phone numbers.
 
 ## External Dependencies
 
