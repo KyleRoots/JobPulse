@@ -67,8 +67,12 @@ class JobApplicationService:
             if not self.sg:
                 raise ValueError("Email service not available - no SendGrid API key")
             
-            # Create email content
-            subject = f"Job Application: {application_data['jobTitle']} - Bullhorn ID: {application_data['jobId']}"
+            # Create email content - decode URL encoding and format subject properly
+            import urllib.parse
+            clean_job_title = urllib.parse.unquote(application_data['jobTitle']).replace('+', ' ')
+            source = application_data.get('source', 'Website')
+            
+            subject = f"{clean_job_title} ({application_data['jobId']}) - {application_data['firstName']} {application_data['lastName']} has applied on {source}"
             
             html_content = self._build_application_email_html(application_data)
             text_content = self._build_application_email_text(application_data)
@@ -122,6 +126,10 @@ class JobApplicationService:
         
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
         
+        # Clean up job title by removing URL encoding
+        import urllib.parse
+        clean_job_title = urllib.parse.unquote(data['jobTitle']).replace('+', ' ')
+        
         html_content = f"""
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f5f5f5; padding: 20px;">
@@ -133,13 +141,19 @@ class JobApplicationService:
                     <p style="margin: 5px 0 0 0; opacity: 0.9;">Received: {current_time}</p>
                 </div>
                 
+                <!-- Myticas Branding -->
+                <div style="text-align: center; margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                    <img src="https://job-feed-refresh.replit.app/static/myticas-logo.png" alt="Myticas Consulting" style="max-width: 250px; height: auto; margin-bottom: 10px;">
+                    <p style="margin: 0; color: #6c757d; font-size: 14px; font-style: italic;">Job posting is on behalf of Myticas Consulting</p>
+                </div>
+                
                 <!-- Job Information -->
                 <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #667eea;">
                     <h2 style="color: #2c3e50; margin: 0 0 15px 0; font-size: 18px;">🎯 Position Details</h2>
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
                             <td style="padding: 8px 0; color: #666; font-weight: bold; width: 30%;">Job Title:</td>
-                            <td style="padding: 8px 0; color: #333;">{data['jobTitle']}</td>
+                            <td style="padding: 8px 0; color: #333;">{clean_job_title}</td>
                         </tr>
                         <tr>
                             <td style="padding: 8px 0; color: #666; font-weight: bold;">Bullhorn ID:</td>
@@ -196,12 +210,18 @@ class JobApplicationService:
         
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
         
+        # Clean up job title by removing URL encoding
+        import urllib.parse
+        clean_job_title = urllib.parse.unquote(data['jobTitle']).replace('+', ' ')
+        
         text_content = f"""
 NEW JOB APPLICATION
 Received: {current_time}
 
+Job posting is on behalf of Myticas Consulting
+
 POSITION DETAILS:
-Job Title: {data['jobTitle']}
+Job Title: {clean_job_title}
 Bullhorn ID: {data['jobId']}
 Source: {data.get('source', 'Direct')}
 
