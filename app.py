@@ -15,6 +15,7 @@ from ftp_service import FTPService
 from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
 from monitor_health_service import MonitorHealthService
+from job_application_service import JobApplicationService
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
@@ -3973,6 +3974,116 @@ def automation_test_action():
     except Exception as e:
         app.logger.error(f"Error in automation test: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
+
+# ==================================================================
+# JOB APPLICATION FORM ROUTES
+# ==================================================================
+
+# Initialize job application service
+job_app_service = JobApplicationService()
+
+@app.route('/apply/<job_id>/<job_title>/')
+def job_application_form(job_id, job_title):
+    """Display job application form"""
+    try:
+        # Get source from query parameters
+        source = request.args.get('source', '')
+        
+        # Decode job title from URL
+        import urllib.parse
+        decoded_title = urllib.parse.unquote(job_title)
+        
+        return render_template('apply.html', 
+                             job_id=job_id, 
+                             job_title=decoded_title, 
+                             source=source)
+    except Exception as e:
+        app.logger.error(f"Error displaying job application form: {str(e)}")
+        return f"Error loading application form: {str(e)}", 500
+
+@app.route('/parse-resume', methods=['POST'])
+def parse_resume():
+    """Parse uploaded resume file and extract candidate information"""
+    try:
+        if 'resume' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No resume file uploaded'
+            })
+        
+        resume_file = request.files['resume']
+        
+        if resume_file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No resume file selected'
+            })
+        
+        # Parse the resume
+        parse_result = job_app_service.parse_resume(resume_file)
+        
+        return jsonify(parse_result)
+        
+    except Exception as e:
+        app.logger.error(f"Error parsing resume: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error parsing resume: {str(e)}'
+        })
+
+@app.route('/submit-application', methods=['POST'])
+def submit_application():
+    """Submit job application form"""
+    try:
+        # Extract form data
+        application_data = {
+            'firstName': request.form.get('firstName'),
+            'lastName': request.form.get('lastName'),
+            'email': request.form.get('email'),
+            'phone': request.form.get('phone'),
+            'jobId': request.form.get('jobId'),
+            'jobTitle': request.form.get('jobTitle'),
+            'source': request.form.get('source', '')
+        }
+        
+        # Validate required fields
+        required_fields = ['firstName', 'lastName', 'email', 'phone', 'jobId', 'jobTitle']
+        for field in required_fields:
+            if not application_data.get(field):
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                })
+        
+        # Get uploaded files
+        resume_file = request.files.get('resume')
+        cover_letter_file = request.files.get('coverLetter')
+        
+        if not resume_file or resume_file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'Resume file is required'
+            })
+        
+        # Submit the application
+        submission_result = job_app_service.submit_application(
+            application_data=application_data,
+            resume_file=resume_file,
+            cover_letter_file=cover_letter_file if cover_letter_file and cover_letter_file.filename != '' else None
+        )
+        
+        return jsonify(submission_result)
+        
+    except Exception as e:
+        app.logger.error(f"Error submitting application: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error submitting application: {str(e)}'
+        })
+
+# ==================================================================
+# END JOB APPLICATION FORM ROUTES
+# ==================================================================
 
 def reset_test_file():
     """Reset the test file to its original clean state"""

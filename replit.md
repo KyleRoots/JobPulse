@@ -30,6 +30,7 @@ Preferred communication style: Simple, everyday language.
 ### Core Features
 - **Automated Workflow**: Monitors Bullhorn tearsheets, syncs job changes to XML, regenerates reference numbers, uploads to SFTP, and sends email notifications.
 - **XML Integration Service**: Handles job additions, removals, and updates in XML files, ensuring job IDs are formatted and reference numbers generated. Includes HTML consistency fixes and integration of LinkedIn recruiter tags by converting names to branded tags (e.g., "Michael Theodossiou" → "#LI-MIT").
+- **Job Application Form**: Responsive form for job applicants with resume parsing, auto-population of candidate fields, and structured email submission to apply@myticas.com with Bullhorn job ID integration.
 - **UI/UX**: Responsive dark-themed interface with real-time feedback and progress indicators.
 - **Security**: Login-protected routes and admin user management.
 
@@ -44,6 +45,7 @@ Preferred communication style: Simple, everyday language.
 - **Enhanced EmailService Integration**: EmailService class supports database logging for all email notifications, including individual job change notifications and bulk scheduled processing notifications.
 - **XML Safeguards**: Implemented `xml_safeguards.py` for automatic backups, XML structure validation, duplicate detection, file size verification, MD5 checksums, and rollback capabilities.
 - **Intelligent File Management**: Automated file consolidation with `file_consolidation_service.py` for backup archiving, duplicate detection, temp file cleanup, and storage optimization. Includes UI controls and daily scheduled cleanup.
+- **Job Application System**: Public-facing responsive job application form with resume parsing capabilities, auto-population of candidate fields (name, email, phone), URL-based job ID mapping, and structured email delivery to apply@myticas.com for ATS integration.
 
 ## External Dependencies
 

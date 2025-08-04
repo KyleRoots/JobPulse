@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply for Job - {{ job_title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .application-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .application-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        
+        .application-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #4a6741 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .application-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        
+        .application-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+        
+        .application-body {
+            padding: 2rem;
+        }
+        
+        .job-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #667eea;
+        }
+        
+        .form-section {
+            margin-bottom: 2rem;
+        }
+        
+        .form-section h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            padding: 0.75rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .file-upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f8f9fa;
+        }
+        
+        .file-upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .file-upload-area.dragover {
+            border-color: #667eea;
+            background: #e3f2fd;
+        }
+        
+        .file-upload-icon {
+            font-size: 3rem;
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+        
+        .file-info {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+        
+        .validation-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        
+        .parsed-info {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 0.75rem 2rem;
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: transform 0.3s ease;
+            width: 100%;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            transform: none;
+        }
+        
+        .loading-spinner {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .application-container {
+                margin: 1rem auto;
+                padding: 0 0.5rem;
+            }
+            
+            .application-body {
+                padding: 1.5rem;
+            }
+            
+            .application-header {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="application-container">
+        <div class="application-card">
+            <div class="application-header">
+                <h1><i class="fas fa-briefcase me-2"></i>Job Application</h1>
+                <p>Apply for your next opportunity</p>
+            </div>
+            
+            <div class="application-body">
+                <!-- Job Information -->
+                <div class="job-info">
+                    <h3><i class="fas fa-info-circle me-2"></i>Position Details</h3>
+                    <p><strong>Job Title:</strong> {{ job_title }}</p>
+                    <p><strong>Job ID:</strong> {{ job_id }}</p>
+                    {% if source %}
+                    <p><strong>Source:</strong> {{ source }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Resume Parsing Results -->
+                <div id="parsedInfo" class="parsed-info">
+                    <h5><i class="fas fa-magic me-2"></i>Information Extracted from Resume</h5>
+                    <p>We've automatically filled in some fields from your resume. Please verify the information below is correct.</p>
+                </div>
+
+                <!-- Application Form -->
+                <form id="applicationForm" enctype="multipart/form-data">
+                    <!-- Personal Information -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-user me-2"></i>Personal Information</h3>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="firstName" class="form-label">First Name *</label>
+                                <input type="text" class="form-control" id="firstName" name="firstName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lastName" class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" id="lastName" name="lastName" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email Address *</label>
+                                <input type="email" class="form-control" id="email" name="email" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">Phone Number *</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resume Upload -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-file-alt me-2"></i>Resume *</h3>
+                        <div class="file-upload-area" id="resumeUploadArea">
+                            <div class="file-upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h5>Drag & drop your resume here</h5>
+                            <p class="text-muted mb-3">or click to browse files</p>
+                            <input type="file" id="resumeFile" name="resumeFile" accept=".pdf,.doc,.docx" required style="display: none;">
+                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('resumeFile').click()">
+                                <i class="fas fa-folder-open me-2"></i>Browse Files
+                            </button>
+                            <small class="d-block mt-2 text-muted">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
+                        </div>
+                        <div id="resumeFileInfo" class="file-info">
+                            <i class="fas fa-file-alt me-2"></i>
+                            <span id="resumeFileName"></span>
+                            <button type="button" class="btn btn-sm btn-outline-danger float-end" onclick="removeResumeFile()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Cover Letter Upload (Optional) -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-file-text me-2"></i>Cover Letter (Optional)</h3>
+                        <div class="file-upload-area" id="coverLetterUploadArea">
+                            <div class="file-upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h5>Drag & drop your cover letter here</h5>
+                            <p class="text-muted mb-3">or click to browse files</p>
+                            <input type="file" id="coverLetterFile" name="coverLetterFile" accept=".pdf,.doc,.docx" style="display: none;">
+                            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('coverLetterFile').click()">
+                                <i class="fas fa-folder-open me-2"></i>Browse Files
+                            </button>
+                            <small class="d-block mt-2 text-muted">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
+                        </div>
+                        <div id="coverLetterFileInfo" class="file-info">
+                            <i class="fas fa-file-text me-2"></i>
+                            <span id="coverLetterFileName"></span>
+                            <button type="button" class="btn btn-sm btn-outline-danger float-end" onclick="removeCoverLetterFile()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Validation Warning -->
+                    <div id="validationWarning" class="validation-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Please Verify Your Information</h6>
+                        <p class="mb-0">Please validate that the information pulled from your resume into the form fields is accurate. If not, please make corrections before submitting your application.</p>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="text-center">
+                        <button type="submit" class="submit-btn" id="submitBtn">
+                            <span id="submitText">
+                                <i class="fas fa-paper-plane me-2"></i>Submit Application
+                            </span>
+                            <span id="loadingSpinner" class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin me-2"></i>Submitting...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal fade" id="successModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-check-circle me-2"></i>Application Submitted Successfully
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <p>Thank you for your application! We have received your information and will review it shortly.</p>
+                    <p class="mb-0"><strong>What's next?</strong> Our team will review your application and contact you if your qualifications match our requirements.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" onclick="window.close()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/job-application.js') }}"></script>
+</body>
+</html>
