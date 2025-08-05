@@ -443,7 +443,7 @@
                             <h5>Drag & drop your resume here</h5>
                             <p class="mb-3" style="color: rgba(255, 255, 255, 0.7);">or click to browse files</p>
                             <input type="file" id="resumeFile" name="resumeFile" accept=".pdf,.doc,.docx" required style="display: none;">
-                            <button type="button" class="btn btn-outline-light" onclick="document.getElementById('resumeFile').click(); event.stopPropagation();">
+                            <button type="button" class="btn btn-outline-light" onclick="console.log('🖱️ Browse button clicked for resume'); document.getElementById('resumeFile').click(); event.stopPropagation();">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
                             <small class="d-block mt-2" style="color: rgba(255, 255, 255, 0.7);">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
@@ -539,9 +539,11 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ DOM ready - Setting up form and file handlers');
             
-            // Setup file uploads
+            // Setup file uploads with debug logging
+            console.log('🔧 Starting file upload setup...');
             setupFileUpload('resumeFile', 'resumeUploadArea', 'resumeFileInfo', 'resumeFileName', true);
             setupFileUpload('coverLetterFile', 'coverLetterUploadArea', 'coverLetterFileInfo', 'coverLetterFileName', false);
+            console.log('✅ File upload setup completed');
             
             const form = document.getElementById('applicationForm');
             if (!form) {
@@ -691,9 +693,13 @@
             
             // File input change - CRITICAL for file selection
             fileInput.addEventListener('change', function(e) {
-                console.log('📁 File input changed:', e.target.files.length);
+                console.log('📁 File input changed for:', inputId, 'Files:', e.target.files.length);
+                console.log('📁 File details:', e.target.files[0] ? e.target.files[0].name : 'No file');
                 if (e.target.files && e.target.files.length > 0) {
+                    console.log('📁 Processing file selection...');
                     handleFileSelection(e.target.files[0], fileInput, uploadArea, fileInfo, fileName, isRequired);
+                } else {
+                    console.log('❌ No files selected');
                 }
             });
         }
