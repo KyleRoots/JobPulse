@@ -291,18 +291,37 @@
             font-size: 0.85rem;
         }
 
+        /* Mobile spacing improvements */
+        .application-container {
+            margin-bottom: 6rem; /* Add space above footer for all devices */
+        }
+        
+        .submit-button-area {
+            margin-bottom: 2rem; /* Extra space below submit button */
+            padding-bottom: 1rem;
+        }
+
         @media (max-width: 768px) {
             .application-container {
-                margin: 1rem auto;
+                margin: 1rem auto 8rem auto; /* Increased bottom margin for mobile */
                 padding: 0 0.5rem;
             }
             
             .application-body {
-                padding: 1.5rem;
+                padding: 1.5rem 1.5rem 2rem 1.5rem; /* Added bottom padding */
             }
             
             .application-header {
                 padding: 1.5rem;
+            }
+            
+            .submit-button-area {
+                margin-bottom: 3rem; /* Even more space on mobile */
+                padding-bottom: 1.5rem;
+            }
+            
+            .footer {
+                padding: 1.5rem 1rem; /* Slightly more padding on mobile footer */
             }
         }
     </style>
@@ -419,7 +438,7 @@
                     </div>
 
                     <!-- Submit Button -->
-                    <div class="text-center">
+                    <div class="text-center submit-button-area">
                         <button type="submit" class="submit-btn" id="submitBtn">
                             <span id="submitText">
                                 <i class="fas fa-paper-plane me-2"></i>Submit Application
