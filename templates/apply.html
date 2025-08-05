@@ -531,27 +531,59 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // COMPLETE FORM HANDLER - File uploads and submission
-        console.log('🚀 COMPLETE FORM HANDLER LOADING');
+        console.log('🚀 SIMPLIFIED FILE UPLOAD WITH PROFESSIONAL STYLING');
         
         let formSubmitted = false; // Prevent duplicate submissions
         
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('✅ DOM ready - Setting up form and file handlers');
+            console.log('✅ DOM ready - Setting up simplified handlers');
             
-            // Setup file uploads with debug logging
-            console.log('🔧 Starting file upload setup...');
-            setupFileUpload('resumeFile', 'resumeUploadArea', 'resumeFileInfo', 'resumeFileName', true);
-            setupFileUpload('coverLetterFile', 'coverLetterUploadArea', 'coverLetterFileInfo', 'coverLetterFileName', false);
-            console.log('✅ File upload setup completed');
+            // Simple file upload handlers
+            const resumeFile = document.getElementById('resumeFile');
+            const resumeFileInfo = document.getElementById('resumeFileInfo');
+            const resumeFileName = document.getElementById('resumeFileName');
+            const resumeUploadArea = document.getElementById('resumeUploadArea');
             
-            const form = document.getElementById('applicationForm');
-            if (!form) {
-                console.error('❌ Form not found');
-                return;
-            }
+            const coverLetterFile = document.getElementById('coverLetterFile');
+            const coverLetterFileInfo = document.getElementById('coverLetterFileInfo');
+            const coverLetterFileName = document.getElementById('coverLetterFileName');
+            const coverLetterUploadArea = document.getElementById('coverLetterUploadArea');
             
-            form.addEventListener('submit', function(e) {
+            // Resume file selection
+            resumeFile.addEventListener('change', function(e) {
+                console.log('📁 Resume file selected:', e.target.files.length);
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    console.log('📂 Resume file details:', file.name, file.size);
+                    
+                    resumeFileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+                    resumeUploadArea.style.display = 'none';
+                    resumeFileInfo.style.display = 'block';
+                    
+                    console.log('✅ Resume file upload UI updated');
+                    
+                    // Parse resume
+                    parseResumeFile(file);
+                }
+            });
+            
+            // Cover letter file selection
+            coverLetterFile.addEventListener('change', function(e) {
+                console.log('📁 Cover letter file selected:', e.target.files.length);
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    console.log('📂 Cover letter file details:', file.name, file.size);
+                    
+                    coverLetterFileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+                    coverLetterUploadArea.style.display = 'none';
+                    coverLetterFileInfo.style.display = 'block';
+                    
+                    console.log('✅ Cover letter file upload UI updated');
+                }
+            });
+            
+            // Form submission
+            document.getElementById('applicationForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 
                 // Prevent duplicate submissions
@@ -563,51 +595,32 @@
                 formSubmitted = true;
                 console.log('📝 Form submission started');
                 
-                // Show loading state
-                const submitBtn = document.getElementById('submitBtn');
-                const submitText = document.getElementById('submitText');
-                const loadingSpinner = document.getElementById('loadingSpinner');
-                
-                if (submitBtn) submitBtn.disabled = true;
-                if (submitText) submitText.style.display = 'none';
-                if (loadingSpinner) loadingSpinner.style.display = 'inline';
-                
-                // Prepare form data
                 const formData = new FormData();
+                formData.append('firstName', document.getElementById('firstName').value);
+                formData.append('lastName', document.getElementById('lastName').value);
+                formData.append('email', document.getElementById('email').value);
+                formData.append('phone', document.getElementById('phone').value);
+                formData.append('jobId', '{{ job_id }}');
+                formData.append('jobTitle', '{{ job_title }}');
+                formData.append('source', '{{ source }}');
                 
-                // Add personal info
-                formData.append('firstName', document.getElementById('firstName').value || '');
-                formData.append('lastName', document.getElementById('lastName').value || '');
-                formData.append('email', document.getElementById('email').value || '');
-                formData.append('phone', document.getElementById('phone').value || '');
-                
-                // Add files
                 const resumeFile = document.getElementById('resumeFile').files[0];
                 const coverLetterFile = document.getElementById('coverLetterFile').files[0];
                 
                 if (resumeFile) {
                     formData.append('resume', resumeFile);
+                    console.log('📎 Resume file attached:', resumeFile.name);
                 }
                 if (coverLetterFile) {
                     formData.append('coverLetter', coverLetterFile);
+                    console.log('📎 Cover letter file attached:', coverLetterFile.name);
                 }
                 
-                // Add job info from hidden fields
-                const jobIdField = document.querySelector('input[name="jobId"]');
-                const jobTitleField = document.querySelector('input[name="jobTitle"]');
-                const sourceField = document.querySelector('input[name="source"]');
+                // Show loading
+                document.getElementById('submitText').style.display = 'none';
+                document.getElementById('loadingSpinner').style.display = 'inline';
+                document.getElementById('submitBtn').disabled = true;
                 
-                if (jobIdField && jobIdField.value) {
-                    formData.append('jobId', jobIdField.value);
-                }
-                if (jobTitleField && jobTitleField.value) {
-                    formData.append('jobTitle', jobTitleField.value);
-                }
-                if (sourceField && sourceField.value) {
-                    formData.append('source', sourceField.value);
-                }
-                
-                // Submit
                 fetch('/submit-application', {
                     method: 'POST',
                     body: formData
@@ -615,155 +628,48 @@
                 .then(response => response.json())
                 .then(data => {
                     console.log('📤 Server response:', data);
-                    
-                    // Reset submit button state
-                    if (submitBtn) submitBtn.disabled = false;
-                    if (submitText) submitText.style.display = 'inline';
-                    if (loadingSpinner) loadingSpinner.style.display = 'none';
-                    
                     if (data.success) {
                         alert('✅ Application submitted successfully!');
-                        // Allow new submission after success
-                        formSubmitted = false;
+                        formSubmitted = false; // Allow new submission
                     } else {
                         alert('❌ Error: ' + (data.error || 'Unknown error'));
-                        // Allow retry on error
-                        formSubmitted = false;
+                        formSubmitted = false; // Allow retry
                     }
                 })
                 .catch(error => {
-                    console.error('💥 Submission error:', error);
-                    
-                    // Reset submit button state
-                    if (submitBtn) submitBtn.disabled = false;
-                    if (submitText) submitText.style.display = 'inline';
-                    if (loadingSpinner) loadingSpinner.style.display = 'none';
-                    
+                    console.error('💥 Error:', error);
                     alert('❌ Network error: ' + error.message);
-                    // Allow retry on error
-                    formSubmitted = false;
+                    formSubmitted = false; // Allow retry
+                })
+                .finally(() => {
+                    // Reset button
+                    document.getElementById('submitText').style.display = 'inline';
+                    document.getElementById('loadingSpinner').style.display = 'none';
+                    document.getElementById('submitBtn').disabled = false;
                 });
             });
         });
         
-        // FILE UPLOAD FUNCTIONALITY
-        function setupFileUpload(inputId, uploadAreaId, fileInfoId, fileNameId, isRequired) {
-            const fileInput = document.getElementById(inputId);
-            const uploadArea = document.getElementById(uploadAreaId);
-            const fileInfo = document.getElementById(fileInfoId);
-            const fileName = document.getElementById(fileNameId);
-            
-            if (!fileInput || !uploadArea || !fileInfo || !fileName) {
-                console.error('File upload elements not found:', inputId);
-                return;
-            }
-            
-            console.log('✅ Setting up file upload for:', inputId);
-            
-            // Drag and drop events
-            uploadArea.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                uploadArea.classList.add('dragover');
-            });
-            
-            uploadArea.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                uploadArea.classList.remove('dragover');
-            });
-            
-            uploadArea.addEventListener('drop', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                uploadArea.classList.remove('dragover');
-                
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleFileSelection(files[0], fileInput, uploadArea, fileInfo, fileName, isRequired);
-                }
-            });
-            
-            // Click to upload - only on the upload area, not the button
-            uploadArea.addEventListener('click', function(e) {
-                if (!e.target.closest('button')) {
-                    fileInput.click();
-                }
-            });
-            
-            // File input change - CRITICAL for file selection
-            fileInput.addEventListener('change', function(e) {
-                console.log('📁 File input changed for:', inputId, 'Files:', e.target.files.length);
-                console.log('📁 File details:', e.target.files[0] ? e.target.files[0].name : 'No file');
-                if (e.target.files && e.target.files.length > 0) {
-                    console.log('📁 Processing file selection...');
-                    handleFileSelection(e.target.files[0], fileInput, uploadArea, fileInfo, fileName, isRequired);
-                } else {
-                    console.log('❌ No files selected');
-                }
-            });
+        // Keep the original professional functions
+        function removeResumeFile() {
+            document.getElementById('resumeFile').value = '';
+            document.getElementById('resumeUploadArea').style.display = 'block';
+            document.getElementById('resumeFileInfo').style.display = 'none';
+            document.getElementById('parsedInfo').style.display = 'none';
         }
         
-        function handleFileSelection(file, fileInput, uploadArea, fileInfo, fileName, isRequired) {
-            console.log('📂 Handling file selection:', file.name, file.type, file.size);
-            
-            // Validate file type
-            const fileExtension = file.name.toLowerCase().split('.').pop();
-            const allowedExtensions = ['pdf', 'doc', 'docx'];
-            
-            if (!allowedExtensions.includes(fileExtension)) {
-                alert('Please upload a PDF, DOC, or DOCX file.');
-                return;
-            }
-            
-            // Validate file size (10MB limit)
-            if (file.size > 10 * 1024 * 1024) {
-                alert('File size must be less than 10MB.');
-                return;
-            }
-            
-            // Update UI
-            fileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
-            uploadArea.style.display = 'none';
-            fileInfo.style.display = 'block';
-            
-            console.log('✅ File selected successfully:', file.name);
-            
-            // Parse resume if it's the resume file
-            if (fileInput.id === 'resumeFile') {
-                parseResumeFile(file);
-            }
+        function removeCoverLetterFile() {
+            document.getElementById('coverLetterFile').value = '';
+            document.getElementById('coverLetterUploadArea').style.display = 'block';
+            document.getElementById('coverLetterFileInfo').style.display = 'none';
         }
         
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const sizes = ['Bytes', 'KB', 'MB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        function removeResumeFile() {
-            const fileInput = document.getElementById('resumeFile');
-            const uploadArea = document.getElementById('resumeUploadArea');
-            const fileInfo = document.getElementById('resumeFileInfo');
-            
-            fileInput.value = '';
-            uploadArea.style.display = 'block';
-            fileInfo.style.display = 'none';
-            
-            // Clear parsed info
-            document.getElementById('parsedInfo').style.display = 'none';
-        }
-        
-        function removeCoverLetterFile() {
-            const fileInput = document.getElementById('coverLetterFile');
-            const uploadArea = document.getElementById('coverLetterUploadArea');
-            const fileInfo = document.getElementById('coverLetterFileInfo');
-            
-            fileInput.value = '';
-            uploadArea.style.display = 'block';
-            fileInfo.style.display = 'none';
         }
         
         function parseResumeFile(file) {
