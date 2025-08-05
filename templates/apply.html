@@ -293,22 +293,22 @@
 
         /* Mobile spacing improvements */
         .application-container {
-            margin-bottom: 6rem; /* Add space above footer for all devices */
+            margin-bottom: 8rem; /* Add space above footer for all devices */
         }
         
         .submit-button-area {
-            margin-bottom: 2rem; /* Extra space below submit button */
-            padding-bottom: 1rem;
+            margin-bottom: 3rem; /* Extra space below submit button */
+            padding-bottom: 2rem;
         }
 
         @media (max-width: 768px) {
             .application-container {
-                margin: 1rem auto 8rem auto; /* Increased bottom margin for mobile */
+                margin: 1rem auto 12rem auto; /* Much larger bottom margin for mobile */
                 padding: 0 0.5rem;
             }
             
             .application-body {
-                padding: 1.5rem 1.5rem 2rem 1.5rem; /* Added bottom padding */
+                padding: 1.5rem 1.5rem 4rem 1.5rem; /* Much more bottom padding */
             }
             
             .application-header {
@@ -316,12 +316,22 @@
             }
             
             .submit-button-area {
-                margin-bottom: 3rem; /* Even more space on mobile */
-                padding-bottom: 1.5rem;
+                margin-bottom: 5rem; /* Much more space on mobile */
+                padding-bottom: 3rem;
             }
             
             .footer {
-                padding: 1.5rem 1rem; /* Slightly more padding on mobile footer */
+                padding: 1rem; /* Reduce footer padding to make it smaller */
+                font-size: 0.75rem; /* Smaller font for mobile */
+                position: fixed;
+                bottom: 0;
+                height: auto;
+                min-height: 3rem; /* Ensure consistent footer height */
+            }
+            
+            /* Ensure body has enough padding to never overlap */
+            body {
+                padding-bottom: 5rem;
             }
         }
     </style>
