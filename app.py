@@ -640,17 +640,32 @@ def process_bullhorn_monitors():
                                                     if not update_success:
                                                         verification_errors.append(f"Failed to update job {job_id}")
                                             
-                                            # Check added jobs
+                                            # Check added jobs with enhanced verification
                                             for added_job in added_jobs:
                                                 job_id = str(added_job.get('id'))
                                                 with open(schedule.file_path, 'r', encoding='utf-8') as f:
                                                     xml_content = f.read()
-                                                    if f"({job_id})" not in xml_content:
-                                                        app.logger.warning(f"Job {job_id} missing from XML after addition attempt")
-                                                        # Attempt manual addition
+                                                    # Check both title format and bhatsid format
+                                                    if f"({job_id})" not in xml_content and f"<bhatsid><![CDATA[ {job_id} ]]></bhatsid>" not in xml_content:
+                                                        app.logger.warning(f"SYNC GAP DETECTED: Job {job_id} missing from XML after addition attempt")
+                                                        
+                                                        # Log the sync gap for monitoring
+                                                        app.logger.error(f"SYNC GAP CRITICAL: Job {job_id} ({added_job.get('title', 'Unknown')}) failed to sync to XML")
+                                                        
+                                                        # Attempt manual addition with retry
                                                         manual_addition = xml_service.add_job_to_xml(schedule.file_path, added_job)
-                                                        if not manual_addition:
+                                                        if manual_addition:
+                                                            app.logger.info(f"SYNC RECOVERY SUCCESS: Job {job_id} recovered via manual addition")
+                                                            
+                                                            # Send recovery notification email if configured
+                                                            try:
+                                                                if hasattr(xml_service, 'email_service') and xml_service.email_service:
+                                                                    xml_service.email_service.send_recovery_notification(job_id, added_job.get('title', 'Unknown'))
+                                                            except Exception as email_error:
+                                                                app.logger.warning(f"Failed to send recovery notification for job {job_id}: {email_error}")
+                                                        else:
                                                             verification_errors.append(f"Failed to add job {job_id}")
+                                                            app.logger.error(f"CRITICAL: Unable to recover job {job_id} - manual intervention may be required")
                                             
                                             # Update sync result if verification failed
                                             if verification_errors:
