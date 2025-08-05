@@ -8,6 +8,7 @@ import logging
 import re
 import shutil
 import time
+import urllib.parse
 from typing import Dict, List, Optional
 from datetime import datetime
 try:
@@ -115,6 +116,9 @@ class XMLIntegrationService:
             # Extract job ID from formatted title for bhatsid
             bhatsid = self.xml_processor.extract_job_id_from_title(formatted_title)
             
+            # Generate unique job application URL
+            job_url = self._generate_job_application_url(bhatsid, clean_title)
+            
             # Use AI to classify the job based on title and description (skip during real-time monitoring for performance)
             if skip_ai_classification:
                 # For real-time monitoring, use empty values to prevent timeouts
@@ -143,7 +147,7 @@ class XMLIntegrationService:
                 'date': clean_field_value(formatted_date),
                 'referencenumber': clean_field_value(reference_number),
                 'bhatsid': clean_field_value(bhatsid),
-                'url': clean_field_value('https://myticas.com/'),
+                'url': clean_field_value(job_url),
                 'description': clean_field_value(description),
                 'jobtype': clean_field_value(job_type),
                 'city': clean_field_value(city),
@@ -165,8 +169,33 @@ class XMLIntegrationService:
             self.logger.error(f"Error mapping Bullhorn job to XML: {str(e)}")
             return {}
     
+    def _generate_job_application_url(self, bhatsid: str, clean_title: str) -> str:
+        """
+        Generate unique job application URL for each job
+        
+        Args:
+            bhatsid: Job ID from Bullhorn
+            clean_title: Clean job title without ID
+            
+        Returns:
+            str: Unique job application URL in format:
+                 https://apply.myticas.com/[bhatsid]/[title]/?source=LinkedIn
+        """
+        try:
+            # URL encode the title to handle special characters and spaces
+            encoded_title = urllib.parse.quote(clean_title, safe='')
+            
+            # Generate the unique URL
+            job_url = f"https://apply.myticas.com/{bhatsid}/{encoded_title}/?source=LinkedIn"
+            
+            self.logger.debug(f"Generated unique URL for job {bhatsid}: {job_url}")
+            return job_url
+            
+        except Exception as e:
+            self.logger.error(f"Error generating job application URL for {bhatsid}: {str(e)}")
+            # Fallback to generic URL if there's an error
+            return "https://myticas.com/"
 
-    
     def _map_employment_type(self, employment_type: str) -> str:
         """Map Bullhorn employment type to XML job type"""
         employment_type = employment_type.lower() if employment_type else ''
