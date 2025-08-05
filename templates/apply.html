@@ -291,16 +291,51 @@
             font-size: 0.85rem;
         }
 
-        /* Mobile spacing improvements - ultra tight for professional look */
+        /* Responsive spacing - comfortable for larger screens, tight for mobile */
         .application-container {
-            margin-bottom: 1rem; /* Very minimal space above footer */
+            margin-bottom: 4rem; /* Good space for desktop/tablet */
         }
         
         .submit-button-area {
-            margin-bottom: 0.5rem; /* Ultra minimal space below submit button */
-            padding-bottom: 0.25rem;
+            margin-bottom: 2rem; /* Comfortable space for desktop/tablet */
+            padding-bottom: 1rem;
+        }
+        
+        .footer {
+            padding: 1.5rem 1rem;
+            font-size: 0.9rem;
+            position: fixed;
+            bottom: 0;
+            height: auto;
+            min-height: 4rem;
+        }
+        
+        body {
+            padding-bottom: 5rem; /* Good clearance for desktop/tablet */
         }
 
+        /* Tablet spacing - moderate */
+        @media (max-width: 992px) and (min-width: 769px) {
+            .application-container {
+                margin-bottom: 3rem;
+            }
+            
+            .submit-button-area {
+                margin-bottom: 1.5rem;
+                padding-bottom: 0.75rem;
+            }
+            
+            .footer {
+                padding: 1.2rem 1rem;
+                min-height: 3.5rem;
+            }
+            
+            body {
+                padding-bottom: 4rem;
+            }
+        }
+
+        /* Mobile spacing - ultra tight for professional look */
         @media (max-width: 768px) {
             .application-container {
                 margin: 1rem auto 1.5rem auto; /* Ultra tight bottom margin */
