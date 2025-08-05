@@ -291,24 +291,24 @@
             font-size: 0.85rem;
         }
 
-        /* Mobile spacing improvements - balanced approach */
+        /* Mobile spacing improvements - tight and clean */
         .application-container {
-            margin-bottom: 5rem; /* Moderate space above footer for all devices */
+            margin-bottom: 2rem; /* Minimal space above footer for all devices */
         }
         
         .submit-button-area {
-            margin-bottom: 1.5rem; /* Reasonable space below submit button */
-            padding-bottom: 1rem;
+            margin-bottom: 1rem; /* Minimal space below submit button */
+            padding-bottom: 0.5rem;
         }
 
         @media (max-width: 768px) {
             .application-container {
-                margin: 1rem auto 6rem auto; /* Balanced bottom margin for mobile */
+                margin: 1rem auto 3rem auto; /* Tight bottom margin for mobile */
                 padding: 0 0.5rem;
             }
             
             .application-body {
-                padding: 1.5rem 1.5rem 2rem 1.5rem; /* Moderate bottom padding */
+                padding: 1.5rem 1.5rem 1rem 1.5rem; /* Compact bottom padding */
             }
             
             .application-header {
@@ -316,22 +316,22 @@
             }
             
             .submit-button-area {
-                margin-bottom: 2rem; /* Just enough space on mobile */
-                padding-bottom: 1.5rem;
+                margin-bottom: 1rem; /* Minimal space on mobile */
+                padding-bottom: 0.5rem;
             }
             
             .footer {
-                padding: 1rem; /* Compact footer */
-                font-size: 0.8rem; /* Slightly smaller font for mobile */
+                padding: 0.8rem 1rem; /* Very compact footer */
+                font-size: 0.8rem;
                 position: fixed;
                 bottom: 0;
                 height: auto;
-                min-height: 3rem;
+                min-height: 2.5rem; /* Smaller footer height */
             }
             
-            /* Light body padding as safety net */
+            /* Minimal body padding - just enough clearance */
             body {
-                padding-bottom: 4rem;
+                padding-bottom: 3rem;
             }
         }
     </style>
