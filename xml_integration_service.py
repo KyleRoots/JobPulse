@@ -194,8 +194,13 @@ class XMLIntegrationService:
             # URL encode the title to handle special characters and spaces
             encoded_title = urllib.parse.quote(str(clean_title).strip(), safe='')
             
-            # Generate the unique URL
-            job_url = f"https://apply.myticas.com/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
+            # CONFIGURABLE: Use environment variable to determine base URL
+            # This allows switching between apply.myticas.com (production) and current domain (development)
+            import os
+            base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
+            
+            # Generate the unique URL  
+            job_url = f"{base_url}/apply/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
             
             self.logger.debug(f"Generated unique URL for job {bhatsid}: {job_url}")
             return job_url
@@ -205,7 +210,9 @@ class XMLIntegrationService:
             # More specific fallback with job ID if available
             try:
                 if bhatsid and str(bhatsid).strip():
-                    fallback_url = f"https://apply.myticas.com/{str(bhatsid).strip()}/position/?source=LinkedIn"
+                    import os
+                    base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
+                    fallback_url = f"{base_url}/apply/{str(bhatsid).strip()}/position/?source=LinkedIn"
                     self.logger.warning(f"Using fallback URL with job ID: {fallback_url}")
                     return fallback_url
             except:

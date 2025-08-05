@@ -64,6 +64,16 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "max_overflow": 30
 }
 
+# Configure job application URL base - use current domain if apply.myticas.com not available
+if not os.environ.get('JOB_APPLICATION_BASE_URL'):
+    current_domain = os.environ.get('REPLIT_DEV_DOMAIN', 'localhost:5000')
+    if current_domain and current_domain != 'localhost:5000':
+        os.environ['JOB_APPLICATION_BASE_URL'] = f"https://{current_domain}"
+        app.logger.info(f"Job application URLs will use: https://{current_domain}")
+    else:
+        os.environ['JOB_APPLICATION_BASE_URL'] = 'https://apply.myticas.com'
+        app.logger.warning("Using default apply.myticas.com - may need deployment there")
+
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
