@@ -3438,7 +3438,7 @@ def job_application_form(job_id, job_title):
         import urllib.parse
         decoded_title = urllib.parse.unquote(job_title)
         
-        return render_template('apply.html', 
+        return render_template('apply_fixed.html', 
                              job_id=job_id, 
                              job_title=decoded_title, 
                              source=source)
