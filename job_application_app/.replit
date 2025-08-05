@@ -1,0 +1,21 @@
+[run]
+command = "gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app"
+
+[packager]
+language = "python3"
+
+[packager.features]
+enabledForHosting = false
+packageSearch = true
+guessImports = true
+
+[languages.python3]
+pattern = "**/*.py"
+syntax = "python"
+
+[languages.python3.languageServer]
+start = ["pylsp"]
+
+[deployment]
+run = ["sh", "-c", "gunicorn --bind 0.0.0.0:5000 --reuse-port main:app"]
+deploymentTarget = "cloudrun"

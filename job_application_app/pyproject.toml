@@ -1,0 +1,33 @@
+[project]
+name = "myticas-job-application"
+version = "1.0.0"
+description = "Standalone job application service for apply.myticas.com"
+authors = [
+    {name = "Myticas Consulting"}
+]
+dependencies = [
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+    "sendgrid>=6.10.0",
+    "werkzeug>=3.0.0",
+    "python-docx>=1.1.0",
+    "pypdf2>=3.0.0",
+    "lxml>=4.9.0",
+    "openpyxl>=3.1.0",
+    "email-validator>=2.1.0",
+    "gunicorn>=21.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0"
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["job_application_app"]
