@@ -531,8 +531,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // INLINE FORM SUBMISSION FIX - Bypass cache issues
-        console.log('🚀 INLINE SCRIPT LOADING - No cache issues');
+        // FORM SUBMISSION FIX - Single handler to prevent duplicates
+        console.log('🚀 FORM HANDLER LOADING');
+        
+        let formSubmitted = false; // Prevent duplicate submissions
         
         document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ DOM ready - Setting up form handler');
@@ -545,6 +547,14 @@
             
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
+                
+                // Prevent duplicate submissions
+                if (formSubmitted) {
+                    console.log('⚠️ Form already submitted, ignoring duplicate');
+                    return;
+                }
+                
+                formSubmitted = true;
                 console.log('📝 Form submission started');
                 
                 // Show loading state
@@ -581,28 +591,14 @@
                 const jobTitleField = document.querySelector('input[name="jobTitle"]');
                 const sourceField = document.querySelector('input[name="source"]');
                 
-                console.log('🔍 Checking hidden fields:');
-                console.log('jobId field:', jobIdField ? jobIdField.value : 'NOT FOUND');
-                console.log('jobTitle field:', jobTitleField ? jobTitleField.value : 'NOT FOUND'); 
-                console.log('source field:', sourceField ? sourceField.value : 'NOT FOUND');
-                
                 if (jobIdField && jobIdField.value) {
                     formData.append('jobId', jobIdField.value);
-                    console.log('✅ Added jobId:', jobIdField.value);
                 }
                 if (jobTitleField && jobTitleField.value) {
                     formData.append('jobTitle', jobTitleField.value);
-                    console.log('✅ Added jobTitle:', jobTitleField.value);
                 }
                 if (sourceField && sourceField.value) {
                     formData.append('source', sourceField.value);
-                    console.log('✅ Added source:', sourceField.value);
-                }
-                
-                // Debug all form data
-                console.log('📋 Final form data:');
-                for (let [key, value] of formData.entries()) {
-                    console.log(`  ${key}:`, typeof value === 'object' ? `[File: ${value.name}]` : value);
                 }
                 
                 // Submit
@@ -614,30 +610,35 @@
                 .then(data => {
                     console.log('📤 Server response:', data);
                     
-                    // Reset submit button
+                    // Reset submit button state
                     if (submitBtn) submitBtn.disabled = false;
                     if (submitText) submitText.style.display = 'inline';
                     if (loadingSpinner) loadingSpinner.style.display = 'none';
                     
                     if (data.success) {
                         alert('✅ Application submitted successfully!');
+                        // Allow new submission after success
+                        formSubmitted = false;
                     } else {
                         alert('❌ Error: ' + (data.error || 'Unknown error'));
+                        // Allow retry on error
+                        formSubmitted = false;
                     }
                 })
                 .catch(error => {
                     console.error('💥 Submission error:', error);
                     
-                    // Reset submit button
+                    // Reset submit button state
                     if (submitBtn) submitBtn.disabled = false;
                     if (submitText) submitText.style.display = 'inline';
                     if (loadingSpinner) loadingSpinner.style.display = 'none';
                     
                     alert('❌ Network error: ' + error.message);
+                    // Allow retry on error
+                    formSubmitted = false;
                 });
             });
         });
     </script>
-    <script src="{{ url_for('static', filename='js/job-application.js') }}?v=1722872500"></script>
 </body>
 </html>
