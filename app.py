@@ -1671,6 +1671,24 @@ def process_bullhorn_monitors():
                                                 
                                                 if sftp_upload_success:
                                                     app.logger.info(f"Uploaded updated XML to SFTP: {original_filename}")
+                                                    
+                                                    # CRITICAL: Verify URLs after upload to prevent regression
+                                                    try:
+                                                        from url_verification_service import URLVerificationService
+                                                        verifier = URLVerificationService()
+                                                        # Give server a moment to process the upload
+                                                        import time
+                                                        time.sleep(3)
+                                                        results = verifier.verify_production_urls()
+                                                        
+                                                        if results.get('success') and results.get('status') == 'HEALTHY':
+                                                            app.logger.info(f"✅ URL verification passed: {results['unique_urls']}/{results['total_jobs']} unique URLs")
+                                                        else:
+                                                            app.logger.error(f"🚨 URL verification failed: {results.get('generic_urls', 0)} generic URLs detected!")
+                                                            
+                                                    except Exception as e:
+                                                        app.logger.warning(f"URL verification error (non-critical): {str(e)}")
+                                                    
                                                     # Update last upload time for all active schedules
                                                     for sched in active_schedules:
                                                         sched.last_file_upload = datetime.utcnow()
