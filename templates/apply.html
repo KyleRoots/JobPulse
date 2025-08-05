@@ -518,7 +518,7 @@
                     <p class="mb-0"><strong>What's next?</strong> Our team will review your application and contact you if your qualifications match our requirements.</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-custom" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-custom" data-bs-dismiss="modal" onclick="closeApplicationTab()">Close</button>
                 </div>
             </div>
         </div>
@@ -537,6 +537,12 @@
         
         document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ DOM ready - Setting up simplified handlers');
+            
+            // Set up modal close behavior to close browser tab
+            const successModal = document.getElementById('successModal');
+            successModal.addEventListener('hidden.bs.modal', function() {
+                closeApplicationTab();
+            });
             
             // Simple file upload handlers
             const resumeFile = document.getElementById('resumeFile');
@@ -629,7 +635,9 @@
                 .then(data => {
                     console.log('📤 Server response:', data);
                     if (data.success) {
-                        alert('✅ Application submitted successfully!');
+                        // Show success modal instead of alert
+                        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                        successModal.show();
                         formSubmitted = false; // Allow new submission
                     } else {
                         alert('❌ Error: ' + (data.error || 'Unknown error'));
@@ -670,6 +678,23 @@
             const sizes = ['Bytes', 'KB', 'MB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function closeApplicationTab() {
+            console.log('🔄 Closing application tab');
+            // Try to close the current tab/window
+            if (window.opener) {
+                // If opened as popup, close it
+                window.close();
+            } else {
+                // If regular tab, try to close or redirect
+                try {
+                    window.close();
+                } catch (e) {
+                    // If can't close (some browsers prevent it), show message
+                    alert('Thank you! You can now close this tab.');
+                }
+            }
         }
         
         function parseResumeFile(file) {
