@@ -1,5 +1,7 @@
-// Job Application Form JavaScript
+// Job Application Form JavaScript - Updated 2025-08-05
+console.log('🚀 JOB APPLICATION JS LOADED - CACHE VERSION 2025-08-05');
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ DOM Content Loaded - Form handler initializing');
     // File upload handling
     setupFileUpload('resumeFile', 'resumeUploadArea', 'resumeFileInfo', 'resumeFileName', true);
     setupFileUpload('coverLetterFile', 'coverLetterUploadArea', 'coverLetterFileInfo', 'coverLetterFileName', false);
