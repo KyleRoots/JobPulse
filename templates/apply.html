@@ -690,39 +690,52 @@
         }
         
         function closeApplicationTab() {
-            console.log('🔄 Application completed - closing tab');
+            console.log('🔄 Application completed - attempting to close tab');
             
             // Prevent any further form submissions
             formSubmitted = true;
             
-            // Try multiple approaches to close the tab/window
+            // Method 1: Try to close immediately (works for popups and some cases)
             try {
-                // Method 1: Direct close (works for popups and some tabs)
-                if (window.opener || document.referrer === '') {
-                    window.close();
-                    return;
-                }
-                
-                // Method 2: For tabs opened via JavaScript
-                if (window.history.length <= 1) {
-                    window.close();
-                    return;
-                }
-                
-                // Method 3: Try standard close
                 window.close();
                 
-                // Method 4: If all else fails, show message after brief delay
+                // Give browser time to process close request
                 setTimeout(() => {
+                    // If we're still here after attempting close, provide user guidance
                     if (!window.closed) {
-                        alert('Thank you for your application! You can now close this tab.');
+                        showCloseTabGuidance();
                     }
-                }, 500);
+                }, 100);
                 
             } catch (e) {
-                console.log('Browser prevented automatic close - showing message');
-                alert('Thank you for your application! You can now close this tab.');
+                console.log('Browser security prevented auto-close');
+                showCloseTabGuidance();
             }
+        }
+        
+        function showCloseTabGuidance() {
+            // Replace modal content with close instructions
+            const modalBody = document.querySelector('#successModal .modal-body');
+            const modalFooter = document.querySelector('#successModal .modal-footer');
+            
+            modalBody.innerHTML = `
+                <div class="text-center">
+                    <i class="fas fa-check-circle text-success mb-3" style="font-size: 3rem;"></i>
+                    <h4>Application Submitted Successfully!</h4>
+                    <p class="mb-3">Thank you for your application! We have received your information and will review it shortly.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>You can now close this browser tab</strong><br>
+                        <small>Press Ctrl+W (Windows/Linux) or Cmd+W (Mac) to close this tab</small>
+                    </div>
+                </div>
+            `;
+            
+            modalFooter.innerHTML = `
+                <button type="button" class="btn btn-custom" onclick="window.close(); setTimeout(() => alert('Please close this tab manually using Ctrl+W or Cmd+W'), 100);">
+                    <i class="fas fa-times me-2"></i>Close Tab
+                </button>
+            `;
         }
         
         function parseResumeFile(file) {
