@@ -76,6 +76,56 @@ class EmailService:
             logging.error(f"Error checking for recent notifications: {str(e)}")
             # Fail-safe: allow sending if check fails
             return False
+    
+    def _deduplicate_job_list(self, job_list):
+        """
+        Remove duplicate jobs from a list based on job ID
+        
+        Args:
+            job_list: List of job objects (dicts or other formats)
+            
+        Returns:
+            list: Deduplicated job list
+        """
+        if not job_list:
+            return []
+        
+        seen_ids = set()
+        deduplicated = []
+        
+        for job in job_list:
+            try:
+                # Extract job ID from different possible formats
+                job_id = None
+                if isinstance(job, dict):
+                    job_id = job.get('id')
+                elif hasattr(job, 'id'):
+                    job_id = job.id
+                elif isinstance(job, (str, int)):
+                    job_id = str(job)
+                
+                # Only add if we haven't seen this job ID before
+                if job_id and job_id not in seen_ids:
+                    seen_ids.add(job_id)
+                    deduplicated.append(job)
+                elif not job_id:
+                    # If no ID found, add anyway to avoid losing data
+                    deduplicated.append(job)
+                else:
+                    logging.info(f"DEDUPLICATION: Removed duplicate job ID {job_id} from notification")
+                    
+            except Exception as e:
+                logging.error(f"Error deduplicating job: {e}")
+                # Add job anyway to avoid losing data
+                deduplicated.append(job)
+        
+        original_count = len(job_list)
+        final_count = len(deduplicated)
+        
+        if original_count != final_count:
+            logging.info(f"DEDUPLICATION: Reduced {original_count} jobs to {final_count} (removed {original_count - final_count} duplicates)")
+        
+        return deduplicated
 
     def send_processing_notification(self,
                                      to_email: str,
@@ -392,9 +442,13 @@ class EmailService:
                     f"First modified job type: {type(modified_jobs[0])}, content: {modified_jobs[0]}"
                 )
 
-            # Calculate total changes
-            total_changes = len(added_jobs) + len(removed_jobs) + len(
-                modified_jobs)
+            # DEDUPLICATION: Remove duplicate job entries within the same notification
+            added_jobs = self._deduplicate_job_list(added_jobs)
+            removed_jobs = self._deduplicate_job_list(removed_jobs)
+            modified_jobs = self._deduplicate_job_list(modified_jobs)
+            
+            # Calculate total changes after deduplication
+            total_changes = len(added_jobs) + len(removed_jobs) + len(modified_jobs)
 
             # Prepare email content
             subject = f"ATS Job Change Alert: {monitor_name} ({total_changes} changes)"

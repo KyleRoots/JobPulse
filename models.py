@@ -136,6 +136,32 @@ def create_models(db):
         
         monitor = db.relationship('BullhornMonitor', backref='activities')
         
+        @classmethod
+        def check_duplicate_activity(cls, activity_type: str, job_id: int, minutes_threshold: int = 5):
+            """
+            Check if similar activity exists within time threshold to prevent duplicates
+            
+            Args:
+                activity_type: Type of activity to check
+                job_id: Job ID to check
+                minutes_threshold: Time window in minutes to check for duplicates
+                
+            Returns:
+                bool: True if duplicate found, False if safe to create
+            """
+            if not job_id:
+                return False
+                
+            cutoff_time = datetime.utcnow() - timedelta(minutes=minutes_threshold)
+            
+            duplicate = cls.query.filter(
+                cls.activity_type == activity_type,
+                cls.job_id == job_id,
+                cls.created_at >= cutoff_time
+            ).first()
+            
+            return duplicate is not None
+        
         def __repr__(self):
             return f'<BullhornActivity {self.activity_type} - {self.job_title}>'
 

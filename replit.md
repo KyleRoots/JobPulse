@@ -18,6 +18,7 @@ Preferred communication style: Simple, everyday language.
 - **Pre-Deployment Cleanup** (August 4, 2025): Removed 72 development artifacts from attached_assets folder including screenshots, test files, pasted content, and screen recordings. Logo assets properly maintained in static folder for application use.
 - **Unique Job URLs Implementation** (August 5, 2025): Enhanced XML Integration Service to generate unique job application URLs for each position. Replaced generic "https://myticas.com/" URLs with job-specific format "https://apply.myticas.com/[bhatsid]/[title]/?source=LinkedIn" enabling precise job-level tracking and seamless integration with application form system.
 - **Unique URL Regression Fix** (August 5, 2025): Resolved critical regression where unique URLs reverted to generic format during workflow testing. Fixed variable scope issue in xml_integration_service.py that prevented proper URL generation. All 71 jobs now maintain job-specific URLs with successful SFTP deployment to production server.
+- **Activity Log Deduplication** (August 5, 2025): Fixed duplicate activity logs and email notifications caused by both individual tearsheet monitors and scheduled processing detecting the same job changes. Implemented BullhornActivity.check_duplicate_activity() method and EmailService._deduplicate_job_list() method to prevent duplicate entries in monitoring dashboard and email notifications.
 
 ## System Architecture
 
