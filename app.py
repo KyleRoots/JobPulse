@@ -3427,7 +3427,7 @@ def automation_test_action():
 # Initialize job application service
 job_app_service = JobApplicationService()
 
-@app.route('/apply/<job_id>/<job_title>/')
+@app.route('/<job_id>/<job_title>/')
 def job_application_form(job_id, job_title):
     """Display job application form"""
     try:
