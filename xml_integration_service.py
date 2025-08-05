@@ -200,7 +200,7 @@ class XMLIntegrationService:
             base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
             
             # Generate the unique URL  
-            job_url = f"{base_url}/apply/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
+            job_url = f"{base_url}/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
             
             self.logger.debug(f"Generated unique URL for job {bhatsid}: {job_url}")
             return job_url
@@ -212,7 +212,7 @@ class XMLIntegrationService:
                 if bhatsid and str(bhatsid).strip():
                     import os
                     base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
-                    fallback_url = f"{base_url}/apply/{str(bhatsid).strip()}/position/?source=LinkedIn"
+                    fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source=LinkedIn"
                     self.logger.warning(f"Using fallback URL with job ID: {fallback_url}")
                     return fallback_url
             except:
