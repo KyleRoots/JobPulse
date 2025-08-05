@@ -531,13 +531,17 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // FORM SUBMISSION FIX - Single handler to prevent duplicates
-        console.log('🚀 FORM HANDLER LOADING');
+        // COMPLETE FORM HANDLER - File uploads and submission
+        console.log('🚀 COMPLETE FORM HANDLER LOADING');
         
         let formSubmitted = false; // Prevent duplicate submissions
         
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('✅ DOM ready - Setting up form handler');
+            console.log('✅ DOM ready - Setting up form and file handlers');
+            
+            // Setup file uploads
+            setupFileUpload('resumeFile', 'resumeUploadArea', 'resumeFileInfo', 'resumeFileName', true);
+            setupFileUpload('coverLetterFile', 'coverLetterUploadArea', 'coverLetterFileInfo', 'coverLetterFileName', false);
             
             const form = document.getElementById('applicationForm');
             if (!form) {
@@ -639,6 +643,160 @@
                 });
             });
         });
+        
+        // FILE UPLOAD FUNCTIONALITY
+        function setupFileUpload(inputId, uploadAreaId, fileInfoId, fileNameId, isRequired) {
+            const fileInput = document.getElementById(inputId);
+            const uploadArea = document.getElementById(uploadAreaId);
+            const fileInfo = document.getElementById(fileInfoId);
+            const fileName = document.getElementById(fileNameId);
+            
+            if (!fileInput || !uploadArea || !fileInfo || !fileName) {
+                console.error('File upload elements not found:', inputId);
+                return;
+            }
+            
+            console.log('✅ Setting up file upload for:', inputId);
+            
+            // Drag and drop events
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileSelection(files[0], fileInput, uploadArea, fileInfo, fileName, isRequired);
+                }
+            });
+            
+            // Click to upload - only on the upload area, not the button
+            uploadArea.addEventListener('click', function(e) {
+                if (!e.target.closest('button')) {
+                    fileInput.click();
+                }
+            });
+            
+            // File input change - CRITICAL for file selection
+            fileInput.addEventListener('change', function(e) {
+                console.log('📁 File input changed:', e.target.files.length);
+                if (e.target.files && e.target.files.length > 0) {
+                    handleFileSelection(e.target.files[0], fileInput, uploadArea, fileInfo, fileName, isRequired);
+                }
+            });
+        }
+        
+        function handleFileSelection(file, fileInput, uploadArea, fileInfo, fileName, isRequired) {
+            console.log('📂 Handling file selection:', file.name, file.type, file.size);
+            
+            // Validate file type
+            const fileExtension = file.name.toLowerCase().split('.').pop();
+            const allowedExtensions = ['pdf', 'doc', 'docx'];
+            
+            if (!allowedExtensions.includes(fileExtension)) {
+                alert('Please upload a PDF, DOC, or DOCX file.');
+                return;
+            }
+            
+            // Validate file size (10MB limit)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB.');
+                return;
+            }
+            
+            // Update UI
+            fileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+            uploadArea.style.display = 'none';
+            fileInfo.style.display = 'block';
+            
+            console.log('✅ File selected successfully:', file.name);
+            
+            // Parse resume if it's the resume file
+            if (fileInput.id === 'resumeFile') {
+                parseResumeFile(file);
+            }
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function removeResumeFile() {
+            const fileInput = document.getElementById('resumeFile');
+            const uploadArea = document.getElementById('resumeUploadArea');
+            const fileInfo = document.getElementById('resumeFileInfo');
+            
+            fileInput.value = '';
+            uploadArea.style.display = 'block';
+            fileInfo.style.display = 'none';
+            
+            // Clear parsed info
+            document.getElementById('parsedInfo').style.display = 'none';
+        }
+        
+        function removeCoverLetterFile() {
+            const fileInput = document.getElementById('coverLetterFile');
+            const uploadArea = document.getElementById('coverLetterUploadArea');
+            const fileInfo = document.getElementById('coverLetterFileInfo');
+            
+            fileInput.value = '';
+            uploadArea.style.display = 'block';
+            fileInfo.style.display = 'none';
+        }
+        
+        function parseResumeFile(file) {
+            console.log('📋 Starting resume parsing for:', file.name);
+            
+            const formData = new FormData();
+            formData.append('resume', file);
+            
+            fetch('/parse-resume', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('📋 Resume parsing result:', data);
+                
+                if (data.success && data.extracted_data) {
+                    // Auto-fill form fields
+                    if (data.extracted_data.first_name) {
+                        document.getElementById('firstName').value = data.extracted_data.first_name;
+                    }
+                    if (data.extracted_data.last_name) {
+                        document.getElementById('lastName').value = data.extracted_data.last_name;
+                    }
+                    if (data.extracted_data.email) {
+                        document.getElementById('email').value = data.extracted_data.email;
+                    }
+                    if (data.extracted_data.phone) {
+                        document.getElementById('phone').value = data.extracted_data.phone;
+                    }
+                    
+                    // Show parsed info
+                    document.getElementById('parsedInfo').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Resume parsing error:', error);
+            });
+        }
     </script>
 </body>
 </html>
