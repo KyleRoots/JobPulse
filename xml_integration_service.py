@@ -182,18 +182,35 @@ class XMLIntegrationService:
                  https://apply.myticas.com/[bhatsid]/[title]/?source=LinkedIn
         """
         try:
+            # Validate inputs to prevent fallback to generic URL
+            if not bhatsid or not str(bhatsid).strip():
+                self.logger.warning(f"Missing bhatsid for URL generation, using 'unknown': {bhatsid}")
+                bhatsid = "unknown"
+            
+            if not clean_title or not str(clean_title).strip():
+                self.logger.warning(f"Missing clean_title for URL generation, using 'position': {clean_title}")
+                clean_title = "position"
+            
             # URL encode the title to handle special characters and spaces
-            encoded_title = urllib.parse.quote(clean_title, safe='')
+            encoded_title = urllib.parse.quote(str(clean_title).strip(), safe='')
             
             # Generate the unique URL
-            job_url = f"https://apply.myticas.com/{bhatsid}/{encoded_title}/?source=LinkedIn"
+            job_url = f"https://apply.myticas.com/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
             
             self.logger.debug(f"Generated unique URL for job {bhatsid}: {job_url}")
             return job_url
             
         except Exception as e:
-            self.logger.error(f"Error generating job application URL for {bhatsid}: {str(e)}")
-            # Fallback to generic URL if there's an error
+            self.logger.error(f"Error generating job application URL for {bhatsid} ({clean_title}): {str(e)}")
+            # More specific fallback with job ID if available
+            try:
+                if bhatsid and str(bhatsid).strip():
+                    fallback_url = f"https://apply.myticas.com/{str(bhatsid).strip()}/position/?source=LinkedIn"
+                    self.logger.warning(f"Using fallback URL with job ID: {fallback_url}")
+                    return fallback_url
+            except:
+                pass
+            # Final fallback to generic URL
             return "https://myticas.com/"
 
     def _map_employment_type(self, employment_type: str) -> str:
