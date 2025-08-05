@@ -252,16 +252,22 @@ function handleFormSubmission(e) {
         formData.append('coverLetter', coverLetterFile);
     }
     
-    // Add job information from URL
-    const urlParts = window.location.pathname.split('/');
-    const jobId = urlParts[2]; // /apply/[jobId]/[title]/
-    const jobTitle = urlParts[3];
-    const urlParams = new URLSearchParams(window.location.search);
-    const source = urlParams.get('source') || '';
+    // Add job information from hidden form fields (more reliable than URL parsing)
+    const jobIdField = document.querySelector('input[name="jobId"]');
+    const jobTitleField = document.querySelector('input[name="jobTitle"]');
+    const sourceField = document.querySelector('input[name="source"]');
     
-    formData.append('jobId', jobId);
-    formData.append('jobTitle', decodeURIComponent(jobTitle));
-    formData.append('source', source);
+    if (jobIdField && jobIdField.value) {
+        formData.append('jobId', jobIdField.value);
+    }
+    
+    if (jobTitleField && jobTitleField.value) {
+        formData.append('jobTitle', jobTitleField.value);
+    }
+    
+    if (sourceField && sourceField.value) {
+        formData.append('source', sourceField.value);
+    }
     
     // Submit form
     fetch('/submit-application', {
