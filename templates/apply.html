@@ -401,6 +401,11 @@
 
                 <!-- Application Form -->
                 <form id="applicationForm" enctype="multipart/form-data">
+                    <!-- Hidden fields for job information -->
+                    <input type="hidden" name="jobId" value="{{ job_id }}">
+                    <input type="hidden" name="jobTitle" value="{{ job_title }}">
+                    <input type="hidden" name="source" value="{{ source }}">
+                    
                     <!-- Personal Information -->
                     <div class="form-section">
                         <h3><i class="fas fa-user me-2"></i>Personal Information</h3>
