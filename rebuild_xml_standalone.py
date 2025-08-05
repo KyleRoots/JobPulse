@@ -208,7 +208,10 @@ def rebuild_xml_from_tearsheets(preserve_references: bool = False):
             ftp_service = FTPService(
                 hostname=ftp_creds['ftp_hostname'],
                 username=ftp_creds['ftp_username'],
-                password=ftp_creds['ftp_password']
+                password=ftp_creds['ftp_password'],
+                target_directory="/",
+                port=2222,
+                use_sftp=True
             )
             # Upload both files
             ftp_service.upload_file('myticas-job-feed.xml', 'myticas-job-feed.xml')
