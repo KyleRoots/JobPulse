@@ -530,6 +530,114 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // INLINE FORM SUBMISSION FIX - Bypass cache issues
+        console.log('🚀 INLINE SCRIPT LOADING - No cache issues');
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ DOM ready - Setting up form handler');
+            
+            const form = document.getElementById('applicationForm');
+            if (!form) {
+                console.error('❌ Form not found');
+                return;
+            }
+            
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                console.log('📝 Form submission started');
+                
+                // Show loading state
+                const submitBtn = document.getElementById('submitBtn');
+                const submitText = document.getElementById('submitText');
+                const loadingSpinner = document.getElementById('loadingSpinner');
+                
+                if (submitBtn) submitBtn.disabled = true;
+                if (submitText) submitText.style.display = 'none';
+                if (loadingSpinner) loadingSpinner.style.display = 'inline';
+                
+                // Prepare form data
+                const formData = new FormData();
+                
+                // Add personal info
+                formData.append('firstName', document.getElementById('firstName').value || '');
+                formData.append('lastName', document.getElementById('lastName').value || '');
+                formData.append('email', document.getElementById('email').value || '');
+                formData.append('phone', document.getElementById('phone').value || '');
+                
+                // Add files
+                const resumeFile = document.getElementById('resumeFile').files[0];
+                const coverLetterFile = document.getElementById('coverLetterFile').files[0];
+                
+                if (resumeFile) {
+                    formData.append('resume', resumeFile);
+                }
+                if (coverLetterFile) {
+                    formData.append('coverLetter', coverLetterFile);
+                }
+                
+                // Add job info from hidden fields
+                const jobIdField = document.querySelector('input[name="jobId"]');
+                const jobTitleField = document.querySelector('input[name="jobTitle"]');
+                const sourceField = document.querySelector('input[name="source"]');
+                
+                console.log('🔍 Checking hidden fields:');
+                console.log('jobId field:', jobIdField ? jobIdField.value : 'NOT FOUND');
+                console.log('jobTitle field:', jobTitleField ? jobTitleField.value : 'NOT FOUND'); 
+                console.log('source field:', sourceField ? sourceField.value : 'NOT FOUND');
+                
+                if (jobIdField && jobIdField.value) {
+                    formData.append('jobId', jobIdField.value);
+                    console.log('✅ Added jobId:', jobIdField.value);
+                }
+                if (jobTitleField && jobTitleField.value) {
+                    formData.append('jobTitle', jobTitleField.value);
+                    console.log('✅ Added jobTitle:', jobTitleField.value);
+                }
+                if (sourceField && sourceField.value) {
+                    formData.append('source', sourceField.value);
+                    console.log('✅ Added source:', sourceField.value);
+                }
+                
+                // Debug all form data
+                console.log('📋 Final form data:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(`  ${key}:`, typeof value === 'object' ? `[File: ${value.name}]` : value);
+                }
+                
+                // Submit
+                fetch('/submit-application', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('📤 Server response:', data);
+                    
+                    // Reset submit button
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (submitText) submitText.style.display = 'inline';
+                    if (loadingSpinner) loadingSpinner.style.display = 'none';
+                    
+                    if (data.success) {
+                        alert('✅ Application submitted successfully!');
+                    } else {
+                        alert('❌ Error: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('💥 Submission error:', error);
+                    
+                    // Reset submit button
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (submitText) submitText.style.display = 'inline';
+                    if (loadingSpinner) loadingSpinner.style.display = 'none';
+                    
+                    alert('❌ Network error: ' + error.message);
+                });
+            });
+        });
+    </script>
     <script src="{{ url_for('static', filename='js/job-application.js') }}?v=1722872500"></script>
 </body>
 </html>
