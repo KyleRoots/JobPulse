@@ -686,27 +686,56 @@
             .then(data => {
                 console.log('📋 Resume parsing result:', data);
                 
-                if (data.success && data.extracted_data) {
+                if (data.success && data.parsed_data) {
                     // Auto-fill form fields
-                    if (data.extracted_data.first_name) {
-                        document.getElementById('firstName').value = data.extracted_data.first_name;
+                    if (data.parsed_data.first_name) {
+                        document.getElementById('firstName').value = data.parsed_data.first_name;
                     }
-                    if (data.extracted_data.last_name) {
-                        document.getElementById('lastName').value = data.extracted_data.last_name;
+                    if (data.parsed_data.last_name) {
+                        document.getElementById('lastName').value = data.parsed_data.last_name;
                     }
-                    if (data.extracted_data.email) {
-                        document.getElementById('email').value = data.extracted_data.email;
+                    if (data.parsed_data.email) {
+                        document.getElementById('email').value = data.parsed_data.email;
                     }
-                    if (data.extracted_data.phone) {
-                        document.getElementById('phone').value = data.extracted_data.phone;
+                    if (data.parsed_data.phone) {
+                        document.getElementById('phone').value = data.parsed_data.phone;
                     }
                     
-                    // Show parsed info
-                    document.getElementById('parsedInfo').style.display = 'block';
+                    // Show parsed info with extracted information
+                    const parsedInfo = document.getElementById('parsedInfo');
+                    let infoHtml = '<h5><i class="fas fa-magic me-2"></i>Information Extracted from Resume</h5>';
+                    infoHtml += '<p>We\'ve automatically filled in some fields from your resume. Please verify the information below is correct.</p>';
+                    infoHtml += '<ul class="mb-0">';
+                    
+                    if (data.parsed_data.first_name) {
+                        infoHtml += `<li><strong>First Name:</strong> ${data.parsed_data.first_name}</li>`;
+                    }
+                    if (data.parsed_data.last_name) {
+                        infoHtml += `<li><strong>Last Name:</strong> ${data.parsed_data.last_name}</li>`;
+                    }
+                    if (data.parsed_data.email) {
+                        infoHtml += `<li><strong>Email:</strong> ${data.parsed_data.email}</li>`;
+                    }
+                    if (data.parsed_data.phone) {
+                        infoHtml += `<li><strong>Phone:</strong> ${data.parsed_data.phone}</li>`;
+                    }
+                    
+                    infoHtml += '</ul>';
+                    parsedInfo.innerHTML = infoHtml;
+                    parsedInfo.style.display = 'block';
+                } else {
+                    // Show parsing error or no data extracted
+                    const parsedInfo = document.getElementById('parsedInfo');
+                    parsedInfo.innerHTML = '<div class="alert alert-warning" role="alert"><i class="fas fa-exclamation-triangle me-2"></i>' + 
+                        (data.error || 'Could not extract information from resume. Please fill in the form manually.') + '</div>';
+                    parsedInfo.style.display = 'block';
                 }
             })
             .catch(error => {
                 console.error('❌ Resume parsing error:', error);
+                const parsedInfo = document.getElementById('parsedInfo');
+                parsedInfo.innerHTML = '<div class="alert alert-danger" role="alert"><i class="fas fa-exclamation-circle me-2"></i>Error parsing resume. Please fill in the form manually.</div>';
+                parsedInfo.style.display = 'block';
             });
         }
     </script>
