@@ -406,7 +406,7 @@
                                                     <br><small class="text-muted">{{ schedule.next_run.strftime('%H:%M UTC') }}</small>
                                                 </strong>
                                             </div>
-                                            <div class="col-6 col-sm-3">
+                                            <div class="col-4 col-sm-2">
                                                 <small class="text-muted d-block">Last Upload</small>
                                                 <strong class="text-info">
                                                     {% if schedule.last_file_upload %}
@@ -417,7 +417,17 @@
                                                     {% endif %}
                                                 </strong>
                                             </div>
-                                            <div class="col-6 col-sm-3">
+                                            <div class="col-4 col-sm-2">
+                                                <small class="text-muted d-block">Filesize</small>
+                                                <strong class="text-warning">
+                                                    {% if schedule.file_size %}
+                                                        {{ schedule.file_size }}
+                                                    {% else %}
+                                                        Unknown
+                                                    {% endif %}
+                                                </strong>
+                                            </div>
+                                            <div class="col-4 col-sm-2">
                                                 <small class="text-muted d-block">Last Processed</small>
                                                 <strong>
                                                     {% set last_log = schedule.processing_logs | selectattr('success', 'equalto', True) | list | last %}

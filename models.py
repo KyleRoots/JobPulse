@@ -64,6 +64,34 @@ def create_models(db):
                 # If never run, schedule for next occurrence
                 self.next_run = datetime.utcnow() + timedelta(days=self.schedule_days)
             return self.next_run
+        
+        @property
+        def file_size(self):
+            """Get the formatted file size of the XML file"""
+            try:
+                if self.file_path and os.path.exists(self.file_path):
+                    size_bytes = os.path.getsize(self.file_path)
+                    return self.format_file_size(size_bytes)
+                return "N/A"
+            except (OSError, IOError):
+                return "N/A"
+        
+        @staticmethod
+        def format_file_size(size_bytes):
+            """Format file size in human-readable format"""
+            if size_bytes == 0:
+                return "0 B"
+            
+            size_names = ["B", "KB", "MB", "GB"]
+            i = 0
+            while size_bytes >= 1024 and i < len(size_names) - 1:
+                size_bytes /= 1024.0
+                i += 1
+            
+            if i == 0:  # Bytes
+                return f"{int(size_bytes)} {size_names[i]}"
+            else:
+                return f"{size_bytes:.1f} {size_names[i]}"
 
     class ProcessingLog(db.Model):
         """Log of all processing operations"""
