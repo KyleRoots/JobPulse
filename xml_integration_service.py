@@ -116,7 +116,7 @@ class XMLIntegrationService:
             # Extract job ID from formatted title for bhatsid
             bhatsid = self.xml_processor.extract_job_id_from_title(formatted_title)
             
-            # Generate unique job application URL
+            # Generate unique job application URL (clean_title is already defined above)
             job_url = self._generate_job_application_url(bhatsid, clean_title)
             
             # Use AI to classify the job based on title and description (skip during real-time monitoring for performance)
