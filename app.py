@@ -16,6 +16,8 @@ from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
 from monitor_health_service import MonitorHealthService
 from job_application_service import JobApplicationService
+import traceback
+from lxml import etree
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
@@ -46,7 +48,7 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET")
+app.secret_key = os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Production session optimization
@@ -55,8 +57,12 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
 
-# Database configuration
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+# Database configuration with fallback
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    app.logger.error("DATABASE_URL environment variable not set")
+    raise RuntimeError("DATABASE_URL environment variable is required")
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
@@ -85,6 +91,7 @@ if not os.environ.get('JOB_APPLICATION_BASE_URL'):
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+app.login_manager = login_manager
 
 def get_bullhorn_service():
     """Helper function to create BullhornService with credentials from GlobalSettings"""
@@ -137,7 +144,7 @@ User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornAc
 with app.app_context():
     db.create_all()
 
-# Initialize scheduler with optimized settings
+# Initialize scheduler with optimized settings and delayed start
 scheduler = BackgroundScheduler(
     timezone='UTC',
     job_defaults={
@@ -146,11 +153,18 @@ scheduler = BackgroundScheduler(
         'misfire_grace_time': 30
     }
 )
-scheduler.start()
 
-# Import and apply optimizations
-from optimization_improvements import apply_optimizations
-optimizer = apply_optimizations(app, db, scheduler)
+# Import and apply optimizations with error handling
+try:
+    from optimization_improvements import apply_optimizations
+    optimizer = apply_optimizations(app, db, scheduler)
+    app.logger.info("Application optimizations successfully applied")
+except ImportError:
+    app.logger.warning("Optimization improvements module not available - using default configuration")
+    optimizer = None
+except Exception as e:
+    app.logger.error(f"Failed to apply optimizations: {str(e)}")
+    optimizer = None
 
 # Initialize file consolidation service
 try:
@@ -160,8 +174,15 @@ try:
 except Exception as e:
     app.logger.warning(f"File consolidation service not available: {e}")
 
-# Cleanup scheduler on exit
-atexit.register(lambda: scheduler.shutdown())
+# Cleanup scheduler on exit with proper error handling
+def cleanup_scheduler():
+    try:
+        if scheduler.running:
+            scheduler.shutdown()
+    except Exception:
+        pass  # Ignore errors during cleanup
+
+atexit.register(cleanup_scheduler)
 
 def allowed_file(filename):
     """Check if file has allowed extension"""
@@ -1339,9 +1360,9 @@ def process_bullhorn_monitors():
             app.logger.error(f"Error in Bullhorn monitor processing: {str(e)}")
             db.session.rollback()
 
-# Import the simplified monitoring service
+# Import the simplified monitoring service with fallback
 try:
-    from monitoring_refactor import process_bullhorn_monitors_simple
+    from simplified_monitoring_service import process_bullhorn_monitors_simple
     app.logger.info("Using refactored monitoring service for better reliability")
     monitoring_func = process_bullhorn_monitors_simple
 except ImportError:
@@ -1398,6 +1419,51 @@ def logout():
     logout_user()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('login'))
+
+# Health check endpoints for deployment
+@app.route('/health')
+def health_check():
+    """Comprehensive health check endpoint for monitoring"""
+    try:
+        # Basic database connectivity check
+        db.session.execute(db.text('SELECT 1'))
+        
+        # Check if critical services are available
+        health_status = {
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'database': 'connected',
+            'services': {
+                'scheduler': 'running' if scheduler.running else 'stopped',
+                'file_consolidation': hasattr(app, 'file_consolidation'),
+            }
+        }
+        
+        return jsonify(health_status), 200
+    except Exception as e:
+        error_status = {
+            'status': 'unhealthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'error': str(e),
+            'database': 'disconnected'
+        }
+        app.logger.error(f"Health check failed: {str(e)}")
+        return jsonify(error_status), 503
+
+@app.route('/ready')
+def readiness_check():
+    """Simple readiness check for deployment systems"""
+    try:
+        # Quick database check
+        db.session.execute(db.text('SELECT 1'))
+        return "OK", 200
+    except Exception:
+        return "Database connection failed", 503
+
+@app.route('/alive')
+def liveness_check():
+    """Simple liveness check for deployment systems"""
+    return "OK", 200
 
 @app.route('/')
 @login_required
@@ -4281,6 +4347,19 @@ def check_monitor_health():
             import traceback
             app.logger.error(traceback.format_exc())
 
+# Start scheduler after adding all jobs to reduce startup time
+def start_background_services():
+    """Start background services after app initialization"""
+    try:
+        if not scheduler.running:
+            scheduler.start()
+            app.logger.info("Background scheduler started successfully")
+    except Exception as e:
+        app.logger.error(f"Failed to start scheduler: {str(e)}")
+
+# Remove the deprecated @app.before_first_request and start scheduler after all jobs are added
+# This will be called after all jobs are defined
+
 # Add monitor health check job - run every 15 minutes
 scheduler.add_job(
     func=check_monitor_health,
@@ -4312,4 +4391,7 @@ scheduler.add_job(
     replace_existing=True
 )
 app.logger.info("Scheduled daily file cleanup job")
+
+# Start the scheduler after all jobs are configured
+start_background_services()
 

@@ -6,6 +6,14 @@ This Flask-based web application automates the processing of XML job feed files 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (Updated: 2025-08-05)
+✓ Applied deployment health check fixes for successful deployments
+✓ Added comprehensive health check endpoints (/health, /ready, /alive)
+✓ Fixed import errors and Flask compatibility issues
+✓ Optimized application startup time and background service initialization  
+✓ Added proper environment variable fallbacks and error handling
+✓ Configured secure session settings and database connection pooling
+
 ## System Architecture
 
 ### Frontend
