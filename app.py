@@ -3480,6 +3480,14 @@ def parse_resume():
 def submit_application():
     """Submit job application form"""
     try:
+        # Debug: Log all form data received
+        app.logger.info("=== FORM SUBMISSION DEBUG ===")
+        app.logger.info(f"Form data keys: {list(request.form.keys())}")
+        for key, value in request.form.items():
+            app.logger.info(f"Form field '{key}': '{value}'")
+        app.logger.info(f"Files: {list(request.files.keys())}")
+        app.logger.info("===========================")
+        
         # Extract form data
         application_data = {
             'firstName': request.form.get('firstName'),

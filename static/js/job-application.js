@@ -257,16 +257,30 @@ function handleFormSubmission(e) {
     const jobTitleField = document.querySelector('input[name="jobTitle"]');
     const sourceField = document.querySelector('input[name="source"]');
     
+    console.log('Debug: Hidden field values:');
+    console.log('jobIdField:', jobIdField ? jobIdField.value : 'NOT FOUND');
+    console.log('jobTitleField:', jobTitleField ? jobTitleField.value : 'NOT FOUND');
+    console.log('sourceField:', sourceField ? sourceField.value : 'NOT FOUND');
+    
     if (jobIdField && jobIdField.value) {
         formData.append('jobId', jobIdField.value);
+        console.log('Added jobId to formData:', jobIdField.value);
     }
     
     if (jobTitleField && jobTitleField.value) {
         formData.append('jobTitle', jobTitleField.value);
+        console.log('Added jobTitle to formData:', jobTitleField.value);
     }
     
     if (sourceField && sourceField.value) {
         formData.append('source', sourceField.value);
+        console.log('Added source to formData:', sourceField.value);
+    }
+    
+    // Debug: Log all FormData entries
+    console.log('Final FormData entries:');
+    for (let [key, value] of formData.entries()) {
+        console.log(key + ':', value);
     }
     
     // Submit form
