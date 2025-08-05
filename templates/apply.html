@@ -692,49 +692,57 @@
         function closeApplicationTab() {
             console.log('🔄 Application completed - attempting to close tab');
             
-            // Prevent any further form submissions
-            formSubmitted = true;
-            
-            // Method 1: Try to close immediately (works for popups and some cases)
+            // A) Try to close tab immediately
             try {
                 window.close();
-                
-                // Give browser time to process close request
-                setTimeout(() => {
-                    // If we're still here after attempting close, provide user guidance
-                    if (!window.closed) {
-                        showCloseTabGuidance();
-                    }
-                }, 100);
-                
             } catch (e) {
-                console.log('Browser security prevented auto-close');
-                showCloseTabGuidance();
+                console.log('Browser prevented auto-close');
             }
+            
+            // B) If tab doesn't close, erase form data and lock it
+            setTimeout(() => {
+                if (!window.closed) {
+                    lockAndClearForm();
+                }
+            }, 100);
         }
         
-        function showCloseTabGuidance() {
-            // Replace modal content with close instructions
-            const modalBody = document.querySelector('#successModal .modal-body');
-            const modalFooter = document.querySelector('#successModal .modal-footer');
+        function lockAndClearForm() {
+            console.log('🔒 Locking form and clearing data');
             
-            modalBody.innerHTML = `
-                <div class="text-center">
-                    <i class="fas fa-check-circle text-success mb-3" style="font-size: 3rem;"></i>
-                    <h4>Application Submitted Successfully!</h4>
-                    <p class="mb-3">Thank you for your application! We have received your information and will review it shortly.</p>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>You can now close this browser tab</strong><br>
-                        <small>Press Ctrl+W (Windows/Linux) or Cmd+W (Mac) to close this tab</small>
-                    </div>
+            // Lock form submissions permanently
+            formSubmitted = true;
+            
+            // Clear all form fields
+            document.getElementById('firstName').value = '';
+            document.getElementById('lastName').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('phone').value = '';
+            document.getElementById('resumeFile').value = '';
+            document.getElementById('coverLetterFile').value = '';
+            
+            // Disable all form inputs
+            const inputs = document.querySelectorAll('#applicationForm input, #applicationForm button');
+            inputs.forEach(input => {
+                input.disabled = true;
+                input.style.opacity = '0.5';
+            });
+            
+            // Hide file upload areas
+            document.getElementById('resumeUploadArea').style.display = 'none';
+            document.getElementById('resumeFileInfo').style.display = 'none';
+            document.getElementById('coverLetterUploadArea').style.display = 'none';
+            document.getElementById('coverLetterFileInfo').style.display = 'none';
+            
+            // Show completion message in form
+            const formSection = document.querySelector('.application-body');
+            formSection.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-check-circle text-success mb-4" style="font-size: 4rem;"></i>
+                    <h3 class="text-success mb-3">Application Submitted Successfully!</h3>
+                    <p class="mb-3">Thank you for your application. We have received your information.</p>
+                    <p><strong>You can now close this browser tab.</strong></p>
                 </div>
-            `;
-            
-            modalFooter.innerHTML = `
-                <button type="button" class="btn btn-custom" onclick="window.close(); setTimeout(() => alert('Please close this tab manually using Ctrl+W or Cmd+W'), 100);">
-                    <i class="fas fa-times me-2"></i>Close Tab
-                </button>
             `;
         }
         
