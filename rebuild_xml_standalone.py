@@ -189,6 +189,23 @@ def rebuild_xml_from_tearsheets(preserve_references: bool = False):
         
     logger.info(f"XML file stats: {successful_jobs} jobs, {cdata_count} CDATA sections, {file_size:,} bytes")
     
+    # Log this rebuild operation to ProcessingLog for scheduler page consistency
+    try:
+        engine = create_engine(os.environ.get("DATABASE_URL"))
+        
+        with engine.connect() as conn:
+            conn.execute(text("""
+                INSERT INTO processing_log (file_path, processing_type, jobs_processed, success, processed_at)
+                VALUES ('myticas-job-feed.xml', 'manual', :jobs, true, NOW())
+            """), {'jobs': successful_jobs})
+            conn.commit()
+        
+        logger.info("✓ Processing logged to database for scheduler consistency")
+        
+    except Exception as e:
+        logger.warning(f"Could not log to ProcessingLog: {str(e)}")
+        # Continue anyway - this is just for UI consistency
+    
     # Upload to FTP
     try:
         # Get FTP credentials from database
