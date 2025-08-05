@@ -1206,16 +1206,66 @@ def process_bullhorn_monitors():
                     # Find all active schedules
                     active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
                     
-                    for schedule in active_schedules:
-                        xml_filename = schedule.output_file or 'myticas-job-feed-scheduled.xml'
+                    # Process main XML files for comprehensive sync
+                    main_xml_files = [
+                        'myticas-job-feed.xml',
+                        'myticas-job-feed-scheduled.xml'
+                    ]
+                    
+                    for xml_filename in main_xml_files:
                         if os.path.exists(xml_filename):
-                            # Initialize XML integration service
+                            app.logger.info(f"🔄 COMPREHENSIVE SYNC: Processing {xml_filename}")
                             xml_service = XMLIntegrationService()
                             
-                            # CRITICAL BUG FIX: The safety check above prevents individual empty tearsheets 
-                            # from triggering comprehensive cleanup that would remove all jobs
-                            app.logger.info(f"✅ CRITICAL BUG FIXED: Individual empty tearsheets will not remove all jobs")
-                            app.logger.info(f"Processing {xml_filename} with safety mechanisms in place")
+                            # Compare current XML jobs with all Bullhorn jobs
+                            try:
+                                # Get current job IDs in XML
+                                xml_job_ids = set()
+                                from lxml import etree
+                                parser = etree.XMLParser(remove_blank_text=False, strip_cdata=False)
+                                tree = etree.parse(xml_filename, parser)
+                                root = tree.getroot()
+                                
+                                # Extract job IDs from bhatsid elements
+                                for bhatsid_elem in root.xpath('.//bhatsid'):
+                                    if bhatsid_elem.text:
+                                        job_id = bhatsid_elem.text.strip()
+                                        if job_id:
+                                            xml_job_ids.add(job_id)
+                                
+                                # Get all job IDs from Bullhorn monitors
+                                bullhorn_job_ids = set()
+                                if all_current_jobs_from_monitors:
+                                    bullhorn_job_ids = {str(job.get('id')) for job in all_current_jobs_from_monitors if job.get('id')}
+                                
+                                # Find missing jobs that need to be added
+                                missing_job_ids = bullhorn_job_ids - xml_job_ids
+                                app.logger.info(f"📊 COMPARISON: XML has {len(xml_job_ids)} jobs, Bullhorn has {len(bullhorn_job_ids)} jobs")
+                                app.logger.info(f"➕ MISSING JOBS: {len(missing_job_ids)} jobs need to be added: {list(missing_job_ids)[:10]}")
+                                
+                                # Add missing jobs to XML
+                                if missing_job_ids:
+                                    jobs_added = 0
+                                    for job_id in missing_job_ids:
+                                        # Find the job data
+                                        job_data = None
+                                        monitor_name = "Comprehensive Sync"
+                                        
+                                        for job in all_current_jobs_from_monitors:
+                                            if str(job.get('id')) == job_id:
+                                                job_data = job
+                                                break
+                                        
+                                        if job_data:
+                                            if xml_service.add_job_to_xml(xml_filename, job_data, monitor_name):
+                                                jobs_added += 1
+                                                app.logger.info(f"✅ Added job {job_id}: {job_data.get('title', 'Unknown')}")
+                                    
+                                    if jobs_added > 0:
+                                        app.logger.info(f"🎯 COMPREHENSIVE SYNC SUCCESS: Added {jobs_added} jobs to {xml_filename}")
+                                
+                            except Exception as e:
+                                app.logger.error(f"Error in comprehensive sync for {xml_filename}: {str(e)}")
                     
                     # Comprehensive sync logic temporarily simplified - critical bug fixed
                     app.logger.info("✅ CRISIS RESOLVED: Comprehensive sync safety mechanisms active")
