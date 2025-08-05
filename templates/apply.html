@@ -511,7 +511,7 @@
                     <h5 class="modal-title">
                         <i class="fas fa-check-circle me-2"></i>Application Submitted Successfully
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="closeApplicationTab()"></button>
                 </div>
                 <div class="modal-body">
                     <p>Thank you for your application! We have received your information and will review it shortly.</p>
@@ -538,10 +538,19 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ DOM ready - Setting up simplified handlers');
             
-            // Set up modal close behavior to close browser tab
+            // Set up comprehensive modal close behavior to close browser tab
             const successModal = document.getElementById('successModal');
+            
+            // Handle all modal close events (X button, outside click, escape key, etc.)
             successModal.addEventListener('hidden.bs.modal', function() {
-                closeApplicationTab();
+                setTimeout(closeApplicationTab, 300); // Small delay to ensure modal animation completes
+            });
+            
+            // Also handle backdrop clicks directly
+            successModal.addEventListener('click', function(e) {
+                if (e.target === successModal) {
+                    setTimeout(closeApplicationTab, 300);
+                }
             });
             
             // Simple file upload handlers
@@ -681,19 +690,38 @@
         }
         
         function closeApplicationTab() {
-            console.log('🔄 Closing application tab');
-            // Try to close the current tab/window
-            if (window.opener) {
-                // If opened as popup, close it
-                window.close();
-            } else {
-                // If regular tab, try to close or redirect
-                try {
+            console.log('🔄 Application completed - closing tab');
+            
+            // Prevent any further form submissions
+            formSubmitted = true;
+            
+            // Try multiple approaches to close the tab/window
+            try {
+                // Method 1: Direct close (works for popups and some tabs)
+                if (window.opener || document.referrer === '') {
                     window.close();
-                } catch (e) {
-                    // If can't close (some browsers prevent it), show message
-                    alert('Thank you! You can now close this tab.');
+                    return;
                 }
+                
+                // Method 2: For tabs opened via JavaScript
+                if (window.history.length <= 1) {
+                    window.close();
+                    return;
+                }
+                
+                // Method 3: Try standard close
+                window.close();
+                
+                // Method 4: If all else fails, show message after brief delay
+                setTimeout(() => {
+                    if (!window.closed) {
+                        alert('Thank you for your application! You can now close this tab.');
+                    }
+                }, 500);
+                
+            } catch (e) {
+                console.log('Browser prevented automatic close - showing message');
+                alert('Thank you for your application! You can now close this tab.');
             }
         }
         
