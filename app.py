@@ -4858,6 +4858,18 @@ def ensure_background_services():
             scheduler.start()
             app.logger.info("Background scheduler started/restarted successfully")
             _background_services_started = True
+            
+            # Force immediate monitor check after restart
+            try:
+                from datetime import datetime, timedelta
+                # Update all monitors to run immediately
+                monitors = BullhornMonitor.query.all()
+                for monitor in monitors:
+                    monitor.next_check_time = datetime.utcnow()
+                db.session.commit()
+                app.logger.info(f"Forced immediate check for {len(monitors)} monitors after restart")
+            except Exception as e:
+                app.logger.warning(f"Could not force immediate monitor check: {e}")
         except Exception as e:
             app.logger.error(f"Failed to start scheduler: {str(e)}")
             _background_services_started = False

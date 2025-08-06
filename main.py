@@ -59,6 +59,16 @@ def initialize_app():
             else:
                 logger.warning(f"Health check returned status {response.status_code}")
         
+        # Always ensure monitoring is started on application boot
+        try:
+            from app import ensure_background_services
+            if ensure_background_services():
+                logger.info("Monitoring system auto-started successfully on boot")
+            else:
+                logger.warning("Could not auto-start monitoring system")
+        except Exception as e:
+            logger.warning(f"Could not auto-start monitoring: {e}")
+        
         return app
         
     except Exception as e:
