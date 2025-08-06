@@ -13,6 +13,7 @@ Preferred communication style: Simple, everyday language.
 ✓ RECRUITER TAG UPDATE: Added '1' character to all LinkedIn tags (#LI-XX: → #LI-XX1:) for 159 existing tags
 ✓ SFTP UPLOAD FIX: Fixed undefined 'get_ftp_service()' function preventing automatic uploads after job removals
 ✓ JOB REMOVAL SYNC: Successfully removed orphaned job 34125 and duplicates from XML feeds
+✓ DESCRIPTION CHANGE DETECTION FIX: Added 'description' field to comparison logic so job description changes are now properly detected and synced
 ✓ Monitoring auto-restart implemented - scheduler starts automatically on every app reload
 ✓ Updated xml_integration_service.py to automatically add '1' to all future job recruiter tags
 ✓ Created backups before modifying XML files (myticas-job-feed.xml and myticas-job-feed-scheduled.xml)

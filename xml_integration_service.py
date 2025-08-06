@@ -953,7 +953,7 @@ class XMLIntegrationService:
                 if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
                     # Extract current XML job data for comparison (including AI classification fields)
                     xml_data = {}
-                    for field in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 'jobfunction', 'jobindustries', 'senoritylevel']:
+                    for field in ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 'description', 'jobfunction', 'jobindustries', 'senoritylevel']:
                         elem = job.find(field)
                         if elem is not None and elem.text:
                             xml_data[field] = elem.text.strip()
@@ -969,7 +969,7 @@ class XMLIntegrationService:
                     # Compare ONLY CRITICAL fields to avoid AI classification noise
                     # AI classification fields (jobfunction, jobindustries, senoritylevel) are excluded
                     # to prevent repeated notifications for minor AI variations
-                    comparison_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter']
+                    comparison_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 'description']
                     changes_detected = False
                     
                     # Field display names for user-friendly notifications
@@ -981,6 +981,7 @@ class XMLIntegrationService:
                         'jobtype': 'Employment Type',
                         'remotetype': 'Remote Type',
                         'assignedrecruiter': 'Assigned Recruiter',
+                        'description': 'Job Description',
                         'jobfunction': 'Job Function',
                         'jobindustries': 'Job Industry',
                         'senoritylevel': 'Seniority Level'
