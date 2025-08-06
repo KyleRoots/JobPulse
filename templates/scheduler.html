@@ -365,12 +365,45 @@
                     </div>
                 </div>
 
+                <!-- Actively Monitored XML Files -->
+                {% if active_xml_files %}
+                <div class="row justify-content-center mb-4">
+                    <div class="col-lg-10 col-xl-8">
+                        <h4 class="mb-3">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            Live XML Files (Auto-Synced with Bullhorn)
+                        </h4>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            These files are automatically updated every 2 minutes when job changes are detected in Bullhorn.
+                        </div>
+                        {% for file in active_xml_files %}
+                        <div class="schedule-card mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="fas fa-file-code me-2"></i>
+                                        {{ file.filename }}
+                                    </h6>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted d-block">Last Updated</small>
+                                    <strong class="text-success">{{ file.last_modified.strftime('%b %d, %Y %H:%M UTC') }}</strong>
+                                    <small class="ms-3 text-warning">{{ (file.file_size / 1024) | round(1) }} KB</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
                 <!-- Active Schedules -->
                 <div class="row justify-content-center">
                     <div class="col-lg-10 col-xl-8">
                         <h4 class="mb-3">
                             <i class="fas fa-calendar-check me-2"></i>
-                            Active Schedules
+                            Scheduled Reference Number Updates
                         </h4>
                         
                         <!-- Dynamic Schedules -->
@@ -409,7 +442,10 @@
                                             <div class="col-4 col-sm-2">
                                                 <small class="text-muted d-block">Last Upload</small>
                                                 <strong class="text-info">
-                                                    {% if schedule.last_file_upload %}
+                                                    {% if schedule.actual_last_modified %}
+                                                        {{ schedule.actual_last_modified.strftime('%b %d, %Y') }}
+                                                        <br><small class="text-muted">{{ schedule.actual_last_modified.strftime('%H:%M UTC') }}</small>
+                                                    {% elif schedule.last_file_upload %}
                                                         {{ schedule.last_file_upload.strftime('%b %d, %Y') }}
                                                         <br><small class="text-muted">{{ schedule.last_file_upload.strftime('%H:%M UTC') }}</small>
                                                     {% else %}
@@ -420,10 +456,12 @@
                                             <div class="col-4 col-sm-2">
                                                 <small class="text-muted d-block">Filesize</small>
                                                 <strong class="text-warning">
-                                                    {% if schedule.file_size %}
+                                                    {% if schedule.actual_file_size %}
+                                                        {{ (schedule.actual_file_size / 1024) | round(1) }} KB
+                                                    {% elif schedule.file_size %}
                                                         {{ schedule.file_size }}
                                                     {% else %}
-                                                        Unknown
+                                                        N/A
                                                     {% endif %}
                                                 </strong>
                                             </div>

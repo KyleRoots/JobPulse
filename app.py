@@ -1878,13 +1878,39 @@ def index():
 @login_required
 def scheduler_dashboard():
     """Scheduling dashboard for automated processing"""
+    import os
+    from datetime import datetime
+    
     # Get all active schedules
     schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+    
+    # Add real-time file information for each schedule
+    for schedule in schedules:
+        # Check if the scheduled file exists and get its stats
+        if schedule.file_path and os.path.exists(schedule.file_path):
+            file_stats = os.stat(schedule.file_path)
+            schedule.actual_file_size = file_stats.st_size
+            schedule.actual_last_modified = datetime.fromtimestamp(file_stats.st_mtime)
+        else:
+            schedule.actual_file_size = None
+            schedule.actual_last_modified = None
+    
+    # Also get information about the actively maintained XML files
+    active_xml_files = []
+    for filename in ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']:
+        if os.path.exists(filename):
+            file_stats = os.stat(filename)
+            active_xml_files.append({
+                'filename': filename,
+                'file_size': file_stats.st_size,
+                'last_modified': datetime.fromtimestamp(file_stats.st_mtime),
+                'is_active': True
+            })
     
     # Get recent processing logs
     recent_logs = ProcessingLog.query.order_by(ProcessingLog.processed_at.desc()).limit(10).all()
     
-    return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs)
+    return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs, active_xml_files=active_xml_files)
 
 @app.route('/api/schedules', methods=['POST'])
 def create_schedule():
