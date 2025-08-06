@@ -1531,6 +1531,8 @@ def process_bullhorn_monitors():
                                                 sftp_username and sftp_username.setting_value and 
                                                 sftp_password and sftp_password.setting_value):
                                                 
+                                                from ftp_service import FTPService
+                                                
                                                 port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
                                                 directory = sftp_directory.setting_value if sftp_directory else ''
                                                 
