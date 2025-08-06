@@ -1718,6 +1718,9 @@ def login():
             login_user(user)
             # Removed welcome message for cleaner login experience
             
+            # Start scheduler on successful login
+            ensure_background_services()
+            
             # Redirect to originally requested page or index
             next_page = request.args.get('next')
             if next_page:
@@ -1829,6 +1832,8 @@ def ping():
 def root():
     """Root endpoint - redirect to login or dashboard based on authentication"""
     if current_user.is_authenticated:
+        # Ensure scheduler is running for authenticated users
+        ensure_background_services()
         return redirect(url_for('index'))
     else:
         return redirect(url_for('login'))
@@ -1837,6 +1842,8 @@ def root():
 @login_required
 def index():
     """Main page with file upload form"""
+    # Ensure scheduler is running for authenticated users
+    ensure_background_services()
     return render_template('index.html')
 
 @app.route('/scheduler')
@@ -2709,6 +2716,8 @@ def validate_file():
 @app.route('/bullhorn')
 @login_required
 def bullhorn_dashboard():
+    # Ensure scheduler is running when accessing the dashboard
+    ensure_background_services()
     """ATS monitoring dashboard"""
     try:
         monitors = BullhornMonitor.query.filter_by(is_active=True).all()
@@ -4854,6 +4863,43 @@ def alive():
         'timestamp': datetime.utcnow().isoformat(),
         'uptime': 'ok'
     })
+
+@app.route('/start_scheduler')
+def start_scheduler_manual():
+    """Manually start the scheduler and trigger monitoring"""
+    try:
+        # Start scheduler if not running
+        scheduler_started = lazy_start_scheduler()
+        
+        # Force an immediate check of all monitors
+        if scheduler_started:
+            # Reset all monitor timings to trigger immediate check
+            monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+            current_time = datetime.utcnow()
+            for monitor in monitors:
+                monitor.last_check = current_time
+                monitor.next_check = current_time + timedelta(minutes=2)
+            db.session.commit()
+            
+            # Trigger the monitoring job immediately
+            try:
+                process_bullhorn_monitors()
+                message = f"Scheduler started. {len(monitors)} monitors activated with 2-minute intervals."
+            except Exception as e:
+                message = f"Scheduler started but monitoring failed: {str(e)}"
+        else:
+            message = "Scheduler was already running or failed to start"
+            
+        return jsonify({
+            'success': True,
+            'message': message,
+            'scheduler_running': scheduler.running
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 # Scheduler and background services will be started lazily when first needed
 # This significantly reduces application startup time for deployment health checks
