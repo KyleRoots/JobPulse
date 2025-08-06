@@ -1815,15 +1815,23 @@ def liveness_check():
     """Simple liveness check for deployment systems"""
     return "OK", 200
 
-@app.route('/')
-def root_health_check():
-    """Ultra-fast health check for deployment - no database or external checks"""
+@app.route('/ping')
+def ping():
+    """Ultra-fast health check for deployment monitoring"""
     # Return immediately without any expensive operations
     return jsonify({
         'status': 'ok',
         'service': 'job-feed-refresh',
         'timestamp': datetime.utcnow().isoformat()
     }), 200
+
+@app.route('/')
+def root():
+    """Root endpoint - redirect to login or dashboard based on authentication"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    else:
+        return redirect(url_for('login'))
 
 @app.route('/dashboard')
 @login_required

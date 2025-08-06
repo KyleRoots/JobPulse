@@ -49,10 +49,20 @@ gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
 ## Recommended Deployment Settings
 
 For Replit deployments:
-- **Health Check Path**: `/` (uses ultra-fast root endpoint)
+- **Health Check Path**: `/ping` or `/health` (ultra-fast dedicated endpoints)
 - **Health Check Interval**: 30 seconds
 - **Health Check Timeout**: 10 seconds (app responds in <5ms)
 - **Startup Grace Period**: 30 seconds (app starts in 2-3 seconds)
+
+## Important Routes
+
+- **`/`** - Redirects to login page (or dashboard if authenticated)
+- **`/login`** - User login page
+- **`/dashboard`** - Main application dashboard
+- **`/ping`** - Ultra-fast health check for monitoring (JSON)
+- **`/health`** - Detailed health status (JSON)
+- **`/ready`** - Readiness check (returns OK)
+- **`/alive`** - Liveness check (returns OK)
 
 ## Environment Variables Required
 
