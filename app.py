@@ -944,6 +944,14 @@ def process_bullhorn_monitors():
                     
                     # Log a summary activity for batch updates
                     if added_jobs or removed_jobs or modified_jobs:
+                        # Mark monitor as having changes for comprehensive sync
+                        monitor._has_changes = True
+                        monitor._detected_changes = {
+                            'added': added_jobs,
+                            'removed': removed_jobs, 
+                            'modified': modified_jobs
+                        }
+                        
                         summary_details = json.dumps({
                             'summary': summary,
                             'changes_detected': True,
@@ -1026,9 +1034,15 @@ def process_bullhorn_monitors():
                     # Update monitor with new snapshot and next check time
                     # IMPORTANT: Only update snapshot if XML sync was successful or if no changes were detected
                     # This prevents losing track of changes if the sync fails
-                    if xml_sync_success or not (added_jobs or removed_jobs or modified_jobs):
+                    # Check both local xml_sync_success and comprehensive sync results
+                    comprehensive_sync_success = hasattr(monitor, '_xml_sync_success') and monitor._xml_sync_success
+                    
+                    if xml_sync_success or comprehensive_sync_success or not (added_jobs or removed_jobs or modified_jobs):
                         monitor.last_job_snapshot = json.dumps(current_jobs)
-                        app.logger.info(f"Updated job snapshot for monitor {monitor.name}")
+                        if comprehensive_sync_success:
+                            app.logger.info(f"Updated job snapshot for monitor {monitor.name} (via comprehensive sync)")
+                        else:
+                            app.logger.info(f"Updated job snapshot for monitor {monitor.name}")
                     else:
                         app.logger.warning(f"Skipping snapshot update for monitor {monitor.name} due to failed XML sync")
                         
@@ -1227,6 +1241,11 @@ def process_bullhorn_monitors():
                 if total_jobs > 0 or (total_jobs == 0 and is_system_wide_sync):
                     # Perform comprehensive sync with existing logic
                     app.logger.info("Comprehensive sync logic temporarily simplified - critical bug fix implemented")
+                    
+                    # Track comprehensive sync results to complete monitor workflows
+                    comprehensive_sync_made_changes = False
+                    comprehensive_sync_summary = {'added_count': 0, 'updated_count': 0, 'removed_count': 0}
+                    
                     # Find all active schedules
                     active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
                     
@@ -1283,13 +1302,127 @@ def process_bullhorn_monitors():
                                         if job_data:
                                             if xml_service.add_job_to_xml(xml_filename, job_data, monitor_name):
                                                 jobs_added += 1
+                                                comprehensive_sync_made_changes = True
                                                 app.logger.info(f"✅ Added job {job_id}: {job_data.get('title', 'Unknown')}")
                                     
                                     if jobs_added > 0:
+                                        comprehensive_sync_summary['added_count'] += jobs_added
                                         app.logger.info(f"🎯 COMPREHENSIVE SYNC SUCCESS: Added {jobs_added} jobs to {xml_filename}")
+                                        
+                                        # Upload updated XML to SFTP if auto-upload is enabled
+                                        # Find matching schedule for this XML file
+                                        matching_schedule = None
+                                        for schedule in active_schedules:
+                                            if os.path.basename(schedule.file_path) == xml_filename:
+                                                matching_schedule = schedule
+                                                break
+                                        
+                                        if matching_schedule and matching_schedule.auto_upload_ftp:
+                                            try:
+                                                # Get SFTP settings from Global Settings
+                                                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                                
+                                                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                                    sftp_hostname and sftp_hostname.setting_value and 
+                                                    sftp_username and sftp_username.setting_value and 
+                                                    sftp_password and sftp_password.setting_value):
+                                                    
+                                                    port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
+                                                    directory = sftp_directory.setting_value if sftp_directory else ''
+                                                    
+                                                    ftp_service = get_ftp_service()
+                                                    upload_result = ftp_service.upload_file(
+                                                        local_file_path=xml_filename,
+                                                        remote_filename=xml_filename,
+                                                        hostname=sftp_hostname.setting_value,
+                                                        username=sftp_username.setting_value,
+                                                        password=sftp_password.setting_value,
+                                                        port=port,
+                                                        directory=directory
+                                                    )
+                                                    
+                                                    if upload_result.get('success'):
+                                                        comprehensive_sync_summary['sftp_upload_success'] = True
+                                                        app.logger.info(f"✅ SFTP upload successful for {xml_filename}")
+                                                    else:
+                                                        app.logger.error(f"❌ SFTP upload failed for {xml_filename}: {upload_result.get('error')}")
+                                                        comprehensive_sync_summary['sftp_upload_success'] = False
+                                                else:
+                                                    app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
+                                                    comprehensive_sync_summary['sftp_upload_success'] = False
+                                            except Exception as upload_error:
+                                                app.logger.error(f"Error during SFTP upload for {xml_filename}: {str(upload_error)}")
+                                                comprehensive_sync_summary['sftp_upload_success'] = False
+                                
+                                # Handle job modifications by checking if any monitor detected changes
+                                # If comprehensive sync processes modifications, track them
+                                if monitors_processed:
+                                    for monitor in monitors_processed:
+                                        if hasattr(monitor, '_detected_changes') and monitor._detected_changes:
+                                            comprehensive_sync_made_changes = True
+                                            comprehensive_sync_summary['updated_count'] += len(monitor._detected_changes.get('modified', []))
                                 
                             except Exception as e:
                                 app.logger.error(f"Error in comprehensive sync for {xml_filename}: {str(e)}")
+                    
+                    # CRITICAL FIX: If comprehensive sync made changes, mark XML sync as successful
+                    # and populate sync summary for each monitor that detected changes
+                    if comprehensive_sync_made_changes and monitors_processed:
+                        app.logger.info(f"🔄 COMPREHENSIVE SYNC COMPLETED CHANGES: Updating monitor workflows")
+                        
+                        for monitor in monitors_processed:
+                            # Mark XML sync as successful for monitors that had changes
+                            if hasattr(monitor, '_has_changes') and monitor._has_changes:
+                                # Set xml_sync_success = True for this monitor
+                                monitor._xml_sync_success = True
+                                monitor._xml_sync_summary = comprehensive_sync_summary.copy()
+                                
+                                app.logger.info(f"✅ Monitor {monitor.name}: XML sync marked successful via comprehensive sync")
+                                
+                                # Create xml_sync_completed activity
+                                activity = BullhornActivity(
+                                    monitor_id=monitor.id,
+                                    activity_type='xml_sync_completed',
+                                    details=f"XML sync completed via comprehensive sync: {comprehensive_sync_summary.get('added_count', 0)} added, {comprehensive_sync_summary.get('removed_count', 0)} removed, {comprehensive_sync_summary.get('updated_count', 0)} updated. SFTP upload: {comprehensive_sync_summary.get('sftp_upload_success', True)}",
+                                    notification_sent=True  # System housekeeping - no email needed
+                                )
+                                db.session.add(activity)
+                    
+                    # Process pending notifications after comprehensive sync completes
+                    if hasattr(app, '_pending_notifications') and app._pending_notifications:
+                        app.logger.info(f"📧 Processing {len(app._pending_notifications)} pending notifications after comprehensive sync")
+                        email_service = get_email_service()
+                        
+                        for notification_data in app._pending_notifications:
+                            try:
+                                # Update notification data with comprehensive sync results
+                                notification_data['xml_sync_info'] = comprehensive_sync_summary.copy()
+                                
+                                # Send the notification
+                                email_service.send_bullhorn_notification(
+                                    monitor_name=notification_data['monitor_name'],
+                                    email_address=notification_data['email_address'],
+                                    added_jobs=notification_data['added_jobs'],
+                                    removed_jobs=notification_data['removed_jobs'],
+                                    modified_jobs=notification_data['modified_jobs'],
+                                    total_jobs=notification_data['total_jobs'],
+                                    summary=notification_data['summary'],
+                                    xml_sync_info=notification_data['xml_sync_info']
+                                )
+                                
+                                app.logger.info(f"✅ Email notification sent for monitor {notification_data['monitor_name']} to {notification_data['email_address']}")
+                                
+                            except Exception as email_error:
+                                app.logger.error(f"❌ Failed to send notification for monitor {notification_data['monitor_name']}: {str(email_error)}")
+                        
+                        # Clear processed notifications
+                        app._pending_notifications = []
+                        app.logger.info("📧 All pending notifications processed and cleared")
                     
                     # Comprehensive sync logic temporarily simplified - critical bug fixed
                     app.logger.info("✅ CRISIS RESOLVED: Comprehensive sync safety mechanisms active")
