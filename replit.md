@@ -8,8 +8,12 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (Updated: 2025-08-06)
 ✓ DEPLOYMENT COMPLETED: Application is live and fully operational with all credentials configured
-✓ MONITORING WORKFLOW ACTIVE: 5 monitors tracking 1,019+ activities with 2-minute detection cycles
+✓ MONITORING WORKFLOW ACTIVE: 5 monitors tracking jobs with 2-minute detection cycles
 ✓ IMMEDIATE PROCESSING ENABLED: Changes trigger instant XML sync → SFTP upload → email notifications  
+✓ RECRUITER TAG UPDATE: Added '1' character to all LinkedIn tags (#LI-XX: → #LI-XX1:) for 159 existing tags
+✓ Updated xml_integration_service.py to automatically add '1' to all future job recruiter tags
+✓ Created backups before modifying XML files (myticas-job-feed.xml and myticas-job-feed-scheduled.xml)
+✓ Verified tag mapping: All recruiter names now map to #LI-XX1 format (e.g., #LI-RS1:, #LI-AG1:, #LI-DSC1:)
 ✓ SCHEDULER RESTART FIX: Fixed scheduler not starting after application reloads - now auto-restarts if stopped
 ✓ Scheduler page displays real-time XML file information instead of outdated database records
 ✓ Fixed monitor overdue issues - ensure_background_services() now always checks scheduler running state
