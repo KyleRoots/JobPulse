@@ -1394,6 +1394,9 @@ def process_bullhorn_monitors():
                         'myticas-job-feed-scheduled.xml'
                     ]
                     
+                    # Import XMLIntegrationService for comprehensive sync
+                    from xml_integration_service import XMLIntegrationService
+                    
                     for xml_filename in main_xml_files:
                         if os.path.exists(xml_filename):
                             app.logger.info(f"🔄 COMPREHENSIVE SYNC: Processing {xml_filename}")
@@ -1561,6 +1564,10 @@ def process_bullhorn_monitors():
                     if comprehensive_sync_made_changes and monitors_processed:
                         app.logger.info(f"🔄 COMPREHENSIVE SYNC COMPLETED CHANGES: Updating monitor workflows")
                         
+                        # Initialize pending notifications if not exists
+                        if not hasattr(app, '_pending_notifications'):
+                            app._pending_notifications = []
+                        
                         for monitor in monitors_processed:
                             # Mark XML sync as successful for monitors that had changes
                             if hasattr(monitor, '_has_changes') and monitor._has_changes:
@@ -1578,6 +1585,66 @@ def process_bullhorn_monitors():
                                     notification_sent=True  # System housekeeping - no email needed
                                 )
                                 db.session.add(activity)
+                                
+                                # CRITICAL ADDITION: Create email notification for changes made during comprehensive sync
+                                if monitor.send_notifications and hasattr(monitor, '_detected_changes') and monitor._detected_changes:
+                                    changes = monitor._detected_changes
+                                    added_jobs = changes.get('added', [])
+                                    removed_jobs = changes.get('removed', [])
+                                    modified_jobs = changes.get('modified', [])
+                                    
+                                    # Check for critical modifications (not just AI classification changes)
+                                    critical_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 
+                                                      'publicDescription', 'description', 'employmentType', 'onSite', 'owner', 'address',
+                                                      'assignedUsers', 'responseUser']
+                                    
+                                    critical_modifications = []
+                                    for job in modified_jobs:
+                                        job_changes = job.get('changes', [])
+                                        for change in job_changes:
+                                            field_name = change.get('field', '')
+                                            if any(critical_field in field_name for critical_field in critical_fields):
+                                                critical_modifications.append({
+                                                    'id': job.get('id'),
+                                                    'title': job.get('title', f'Job {job.get("id")}'),
+                                                    'changes': job_changes
+                                                })
+                                                break
+                                    
+                                    # If there are changes worth notifying about
+                                    if added_jobs or removed_jobs or critical_modifications:
+                                        # Get email address
+                                        email_address = monitor.notification_email
+                                        if not email_address:
+                                            global_email = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                                            if global_email:
+                                                email_address = global_email.setting_value
+                                        
+                                        if email_address:
+                                            # Get current job count for monitor
+                                            current_jobs = []
+                                            if hasattr(monitor, '_current_jobs'):
+                                                current_jobs = monitor._current_jobs
+                                            
+                                            notification_data = {
+                                                'monitor_name': monitor.name,
+                                                'monitor_id': monitor.id,
+                                                'email_address': email_address,
+                                                'added_jobs': added_jobs.copy() if added_jobs else [],
+                                                'removed_jobs': removed_jobs.copy() if removed_jobs else [],
+                                                'modified_jobs': critical_modifications.copy() if critical_modifications else [],
+                                                'total_jobs': len(current_jobs),
+                                                'summary': {
+                                                    'added_count': len(added_jobs),
+                                                    'removed_count': len(removed_jobs),
+                                                    'modified_count': len(critical_modifications)
+                                                },
+                                                'xml_sync_info': comprehensive_sync_summary.copy(),
+                                                'timestamp': datetime.now()
+                                            }
+                                            
+                                            app._pending_notifications.append(notification_data)
+                                            app.logger.info(f"📧 Notification queued for {monitor.name} from comprehensive sync - {len(added_jobs)} added, {len(removed_jobs)} removed, {len(critical_modifications)} modified")
                     
                     # Process pending notifications after comprehensive sync completes
                     if hasattr(app, '_pending_notifications') and app._pending_notifications:
