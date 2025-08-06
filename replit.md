@@ -11,6 +11,9 @@ Preferred communication style: Simple, everyday language.
 ✓ MONITORING WORKFLOW ACTIVE: 5 monitors tracking jobs with 2-minute detection cycles
 ✓ IMMEDIATE PROCESSING ENABLED: Changes trigger instant XML sync → SFTP upload → email notifications  
 ✓ RECRUITER TAG UPDATE: Added '1' character to all LinkedIn tags (#LI-XX: → #LI-XX1:) for 159 existing tags
+✓ SFTP UPLOAD FIX: Fixed undefined 'get_ftp_service()' function preventing automatic uploads after job removals
+✓ JOB REMOVAL SYNC: Successfully removed orphaned job 34125 and duplicates from XML feeds
+✓ Monitoring auto-restart implemented - scheduler starts automatically on every app reload
 ✓ Updated xml_integration_service.py to automatically add '1' to all future job recruiter tags
 ✓ Created backups before modifying XML files (myticas-job-feed.xml and myticas-job-feed-scheduled.xml)
 ✓ Verified tag mapping: All recruiter names now map to #LI-XX1 format (e.g., #LI-RS1:, #LI-AG1:, #LI-DSC1:)
