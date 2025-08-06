@@ -1447,6 +1447,8 @@ def process_bullhorn_monitors():
                                             modified_jobs = monitor._detected_changes.get('modified', [])
                                             if modified_jobs:
                                                 jobs_updated = 0
+                                                modification_details = []
+                                                
                                                 for modified_job in modified_jobs:
                                                     # Find the updated job data in all_current_jobs_from_monitors
                                                     job_id = str(modified_job.get('id'))
@@ -1462,10 +1464,44 @@ def process_bullhorn_monitors():
                                                         if xml_service.update_job_in_xml(xml_filename, updated_job_data, monitor.name):
                                                             jobs_updated += 1
                                                             comprehensive_sync_made_changes = True
+                                                            
+                                                            # Track modification details for email notification
+                                                            job_changes = modified_job.get('changes', [])
+                                                            if job_changes:
+                                                                modification_details.append({
+                                                                    'id': job_id,
+                                                                    'title': updated_job_data.get('title', 'Unknown'),
+                                                                    'changes': job_changes
+                                                                })
+                                                            
                                                             app.logger.info(f"📝 Updated job {job_id}: {updated_job_data.get('title', 'Unknown')} in XML")
                                                 
                                                 if jobs_updated > 0:
                                                     comprehensive_sync_summary['updated_count'] += jobs_updated
+                                                    comprehensive_sync_summary['modification_details'] = modification_details
+                                                    
+                                                    # Create email notification for modifications found during comprehensive sync
+                                                    if monitor.send_notifications and modification_details:
+                                                        # Create activity log with change details
+                                                        for job_detail in modification_details:
+                                                            change_summary = []
+                                                            for change in job_detail.get('changes', []):
+                                                                field = change.get('field', 'unknown')
+                                                                old_val = change.get('old_value', '')
+                                                                new_val = change.get('new_value', '')
+                                                                change_summary.append(f"{field}: '{old_val}' → '{new_val}'")
+                                                            
+                                                            activity = BullhornActivity(
+                                                                monitor_id=monitor.id,
+                                                                activity_type='job_modified',
+                                                                job_id=job_detail.get('id'),
+                                                                job_title=job_detail.get('title'),
+                                                                details=f"Job modified during comprehensive sync: {', '.join(change_summary[:3])}",
+                                                                notification_sent=False
+                                                            )
+                                                            db.session.add(activity)
+                                                            app.logger.info(f"📧 Created modification notification for job {job_detail.get('id')}: {', '.join(change_summary[:2])}")
+                                                    
                                                     app.logger.info(f"🔄 COMPREHENSIVE SYNC UPDATE: Modified {jobs_updated} jobs in {xml_filename}")
                                 
                                 # Upload updated XML to SFTP if any changes were made (additions, removals, or modifications)
