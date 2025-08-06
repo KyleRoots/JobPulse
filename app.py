@@ -1032,27 +1032,32 @@ def process_bullhorn_monitors():
                                                     sftp_username and sftp_username.setting_value and 
                                                     sftp_password and sftp_password.setting_value):
                                                     
-                                                    from ftp_service import get_ftp_service
-                                                    ftp_service = get_ftp_service()
+                                                    from ftp_service import FTPService
                                                     
                                                     port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
                                                     directory = sftp_directory.setting_value if sftp_directory else ''
                                                     
-                                                    upload_result = ftp_service.upload_file(
-                                                        local_file_path=xml_filename,
-                                                        remote_filename=xml_filename,
+                                                    # Create FTP service instance
+                                                    ftp_service = FTPService(
                                                         hostname=sftp_hostname.setting_value,
                                                         username=sftp_username.setting_value,
                                                         password=sftp_password.setting_value,
+                                                        target_directory=directory,
                                                         port=port,
-                                                        directory=directory
+                                                        use_sftp=True  # Use SFTP for secure transfer
                                                     )
                                                     
-                                                    if upload_result.get('success'):
+                                                    # Upload the file
+                                                    upload_success = ftp_service.upload_file(
+                                                        local_file_path=xml_filename,
+                                                        remote_filename=os.path.basename(xml_filename)
+                                                    )
+                                                    
+                                                    if upload_success:
                                                         immediate_sync_summary['sftp_upload_success'] = True
                                                         app.logger.info(f"✅ IMMEDIATE SFTP UPLOAD SUCCESSFUL for {xml_filename}")
                                                     else:
-                                                        app.logger.error(f"❌ Immediate SFTP upload failed: {upload_result.get('error')}")
+                                                        app.logger.error(f"❌ Immediate SFTP upload failed")
                                         except Exception as upload_error:
                                             app.logger.error(f"Error during immediate SFTP upload: {str(upload_error)}")
                                     
@@ -1615,12 +1620,11 @@ def process_bullhorn_monitors():
                                 
                                 # Send the notification
                                 email_service.send_bullhorn_notification(
+                                    to_email=notification_data['email_address'],
                                     monitor_name=notification_data['monitor_name'],
-                                    email_address=notification_data['email_address'],
                                     added_jobs=notification_data['added_jobs'],
                                     removed_jobs=notification_data['removed_jobs'],
                                     modified_jobs=notification_data['modified_jobs'],
-                                    total_jobs=notification_data['total_jobs'],
                                     summary=notification_data['summary'],
                                     xml_sync_info=notification_data['xml_sync_info']
                                 )
