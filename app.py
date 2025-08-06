@@ -1498,15 +1498,16 @@ def process_bullhorn_monitors():
                                                 port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
                                                 directory = sftp_directory.setting_value if sftp_directory else ''
                                                 
-                                                ftp_service = get_ftp_service()
-                                                upload_result = ftp_service.upload_file(
-                                                    local_file_path=xml_filename,
-                                                    remote_filename=xml_filename,
+                                                ftp_service = FTPService(
                                                     hostname=sftp_hostname.setting_value,
                                                     username=sftp_username.setting_value,
                                                     password=sftp_password.setting_value,
-                                                    port=port,
-                                                    directory=directory
+                                                    target_directory=directory,
+                                                    port=port
+                                                )
+                                                upload_result = ftp_service.upload_file(
+                                                    local_file_path=xml_filename,
+                                                    remote_filename=xml_filename
                                                 )
                                                 
                                                 if upload_result.get('success'):
