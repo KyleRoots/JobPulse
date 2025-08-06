@@ -17,7 +17,12 @@ from xml_integration_service import XMLIntegrationService
 from monitor_health_service import MonitorHealthService
 from job_application_service import JobApplicationService
 import traceback
-from lxml import etree
+try:
+    from lxml import etree
+except ImportError:
+    etree = None
+    import logging
+    logging.warning("lxml not available, some XML features disabled")
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
@@ -59,16 +64,18 @@ app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
 
 # Database configuration with fallback
 database_url = os.environ.get("DATABASE_URL")
-if not database_url:
-    app.logger.error("DATABASE_URL environment variable not set")
-    raise RuntimeError("DATABASE_URL environment variable is required")
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-    "pool_size": 20,
-    "max_overflow": 30
-}
+if database_url:
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_recycle": 300,
+        "pool_pre_ping": True,
+        "pool_size": 20,
+        "max_overflow": 30
+    }
+else:
+    # Fallback for development without failing startup
+    app.logger.warning("DATABASE_URL not set, using default SQLite for development")
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///fallback.db"
 
 # Configure job application URL base for dual-domain deployment
 # Production: jobpulse.lyntrix.ai (main app) + apply.myticas.com (job forms)
@@ -1380,17 +1387,19 @@ def process_bullhorn_monitors():
                             try:
                                 # Get current job IDs in XML
                                 xml_job_ids = set()
-                                from lxml import etree
-                                parser = etree.XMLParser(remove_blank_text=False, strip_cdata=False)
-                                tree = etree.parse(xml_filename, parser)
-                                root = tree.getroot()
-                                
-                                # Extract job IDs from bhatsid elements
-                                for bhatsid_elem in root.xpath('.//bhatsid'):
-                                    if bhatsid_elem.text:
-                                        job_id = bhatsid_elem.text.strip()
-                                        if job_id:
-                                            xml_job_ids.add(job_id)
+                                if etree:
+                                    parser = etree.XMLParser(remove_blank_text=False, strip_cdata=False)
+                                    tree = etree.parse(xml_filename, parser)
+                                    root = tree.getroot()
+                                    
+                                    # Extract job IDs from bhatsid elements
+                                    for bhatsid_elem in root.xpath('.//bhatsid'):
+                                        if bhatsid_elem.text:
+                                            job_id = bhatsid_elem.text.strip()
+                                            if job_id:
+                                                xml_job_ids.add(job_id)
+                                else:
+                                    app.logger.warning(f"lxml not available, skipping XML comparison for {xml_filename}")
                                 
                                 # Get all job IDs from Bullhorn monitors
                                 bullhorn_job_ids = set()
@@ -1992,8 +2001,11 @@ def replace_schedule_file():
             
         except Exception as e:
             # Clean up temporary file if it exists
-            if 'temp_file' in locals() and os.path.exists(temp_file.name):
-                os.unlink(temp_file.name)
+            if 'temp_file' in locals() and temp_file and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
+                try:
+                    os.unlink(temp_file.name)
+                except:
+                    pass
             raise e
         
     except Exception as e:
@@ -2306,7 +2318,7 @@ def upload_file():
             try:
                 sftp_settings = db.session.query(GlobalSettings).filter_by(setting_key='sftp_enabled').first()
                 
-                if sftp_settings and sftp_settings.setting_value.lower() == 'true':
+                if sftp_settings and sftp_settings.setting_value and sftp_settings.setting_value.lower() == 'true':
                     # Get SFTP credentials
                     hostname = db.session.query(GlobalSettings).filter_by(setting_key='sftp_hostname').first()
                     username = db.session.query(GlobalSettings).filter_by(setting_key='sftp_username').first()
@@ -2314,7 +2326,11 @@ def upload_file():
                     directory = db.session.query(GlobalSettings).filter_by(setting_key='sftp_directory').first()
                     port = db.session.query(GlobalSettings).filter_by(setting_key='sftp_port').first()
                     
-                    if all([hostname, username, password]) and all([hostname.setting_value, username.setting_value, password.setting_value]):
+                    if all([hostname, username, password]) and all([
+                        hostname.setting_value, 
+                        username.setting_value, 
+                        password.setting_value
+                    ]):
                         from ftp_service import FTPService
                         
                         ftp_service = FTPService(
@@ -2727,6 +2743,7 @@ def simple_health_check():
         # Test database connection
         db_ok = False
         try:
+            from sqlalchemy import text
             db.session.execute(text('SELECT 1')).scalar()
             db_ok = True
         except:
@@ -2753,7 +2770,7 @@ def simple_health_check():
 def trigger_job_sync():
     """Manually trigger job synchronization for immediate processing"""
     try:
-        from monitoring_refactor import MonitoringService
+        from simplified_monitoring_service import MonitoringService
         
         # Run monitoring immediately
         service = MonitoringService(db.session)
@@ -4051,8 +4068,11 @@ def run_automation_demo():
                 }
         else:
             # Clean up on failure
-            if os.path.exists(demo_xml_file):
-                os.remove(demo_xml_file)
+            try:
+                if 'demo_xml_file' in locals() and demo_xml_file and os.path.exists(demo_xml_file):
+                    os.remove(demo_xml_file)
+            except:
+                pass
             return {
                 'success': False,
                 'error': f'XML sync failed: {sync_result.get("error")}'
@@ -4060,8 +4080,11 @@ def run_automation_demo():
             
     except Exception as e:
         # Clean up on exception
-        if 'demo_xml_file' in locals() and os.path.exists(demo_xml_file):
-            os.remove(demo_xml_file)
+        try:
+            if 'demo_xml_file' in locals() and demo_xml_file and os.path.exists(demo_xml_file):
+                os.remove(demo_xml_file)
+        except:
+            pass
         return {
             'success': False,
             'error': f'Demo failed: {str(e)}'
@@ -4688,6 +4711,38 @@ scheduler.add_job(
     replace_existing=True
 )
 app.logger.info("Scheduled daily file cleanup job")
+
+# Add deployment health check routes
+@app.route('/ready')
+def ready():
+    """Kubernetes/deployment readiness probe"""
+    try:
+        from sqlalchemy import text
+        # Test database connection
+        with db.engine.connect() as conn:
+            conn.execute(text('SELECT 1'))
+        
+        return jsonify({
+            'status': 'ready',
+            'timestamp': datetime.utcnow().isoformat(),
+            'database': True
+        })
+    except Exception as e:
+        app.logger.error(f"Readiness check failed: {e}")
+        return jsonify({
+            'status': 'not_ready',
+            'timestamp': datetime.utcnow().isoformat(),
+            'error': str(e)
+        }), 503
+
+@app.route('/alive')
+def alive():
+    """Basic liveness probe"""
+    return jsonify({
+        'status': 'alive',
+        'timestamp': datetime.utcnow().isoformat(),
+        'uptime': 'ok'
+    })
 
 # Start the scheduler after all jobs are configured
 start_background_services()
