@@ -118,6 +118,9 @@ class FTPService:
                     ssh.close()
                     return False
             
+            # Get local file size before upload
+            local_size = os.path.getsize(local_file_path)
+            
             # Upload file
             if self.target_directory != "/":
                 remote_path = f"{self.target_directory}/{remote_filename}"
@@ -125,7 +128,16 @@ class FTPService:
                 remote_path = remote_filename
             sftp.put(local_file_path, remote_path)
             
-            logging.info(f"File uploaded successfully via SFTP: {remote_filename}")
+            # Verify remote file size matches local
+            remote_stats = sftp.stat(remote_path)
+            remote_size = remote_stats.st_size
+            
+            if local_size == remote_size:
+                logging.info(f"File uploaded successfully via SFTP: {remote_filename} (Size: {local_size} bytes / {local_size/1024:.1f} KB)")
+            else:
+                logging.error(f"SFTP upload size mismatch for {remote_filename}! Local: {local_size} bytes, Remote: {remote_size} bytes")
+                # Still return True as file was uploaded, but log the discrepancy
+                logging.warning(f"Continuing despite size mismatch - file may need re-upload")
             
             # Close connections
             sftp.close()
