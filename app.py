@@ -47,34 +47,45 @@ logging.getLogger('requests').setLevel(logging.WARNING)
 # Global progress tracker for manual operations
 progress_tracker = {}
 
-# Timeout handler for monitoring cycles
+# Timeout handler for monitoring cycles - thread-safe version
 class MonitoringTimeout(Exception):
     """Exception raised when monitoring cycle exceeds time limit"""
     pass
 
-def timeout_handler(signum, frame):
-    """Signal handler for timeout"""
-    raise MonitoringTimeout("Monitoring cycle exceeded 110 seconds")
-
 def with_timeout(seconds=110):
-    """Decorator to add timeout to functions - prevents monitoring from exceeding 2-minute cycle"""
+    """Thread-safe timeout decorator using threading instead of signals"""
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Store original alarm handler
-            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(seconds)  # Set alarm for timeout
+            # Create a flag to track if function completed
+            result = [None]
+            exception = [None]
+            completed = threading.Event()
             
-            try:
-                result = func(*args, **kwargs)
-            except MonitoringTimeout:
+            def target():
+                try:
+                    result[0] = func(*args, **kwargs)
+                except Exception as e:
+                    exception[0] = e
+                finally:
+                    completed.set()
+            
+            # Start function in a thread
+            thread = threading.Thread(target=target)
+            thread.daemon = True
+            thread.start()
+            
+            # Wait for completion or timeout
+            if not completed.wait(timeout=seconds):
                 app.logger.warning(f"⏱️ TIMEOUT: Monitoring cycle exceeded {seconds} seconds - stopping to prevent overdue")
-                result = None
-            finally:
-                signal.alarm(0)  # Cancel alarm
-                signal.signal(signal.SIGALRM, old_handler)  # Restore original handler
+                # Thread will continue running but we return to prevent overdue
+                return None
             
-            return result
+            # If there was an exception, raise it
+            if exception[0]:
+                raise exception[0]
+            
+            return result[0]
         return wrapper
     return decorator
 
@@ -492,9 +503,12 @@ scheduler.add_job(
     replace_existing=True
 )
 
-@with_timeout(seconds=110)  # Limit to 110 seconds to prevent overdue (2-minute cycle = 120 seconds)
 def process_bullhorn_monitors():
-    """Process all active Bullhorn monitors for tearsheet changes - timeout enforced"""
+    """Process all active Bullhorn monitors for tearsheet changes - with time limit"""
+    # Apply timeout protection inline instead of as decorator
+    start_time = datetime.utcnow()
+    max_duration = timedelta(seconds=110)  # 110 seconds max to prevent overdue
+    
     with app.app_context():
         try:
             current_time = datetime.utcnow()
@@ -518,6 +532,12 @@ def process_bullhorn_monitors():
             monitors_processed = []
             
             for monitor in due_monitors:
+                # Check if we're running out of time before processing each monitor
+                elapsed = datetime.utcnow() - start_time
+                if elapsed > max_duration:
+                    app.logger.warning(f"⏱️ TIMEOUT: Stopping monitor processing after {elapsed.total_seconds():.1f}s to prevent overdue")
+                    break
+                
                 app.logger.info(f"Processing Bullhorn monitor: {monitor.name} (ID: {monitor.id})")
                 try:
                     
@@ -1358,7 +1378,7 @@ def process_bullhorn_monitors():
             # After processing all individual monitors, perform comprehensive XML sync
             # CRITICAL: Always run comprehensive sync when monitors are processed, even with no jobs
             # BUT skip if we're running out of time to prevent overdue
-            elapsed_time = (datetime.utcnow() - current_time).total_seconds()
+            elapsed_time = (datetime.utcnow() - start_time).total_seconds()
             time_remaining = 110 - elapsed_time  # We have 110 seconds total
             
             app.logger.info(f"⏱️ TIME CHECK: Elapsed {elapsed_time:.1f}s, Remaining {time_remaining:.1f}s")
