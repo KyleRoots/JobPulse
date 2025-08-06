@@ -6,14 +6,14 @@ This Flask-based web application automates the processing of XML job feed files 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (Updated: 2025-08-06 - 22:18)
-✓ CRITICAL SFTP BUG FIX: Fixed missing FTPService import in comprehensive sync preventing job removal uploads
-✓ JOB 32266 REMOVAL: Successfully removed from local XML and live server after fixing SFTP upload error
-✓ DEPLOYMENT COMPLETED: Application is live and fully operational with all credentials configured
-✓ MONITORING WORKFLOW ACTIVE: 5 monitors tracking jobs with 2-minute detection cycles
-✓ IMMEDIATE PROCESSING ENABLED: Changes trigger instant XML sync → SFTP upload → email notifications  
-✓ RECRUITER TAG UPDATE: Added '1' character to all LinkedIn tags (#LI-XX: → #LI-XX1:) for 159 existing tags
-✓ JOB REMOVAL SYNC: Successfully removes orphaned jobs and uploads to server automatically
+## Recent Changes (Updated: 2025-08-06 - 23:05)
+✓ TIMEOUT PROTECTION: Implemented 110-second timeout to prevent monitoring cycles from exceeding 2-minute window
+✓ SMART TIME MANAGEMENT: Comprehensive sync skips automatically if less than 20 seconds remain
+✓ OVERDUE PREVENTION: Signal-based timeout handler stops long-running monitors gracefully
+✓ CRITICAL SFTP BUG FIX: Fixed missing FTPService import and wrong protocol (FTP vs SFTP) in comprehensive sync
+✓ JOB REMOVALS WORKING: Jobs 32266, 32269, 32293 successfully removed from live server
+✓ MONITORING WORKFLOW ACTIVE: 5 monitors tracking jobs with 2-minute detection cycles (never overdue)
+✓ IMMEDIATE PROCESSING ENABLED: Changes trigger instant XML sync → SFTP upload → email notifications
 ✓ DESCRIPTION CHANGE DETECTION FIX: Added 'description' field to comparison logic so job description changes are now properly detected and synced
 ✓ EMAIL NOTIFICATION ENHANCEMENT: Modified jobs now include detailed field change summaries in email notifications during comprehensive sync
 ✓ FIELD MONITORING EXPANSION: Enhanced compare_job_lists to monitor all critical fields (description, publicDescription, address, employmentType, assignedUsers, owner) for comprehensive change detection

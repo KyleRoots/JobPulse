@@ -30,6 +30,8 @@ import atexit
 import shutil
 import threading
 import time
+import signal
+from functools import wraps
 from flask_login import LoginManager, current_user, login_required, UserMixin, login_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -44,6 +46,37 @@ logging.getLogger('requests').setLevel(logging.WARNING)
 
 # Global progress tracker for manual operations
 progress_tracker = {}
+
+# Timeout handler for monitoring cycles
+class MonitoringTimeout(Exception):
+    """Exception raised when monitoring cycle exceeds time limit"""
+    pass
+
+def timeout_handler(signum, frame):
+    """Signal handler for timeout"""
+    raise MonitoringTimeout("Monitoring cycle exceeded 110 seconds")
+
+def with_timeout(seconds=110):
+    """Decorator to add timeout to functions - prevents monitoring from exceeding 2-minute cycle"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Store original alarm handler
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(seconds)  # Set alarm for timeout
+            
+            try:
+                result = func(*args, **kwargs)
+            except MonitoringTimeout:
+                app.logger.warning(f"⏱️ TIMEOUT: Monitoring cycle exceeded {seconds} seconds - stopping to prevent overdue")
+                result = None
+            finally:
+                signal.alarm(0)  # Cancel alarm
+                signal.signal(signal.SIGALRM, old_handler)  # Restore original handler
+            
+            return result
+        return wrapper
+    return decorator
 
 class Base(DeclarativeBase):
     pass
@@ -459,8 +492,9 @@ scheduler.add_job(
     replace_existing=True
 )
 
+@with_timeout(seconds=110)  # Limit to 110 seconds to prevent overdue (2-minute cycle = 120 seconds)
 def process_bullhorn_monitors():
-    """Process all active Bullhorn monitors for tearsheet changes"""
+    """Process all active Bullhorn monitors for tearsheet changes - timeout enforced"""
     with app.app_context():
         try:
             current_time = datetime.utcnow()
@@ -1323,7 +1357,18 @@ def process_bullhorn_monitors():
             
             # After processing all individual monitors, perform comprehensive XML sync
             # CRITICAL: Always run comprehensive sync when monitors are processed, even with no jobs
+            # BUT skip if we're running out of time to prevent overdue
+            elapsed_time = (datetime.utcnow() - current_time).total_seconds()
+            time_remaining = 110 - elapsed_time  # We have 110 seconds total
+            
+            app.logger.info(f"⏱️ TIME CHECK: Elapsed {elapsed_time:.1f}s, Remaining {time_remaining:.1f}s")
             app.logger.info(f"COMPREHENSIVE SYNC CHECK: monitors_processed = {len(monitors_processed) if monitors_processed else 0}, all_jobs = {len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0}")
+            
+            # Skip comprehensive sync if less than 20 seconds remaining
+            if time_remaining < 20:
+                app.logger.warning(f"⏱️ SKIPPING COMPREHENSIVE SYNC: Only {time_remaining:.1f}s remaining - preventing overdue")
+                return
+            
             if monitors_processed:
                 total_jobs = len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0
                 app.logger.info(f"🔥 COMPREHENSIVE SYNC STARTING: {total_jobs} total jobs from {len(monitors_processed)} monitors")
