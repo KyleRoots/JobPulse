@@ -654,7 +654,9 @@ class BullhornService:
             
             # Check key fields for changes
             changes = []
-            fields_to_check = ['title', 'status', 'isOpen', 'numOpenings', 'dateLastModified']
+            fields_to_check = ['title', 'status', 'isOpen', 'numOpenings', 'dateLastModified', 
+                               'description', 'publicDescription', 'address', 'employmentType',
+                               'assignedUsers', 'owner']
             
             for field in fields_to_check:
                 prev_val = prev_job.get(field)
