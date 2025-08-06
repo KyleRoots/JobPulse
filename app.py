@@ -431,10 +431,10 @@ def process_scheduled_files():
             app.logger.error(f"Error in scheduled processing: {str(e)}")
             db.session.rollback()
 
-# Add the scheduled job to check every 5 minutes
+# Add the scheduled job to check every 2 minutes for faster response
 scheduler.add_job(
     func=process_scheduled_files,
-    trigger=IntervalTrigger(minutes=5),
+    trigger=IntervalTrigger(minutes=2),  # Reduced from 5 to 2 minutes
     id='process_scheduled_files',
     name='Process Scheduled XML Files',
     replace_existing=True
@@ -457,7 +457,7 @@ def process_bullhorn_monitors():
                 for monitor in overdue_monitors:
                     old_time = monitor.next_check
                     monitor.last_check = current_time
-                    monitor.next_check = current_time + timedelta(minutes=5)
+                    monitor.next_check = current_time + timedelta(minutes=2)  # Reduced from 5 to 2 minutes
                     app.logger.info(f"AUTO-RECOVERY: {monitor.name} - Last: {monitor.last_check}, Next: {monitor.next_check} (was {old_time})")
                 
                 # CRITICAL: Immediate commit for timing corrections with error handling
@@ -471,7 +471,7 @@ def process_bullhorn_monitors():
                     for monitor in overdue_monitors:
                         try:
                             monitor.last_check = current_time
-                            monitor.next_check = current_time + timedelta(minutes=5)
+                            monitor.next_check = current_time + timedelta(minutes=2)  # Reduced from 5 to 2 minutes
                             db.session.commit()
                         except Exception as individual_error:
                             app.logger.error(f"AUTO-RECOVERY: Failed individual commit for {monitor.name}: {str(individual_error)}")
@@ -967,6 +967,122 @@ def process_bullhorn_monitors():
                         db.session.add(summary_activity)
                         
                         app.logger.info(f"Bullhorn monitor {monitor.name}: {len(current_jobs)} total jobs, {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified")
+                        
+                        # IMMEDIATE WORKFLOW EXECUTION: Trigger XML sync immediately when changes are detected
+                        app.logger.info(f"🚀 IMMEDIATE WORKFLOW TRIGGER: Changes detected for {monitor.name}, executing XML sync NOW")
+                        
+                        # Get XML Integration Service
+                        from xml_integration_service import XMLIntegrationService
+                        xml_service = XMLIntegrationService()
+                        
+                        # Determine which XML files need updating based on monitor
+                        xml_files_to_update = []
+                        active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+                        for schedule in active_schedules:
+                            if schedule.file_path:
+                                xml_files_to_update.append(os.path.basename(schedule.file_path))
+                        
+                        if not xml_files_to_update:
+                            xml_files_to_update = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+                        
+                        # Process each XML file immediately
+                        immediate_sync_summary = {'added_count': 0, 'removed_count': 0, 'updated_count': 0, 'sftp_upload_success': False}
+                        
+                        for xml_filename in xml_files_to_update:
+                            if os.path.exists(xml_filename):
+                                try:
+                                    app.logger.info(f"📝 IMMEDIATE SYNC: Processing {xml_filename} for {monitor.name}")
+                                    
+                                    # Process removals
+                                    if removed_jobs:
+                                        for job in removed_jobs:
+                                            job_id = str(job.get('job_id'))
+                                            if xml_service.remove_job_from_xml(xml_filename, job_id):
+                                                immediate_sync_summary['removed_count'] += 1
+                                                app.logger.info(f"🗑️ Immediately removed job {job_id} from {xml_filename}")
+                                    
+                                    # Process additions
+                                    if added_jobs:
+                                        for job in added_jobs:
+                                            if xml_service.add_job_to_xml(xml_filename, job, monitor.name):
+                                                immediate_sync_summary['added_count'] += 1
+                                                app.logger.info(f"✅ Immediately added job {job.get('id')}: {job.get('title')} to {xml_filename}")
+                                    
+                                    # Process modifications
+                                    if modified_jobs:
+                                        for job in modified_jobs:
+                                            # Find current job data
+                                            job_id = str(job.get('id'))
+                                            current_job_data = None
+                                            for cj in current_jobs:
+                                                if str(cj.get('id')) == job_id:
+                                                    current_job_data = cj
+                                                    break
+                                            
+                                            if current_job_data:
+                                                if xml_service.update_job_in_xml(xml_filename, current_job_data, monitor.name):
+                                                    immediate_sync_summary['updated_count'] += 1
+                                                    app.logger.info(f"📝 Immediately updated job {job_id}: {current_job_data.get('title')} in {xml_filename}")
+                                    
+                                    app.logger.info(f"✅ IMMEDIATE SYNC COMPLETE for {xml_filename}: {immediate_sync_summary['added_count']} added, {immediate_sync_summary['removed_count']} removed, {immediate_sync_summary['updated_count']} updated")
+                                    
+                                    # IMMEDIATE SFTP UPLOAD after XML sync
+                                    total_immediate_changes = immediate_sync_summary['added_count'] + immediate_sync_summary['removed_count'] + immediate_sync_summary['updated_count']
+                                    if total_immediate_changes > 0:
+                                        # Find matching schedule for auto-upload
+                                        matching_schedule = None
+                                        for schedule in active_schedules:
+                                            if os.path.basename(schedule.file_path) == xml_filename:
+                                                matching_schedule = schedule
+                                                break
+                                        
+                                        if matching_schedule and matching_schedule.auto_upload_ftp:
+                                            app.logger.info(f"📤 IMMEDIATE SFTP UPLOAD: Uploading {xml_filename} with {total_immediate_changes} changes")
+                                            
+                                            try:
+                                                # Get SFTP settings
+                                                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                                
+                                                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                                    sftp_hostname and sftp_hostname.setting_value and 
+                                                    sftp_username and sftp_username.setting_value and 
+                                                    sftp_password and sftp_password.setting_value):
+                                                    
+                                                    from ftp_service import get_ftp_service
+                                                    ftp_service = get_ftp_service()
+                                                    
+                                                    port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
+                                                    directory = sftp_directory.setting_value if sftp_directory else ''
+                                                    
+                                                    upload_result = ftp_service.upload_file(
+                                                        local_file_path=xml_filename,
+                                                        remote_filename=xml_filename,
+                                                        hostname=sftp_hostname.setting_value,
+                                                        username=sftp_username.setting_value,
+                                                        password=sftp_password.setting_value,
+                                                        port=port,
+                                                        directory=directory
+                                                    )
+                                                    
+                                                    if upload_result.get('success'):
+                                                        immediate_sync_summary['sftp_upload_success'] = True
+                                                        app.logger.info(f"✅ IMMEDIATE SFTP UPLOAD SUCCESSFUL for {xml_filename}")
+                                                    else:
+                                                        app.logger.error(f"❌ Immediate SFTP upload failed: {upload_result.get('error')}")
+                                            except Exception as upload_error:
+                                                app.logger.error(f"Error during immediate SFTP upload: {str(upload_error)}")
+                                    
+                                except Exception as e:
+                                    app.logger.error(f"Error in immediate sync for {xml_filename}: {str(e)}")
+                        
+                        # Mark XML sync as successful for this monitor
+                        xml_sync_success = True
+                        xml_sync_summary = immediate_sync_summary.copy()
                     
                     # CRITICAL TIMING FIX: Store notification data for sending AFTER comprehensive sync completes
                     # This ensures emails are sent AFTER XML files are uploaded to web server
@@ -1510,13 +1626,13 @@ def process_bullhorn_monitors():
                 # Check if any monitors are still showing as overdue after processing
                 still_overdue = BullhornMonitor.query.filter(
                     BullhornMonitor.is_active == True,
-                    BullhornMonitor.next_check < current_time_final - timedelta(minutes=5)
+                    BullhornMonitor.next_check < current_time_final - timedelta(minutes=2)  # Reduced from 5 to 2 minutes
                 ).all()
                 
                 if still_overdue:
                     app.logger.warning(f"HEALTH-CHECK: Found {len(still_overdue)} monitors still overdue after processing. Implementing emergency timing reset...")
                     for monitor in still_overdue:
-                        monitor.next_check = current_time_final + timedelta(minutes=5)
+                        monitor.next_check = current_time_final + timedelta(minutes=2)  # Reduced from 5 to 2 minutes
                         app.logger.warning(f"EMERGENCY-RESET: {monitor.name} reset to {monitor.next_check}")
                     db.session.commit()
                 
@@ -1553,7 +1669,7 @@ except ImportError:
 # Add Bullhorn monitoring to scheduler
 scheduler.add_job(
     func=monitoring_func,
-    trigger=IntervalTrigger(minutes=5),
+    trigger=IntervalTrigger(minutes=2),  # Reduced from 5 to 2 minutes for faster detection
     id='process_bullhorn_monitors',
     name='Process Bullhorn Monitors',
     replace_existing=True
@@ -3001,7 +3117,7 @@ def fix_system_timing():
         
         for monitor in overdue_monitors:
             old_time = monitor.next_check
-            monitor.next_check = current_time + timedelta(minutes=5)
+            monitor.next_check = current_time + timedelta(minutes=2)  # Reduced from 5 to 2 minutes
             fixed_items.append(f"Monitor '{monitor.name}': {old_time} → {monitor.next_check}")
         
         # Fix overdue schedules
