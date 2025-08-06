@@ -6,10 +6,11 @@ This Flask-based web application automates the processing of XML job feed files 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (Updated: 2025-08-06 - 23:05)
+## Recent Changes (Updated: 2025-08-06 - 23:18)
+✓ DUPLICATE EMAIL FIX: Prevented duplicate job removal emails by checking if notification already queued for monitor
 ✓ TIMEOUT PROTECTION: Implemented 110-second timeout to prevent monitoring cycles from exceeding 2-minute window
 ✓ SMART TIME MANAGEMENT: Comprehensive sync skips automatically if less than 20 seconds remain
-✓ OVERDUE PREVENTION: Signal-based timeout handler stops long-running monitors gracefully
+✓ OVERDUE PREVENTION: Inline time checking (thread-safe) stops long-running monitors gracefully
 ✓ CRITICAL SFTP BUG FIX: Fixed missing FTPService import and wrong protocol (FTP vs SFTP) in comprehensive sync
 ✓ JOB REMOVALS WORKING: Jobs 32266, 32269, 32293 successfully removed from live server
 ✓ MONITORING WORKFLOW ACTIVE: 5 monitors tracking jobs with 2-minute detection cycles (never overdue)

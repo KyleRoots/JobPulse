@@ -1716,8 +1716,19 @@ def process_bullhorn_monitors():
                                                 'timestamp': datetime.now()
                                             }
                                             
-                                            app._pending_notifications.append(notification_data)
-                                            app.logger.info(f"📧 Notification queued for {monitor.name} from comprehensive sync - {len(added_jobs)} added, {len(removed_jobs)} removed, {len(critical_modifications)} modified")
+                                            # Check if we already have a notification queued for this monitor
+                                            # to prevent duplicate emails for the same changes
+                                            already_queued = False
+                                            if hasattr(app, '_pending_notifications'):
+                                                for existing_notification in app._pending_notifications:
+                                                    if existing_notification['monitor_id'] == monitor.id:
+                                                        already_queued = True
+                                                        app.logger.info(f"📧 Skipping duplicate notification for {monitor.name} - already queued from individual processing")
+                                                        break
+                                            
+                                            if not already_queued:
+                                                app._pending_notifications.append(notification_data)
+                                                app.logger.info(f"📧 Notification queued for {monitor.name} from comprehensive sync - {len(added_jobs)} added, {len(removed_jobs)} removed, {len(critical_modifications)} modified")
                     
                     # Process pending notifications after comprehensive sync completes
                     if hasattr(app, '_pending_notifications') and app._pending_notifications:
