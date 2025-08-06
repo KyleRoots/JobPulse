@@ -1283,8 +1283,25 @@ def process_bullhorn_monitors():
                                 
                                 # Find missing jobs that need to be added
                                 missing_job_ids = bullhorn_job_ids - xml_job_ids
+                                # Find orphaned jobs that need to be removed
+                                orphaned_job_ids = xml_job_ids - bullhorn_job_ids
+                                
                                 app.logger.info(f"📊 COMPARISON: XML has {len(xml_job_ids)} jobs, Bullhorn has {len(bullhorn_job_ids)} jobs")
                                 app.logger.info(f"➕ MISSING JOBS: {len(missing_job_ids)} jobs need to be added: {list(missing_job_ids)[:10]}")
+                                app.logger.info(f"➖ ORPHANED JOBS: {len(orphaned_job_ids)} jobs need to be removed: {list(orphaned_job_ids)[:10]}")
+                                
+                                # Remove orphaned jobs from XML first
+                                if orphaned_job_ids:
+                                    jobs_removed = 0
+                                    for job_id in orphaned_job_ids:
+                                        if xml_service.remove_job_from_xml(xml_filename, job_id):
+                                            jobs_removed += 1
+                                            comprehensive_sync_made_changes = True
+                                            app.logger.info(f"🗑️ Removed orphaned job {job_id} from XML")
+                                    
+                                    if jobs_removed > 0:
+                                        comprehensive_sync_summary['removed_count'] += jobs_removed
+                                        app.logger.info(f"🎯 COMPREHENSIVE SYNC REMOVAL: Removed {jobs_removed} orphaned jobs from {xml_filename}")
                                 
                                 # Add missing jobs to XML
                                 if missing_job_ids:
@@ -1308,56 +1325,58 @@ def process_bullhorn_monitors():
                                     if jobs_added > 0:
                                         comprehensive_sync_summary['added_count'] += jobs_added
                                         app.logger.info(f"🎯 COMPREHENSIVE SYNC SUCCESS: Added {jobs_added} jobs to {xml_filename}")
-                                        
-                                        # Upload updated XML to SFTP if auto-upload is enabled
-                                        # Find matching schedule for this XML file
-                                        matching_schedule = None
-                                        for schedule in active_schedules:
-                                            if os.path.basename(schedule.file_path) == xml_filename:
-                                                matching_schedule = schedule
-                                                break
-                                        
-                                        if matching_schedule and matching_schedule.auto_upload_ftp:
-                                            try:
-                                                # Get SFTP settings from Global Settings
-                                                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
-                                                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                                                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                                                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                                                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                                                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                
+                                # Upload updated XML to SFTP if any changes were made (additions or removals)
+                                total_changes = comprehensive_sync_summary.get('added_count', 0) + comprehensive_sync_summary.get('removed_count', 0)
+                                if total_changes > 0:
+                                    # Find matching schedule for this XML file
+                                    matching_schedule = None
+                                    for schedule in active_schedules:
+                                        if os.path.basename(schedule.file_path) == xml_filename:
+                                            matching_schedule = schedule
+                                            break
+                                    
+                                    if matching_schedule and matching_schedule.auto_upload_ftp:
+                                        try:
+                                            # Get SFTP settings from Global Settings
+                                            sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                            sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                            sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                            sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                            sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                            sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                            
+                                            if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                                sftp_hostname and sftp_hostname.setting_value and 
+                                                sftp_username and sftp_username.setting_value and 
+                                                sftp_password and sftp_password.setting_value):
                                                 
-                                                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
-                                                    sftp_hostname and sftp_hostname.setting_value and 
-                                                    sftp_username and sftp_username.setting_value and 
-                                                    sftp_password and sftp_password.setting_value):
-                                                    
-                                                    port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
-                                                    directory = sftp_directory.setting_value if sftp_directory else ''
-                                                    
-                                                    ftp_service = get_ftp_service()
-                                                    upload_result = ftp_service.upload_file(
-                                                        local_file_path=xml_filename,
-                                                        remote_filename=xml_filename,
-                                                        hostname=sftp_hostname.setting_value,
-                                                        username=sftp_username.setting_value,
-                                                        password=sftp_password.setting_value,
-                                                        port=port,
-                                                        directory=directory
-                                                    )
-                                                    
-                                                    if upload_result.get('success'):
-                                                        comprehensive_sync_summary['sftp_upload_success'] = True
-                                                        app.logger.info(f"✅ SFTP upload successful for {xml_filename}")
-                                                    else:
-                                                        app.logger.error(f"❌ SFTP upload failed for {xml_filename}: {upload_result.get('error')}")
-                                                        comprehensive_sync_summary['sftp_upload_success'] = False
+                                                port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
+                                                directory = sftp_directory.setting_value if sftp_directory else ''
+                                                
+                                                ftp_service = get_ftp_service()
+                                                upload_result = ftp_service.upload_file(
+                                                    local_file_path=xml_filename,
+                                                    remote_filename=xml_filename,
+                                                    hostname=sftp_hostname.setting_value,
+                                                    username=sftp_username.setting_value,
+                                                    password=sftp_password.setting_value,
+                                                    port=port,
+                                                    directory=directory
+                                                )
+                                                
+                                                if upload_result.get('success'):
+                                                    comprehensive_sync_summary['sftp_upload_success'] = True
+                                                    app.logger.info(f"✅ SFTP upload successful for {xml_filename}")
                                                 else:
-                                                    app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
+                                                    app.logger.error(f"❌ SFTP upload failed for {xml_filename}: {upload_result.get('error')}")
                                                     comprehensive_sync_summary['sftp_upload_success'] = False
-                                            except Exception as upload_error:
-                                                app.logger.error(f"Error during SFTP upload for {xml_filename}: {str(upload_error)}")
+                                            else:
+                                                app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
                                                 comprehensive_sync_summary['sftp_upload_success'] = False
+                                        except Exception as upload_error:
+                                            app.logger.error(f"Error during SFTP upload for {xml_filename}: {str(upload_error)}")
+                                            comprehensive_sync_summary['sftp_upload_success'] = False
                                 
                                 # Handle job modifications by checking if any monitor detected changes
                                 # If comprehensive sync processes modifications, track them
