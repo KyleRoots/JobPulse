@@ -1056,6 +1056,12 @@ def process_bullhorn_monitors():
                                                     if upload_success:
                                                         immediate_sync_summary['sftp_upload_success'] = True
                                                         app.logger.info(f"✅ IMMEDIATE SFTP UPLOAD SUCCESSFUL for {xml_filename}")
+                                                        
+                                                        # Update the last_file_upload timestamp for the schedule
+                                                        if schedule:
+                                                            schedule.last_file_upload = datetime.utcnow()
+                                                            db.session.commit()
+                                                            app.logger.info(f"Updated last_file_upload timestamp for schedule: {schedule.name}")
                                                     else:
                                                         app.logger.error(f"❌ Immediate SFTP upload failed")
                                         except Exception as upload_error:
