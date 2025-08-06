@@ -1906,6 +1906,9 @@ def scheduler_dashboard():
                 'last_modified': datetime.fromtimestamp(file_stats.st_mtime),
                 'is_active': True
             })
+            app.logger.info(f"Added {filename} to active_xml_files: size={file_stats.st_size}, modified={datetime.fromtimestamp(file_stats.st_mtime)}")
+    
+    app.logger.info(f"Active XML files count: {len(active_xml_files)}")
     
     # Get recent processing logs
     recent_logs = ProcessingLog.query.order_by(ProcessingLog.processed_at.desc()).limit(10).all()

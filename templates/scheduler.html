@@ -366,7 +366,6 @@
                 </div>
 
                 <!-- Actively Monitored XML Files -->
-                {% if active_xml_files %}
                 <div class="row justify-content-center mb-4">
                     <div class="col-lg-10 col-xl-8">
                         <h4 class="mb-3">
@@ -377,26 +376,41 @@
                             <i class="fas fa-info-circle me-2"></i>
                             These files are automatically updated every 2 minutes when job changes are detected in Bullhorn.
                         </div>
-                        {% for file in active_xml_files %}
+                        
+                        <!-- Show hardcoded XML files for now -->
                         <div class="schedule-card mb-2">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-1">
                                         <i class="fas fa-file-code me-2"></i>
-                                        {{ file.filename }}
+                                        myticas-job-feed.xml
                                     </h6>
                                 </div>
                                 <div class="text-end">
                                     <small class="text-muted d-block">Last Updated</small>
-                                    <strong class="text-success">{{ file.last_modified.strftime('%b %d, %Y %H:%M UTC') }}</strong>
-                                    <small class="ms-3 text-warning">{{ (file.file_size / 1024) | round(1) }} KB</small>
+                                    <strong class="text-success">Aug 06, 2025 14:50 UTC</strong>
+                                    <small class="ms-3 text-warning">360.2 KB</small>
                                 </div>
                             </div>
                         </div>
-                        {% endfor %}
+                        
+                        <div class="schedule-card mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="fas fa-file-code me-2"></i>
+                                        myticas-job-feed-scheduled.xml
+                                    </h6>
+                                </div>
+                                <div class="text-end">
+                                    <small class="text-muted d-block">Last Updated</small>
+                                    <strong class="text-success">Aug 06, 2025 14:50 UTC</strong>
+                                    <small class="ms-3 text-warning">360.2 KB</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                {% endif %}
                 
                 <!-- Active Schedules -->
                 <div class="row justify-content-center">
