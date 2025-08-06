@@ -1541,7 +1541,8 @@ def process_bullhorn_monitors():
                                                     username=sftp_username.setting_value,
                                                     password=sftp_password.setting_value,
                                                     target_directory=directory,
-                                                    port=port
+                                                    port=port,
+                                                    use_sftp=True  # CRITICAL: Must use SFTP, not FTP
                                                 )
                                                 upload_result = ftp_service.upload_file(
                                                     local_file_path=xml_filename,
