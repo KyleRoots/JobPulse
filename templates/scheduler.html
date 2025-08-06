@@ -389,12 +389,18 @@
                                         </h6>
                                     </div>
                                     <div class="text-end">
-                                        <small class="text-muted d-block">Last Updated</small>
+                                        <small class="text-muted d-block">Last Updated (Server Time EDT)</small>
                                         <strong class="text-success">
-                                            {{ xml_file.last_modified.strftime('%b %d, %Y %H:%M UTC') }}
+                                            {# Show server time in EDT format #}
+                                            {% if xml_file.server_time %}
+                                                {{ xml_file.server_time }}
+                                            {% else %}
+                                                {{ xml_file.last_modified.strftime('%Y-%m-%d %H:%M:%S') }}
+                                            {% endif %}
                                         </strong>
                                         <small class="ms-3 text-warning">
-                                            {{ (xml_file.file_size / 1024) | round(1) }} KB
+                                            {# Display server-accurate size #}
+                                            {{ xml_file.display_size }}
                                         </small>
                                     </div>
                                 </div>
