@@ -1379,12 +1379,37 @@ def process_bullhorn_monitors():
                                             comprehensive_sync_summary['sftp_upload_success'] = False
                                 
                                 # Handle job modifications by checking if any monitor detected changes
-                                # If comprehensive sync processes modifications, track them
+                                # If comprehensive sync processes modifications, track them AND update the XML
                                 if monitors_processed:
                                     for monitor in monitors_processed:
                                         if hasattr(monitor, '_detected_changes') and monitor._detected_changes:
-                                            comprehensive_sync_made_changes = True
-                                            comprehensive_sync_summary['updated_count'] += len(monitor._detected_changes.get('modified', []))
+                                            # Process modified jobs - ACTUALLY UPDATE THEM IN XML
+                                            modified_jobs = monitor._detected_changes.get('modified', [])
+                                            if modified_jobs:
+                                                jobs_updated = 0
+                                                for modified_job in modified_jobs:
+                                                    # Find the updated job data in all_current_jobs_from_monitors
+                                                    job_id = str(modified_job.get('id'))
+                                                    updated_job_data = None
+                                                    
+                                                    for job in all_current_jobs_from_monitors:
+                                                        if str(job.get('id')) == job_id:
+                                                            updated_job_data = job
+                                                            break
+                                                    
+                                                    if updated_job_data:
+                                                        # Update the job in XML with the new data
+                                                        if xml_service.update_job_in_xml(xml_filename, updated_job_data, monitor.name):
+                                                            jobs_updated += 1
+                                                            comprehensive_sync_made_changes = True
+                                                            app.logger.info(f"📝 Updated job {job_id}: {updated_job_data.get('title', 'Unknown')} in XML")
+                                                
+                                                if jobs_updated > 0:
+                                                    comprehensive_sync_summary['updated_count'] += jobs_updated
+                                                    app.logger.info(f"🔄 COMPREHENSIVE SYNC UPDATE: Modified {jobs_updated} jobs in {xml_filename}")
+                                            else:
+                                                # No modified jobs, but still track if there were additions/removals
+                                                comprehensive_sync_made_changes = True
                                 
                             except Exception as e:
                                 app.logger.error(f"Error in comprehensive sync for {xml_filename}: {str(e)}")
