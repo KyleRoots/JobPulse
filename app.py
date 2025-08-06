@@ -1611,14 +1611,22 @@ def process_bullhorn_monitors():
                                                 )
                                                 upload_result = ftp_service.upload_file(
                                                     local_file_path=xml_filename,
-                                                    remote_filename=xml_filename
+                                                    remote_filename=os.path.basename(xml_filename)
                                                 )
                                                 
-                                                if upload_result.get('success'):
+                                                if upload_result:  # upload_file returns boolean
                                                     comprehensive_sync_summary['sftp_upload_success'] = True
                                                     app.logger.info(f"✅ SFTP upload successful for {xml_filename}")
+                                                    
+                                                    # Update the last_file_upload timestamp for this schedule
+                                                    for schedule in ScheduleConfig.query.filter_by(is_active=True).all():
+                                                        if schedule.file_path == xml_filename:
+                                                            schedule.last_file_upload = datetime.utcnow()
+                                                            db.session.commit()
+                                                            app.logger.info(f"Updated last_file_upload timestamp for {schedule.name} after comprehensive sync")
+                                                            break
                                                 else:
-                                                    app.logger.error(f"❌ SFTP upload failed for {xml_filename}: {upload_result.get('error')}")
+                                                    app.logger.error(f"❌ SFTP upload failed for {xml_filename}")
                                                     comprehensive_sync_summary['sftp_upload_success'] = False
                                             else:
                                                 app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
