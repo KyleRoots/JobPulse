@@ -62,12 +62,23 @@ def initialize_app():
         return app
         
     except Exception as e:
-        logger.error(f"Failed to initialize application: {str(e)}")
+        error_msg = str(e)
+        logger.error(f"Failed to initialize application: {error_msg}")
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
         # Return a minimal app for emergency health checks
         from flask import Flask, jsonify
         emergency_app = Flask(__name__)
+        
+        @emergency_app.route('/')
+        def emergency_root():
+            return jsonify({
+                'status': 'error',
+                'service': 'job-feed-refresh',
+                'message': 'Application failed to initialize',
+                'timestamp': datetime.utcnow().isoformat(),
+                'error': error_msg
+            }), 503
         
         @emergency_app.route('/health')
         def emergency_health():
@@ -75,8 +86,24 @@ def initialize_app():
                 'status': 'error',
                 'message': 'Application failed to initialize',
                 'timestamp': datetime.utcnow().isoformat(),
-                'error': str(e)
+                'error': error_msg
             }), 503
+        
+        @emergency_app.route('/ready')
+        def emergency_ready():
+            return jsonify({
+                'status': 'not_ready',
+                'timestamp': datetime.utcnow().isoformat(),
+                'error': error_msg
+            }), 503
+        
+        @emergency_app.route('/alive')
+        def emergency_alive():
+            return jsonify({
+                'status': 'alive',
+                'timestamp': datetime.utcnow().isoformat(),
+                'error': error_msg
+            }), 200
             
         return emergency_app
 

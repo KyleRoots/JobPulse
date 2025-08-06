@@ -663,11 +663,15 @@ def process_bullhorn_monitors():
                                                     if f"({job_id})" in xml_content:
                                                         app.logger.warning(f"Job {job_id} still exists in XML after removal attempt")
                                                         # Attempt manual removal with retry
-                                                        manual_removal = xml_service.remove_job_from_xml(schedule.file_path, job_id)
-                                                        if manual_removal:
-                                                            app.logger.info(f"Manually removed job {job_id} from XML")
-                                                        else:
-                                                            verification_errors.append(f"Failed to remove job {job_id}")
+                                                        try:
+                                                            manual_removal = xml_service.remove_job_from_xml(schedule.file_path, job_id)
+                                                            if manual_removal:
+                                                                app.logger.info(f"Manually removed job {job_id} from XML")
+                                                            else:
+                                                                verification_errors.append(f"Failed to remove job {job_id}")
+                                                        except Exception as e:
+                                                            app.logger.error(f"Error removing job {job_id}: {str(e)}")
+                                                            verification_errors.append(f"Failed to remove job {job_id}: {str(e)}")
                                             
                                             # Check modified jobs
                                             for modified_job in modified_jobs:
@@ -1678,14 +1682,9 @@ def process_bullhorn_monitors():
             app.logger.error(f"Error in Bullhorn monitor processing: {str(e)}")
             db.session.rollback()
 
-# Import the simplified monitoring service with fallback
-try:
-    from simplified_monitoring_service import process_bullhorn_monitors_simple
-    app.logger.info("Using refactored monitoring service for better reliability")
-    monitoring_func = process_bullhorn_monitors_simple
-except ImportError:
-    app.logger.warning("Using original complex monitoring function - refactored version not available")
-    monitoring_func = process_bullhorn_monitors
+# Use the regular monitoring function since simplified version is not available
+monitoring_func = process_bullhorn_monitors
+app.logger.info("Using standard monitoring function for Bullhorn processing")
 
 # Add Bullhorn monitoring to scheduler
 scheduler.add_job(
@@ -2824,7 +2823,18 @@ def trigger_job_sync():
         # Ensure background services are initialized when doing manual operations
         ensure_background_services()
         
-        from simplified_monitoring_service import MonitoringService
+        try:
+            from simplified_monitoring_service import MonitoringService
+        except ImportError:
+            app.logger.warning("Simplified monitoring service not available, using direct processing")
+            # Fallback to direct processing if simplified service not available
+            from bullhorn_monitoring import process_bullhorn_monitors
+            process_bullhorn_monitors()
+            return jsonify({
+                'success': True,
+                'message': 'Job sync triggered successfully (fallback mode)',
+                'timestamp': datetime.utcnow().isoformat()
+            })
         
         # Run monitoring immediately
         service = MonitoringService(db.session)
