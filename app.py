@@ -465,38 +465,7 @@ def process_bullhorn_monitors():
         try:
             current_time = datetime.utcnow()
             
-            # PREVENTION LAYER 1: Enhanced auto-recovery for overdue monitors
-            overdue_monitors = BullhornMonitor.query.filter(
-                BullhornMonitor.is_active == True,
-                BullhornMonitor.next_check < current_time - timedelta(minutes=10)
-            ).all()
-            
-            if overdue_monitors:
-                app.logger.warning(f"AUTO-RECOVERY: Found {len(overdue_monitors)} monitors overdue by >10 minutes. Implementing comprehensive timing correction...")
-                for monitor in overdue_monitors:
-                    old_time = monitor.next_check
-                    monitor.last_check = current_time
-                    monitor.next_check = current_time + timedelta(minutes=2)  # Reduced from 5 to 2 minutes
-                    app.logger.info(f"AUTO-RECOVERY: {monitor.name} - Last: {monitor.last_check}, Next: {monitor.next_check} (was {old_time})")
-                
-                # CRITICAL: Immediate commit for timing corrections with error handling
-                try:
-                    db.session.commit()
-                    app.logger.info("AUTO-RECOVERY: Timing corrections successfully committed to database")
-                except Exception as e:
-                    app.logger.error(f"AUTO-RECOVERY: Failed to commit timing corrections: {str(e)}")
-                    db.session.rollback()
-                    # Try again with individual commits
-                    for monitor in overdue_monitors:
-                        try:
-                            monitor.last_check = current_time
-                            monitor.next_check = current_time + timedelta(minutes=2)  # Reduced from 5 to 2 minutes
-                            db.session.commit()
-                        except Exception as individual_error:
-                            app.logger.error(f"AUTO-RECOVERY: Failed individual commit for {monitor.name}: {str(individual_error)}")
-                            db.session.rollback()
-            
-            # Get all active monitors that are due for checking
+            # FIRST: Get all active monitors that are due for checking (including overdue ones)
             due_monitors = BullhornMonitor.query.filter(
                 BullhornMonitor.is_active == True,
                 BullhornMonitor.next_check <= current_time
@@ -998,15 +967,9 @@ def process_bullhorn_monitors():
                         from xml_integration_service import XMLIntegrationService
                         xml_service = XMLIntegrationService()
                         
-                        # Determine which XML files need updating based on monitor
-                        xml_files_to_update = []
+                        # Determine which XML files need updating - use actual XML files in root
+                        xml_files_to_update = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
                         active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
-                        for schedule in active_schedules:
-                            if schedule.file_path:
-                                xml_files_to_update.append(os.path.basename(schedule.file_path))
-                        
-                        if not xml_files_to_update:
-                            xml_files_to_update = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
                         
                         # Process each XML file immediately
                         immediate_sync_summary = {'added_count': 0, 'removed_count': 0, 'updated_count': 0, 'sftp_upload_success': False}
@@ -1052,17 +1015,10 @@ def process_bullhorn_monitors():
                                     # IMMEDIATE SFTP UPLOAD after XML sync
                                     total_immediate_changes = immediate_sync_summary['added_count'] + immediate_sync_summary['removed_count'] + immediate_sync_summary['updated_count']
                                     if total_immediate_changes > 0:
-                                        # Find matching schedule for auto-upload
-                                        matching_schedule = None
-                                        for schedule in active_schedules:
-                                            if os.path.basename(schedule.file_path) == xml_filename:
-                                                matching_schedule = schedule
-                                                break
+                                        # Always upload to SFTP when changes are made - don't depend on schedule matching
+                                        app.logger.info(f"📤 IMMEDIATE SFTP UPLOAD: Uploading {xml_filename} with {total_immediate_changes} changes")
                                         
-                                        if matching_schedule and matching_schedule.auto_upload_ftp:
-                                            app.logger.info(f"📤 IMMEDIATE SFTP UPLOAD: Uploading {xml_filename} with {total_immediate_changes} changes")
-                                            
-                                            try:
+                                        try:
                                                 # Get SFTP settings
                                                 sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
                                                 sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
@@ -1097,8 +1053,8 @@ def process_bullhorn_monitors():
                                                         app.logger.info(f"✅ IMMEDIATE SFTP UPLOAD SUCCESSFUL for {xml_filename}")
                                                     else:
                                                         app.logger.error(f"❌ Immediate SFTP upload failed: {upload_result.get('error')}")
-                                            except Exception as upload_error:
-                                                app.logger.error(f"Error during immediate SFTP upload: {str(upload_error)}")
+                                        except Exception as upload_error:
+                                            app.logger.error(f"Error during immediate SFTP upload: {str(upload_error)}")
                                     
                                 except Exception as e:
                                     app.logger.error(f"Error in immediate sync for {xml_filename}: {str(e)}")
@@ -1130,12 +1086,13 @@ def process_bullhorn_monitors():
                                     })
                                     break  # Found critical change, no need to check other changes for this job
                     
-                    critical_changes_exist = bool(added_jobs or removed_jobs or critical_modifications)
+                    # Send notifications for ALL changes, not just "critical" ones
+                    any_changes_exist = bool(added_jobs or removed_jobs or modified_jobs)
                     
-                    if critical_changes_exist:
-                        app.logger.info(f"🔔 Critical changes detected for monitor {monitor.name}: {len(added_jobs)} added, {len(removed_jobs)} removed, {len(critical_modifications)} critically modified jobs")
+                    if any_changes_exist:
+                        app.logger.info(f"🔔 Changes detected for monitor {monitor.name}: {len(added_jobs)} added, {len(removed_jobs)} removed, {len(modified_jobs)} modified jobs")
                     
-                    if critical_changes_exist and monitor.send_notifications:
+                    if any_changes_exist and monitor.send_notifications:
                         # Get email address from Global Settings or monitor-specific setting
                         email_address = monitor.notification_email
                         if not email_address:
