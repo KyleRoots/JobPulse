@@ -4846,11 +4846,24 @@ _background_services_started = False
 def ensure_background_services():
     """Ensure background services are started when first needed"""
     global _background_services_started
+    # Always check if scheduler is running, not just the flag
+    if not scheduler.running:
+        try:
+            scheduler.start()
+            app.logger.info("Background scheduler started/restarted successfully")
+            _background_services_started = True
+        except Exception as e:
+            app.logger.error(f"Failed to start scheduler: {str(e)}")
+            _background_services_started = False
+            return False
+    
+    # Only run these once    
     if not _background_services_started:
         _background_services_started = True
-        lazy_start_scheduler()
         lazy_apply_optimizations()
         lazy_init_file_consolidation()
+    
+    return True
 
 # Add monitor health check job - run every 15 minutes
 scheduler.add_job(
