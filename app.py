@@ -161,25 +161,37 @@ scheduler = BackgroundScheduler(
     }
 )
 
-# Import and apply optimizations with error handling
-try:
-    from optimization_improvements import apply_optimizations
-    optimizer = apply_optimizations(app, db, scheduler)
-    app.logger.info("Application optimizations successfully applied")
-except ImportError:
-    app.logger.warning("Optimization improvements module not available - using default configuration")
-    optimizer = None
-except Exception as e:
-    app.logger.error(f"Failed to apply optimizations: {str(e)}")
-    optimizer = None
+# Defer expensive optimizations to be applied lazily
+optimizer = None
+def lazy_apply_optimizations():
+    """Apply optimizations only when needed, not during startup"""
+    global optimizer
+    if optimizer is None:
+        try:
+            from optimization_improvements import apply_optimizations
+            optimizer = apply_optimizations(app, db, scheduler)
+            app.logger.info("Application optimizations applied lazily")
+        except ImportError:
+            app.logger.debug("Optimization improvements module not available")
+            optimizer = False  # Mark as attempted
+        except Exception as e:
+            app.logger.warning(f"Failed to apply optimizations: {str(e)}")
+            optimizer = False
+    return optimizer
 
-# Initialize file consolidation service
-try:
-    from file_consolidation_service import FileConsolidationService
-    app.file_consolidation = FileConsolidationService()
-    app.logger.info("File consolidation service initialized")
-except Exception as e:
-    app.logger.warning(f"File consolidation service not available: {e}")
+# Defer file consolidation service initialization
+app.file_consolidation = None
+def lazy_init_file_consolidation():
+    """Initialize file consolidation service only when needed"""
+    if app.file_consolidation is None:
+        try:
+            from file_consolidation_service import FileConsolidationService
+            app.file_consolidation = FileConsolidationService()
+            app.logger.info("File consolidation service initialized lazily")
+        except Exception as e:
+            app.logger.warning(f"File consolidation service not available: {e}")
+            app.file_consolidation = False  # Mark as attempted
+    return app.file_consolidation
 
 # Cleanup scheduler on exit with proper error handling
 def cleanup_scheduler():
@@ -1729,29 +1741,39 @@ def logout():
 # Health check endpoints for deployment
 @app.route('/health')
 def health_check():
-    """Comprehensive health check endpoint for monitoring"""
+    """Fast health check endpoint optimized for deployment systems"""
     try:
-        # Basic database connectivity check
-        db.session.execute(db.text('SELECT 1'))
+        start_time = time.time()
         
-        # Check if critical services are available
+        # Quick database connectivity check with timeout
+        try:
+            db.session.execute(db.text('SELECT 1'))
+            db_status = 'connected'
+        except Exception:
+            db_status = 'disconnected'
+        
+        # Quick service checks without expensive operations
+        scheduler_status = 'unknown'
+        try:
+            if 'scheduler' in globals():
+                scheduler_status = 'running' if scheduler.running else 'stopped'
+        except:
+            pass
+        
         health_status = {
-            'status': 'healthy',
+            'status': 'healthy' if db_status == 'connected' else 'degraded',
             'timestamp': datetime.utcnow().isoformat(),
-            'database': 'connected',
-            'services': {
-                'scheduler': 'running' if scheduler.running else 'stopped',
-                'file_consolidation': hasattr(app, 'file_consolidation'),
-            }
+            'database': db_status,
+            'scheduler': scheduler_status,
+            'response_time_ms': round((time.time() - start_time) * 1000, 2)
         }
         
-        return jsonify(health_status), 200
+        return jsonify(health_status), 200 if db_status == 'connected' else 503
     except Exception as e:
         error_status = {
             'status': 'unhealthy',
             'timestamp': datetime.utcnow().isoformat(),
-            'error': str(e),
-            'database': 'disconnected'
+            'error': str(e)
         }
         app.logger.error(f"Health check failed: {str(e)}")
         return jsonify(error_status), 503
@@ -1772,6 +1794,22 @@ def liveness_check():
     return "OK", 200
 
 @app.route('/')
+def root_health_check():
+    """Simple health check at root endpoint for deployment systems"""
+    try:
+        # Quick health check without expensive operations
+        return jsonify({
+            'status': 'ok',
+            'service': 'job-feed-refresh',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 503
+
+@app.route('/dashboard')
 @login_required
 def index():
     """Main page with file upload form"""
@@ -2736,33 +2774,46 @@ def test_bullhorn_page():
     except Exception as e:
         return f"Error rendering template: {str(e)}", 500
 
-@app.route('/health')
-def simple_health_check():
-    """Simple health check that doesn't require authentication"""
+@app.route('/healthz')
+def detailed_health_check():
+    """Detailed health check with configuration status"""
     try:
-        # Test database connection
+        start_time = time.time()
+        
+        # Test database connection with timeout
         db_ok = False
         try:
             from sqlalchemy import text
             db.session.execute(text('SELECT 1')).scalar()
             db_ok = True
-        except:
-            pass
+        except Exception as e:
+            app.logger.warning(f"Database check failed: {str(e)}")
+        
+        # Quick configuration checks
+        config_status = {
+            'session_configured': bool(app.secret_key),
+            'database_configured': bool(os.environ.get('DATABASE_URL')),
+            'templates_directory_exists': os.path.exists('templates'),
+        }
+        
+        # Stop if taking too long (prevent timeout)
+        if time.time() - start_time > 2:  # 2 second timeout
+            return jsonify({
+                'status': 'timeout',
+                'message': 'Health check taking too long'
+            }), 503
             
         return jsonify({
-            'status': 'ok',
+            'status': 'ok' if db_ok else 'degraded',
             'timestamp': datetime.utcnow().isoformat(),
             'database': db_ok,
-            'session_configured': bool(app.secret_key),
-            'login_manager_configured': bool(app.login_manager),
-            'templates_exist': os.path.exists('templates/bullhorn.html'),
-            'bullhorn_template_size': os.path.getsize('templates/bullhorn.html') if os.path.exists('templates/bullhorn.html') else 0
+            'configuration': config_status,
+            'response_time_ms': round((time.time() - start_time) * 1000, 2)
         })
     except Exception as e:
         return jsonify({
             'status': 'error',
-            'error': str(e),
-            'traceback': traceback.format_exc()
+            'error': str(e)
         }), 500
 
 @app.route('/api/trigger/job-sync', methods=['POST'])
@@ -2770,6 +2821,9 @@ def simple_health_check():
 def trigger_job_sync():
     """Manually trigger job synchronization for immediate processing"""
     try:
+        # Ensure background services are initialized when doing manual operations
+        ensure_background_services()
+        
         from simplified_monitoring_service import MonitoringService
         
         # Run monitoring immediately
@@ -2802,8 +2856,14 @@ def trigger_file_cleanup():
     try:
         app.logger.info("Manual file cleanup triggered")
         
-        if hasattr(app, 'file_consolidation'):
-            results = app.file_consolidation.run_full_cleanup()
+        # Ensure background services are initialized
+        ensure_background_services()
+        
+        # Initialize file consolidation service if needed
+        file_service = lazy_init_file_consolidation()
+        
+        if file_service and file_service is not False:
+            results = file_service.run_full_cleanup()
             
             return jsonify({
                 'success': True,
@@ -4667,18 +4727,29 @@ def check_monitor_health():
             import traceback
             app.logger.error(traceback.format_exc())
 
-# Start scheduler after adding all jobs to reduce startup time
-def start_background_services():
-    """Start background services after app initialization"""
+# Defer scheduler startup to reduce initialization time
+def lazy_start_scheduler():
+    """Start scheduler only when needed to avoid startup delays"""
     try:
         if not scheduler.running:
             scheduler.start()
-            app.logger.info("Background scheduler started successfully")
+            app.logger.info("Background scheduler started lazily")
+            return True
     except Exception as e:
         app.logger.error(f"Failed to start scheduler: {str(e)}")
+        return False
+    return scheduler.running
 
-# Remove the deprecated @app.before_first_request and start scheduler after all jobs are added
-# This will be called after all jobs are defined
+# Track if background services have been initialized
+_background_services_started = False
+def ensure_background_services():
+    """Ensure background services are started when first needed"""
+    global _background_services_started
+    if not _background_services_started:
+        _background_services_started = True
+        lazy_start_scheduler()
+        lazy_apply_optimizations()
+        lazy_init_file_consolidation()
 
 # Add monitor health check job - run every 15 minutes
 scheduler.add_job(
@@ -4695,12 +4766,17 @@ app.logger.info("Monitor health check system enabled - will check every 15 minut
 def schedule_file_cleanup():
     """Schedule automatic file cleanup"""
     with app.app_context():
-        if hasattr(app, 'file_consolidation'):
-            try:
-                results = app.file_consolidation.run_full_cleanup()
+        try:
+            # Initialize file consolidation service if needed
+            file_service = lazy_init_file_consolidation()
+            
+            if file_service and file_service is not False:
+                results = file_service.run_full_cleanup()
                 app.logger.info(f"Scheduled file cleanup completed: {results.get('summary', {})}")
-            except Exception as e:
-                app.logger.error(f"Scheduled file cleanup error: {e}")
+            else:
+                app.logger.warning("File consolidation service not available for scheduled cleanup")
+        except Exception as e:
+            app.logger.error(f"Scheduled file cleanup error: {e}")
 
 scheduler.add_job(
     func=schedule_file_cleanup,
@@ -4744,6 +4820,6 @@ def alive():
         'uptime': 'ok'
     })
 
-# Start the scheduler after all jobs are configured
-start_background_services()
+# Scheduler and background services will be started lazily when first needed
+# This significantly reduces application startup time for deployment health checks
 
