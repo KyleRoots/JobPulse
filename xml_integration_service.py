@@ -344,22 +344,22 @@ class XMLIntegrationService:
     
     def _map_recruiter_to_linkedin_tag(self, recruiter_name: str) -> str:
         """Map recruiter names to LinkedIn-style tags for XML"""
-        # Define recruiter name to LinkedIn tag mapping - REVISED LIST
+        # Define recruiter name to LinkedIn tag mapping - REVISED LIST with '1' added
         recruiter_mapping = {
-            'Adam Gebara': '#LI-AG',
-            'Amanda Messina': '#LI-AM',
-            'Bryan Chinzorig': '#LI-BC',
-            'Christine Carter': '#LI-CC',
-            'Dan Sifer': '#LI-DS',
-            'Dominic Scaletta': '#LI-DSC',
-            'Matheo Theodossiou': '#LI-MAT',
-            'Michael Theodossiou': '#LI-MIT',
-            'Michelle Corino': '#LI-MC',
-            'Mike Gebara': '#LI-MG',
-            'Myticas Recruiter': '#LI-RS',    # Now using #LI-RS
-            'Nick Theodossiou': '#LI-NT',
-            'Reena Setya': '#LI-RS',          # Also using #LI-RS
-            'Runa Parmar': '#LI-RP'
+            'Adam Gebara': '#LI-AG1',
+            'Amanda Messina': '#LI-AM1',
+            'Bryan Chinzorig': '#LI-BC1',
+            'Christine Carter': '#LI-CC1',
+            'Dan Sifer': '#LI-DS1',
+            'Dominic Scaletta': '#LI-DSC1',
+            'Matheo Theodossiou': '#LI-MAT1',
+            'Michael Theodossiou': '#LI-MIT1',
+            'Michelle Corino': '#LI-MC1',
+            'Mike Gebara': '#LI-MG1',
+            'Myticas Recruiter': '#LI-RS1',    # Now using #LI-RS1
+            'Nick Theodossiou': '#LI-NT1',
+            'Reena Setya': '#LI-RS1',          # Also using #LI-RS1
+            'Runa Parmar': '#LI-RP1'
         }
         
         # Check for exact match first
