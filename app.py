@@ -380,7 +380,7 @@ def process_scheduled_files():
                             job_id=None,
                             job_title=None,
                             details=f"Scheduled processing failed for '{schedule.name}' - {result.get('error', 'Unknown error')}",
-                            notification_sent=False
+                            notification_sent=True  # Error notifications handled separately via email service
                         )
                         db.session.add(activity_entry)
                         
@@ -953,7 +953,8 @@ def process_bullhorn_monitors():
                         summary_activity = BullhornActivity(
                             monitor_id=monitor.id,
                             activity_type='check_completed',
-                            details=summary_details
+                            details=summary_details,
+                            notification_sent=True  # System housekeeping - no email needed
                         )
                         db.session.add(summary_activity)
                         
@@ -1150,7 +1151,8 @@ def process_bullhorn_monitors():
                         activity = BullhornActivity(
                             monitor_id=monitor.id,
                             activity_type='check_completed',
-                            details=f"Checked {monitor.tearsheet_name}. Found {len(current_jobs)} jobs. No changes detected."
+                            details=f"Checked {monitor.tearsheet_name}. Found {len(current_jobs)} jobs. No changes detected.",
+                            notification_sent=True  # System housekeeping - no email needed
                         )
                         db.session.add(activity)
                     else:
@@ -1159,7 +1161,8 @@ def process_bullhorn_monitors():
                             activity = BullhornActivity(
                                 monitor_id=monitor.id,
                                 activity_type='xml_sync_completed',
-                                details=f"XML sync completed: {xml_sync_summary.get('added_count', 0)} added, {xml_sync_summary.get('removed_count', 0)} removed, {xml_sync_summary.get('updated_count', 0)} updated. SFTP upload: {xml_sync_summary.get('sftp_upload_success', False)}"
+                                details=f"XML sync completed: {xml_sync_summary.get('added_count', 0)} added, {xml_sync_summary.get('removed_count', 0)} removed, {xml_sync_summary.get('updated_count', 0)} updated. SFTP upload: {xml_sync_summary.get('sftp_upload_success', False)}",
+                                notification_sent=True  # System housekeeping - no email needed
                             )
                             db.session.add(activity)
                     
