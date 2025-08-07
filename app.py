@@ -1439,15 +1439,26 @@ def process_bullhorn_monitors():
             
             # CRITICAL FIX: Only run comprehensive sync if monitors detected actual changes (not just missing jobs)
             has_actual_changes = False
+            actual_modifications_count = 0
+            actual_removals_count = 0
+            
             if monitors_processed:
                 for monitor in monitors_processed:
                     if hasattr(monitor, '_detected_changes') and monitor._detected_changes:
                         changes = monitor._detected_changes
-                        # Only consider it as having changes if there are modifications, additions, or removals
-                        # from the EXISTING XML, not bulk additions of "missing" jobs
-                        if changes.get('modified') or changes.get('removed'):
+                        # Only consider it as having changes if there are modifications or removals
+                        # Do NOT trigger comprehensive sync for additions alone (causes bulk reference regeneration)
+                        if changes.get('modified'):
+                            actual_modifications_count += len(changes.get('modified', []))
                             has_actual_changes = True
-                            break
+                        if changes.get('removed'):
+                            actual_removals_count += len(changes.get('removed', []))
+                            has_actual_changes = True
+            
+            app.logger.info(f"📊 COMPREHENSIVE SYNC DECISION: {actual_modifications_count} modifications, {actual_removals_count} removals detected")
+            
+            # DO NOT run comprehensive sync if only additions were detected
+            # This prevents bulk reference number regeneration
             
             if monitors_processed and has_actual_changes:
                 total_jobs = len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0
@@ -1594,6 +1605,9 @@ def process_bullhorn_monitors():
                                                             break
                                                     
                                                     if updated_job_data:
+                                                        # CRITICAL: Flag this job as actively modified for proper reference number handling
+                                                        updated_job_data['_monitor_flagged_as_modified'] = True
+                                                        
                                                         # Update the job in XML with the new data
                                                         if xml_service.update_job_in_xml(xml_filename, updated_job_data, monitor.name):
                                                             jobs_updated += 1
