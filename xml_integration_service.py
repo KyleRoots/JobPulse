@@ -547,24 +547,46 @@ class XMLIntegrationService:
                     self.logger.error(f"Job {job_id} failed validation - incomplete data")
                     return False
                 
-                # First check if job already exists to preserve reference number
+                # First check if job already exists to preserve reference number or skip duplicate
                 existing_reference_number = None
+                job_already_exists = False
                 
                 try:
                     tree = etree.parse(xml_file_path, self._parser)
                     root = tree.getroot()
                     
-                    # Find existing job by bhatsid
+                    # Find existing job by bhatsid - check for CDATA format
                     for job in root.xpath('.//job'):
                         bhatsid_elem = job.find('.//bhatsid')
-                        if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
-                            ref_elem = job.find('.//referencenumber')
-                            if ref_elem is not None and ref_elem.text:
-                                existing_reference_number = ref_elem.text.strip()
-                                self.logger.info(f"Found existing reference number {existing_reference_number} for job {job_id}")
+                        if bhatsid_elem is not None and bhatsid_elem.text:
+                            # Extract ID from CDATA if present
+                            bhatsid_text = str(bhatsid_elem.text).strip()
+                            if 'CDATA' in bhatsid_text:
+                                existing_bhatsid = bhatsid_text[9:-3].strip()  # Remove CDATA wrapper
+                            else:
+                                existing_bhatsid = bhatsid_text.strip()
+                            
+                            if existing_bhatsid == job_id:
+                                job_already_exists = True
+                                ref_elem = job.find('.//referencenumber')
+                                if ref_elem is not None and ref_elem.text:
+                                    existing_reference_number = ref_elem.text.strip()
+                                    if 'CDATA' in existing_reference_number:
+                                        existing_reference_number = existing_reference_number[9:-3].strip()
+                                    self.logger.info(f"Job {job_id} already exists in XML with reference {existing_reference_number}")
+                                else:
+                                    self.logger.info(f"Job {job_id} already exists in XML")
                                 break
                 except Exception as e:
                     self.logger.debug(f"Could not check for existing job: {e}")
+                
+                # If job already exists, skip adding it to prevent duplicates
+                if job_already_exists:
+                    self.logger.warning(f"⚠️ Job {job_id} already exists in {xml_file_path} - skipping to prevent duplicate")
+                    # Clean up backup file
+                    if os.path.exists(backup_path):
+                        os.remove(backup_path)
+                    return True  # Return True as the job is already in the file
                 
                 # Map Bullhorn job to XML format with existing reference number if found (ALWAYS include AI for completeness)
                 xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=False)
