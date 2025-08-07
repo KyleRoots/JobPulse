@@ -1419,8 +1419,9 @@ def process_bullhorn_monitors():
                         db.session.rollback()
             
             # After processing all individual monitors, perform comprehensive XML sync
-            # CRITICAL: Always run comprehensive sync when monitors are processed, even with no jobs
-            # BUT skip if we're running out of time to prevent overdue
+            # CRITICAL FIX: Only run comprehensive sync if there are actual changes detected
+            # DO NOT run comprehensive sync just to add "missing" jobs - this causes bulk reference regeneration
+            # Comprehensive sync should only handle job modifications, not bulk additions
             elapsed_time = (datetime.utcnow() - start_time).total_seconds()
             time_remaining = 110 - elapsed_time  # We have 110 seconds total
             
@@ -1432,7 +1433,19 @@ def process_bullhorn_monitors():
                 app.logger.warning(f"⏱️ SKIPPING COMPREHENSIVE SYNC: Only {time_remaining:.1f}s remaining - preventing overdue")
                 return
             
+            # CRITICAL FIX: Only run comprehensive sync if monitors detected actual changes (not just missing jobs)
+            has_actual_changes = False
             if monitors_processed:
+                for monitor in monitors_processed:
+                    if hasattr(monitor, '_detected_changes') and monitor._detected_changes:
+                        changes = monitor._detected_changes
+                        # Only consider it as having changes if there are modifications, additions, or removals
+                        # from the EXISTING XML, not bulk additions of "missing" jobs
+                        if changes.get('modified') or changes.get('removed'):
+                            has_actual_changes = True
+                            break
+            
+            if monitors_processed and has_actual_changes:
                 total_jobs = len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0
                 app.logger.info(f"🔥 COMPREHENSIVE SYNC STARTING: {total_jobs} total jobs from {len(monitors_processed)} monitors")
                 
@@ -1507,8 +1520,13 @@ def process_bullhorn_monitors():
                                 orphaned_job_ids = xml_job_ids - bullhorn_job_ids
                                 
                                 app.logger.info(f"📊 COMPARISON: XML has {len(xml_job_ids)} jobs, Bullhorn has {len(bullhorn_job_ids)} jobs")
-                                app.logger.info(f"➕ MISSING JOBS: {len(missing_job_ids)} jobs need to be added: {list(missing_job_ids)[:10]}")
+                                app.logger.info(f"➕ MISSING JOBS: {len(missing_job_ids)} jobs found (will NOT add during monitoring to prevent bulk reference regeneration)")
                                 app.logger.info(f"➖ ORPHANED JOBS: {len(orphaned_job_ids)} jobs need to be removed: {list(orphaned_job_ids)[:10]}")
+                                
+                                # CRITICAL FIX: DO NOT add "missing" jobs during monitoring cycles
+                                # This causes all jobs to get new reference numbers
+                                # Only remove orphaned jobs and update modified jobs
+                                # Missing jobs should only be added during scheduled processing
                                 
                                 # Remove orphaned jobs from XML first
                                 if orphaned_job_ids:
@@ -1523,28 +1541,32 @@ def process_bullhorn_monitors():
                                         comprehensive_sync_summary['removed_count'] += jobs_removed
                                         app.logger.info(f"🎯 COMPREHENSIVE SYNC REMOVAL: Removed {jobs_removed} orphaned jobs from {xml_filename}")
                                 
-                                # Add missing jobs to XML
-                                if missing_job_ids:
-                                    jobs_added = 0
-                                    for job_id in missing_job_ids:
-                                        # Find the job data
-                                        job_data = None
-                                        monitor_name = "Comprehensive Sync"
-                                        
-                                        for job in all_current_jobs_from_monitors:
-                                            if str(job.get('id')) == job_id:
-                                                job_data = job
-                                                break
-                                        
-                                        if job_data:
-                                            if xml_service.add_job_to_xml(xml_filename, job_data, monitor_name):
-                                                jobs_added += 1
-                                                comprehensive_sync_made_changes = True
-                                                app.logger.info(f"✅ Added job {job_id}: {job_data.get('title', 'Unknown')}")
-                                    
-                                    if jobs_added > 0:
-                                        comprehensive_sync_summary['added_count'] += jobs_added
-                                        app.logger.info(f"🎯 COMPREHENSIVE SYNC SUCCESS: Added {jobs_added} jobs to {xml_filename}")
+                                # CRITICAL FIX: DO NOT add missing jobs during monitoring cycles
+                                # This was causing all jobs to get new reference numbers
+                                # Missing jobs should only be added during initial setup or scheduled processing
+                                # Comment out the bulk addition logic to prevent reference number regeneration
+                                
+                                # if missing_job_ids:
+                                #     jobs_added = 0
+                                #     for job_id in missing_job_ids:
+                                #         # Find the job data
+                                #         job_data = None
+                                #         monitor_name = "Comprehensive Sync"
+                                #         
+                                #         for job in all_current_jobs_from_monitors:
+                                #             if str(job.get('id')) == job_id:
+                                #                 job_data = job
+                                #                 break
+                                #         
+                                #         if job_data:
+                                #             if xml_service.add_job_to_xml(xml_filename, job_data, monitor_name):
+                                #                 jobs_added += 1
+                                #                 comprehensive_sync_made_changes = True
+                                #                 app.logger.info(f"✅ Added job {job_id}: {job_data.get('title', 'Unknown')}")
+                                #     
+                                #     if jobs_added > 0:
+                                #         comprehensive_sync_summary['added_count'] += jobs_added
+                                #         app.logger.info(f"🎯 COMPREHENSIVE SYNC SUCCESS: Added {jobs_added} jobs to {xml_filename}")
                                 
                                 # Handle job modifications BEFORE SFTP upload
                                 # If comprehensive sync processes modifications, track them AND update the XML
