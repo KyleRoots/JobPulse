@@ -1153,7 +1153,7 @@ class XMLIntegrationService:
                 generate_new_reference = False
                 
                 # Check if this job was flagged as actively modified by the monitor
-                if hasattr(bullhorn_job, '_monitor_flagged_as_modified') and bullhorn_job.get('_monitor_flagged_as_modified'):
+                if bullhorn_job.get('_monitor_flagged_as_modified'):
                     self.logger.info(f"🔄 Job {job_id} ACTIVELY modified in current cycle - will get NEW reference number (was: {existing_reference_for_preservation})")
                     generate_new_reference = True
                 else:
