@@ -509,6 +509,11 @@ def process_bullhorn_monitors():
     start_time = datetime.utcnow()
     max_duration = timedelta(seconds=110)  # 110 seconds max to prevent overdue
     
+    # Import and initialize rapid change tracker for this cycle
+    from rapid_change_tracker import RapidChangeTracker
+    rapid_tracker = RapidChangeTracker()
+    rapid_tracker.start_new_cycle()
+    
     with app.app_context():
         try:
             current_time = datetime.utcnow()
@@ -817,6 +822,8 @@ def process_bullhorn_monitors():
                     
                     # Log activities
                     for job in added_jobs:
+                        # Track in rapid change tracker
+                        rapid_tracker.record_job_added(job.get('id'), job)
                         # Extract account manager from job data with debug logging
                         account_manager = None
                         job_id = job.get('id')
@@ -865,6 +872,8 @@ def process_bullhorn_monitors():
                         db.session.add(activity)
                     
                     for job in removed_jobs:
+                        # Track in rapid change tracker
+                        rapid_tracker.record_job_removed(job.get('id'), job)
                         # Extract account manager from job data with debug logging
                         account_manager = None
                         job_id = job.get('id')
@@ -913,6 +922,9 @@ def process_bullhorn_monitors():
                         db.session.add(activity)
                     
                     for job in modified_jobs:
+                        # Track in rapid change tracker
+                        job_changes = job.get('changes', [])
+                        rapid_tracker.record_job_modified(job.get('id'), job, job_changes)
                         # Extract account manager from job data with debug logging
                         account_manager = None
                         job_id = job.get('id')
@@ -1172,6 +1184,9 @@ def process_bullhorn_monitors():
                                 app._pending_notifications = []
                             
                             # Enhanced notification with better modified job details
+                            # Get rapid change information for this monitor
+                            rapid_changes_info = rapid_tracker.get_all_changes_for_notification()
+                            
                             notification_data = {
                                 'monitor_name': monitor.name,
                                 'monitor_id': monitor.id,
@@ -1182,6 +1197,8 @@ def process_bullhorn_monitors():
                                 'total_jobs': len(current_jobs),
                                 'summary': summary,
                                 'xml_sync_info': xml_sync_summary.copy() if xml_sync_summary else {},
+                                'rapid_changes': rapid_changes_info.get('rapid_changes', {}),
+                                'rapid_change_alert': rapid_tracker.get_rapid_change_alert_message(),
                                 'timestamp': datetime.now()
                             }
                             
@@ -1756,7 +1773,9 @@ def process_bullhorn_monitors():
                                     removed_jobs=notification_data['removed_jobs'],
                                     modified_jobs=notification_data['modified_jobs'],
                                     summary=notification_data['summary'],
-                                    xml_sync_info=notification_data['xml_sync_info']
+                                    xml_sync_info=notification_data['xml_sync_info'],
+                                    rapid_changes=notification_data.get('rapid_changes', {}),
+                                    rapid_change_alert=notification_data.get('rapid_change_alert', None)
                                 )
                                 
                                 app.logger.info(f"✅ Email notification sent for monitor {notification_data['monitor_name']} to {notification_data['email_address']}")

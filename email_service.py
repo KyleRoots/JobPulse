@@ -389,7 +389,9 @@ class EmailService:
                                    removed_jobs: list,
                                    modified_jobs: list = [],
                                    summary: dict = {},
-                                   xml_sync_info: dict = {}) -> bool:
+                                   xml_sync_info: dict = {},
+                                   rapid_changes: dict = None,
+                                   rapid_change_alert: str = None) -> bool:
         """
         Send email notification for Bullhorn tearsheet changes
         
@@ -463,6 +465,15 @@ class EmailService:
                     <p><strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}</p>
                 </div>
             """
+            
+            # Add rapid change alert if detected
+            if rapid_change_alert:
+                html_content += f"""
+                <div style="margin: 15px 0; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
+                    <h3 style="color: #856404; margin: 0 0 10px 0;">⚠️ Rapid Changes Detected</h3>
+                    <pre style="font-family: monospace; white-space: pre-wrap; margin: 0;">{rapid_change_alert}</pre>
+                </div>
+                """
 
             if added_jobs:
                 html_content += f"""
