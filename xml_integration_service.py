@@ -1080,23 +1080,23 @@ class XMLIntegrationService:
                 # Verify job exists in XML before update
                 job_exists_before = self._verify_job_exists_in_xml(xml_file_path, job_id)
                 
-                # CRITICAL FIX: Get existing reference number AND AI classification values BEFORE removing the job
-                existing_reference_number = None
+                # Get existing AI classification values BEFORE removing the job
+                # NOTE: We intentionally DO NOT preserve the reference number - modified jobs get new reference numbers
                 existing_ai_classifications = {}
                 
                 try:
                     tree = etree.parse(xml_file_path, self._parser)
                     root = tree.getroot()
                     
-                    # Find existing job by bhatsid to preserve reference number and AI classifications
+                    # Find existing job by bhatsid to preserve AI classifications only
                     for job in root.xpath('.//job'):
                         bhatsid_elem = job.find('.//bhatsid')
                         if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
-                            # Preserve reference number
+                            # Log that we're generating a new reference number for modified job
                             ref_elem = job.find('.//referencenumber')
                             if ref_elem is not None and ref_elem.text:
-                                existing_reference_number = ref_elem.text.strip()
-                                self.logger.info(f"Preserving reference number {existing_reference_number} for job {job_id} update")
+                                old_reference = ref_elem.text.strip()
+                                self.logger.info(f"Job {job_id} modified - will generate NEW reference number (was: {old_reference})")
                             
                             # CRITICAL: Preserve existing AI classification values
                             ai_fields = ['jobfunction', 'jobindustries', 'senoritylevel']
@@ -1112,7 +1112,7 @@ class XMLIntegrationService:
                             break
                             
                 except Exception as e:
-                    self.logger.warning(f"Could not get existing reference number and AI classifications: {e}")
+                    self.logger.warning(f"Could not get existing AI classifications: {e}")
                 
                 # Step 1: Remove old version
                 removal_success = self.remove_job_from_xml(xml_file_path, job_id)
@@ -1127,9 +1127,10 @@ class XMLIntegrationService:
                         self.logger.error(f"Failed to remove job {job_id} after {max_retries} attempts")
                         return False
                 
-                # Step 2: Add updated version with preserved reference number and AI classifications
-                # Map the job with preserved reference number (skip AI classification for performance during real-time updates)
-                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=True)
+                # Step 2: Add updated version with NEW reference number and preserved AI classifications
+                # Map the job WITHOUT existing reference number (pass None) to generate a new one
+                # This gives modified jobs fresh visibility by appearing at the top with new reference numbers
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, None, monitor_name, skip_ai_classification=True)
                 
                 # CRITICAL: Restore existing AI classification values that were preserved
                 if existing_ai_classifications:
@@ -1182,7 +1183,7 @@ class XMLIntegrationService:
                     with open(xml_file_path, 'wb') as f:
                         tree.write(f, encoding='utf-8', xml_declaration=True, pretty_print=True)
                     
-                    self.logger.info(f"Successfully updated job {xml_job['title']} in XML file {xml_file_path}")
+                    self.logger.info(f"Successfully updated job {xml_job['title']} with NEW reference number {xml_job.get('referencenumber', 'unknown')} in XML file {xml_file_path}")
                     addition_success = True
                     
                 except Exception as e:

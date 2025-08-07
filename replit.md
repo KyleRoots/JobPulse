@@ -6,7 +6,8 @@ This Flask-based web application automates the processing of XML job feed files 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (Updated: 2025-08-07 - 15:30)
+## Recent Changes (Updated: 2025-08-07 - 19:20)
+✓ MODIFIED JOB VISIBILITY ENHANCEMENT: Modified jobs now get NEW reference numbers and move to top of XML file for fresh visibility, treating updates like new postings
 ✓ DUPLICATE PREVENTION SYSTEM: Permanent solution to recurring duplicate issue - 10 Clover tearsheet jobs creating triples fixed, duplicate checking now integrated into add_job_to_xml() function
 ✓ RAPID CHANGE TRACKING SYSTEM: Implemented RapidChangeTracker class to detect and report multiple job state transitions within single 2-minute monitoring cycles
 ✓ ENHANCED EMAIL NOTIFICATIONS: Added rapid change alerts showing job lifecycle (added→removed→modified) with timestamps and owner information
