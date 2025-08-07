@@ -69,6 +69,7 @@ Preferred communication style: Simple, everyday language.
 ✓ CRITICAL FIX: Resolved bulk reference number regeneration issue - Added safeguards to prevent scheduled processing from regenerating ALL reference numbers during 2-minute monitoring intervals
 ✓ ENHANCED MONITORING: Only true scheduled runs (hourly/daily/weekly) now regenerate all reference numbers, monitoring updates only affect modified jobs
 ✓ IMPROVED LOGGING: Added detailed tracking to identify which jobs are being modified and which fields triggered the changes
+✓ MODIFIED JOB REFERENCE FIX: Fixed issue where modified jobs kept old reference numbers - now properly generates NEW reference numbers when dateLastModified != dateAdded
 
 ## System Architecture
 

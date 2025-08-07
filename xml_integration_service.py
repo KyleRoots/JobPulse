@@ -588,7 +588,22 @@ class XMLIntegrationService:
                         os.remove(backup_path)
                     return True  # Return True as the job is already in the file
                 
-                # Map Bullhorn job to XML format with existing reference number if found (ALWAYS include AI for completeness)
+                # CRITICAL FIX: Check if job has been modified by comparing dateLastModified
+                # If the job was modified recently, it should get a NEW reference number for fresh visibility
+                force_new_reference = False
+                if existing_reference_number:
+                    # Check if this is a recently modified job that needs a new reference number
+                    date_last_modified = bullhorn_job.get('dateLastModified')
+                    date_added = bullhorn_job.get('dateAdded')
+                    
+                    if date_last_modified and date_added and date_last_modified != date_added:
+                        # Job has been modified since it was added
+                        self.logger.info(f"🔄 Job {job_id} has been modified - generating NEW reference number for fresh visibility")
+                        force_new_reference = True
+                        existing_reference_number = None  # Force new reference generation
+                
+                # Map Bullhorn job to XML format 
+                # Pass None for reference if we want to force a new one for modified jobs
                 xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=False)
                 if not xml_job or not xml_job.get('title') or not xml_job.get('referencenumber'):
                     self.logger.error(f"Failed to map job {job_id} to XML format - invalid XML job data")
