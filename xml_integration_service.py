@@ -1056,7 +1056,10 @@ class XMLIntegrationService:
         update_needed, field_changes = self._check_if_update_needed(xml_file_path, bullhorn_job)
         if not update_needed:
             self.logger.debug(f"No update needed for job {job_id} - data already matches")
-            return False  # No update was needed
+            return False
+        
+        # Log what's being updated
+        self.logger.info(f"🔄 UPDATING JOB {job_id}: '{job_title}' - Changes detected in fields: {field_changes}")  # No update was needed
         
         # Store field changes for potential use in notifications
         self._last_field_changes = field_changes

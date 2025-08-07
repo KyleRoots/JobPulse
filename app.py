@@ -252,7 +252,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def process_scheduled_files():
-    """Process all scheduled files that are due for processing"""
+    """Process all scheduled files that are due for processing - ONLY for actual scheduled runs, not monitoring"""
     with app.app_context():
         try:
             now = datetime.utcnow()
@@ -276,6 +276,8 @@ def process_scheduled_files():
                 db.session.commit()
             
             # Get all active schedules that are due
+            # CRITICAL: Only process schedules that are truly due for their scheduled run
+            # Do NOT process during monitoring intervals (every 2 minutes)
             due_schedules = ScheduleConfig.query.filter(
                 ScheduleConfig.is_active == True,
                 ScheduleConfig.next_run <= now
@@ -291,7 +293,27 @@ def process_scheduled_files():
                         app.logger.warning(f"Scheduled file not found: {schedule.file_path}")
                         continue
                     
-                    # Process the file
+                    # CRITICAL: Only regenerate ALL reference numbers for true scheduled runs
+                    # Check if this is a genuine scheduled run (not just monitoring interval)
+                    time_since_last_run = (now - schedule.last_run).total_seconds() if schedule.last_run else float('inf')
+                    
+                    # Only process if sufficient time has passed based on schedule type
+                    min_hours_between_runs = {
+                        'hourly': 0.9,  # 54 minutes minimum
+                        'daily': 23,    # 23 hours minimum
+                        'weekly': 167   # 167 hours (just under 7 days) minimum
+                    }
+                    
+                    min_interval = min_hours_between_runs.get(schedule.interval_type, 1)
+                    hours_since_last_run = time_since_last_run / 3600
+                    
+                    if hours_since_last_run < min_interval:
+                        app.logger.info(f"Skipping schedule '{schedule.name}' - only {hours_since_last_run:.1f} hours since last run (need {min_interval} hours)")
+                        continue
+                    
+                    app.logger.info(f"Processing scheduled regeneration for '{schedule.name}' - {hours_since_last_run:.1f} hours since last run")
+                    
+                    # Process the file with full reference number regeneration
                     processor = XMLProcessor()
                     
                     # Create backup of original file
@@ -301,7 +323,7 @@ def process_scheduled_files():
                     # Generate temporary output filename
                     temp_output = f"{schedule.file_path}.temp"
                     
-                    # Process the XML
+                    # Process the XML - this regenerates ALL reference numbers
                     result = processor.process_xml(schedule.file_path, temp_output)
                     
                     # Log the processing result
@@ -567,11 +589,15 @@ def process_bullhorn_monitors():
                             app.logger.warning(f"Failed to parse job snapshot for monitor: {monitor.name}")
                     
                     # Find changes
+                    app.logger.info(f"📊 Comparing job lists for monitor '{monitor.name}': {len(previous_jobs)} previous vs {len(current_jobs)} current jobs")
                     changes = bullhorn_service.compare_job_lists(previous_jobs, current_jobs)
                     added_jobs = changes.get('added', [])
                     removed_jobs = changes.get('removed', [])
                     modified_jobs = changes.get('modified', [])
                     summary = changes.get('summary', {})
+                    
+                    if modified_jobs:
+                        app.logger.info(f"🔄 Found {len(modified_jobs)} modified jobs for monitor '{monitor.name}': {[j.get('id') for j in modified_jobs[:5]]}")
                     
                     # Enhanced safeguards to prevent false positives and detect XML corruption
                     skip_removals = False
