@@ -2057,9 +2057,15 @@ def scheduler_dashboard():
             else:
                 display_size = f"{file_size_kb:.1f} KB"
             
-            # Convert UTC timestamp to EDT (UTC-4) for server time display
-            server_time_dt = last_modified - timedelta(hours=4)
-            server_time_str = server_time_dt.strftime('%Y-%m-%d %H:%M:%S')
+            # Convert to server display time (EDT = UTC-4)
+            # The server shows 19:52:10 for what we have as 23:52:10 UTC
+            if hasattr(last_modified, 'strftime'):
+                # last_modified is already a datetime object
+                server_time_dt = last_modified - timedelta(hours=4)
+                server_time_str = server_time_dt.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                # Fallback to current time if not a datetime
+                server_time_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
             
             active_xml_files.append({
                 'filename': filename,

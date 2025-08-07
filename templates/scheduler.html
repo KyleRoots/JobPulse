@@ -389,9 +389,9 @@
                                         </h6>
                                     </div>
                                     <div class="text-end">
-                                        <small class="text-muted d-block">Last Updated (Server Time EDT)</small>
+                                        <small class="text-muted d-block">Last Updated</small>
                                         <strong class="text-success">
-                                            {# Show server time in EDT format #}
+                                            {# Show server time matching FileZilla display #}
                                             {% if xml_file.server_time %}
                                                 {{ xml_file.server_time }}
                                             {% else %}
