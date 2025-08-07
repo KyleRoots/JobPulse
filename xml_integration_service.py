@@ -1099,23 +1099,25 @@ class XMLIntegrationService:
                 # Verify job exists in XML before update
                 job_exists_before = self._verify_job_exists_in_xml(xml_file_path, job_id)
                 
-                # Get existing AI classification values BEFORE removing the job
-                # NOTE: We intentionally DO NOT preserve the reference number - modified jobs get new reference numbers
+                # Get existing AI classification values AND reference number BEFORE removing the job
                 existing_ai_classifications = {}
+                existing_reference_for_preservation = None
                 
                 try:
                     tree = etree.parse(xml_file_path, self._parser)
                     root = tree.getroot()
                     
-                    # Find existing job by bhatsid to preserve AI classifications only
+                    # Find existing job by bhatsid to preserve AI classifications and potentially reference
                     for job in root.xpath('.//job'):
                         bhatsid_elem = job.find('.//bhatsid')
                         if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
-                            # Log that we're generating a new reference number for modified job
+                            # Get existing reference number BEFORE removal
                             ref_elem = job.find('.//referencenumber')
                             if ref_elem is not None and ref_elem.text:
-                                old_reference = ref_elem.text.strip()
-                                self.logger.info(f"Job {job_id} modified - will generate NEW reference number (was: {old_reference})")
+                                existing_reference_for_preservation = ref_elem.text.strip()
+                                if 'CDATA' in existing_reference_for_preservation:
+                                    existing_reference_for_preservation = existing_reference_for_preservation[9:-3].strip()
+                                self.logger.info(f"Found existing reference for job {job_id}: {existing_reference_for_preservation}")
                             
                             # CRITICAL: Preserve existing AI classification values
                             ai_fields = ['jobfunction', 'jobindustries', 'senoritylevel']
@@ -1131,7 +1133,7 @@ class XMLIntegrationService:
                             break
                             
                 except Exception as e:
-                    self.logger.warning(f"Could not get existing AI classifications: {e}")
+                    self.logger.warning(f"Could not get existing data: {e}")
                 
                 # Step 1: Remove old version
                 removal_success = self.remove_job_from_xml(xml_file_path, job_id)
@@ -1148,33 +1150,22 @@ class XMLIntegrationService:
                 
                 # Step 2: Add updated version - CRITICAL FIX for reference number preservation
                 # Only generate new reference number if this job was ACTIVELY modified in current cycle
-                existing_reference = None
                 generate_new_reference = False
                 
                 # Check if this job was flagged as actively modified by the monitor
                 if hasattr(bullhorn_job, '_monitor_flagged_as_modified') and bullhorn_job.get('_monitor_flagged_as_modified'):
-                    self.logger.info(f"🔄 Job {job_id} ACTIVELY modified in current cycle - will get NEW reference number")
+                    self.logger.info(f"🔄 Job {job_id} ACTIVELY modified in current cycle - will get NEW reference number (was: {existing_reference_for_preservation})")
                     generate_new_reference = True
                 else:
                     # Job was not modified in this cycle - preserve existing reference number
-                    try:
-                        tree = etree.parse(xml_file_path, self._parser)
-                        root = tree.getroot()
-                        for job in root.xpath('.//job'):
-                            bhatsid_elem = job.find('.//bhatsid')
-                            if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
-                                ref_elem = job.find('.//referencenumber')
-                                if ref_elem is not None and ref_elem.text:
-                                    existing_reference = ref_elem.text.strip()
-                                    if 'CDATA' in existing_reference:
-                                        existing_reference = existing_reference[9:-3].strip()  # Remove CDATA wrapper
-                                    self.logger.info(f"Job {job_id} not actively modified - PRESERVING reference: {existing_reference}")
-                                break
-                    except Exception as e:
-                        self.logger.warning(f"Could not get existing reference for job {job_id}: {e}")
+                    if existing_reference_for_preservation:
+                        self.logger.info(f"✅ Job {job_id} NOT actively modified - PRESERVING reference: {existing_reference_for_preservation}")
+                    else:
+                        self.logger.warning(f"Job {job_id} has no existing reference to preserve - will generate new one")
+                        generate_new_reference = True
                 
                 # Map the job with existing reference (unless actively modified in this cycle)
-                reference_to_use = None if generate_new_reference else existing_reference
+                reference_to_use = None if generate_new_reference else existing_reference_for_preservation
                 xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, reference_to_use, monitor_name, skip_ai_classification=True)
                 
                 # CRITICAL: Restore existing AI classification values that were preserved
