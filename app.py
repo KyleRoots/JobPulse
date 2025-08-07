@@ -1098,9 +1098,13 @@ def process_bullhorn_monitors():
                                                     break
                                             
                                             if current_job_data:
+                                                # CRITICAL: Flag this job as actively modified in THIS monitoring cycle
+                                                # This tells the XML service to generate a new reference number
+                                                current_job_data['_monitor_flagged_as_modified'] = True
+                                                
                                                 if xml_service.update_job_in_xml(xml_filename, current_job_data, monitor.name):
                                                     immediate_sync_summary['updated_count'] += 1
-                                                    app.logger.info(f"📝 Immediately updated job {job_id}: {current_job_data.get('title')} in {xml_filename}")
+                                                    app.logger.info(f"📝 Immediately updated job {job_id}: {current_job_data.get('title')} in {xml_filename} with NEW reference number")
                                     
                                     app.logger.info(f"✅ IMMEDIATE SYNC COMPLETE for {xml_filename}: {immediate_sync_summary['added_count']} added, {immediate_sync_summary['removed_count']} removed, {immediate_sync_summary['updated_count']} updated")
                                     

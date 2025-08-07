@@ -588,19 +588,20 @@ class XMLIntegrationService:
                         os.remove(backup_path)
                     return True  # Return True as the job is already in the file
                 
-                # CRITICAL FIX: Check if job has been modified by comparing dateLastModified
-                # If the job was modified recently, it should get a NEW reference number for fresh visibility
+                # CRITICAL FIX: Only generate new reference numbers for jobs that were ACTUALLY modified
+                # in the current monitoring cycle, not all jobs that have ever been modified
+                # Check if this job was flagged as modified BY THE MONITOR (not just by date comparison)
                 force_new_reference = False
-                if existing_reference_number:
-                    # Check if this is a recently modified job that needs a new reference number
-                    date_last_modified = bullhorn_job.get('dateLastModified')
-                    date_added = bullhorn_job.get('dateAdded')
-                    
-                    if date_last_modified and date_added and date_last_modified != date_added:
-                        # Job has been modified since it was added
-                        self.logger.info(f"🔄 Job {job_id} has been modified - generating NEW reference number for fresh visibility")
-                        force_new_reference = True
-                        existing_reference_number = None  # Force new reference generation
+                
+                # Only force new reference if the monitor explicitly flagged this as a modified job
+                # This prevents bulk reference regeneration for all jobs
+                if hasattr(bullhorn_job, '_monitor_flagged_as_modified') and bullhorn_job.get('_monitor_flagged_as_modified'):
+                    self.logger.info(f"🔄 Job {job_id} was ACTIVELY modified in this cycle - generating NEW reference number")
+                    force_new_reference = True
+                    existing_reference_number = None  # Force new reference generation
+                elif existing_reference_number:
+                    # Job exists but was NOT modified in this cycle - keep existing reference
+                    self.logger.debug(f"Job {job_id} exists with reference {existing_reference_number} - preserving it")
                 
                 # Map Bullhorn job to XML format 
                 # Pass None for reference if we want to force a new one for modified jobs
@@ -1145,10 +1146,36 @@ class XMLIntegrationService:
                         self.logger.error(f"Failed to remove job {job_id} after {max_retries} attempts")
                         return False
                 
-                # Step 2: Add updated version with NEW reference number and preserved AI classifications
-                # Map the job WITHOUT existing reference number (pass None) to generate a new one
-                # This gives modified jobs fresh visibility by appearing at the top with new reference numbers
-                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, None, monitor_name, skip_ai_classification=True)
+                # Step 2: Add updated version - CRITICAL FIX for reference number preservation
+                # Only generate new reference number if this job was ACTIVELY modified in current cycle
+                existing_reference = None
+                generate_new_reference = False
+                
+                # Check if this job was flagged as actively modified by the monitor
+                if hasattr(bullhorn_job, '_monitor_flagged_as_modified') and bullhorn_job.get('_monitor_flagged_as_modified'):
+                    self.logger.info(f"🔄 Job {job_id} ACTIVELY modified in current cycle - will get NEW reference number")
+                    generate_new_reference = True
+                else:
+                    # Job was not modified in this cycle - preserve existing reference number
+                    try:
+                        tree = etree.parse(xml_file_path, self._parser)
+                        root = tree.getroot()
+                        for job in root.xpath('.//job'):
+                            bhatsid_elem = job.find('.//bhatsid')
+                            if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
+                                ref_elem = job.find('.//referencenumber')
+                                if ref_elem is not None and ref_elem.text:
+                                    existing_reference = ref_elem.text.strip()
+                                    if 'CDATA' in existing_reference:
+                                        existing_reference = existing_reference[9:-3].strip()  # Remove CDATA wrapper
+                                    self.logger.info(f"Job {job_id} not actively modified - PRESERVING reference: {existing_reference}")
+                                break
+                    except Exception as e:
+                        self.logger.warning(f"Could not get existing reference for job {job_id}: {e}")
+                
+                # Map the job with existing reference (unless actively modified in this cycle)
+                reference_to_use = None if generate_new_reference else existing_reference
+                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, reference_to_use, monitor_name, skip_ai_classification=True)
                 
                 # CRITICAL: Restore existing AI classification values that were preserved
                 if existing_ai_classifications:

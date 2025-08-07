@@ -73,6 +73,9 @@ Preferred communication style: Simple, everyday language.
 ✓ ONE-TO-ONE REFERENCE UPDATE FIX: Comprehensive sync no longer adds "missing" jobs during monitoring (was causing bulk reference regeneration)
 ✓ MONITORING OPTIMIZATION: Comprehensive sync only runs when actual modifications/removals detected, not for bulk additions
 ✓ REFERENCE NUMBER PRESERVATION: Only the specific modified job gets a new reference number, all other jobs maintain existing references
+✓ ACTIVE MODIFICATION FLAGGING: Added '_monitor_flagged_as_modified' flag to mark jobs actually modified in current cycle
+✓ REFERENCE PRESERVATION LOGIC: update_job_in_xml now preserves reference numbers unless job is flagged as actively modified
+✓ COMPLETE FIX: Resolved issue where ALL jobs got new reference numbers - now strictly one-to-one relationship maintained
 
 ## System Architecture
 
