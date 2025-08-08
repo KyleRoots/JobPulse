@@ -2219,13 +2219,28 @@ def process_comprehensive_bullhorn_monitors():
                             app.logger.warning(f"    ⚠️ AUDIT: {len(missing_jobs)} jobs missing from {xml_file}")
                             audit_summary.append(f"Missing {len(missing_jobs)} jobs from {xml_file}: {list(missing_jobs)[:3]}{'...' if len(missing_jobs) > 3 else ''}")
                             audit_passed = False
-                        if extra_jobs:
-                            app.logger.warning(f"    ⚠️ AUDIT: {len(extra_jobs)} extra jobs in {xml_file}")
-                            audit_summary.append(f"Found {len(extra_jobs)} extra jobs in {xml_file}: {list(extra_jobs)[:3]}{'...' if len(extra_jobs) > 3 else ''}")
-                            audit_passed = False
                             
-                        if missing_jobs or extra_jobs:
-                            corrections_made += len(missing_jobs) + len(extra_jobs)
+                        if extra_jobs:
+                            app.logger.warning(f"    ⚠️ AUDIT: {len(extra_jobs)} extra jobs in {xml_file} - REMOVING AUTOMATICALLY")
+                            audit_summary.append(f"Removed {len(extra_jobs)} extra jobs from {xml_file}: {list(extra_jobs)[:3]}{'...' if len(extra_jobs) > 3 else ''}")
+                            
+                            # AUTOMATIC CORRECTION: Remove extra jobs not in tearsheets
+                            xml_service = XMLIntegrationService()
+                            for extra_job_id in extra_jobs:
+                                try:
+                                    success = xml_service.remove_job_from_xml(xml_file, extra_job_id)
+                                    if success:
+                                        app.logger.info(f"    🗑️ REMOVED extra job {extra_job_id} from {xml_file}")
+                                        corrections_made += 1
+                                    else:
+                                        app.logger.error(f"    ❌ Failed to remove job {extra_job_id} from {xml_file}")
+                                        audit_passed = False
+                                except Exception as e:
+                                    app.logger.error(f"    ❌ Error removing job {extra_job_id}: {str(e)}")
+                                    audit_passed = False
+                            
+                        if missing_jobs:
+                            corrections_made += len(missing_jobs)
                     
                     except Exception as e:
                         app.logger.error(f"    AUDIT ERROR for {xml_file}: {str(e)}")

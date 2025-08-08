@@ -36,7 +36,7 @@ Preferred communication style: Simple, everyday language.
   5. Uploads all changes to web server
   6. Batches email notifications (every 5 minutes) for efficiency
   7. Reviews and fixes CDATA/HTML formatting
-  8. Runs FULL AUDIT ensuring 100% field accuracy with detailed discrepancy reporting
+  8. Runs FULL AUDIT ensuring 100% field accuracy with detailed discrepancy reporting and automatic correction of extra jobs
 - **Real-Time Progress Tracking**: Visual progress indicators [●●●●●●●○] show current step (Step 1/8 through Step 8/8)
 - **Enhanced Audit Reporting**: Detailed summaries of discrepancies found and corrections made
 - **Comprehensive Status Logging**: Step-by-step progress updates with clear indicators
