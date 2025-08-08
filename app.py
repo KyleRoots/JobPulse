@@ -607,23 +607,24 @@ def process_bullhorn_monitors():
                         previous_count = len(previous_jobs)
                         removed_count = len(removed_jobs)
                         
-                        # Stricter threshold: 95% retention expected for normal operations
-                        if current_count < previous_count * 0.95:
-                            app.logger.warning(f"Monitor {monitor.name}: Potential API retrieval issue detected. "
+                        # More reasonable safeguards - allow legitimate small changes
+                        # Only skip if we're losing MORE than 20 jobs AND it's more than 50% of total
+                        if removed_count > 20 and current_count < previous_count * 0.5:
+                            app.logger.warning(f"Monitor {monitor.name}: Large-scale removal detected. "
                                              f"Current jobs: {current_count}, Previous: {previous_count}. "
                                              f"Drop rate: {((previous_count - current_count) / previous_count * 100):.1f}%. "
                                              f"Skipping removal processing to prevent false positives.")
                             skip_removals = True
                         
-                        # Additional safeguard: If more than 10 jobs removed at once, require manual verification
-                        elif removed_count > 10:
-                            app.logger.warning(f"Monitor {monitor.name}: Large batch removal detected ({removed_count} jobs). "
+                        # Additional safeguard: If more than 50 jobs removed at once from large tearsheet
+                        elif removed_count > 50 and previous_count > 100:
+                            app.logger.warning(f"Monitor {monitor.name}: Mass removal detected ({removed_count} jobs). "
                                              f"This may indicate data corruption or API issues. "
                                              f"Skipping removal processing - manual verification recommended.")
                             skip_removals = True
                         
                         # Detect potential XML corruption: If "previous" count is significantly lower than expected
-                        elif previous_count < 50 and current_count > previous_count * 1.2:
+                        elif previous_count < 5 and current_count > previous_count * 2:
                             app.logger.info(f"Monitor {monitor.name}: XML restoration detected. "
                                           f"Previous XML had {previous_count} jobs, Bullhorn shows {current_count}. "
                                           f"This appears to be data recovery, not job removals.")
