@@ -341,7 +341,7 @@ class BullhornService:
                 "dateLastModified", "clientCorporation(id,name)",
                 "clientContact(firstName,lastName)", "description",
                 "publicDescription", "numOpenings", "isPublic",
-                "address(city,state,countryName)", "employmentType",
+                "address(city,state,countryID)", "employmentType",
                 "salary", "salaryUnit", "isDeleted",
                 "categories(id,name)", "onSite", "benefits", "bonusPackage",
                 "degreeList", "skillList", "certificationList",
@@ -465,7 +465,7 @@ class BullhornService:
             # Use the entity endpoint to get a specific job
             url = f"{self.base_url}entity/JobOrder/{job_id}"
             params = {
-                'fields': 'id,title,description,employmentType,onSite,address(city,state,countryName),assignedUsers(firstName,lastName),responseUser(firstName,lastName),owner(firstName,lastName),dateLastModified,customText1,customText2,customText3',
+                'fields': 'id,title,publicDescription,employmentType,onSite,address(city,state,countryID),assignedUsers(firstName,lastName),responseUser(firstName,lastName),owner(firstName,lastName),dateLastModified,customText1,customText2,customText3',
                 'BhRestToken': self.rest_token
             }
             

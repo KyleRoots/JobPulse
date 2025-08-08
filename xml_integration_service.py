@@ -78,7 +78,8 @@ class XMLIntegrationService:
             address = bullhorn_job.get('address', {})
             city = address.get('city', '') if address else ''
             state = address.get('state', '') if address else ''
-            country = address.get('countryName', 'United States') if address else 'United States'
+            # Use countryID field for country mapping
+            country = address.get('countryID', 'United States') if address else 'United States'
             
             # Ensure None values are converted to empty strings
             city = city if city is not None else ''
@@ -94,11 +95,13 @@ class XMLIntegrationService:
             remote_type = self._map_remote_type(onsite_value)
             
             # Extract assigned recruiter from multiple possible fields
+            # First try to get recruiter from assignments field (per user mapping requirements)
+            assignments = bullhorn_job.get('assignments', {})
             assigned_users = bullhorn_job.get('assignedUsers', {})
             response_user = bullhorn_job.get('responseUser', {})
             owner = bullhorn_job.get('owner', {})
             
-            assigned_recruiter = self._extract_assigned_recruiter(assigned_users, response_user, owner)
+            assigned_recruiter = self._extract_assigned_recruiter(assignments, assigned_users, response_user, owner)
             
             # Extract description (prefer publicDescription, fallback to description)
             description = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
@@ -285,8 +288,8 @@ class XMLIntegrationService:
     
     def _map_remote_type(self, onsite_value) -> str:
         """Map Bullhorn onSite value to XML remote type"""
-        # Enhanced logging for debugging
-        self.logger.debug(f"Mapping onSite value: {onsite_value} (type: {type(onsite_value)})")
+        # Enhanced logging for debugging - ALWAYS log at INFO level for job 34219
+        self.logger.info(f"Mapping onSite value: {onsite_value} (type: {type(onsite_value)})")
         
         # Handle both list and string formats from Bullhorn
         if isinstance(onsite_value, list):
@@ -297,9 +300,10 @@ class XMLIntegrationService:
         onsite_value = str(onsite_value).lower() if onsite_value else ''
         
         # Log the processed value
-        self.logger.debug(f"Processed onSite value for comparison: '{onsite_value}'")
+        self.logger.info(f"Processed onSite value for comparison: '{onsite_value}'")
         
         # Enhanced mapping with more variations
+        # IMPORTANT: The value "Remote" from Bullhorn should map to Remote in XML
         if 'remote' in onsite_value or onsite_value == 'offsite':
             result = 'Remote'
         elif 'hybrid' in onsite_value:
@@ -311,21 +315,36 @@ class XMLIntegrationService:
         elif 'no preference' in onsite_value:
             result = 'No Preference'
         elif onsite_value == '':
-            result = 'Onsite'  # Default for empty values
+            # Default for empty values - but log a warning
+            self.logger.warning(f"Empty onSite value detected - defaulting to Onsite")
+            result = 'Onsite'  
         else:
             self.logger.warning(f"Unknown onSite value '{onsite_value}' - defaulting to Onsite")
             result = 'Onsite'  # Default fallback
         
-        self.logger.debug(f"Mapped onSite '{onsite_value}' to remotetype '{result}'")
+        self.logger.info(f"Mapped onSite '{onsite_value}' to remotetype '{result}'")
         return result
     
-    def _extract_assigned_recruiter(self, assigned_users, response_user, owner) -> str:
+    def _extract_assigned_recruiter(self, assignments, assigned_users, response_user, owner) -> str:
         """Extract recruiter name from multiple possible fields and map to LinkedIn-style tag"""
         try:
             recruiter_name = ''
             
-            # Check assignedUsers first (array of users)
-            if assigned_users and isinstance(assigned_users, dict):
+            # Check assignments first (per user mapping requirements)
+            if assignments and isinstance(assignments, dict):
+                assignments_data = assignments.get('data', [])
+                if isinstance(assignments_data, list) and assignments_data:
+                    first_assignment = assignments_data[0]
+                    if isinstance(first_assignment, dict):
+                        assigned_to = first_assignment.get('assignedTo', {})
+                        if assigned_to and isinstance(assigned_to, dict):
+                            first_name = assigned_to.get('firstName', '')
+                            last_name = assigned_to.get('lastName', '')
+                            if first_name or last_name:
+                                recruiter_name = f"{first_name} {last_name}".strip()
+            
+            # Check assignedUsers if no assignments found (array of users)
+            if not recruiter_name and assigned_users and isinstance(assigned_users, dict):
                 users_data = assigned_users.get('data', [])
                 if isinstance(users_data, list) and users_data:
                     first_user = users_data[0]
