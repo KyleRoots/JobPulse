@@ -2,6 +2,66 @@
 <source>
   <publisherurl>https://myticas.com</publisherurl>
   <job>
+    <title><![CDATA[ Cloud Site Reliability Engineer - Azure AWS (34084) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 30, 2025 ]]></date>
+    <referencenumber><![CDATA[ U3CSUFFAN9 ]]></referencenumber>
+    <bhatsid><![CDATA[ 34084 ]]></bhatsid>
+    <url><![CDATA[ https://apply.myticas.com/34084/Cloud%20Site%20Reliability%20Engineer%20-%20Azure%20AWS/?source=LinkedIn ]]></url>
+    <description><![CDATA[ <p><strong>Cloud Site Reliability Engineer – AWS & Azure</strong><br> <br> <strong>Responsibilities</strong></p> <ul> <li>Oversee the design and improvement of infrastructure using SRE best practices, including IaC, recovery automation, and systems that detect and resolve issues independently. <li>Manage and fine-tune critical services across both cloud and on-prem environments: Kubernetes clusters, CI/CD pipelines, artifact registries, and custom workloads. <li>Enhance observability through intelligent logging, metrics, tracing, and alerting. Ensuring systems are transparent and actionable in real time. <li>Champion automation by eliminating repetitive tasks, from deployment workflows to security audits, through scripting and tooling. <li>Elevate the developer experience for 80+ engineers and researchers by streamlining secure, reliable workflows across hybrid and cloud-native platforms. <li>Take ownership of IAM governance across platforms like Azure AD and AWS IAM. Implement lifecycle automation, auditing, and access controls. <li>Foster a culture of operational excellence with strong practices around security, incident management, and resilience engineering. <li>Act as a trusted partner to developers and researchers, enabling their speed and innovation without compromising stability. </ul> <p><strong>Experience</strong></p> <ul> <li>Experience in Site Reliability Engineering, DevOps, or Systems Engineering within fast-paced, technically demanding environments. <li>Strong background in Linux systems and cloud infrastructure, with hands-on experience in AWS (primary) and Azure environments. <li>Solid command of Kubernetes and container orchestration in production environments. <li>Expertise in Infrastructure as Code tools such as Ansible, building reproducible, scalable infrastructure is second nature to you. <li>Deep experience in observability and incident response: you know how to set up effective monitoring, handle incidents, and lead blameless post-mortems. <li>A security-first mindset, especially when it comes to protecting distributed systems and developer workflows. <li>Proven ability to support and optimize CI/CD pipelines, container image builds, and artifact lifecycle management. <li>Strong communication and collaboration skills. You build trust across teams and advocate for thoughtful, scalable solutions. <li>Bonus if you’ve worked with event-driven architectures using technologies like Kafka. </ul> ]]></description>
+    <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
+    <city><![CDATA[  ]]></city>
+    <state><![CDATA[  ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Remote ]]></remotetype>
+    <assignedrecruiter><![CDATA[ #LI-DSC1: Dominic Scaletta ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+  </job>
+  <job>
+    <title><![CDATA[ Ambulatory Clinical Informatics Analyst - Oracle Health Cerner (32649) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 22, 2025 ]]></date>
+    <referencenumber><![CDATA[ ZYT7LL66U2 ]]></referencenumber>
+    <bhatsid><![CDATA[ 32649 ]]></bhatsid>
+    <url><![CDATA[ https://apply.myticas.com/32649/Ambulatory%20Clinical%20Informatics%20Analyst%20-%20Oracle%20Health%20Cerner/?source=LinkedIn ]]></url>
+    <description><![CDATA[ <p>Our client is seeking an experienced <strong>Ambulatory Clinical Informatics Analyst</strong> to support the OPOR (One Person One Record) Program’s Ambulatory Portfolio. This role requires a strong background in Oracle Health (Cerner) and will involve collaboration with clinicians, project leadership, and Oracle Health consultants to design, configure, and translate clinical workflows.</p> <p><strong>Key Responsibilities:</strong></p> <ul> <li> <p>Support ambulatory care design and configuration initiatives.</p> <li> <p>Facilitate strategy execution and knowledge translation to subject matter experts (SMEs).</p> <li> <p>Engage with clinicians to review and validate workflows.</p> <li> <p>Participate in organizational change management and co-facilitate design sessions.</p> <li> <p>Collaborate with Oracle Health consultants and internal project teams.</p> <li> <p>Identify risks/issues and contribute to resolution strategies.</p> <li> <p>Provide ongoing updates to OPOR project leadership.</p> </ul> <p><strong>Requirements:</strong></p> <ul> <li> <p>Degree/diploma in a health-related discipline (or equivalent experience).</p> <li> <p>5+ years of experience in a health-related field.</p> <li> <p>2+ years in Clinical Informatics or supporting large-scale CIS implementations (Oracle Health/Cerner strongly preferred).</p> <li> <p>Deep understanding of ambulatory/medicine clinic workflows and interdisciplinary coordination.</p> <li> <p>Familiarity with healthcare terminology, CIS systems, and clinical transformation projects.</p> <li> <p>Ability to influence and collaborate with a range of stakeholders.</p> <li> <p>Excellent communication and documentation skills.</p> <li> <p>Strong problem-solving and process analysis capabilities.</p> </ul> <p><strong>Preferred Qualifications:</strong></p> <ul> <li> <p>Prior knowledge or experience working within the Nova Scotia Health OPOR program.</p> <li> <p>Graphic design/communications experience is a plus.</p> <li> <p>Background in change management or healthcare IT adoption initiatives.</p> </ul> <p><strong>Work Model:</strong></p> <ul> <li> <p>Hybrid role with approximately 70% remote work.</p> <li> <p>Travel across Nova Scotia (up to 30%) as needed.</p> </ul> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[  ]]></city>
+    <state><![CDATA[ NS ]]></state>
+    <country><![CDATA[ Canada                                                           ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Hybrid ]]></remotetype>
+    <assignedrecruiter><![CDATA[ #LI-RP1: Runa Parmar ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+  </job>
+  <job>
+    <title><![CDATA[ Legal Analyst Attorney (34082) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ July 30, 2025 ]]></date>
+    <referencenumber><![CDATA[ B7ADKAJ460 ]]></referencenumber>
+    <bhatsid><![CDATA[ 34082 ]]></bhatsid>
+    <url><![CDATA[ https://apply.myticas.com/34082/Legal%20Analyst%20Attorney/?source=LinkedIn ]]></url>
+    <description><![CDATA[ Myticas's direct client, based in Minneapolis, MN, is seeking a <strong><span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Legal Analyst/Attorney with J.D.</span></span></span></span></span></strong> for a hybrid contract position.<br> <br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: black;">Job Title:</span></span></strong> <span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Legal Analyst/Attorney with J.D.</span></span></span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: black;">Work Location:</span></span></strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);"> <strong>Hybrid, 2 days onsite/week <em><u>at either of locations</u> - </em></strong></span></span><strong><em><span style="font-size: 11.0pt;"><span style="background-color: white;"><span style="color: black;">St. Cloud, MN or Minneapolis MN</span></span></span></em></strong></span></span></span><br> <br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: black;">Duration:</span></span></strong><span style="font-size: 11.0pt;"><span style="color: black;"> 6+ month contract-to-Hire</span></span></span></span></span><br> <br> <br> <div style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><u><span style="font-size: 11.0pt;"><span style="background-color: yellow;"><span style="color: black;">NOTE</span></span></span></u></strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">:<strong><u> MUST HAVE,</u></strong></span></span></span></span></div> <ol> <li style="font-size: 10.0pt;"><strong style="color: rgb(33,33,33);font-family: Aptos , sans-serif;font-size: 11.0pt;"><u>Juris Doctor (J.D.) degree</u></strong><span style="color: rgb(33,33,33);font-family: Aptos , sans-serif;font-size: 11.0pt;">.</span> <li><span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Ability to review documents.</span></span></span></span></span> </ol> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"> </span></span></span><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 10.0pt;"> </span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">JOB SUMMARY:</span></span></strong></span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">The Legal Invoice Analyst for client, Fulfilment Center of Excellence will be responsible for performing the quality assurance testing for the Legal Bill Analysis Center of Excellence (LBACOE). </span></span></span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"> </span></span></span> <ul style=""> <li style="margin: 0.0cm;font-size: 10.0pt;font-family: Aptos , sans-serif;color: rgb(33,33,33);"><span style="font-size: 11.0pt;">Understanding of legal terminology and claims legal situations, multijurisdictional exposure preferred.</span> <li style="margin: 0.0cm;font-size: 10.0pt;font-family: Aptos , sans-serif;color: rgb(33,33,33);"><span style="font-size: 11.0pt;">Using sound discretion and legal expertise, analyze and condense legal service agreements to produce effective operational outputs meeting and in some cases exceeding customer expectations.</span> </ul> <br class="Apple-interchange-newline"> ]]></description>
+    <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
+    <city><![CDATA[ Minneapolis ]]></city>
+    <state><![CDATA[ MN ]]></state>
+    <country><![CDATA[ United States                                                    ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Hybrid ]]></remotetype>
+    <assignedrecruiter><![CDATA[ #LI-RS1: Myticas Recruiter ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Legal ]]></jobfunction>
+    <jobindustries><![CDATA[ Alternative Dispute Resolution ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+  </job>
+  <job>
     <title><![CDATA[ Lead & Senior Machine Learning Engineer - MLOps & Platform Engineering (34110) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ August 06, 2025 ]]></date>
@@ -279,26 +339,6 @@
     <assignedrecruiter><![CDATA[ #LI-MC1: Michelle Corino ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Analyst ]]></jobfunction>
     <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
-    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
-  </job>
-  <job>
-    <title><![CDATA[ Legal Analyst/Attorney (34082) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ July 30, 2025 ]]></date>
-    <referencenumber><![CDATA[ CWT5LQ40UR ]]></referencenumber>
-    <bhatsid><![CDATA[ 34082 ]]></bhatsid>
-    <url><![CDATA[ https://apply.myticas.com/34082/Legal%20Analyst%2FAttorney/?source=LinkedIn ]]></url>
-    <description><![CDATA[ Myticas's direct client, based in Minneapolis, MN, is seeking a <strong><span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Legal Analyst/Attorney with J.D.</span></span></span></span></span></strong> for a hybrid contract position.<br> <br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: black;">Job Title:</span></span></strong> <span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Legal Analyst/Attorney with J.D.</span></span></span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: black;">Work Location:</span></span></strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);"> <strong>Hybrid, 2 days onsite/week <em><u>at either of locations</u> - </em></strong></span></span><strong><em><span style="font-size: 11.0pt;"><span style="background-color: white;"><span style="color: black;">St. Cloud, MN or Minneapolis MN</span></span></span></em></strong></span></span></span><br> <br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: black;">Duration:</span></span></strong><span style="font-size: 11.0pt;"><span style="color: black;"> 6+ month contract-to-Hire</span></span></span></span></span><br> <br> <br> <div style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><u><span style="font-size: 11.0pt;"><span style="background-color: yellow;"><span style="color: black;">NOTE</span></span></span></u></strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">:<strong><u> MUST HAVE,</u></strong></span></span></span></span></div> <ol> <li style="font-size: 10.0pt;"><strong style="color: rgb(33,33,33);font-family: Aptos , sans-serif;font-size: 11.0pt;"><u>Juris Doctor (J.D.) degree</u></strong><span style="color: rgb(33,33,33);font-family: Aptos , sans-serif;font-size: 11.0pt;">.</span> <li><span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Ability to review documents.</span></span></span></span></span> </ol> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"> </span></span></span><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 10.0pt;"> </span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">JOB SUMMARY:</span></span></strong></span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">The Legal Invoice Analyst for client, Fulfilment Center of Excellence will be responsible for performing the quality assurance testing for the Legal Bill Analysis Center of Excellence (LBACOE). </span></span></span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"> </span></span></span> <ul style=""> <li style="margin: 0.0cm;font-size: 10.0pt;font-family: Aptos , sans-serif;color: rgb(33,33,33);"><span style="font-size: 11.0pt;">Understanding of legal terminology and claims legal situations, multijurisdictional exposure preferred.</span> <li style="margin: 0.0cm;font-size: 10.0pt;font-family: Aptos , sans-serif;color: rgb(33,33,33);"><span style="font-size: 11.0pt;">Using sound discretion and legal expertise, analyze and condense legal service agreements to produce effective operational outputs meeting and in some cases exceeding customer expectations.</span> </ul> <br class="Apple-interchange-newline"> ]]></description>
-    <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
-    <city><![CDATA[ Minneapolis ]]></city>
-    <state><![CDATA[ MN ]]></state>
-    <country><![CDATA[ United States                                                    ]]></country>
-    <category><![CDATA[  ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Hybrid ]]></remotetype>
-    <assignedrecruiter><![CDATA[ #LI-RS1: Myticas Recruiter ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Legal ]]></jobfunction>
-    <jobindustries><![CDATA[ Alternative Dispute Resolution ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -642,26 +682,6 @@
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
-    <title><![CDATA[ Cloud Site Reliability Engineer - Azure/AWS (34084) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ July 30, 2025 ]]></date>
-    <referencenumber><![CDATA[ U3CSUFFAN9 ]]></referencenumber>
-    <bhatsid><![CDATA[ 34084 ]]></bhatsid>
-    <url><![CDATA[ https://apply.myticas.com/34084/Cloud%20Site%20Reliability%20Engineer%20-%20Azure%2FAWS/?source=LinkedIn ]]></url>
-    <description><![CDATA[ <p><strong>Cloud Site Reliability Engineer – AWS & Azure</strong><br> <br> <br> <strong>Responsibilities</strong></p> <ul> <li>Oversee the design and improvement of infrastructure using SRE best practices, including IaC, recovery automation, and systems that detect and resolve issues independently. <li>Manage and fine-tune critical services across both cloud and on-prem environments: Kubernetes clusters, CI/CD pipelines, artifact registries, and custom workloads. <li>Enhance observability through intelligent logging, metrics, tracing, and alerting. Ensuring systems are transparent and actionable in real time. <li>Champion automation by eliminating repetitive tasks, from deployment workflows to security audits, through scripting and tooling. <li>Elevate the developer experience for 80+ engineers and researchers by streamlining secure, reliable workflows across hybrid and cloud-native platforms. <li>Take ownership of IAM governance across platforms like Azure AD and AWS IAM. Implement lifecycle automation, auditing, and access controls. <li>Foster a culture of operational excellence with strong practices around security, incident management, and resilience engineering. <li>Act as a trusted partner to developers and researchers, enabling their speed and innovation without compromising stability. </ul> <p><br> <strong>Experience</strong></p> <ul> <li>Experience in Site Reliability Engineering, DevOps, or Systems Engineering within fast-paced, technically demanding environments. <li>Strong background in Linux systems and cloud infrastructure, with hands-on experience in AWS (primary) and Azure environments. <li>Solid command of Kubernetes and container orchestration in production environments. <li>Expertise in Infrastructure as Code tools such as Ansible, building reproducible, scalable infrastructure is second nature to you. <li>Deep experience in observability and incident response: you know how to set up effective monitoring, handle incidents, and lead blameless post-mortems. <li>A security-first mindset, especially when it comes to protecting distributed systems and developer workflows. <li>Proven ability to support and optimize CI/CD pipelines, container image builds, and artifact lifecycle management. <li>Strong communication and collaboration skills. You build trust across teams and advocate for thoughtful, scalable solutions. <li>Bonus if you’ve worked with event-driven architectures using technologies like Kafka. </ul> ]]></description>
-    <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
-    <city><![CDATA[  ]]></city>
-    <state><![CDATA[  ]]></state>
-    <country><![CDATA[ Canada                                                           ]]></country>
-    <category><![CDATA[  ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Remote ]]></remotetype>
-    <assignedrecruiter><![CDATA[ #LI-DSC1: Dominic Scaletta ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
-    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
-  </job>
-  <job>
     <title><![CDATA[ Internal Audit Consultant (34083) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ July 30, 2025 ]]></date>
@@ -899,26 +919,6 @@
     <assignedrecruiter><![CDATA[ #LI-DS1: Dan Sifer ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Analyst ]]></jobfunction>
     <jobindustries><![CDATA[ Biotechnology ]]></jobindustries>
-    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
-  </job>
-  <job>
-    <title><![CDATA[ Ambulatory Clinical Informatics Analyst - Oracle Health/Cerner (32649) ]]></title>
-    <company><![CDATA[ Myticas Consulting ]]></company>
-    <date><![CDATA[ July 22, 2025 ]]></date>
-    <referencenumber><![CDATA[ ZYT7LL66U2 ]]></referencenumber>
-    <bhatsid><![CDATA[ 32649 ]]></bhatsid>
-    <url><![CDATA[ https://apply.myticas.com/32649/Ambulatory%20Clinical%20Informatics%20Analyst%20-%20Oracle%20Health%2FCerner/?source=LinkedIn ]]></url>
-    <description><![CDATA[ <p>Our client is seeking an experienced <strong>Ambulatory Clinical Informatics Analyst</strong> to support the OPOR (One Person One Record) Program’s Ambulatory Portfolio. This role requires a strong background in Oracle Health (Cerner) and will involve collaboration with clinicians, project leadership, and Oracle Health consultants to design, configure, and translate clinical workflows.</p> <p><strong>Key Responsibilities:</strong></p> <ul> <li> <p>Support ambulatory care design and configuration initiatives.</p> <li> <p>Facilitate strategy execution and knowledge translation to subject matter experts (SMEs).</p> <li> <p>Engage with clinicians to review and validate workflows.</p> <li> <p>Participate in organizational change management and co-facilitate design sessions.</p> <li> <p>Collaborate with Oracle Health consultants and internal project teams.</p> <li> <p>Identify risks/issues and contribute to resolution strategies.</p> <li> <p>Provide ongoing updates to OPOR project leadership.</p> </ul> <p><strong>Requirements:</strong></p> <ul> <li> <p>Degree/diploma in a health-related discipline (or equivalent experience).</p> <li> <p>5+ years of experience in a health-related field.</p> <li> <p>2+ years in Clinical Informatics or supporting large-scale CIS implementations (Oracle Health/Cerner strongly preferred).</p> <li> <p>Deep understanding of ambulatory/medicine clinic workflows and interdisciplinary coordination.</p> <li> <p>Familiarity with healthcare terminology, CIS systems, and clinical transformation projects.</p> <li> <p>Ability to influence and collaborate with a range of stakeholders.</p> <li> <p>Excellent communication and documentation skills.</p> <li> <p>Strong problem-solving and process analysis capabilities.</p> </ul> <p><strong>Preferred Qualifications:</strong></p> <ul> <li> <p>Prior knowledge or experience working within the Nova Scotia Health OPOR program.</p> <li> <p>Graphic design/communications experience is a plus.</p> <li> <p>Background in change management or healthcare IT adoption initiatives.</p> </ul> <p><strong>Work Model:</strong></p> <ul> <li> <p>Hybrid role with approximately 70% remote work.</p> <li> <p>Travel across Nova Scotia (up to 30%) as needed.</p> </ul> ]]></description>
-    <jobtype><![CDATA[ Contract ]]></jobtype>
-    <city><![CDATA[  ]]></city>
-    <state><![CDATA[ NS ]]></state>
-    <country><![CDATA[ Canada                                                           ]]></country>
-    <category><![CDATA[  ]]></category>
-    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
-    <remotetype><![CDATA[ Hybrid ]]></remotetype>
-    <assignedrecruiter><![CDATA[ #LI-RP1: Runa Parmar ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
-    <jobindustries><![CDATA[ Hospitals and Health Care ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>

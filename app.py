@@ -1055,9 +1055,11 @@ def process_bullhorn_monitors():
                         # IMMEDIATE WORKFLOW EXECUTION: Trigger XML sync immediately when changes are detected
                         app.logger.info(f"🚀 IMMEDIATE WORKFLOW TRIGGER: Changes detected for {monitor.name}, executing XML sync NOW")
                         
-                        # Get XML Integration Service
+                        # Get XML Integration Service and Field Sync Service
                         from xml_integration_service import XMLIntegrationService
+                        from xml_field_sync_service import XMLFieldSyncService
                         xml_service = XMLIntegrationService()
+                        field_sync_service = XMLFieldSyncService()
                         
                         # Determine which XML files need updating - use actual XML files in root
                         xml_files_to_update = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
@@ -1070,6 +1072,14 @@ def process_bullhorn_monitors():
                             if os.path.exists(xml_filename):
                                 try:
                                     app.logger.info(f"📝 IMMEDIATE SYNC: Processing {xml_filename} for {monitor.name}")
+                                    
+                                    # CRITICAL: First run comprehensive field sync to fix duplicates and field mismatches
+                                    app.logger.info(f"🔍 Running comprehensive field sync check for {xml_filename}")
+                                    field_sync_result = field_sync_service.perform_full_sync(xml_filename, current_jobs)
+                                    if field_sync_result.get('duplicates_removed', 0) > 0:
+                                        app.logger.warning(f"🚨 Removed {field_sync_result['duplicates_removed']} duplicate jobs from {xml_filename}")
+                                    if field_sync_result.get('fields_updated', 0) > 0:
+                                        app.logger.info(f"✅ Updated {field_sync_result['fields_updated']} jobs with field corrections in {xml_filename}")
                                     
                                     # Process removals
                                     if removed_jobs:
