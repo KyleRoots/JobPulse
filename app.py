@@ -2276,14 +2276,16 @@ def process_comprehensive_bullhorn_monitors():
 monitoring_func = process_comprehensive_bullhorn_monitors
 app.logger.info("Using ENHANCED 8-step comprehensive monitoring process")
 
-# Add monitoring to scheduler (every 2 minutes)
+# Add monitoring to scheduler (every 3 minutes due to FTP timeout considerations)
 scheduler.add_job(
     func=monitoring_func,
-    trigger=IntervalTrigger(minutes=2),
+    trigger=IntervalTrigger(minutes=3),
     id='process_bullhorn_monitors',
     name='Enhanced 8-Step Bullhorn Monitor',
     replace_existing=True
 )
+
+app.logger.info("⏱️ TIMING ADJUSTMENT: Monitoring interval set to 3 minutes to accommodate FTP upload timeouts")
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
