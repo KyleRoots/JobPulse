@@ -1468,10 +1468,11 @@ def process_bullhorn_monitors():
             
             app.logger.info(f"📊 COMPREHENSIVE SYNC DECISION: {actual_modifications_count} modifications, {actual_removals_count} removals detected")
             
-            # DO NOT run comprehensive sync if only additions were detected
-            # This prevents bulk reference number regeneration
+            # CRITICAL FIX: Always run comprehensive sync when monitors have been processed
+            # This ensures missing jobs are added to the XML even when no changes are detected
+            # The sync will preserve existing reference numbers for jobs already in XML
             
-            if monitors_processed and has_actual_changes:
+            if monitors_processed and len(monitors_processed) > 0:
                 total_jobs = len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0
                 app.logger.info(f"🔥 COMPREHENSIVE SYNC STARTING: {total_jobs} total jobs from {len(monitors_processed)} monitors")
                 
@@ -1526,7 +1527,14 @@ def process_bullhorn_monitors():
                                     tree = etree.parse(xml_filename, parser)
                                     root = tree.getroot()
                                     
-                                    # Extract job IDs from bhatsid elements
+                                    # Extract job IDs from URL elements (format: https://apply.myticas.com/?jobId=12345)
+                                    for url_elem in root.xpath('.//url'):
+                                        if url_elem.text and 'jobId=' in url_elem.text:
+                                            job_id = url_elem.text.split('jobId=')[-1].strip()
+                                            if job_id:
+                                                xml_job_ids.add(job_id)
+                                    
+                                    # Also check for bhatsid elements for backward compatibility
                                     for bhatsid_elem in root.xpath('.//bhatsid'):
                                         if bhatsid_elem.text:
                                             job_id = bhatsid_elem.text.strip()
@@ -1546,8 +1554,12 @@ def process_bullhorn_monitors():
                                 orphaned_job_ids = xml_job_ids - bullhorn_job_ids
                                 
                                 app.logger.info(f"📊 COMPARISON: XML has {len(xml_job_ids)} jobs, Bullhorn has {len(bullhorn_job_ids)} jobs")
-                                app.logger.info(f"➕ MISSING JOBS: {len(missing_job_ids)} jobs found (will add them to XML)")
-                                app.logger.info(f"➖ ORPHANED JOBS: {len(orphaned_job_ids)} jobs need to be removed: {list(orphaned_job_ids)[:10]}")
+                                app.logger.info(f"➕ MISSING JOBS: {len(missing_job_ids)} jobs found - WILL ADD ALL TO XML")
+                                app.logger.info(f"➖ ORPHANED JOBS: {len(orphaned_job_ids)} jobs to remove: {list(orphaned_job_ids)[:10]}")
+                                
+                                # Force comprehensive sync to run if there are missing jobs
+                                if missing_job_ids:
+                                    comprehensive_sync_made_changes = True  # Pre-flag to ensure processing
                                 
                                 # CRITICAL FIX: DO NOT add "missing" jobs during monitoring cycles
                                 # This causes all jobs to get new reference numbers
@@ -1567,12 +1579,13 @@ def process_bullhorn_monitors():
                                         comprehensive_sync_summary['removed_count'] += jobs_removed
                                         app.logger.info(f"🎯 COMPREHENSIVE SYNC REMOVAL: Removed {jobs_removed} orphaned jobs from {xml_filename}")
                                 
-                                # FIXED: Allow adding missing jobs during monitoring cycles
-                                # The key is to preserve existing reference numbers while adding new jobs
-                                # This prevents bulk reference number regeneration
+                                # ALWAYS ADD MISSING JOBS - This is critical for maintaining the feed
+                                # The system must add any jobs that exist in Bullhorn but not in XML
                                 
                                 if missing_job_ids:
                                     jobs_added = 0
+                                    app.logger.info(f"🔧 ADDING {len(missing_job_ids)} MISSING JOBS TO XML")
+                                    
                                     for job_id in missing_job_ids:
                                         # Find the job data
                                         job_data = None
@@ -1584,8 +1597,7 @@ def process_bullhorn_monitors():
                                                 break
                                         
                                         if job_data:
-                                            # CRITICAL: Do NOT flag as modified to preserve reference numbers
-                                            # The add_job_to_xml function will generate a new reference only for truly new jobs
+                                            # Add the job - do NOT flag as modified to avoid reference regeneration
                                             if xml_service.add_job_to_xml(xml_filename, job_data, monitor_name):
                                                 jobs_added += 1
                                                 comprehensive_sync_made_changes = True
@@ -1594,6 +1606,9 @@ def process_bullhorn_monitors():
                                     if jobs_added > 0:
                                         comprehensive_sync_summary['added_count'] += jobs_added
                                         app.logger.info(f"🎯 COMPREHENSIVE SYNC SUCCESS: Added {jobs_added} missing jobs to {xml_filename}")
+                                        
+                                        # CRITICAL: Set flag to trigger SFTP upload when jobs are added
+                                        comprehensive_sync_made_changes = True
                                 
                                 # Handle job modifications BEFORE SFTP upload
                                 # If comprehensive sync processes modifications, track them AND update the XML
