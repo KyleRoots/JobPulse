@@ -63,8 +63,8 @@ class XMLIntegrationService:
             # Remove any other parenthetical content like (J.D)
             clean_title = re.sub(r'\s*\([^)]+\)\s*', ' ', clean_title).strip()
             
-            # Add Bullhorn job ID in parentheses after cleaned title
-            formatted_title = f"{clean_title} ({job_id})"
+            # Use cleaned title without job ID
+            formatted_title = clean_title
             
             # Determine company name based on tearsheet/monitor
             if monitor_name and 'Sponsored - STSI' in monitor_name:
