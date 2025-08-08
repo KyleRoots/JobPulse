@@ -78,8 +78,8 @@ class XMLIntegrationService:
             address = bullhorn_job.get('address', {})
             city = address.get('city', '') if address else ''
             state = address.get('state', '') if address else ''
-            # Use countryID field for country mapping
-            country = address.get('countryID', 'United States') if address else 'United States'
+            # Use countryName field for country mapping
+            country = address.get('countryName', 'United States') if address else 'United States'
             
             # Ensure None values are converted to empty strings
             city = city if city is not None else ''

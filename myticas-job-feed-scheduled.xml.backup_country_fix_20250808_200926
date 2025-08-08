@@ -673,7 +673,7 @@
     <jobtype> Contract </jobtype>
     <city> Chicago </city>
     <state> IL </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
@@ -693,7 +693,7 @@
     <jobtype> Contract </jobtype>
     <city> Lansing </city>
     <state> MI </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
@@ -713,7 +713,7 @@
     <jobtype> Contract </jobtype>
     <city> Monsey </city>
     <state> NY </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
@@ -733,7 +733,7 @@
     <jobtype> Contract </jobtype>
     <city> Waukegan </city>
     <state> IL </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
@@ -753,7 +753,7 @@
     <jobtype> Contract to Hire </jobtype>
     <city> Minneapolis </city>
     <state> MN </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
@@ -773,7 +773,7 @@
     <jobtype> Contract </jobtype>
     <city> Lansing </city>
     <state> MI </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
@@ -793,7 +793,7 @@
     <jobtype> Contract </jobtype>
     <city> Chicago </city>
     <state> IL </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
@@ -813,7 +813,7 @@
     <jobtype> Contract </jobtype>
     <city> San Francisco </city>
     <state> CA </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
@@ -833,7 +833,7 @@
     <jobtype> Contract </jobtype>
     <city> Chicago </city>
     <state> IL </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
@@ -853,7 +853,7 @@
     <jobtype> Contract </jobtype>
     <city> Irvine </city>
     <state> CA </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
@@ -893,7 +893,7 @@
     <jobtype> Contract </jobtype>
     <city>  </city>
     <state>  </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
@@ -913,7 +913,7 @@
     <jobtype> Contract </jobtype>
     <city> Springfield </city>
     <state> Illinois </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
@@ -933,7 +933,7 @@
     <jobtype> Contract to Hire </jobtype>
     <city> Grand Rapids </city>
     <state> Michigan </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
@@ -953,7 +953,7 @@
     <jobtype> Direct Hire </jobtype>
     <city> Auburn Hills </city>
     <state> Michigan </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
@@ -973,7 +973,7 @@
     <jobtype> Contract </jobtype>
     <city> Chicago </city>
     <state> Illinois </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
@@ -993,7 +993,7 @@
     <jobtype> Contract </jobtype>
     <city> Ada </city>
     <state> Michigan </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Onsite </remotetype>
@@ -1013,7 +1013,7 @@
     <jobtype> Contract </jobtype>
     <city> Springfield </city>
     <state> Illinois </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
@@ -1033,7 +1033,7 @@
     <jobtype> Contract </jobtype>
     <city> Chicago </city>
     <state> Illinois </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Remote </remotetype>
@@ -1053,7 +1053,7 @@
     <jobtype> Direct Hire </jobtype>
     <city> Lansing </city>
     <state> Michigan </state>
-    <country> United States </country>
+    <country> 1 </country>
     <category>  </category>
     <apply_email> apply@myticas.com </apply_email>
     <remotetype> Hybrid </remotetype>
