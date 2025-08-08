@@ -51,8 +51,13 @@ class XMLIntegrationService:
         """
         try:
             # Extract basic job information
-            job_id = bullhorn_job.get('id', '')
+            job_id = str(bullhorn_job.get('id', ''))
             title = bullhorn_job.get('title', 'Untitled Position')
+            
+            # Ensure job_id is not empty for validation
+            if not job_id or job_id == 'None':
+                self.logger.error(f"Invalid job ID: {job_id} for job: {title}")
+                raise ValueError(f"Job ID cannot be None or empty")
             
             # Extract clean job title - remove any existing job ID or code in parentheses
             # This handles cases like "Local to MN-Hybrid, Attorney (J.D)(W-4499)" -> "Attorney"
@@ -119,8 +124,10 @@ class XMLIntegrationService:
             else:
                 reference_number = self.xml_processor.generate_reference_number()
             
-            # Extract job ID from formatted title for bhatsid
+            # Extract job ID from formatted title for bhatsid, fallback to original job_id
             bhatsid = self.xml_processor.extract_job_id_from_title(formatted_title)
+            if not bhatsid or bhatsid == 'unknown':
+                bhatsid = str(job_id)
             
             # Generate unique job application URL (clean_title is already defined above)
             job_url = self._generate_job_application_url(bhatsid, clean_title)
