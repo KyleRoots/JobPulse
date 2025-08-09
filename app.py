@@ -2128,20 +2128,54 @@ def process_comprehensive_bullhorn_monitors():
             app.logger.info("📊 PROGRESS: [●●●●●○○○] Step 5/8 - Uploading to web server")
             app.logger.info("📤 STEP 5/8: Uploading to web server...")
             try:
+                upload_success = True
+                
+                # Try FTP first, then SFTP as fallback
+                app.logger.info("    🔄 Attempting FTP upload...")
                 ftp_service = FTPService(
                     hostname=os.environ.get('SFTP_HOST'),
                     username=os.environ.get('SFTP_USERNAME'),
-                    password=os.environ.get('SFTP_PASSWORD')
+                    password=os.environ.get('SFTP_PASSWORD'),
+                    use_sftp=False
                 )
-                upload_success = True
+                
+                ftp_success = True
+                failed_files = []
+                
                 for xml_file in xml_files:
                     if os.path.exists(xml_file):
                         success = ftp_service.upload_file(xml_file, xml_file)
                         if success:
-                            app.logger.info(f"    ✅ Uploaded {xml_file}")
+                            app.logger.info(f"    ✅ FTP uploaded {xml_file}")
                         else:
-                            app.logger.error(f"    ❌ Failed to upload {xml_file}")
-                            upload_success = False
+                            app.logger.warning(f"    ⚠️ FTP failed for {xml_file}")
+                            ftp_success = False
+                            failed_files.append(xml_file)
+                            break  # Stop trying FTP after first failure
+                            
+                # If FTP failed, try SFTP fallback for all files
+                if not ftp_success and failed_files:
+                    app.logger.info("    🔄 FTP failed - attempting SFTP fallback for all files...")
+                    sftp_service = FTPService(
+                        hostname=os.environ.get('SFTP_HOST'),
+                        username=os.environ.get('SFTP_USERNAME'),
+                        password=os.environ.get('SFTP_PASSWORD'),
+                        use_sftp=True
+                    )
+                    
+                    sftp_success = True
+                    for xml_file in xml_files:  # Try SFTP for ALL files
+                        if os.path.exists(xml_file):
+                            success = sftp_service.upload_file(xml_file, xml_file)
+                            if success:
+                                app.logger.info(f"    ✅ SFTP uploaded {xml_file}")
+                            else:
+                                app.logger.error(f"    ❌ SFTP failed for {xml_file}")
+                                sftp_success = False
+                    
+                    upload_success = sftp_success
+                else:
+                    upload_success = ftp_success
                 
                 if upload_success:
                     app.logger.info("📤 STEP 5 COMPLETE: All files uploaded successfully")
@@ -2239,14 +2273,30 @@ def process_comprehensive_bullhorn_monitors():
                 
                 try:
                         
-                    # Extract job IDs currently in LIVE XML (COMPREHENSIVE extraction)
+                    # Extract job IDs currently in LIVE XML (COMPREHENSIVE extraction with debugging)
                     live_xml_job_ids = set()
-                    # More comprehensive regex to catch all bhatsid variations  
-                    live_job_matches = re.findall(r'<bhatsid>(?:<!\[CDATA\[\s*)?(.*?)(?:\s*\]\]>)?</bhatsid>', live_content, re.DOTALL)
-                    for job_id in live_job_matches:
+                    
+                    # Try multiple regex patterns to catch all bhatsid variations
+                    patterns = [
+                        r'<bhatsid>\s*<!\[CDATA\[\s*(.*?)\s*\]\]>\s*</bhatsid>',  # Standard CDATA format
+                        r'<bhatsid>\s*<!\[CDATA\[(.*?)\]\]>\s*</bhatsid>',        # CDATA without spaces
+                        r'<bhatsid>\s*(.*?)\s*</bhatsid>',                        # Direct content without CDATA
+                    ]
+                    
+                    all_matches = []
+                    for pattern in patterns:
+                        matches = re.findall(pattern, live_content, re.DOTALL)
+                        all_matches.extend(matches)
+                    
+                    app.logger.info(f"    🔍 DEBUG: Found {len(all_matches)} bhatsid matches using all patterns")
+                    
+                    for job_id in all_matches:
                         clean_id = job_id.strip()
                         if clean_id and clean_id.isdigit():  # Only valid numeric job IDs
                             live_xml_job_ids.add(clean_id)
+                            app.logger.debug(f"    🔍 Added job ID: {clean_id}")
+                    
+                    app.logger.info(f"    🔍 DEBUG: Final live_xml_job_ids set: {sorted(list(live_xml_job_ids))}")
                     
                     # LIVE vs LOCAL DEBUGGING: Compare live web server vs expected
                     actual_live_job_count = live_content.count('<job>')
@@ -2262,6 +2312,35 @@ def process_comprehensive_bullhorn_monitors():
                     
                     missing_jobs = bullhorn_job_ids - live_xml_job_ids
                     extra_jobs = live_xml_job_ids - bullhorn_job_ids
+                    
+                    # CRITICAL FIX: If we detect more jobs than IDs, try alternative extraction
+                    if actual_live_job_count > len(live_xml_job_ids):
+                        app.logger.warning(f"    🔍 ALTERNATIVE EXTRACTION: Trying job index-based approach")
+                        # Extract all job blocks and manually parse IDs
+                        job_blocks = re.findall(r'<job>.*?</job>', live_content, re.DOTALL)
+                        app.logger.info(f"    🔍 Found {len(job_blocks)} complete job blocks")
+                        
+                        alternative_ids = set()
+                        for i, job_block in enumerate(job_blocks):
+                            # Try to extract ID from this job block
+                            for pattern in patterns:
+                                id_matches = re.findall(pattern, job_block, re.DOTALL)
+                                if id_matches:
+                                    clean_id = id_matches[0].strip()
+                                    if clean_id and clean_id.isdigit():
+                                        alternative_ids.add(clean_id)
+                                        break
+                            else:
+                                app.logger.warning(f"    ⚠️ Job block {i+1} has no valid ID")
+                        
+                        if len(alternative_ids) > len(live_xml_job_ids):
+                            app.logger.info(f"    ✅ Alternative extraction found {len(alternative_ids)} IDs vs {len(live_xml_job_ids)} from regex")
+                            live_xml_job_ids = alternative_ids
+                            
+                            # RECALCULATE differences with the improved ID set
+                            missing_jobs = bullhorn_job_ids - live_xml_job_ids
+                            extra_jobs = live_xml_job_ids - bullhorn_job_ids
+                            app.logger.info(f"    🔄 RECALCULATED: {len(missing_jobs)} missing, {len(extra_jobs)} orphaned")
                     
                     if len(extra_jobs) > 0:
                         app.logger.warning(f"    🚨 CRITICAL: Found {len(extra_jobs)} orphaned jobs in LIVE XML!")

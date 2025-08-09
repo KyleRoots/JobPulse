@@ -51,9 +51,9 @@ class FTPService:
         try:
             logging.info(f"Connecting to FTP server: {self.hostname}:{self.port}")
             with ftplib.FTP() as ftp:
-                # Set aggressive timeouts to prevent hanging
+                # Set generous timeouts to handle slow connections
                 ftp.set_debuglevel(0)
-                ftp.connect(self.hostname, self.port, timeout=30)
+                ftp.connect(self.hostname, self.port, timeout=120)  # Increased to 2 minutes
                 ftp.login(self.username, self.password)
                 logging.info("FTP login successful")
                 
