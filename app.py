@@ -2192,77 +2192,127 @@ def process_comprehensive_bullhorn_monitors():
             
             app.logger.info(f"🔧 STEP 7 COMPLETE: {format_fixes} formatting fixes applied")
             
-            # STEP 8: FULL AUDIT for 100% accuracy
+            # STEP 8: FULL AUDIT for 100% accuracy (LIVE WEB SERVER COMPARISON)
             app.logger.info("📊 PROGRESS: [●●●●●●●●] Step 8/8 - Final audit")
-            app.logger.info("✅ STEP 8/8: Running FULL AUDIT...")
+            app.logger.info("✅ STEP 8/8: Running FULL AUDIT against LIVE web server XML...")
             audit_passed = True
             corrections_made = 0
             audit_summary = []
             
-            # ENHANCED AUDIT: Get fresh XML content and current tearsheet jobs for accurate comparison
+            # ENHANCED AUDIT: Download and compare LIVE web server XML files
+            live_xml_urls = {
+                'myticas-job-feed.xml': 'https://myticas.com/myticas-job-feed.xml',
+                'myticas-job-feed-scheduled.xml': 'https://myticas.com/myticas-job-feed-scheduled.xml'
+            }
+            
             for xml_file in xml_files:
-                if os.path.exists(xml_file):
+                if xml_file in live_xml_urls:
                     try:
-                        # Read current XML content fresh
+                        # Download current LIVE XML from web server with improved error handling
+                        import requests
+                        import shutil
+                        
+                        app.logger.info(f"    🔄 Attempting to download LIVE {xml_file}...")
+                        response = requests.get(live_xml_urls[xml_file], timeout=15, 
+                                              headers={'User-Agent': 'Myticas-Monitor/1.0'})
+                        
+                        if response.status_code == 200 and len(response.text) > 100:
+                            live_content = response.text
+                            app.logger.info(f"    📥 Successfully downloaded LIVE {xml_file} ({len(live_content)} chars)")
+                        else:
+                            app.logger.warning(f"    ⚠️ Live XML download issue (Status: {response.status_code}, Length: {len(response.text)})")
+                            app.logger.warning(f"    📁 Using local copy of {xml_file} for audit")
+                            with open(xml_file, 'r') as f:
+                                live_content = f.read()
+                    except requests.exceptions.Timeout:
+                        app.logger.warning(f"    ⏰ Timeout downloading live {xml_file} - using local copy")
                         with open(xml_file, 'r') as f:
-                            content = f.read()
+                            live_content = f.read()
+                    except Exception as e:
+                        app.logger.error(f"    ❌ Error downloading live {xml_file}: {str(e)[:100]} - using local copy")
+                        with open(xml_file, 'r') as f:
+                            live_content = f.read()
+                else:
+                    # Read local XML content for files without live URLs
+                    with open(xml_file, 'r') as f:
+                        live_content = f.read()
+                
+                try:
                         
-                        # Extract job IDs currently in XML (clean extraction)
-                        xml_job_ids = set()
-                        xml_job_matches = re.findall(r'<bhatsid>(?:<!\[CDATA\[)?\s*(.*?)\s*(?:\]\]>)?</bhatsid>', content)
-                        for job_id in xml_job_matches:
-                            clean_id = job_id.strip()
-                            if clean_id and clean_id.isdigit():  # Only valid numeric job IDs
-                                xml_job_ids.add(clean_id)
+                    # Extract job IDs currently in LIVE XML (COMPREHENSIVE extraction)
+                    live_xml_job_ids = set()
+                    # More comprehensive regex to catch all bhatsid variations  
+                    live_job_matches = re.findall(r'<bhatsid>(?:<!\[CDATA\[\s*)?(.*?)(?:\s*\]\]>)?</bhatsid>', live_content, re.DOTALL)
+                    for job_id in live_job_matches:
+                        clean_id = job_id.strip()
+                        if clean_id and clean_id.isdigit():  # Only valid numeric job IDs
+                            live_xml_job_ids.add(clean_id)
+                    
+                    # LIVE vs LOCAL DEBUGGING: Compare live web server vs expected
+                    actual_live_job_count = live_content.count('<job>')
+                    app.logger.info(f"    🌐 LIVE AUDIT: {xml_file} has {actual_live_job_count} jobs, detected {len(live_xml_job_ids)} valid IDs")
+                    if actual_live_job_count != len(live_xml_job_ids):
+                        app.logger.warning(f"    ⚠️ LIVE MISMATCH: Found {actual_live_job_count} jobs but only {len(live_xml_job_ids)} valid job IDs!")
                         
-                        # Current jobs that should be in XML (from this cycle's tearsheet fetch)
-                        bullhorn_job_ids = set(all_bullhorn_jobs.keys())
+                    # Current jobs that should be in XML (from this cycle's tearsheet fetch)
+                    bullhorn_job_ids = set(all_bullhorn_jobs.keys())
+                    
+                    app.logger.info(f"    📊 LIVE AUDIT COMPARISON for {xml_file}:")
+                    app.logger.info(f"       LIVE XML has: {len(live_xml_job_ids)} jobs | Expected from tearsheets: {len(bullhorn_job_ids)} jobs")
+                    
+                    missing_jobs = bullhorn_job_ids - live_xml_job_ids
+                    extra_jobs = live_xml_job_ids - bullhorn_job_ids
+                    
+                    if len(extra_jobs) > 0:
+                        app.logger.warning(f"    🚨 CRITICAL: Found {len(extra_jobs)} orphaned jobs in LIVE XML!")
+                        app.logger.info(f"       Orphaned job IDs: {sorted(list(extra_jobs))}")
                         
-                        app.logger.info(f"    📊 AUDIT COMPARISON for {xml_file}:")
-                        app.logger.info(f"       Jobs in XML: {len(xml_job_ids)} | Expected from tearsheets: {len(bullhorn_job_ids)}")
+                    if missing_jobs:
+                        app.logger.warning(f"    ⚠️ LIVE AUDIT: {len(missing_jobs)} jobs missing from LIVE {xml_file}")
+                        audit_summary.append(f"Missing {len(missing_jobs)} jobs from LIVE {xml_file}: {list(missing_jobs)[:3]}{'...' if len(missing_jobs) > 3 else ''}")
+                        audit_passed = False
                         
-                        missing_jobs = bullhorn_job_ids - xml_job_ids
-                        extra_jobs = xml_job_ids - bullhorn_job_ids
+                    if extra_jobs:
+                        app.logger.warning(f"    ⚠️ LIVE AUDIT: {len(extra_jobs)} ORPHANED jobs in LIVE {xml_file} - REBUILDING XML!")
+                        app.logger.info(f"       Orphaned job IDs to remove: {sorted(list(extra_jobs))}")
+                        audit_summary.append(f"Removed {len(extra_jobs)} orphaned jobs from LIVE {xml_file}: {sorted(list(extra_jobs)[:3])}{'...' if len(extra_jobs) > 3 else ''}")
                         
-                        if missing_jobs:
-                            app.logger.warning(f"    ⚠️ AUDIT: {len(missing_jobs)} jobs missing from {xml_file}")
-                            audit_summary.append(f"Missing {len(missing_jobs)} jobs from {xml_file}: {list(missing_jobs)[:3]}{'...' if len(missing_jobs) > 3 else ''}")
+                        # REBUILD XML with only valid tearsheet jobs
+                        app.logger.info(f"    🔧 REBUILDING {xml_file} with only current tearsheet jobs...")
+                        try:
+                            xml_service = XMLIntegrationService()
+                            
+                            # Simple approach: Remove XML completely and let the system rebuild it from scratch
+                            temp_backup = f"{xml_file}.orphan_cleanup_backup"
+                            shutil.copy2(xml_file, temp_backup)
+                            
+                            # Clear the XML file - let the monitoring system rebuild it with current jobs
+                            xml_service.initialize_empty_xml(xml_file)
+                            
+                            # Add all current tearsheet jobs to the cleared XML
+                            jobs_added = 0
+                            for job_id, job_data in all_bullhorn_jobs.items():
+                                if job_id in bullhorn_job_ids:  # Only add jobs from current tearsheets
+                                    monitor_name = job_data.get('_monitor_name')
+                                    success = xml_service.add_job_to_xml(xml_file, job_data, monitor_name=monitor_name)
+                                    if success:
+                                        jobs_added += 1
+                                    else:
+                                        app.logger.warning(f"    ⚠️ Failed to add job {job_id} during rebuild")
+                            
+                            app.logger.info(f"    ✅ REBUILT {xml_file} with {jobs_added} valid jobs (removed {len(extra_jobs)} orphaned jobs)")
+                            corrections_made += len(extra_jobs)
+                            
+                        except Exception as e:
+                            app.logger.error(f"    ❌ Error rebuilding {xml_file}: {str(e)}")
                             audit_passed = False
                             
-                        if extra_jobs:
-                            app.logger.warning(f"    ⚠️ AUDIT: {len(extra_jobs)} extra jobs in {xml_file} - REMOVING AUTOMATICALLY")
-                            app.logger.info(f"       Extra job IDs: {sorted(list(extra_jobs))}")
-                            audit_summary.append(f"Removed {len(extra_jobs)} extra jobs from {xml_file}: {sorted(list(extra_jobs)[:3])}{'...' if len(extra_jobs) > 3 else ''}")
-                            
-                            # ENHANCED REMOVAL: Remove extra jobs not in current tearsheets
-                            xml_service = XMLIntegrationService()
-                            removed_count = 0
-                            for extra_job_id in extra_jobs:
-                                try:
-                                    # Verify job exists in XML before attempting removal
-                                    if f'<bhatsid><![CDATA[ {extra_job_id} ]]></bhatsid>' in content or f'<bhatsid>{extra_job_id}</bhatsid>' in content:
-                                        success = xml_service.remove_job_from_xml(xml_file, extra_job_id)
-                                        if success:
-                                            app.logger.info(f"    🗑️ REMOVED extra job {extra_job_id} from {xml_file}")
-                                            removed_count += 1
-                                        else:
-                                            app.logger.error(f"    ❌ Failed to remove job {extra_job_id} from {xml_file}")
-                                            audit_passed = False
-                                    else:
-                                        app.logger.info(f"    ℹ️ Job {extra_job_id} already removed from {xml_file}")
-                                        removed_count += 1  # Count as successful since it's already gone
-                                except Exception as e:
-                                    app.logger.error(f"    ❌ Error removing job {extra_job_id}: {str(e)}")
-                                    audit_passed = False
-                            
-                            corrections_made += removed_count
-                            
-                        if missing_jobs:
-                            corrections_made += len(missing_jobs)
-                    
-                    except Exception as e:
-                        app.logger.error(f"    AUDIT ERROR for {xml_file}: {str(e)}")
-                        audit_passed = False
+                    if missing_jobs:
+                        corrections_made += len(missing_jobs)
+                        
+                except Exception as e:
+                    app.logger.error(f"    ❌ Error during audit of {xml_file}: {str(e)}")
+                    audit_passed = False
             
             if audit_passed:
                 app.logger.info("✅ STEP 8 COMPLETE: AUDIT PASSED - 100% accuracy confirmed")
