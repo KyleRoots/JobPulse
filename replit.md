@@ -7,6 +7,7 @@ This Flask-based web application automates the processing of XML job feed files 
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
+Deployment workflow: Always confirm deployment requirements at the end of any changes or updates.
 
 ## System Architecture
 
