@@ -2199,18 +2199,27 @@ def process_comprehensive_bullhorn_monitors():
             corrections_made = 0
             audit_summary = []
             
-            # Verify all Bullhorn jobs are in XML
+            # ENHANCED AUDIT: Get fresh XML content and current tearsheet jobs for accurate comparison
             for xml_file in xml_files:
                 if os.path.exists(xml_file):
                     try:
+                        # Read current XML content fresh
                         with open(xml_file, 'r') as f:
                             content = f.read()
                         
-                        # Extract job IDs from XML
-                        xml_job_ids = set(re.findall(r'<bhatsid>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</bhatsid>', content))
-                        xml_job_ids = {job_id.strip() for job_id in xml_job_ids}
+                        # Extract job IDs currently in XML (clean extraction)
+                        xml_job_ids = set()
+                        xml_job_matches = re.findall(r'<bhatsid>(?:<!\[CDATA\[)?\s*(.*?)\s*(?:\]\]>)?</bhatsid>', content)
+                        for job_id in xml_job_matches:
+                            clean_id = job_id.strip()
+                            if clean_id and clean_id.isdigit():  # Only valid numeric job IDs
+                                xml_job_ids.add(clean_id)
                         
+                        # Current jobs that should be in XML (from this cycle's tearsheet fetch)
                         bullhorn_job_ids = set(all_bullhorn_jobs.keys())
+                        
+                        app.logger.info(f"    📊 AUDIT COMPARISON for {xml_file}:")
+                        app.logger.info(f"       Jobs in XML: {len(xml_job_ids)} | Expected from tearsheets: {len(bullhorn_job_ids)}")
                         
                         missing_jobs = bullhorn_job_ids - xml_job_ids
                         extra_jobs = xml_job_ids - bullhorn_job_ids
@@ -2222,22 +2231,31 @@ def process_comprehensive_bullhorn_monitors():
                             
                         if extra_jobs:
                             app.logger.warning(f"    ⚠️ AUDIT: {len(extra_jobs)} extra jobs in {xml_file} - REMOVING AUTOMATICALLY")
-                            audit_summary.append(f"Removed {len(extra_jobs)} extra jobs from {xml_file}: {list(extra_jobs)[:3]}{'...' if len(extra_jobs) > 3 else ''}")
+                            app.logger.info(f"       Extra job IDs: {sorted(list(extra_jobs))}")
+                            audit_summary.append(f"Removed {len(extra_jobs)} extra jobs from {xml_file}: {sorted(list(extra_jobs)[:3])}{'...' if len(extra_jobs) > 3 else ''}")
                             
-                            # AUTOMATIC CORRECTION: Remove extra jobs not in tearsheets
+                            # ENHANCED REMOVAL: Remove extra jobs not in current tearsheets
                             xml_service = XMLIntegrationService()
+                            removed_count = 0
                             for extra_job_id in extra_jobs:
                                 try:
-                                    success = xml_service.remove_job_from_xml(xml_file, extra_job_id)
-                                    if success:
-                                        app.logger.info(f"    🗑️ REMOVED extra job {extra_job_id} from {xml_file}")
-                                        corrections_made += 1
+                                    # Verify job exists in XML before attempting removal
+                                    if f'<bhatsid><![CDATA[ {extra_job_id} ]]></bhatsid>' in content or f'<bhatsid>{extra_job_id}</bhatsid>' in content:
+                                        success = xml_service.remove_job_from_xml(xml_file, extra_job_id)
+                                        if success:
+                                            app.logger.info(f"    🗑️ REMOVED extra job {extra_job_id} from {xml_file}")
+                                            removed_count += 1
+                                        else:
+                                            app.logger.error(f"    ❌ Failed to remove job {extra_job_id} from {xml_file}")
+                                            audit_passed = False
                                     else:
-                                        app.logger.error(f"    ❌ Failed to remove job {extra_job_id} from {xml_file}")
-                                        audit_passed = False
+                                        app.logger.info(f"    ℹ️ Job {extra_job_id} already removed from {xml_file}")
+                                        removed_count += 1  # Count as successful since it's already gone
                                 except Exception as e:
                                     app.logger.error(f"    ❌ Error removing job {extra_job_id}: {str(e)}")
                                     audit_passed = False
+                            
+                            corrections_made += removed_count
                             
                         if missing_jobs:
                             corrections_made += len(missing_jobs)
