@@ -47,11 +47,13 @@ class FTPService:
             return self._upload_ftp(local_file_path, remote_filename)
     
     def _upload_ftp(self, local_file_path: str, remote_filename: str) -> bool:
-        """Upload file using FTP"""
+        """Upload file using FTP with timeout protection"""
         try:
             logging.info(f"Connecting to FTP server: {self.hostname}:{self.port}")
             with ftplib.FTP() as ftp:
-                ftp.connect(self.hostname, self.port)
+                # Set aggressive timeouts to prevent hanging
+                ftp.set_debuglevel(0)
+                ftp.connect(self.hostname, self.port, timeout=30)
                 ftp.login(self.username, self.password)
                 logging.info("FTP login successful")
                 
@@ -64,16 +66,31 @@ class FTPService:
                         logging.error(f"Could not change to directory {self.target_directory}: {e}")
                         return False
                 
-                # Upload file in binary mode
-                with open(local_file_path, 'rb') as file:
-                    result = ftp.storbinary(f'STOR {remote_filename}', file)
+                # Upload file in binary mode with timeout protection
+                import signal
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("FTP upload timeout")
+                
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(90)  # 90 second timeout for upload
+                
+                try:
+                    with open(local_file_path, 'rb') as file:
+                        result = ftp.storbinary(f'STOR {remote_filename}', file)
+                        
+                    signal.alarm(0)  # Cancel timeout
                     
-                if result.startswith('226'):  # 226 Transfer complete
-                    logging.info(f"File uploaded successfully via FTP: {remote_filename}")
-                    return True
-                else:
-                    logging.error(f"FTP upload failed with result: {result}")
+                    if result.startswith('226'):  # 226 Transfer complete
+                        logging.info(f"File uploaded successfully via FTP: {remote_filename}")
+                        return True
+                    else:
+                        logging.error(f"FTP upload failed with result: {result}")
+                        return False
+                except TimeoutError:
+                    logging.error(f"FTP upload timeout after 90 seconds for {remote_filename}")
                     return False
+                finally:
+                    signal.alarm(0)  # Ensure timeout is cleared
                     
         except ftplib.error_perm as e:
             logging.error(f"FTP permission error: {e}")

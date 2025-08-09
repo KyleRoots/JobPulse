@@ -2277,34 +2277,34 @@ def process_comprehensive_bullhorn_monitors():
                         app.logger.info(f"       Orphaned job IDs to remove: {sorted(list(extra_jobs))}")
                         audit_summary.append(f"Removed {len(extra_jobs)} orphaned jobs from LIVE {xml_file}: {sorted(list(extra_jobs)[:3])}{'...' if len(extra_jobs) > 3 else ''}")
                         
-                        # REBUILD XML with only valid tearsheet jobs
-                        app.logger.info(f"    🔧 REBUILDING {xml_file} with only current tearsheet jobs...")
+                        # REMOVE ORPHANED JOBS - Simple direct approach
+                        app.logger.info(f"    🔧 REMOVING {len(extra_jobs)} orphaned jobs from {xml_file}...")
                         try:
                             xml_service = XMLIntegrationService()
                             
-                            # Simple approach: Remove XML completely and let the system rebuild it from scratch
+                            # Create backup before making changes
                             temp_backup = f"{xml_file}.orphan_cleanup_backup"
                             shutil.copy2(xml_file, temp_backup)
                             
-                            # Clear the XML file - let the monitoring system rebuild it with current jobs
-                            xml_service.initialize_empty_xml(xml_file)
-                            
-                            # Add all current tearsheet jobs to the cleared XML
-                            jobs_added = 0
-                            for job_id, job_data in all_bullhorn_jobs.items():
-                                if job_id in bullhorn_job_ids:  # Only add jobs from current tearsheets
-                                    monitor_name = job_data.get('_monitor_name')
-                                    success = xml_service.add_job_to_xml(xml_file, job_data, monitor_name=monitor_name)
+                            # Remove each orphaned job directly
+                            jobs_removed = 0
+                            for orphan_job_id in sorted(list(extra_jobs)):
+                                app.logger.info(f"    🗑️ Removing orphaned job {orphan_job_id}")
+                                try:
+                                    success = xml_service.remove_job_from_xml(xml_file, orphan_job_id)
                                     if success:
-                                        jobs_added += 1
+                                        jobs_removed += 1
+                                        app.logger.info(f"    ✅ Successfully removed orphaned job {orphan_job_id}")
                                     else:
-                                        app.logger.warning(f"    ⚠️ Failed to add job {job_id} during rebuild")
+                                        app.logger.warning(f"    ⚠️ Failed to remove orphaned job {orphan_job_id}")
+                                except Exception as remove_error:
+                                    app.logger.error(f"    ❌ Error removing job {orphan_job_id}: {str(remove_error)}")
                             
-                            app.logger.info(f"    ✅ REBUILT {xml_file} with {jobs_added} valid jobs (removed {len(extra_jobs)} orphaned jobs)")
-                            corrections_made += len(extra_jobs)
+                            app.logger.info(f"    ✅ ORPHAN CLEANUP: Removed {jobs_removed}/{len(extra_jobs)} orphaned jobs from {xml_file}")
+                            corrections_made += jobs_removed
                             
                         except Exception as e:
-                            app.logger.error(f"    ❌ Error rebuilding {xml_file}: {str(e)}")
+                            app.logger.error(f"    ❌ Error removing orphaned jobs from {xml_file}: {str(e)}")
                             audit_passed = False
                             
                     if missing_jobs:
