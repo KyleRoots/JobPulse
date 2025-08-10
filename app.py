@@ -2181,8 +2181,53 @@ def process_comprehensive_bullhorn_monitors():
                 
                 if upload_success:
                     app.logger.info("📤 STEP 5 COMPLETE: All files uploaded successfully")
+                    
+                    # Log successful upload activity
+                    try:
+                        upload_activity = BullhornActivity(
+                            monitor_id=None,  # System-level activity
+                            activity_type='upload_success',
+                            details=json.dumps({
+                                'files_uploaded': len(xml_files),
+                                'upload_method': 'SFTP' if not ftp_success else 'FTP',
+                                'timestamp': datetime.utcnow().isoformat()
+                            }),
+                            notification_sent=True  # No email needed for success
+                        )
+                        db.session.add(upload_activity)
+                    except Exception as e:
+                        app.logger.error(f"Error logging upload success: {str(e)}")
                 else:
                     app.logger.warning("📤 STEP 5 WARNING: Some uploads failed")
+                    
+                    # Log detailed upload failure activity for troubleshooting
+                    try:
+                        connection_details = {
+                            'host': os.environ.get('SFTP_HOST'),
+                            'username': os.environ.get('SFTP_USERNAME'),
+                            'files_attempted': len(xml_files),
+                            'ftp_attempted': True,
+                            'sftp_attempted': not ftp_success,
+                            'failure_point': 'SFTP' if not ftp_success else 'FTP',
+                            'timestamp': datetime.utcnow().isoformat(),
+                            'troubleshooting_note': 'Persistent timeout suggests network connectivity issue between Replit and WP Engine SFTP servers'
+                        }
+                        
+                        upload_failure_activity = BullhornActivity(
+                            monitor_id=None,  # System-level activity
+                            activity_type='upload_failure',
+                            details=json.dumps(connection_details),
+                            notification_sent=True  # No email spam
+                        )
+                        db.session.add(upload_failure_activity)
+                        
+                        app.logger.warning("📋 UPLOAD FAILURE LOGGED: Detailed connection info saved to activity monitoring")
+                        app.logger.info(f"    Host: {connection_details['host']}")
+                        app.logger.info(f"    Method attempted: {connection_details['failure_point']}")
+                        app.logger.info(f"    Files: {connection_details['files_attempted']}")
+                        
+                    except Exception as e:
+                        app.logger.error(f"Error logging upload failure details: {str(e)}")
                     
             except Exception as e:
                 app.logger.error(f"📤 STEP 5 ERROR: Upload failed: {str(e)}")
@@ -2342,9 +2387,53 @@ def process_comprehensive_bullhorn_monitors():
                                     # Track that we made a correction
                                     corrections_made += (actual_live_job_count - len(live_xml_job_ids))
                                     audit_summary.append(f"Fixed corruption in {xml_file}: removed {actual_live_job_count - len(live_xml_job_ids)} orphaned jobs")
+                                    
+                                    # Log successful corruption fix
+                                    try:
+                                        corruption_fix_activity = BullhornActivity(
+                                            monitor_id=None,  # System-level activity
+                                            activity_type='corruption_fix_success',
+                                            details=json.dumps({
+                                                'file': xml_file,
+                                                'orphaned_jobs_removed': actual_live_job_count - len(live_xml_job_ids),
+                                                'valid_jobs_count': len(live_xml_job_ids),
+                                                'retry_attempts': retry + 1,
+                                                'timestamp': datetime.utcnow().isoformat()
+                                            }),
+                                            notification_sent=True  # No email needed
+                                        )
+                                        db.session.add(corruption_fix_activity)
+                                    except Exception as log_error:
+                                        app.logger.error(f"Error logging corruption fix success: {str(log_error)}")
                                 else:
                                     app.logger.error(f"    ❌ CORRUPTION FIX FAILED: Could not upload {xml_file}")
                                     audit_passed = False
+                                    
+                                    # Log detailed corruption fix failure for troubleshooting
+                                    try:
+                                        corruption_failure_details = {
+                                            'file': xml_file,
+                                            'orphaned_jobs_detected': actual_live_job_count - len(live_xml_job_ids),
+                                            'total_attempts': max_retries,
+                                            'failure_type': 'upload_timeout',
+                                            'host': os.environ.get('SFTP_HOST'),
+                                            'timestamp': datetime.utcnow().isoformat(),
+                                            'impact': 'Live XML remains corrupted with duplicate jobs',
+                                            'recommended_action': 'Manual upload of clean XML file may be required'
+                                        }
+                                        
+                                        corruption_failure_activity = BullhornActivity(
+                                            monitor_id=None,  # System-level activity
+                                            activity_type='corruption_fix_failed',
+                                            details=json.dumps(corruption_failure_details),
+                                            notification_sent=True  # No email spam
+                                        )
+                                        db.session.add(corruption_failure_activity)
+                                        
+                                        app.logger.warning("📋 CORRUPTION FIX FAILURE LOGGED: Detailed diagnostics saved to activity monitoring")
+                                        
+                                    except Exception as log_error:
+                                        app.logger.error(f"Error logging corruption fix failure: {str(log_error)}")
                             except Exception as e:
                                 app.logger.error(f"    ❌ CORRUPTION FIX ERROR: {str(e)}")
                                 audit_passed = False

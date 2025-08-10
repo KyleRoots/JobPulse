@@ -3,7 +3,7 @@
 ## Overview
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and provides a user-friendly interface for file uploads and validation. The system aims to provide a robust and automated solution for maintaining accurate and classified job listings, ensuring real-time synchronization and a seamless application experience, thereby enhancing job visibility and streamlining application workflows.
 
-**STATUS (2025-08-10)**: Enhanced 8-step monitoring system with automatic corruption detection and repair deployed. Fixed critical bug where orphaned jobs could accumulate on live server. System now automatically uploads clean XML when detecting job count mismatches (e.g., 61 jobs with only 52 valid IDs).
+**STATUS (2025-08-10)**: Enhanced 8-step monitoring system with automatic corruption detection and repair deployed. Fixed critical bug where orphaned jobs could accumulate on live server. System now automatically uploads clean XML when detecting job count mismatches (e.g., 61 jobs with only 52 valid IDs). Added comprehensive upload failure logging to activity monitoring system for troubleshooting without email spam.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -42,6 +42,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
   8. Runs FULL AUDIT with automatic corruption detection - uploads clean local XML when orphaned jobs detected on live server, ensuring 100% data integrity
 - **Real-Time Progress Tracking**: Visual progress indicators [●●●●●●●○] show current step (Step 1/8 through Step 8/8)
 - **Enhanced Audit Reporting**: Detailed summaries of discrepancies found and corrections made
+- **Upload Failure Monitoring**: Comprehensive logging of SFTP connection issues in activity monitoring system with detailed diagnostics for troubleshooting
 - **Comprehensive Status Logging**: Step-by-step progress updates with clear indicators
 - **XML Integration Service**: Manages job data with proper CDATA formatting, reference number generation, HTML consistency, and LinkedIn recruiter tags. Includes automatic backups, structure validation, duplicate prevention, and MD5 checksums.
 - **Job Application Form**: Responsive, public-facing form with resume parsing (extracts contact info from Word/PDF), auto-population of candidate fields, structured email submission, and Bullhorn job ID integration. Features Myticas Consulting branding, dark blue gradient background, glass morphism effects, and supports unique job URLs. Includes robust duplicate prevention and form lockdown mechanisms.
