@@ -3,7 +3,7 @@
 ## Overview
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and provides a user-friendly interface for file uploads and validation. The system aims to provide a robust and automated solution for maintaining accurate and classified job listings, ensuring real-time synchronization and a seamless application experience, thereby enhancing job visibility and streamlining application workflows.
 
-**STATUS (2025-08-10)**: **CRITICAL BUG RESOLVED**: Fixed comprehensive monitoring service where Steps 5-7 (upload, email, HTML fixes) were being skipped entirely due to early returns in execution flow. **ALL 8 STEPS FULLY OPERATIONAL**: Complete monitoring cycle now executes every 3 minutes with SFTP uploads (port 2222), email notifications, and enhanced HTML formatting fixes. **ENHANCED HTML REPAIR**: Step 7 includes comprehensive regex patterns to fix nested `<li>` tags, excessive whitespace, malformed lists, and CDATA HTML entities. **UPLOAD SUCCESS**: SFTP port 2222 standardized across all configurations with successful uploads to live server. System maintains complete data integrity with automatic corruption detection, orphaned job removal, and 100% accuracy audits.
+**STATUS (2025-08-10)**: **COMPLETE FIELD REMAPPING IMPLEMENTED**: System now performs 100% field remapping from Bullhorn to XML for ALL existing jobs on EVERY monitoring cycle (Step 4), ensuring absolute data accuracy with no discrepancies. **MONITORING INTERVAL EXTENDED**: Cycle time increased from 3 to 5 minutes to accommodate complete remapping of all ~50 jobs. **DATA INTEGRITY GUARANTEED**: Every job in XML is fully refreshed from Bullhorn source data each cycle, eliminating any possibility of field drift or minor text variations. **ALL 8 STEPS OPERATIONAL**: Complete monitoring with fetch, add, remove, REMAP ALL, upload (SFTP port 2222), email, HTML fixes, and audit verification.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -31,15 +31,15 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Proxy Support**: ProxyFix middleware
 
 ### Core Features
-- **Enhanced 8-Step Monitoring System with Auto-Corruption Recovery** (Updated 2025-08-10): Every 3 minutes, performs complete audit cycle with automatic corruption detection and repair:
+- **Enhanced 8-Step Monitoring System with Complete Field Remapping** (Updated 2025-08-10): Every 5 minutes, performs complete data refresh with 100% accuracy guarantee:
   1. Fetches ALL jobs from monitored tearsheets in Bullhorn
   2. Adds new jobs from tearsheets to XML
   3. Removes jobs no longer in tearsheets
-  4. Monitors and syncs field modifications
-  5. Uploads all changes to web server
-  6. Batches email notifications (every 5 minutes) for efficiency
+  4. **COMPLETE REMAPPING**: Re-maps ALL fields for every existing job from Bullhorn (ensures 100% data accuracy)
+  5. Uploads all changes to web server (SFTP port 2222)
+  6. Batches email notifications for efficiency
   7. Reviews and fixes CDATA/HTML formatting
-  8. Runs FULL AUDIT with automatic corruption detection - uploads clean local XML when orphaned jobs detected on live server, ensuring 100% data integrity
+  8. Runs FULL AUDIT with automatic corruption detection - uploads clean local XML when orphaned jobs detected on live server
 - **Real-Time Progress Tracking**: Visual progress indicators [●●●●●●●○] show current step (Step 1/8 through Step 8/8)
 - **Enhanced Audit Reporting**: Detailed summaries of discrepancies found and corrections made
 - **Upload Failure Monitoring**: Comprehensive logging of SFTP connection issues in activity monitoring system with detailed diagnostics for troubleshooting
