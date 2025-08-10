@@ -1064,7 +1064,7 @@ def process_bullhorn_monitors():
                         field_sync_service = XMLFieldSyncService()
                         
                         # Determine which XML files need updating - use actual XML files in root
-                        xml_files_to_update = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+                        xml_files_to_update = ['myticas-job-feed.xml']  # SIMPLIFIED: Single file system only
                         active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
                         
                         # Process each XML file immediately
@@ -2018,7 +2018,7 @@ def process_comprehensive_bullhorn_monitors():
             
             # STEP 2 & 3: Compare with XML and identify changes
             app.logger.info("📄 STEP 2-3/8: Comparing with current XML files...")
-            xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+            xml_files = ['myticas-job-feed.xml']  # SIMPLIFIED: Single file system only
             cycle_changes = {'added': [], 'removed': [], 'modified': []}
             
             for xml_file in xml_files:
@@ -2238,8 +2238,7 @@ def process_comprehensive_bullhorn_monitors():
             
             # ENHANCED AUDIT: Download and compare LIVE web server XML files
             live_xml_urls = {
-                'myticas-job-feed.xml': 'https://myticas.com/myticas-job-feed.xml',
-                'myticas-job-feed-scheduled.xml': 'https://myticas.com/myticas-job-feed-scheduled.xml'
+                'myticas-job-feed.xml': 'https://myticas.com/myticas-job-feed.xml'
             }
             
             for xml_file in xml_files:
@@ -2670,7 +2669,7 @@ def scheduler_dashboard():
     # Get information about the actively maintained XML files
     # Use schedule info if available for server timestamps, otherwise local file info
     active_xml_files = []
-    for filename in ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']:
+    for filename in ['myticas-job-feed.xml']:  # SIMPLIFIED: Single file system only
         if os.path.exists(filename):
             file_stats = os.stat(filename)
             
@@ -3833,7 +3832,7 @@ def trigger_ai_classification_fix():
         from lxml import etree
         import os
         
-        xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+        xml_files = ['myticas-job-feed.xml']  # SIMPLIFIED: Single file system only
         total_jobs_fixed = 0
         
         for xml_file in xml_files:
