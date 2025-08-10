@@ -2195,8 +2195,11 @@ def process_comprehensive_bullhorn_monitors():
                             notification_sent=True  # No email needed for success
                         )
                         db.session.add(upload_activity)
+                        db.session.commit()  # CRITICAL: Commit the transaction
+                        app.logger.info("📊 UPLOAD SUCCESS LOGGED: Activity saved to monitoring system")
                     except Exception as e:
                         app.logger.error(f"Error logging upload success: {str(e)}")
+                        db.session.rollback()
                 else:
                     app.logger.warning("📤 STEP 5 WARNING: Some uploads failed")
                     
@@ -2220,6 +2223,7 @@ def process_comprehensive_bullhorn_monitors():
                             notification_sent=True  # No email spam
                         )
                         db.session.add(upload_failure_activity)
+                        db.session.commit()  # CRITICAL: Commit the transaction
                         
                         app.logger.warning("📋 UPLOAD FAILURE LOGGED: Detailed connection info saved to activity monitoring")
                         app.logger.info(f"    Host: {connection_details['host']}")
@@ -2228,6 +2232,7 @@ def process_comprehensive_bullhorn_monitors():
                         
                     except Exception as e:
                         app.logger.error(f"Error logging upload failure details: {str(e)}")
+                        db.session.rollback()
                     
             except Exception as e:
                 app.logger.error(f"📤 STEP 5 ERROR: Upload failed: {str(e)}")
@@ -2403,8 +2408,11 @@ def process_comprehensive_bullhorn_monitors():
                                             notification_sent=True  # No email needed
                                         )
                                         db.session.add(corruption_fix_activity)
+                                        db.session.commit()  # CRITICAL: Commit the transaction
+                                        app.logger.info("📊 CORRUPTION FIX SUCCESS LOGGED: Activity saved to monitoring system")
                                     except Exception as log_error:
                                         app.logger.error(f"Error logging corruption fix success: {str(log_error)}")
+                                        db.session.rollback()
                                 else:
                                     app.logger.error(f"    ❌ CORRUPTION FIX FAILED: Could not upload {xml_file}")
                                     audit_passed = False
@@ -2429,11 +2437,13 @@ def process_comprehensive_bullhorn_monitors():
                                             notification_sent=True  # No email spam
                                         )
                                         db.session.add(corruption_failure_activity)
+                                        db.session.commit()  # CRITICAL: Commit the transaction
                                         
                                         app.logger.warning("📋 CORRUPTION FIX FAILURE LOGGED: Detailed diagnostics saved to activity monitoring")
                                         
                                     except Exception as log_error:
                                         app.logger.error(f"Error logging corruption fix failure: {str(log_error)}")
+                                        db.session.rollback()
                             except Exception as e:
                                 app.logger.error(f"    ❌ CORRUPTION FIX ERROR: {str(e)}")
                                 audit_passed = False
