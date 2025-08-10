@@ -2116,9 +2116,109 @@ def process_comprehensive_bullhorn_monitors():
                     except Exception as e:
                         app.logger.error(f"    Error during duplicate prevention: {str(e)}")
                     
+                    # STEP 4 ENHANCED: Actually check for field modifications
                     if jobs_to_check:
                         app.logger.info(f"    🔍 Checking {len(jobs_to_check)} jobs for modifications")
-                        app.logger.info(f"    📝 Field modification checking implemented")
+                        xml_service = XMLIntegrationService()
+                        modifications_found = 0
+                        
+                        # Parse current XML to get existing job data
+                        try:
+                            import xml.etree.ElementTree as ET
+                            tree = ET.parse(xml_file)
+                            root = tree.getroot()
+                            
+                            for job_id in jobs_to_check:
+                                if job_id in all_bullhorn_jobs:
+                                    bullhorn_job = all_bullhorn_jobs[job_id]
+                                    
+                                    # Find job in XML
+                                    xml_job = None
+                                    for job_elem in root.findall('.//job'):
+                                        bhatsid_elem = job_elem.find('bhatsid')
+                                        if bhatsid_elem is not None:
+                                            # Handle CDATA in bhatsid
+                                            xml_job_id = bhatsid_elem.text
+                                            if xml_job_id and '<![CDATA[' in xml_job_id:
+                                                xml_job_id = xml_job_id.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                            else:
+                                                xml_job_id = xml_job_id.strip() if xml_job_id else ''
+                                            
+                                            if xml_job_id == str(job_id):
+                                                xml_job = job_elem
+                                                break
+                                    
+                                    if xml_job is not None:
+                                        # Compare key fields for modifications
+                                        fields_to_check = ['title', 'description', 'employmentType', 
+                                                         'dateEnd', 'address']
+                                        modified = False
+                                        changes = []
+                                        
+                                        # Check description field specifically
+                                        xml_desc_elem = xml_job.find('description')
+                                        if xml_desc_elem is not None:
+                                            xml_desc = xml_desc_elem.text or ''
+                                            # Remove CDATA markers for comparison
+                                            if '<![CDATA[' in xml_desc:
+                                                xml_desc = xml_desc.replace('<![CDATA[', '').replace(']]>', '')
+                                            xml_desc = xml_desc.strip()
+                                            
+                                            bullhorn_desc = bullhorn_job.get('description', '') or ''
+                                            bullhorn_desc = bullhorn_desc.strip()
+                                            
+                                            # Compare descriptions
+                                            if xml_desc != bullhorn_desc:
+                                                modified = True
+                                                changes.append('description')
+                                                app.logger.info(f"      📝 Job {job_id} description modified")
+                                        
+                                        # Check other fields
+                                        xml_title_elem = xml_job.find('title')
+                                        if xml_title_elem is not None:
+                                            xml_title = xml_title_elem.text or ''
+                                            if '<![CDATA[' in xml_title:
+                                                xml_title = xml_title.replace('<![CDATA[', '').replace(']]>', '')
+                                            xml_title = xml_title.strip()
+                                            
+                                            bullhorn_title = bullhorn_job.get('title', '') or ''
+                                            bullhorn_title = bullhorn_title.strip()
+                                            
+                                            if xml_title != bullhorn_title:
+                                                modified = True
+                                                changes.append('title')
+                                                app.logger.info(f"      📝 Job {job_id} title modified")
+                                        
+                                        # If modifications detected, update the job
+                                        if modified:
+                                            app.logger.info(f"      🔄 Updating job {job_id} - Changes: {', '.join(changes)}")
+                                            try:
+                                                # Remove old version
+                                                xml_service.remove_job_from_xml(xml_file, job_id)
+                                                # Add updated version
+                                                monitor_name = bullhorn_job.get('_monitor_name')
+                                                xml_job_updated = xml_service.map_bullhorn_job_to_xml(bullhorn_job, monitor_name=monitor_name)
+                                                xml_service.add_job_to_xml(xml_file, xml_job_updated)
+                                                
+                                                cycle_changes['modified'].append({
+                                                    'id': job_id,
+                                                    'title': bullhorn_job.get('title', 'Unknown'),
+                                                    'changes': changes
+                                                })
+                                                modifications_found += 1
+                                                app.logger.info(f"      ✅ Job {job_id} updated successfully")
+                                            except Exception as update_error:
+                                                app.logger.error(f"      ❌ Failed to update job {job_id}: {str(update_error)}")
+                                    else:
+                                        app.logger.warning(f"      ⚠️ Job {job_id} not found in XML for modification check")
+                                        
+                        except Exception as parse_error:
+                            app.logger.error(f"    Error parsing XML for modifications: {str(parse_error)}")
+                        
+                        if modifications_found > 0:
+                            app.logger.info(f"    📝 Modified {modifications_found} jobs with field changes")
+                        else:
+                            app.logger.info(f"    ✅ No field modifications detected")
                         
                     if duplicate_count > 0:
                         app.logger.info(f"    🔧 Duplicate prevention: {duplicate_count} duplicates removed")
