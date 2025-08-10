@@ -24,7 +24,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Background Processing**: APScheduler for automated tasks and Bullhorn monitoring
 - **XML Processing**: Custom processor utilizing `lxml`
 - **Email Service**: SendGrid for notifications
-- **FTP Service**: Built-in FTP client for file uploads
+- **SFTP Service**: Built-in SFTP client for secure file uploads (port 2222)
 - **ATS Integration**: Real-time Bullhorn ATS/CRM monitoring for job changes, data mapping, and reference number generation.
 - **Session Management**: Flask sessions with secure key
 - **File Handling**: Secure temporary file storage

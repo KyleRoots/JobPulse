@@ -1142,7 +1142,7 @@ def process_bullhorn_monitors():
                                                     
                                                     from ftp_service import FTPService
                                                     
-                                                    port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
+                                                    port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222
                                                     directory = sftp_directory.setting_value if sftp_directory else ''
                                                     
                                                     # Create FTP service instance
@@ -1489,7 +1489,8 @@ def process_bullhorn_monitors():
                     app.logger.info("🔒 INDIVIDUAL MONITOR: Single tearsheet has 0 jobs - skipping comprehensive sync to prevent data loss")
                     # CRITICAL SAFETY: Skip comprehensive sync for individual empty tearsheets
                     # This prevents catastrophic data loss from individual empty tearsheet scenarios
-                    return  # Exit the function safely without proceeding to comprehensive sync
+                    # Continue to Steps 5-7 even if comprehensive sync is skipped
+                    app.logger.info("⚠️ Skipping comprehensive sync but continuing with upload and formatting steps...")
                 else:
                     app.logger.info(f"🎯 COMPREHENSIVE SYNC: Found {total_jobs} jobs across {num_monitors_processed} monitors - proceeding with XML comparison")
                 
@@ -1709,7 +1710,7 @@ def process_bullhorn_monitors():
                                                 
                                                 from ftp_service import FTPService
                                                 
-                                                port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 22
+                                                port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222
                                                 directory = sftp_directory.setting_value if sftp_directory else ''
                                                 
                                                 ftp_service = FTPService(
@@ -2257,7 +2258,7 @@ def process_comprehensive_bullhorn_monitors():
             else:
                 app.logger.info("📧 STEP 6: No changes to report")
             
-            # STEP 7: Fix CDATA/HTML formatting  
+            # STEP 7: Fix CDATA/HTML formatting with comprehensive HTML repair
             app.logger.info("📊 PROGRESS: [●●●●●●●○] Step 7/8 - Formatting review")
             app.logger.info("🔧 STEP 7/8: Reviewing CDATA and HTML formatting...")
             format_fixes = 0
@@ -2268,14 +2269,42 @@ def process_comprehensive_bullhorn_monitors():
                             content = f.read()
                         
                         original_content = content
+                        
+                        # Enhanced HTML repair logic (from fix_specific_html_issues.py)
+                        # Fix nested <li> tags (missing closing tags)
+                        content = re.sub(r'(<li[^>]*>[^<]*)<li([^>]*)>', r'\1</li>\n<li\2>', content)
+                        
+                        # Fix excessive whitespace in country fields (60+ spaces)
+                        content = re.sub(r'(\s{10,})', ' ', content)
+                        
+                        # Fix malformed HTML lists
+                        content = re.sub(r'<li[^>]*>([^<]*(?:<[^/][^>]*>[^<]*)*[^<]*)</li>\s*<li[^>]*>', r'<li>\1</li>\n<li>', content)
+                        
                         # Ensure CDATA sections are properly formatted
                         content = re.sub(r'<(title|description|company)>([^<]*)</\1>', r'<\1><![CDATA[\2]]></\1>', content)
+                        
+                        # Use html.unescape for proper HTML entity handling
+                        import html
+                        # Apply html.unescape to description content within CDATA
+                        def fix_cdata_html(match):
+                            cdata_content = match.group(2)
+                            unescaped = html.unescape(cdata_content)
+                            return f'<{match.group(1)}><![CDATA[{unescaped}]]></{match.group(1)}>'
+                        
+                        content = re.sub(r'<(description)><!\[CDATA\[(.*?)\]\]></\1>', fix_cdata_html, content, flags=re.DOTALL)
                         
                         if content != original_content:
                             with open(xml_file, 'w') as f:
                                 f.write(content)
                             format_fixes += 1
-                            app.logger.info(f"    🔧 Fixed formatting in {xml_file}")
+                            app.logger.info(f"    🔧 Fixed HTML formatting in {xml_file}")
+                            
+                            # Check for specific patterns that were fixed
+                            broken_patterns = len(re.findall(r'&lt;li&gt;.*&lt;li&gt;', original_content))
+                            fixed_patterns = len(re.findall(r'&lt;li&gt;.*&lt;li&gt;', content))
+                            if broken_patterns > fixed_patterns:
+                                app.logger.info(f"    ✅ HTML formatting FIXED: {broken_patterns - fixed_patterns} broken patterns corrected")
+                                
                     except Exception as e:
                         app.logger.error(f"    Error fixing {xml_file}: {str(e)}")
             

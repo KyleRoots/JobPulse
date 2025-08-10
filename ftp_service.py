@@ -25,7 +25,7 @@ class FTPService:
         self.password = password
         self.target_directory = target_directory.rstrip('/')
         self.use_sftp = use_sftp
-        self.port = port if port is not None else (22 if use_sftp else 21)
+        self.port = port if port is not None else (2222 if use_sftp else 21)
         
     def upload_file(self, local_file_path: str, remote_filename: Optional[str] = None) -> bool:
         """
