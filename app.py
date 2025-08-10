@@ -2301,8 +2301,35 @@ def process_comprehensive_bullhorn_monitors():
                     # LIVE vs LOCAL DEBUGGING: Compare live web server vs expected
                     actual_live_job_count = live_content.count('<job>')
                     app.logger.info(f"    🌐 LIVE AUDIT: {xml_file} has {actual_live_job_count} jobs, detected {len(live_xml_job_ids)} valid IDs")
+                    
+                    # CRITICAL FIX: If we detect corrupted live XML with orphaned jobs, trigger corrective upload
+                    corruption_detected = False
                     if actual_live_job_count != len(live_xml_job_ids):
                         app.logger.warning(f"    ⚠️ LIVE MISMATCH: Found {actual_live_job_count} jobs but only {len(live_xml_job_ids)} valid job IDs!")
+                        corruption_detected = True
+                        
+                        # IMMEDIATE CORRECTIVE ACTION: Upload clean local XML to fix corruption
+                        if os.path.exists(xml_file):
+                            app.logger.warning(f"    🚨 CORRUPTION DETECTED: Uploading clean {xml_file} to fix live XML corruption")
+                            try:
+                                from ftp_service import FTPService
+                                ftp_service = FTPService(
+                                    hostname=os.environ.get('SFTP_HOST'),
+                                    username=os.environ.get('SFTP_USERNAME'), 
+                                    password=os.environ.get('SFTP_PASSWORD')
+                                )
+                                upload_result = ftp_service.upload_file(xml_file, xml_file)
+                                if upload_result:
+                                    app.logger.info(f"    ✅ CORRUPTION FIX: Successfully uploaded clean {xml_file}")
+                                    # Track that we made a correction
+                                    corrections_made += (actual_live_job_count - len(live_xml_job_ids))
+                                    audit_summary.append(f"Fixed corruption in {xml_file}: removed {actual_live_job_count - len(live_xml_job_ids)} orphaned jobs")
+                                else:
+                                    app.logger.error(f"    ❌ CORRUPTION FIX FAILED: Could not upload {xml_file}")
+                                    audit_passed = False
+                            except Exception as e:
+                                app.logger.error(f"    ❌ CORRUPTION FIX ERROR: {str(e)}")
+                                audit_passed = False
                         
                     # Current jobs that should be in XML (from this cycle's tearsheet fetch)
                     bullhorn_job_ids = set(all_bullhorn_jobs.keys())

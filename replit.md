@@ -3,7 +3,7 @@
 ## Overview
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and provides a user-friendly interface for file uploads and validation. The system aims to provide a robust and automated solution for maintaining accurate and classified job listings, ensuring real-time synchronization and a seamless application experience, thereby enhancing job visibility and streamlining application workflows.
 
-**STATUS (2025-08-09)**: Enhanced 8-step monitoring system successfully deployed and operational. Live XML feed confirmed working at https://myticas.com/myticas-job-feed.xml with all 52+ jobs properly formatted and synchronized.
+**STATUS (2025-08-10)**: Enhanced 8-step monitoring system with automatic corruption detection and repair deployed. Fixed critical bug where orphaned jobs could accumulate on live server. System now automatically uploads clean XML when detecting job count mismatches (e.g., 61 jobs with only 52 valid IDs).
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -31,7 +31,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Proxy Support**: ProxyFix middleware
 
 ### Core Features
-- **Enhanced 8-Step Monitoring System with Progress Tracking** (Updated 2025-08-08): Every 2 minutes, performs complete audit cycle with visual progress indicators:
+- **Enhanced 8-Step Monitoring System with Auto-Corruption Recovery** (Updated 2025-08-10): Every 3 minutes, performs complete audit cycle with automatic corruption detection and repair:
   1. Fetches ALL jobs from monitored tearsheets in Bullhorn
   2. Adds new jobs from tearsheets to XML
   3. Removes jobs no longer in tearsheets
@@ -39,7 +39,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
   5. Uploads all changes to web server
   6. Batches email notifications (every 5 minutes) for efficiency
   7. Reviews and fixes CDATA/HTML formatting
-  8. Runs FULL AUDIT ensuring 100% field accuracy with detailed discrepancy reporting and automatic correction of extra jobs
+  8. Runs FULL AUDIT with automatic corruption detection - uploads clean local XML when orphaned jobs detected on live server, ensuring 100% data integrity
 - **Real-Time Progress Tracking**: Visual progress indicators [●●●●●●●○] show current step (Step 1/8 through Step 8/8)
 - **Enhanced Audit Reporting**: Detailed summaries of discrepancies found and corrections made
 - **Comprehensive Status Logging**: Step-by-step progress updates with clear indicators
