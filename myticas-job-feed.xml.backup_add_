@@ -33,7 +33,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Springfield ]]></city>
     <state><![CDATA[ Illinois ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
@@ -53,7 +53,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ Illinois ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
@@ -73,7 +73,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Springfield ]]></city>
     <state><![CDATA[ Illinois ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
@@ -93,7 +93,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Ada ]]></city>
     <state><![CDATA[ Michigan ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
@@ -153,7 +153,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[  ]]></city>
     <state><![CDATA[  ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
@@ -213,7 +213,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ IL ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -233,7 +233,7 @@
     <jobtype><![CDATA[ Direct Hire ]]></jobtype>
     <city><![CDATA[ Auburn Hills ]]></city>
     <state><![CDATA[ Michigan ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
@@ -273,7 +273,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ IL ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -313,7 +313,7 @@
     <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
     <city><![CDATA[ Grand Rapids ]]></city>
     <state><![CDATA[ Michigan ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
@@ -493,7 +493,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Irvine ]]></city>
     <state><![CDATA[ CA ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -533,7 +533,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ Illinois ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
@@ -573,7 +573,7 @@
     <jobtype><![CDATA[ Contract to Hire ]]></jobtype>
     <city><![CDATA[ Minneapolis ]]></city>
     <state><![CDATA[ MN ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -713,7 +713,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Chicago ]]></city>
     <state><![CDATA[ IL ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -733,7 +733,7 @@
     <jobtype><![CDATA[ Direct Hire ]]></jobtype>
     <city><![CDATA[ Lansing ]]></city>
     <state><![CDATA[ Michigan ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -753,7 +753,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Waukegan ]]></city>
     <state><![CDATA[ IL ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
@@ -773,7 +773,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ San Francisco ]]></city>
     <state><![CDATA[ CA ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -833,7 +833,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Lansing ]]></city>
     <state><![CDATA[ MI ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -993,7 +993,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Lansing ]]></city>
     <state><![CDATA[ MI ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
@@ -1013,7 +1013,7 @@
     <jobtype><![CDATA[ Contract ]]></jobtype>
     <city><![CDATA[ Monsey ]]></city>
     <state><![CDATA[ NY ]]></state>
-    <country><![CDATA[ 1 ]]></country>
+    <country><![CDATA[ United States ]]></country>
     <category><![CDATA[  ]]></category>
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Onsite ]]></remotetype>
