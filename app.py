@@ -2162,6 +2162,7 @@ def process_comprehensive_bullhorn_monitors():
                         hostname=os.environ.get('SFTP_HOST'),
                         username=os.environ.get('SFTP_USERNAME'),
                         password=os.environ.get('SFTP_PASSWORD'),
+                        port=2222,  # WP Engine SFTP port
                         use_sftp=True
                     )
                     
@@ -2368,7 +2369,9 @@ def process_comprehensive_bullhorn_monitors():
                                 ftp_service = FTPService(
                                     hostname=os.environ.get('SFTP_HOST'),
                                     username=os.environ.get('SFTP_USERNAME'), 
-                                    password=os.environ.get('SFTP_PASSWORD')
+                                    password=os.environ.get('SFTP_PASSWORD'),
+                                    port=2222,  # WP Engine SFTP port
+                                    use_sftp=True
                                 )
                                 
                                 # Enhanced upload with retry logic for corruption fixes
