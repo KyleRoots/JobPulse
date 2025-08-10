@@ -20,7 +20,15 @@ class SimplifiedMonitoringService:
         self.bullhorn = BullhornService()
         self.xml_service = XMLIntegrationService()
         self.email_service = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
-        self.ftp_service = FTPService()
+        # Configure SFTP service with proper settings for live uploads
+        self.ftp_service = FTPService(
+            hostname="mytconsulting.sftp.wpengine.com",
+            username="mytconsulting-admin",  # This will be overridden by settings
+            password="",  # This will be overridden by settings 
+            target_directory="/",
+            port=2222,
+            use_sftp=True
+        )
         
         # Fields to monitor for modifications
         self.monitored_fields = [

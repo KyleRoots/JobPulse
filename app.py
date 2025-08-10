@@ -2132,13 +2132,14 @@ def process_comprehensive_bullhorn_monitors():
                 from ftp_service import FTPService
                 upload_success = True
                 
-                # Try FTP first, then SFTP as fallback
-                app.logger.info("    🔄 Attempting FTP upload...")
+                # Use SFTP for secure upload to live server
+                app.logger.info("    🔄 Attempting SFTP upload...")
                 ftp_service = FTPService(
                     hostname=os.environ.get('SFTP_HOST'),
                     username=os.environ.get('SFTP_USERNAME'),
                     password=os.environ.get('SFTP_PASSWORD'),
-                    use_sftp=False
+                    port=2222,
+                    use_sftp=True
                 )
                 
                 ftp_success = True
