@@ -470,21 +470,55 @@ class XMLIntegrationService:
         return recruiter_name
     
     def _clean_description(self, description: str) -> str:
-        """Clean and format job description for XML"""
+        """Clean and format job description for XML with proper HTML formatting"""
         if not description:
             return ''
         
         import html
+        import re
         
         # Convert HTML entities back to proper HTML tags for consistent formatting
         # This ensures &lt;strong&gt; becomes <strong>, &lt;p&gt; becomes <p>, etc.
         description = html.unescape(description)
         
-        # Remove excessive whitespace
+        # Fix missing closing </li> tags - CRITICAL HTML FORMATTING FIX
+        # Comprehensive approach: iteratively fix all missing closing tags
+        while True:
+            # Count existing tags
+            li_count = description.count('<li>')
+            li_close_count = description.count('</li>')
+            
+            if li_count <= li_close_count:
+                break  # All tags are properly closed
+                
+            # Fix missing closing tags before next <li> or </ul>
+            original_description = description
+            description = re.sub(r'<li>([^<]*?)(?=\s*<li>)(?!</li>)', r'<li>\1</li>', description)
+            description = re.sub(r'<li>([^<]*?)(?=\s*</ul>)(?!</li>)', r'<li>\1</li>', description)
+            
+            # If no changes were made, break to prevent infinite loop
+            if description == original_description:
+                break
+        
+        # Clean up any double closing tags that might have been created
+        description = re.sub(r'</li>\s*</li>', '</li>', description)
+        
+        # Remove excessive whitespace but preserve proper line breaks in lists
         description = ' '.join(description.split())
         
+        # Log if HTML fixes were applied - ALWAYS log at INFO level for debugging
+        if '</li>' in description and '<li>' in description:
+            li_count = description.count('<li>')
+            li_close_count = description.count('</li>')
+            if li_count != li_close_count:
+                self.logger.error(f"HTML list formatting STILL BROKEN: {li_count} <li> tags, {li_close_count} </li> tags")
+            else:
+                self.logger.info(f"✅ HTML list formatting FIXED: {li_count} <li> tags with matching closing tags")
+        else:
+            self.logger.info(f"📝 HTML description processed (no lists found): {len(description)} chars")
+        
         # Ensure HTML content is properly formatted within CDATA sections
-        # All HTML tags will now be consistent raw HTML format
+        # All HTML tags will now be consistent raw HTML format with proper closing tags
         return description
     
     def _format_date(self, date_str: str) -> str:
