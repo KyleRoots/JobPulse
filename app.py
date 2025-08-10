@@ -2128,6 +2128,8 @@ def process_comprehensive_bullhorn_monitors():
             app.logger.info("📊 PROGRESS: [●●●●●○○○] Step 5/8 - Uploading to web server")
             app.logger.info("📤 STEP 5/8: Uploading to web server...")
             try:
+                # SCOPE FIX: Import FTPService locally to ensure availability
+                from ftp_service import FTPService
                 upload_success = True
                 
                 # Try FTP first, then SFTP as fallback
@@ -2184,6 +2186,7 @@ def process_comprehensive_bullhorn_monitors():
                     
             except Exception as e:
                 app.logger.error(f"📤 STEP 5 ERROR: Upload failed: {str(e)}")
+                app.logger.error(f"📤 STEP 5 ERROR DETAILS: {traceback.format_exc()}")
             
             # STEP 6: Queue email notifications (sent every 5 minutes)
             app.logger.info("📊 PROGRESS: [●●●●●●○○] Step 6/8 - Email notifications")
@@ -2318,7 +2321,23 @@ def process_comprehensive_bullhorn_monitors():
                                     username=os.environ.get('SFTP_USERNAME'), 
                                     password=os.environ.get('SFTP_PASSWORD')
                                 )
-                                upload_result = ftp_service.upload_file(xml_file, xml_file)
+                                
+                                # Enhanced upload with retry logic for corruption fixes
+                                upload_result = False
+                                max_retries = 3
+                                for retry in range(max_retries):
+                                    try:
+                                        app.logger.info(f"    🔄 CORRUPTION FIX: Upload attempt {retry + 1}/{max_retries}")
+                                        upload_result = ftp_service.upload_file(xml_file, xml_file)
+                                        if upload_result:
+                                            break
+                                        else:
+                                            app.logger.warning(f"    ⚠️ Upload attempt {retry + 1} failed, retrying...")
+                                    except Exception as retry_error:
+                                        app.logger.warning(f"    ⚠️ Upload attempt {retry + 1} error: {str(retry_error)}")
+                                    
+                                    if retry < max_retries - 1:  # Don't sleep after last attempt
+                                        time.sleep(5)  # Wait 5 seconds before retry
                                 if upload_result:
                                     app.logger.info(f"    ✅ CORRUPTION FIX: Successfully uploaded clean {xml_file}")
                                     # Track that we made a correction
