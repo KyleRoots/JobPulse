@@ -83,8 +83,9 @@ class XMLIntegrationService:
             address = bullhorn_job.get('address', {})
             city = address.get('city', '') if address else ''
             state = address.get('state', '') if address else ''
-            # Use countryName field for country mapping
-            country = address.get('countryName', 'United States') if address else 'United States'
+            # Use countryName field for country mapping, handle country ID conversion
+            country_raw = address.get('countryName', 'United States') if address else 'United States'
+            country = self._map_country_id_to_name(country_raw)
             
             # Ensure None values are converted to empty strings
             city = city if city is not None else ''
@@ -331,6 +332,54 @@ class XMLIntegrationService:
         
         self.logger.info(f"Mapped onSite '{onsite_value}' to remotetype '{result}'")
         return result
+    
+    def _map_country_id_to_name(self, country_value) -> str:
+        """Map Bullhorn country ID or name to proper country name for XML"""
+        # Handle None or empty values
+        if not country_value:
+            return 'United States'
+            
+        # Convert to string for processing
+        country_str = str(country_value).strip()
+        
+        # Country ID to name mapping (common Bullhorn country IDs)
+        country_mapping = {
+            '1': 'United States',
+            '2': 'Canada', 
+            '3': 'Mexico',
+            '4': 'United Kingdom',
+            '5': 'Germany',
+            '6': 'France',
+            '7': 'Australia',
+            '8': 'Japan',
+            '9': 'India',
+            '10': 'China'
+        }
+        
+        # If it's a numeric ID, map it to country name
+        if country_str.isdigit():
+            mapped_country = country_mapping.get(country_str, 'United States')
+            self.logger.info(f"Mapped country ID '{country_str}' to '{mapped_country}'")
+            return mapped_country
+        
+        # If it's already a country name, clean it up and return
+        clean_country = country_str.strip()
+        
+        # Handle common variations and clean up formatting
+        if 'united states' in clean_country.lower() or clean_country.lower() == 'usa' or clean_country.lower() == 'us':
+            return 'United States'
+        elif 'canada' in clean_country.lower():
+            return 'Canada'
+        elif 'united kingdom' in clean_country.lower() or clean_country.lower() == 'uk':
+            return 'United Kingdom'
+        
+        # Return cleaned country name if it looks valid
+        if len(clean_country) > 1 and clean_country.replace(' ', '').isalpha():
+            return clean_country
+        
+        # Default fallback
+        self.logger.warning(f"Unknown country value '{country_value}' - defaulting to United States")
+        return 'United States'
     
     def _extract_assigned_recruiter(self, assignments, assigned_users, response_user, owner) -> str:
         """Extract recruiter name from multiple possible fields and map to LinkedIn-style tag"""
