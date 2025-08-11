@@ -285,6 +285,7 @@ def process_scheduled_files():
             ).all()
             
             app.logger.info(f"Checking for scheduled files to process. Found {len(due_schedules)} due schedules")
+            files_processed = 0  # Track actual files processed
             
             for schedule in due_schedules:
                 app.logger.info(f"Processing schedule: {schedule.name} (ID: {schedule.id})")
@@ -347,6 +348,7 @@ def process_scheduled_files():
                     if result.get('success'):
                         # Replace original file with updated version
                         os.replace(temp_output, schedule.file_path)
+                        files_processed += 1  # Increment counter for successful processing
                         app.logger.info(f"Successfully processed scheduled file: {schedule.file_path}")
                         
                         # CRITICAL: Sync main XML file with scheduled file to ensure consistency
@@ -508,7 +510,11 @@ def process_scheduled_files():
             # Final commit for any remaining activity logging
             try:
                 db.session.commit()
-                app.logger.info("Scheduled processing activity logging completed")
+                # Only log completion when files were actually processed
+                if files_processed > 0:
+                    app.logger.info(f"Scheduled processing activity logging completed - {files_processed} files processed")
+                else:
+                    app.logger.debug("Scheduled processing check completed - no files were due for processing")
             except Exception as e:
                 app.logger.error(f"Error committing activity logs: {str(e)}")
                 db.session.rollback()
