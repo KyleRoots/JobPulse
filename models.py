@@ -153,7 +153,7 @@ def create_models(db):
     class BullhornActivity(db.Model):
         """Log of Bullhorn monitoring activities"""
         id = db.Column(db.Integer, primary_key=True)
-        monitor_id = db.Column(db.Integer, db.ForeignKey('bullhorn_monitor.id'), nullable=False)
+        monitor_id = db.Column(db.Integer, db.ForeignKey('bullhorn_monitor.id'), nullable=True)  # Nullable for system-level activities
         activity_type = db.Column(db.String(20), nullable=False)  # 'job_added', 'job_removed', 'job_modified', 'check_completed', 'error'
         job_id = db.Column(db.Integer, nullable=True)  # Bullhorn job ID if applicable
         job_title = db.Column(db.String(255), nullable=True)
@@ -162,7 +162,7 @@ def create_models(db):
         notification_sent = db.Column(db.Boolean, default=False)
         created_at = db.Column(db.DateTime, default=datetime.utcnow)
         
-        monitor = db.relationship('BullhornMonitor', backref='activities')
+        monitor = db.relationship('BullhornMonitor', backref='activities')  # Can be None for system-level activities
         
         @classmethod
         def check_duplicate_activity(cls, activity_type: str, job_id: int, minutes_threshold: int = 5):

@@ -18,6 +18,7 @@ This Flask-based web application automates the processing of XML job feed files 
 - ✅ **DASHBOARD JOB COUNT FIX**: Fixed stale job count display - dashboard now always shows fresh, accurate counts from Bullhorn
 - ✅ **EMAIL NOTIFICATION SIMPLIFICATION**: Only send emails for actual job adds/removes, not routine field remapping - clearer and more transparent  
 - ✅ **LIVE XML CHANGE MONITOR**: Implemented dedicated XML snapshot comparison system with 6-minute monitoring cycles for reliable change detection
+- ✅ **COMPREHENSIVE LOGGING**: XML Change Monitor emails now logged in both Activity monitoring and /email-logs pages
 - ✅ **DEPLOYMENT**: Ready for production deployment with comprehensive dual-monitoring system (Bullhorn + live XML validation)
 
 ## User Preferences
