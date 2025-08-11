@@ -16,8 +16,9 @@ This Flask-based web application automates the processing of XML job feed files 
 - ✅ 8-step monitoring system active with complete field accuracy and duplicate prevention
 - ✅ **ACTIVITY LOGGING FIX**: Resolved misleading "Upload Success" entries - scheduled processing now only logs when files are actually processed
 - ✅ **DASHBOARD JOB COUNT FIX**: Fixed stale job count display - dashboard now always shows fresh, accurate counts from Bullhorn
-- ✅ **EMAIL NOTIFICATION SIMPLIFICATION**: Only send emails for actual job adds/removes, not routine field remapping - clearer and more transparent
-- ✅ **DEPLOYMENT**: Ready for production deployment with optimized activity logging and simplified email notifications
+- ✅ **EMAIL NOTIFICATION SIMPLIFICATION**: Only send emails for actual job adds/removes, not routine field remapping - clearer and more transparent  
+- ✅ **LIVE XML CHANGE MONITOR**: Implemented dedicated XML snapshot comparison system with 6-minute monitoring cycles for reliable change detection
+- ✅ **DEPLOYMENT**: Ready for production deployment with comprehensive dual-monitoring system (Bullhorn + live XML validation)
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -45,7 +46,9 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Proxy Support**: ProxyFix middleware
 
 ### Core Features
-- **Enhanced 8-Step Monitoring System with Orphan Prevention** (Updated 2025-08-11): Every 5 minutes, performs complete data refresh with 100% accuracy guarantee and duplicate detection:
+- **Dual Monitoring Architecture** (Updated 2025-08-11): Two complementary monitoring systems ensure reliable change detection and notifications:
+
+**Enhanced 8-Step Comprehensive Monitoring** (Every 5 minutes): Bullhorn-focused data integrity system:
   1. Fetches ALL jobs from monitored tearsheets in Bullhorn
   2. Adds new jobs from tearsheets to XML
   3. Removes jobs no longer in tearsheets
@@ -54,6 +57,14 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
   6. Batches email notifications for efficiency (only for meaningful job changes, not routine remapping)
   7. Reviews and fixes CDATA/HTML formatting
   8. Runs FULL AUDIT with automatic corruption detection - uploads clean local XML when orphaned jobs detected on live server
+
+**Live XML Change Monitor** (Every 6 minutes): Direct XML validation system:
+  1. Downloads current live XML from web server
+  2. Extracts all job field data (title, description, location, etc.)  
+  3. Compares with previous snapshot for precise change detection
+  4. Sends focused email notifications only when actual changes detected
+  5. Maintains snapshot history for reliable comparison
+  
 - **Orphan Prevention System**: Automated duplicate detection and removal, conservative cleanup approach, and monitoring safeguards to prevent job pollution
 - **Real-Time Progress Tracking**: Visual progress indicators [●●●●●●●○] show current step (Step 1/8 through Step 8/8)
 - **Enhanced Audit Reporting**: Detailed summaries of discrepancies found and corrections made

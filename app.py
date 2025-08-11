@@ -17,6 +17,7 @@ from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
 # Monitor health functionality integrated into comprehensive_monitoring_service
 from job_application_service import JobApplicationService
+from xml_change_monitor import create_xml_monitor
 import traceback
 try:
     from lxml import etree
@@ -5976,6 +5977,44 @@ scheduler.add_job(
     replace_existing=True
 )
 app.logger.info("Scheduled daily file cleanup job")
+
+# XML Change Monitor - monitors live XML file for changes and sends focused notifications
+def run_xml_change_monitor():
+    """Run XML change monitor and send notifications for detected changes"""
+    try:
+        # Get notification email from global settings
+        email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+        if not email_setting or not email_setting.setting_value:
+            app.logger.warning("XML MONITOR: No notification email configured in global settings")
+            return
+            
+        xml_monitor = create_xml_monitor()
+        email_service = get_email_service()
+        result = xml_monitor.monitor_xml_changes(email_setting.setting_value, email_service)
+        
+        if result.get('success'):
+            changes = result.get('changes', {})
+            total_changes = changes.get('total_changes', 0)
+            
+            if total_changes > 0:
+                app.logger.info(f"🔍 XML MONITOR COMPLETE: {total_changes} changes detected and email sent")
+            else:
+                app.logger.info("🔍 XML MONITOR COMPLETE: No changes detected")
+        else:
+            app.logger.error(f"XML MONITOR ERROR: {result.get('error', 'Unknown error')}")
+            
+    except Exception as e:
+        app.logger.error(f"XML change monitor error: {str(e)}")
+
+scheduler.add_job(
+    func=run_xml_change_monitor,
+    trigger=IntervalTrigger(minutes=6),  # 6-minute interval to avoid overlap with 5-minute cycle
+    id='xml_change_monitor',
+    name='Live XML Change Monitor',
+    replace_existing=True
+)
+
+app.logger.info("📧 XML Change Monitor: Scheduled to run every 6 minutes for focused change notifications")
 
 # Add deployment health check routes
 @app.route('/ready')
