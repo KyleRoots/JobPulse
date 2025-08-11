@@ -16,7 +16,8 @@ This Flask-based web application automates the processing of XML job feed files 
 - ✅ 8-step monitoring system active with complete field accuracy and duplicate prevention
 - ✅ **ACTIVITY LOGGING FIX**: Resolved misleading "Upload Success" entries - scheduled processing now only logs when files are actually processed
 - ✅ **DASHBOARD JOB COUNT FIX**: Fixed stale job count display - dashboard now always shows fresh, accurate counts from Bullhorn
-- ✅ **DEPLOYMENT**: Ready for production deployment with optimized activity logging and accurate UI display
+- ✅ **EMAIL NOTIFICATION SIMPLIFICATION**: Only send emails for actual job adds/removes, not routine field remapping - clearer and more transparent
+- ✅ **DEPLOYMENT**: Ready for production deployment with optimized activity logging and simplified email notifications
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -50,7 +51,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
   3. Removes jobs no longer in tearsheets
   4. **COMPLETE REMAPPING**: Re-maps ALL fields for every existing job from Bullhorn (ensures 100% data accuracy)
   5. Uploads all changes to web server (SFTP port 2222)
-  6. Batches email notifications for efficiency
+  6. Batches email notifications for efficiency (only for meaningful job changes, not routine remapping)
   7. Reviews and fixes CDATA/HTML formatting
   8. Runs FULL AUDIT with automatic corruption detection - uploads clean local XML when orphaned jobs detected on live server
 - **Orphan Prevention System**: Automated duplicate detection and removal, conservative cleanup approach, and monitoring safeguards to prevent job pollution
