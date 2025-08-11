@@ -112,9 +112,9 @@ class XMLIntegrationService:
             
             assigned_recruiter = self._extract_assigned_recruiter(assignments, assigned_users, response_user, owner)
             
-            # Extract description - use description field directly from Bullhorn
-            # The description field contains the actual job description from Bullhorn
-            description = bullhorn_job.get('description', '') or bullhorn_job.get('publicDescription', '')
+            # Extract description - use publicDescription field specifically as requested
+            # The publicDescription field contains the public-facing job description from Bullhorn
+            description = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
             
             # Clean up description - remove excessive whitespace and format for XML
             description = self._clean_description(description)
