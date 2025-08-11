@@ -23,6 +23,8 @@ This Flask-based web application automates the processing of XML job feed files 
 - ✅ **AI CLASSIFICATION STATIC FIELDS**: jobfunction, jobindustries, and senioritylevel now behave like reference numbers - set once and remain static to prevent unnecessary notifications
 - ✅ **TESTING SUCCESSFUL (2025-08-11)**: Static AI classification confirmed working - existing AI fields preserved during monitoring cycles
 - ✅ **PRODUCTION DEPLOYMENT SUCCESSFUL (2025-08-11)**: Static AI classification feature deployed and operational in production
+- ✅ **CRITICAL BUG FIX**: Fixed CDATA handling inconsistency causing duplicate creation during monitoring
+- ✅ **AI PRESERVATION FIX (2025-08-11)**: Fixed critical issue where jobs removed/re-added during remapping bypassed AI preservation - now preserves existing AI values even during complete remapping cycles
 - ✅ **DEPLOYMENT**: Complete with comprehensive dual-monitoring system (Bullhorn + live XML validation)
 
 ## User Preferences

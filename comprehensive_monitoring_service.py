@@ -452,14 +452,37 @@ class ComprehensiveMonitoringService:
         return audit_results
     
     def _add_job_to_xml(self, xml_file: str, job_data: Dict):
-        """Add a new job to XML file"""
+        """Add a new job to XML file with AI field preservation"""
         try:
+            # Check if this job previously existed (for static AI preservation during remapping)
+            job_id = str(job_data.get('id', ''))
+            existing_ai_fields = None
+            
+            # Try to get existing AI fields from current XML before adding
+            try:
+                existing_xml_jobs = self._load_xml_jobs(xml_file)
+                if job_id in existing_xml_jobs:
+                    existing_job = existing_xml_jobs[job_id]
+                    existing_ai_fields = {
+                        'jobfunction': existing_job.get('jobfunction', ''),
+                        'jobindustries': existing_job.get('jobindustries', ''),
+                        'senioritylevel': existing_job.get('senioritylevel', '')
+                    }
+                    # Only use if all AI fields are present (complete AI classification)
+                    if all(existing_ai_fields.values()):
+                        self.logger.debug(f"Preserving existing AI classification for job {job_id} during re-add")
+                    else:
+                        existing_ai_fields = None
+            except Exception as e:
+                self.logger.debug(f"Could not retrieve existing AI fields for job {job_id}: {str(e)}")
+                existing_ai_fields = None
+            
             # Map job data to XML format
             monitor_name = job_data.get('_monitor_name')
-            # New jobs won't have existing AI fields, so AI classification will run
             xml_job = self.xml_integration.map_bullhorn_job_to_xml(
                 job_data, 
-                monitor_name=monitor_name
+                monitor_name=monitor_name,
+                existing_ai_fields=existing_ai_fields
             )
             
             # Add to XML file
