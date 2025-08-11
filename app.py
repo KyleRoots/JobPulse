@@ -3863,19 +3863,10 @@ def bullhorn_dashboard():
         )
         bullhorn_connected = bullhorn_service.test_connection()
         
-        # Get job counts for each monitor - prioritize stored snapshots over fresh API calls
+        # Get job counts for each monitor - always fetch fresh data for dashboard accuracy
         for monitor in monitors:
             try:
-                # First, try to get count from stored snapshot
-                if monitor.last_job_snapshot:
-                    try:
-                        stored_jobs = json.loads(monitor.last_job_snapshot)
-                        monitor_job_counts[monitor.id] = len(stored_jobs)
-                        continue
-                    except (json.JSONDecodeError, TypeError):
-                        app.logger.warning(f"Invalid job snapshot for monitor {monitor.name}, fetching fresh")
-                
-                # If no valid stored snapshot, fetch fresh data (only if connected)
+                # Always fetch fresh data for dashboard display (to ensure accurate counts)
                 if bullhorn_connected:
                     if monitor.tearsheet_id == 0:
                         # Query-based monitor
@@ -3886,12 +3877,20 @@ def bullhorn_dashboard():
                     
                     monitor_job_counts[monitor.id] = len(jobs)
                     
-                    # Store the fresh data for future use
+                    # Update the stored snapshot with fresh data
                     monitor.last_job_snapshot = json.dumps(jobs)
                     monitor.last_check = datetime.utcnow()
                     db.session.commit()
                 else:
-                    monitor_job_counts[monitor.id] = None
+                    # If not connected, fall back to stored snapshot if available
+                    if monitor.last_job_snapshot:
+                        try:
+                            stored_jobs = json.loads(monitor.last_job_snapshot)
+                            monitor_job_counts[monitor.id] = len(stored_jobs)
+                        except (json.JSONDecodeError, TypeError):
+                            monitor_job_counts[monitor.id] = None
+                    else:
+                        monitor_job_counts[monitor.id] = None
                     
             except Exception as e:
                 app.logger.warning(f"Could not get job count for monitor {monitor.name}: {str(e)}")
