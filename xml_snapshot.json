@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-11T22:46:35.041785",
+  "timestamp": "2025-08-11T22:56:05.764488",
   "jobs": {
     "34219": {
       "id": "34219",
@@ -305,22 +305,6 @@
       "jobindustries": "Computer Software",
       "senioritylevel": ""
     },
-    "32638": {
-      "id": "32638",
-      "title": "DevOps Technical Analyst",
-      "company": "Myticas Consulting",
-      "description": "<p>The team at Myticas Consulting is seeking a self-motivated <strong>Technical Analyst</strong> to support a long-term engagement with our non for profit client. This is a 2-year contract opportunity ideal for a DevOps-savvy analyst with a strong foundation in system analysis and cloud/infrastructure operations. The ideal candidate will thrive in a collaborative environment, have a passion for automation and modern DevOps practices, and be eager to take ownership in a hands-on technical role.</p> <p><strong>Responsibilities:</strong></p> <ul> <li> <p>Manage, maintain, and enhance cloud and on-premise environments</p> </li> <li> <p>Implement and optimize CI/CD pipelines</p> </li> <li> <p>Conduct system and integration analysis to ensure high performance and availability</p> </li> <li> <p>Collaborate with development and infrastructure teams to support environment configuration and deployment</p> </li> <li> <p>Leverage monitoring tools to identify and resolve technical issues proactively</p> </li> <li> <p>Mentor junior team members and contribute to best practices documentation</p> </li> </ul> <p><strong>Qualifications:</strong></p> <p><strong>Education:</strong></p> <ul> <li> <p>A Bachelor\u00e2\u0080\u0099s degree in Computer Science or a related field</p> </li> <li> <p>Certifications such as AWS, ITIL, or similar are an asset</p> </li> </ul> <p><strong>Experience:</strong></p> <ul> <li> <p>5+ years in system analysis, environment management, or software engineering</p> </li> <li> <p>Experience with cloud platforms and managing hybrid infrastructure</p> </li> <li> <p>Hands-on with DevOps tools and CI/CD processes</p> </li> </ul> <p><strong>Technical Skills:</strong></p> <ul> <li> <p>Proficient in APIs, RESTful services, and system integration</p> </li> <li> <p>Skilled in containerization (Docker, Kubernetes)</p> </li> <li> <p>Experience with version control tools (Git)</p> </li> <li> <p>Scripting capabilities (Python, Bash)</p> </li> <li> <p>Familiarity with monitoring and automation frameworks</p> </li> </ul> <p><strong>Soft Skills:</strong></p> <ul> <li> <p>Excellent analytical and communication skills</p> </li> <li> <p>Leadership qualities and ability to mentor others</p> </li> <li> <p>Self-starter mindset with strong organizational abilities</p> </li> </ul>",
-      "location": "",
-      "country": "Canada",
-      "date": "July 18, 2025",
-      "referencenumber": "J70ORV0KFQ",
-      "remotetype": "Remote",
-      "url": "https://apply.myticas.com/32638/DevOps%20Technical%20Analyst/?source=LinkedIn",
-      "salary": "",
-      "jobfunction": "Information Technology",
-      "jobindustries": "Computer Software",
-      "senioritylevel": ""
-    },
     "34223": {
       "id": "34223",
       "title": "IT Technical Analyst \u00e2\u0080\u0093 Data Governance & Microsoft Purview",
@@ -335,6 +319,22 @@
       "salary": "",
       "jobfunction": "Information Technology",
       "jobindustries": "Computer Software",
+      "senioritylevel": ""
+    },
+    "32638": {
+      "id": "32638",
+      "title": "DevOps Technical Analyst",
+      "company": "Myticas Consulting",
+      "description": "<p>The team at Myticas Consulting is seeking a self-motivated <strong>Technical Analyst</strong> to support a long-term engagement with our non for profit client. This is a 2-year contract opportunity ideal for a DevOps-savvy analyst with a strong foundation in system analysis and cloud/infrastructure operations. The ideal candidate will thrive in a collaborative environment, have a passion for automation and modern DevOps practices, and be eager to take ownership in a hands-on technical role.</p> <p><strong>Responsibilities:</strong></p> <ul> <li> <p>Manage, maintain, and enhance cloud and on-premise environments</p> </li> <li> <p>Implement and optimize CI/CD pipelines</p> </li> <li> <p>Conduct system and integration analysis to ensure high performance and availability</p> </li> <li> <p>Collaborate with development and infrastructure teams to support environment configuration and deployment</p> </li> <li> <p>Leverage monitoring tools to identify and resolve technical issues proactively</p> </li> <li> <p>Mentor junior team members and contribute to best practices documentation</p> </li> </ul> <p><strong>Qualifications:</strong></p> <p><strong>Education:</strong></p> <ul> <li> <p>A Bachelor\u00e2\u0080\u0099s degree in Computer Science or a related field</p> </li> <li> <p>Certifications such as AWS, ITIL, or similar are an asset</p> </li> </ul> <p><strong>Experience:</strong></p> <ul> <li> <p>5+ years in system analysis, environment management, or software engineering</p> </li> <li> <p>Experience with cloud platforms and managing hybrid infrastructure</p> </li> <li> <p>Hands-on with DevOps tools and CI/CD processes</p> </li> </ul> <p><strong>Technical Skills:</strong></p> <ul> <li> <p>Proficient in APIs, RESTful services, and system integration</p> </li> <li> <p>Skilled in containerization (Docker, Kubernetes)</p> </li> <li> <p>Experience with version control tools (Git)</p> </li> <li> <p>Scripting capabilities (Python, Bash)</p> </li> <li> <p>Familiarity with monitoring and automation frameworks</p> </li> </ul> <p><strong>Soft Skills:</strong></p> <ul> <li> <p>Excellent analytical and communication skills</p> </li> <li> <p>Leadership qualities and ability to mentor others</p> </li> <li> <p>Self-starter mindset with strong organizational abilities</p> </li> </ul>",
+      "location": "",
+      "country": "Canada",
+      "date": "July 18, 2025",
+      "referencenumber": "J70ORV0KFQ",
+      "remotetype": "Remote",
+      "url": "https://apply.myticas.com/32638/DevOps%20Technical%20Analyst/?source=LinkedIn",
+      "salary": "",
+      "jobfunction": "Information Technology",
+      "jobindustries": "Management Consulting",
       "senioritylevel": ""
     },
     "34132": {
@@ -430,7 +430,7 @@
       "url": "https://apply.myticas.com/32648/RF%20Systems%20Engineer/?source=LinkedIn",
       "salary": "",
       "jobfunction": "Engineering",
-      "jobindustries": "Telecommunications",
+      "jobindustries": "Aviation and Aerospace",
       "senioritylevel": ""
     },
     "34098": {
@@ -449,22 +449,6 @@
       "jobindustries": "Computer and Network Security",
       "senioritylevel": ""
     },
-    "34221": {
-      "id": "34221",
-      "title": "Administrative Assistant",
-      "company": "Myticas Consulting",
-      "description": "<p>Myticas's direct client based out of Monsey, NY is currently seeking an Administrative Assistant for a contract position.</p> <p><strong>NOTE: </strong> <br> Pay Rate: $17-18/hr on W2.<br> 100% onsite <strong>vehicle required</strong>, will be <strong>doing weekly mail runs</strong>- Working hours 9-5:30 up to 5 hours of OT weekly as needed asap</p> <p><strong>Job Description:</strong></p> We are seeking a highly motivated, highly organized applicant with a strong work ethic and a high degree of problem solving skills to join Vcorp Services. <ul> <li>This position includes drafting state/county documents, communicating with other members of the team via phone and email, managing incoming and outgoing mail for various departments, and a very professional attitude.</li> <li>Entry-level, basic computer skills needed, Microsoft office proficiency required.</li> </ul>",
-      "location": "",
-      "country": "United States",
-      "date": "August 08, 2025",
-      "referencenumber": "JDQHXGK0BP",
-      "remotetype": "Onsite",
-      "url": "https://apply.myticas.com/34221/Administrative%20Assistant/?source=LinkedIn",
-      "salary": "",
-      "jobfunction": "Administrative",
-      "jobindustries": "Business Supplies and Equipment",
-      "senioritylevel": ""
-    },
     "34103": {
       "id": "34103",
       "title": "IT Business Analyst \u00e2\u0080\u0093 SharePoint & RFP Consultant",
@@ -479,6 +463,22 @@
       "salary": "",
       "jobfunction": "Consulting",
       "jobindustries": "Computer Software",
+      "senioritylevel": ""
+    },
+    "34221": {
+      "id": "34221",
+      "title": "Administrative Assistant",
+      "company": "Myticas Consulting",
+      "description": "<p>Myticas's direct client based out of Monsey, NY is currently seeking an Administrative Assistant for a contract position.</p> <p><strong>NOTE: </strong> <br> Pay Rate: $17-18/hr on W2.<br> 100% onsite <strong>vehicle required</strong>, will be <strong>doing weekly mail runs</strong>- Working hours 9-5:30 up to 5 hours of OT weekly as needed asap</p> <p><strong>Job Description:</strong></p> We are seeking a highly motivated, highly organized applicant with a strong work ethic and a high degree of problem solving skills to join Vcorp Services. <ul> <li>This position includes drafting state/county documents, communicating with other members of the team via phone and email, managing incoming and outgoing mail for various departments, and a very professional attitude.</li> <li>Entry-level, basic computer skills needed, Microsoft office proficiency required.</li> </ul>",
+      "location": "",
+      "country": "United States",
+      "date": "August 08, 2025",
+      "referencenumber": "JDQHXGK0BP",
+      "remotetype": "Onsite",
+      "url": "https://apply.myticas.com/34221/Administrative%20Assistant/?source=LinkedIn",
+      "salary": "",
+      "jobfunction": "Administrative",
+      "jobindustries": "Business Supplies and Equipment",
       "senioritylevel": ""
     },
     "34220": {
@@ -525,7 +525,7 @@
       "remotetype": "Hybrid",
       "url": "https://apply.myticas.com/32655/Workflow%20Application%20Engineer/?source=LinkedIn",
       "salary": "",
-      "jobfunction": "Information Technology",
+      "jobfunction": "Engineering",
       "jobindustries": "Computer Software",
       "senioritylevel": ""
     },
@@ -542,7 +542,7 @@
       "url": "https://apply.myticas.com/34224/Business%20Systems%20Analyst%2FProduct%20Owner/?source=LinkedIn",
       "salary": "",
       "jobfunction": "Analyst",
-      "jobindustries": "Computer Software",
+      "jobindustries": "Information Technology and Services",
       "senioritylevel": ""
     },
     "32542": {
@@ -558,7 +558,7 @@
       "url": "https://apply.myticas.com/32542/EDW%20Sr.%20Healthcare%20Technical%20Analyst/?source=LinkedIn",
       "salary": "",
       "jobfunction": "Analyst",
-      "jobindustries": "Hospitals and Health Care",
+      "jobindustries": "Information Technology and Services",
       "senioritylevel": ""
     },
     "32643": {
@@ -609,22 +609,6 @@
       "jobindustries": "Computer Networking",
       "senioritylevel": ""
     },
-    "32589": {
-      "id": "32589",
-      "title": "Senior FPGA Developer",
-      "company": "Myticas Consulting",
-      "description": "<p><strong>Overview & Role Focus</strong></p> <p>This role is centered on innovating and advancing state-of-the-art video processing and transport capabilities, delivering high-performance solutions on some of the most integrated poadcast hardware platforms available today. The successful candidate will work hands-on with FPGA design, real-time media interfaces, and poadcast protocol implementation, playing a key role across architecture, development, testing, and cross-functional support.</p> <p><strong>Key Responsibilities</strong></p> <ul> <li>Lead the development and continuous improvement of advanced video transport and processing features within tightly integrated poadcast hardware.</li> <li>Design RTL for real-time, high-throughput media systems involving advanced interfaces\u00e2\u0080\u0094such as PCIe, memory, and specialized hardware acceleration (e.g., video scaling, HDR/SDR conversion).</li> <li>Implement FPGA-based real-time transport protocols like SMPTE 2110 and SDI.</li> <li>Participate in architectural planning: advise on FPGA density, schematic reviews, clocking strategies, and thermal considerations.</li> <li>Build complete IO ring designs across modern FPGAs (Arria10, Stratix-10, Ultrascale+, MPSoC, Agilex) and validate pin-outs/IP within Quartus and Vivado environments.</li> <li>Define and negotiate high-level design specs, assist in part selection, and align with aggressive project timelines.</li> <li>Contribute to design specifications and documentation used by cross-functional teams.</li> <li>Collaborate closely with peers on design verification and testing of FPGA and hardware systems.</li> <li>Tackle debugging with a methodical and efficient approach.</li> <li>Support team members throughout the entire New Product Introduction (NPI) lifecycle\u00e2\u0080\u0094from design through manufacturing to customer support.</li> </ul> <p><strong>Required Skills & Background</strong></p> <ul> <li>5+ years in FPGA and hardware development, with a strong preference for experience in video/audio-centric technologies.</li> <li>Intermediate to senior-level expertise in FPGA architecture and core components.</li> <li>Deep understanding of high-speed serial interfaces, clock domains, timing closure, and transceiver integration.</li> <li>Proficiency in Verilog, SystemVerilog, and TCL scripting; capable of creating testbenches and running simulations (e.g., VCS).</li> <li>Familiarity with modern Intel and Xilinx FPGA families and their development/debugging toolchains.</li> <li>Hands-on experience with interfaces like DDR3/DDR4, HBM, PLLs, and gigabit transceivers.</li> <li>Skilled in lab-based debugging using oscilloscopes, JBERTs, network analyzers, waveform monitors, etc.</li> <li>Embedded system awareness\u00e2\u0080\u0094experience with Linux, C/C++, bash scripting, and networking considered valuable.</li> <li>Broadcast studio domain knowledge is highly desirable, especially within video production and distribution workflows.</li> <li>A strong grasp of digital video/audio standards and signal integrity is considered a plus.</li> <li>Driven and independent, yet collaborative\u00e2\u0080\u0094equally adept at working solo or influencing poader team strategies.</li> <li>Quick learner with a creative mindset and ability to push ideas from concept to market.</li> <li>Comfortable making bold decisions that balance quality, speed, and cost for optimal business outcomes.</li> <li>Effective communicator with sharp observational skills and a problem-solving mindset.</li> </ul>",
-      "location": "",
-      "country": "Canada",
-      "date": "July 03, 2025",
-      "referencenumber": "GK70XF7LYL",
-      "remotetype": "No Preference",
-      "url": "https://apply.myticas.com/32589/Senior%20FPGA%20Developer/?source=LinkedIn",
-      "salary": "",
-      "jobfunction": "Engineering",
-      "jobindustries": "Broadcast Media",
-      "senioritylevel": ""
-    },
     "34222": {
       "id": "34222",
       "title": "Senior High-Speed Analog IC Design R&D Engineer",
@@ -639,6 +623,22 @@
       "salary": "",
       "jobfunction": "Engineering",
       "jobindustries": "Semiconductors",
+      "senioritylevel": ""
+    },
+    "32589": {
+      "id": "32589",
+      "title": "Senior FPGA Developer",
+      "company": "Myticas Consulting",
+      "description": "<p><strong>Overview & Role Focus</strong></p> <p>This role is centered on innovating and advancing state-of-the-art video processing and transport capabilities, delivering high-performance solutions on some of the most integrated poadcast hardware platforms available today. The successful candidate will work hands-on with FPGA design, real-time media interfaces, and poadcast protocol implementation, playing a key role across architecture, development, testing, and cross-functional support.</p> <p><strong>Key Responsibilities</strong></p> <ul> <li>Lead the development and continuous improvement of advanced video transport and processing features within tightly integrated poadcast hardware.</li> <li>Design RTL for real-time, high-throughput media systems involving advanced interfaces\u00e2\u0080\u0094such as PCIe, memory, and specialized hardware acceleration (e.g., video scaling, HDR/SDR conversion).</li> <li>Implement FPGA-based real-time transport protocols like SMPTE 2110 and SDI.</li> <li>Participate in architectural planning: advise on FPGA density, schematic reviews, clocking strategies, and thermal considerations.</li> <li>Build complete IO ring designs across modern FPGAs (Arria10, Stratix-10, Ultrascale+, MPSoC, Agilex) and validate pin-outs/IP within Quartus and Vivado environments.</li> <li>Define and negotiate high-level design specs, assist in part selection, and align with aggressive project timelines.</li> <li>Contribute to design specifications and documentation used by cross-functional teams.</li> <li>Collaborate closely with peers on design verification and testing of FPGA and hardware systems.</li> <li>Tackle debugging with a methodical and efficient approach.</li> <li>Support team members throughout the entire New Product Introduction (NPI) lifecycle\u00e2\u0080\u0094from design through manufacturing to customer support.</li> </ul> <p><strong>Required Skills & Background</strong></p> <ul> <li>5+ years in FPGA and hardware development, with a strong preference for experience in video/audio-centric technologies.</li> <li>Intermediate to senior-level expertise in FPGA architecture and core components.</li> <li>Deep understanding of high-speed serial interfaces, clock domains, timing closure, and transceiver integration.</li> <li>Proficiency in Verilog, SystemVerilog, and TCL scripting; capable of creating testbenches and running simulations (e.g., VCS).</li> <li>Familiarity with modern Intel and Xilinx FPGA families and their development/debugging toolchains.</li> <li>Hands-on experience with interfaces like DDR3/DDR4, HBM, PLLs, and gigabit transceivers.</li> <li>Skilled in lab-based debugging using oscilloscopes, JBERTs, network analyzers, waveform monitors, etc.</li> <li>Embedded system awareness\u00e2\u0080\u0094experience with Linux, C/C++, bash scripting, and networking considered valuable.</li> <li>Broadcast studio domain knowledge is highly desirable, especially within video production and distribution workflows.</li> <li>A strong grasp of digital video/audio standards and signal integrity is considered a plus.</li> <li>Driven and independent, yet collaborative\u00e2\u0080\u0094equally adept at working solo or influencing poader team strategies.</li> <li>Quick learner with a creative mindset and ability to push ideas from concept to market.</li> <li>Comfortable making bold decisions that balance quality, speed, and cost for optimal business outcomes.</li> <li>Effective communicator with sharp observational skills and a problem-solving mindset.</li> </ul>",
+      "location": "",
+      "country": "Canada",
+      "date": "July 03, 2025",
+      "referencenumber": "GK70XF7LYL",
+      "remotetype": "No Preference",
+      "url": "https://apply.myticas.com/32589/Senior%20FPGA%20Developer/?source=LinkedIn",
+      "salary": "",
+      "jobfunction": "Engineering",
+      "jobindustries": "Broadcast Media",
       "senioritylevel": ""
     },
     "34110": {

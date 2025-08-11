@@ -137,6 +137,8 @@ class ComprehensiveMonitoringService:
             # STEP 2 & 3: Load current XML and identify additions/removals
             self.logger.info("\n📄 STEP 2 & 3: Comparing with current XML...")
             current_xml_jobs = self._load_xml_jobs(xml_file)
+            # Store initial XML snapshot for AI preservation during complete remapping
+            self.initial_xml_snapshot = current_xml_jobs.copy()
             current_xml_ids = set(current_xml_jobs.keys())
             bullhorn_ids = set(bullhorn_jobs.keys())
             
@@ -458,9 +460,10 @@ class ComprehensiveMonitoringService:
             job_id = str(job_data.get('id', ''))
             existing_ai_fields = None
             
-            # Try to get existing AI fields from current XML before adding
+            # Try to get existing AI fields from initial XML snapshot (before any removals)
             try:
-                existing_xml_jobs = self._load_xml_jobs(xml_file)
+                # Use the initial snapshot if available, otherwise load current XML
+                existing_xml_jobs = getattr(self, 'initial_xml_snapshot', {}) or self._load_xml_jobs(xml_file)
                 if job_id in existing_xml_jobs:
                     existing_job = existing_xml_jobs[job_id]
                     existing_ai_fields = {
@@ -470,11 +473,12 @@ class ComprehensiveMonitoringService:
                     }
                     # Only use if all AI fields are present (complete AI classification)
                     if all(existing_ai_fields.values()):
-                        self.logger.debug(f"Preserving existing AI classification for job {job_id} during re-add")
+                        self.logger.info(f"✅ PRESERVING existing AI classification for job {job_id} during re-add: {existing_ai_fields}")
                     else:
                         existing_ai_fields = None
+                        self.logger.info(f"⚠️ Missing AI fields for job {job_id}, will generate new: {existing_ai_fields}")
             except Exception as e:
-                self.logger.debug(f"Could not retrieve existing AI fields for job {job_id}: {str(e)}")
+                self.logger.warning(f"Could not retrieve existing AI fields for job {job_id}: {str(e)}")
                 existing_ai_fields = None
             
             # Map job data to XML format
@@ -502,7 +506,7 @@ class ComprehensiveMonitoringService:
         """Update job fields in XML file"""
         try:
             # Get existing job data to preserve AI classification fields
-            existing_xml_jobs = self._load_existing_xml_jobs(xml_file)
+            existing_xml_jobs = self._load_xml_jobs(xml_file)
             existing_job = existing_xml_jobs.get(job_id, {})
             
             # Extract existing AI classification fields for preservation
