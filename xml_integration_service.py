@@ -71,6 +71,9 @@ class XMLIntegrationService:
             # Use cleaned title without job ID
             formatted_title = clean_title
             
+            # Log the field mapping for debugging
+            self.logger.debug(f"Mapping job {job_id}: title='{formatted_title}'")
+            
             # Determine company name based on tearsheet/monitor
             if monitor_name and 'Sponsored - STSI' in monitor_name:
                 company_name = 'STSI Group'
@@ -109,8 +112,9 @@ class XMLIntegrationService:
             
             assigned_recruiter = self._extract_assigned_recruiter(assignments, assigned_users, response_user, owner)
             
-            # Extract description (prefer publicDescription, fallback to description)
-            description = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
+            # Extract description - use description field directly from Bullhorn
+            # The description field contains the actual job description from Bullhorn
+            description = bullhorn_job.get('description', '') or bullhorn_job.get('publicDescription', '')
             
             # Clean up description - remove excessive whitespace and format for XML
             description = self._clean_description(description)
@@ -125,10 +129,8 @@ class XMLIntegrationService:
             else:
                 reference_number = self.xml_processor.generate_reference_number()
             
-            # Extract job ID from formatted title for bhatsid, fallback to original job_id
-            bhatsid = self.xml_processor.extract_job_id_from_title(formatted_title)
-            if not bhatsid or bhatsid == 'unknown':
-                bhatsid = str(job_id)
+            # Use the actual Bullhorn job ID for bhatsid (critical for matching/updating)
+            bhatsid = str(job_id)
             
             # Generate unique job application URL (clean_title is already defined above)
             job_url = self._generate_job_application_url(bhatsid, clean_title)
@@ -821,11 +823,11 @@ class XMLIntegrationService:
     
     def remove_job_from_xml(self, xml_file_path: str, job_id: str) -> bool:
         """
-        Remove a job from the XML file by matching the job ID in the title
+        Remove a job from the XML file by matching the job ID in bhatsid field OR title
         
         Args:
             xml_file_path: Path to the XML file
-            job_id: Bullhorn job ID to remove (will match against title containing "(job_id)")
+            job_id: Bullhorn job ID to remove
             
         Returns:
             bool: True if job was removed successfully, False otherwise
@@ -844,6 +846,24 @@ class XMLIntegrationService:
             
             # Remove ALL jobs with the same job ID (in case of duplicates)
             for job in jobs[:]:  # Use slice to avoid iteration issues during removal
+                # First check bhatsid field (more reliable)
+                bhatsid_element = job.find('bhatsid')
+                if bhatsid_element is not None and bhatsid_element.text:
+                    bhatsid_text = bhatsid_element.text.strip()
+                    # Remove CDATA wrapper if present
+                    if '<![CDATA[' in bhatsid_text:
+                        bhatsid_text = bhatsid_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                    
+                    if bhatsid_text == str(job_id):
+                        root.remove(job)
+                        removed = True
+                        removed_count += 1
+                        title_elem = job.find('title')
+                        title_text = title_elem.text if title_elem is not None else 'Unknown'
+                        self.logger.info(f"Removed job with ID {job_id} from XML (title: {title_text})")
+                        continue
+                
+                # Fallback to checking title for backward compatibility
                 title_element = job.find('title')
                 if title_element is not None and title_element.text:
                     title_text = title_element.text
