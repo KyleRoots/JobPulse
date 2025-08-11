@@ -2052,8 +2052,9 @@ def process_comprehensive_bullhorn_monitors():
                             job_data = all_bullhorn_jobs[job_id]
                             try:
                                 monitor_name = job_data.get('_monitor_name')
-                                xml_job = xml_service.map_bullhorn_job_to_xml(job_data, monitor_name=monitor_name)
-                                xml_service.add_job_to_xml(xml_file, xml_job)
+                                # CRITICAL FIX: Pass the Bullhorn job data directly, not the mapped XML
+                                # The add_job_to_xml function will map it internally
+                                success = xml_service.add_job_to_xml(xml_file, job_data, monitor_name=monitor_name)
                                 cycle_changes['added'].append({
                                     'id': job_id,
                                     'title': job_data.get('title', 'Unknown')
@@ -2108,9 +2109,8 @@ def process_comprehensive_bullhorn_monitors():
                                 if job_id in all_bullhorn_jobs:
                                     job_data = all_bullhorn_jobs[job_id]
                                     monitor_name = job_data.get('_monitor_name')
-                                    xml_job = xml_service.map_bullhorn_job_to_xml(job_data, monitor_name=monitor_name)
-                                    xml_job['bhatsid'] = job_id  # Ensure job ID is properly set for duplicate prevention
-                                    xml_service.add_job_to_xml(xml_file, xml_job)
+                                    # CRITICAL FIX: Pass the Bullhorn job data directly, not the mapped XML
+                                    success = xml_service.add_job_to_xml(xml_file, job_data, monitor_name=monitor_name)
                                     duplicate_count += (count - 1)
                                     app.logger.info(f"      🔧 Removed {count-1} duplicates of job {job_id}")
                     except Exception as e:
