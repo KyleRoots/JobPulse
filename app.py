@@ -2116,13 +2116,47 @@ def process_comprehensive_bullhorn_monitors():
                     except Exception as e:
                         app.logger.error(f"    Error during duplicate prevention: {str(e)}")
                     
-                    # STEP 4 COMPLETE REMAPPING: Ensure 100% accuracy by remapping ALL fields for existing jobs
+                    # STEP 4 COMPLETE REMAPPING: Ensure 100% accuracy while PRESERVING reference numbers
                     if jobs_to_check:
                         app.logger.info(f"    🔄 COMPLETE REMAPPING: Updating ALL {len(jobs_to_check)} existing jobs from Bullhorn")
                         app.logger.info(f"    📊 This ensures 100% data accuracy between Bullhorn and XML")
+                        app.logger.info(f"    🔒 PRESERVING existing reference numbers (only updated weekly)")
                         xml_service = XMLIntegrationService()
                         remapped_count = 0
                         failed_count = 0
+                        
+                        # First, extract existing reference numbers from XML
+                        existing_reference_numbers = {}
+                        try:
+                            import xml.etree.ElementTree as ET
+                            tree = ET.parse(xml_file)
+                            root = tree.getroot()
+                            
+                            for job_elem in root.findall('.//job'):
+                                bhatsid_elem = job_elem.find('bhatsid')
+                                ref_elem = job_elem.find('referencenumber')
+                                
+                                if bhatsid_elem is not None and ref_elem is not None:
+                                    # Extract job ID from bhatsid
+                                    xml_job_id = bhatsid_elem.text
+                                    if xml_job_id and '<![CDATA[' in xml_job_id:
+                                        xml_job_id = xml_job_id.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                    else:
+                                        xml_job_id = xml_job_id.strip() if xml_job_id else ''
+                                    
+                                    # Extract reference number
+                                    ref_number = ref_elem.text
+                                    if ref_number and '<![CDATA[' in ref_number:
+                                        ref_number = ref_number.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                    else:
+                                        ref_number = ref_number.strip() if ref_number else None
+                                    
+                                    if xml_job_id and ref_number:
+                                        existing_reference_numbers[xml_job_id] = ref_number
+                                        
+                            app.logger.info(f"    📋 Preserved {len(existing_reference_numbers)} existing reference numbers")
+                        except Exception as ref_error:
+                            app.logger.error(f"    ⚠️ Error extracting reference numbers: {str(ref_error)}")
                         
                         # Process in batches for better performance
                         batch_size = 10
@@ -2137,6 +2171,9 @@ def process_comprehensive_bullhorn_monitors():
                                     try:
                                         bullhorn_job = all_bullhorn_jobs[job_id]
                                         
+                                        # Get existing reference number for this job
+                                        existing_ref = existing_reference_numbers.get(str(job_id))
+                                        
                                         # Remove existing job from XML (if present)
                                         try:
                                             xml_service.remove_job_from_xml(xml_file, job_id)
@@ -2144,16 +2181,20 @@ def process_comprehensive_bullhorn_monitors():
                                             # Job might not exist, that's okay
                                             pass
                                         
-                                        # Re-add job with complete field mapping from Bullhorn
+                                        # Re-add job with complete field mapping from Bullhorn BUT preserve reference number
                                         monitor_name = bullhorn_job.get('_monitor_name')
-                                        xml_job = xml_service.map_bullhorn_job_to_xml(bullhorn_job, monitor_name=monitor_name)
+                                        xml_job = xml_service.map_bullhorn_job_to_xml(
+                                            bullhorn_job, 
+                                            existing_reference_number=existing_ref,  # PRESERVE existing ref number
+                                            monitor_name=monitor_name
+                                        )
                                         xml_service.add_job_to_xml(xml_file, xml_job)
                                         
                                         remapped_count += 1
                                         
                                         # Log every 10th job to avoid log spam
                                         if remapped_count % 10 == 0:
-                                            app.logger.info(f"      ✅ Remapped {remapped_count} jobs so far...")
+                                            app.logger.info(f"      ✅ Remapped {remapped_count} jobs so far (ref numbers preserved)...")
                                             
                                     except Exception as remap_error:
                                         failed_count += 1
@@ -2162,14 +2203,15 @@ def process_comprehensive_bullhorn_monitors():
                         # Update cycle changes to reflect complete remapping
                         cycle_changes['modified'] = [{
                             'id': 'all_existing',
-                            'title': f'Complete remapping of {remapped_count} jobs',
-                            'changes': ['full_remap']
+                            'title': f'Complete remapping of {remapped_count} jobs (ref numbers preserved)',
+                            'changes': ['full_remap_preserve_ref']
                         }]
                         
                         app.logger.info(f"    ✅ COMPLETE REMAPPING DONE: {remapped_count} jobs remapped successfully")
                         if failed_count > 0:
                             app.logger.warning(f"    ⚠️ {failed_count} jobs failed to remap")
                         app.logger.info(f"    📊 All job fields now match Bullhorn data exactly")
+                        app.logger.info(f"    🔒 Reference numbers preserved for weekly update cycle")
                         
                     if duplicate_count > 0:
                         app.logger.info(f"    🔧 Duplicate prevention: {duplicate_count} duplicates removed")
