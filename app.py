@@ -2278,6 +2278,17 @@ def process_comprehensive_bullhorn_monitors():
                 if upload_success:
                     app.logger.info("📤 STEP 5 COMPLETE: All files uploaded successfully")
                     
+                    # Update schedule timestamp to match server upload time for scheduler page accuracy
+                    try:
+                        for schedule in ScheduleConfig.query.filter_by(is_active=True).all():
+                            if schedule.file_path == xml_file:
+                                schedule.last_file_upload = datetime.utcnow()
+                                db.session.commit()
+                                app.logger.info(f"    📊 Updated server timestamp for scheduler display: {schedule.name}")
+                                break
+                    except Exception as timestamp_error:
+                        app.logger.error(f"    ⚠️ Error updating server timestamp: {str(timestamp_error)}")
+                    
                     # Log successful upload activity
                     try:
                         upload_activity = BullhornActivity(
