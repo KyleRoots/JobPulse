@@ -272,22 +272,31 @@ class XMLIntegrationService:
             
             root = tree.getroot()
             
-            # Look for job by bhatsid (most reliable)
+            # Look for job by bhatsid (most reliable) - handle CDATA properly
             for job in root.xpath('.//job'):
                 bhatsid_elem = job.find('.//bhatsid')
-                if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
-                    # Additional verification - check title contains job ID
-                    title_elem = job.find('.//title')
-                    if title_elem is not None and title_elem.text and f"({job_id})" in title_elem.text:
-                        self.logger.debug(f"Verified job {job_id} exists in XML with correct title format")
+                if bhatsid_elem is not None and bhatsid_elem.text:
+                    bhatsid_text = bhatsid_elem.text.strip()
+                    # Remove CDATA wrapper if present
+                    if '<![CDATA[' in bhatsid_text:
+                        bhatsid_text = bhatsid_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                    
+                    if bhatsid_text == str(job_id):
+                        self.logger.debug(f"Verified job {job_id} exists in XML by bhatsid")
                         return True
             
             # Alternative verification - look for job ID in title
             for job in root.xpath('.//job'):
                 title_elem = job.find('.//title')
-                if title_elem is not None and title_elem.text and f"({job_id})" in title_elem.text:
-                    self.logger.debug(f"Verified job {job_id} exists in XML by title")
-                    return True
+                if title_elem is not None and title_elem.text:
+                    title_text = title_elem.text
+                    # Remove CDATA wrapper if present
+                    if '<![CDATA[' in title_text:
+                        title_text = title_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                    
+                    if f"({job_id})" in title_text or str(job_id) in title_text:
+                        self.logger.debug(f"Verified job {job_id} exists in XML by title")
+                        return True
             
             self.logger.error(f"Job {job_id} not found in XML file during verification")
             return False
