@@ -5970,54 +5970,55 @@ app.logger.info("Scheduled daily file cleanup job")
 def run_xml_change_monitor():
     """Run XML change monitor and send notifications for detected changes"""
     try:
-        # Get notification email from global settings
-        email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-        if not email_setting or not email_setting.setting_value:
-            app.logger.warning("XML MONITOR: No notification email configured in global settings")
-            return
-            
-        xml_monitor = create_xml_monitor()
-        email_service = get_email_service()
-        result = xml_monitor.monitor_xml_changes(email_setting.setting_value, email_service)
-        
-        if result.get('success'):
-            changes = result.get('changes', {})
-            total_changes = changes.get('total_changes', 0)
-            
-            if total_changes > 0:
-                app.logger.info(f"🔍 XML MONITOR COMPLETE: {total_changes} changes detected and email sent")
+        with app.app_context():
+            # Get notification email from global settings
+            email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+            if not email_setting or not email_setting.setting_value:
+                app.logger.warning("XML MONITOR: No notification email configured in global settings")
+                return
                 
-                # Log to Activity monitoring system
-                try:
-                    activity_details = {
-                        'monitor_type': 'XML Change Monitor',
-                        'changes_detected': total_changes,
-                        'added_jobs': changes.get('added', 0) if isinstance(changes.get('added'), int) else len(changes.get('added', [])),
-                        'removed_jobs': changes.get('removed', 0) if isinstance(changes.get('removed'), int) else len(changes.get('removed', [])),
-                        'modified_jobs': changes.get('modified', 0) if isinstance(changes.get('modified'), int) else len(changes.get('modified', [])),
-                        'email_sent_to': email_setting.setting_value,
-                        'xml_url': 'https://myticas.com/myticas-job-feed.xml'
-                    }
+            xml_monitor = create_xml_monitor()
+            email_service = get_email_service()
+            result = xml_monitor.monitor_xml_changes(email_setting.setting_value, email_service)
+        
+            if result.get('success'):
+                changes = result.get('changes', {})
+                total_changes = changes.get('total_changes', 0)
+                
+                if total_changes > 0:
+                    app.logger.info(f"🔍 XML MONITOR COMPLETE: {total_changes} changes detected and email sent")
                     
-                    xml_monitor_activity = BullhornActivity(
-                        monitor_id=None,  # XML monitor is system-level, not tied to specific tearsheet
-                        activity_type='email_notification',
-                        details=json.dumps(activity_details),
-                        notification_sent=True
-                    )
-                    db.session.add(xml_monitor_activity)
-                    db.session.commit()
-                    
-                    app.logger.info("📧 ACTIVITY LOGGED: XML change notification logged to Activity monitoring")
-                    
-                except Exception as e:
-                    app.logger.error(f"Failed to log XML monitor activity: {str(e)}")
-                    db.session.rollback()
-                    
+                    # Log to Activity monitoring system
+                    try:
+                        activity_details = {
+                            'monitor_type': 'XML Change Monitor',
+                            'changes_detected': total_changes,
+                            'added_jobs': changes.get('added', 0) if isinstance(changes.get('added'), int) else len(changes.get('added', [])),
+                            'removed_jobs': changes.get('removed', 0) if isinstance(changes.get('removed'), int) else len(changes.get('removed', [])),
+                            'modified_jobs': changes.get('modified', 0) if isinstance(changes.get('modified'), int) else len(changes.get('modified', [])),
+                            'email_sent_to': email_setting.setting_value,
+                            'xml_url': 'https://myticas.com/myticas-job-feed.xml'
+                        }
+                        
+                        xml_monitor_activity = BullhornActivity(
+                            monitor_id=None,  # XML monitor is system-level, not tied to specific tearsheet
+                            activity_type='email_notification',
+                            details=json.dumps(activity_details),
+                            notification_sent=True
+                        )
+                        db.session.add(xml_monitor_activity)
+                        db.session.commit()
+                        
+                        app.logger.info("📧 ACTIVITY LOGGED: XML change notification logged to Activity monitoring")
+                        
+                    except Exception as e:
+                        app.logger.error(f"Failed to log XML monitor activity: {str(e)}")
+                        db.session.rollback()
+                        
+                else:
+                    app.logger.info("🔍 XML MONITOR COMPLETE: No changes detected")
             else:
-                app.logger.info("🔍 XML MONITOR COMPLETE: No changes detected")
-        else:
-            app.logger.error(f"XML MONITOR ERROR: {result.get('error', 'Unknown error')}")
+                app.logger.error(f"XML MONITOR ERROR: {result.get('error', 'Unknown error')}")
             
     except Exception as e:
         app.logger.error(f"XML change monitor error: {str(e)}")
