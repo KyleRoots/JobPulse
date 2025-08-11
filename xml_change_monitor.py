@@ -85,7 +85,13 @@ class XMLChangeMonitor:
         """Download the current live XML file"""
         try:
             import requests
-            response = requests.get(self.xml_url, timeout=30)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; Myticas Job Feed Monitor/1.0)',
+                'Accept': 'application/xml, text/xml, */*',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive'
+            }
+            response = requests.get(self.xml_url, headers=headers, timeout=30)
             response.raise_for_status()
             return response.text
         except Exception as e:

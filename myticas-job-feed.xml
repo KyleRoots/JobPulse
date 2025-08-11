@@ -188,7 +188,7 @@
     <remotetype><![CDATA[ Onsite ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-AG1: Adam Gebara ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Engineering ]]></jobfunction>
-    <jobindustries><![CDATA[ Aviation and Aerospace ]]></jobindustries>
+    <jobindustries><![CDATA[ Telecommunications ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
@@ -536,6 +536,26 @@
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   <job>
+    <title><![CDATA[ IT Technical Analyst – Data Governance & Microsoft Purview ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ August 08, 2025 ]]></date>
+    <referencenumber><![CDATA[ 5TOFEYCS5H ]]></referencenumber>
+    <bhatsid><![CDATA[ 34223 ]]></bhatsid>
+    <url><![CDATA[ https://apply.myticas.com/34223/IT%20Technical%20Analyst%20%E2%80%93%20Data%20Governance%20%26%20Microsoft%20Purview/?source=LinkedIn ]]></url>
+    <description><![CDATA[ <p><strong>Required Experience Needed:</strong></p> <ul> <li> <p>3–5 years of experience as an IT Technical Analyst</p> </li> <li> <p>1–3 years of hands-on experience with Microsoft 365</p> </li> <li> <p>1–3 years of experience working with Microsoft Purview</p> </li> </ul> <p><strong>Core Competencies Required:</strong></p> <ul> <li> <p><strong>Technical Proficiency:</strong><br /> In-depth knowledge of Microsoft Purview, Microsoft 365 workloads, and Azure capabilities, with a strong foundation in cloud-based data governance solutions.</p> </li> <li> <p><strong>Data Governance & Security:</strong><br /> Solid understanding of data governance frameworks, data lifecycle management, and security best practices to ensure organizational compliance and data integrity.</p> </li> <li> <p><strong>Compliance Expertise:</strong><br /> Familiarity with data protection regulations and compliance standards such as GDPR, HIPAA, and other regional or industry-specific frameworks.</p> </li> <li> <p><strong>Analytical & Problem-Solving Skills:</strong><br /> Strong analytical mindset and troubleshooting abilities to address complex governance and data classification challenges.</p> </li> <li> <p><strong>Cross-Functional Collaboration:</strong><br /> Demonstrated ability to work effectively with diverse teams including data architects, business analysts, and cybersecurity professionals.</p> </li> <li> <p><strong>Automation & Scripting:</strong><br /> Proficiency with scripting tools such as PowerShell for automating workflows and integrating Purview capabilities across systems.</p> </li> </ul> <p><strong>Nice to Have:</strong></p> <ul> <li> <p>Experience with Exact Data Match (EDM) for advanced data classification and protection.</p> </li> </ul> <hr /> <p><strong>Key Responsibilities:</strong></p> <ul> <li> <p><strong>Policy Development & Enforcement:</strong><br /> Design, implement, and maintain data policies including Data Loss Prevention (DLP), data retention, and sensitive information protection measures.</p> </li> <li> <p><strong>Data Cataloging & Lineage:</strong><br /> Build and manage a centralized data catalog, define metadata standards, and establish data lineage to promote transparency and data discoverability.</p> </li> <li> <p><strong>Risk & Compliance Monitoring:</strong><br /> Conduct risk assessments, proactively monitor for compliance violations, and implement remediation strategies leveraging Purview’s capabilities.</p> </li> <li> <p><strong>System Integration:</strong><br /> Seamlessly integrate Microsoft Purview with Microsoft 365 workloads and other enterprise data sources to enhance governance coverage.</p> </li> <li> <p><strong>Reporting & Insights:</strong><br /> Generate actionable insights through reports on data usage, compliance status, and governance gaps to support continuous improvement.</p> </li> </ul> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[  ]]></city>
+    <state><![CDATA[  ]]></state>
+    <country><![CDATA[ Canada ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Remote ]]></remotetype>
+    <assignedrecruiter><![CDATA[ #LI-AG1: Adam Gebara ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
+  </job>
+  <job>
     <title><![CDATA[ Drupal Developer ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ July 24, 2025 ]]></date>
@@ -591,7 +611,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-RP1: Runa Parmar ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
     <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
@@ -917,7 +937,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Hybrid ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-DSC1: Dominic Scaletta ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Analyst ]]></jobfunction>
+    <jobfunction><![CDATA[ Consulting ]]></jobfunction>
     <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
@@ -965,7 +985,7 @@
     <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-DSC1: Dominic Scaletta ]]></assignedrecruiter>
-    <jobfunction><![CDATA[ Engineering ]]></jobfunction>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
     <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
@@ -1230,7 +1250,7 @@
     <remotetype><![CDATA[ Remote ]]></remotetype>
     <assignedrecruiter><![CDATA[ #LI-RP1: Runa Parmar ]]></assignedrecruiter>
     <jobfunction><![CDATA[ Education ]]></jobfunction>
-    <jobindustries><![CDATA[ Computer Software ]]></jobindustries>
+    <jobindustries><![CDATA[ Information Technology and Services ]]></jobindustries>
     <senoritylevel><![CDATA[ Mid-Senior level ]]></senoritylevel>
   </job>
   </source>
