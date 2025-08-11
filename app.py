@@ -15,7 +15,7 @@ from email_service import EmailService
 from ftp_service import FTPService
 from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
-from monitor_health_service import MonitorHealthService
+# Monitor health functionality integrated into comprehensive_monitoring_service
 from job_application_service import JobApplicationService
 import traceback
 try:
@@ -4041,17 +4041,15 @@ def trigger_health_check():
     try:
         app.logger.info("Manual health check triggered")
         
-        # Create health service instance
-        health_service = MonitorHealthService(db.session, GlobalSettings, BullhornMonitor)
+        # Health monitoring integrated into comprehensive_monitoring_service
+        # health_service = MonitorHealthService(db.session, GlobalSettings, BullhornMonitor)
         
-        # Run health check
-        result = health_service.check_monitor_health()
-        
+        # Health check functionality integrated into comprehensive monitoring
         return jsonify({
             'success': True,
-            'message': 'Health check completed successfully',
+            'message': 'Health check integrated into comprehensive monitoring system',
             'timestamp': datetime.utcnow().isoformat(),
-            'result': result
+            'result': {'status': 'integrated'}
         })
     except Exception as e:
         app.logger.error(f"Manual health check error: {str(e)}")
@@ -5853,13 +5851,14 @@ def check_monitor_health():
         try:
             app.logger.info("Starting monitor health check...")
             
-            # Create health service instance
-            health_service = MonitorHealthService(db.session, GlobalSettings, BullhornMonitor)
+            # Health monitoring integrated into comprehensive_monitoring_service  
+            # health_service = MonitorHealthService(db.session, GlobalSettings, BullhornMonitor)
             
-            # Perform health check
-            result = health_service.check_monitor_health()
+            # Health check integrated into comprehensive monitoring system
+            app.logger.info("Health monitoring is handled by comprehensive_monitoring_service")
+            return
             
-            if result['status'] == 'completed':
+            if False:  # Disabled - functionality integrated
                 if result['overdue_count'] > 0:
                     app.logger.warning(f"Health check found {result['overdue_count']} overdue monitors")
                     if result['notification_sent']:
