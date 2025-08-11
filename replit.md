@@ -20,6 +20,7 @@ This Flask-based web application automates the processing of XML job feed files 
 - ✅ **LIVE XML CHANGE MONITOR**: Implemented dedicated XML snapshot comparison system with 6-minute monitoring cycles for reliable change detection
 - ✅ **COMPREHENSIVE LOGGING**: XML Change Monitor emails now logged in both Activity monitoring and /email-logs pages
 - ✅ **EMAIL NOTIFICATION SYSTEM**: XML Change Monitor now fully operational - sends focused notifications for all job additions, removals, and modifications
+- ✅ **AI CLASSIFICATION STATIC FIELDS**: jobfunction, jobindustries, and senioritylevel now behave like reference numbers - set once and remain static to prevent unnecessary notifications
 - ✅ **DEPLOYMENT**: Ready for production deployment with comprehensive dual-monitoring system (Bullhorn + live XML validation)
 
 ## User Preferences
@@ -77,7 +78,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Job Application Form**: Responsive, public-facing form with resume parsing (extracts contact info from Word/PDF), auto-population of candidate fields, structured email submission, and Bullhorn job ID integration. Features Myticas Consulting branding, dark blue gradient background, glass morphism effects, and supports unique job URLs. Includes robust duplicate prevention and form lockdown mechanisms.
 - **UI/UX**: Responsive dark-themed interface with real-time feedback and progress indicators.
 - **Security**: Login-protected routes and admin user management.
-- **AI-Powered Job Classification**: Integrates OpenAI GPT-4o to classify jobs (jobfunction, jobindustries, senioritylevel).
+- **AI-Powered Job Classification**: Integrates OpenAI GPT-4o to classify jobs (jobfunction, jobindustries, senioritylevel). These fields are static after initial population - only regenerated if job is removed and re-added to tearsheet.
 - **Email Delivery Logging**: Comprehensive system for tracking email notifications with a web dashboard.
 - **Intelligent File Management**: Automated file consolidation for backup archiving, duplicate detection, temp file cleanup, and storage optimization. Includes immediate cleanup scripts for existing data issues.
 - **Dual-Domain Architecture**: Configured for production deployment with `jobpulse.lyntrix.ai` for the main application and `apply.myticas.com` for job application forms, supporting environment-aware URL generation.

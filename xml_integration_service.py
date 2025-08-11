@@ -37,7 +37,7 @@ class XMLIntegrationService:
         # Thread lock for preventing concurrent XML modifications
         self._xml_lock = threading.Lock()
     
-    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False) -> Dict:
+    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False, existing_ai_fields: Optional[Dict] = None) -> Dict:
         """
         Map Bullhorn job data to XML job structure
         
@@ -135,19 +135,26 @@ class XMLIntegrationService:
             # Generate unique job application URL (clean_title is already defined above)
             job_url = self._generate_job_application_url(bhatsid, clean_title)
             
-            # Use AI to classify the job based on title and description (skip during real-time monitoring for performance)
-            if skip_ai_classification:
+            # Handle AI classification - preserve existing values if provided
+            if existing_ai_fields and existing_ai_fields.get('jobfunction') and existing_ai_fields.get('jobindustries') and existing_ai_fields.get('senioritylevel'):
+                # Use existing AI-classified values to maintain consistency (like reference numbers)
+                job_function = existing_ai_fields.get('jobfunction', '')
+                job_industry = existing_ai_fields.get('jobindustries', '')
+                seniority_level = existing_ai_fields.get('senioritylevel', '')
+                self.logger.debug(f"Preserving existing AI classification for job {job_id}: Function={job_function}, Industry={job_industry}, Seniority={seniority_level}")
+            elif skip_ai_classification:
                 # For real-time monitoring, use empty values to prevent timeouts
                 job_function = ''
                 job_industry = ''
                 seniority_level = ''
                 self.logger.debug(f"Skipped AI classification for job {job_id} during real-time sync")
             else:
-                # Full AI classification for scheduled processing or manual operations
+                # Full AI classification for new jobs or jobs missing these fields
                 classification = self.job_classifier.classify_job(clean_title, description)
                 job_function = classification.get('job_function', '')
                 job_industry = classification.get('industries', '')  # Fixed: using 'industries' not 'job_industry'
                 seniority_level = classification.get('seniority_level', '')
+                self.logger.info(f"Generated new AI classification for job {job_id}: Function={job_function}, Industry={job_industry}, Seniority={seniority_level}")
             
             # Helper function to clean field values
             def clean_field_value(value):
@@ -749,9 +756,39 @@ class XMLIntegrationService:
                         existing_reference_number = bullhorn_job['_preserved_reference']
                         self.logger.debug(f"Using preserved reference {existing_reference_number} for job {job_id}")
                     
-                    # Map Bullhorn job to XML format 
-                    # Pass None for reference if we want to force a new one for modified jobs
-                    xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=False)
+                    # Extract existing AI classification fields from XML to preserve static behavior
+                    existing_ai_fields = {}
+                    try:
+                        with open(xml_file_path, 'rb') as f:
+                            content = f.read().decode('utf-8')
+                        
+                        # Find existing job data to extract AI classification fields
+                        job_pattern = rf'<job>.*?<bhatsid>(?:<!\[CDATA\[)?{re.escape(str(job_id))}(?:\]\]>)?</bhatsid>.*?</job>'
+                        job_match = re.search(job_pattern, content, re.DOTALL)
+                        
+                        if job_match:
+                            job_content = job_match.group(0)
+                            
+                            # Extract existing AI classification fields
+                            jobfunction_match = re.search(r'<jobfunction>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</jobfunction>', job_content)
+                            if jobfunction_match:
+                                existing_ai_fields['jobfunction'] = jobfunction_match.group(1).strip()
+                            
+                            jobindustries_match = re.search(r'<jobindustries>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</jobindustries>', job_content)  
+                            if jobindustries_match:
+                                existing_ai_fields['jobindustries'] = jobindustries_match.group(1).strip()
+                            
+                            senioritylevel_match = re.search(r'<senoritylevel>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</senoritylevel>', job_content)
+                            if senioritylevel_match:
+                                existing_ai_fields['senioritylevel'] = senioritylevel_match.group(1).strip()
+                                
+                            self.logger.debug(f"Extracted existing AI fields for job {job_id}: {existing_ai_fields}")
+                            
+                    except Exception as e:
+                        self.logger.debug(f"Could not extract existing AI fields for job {job_id}: {e}")
+                    
+                    # Map Bullhorn job to XML format with existing AI fields preserved
+                    xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=False, existing_ai_fields=existing_ai_fields)
                     if not xml_job or not xml_job.get('title') or not xml_job.get('referencenumber'):
                         self.logger.error(f"Failed to map job {job_id} to XML format - invalid XML job data")
                         if attempt < max_retries - 1:

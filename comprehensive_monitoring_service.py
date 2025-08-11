@@ -304,6 +304,19 @@ class ComprehensiveMonitoringService:
                     if ref_match:
                         job_data['referencenumber'] = ref_match.group(1).strip()
                     
+                    # Extract AI classification fields for preservation
+                    jobfunction_match = re.search(r'<jobfunction>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</jobfunction>', job_content)
+                    if jobfunction_match:
+                        job_data['jobfunction'] = jobfunction_match.group(1).strip()
+                    
+                    jobindustries_match = re.search(r'<jobindustries>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</jobindustries>', job_content)
+                    if jobindustries_match:
+                        job_data['jobindustries'] = jobindustries_match.group(1).strip()
+                    
+                    senioritylevel_match = re.search(r'<senoritylevel>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</senoritylevel>', job_content)
+                    if senioritylevel_match:
+                        job_data['senioritylevel'] = senioritylevel_match.group(1).strip()
+                    
                     # Store the complete job content for comparison
                     job_data['_xml_content'] = job_content
                     
@@ -443,6 +456,7 @@ class ComprehensiveMonitoringService:
         try:
             # Map job data to XML format
             monitor_name = job_data.get('_monitor_name')
+            # New jobs won't have existing AI fields, so AI classification will run
             xml_job = self.xml_integration.map_bullhorn_job_to_xml(
                 job_data, 
                 monitor_name=monitor_name
@@ -464,11 +478,23 @@ class ComprehensiveMonitoringService:
     def _update_job_in_xml(self, xml_file: str, job_id: str, job_data: Dict, modifications: List[Dict]):
         """Update job fields in XML file"""
         try:
-            # Map updated job data
+            # Get existing job data to preserve AI classification fields
+            existing_xml_jobs = self._load_existing_xml_jobs(xml_file)
+            existing_job = existing_xml_jobs.get(job_id, {})
+            
+            # Extract existing AI classification fields for preservation
+            existing_ai_fields = {
+                'jobfunction': existing_job.get('jobfunction', ''),
+                'jobindustries': existing_job.get('jobindustries', ''),
+                'senioritylevel': existing_job.get('senioritylevel', '')
+            }
+            
+            # Map updated job data while preserving AI classification fields
             monitor_name = job_data.get('_monitor_name')
             xml_job = self.xml_integration.map_bullhorn_job_to_xml(
                 job_data,
-                monitor_name=monitor_name
+                monitor_name=monitor_name,
+                existing_ai_fields=existing_ai_fields
             )
             
             # Update in XML file
