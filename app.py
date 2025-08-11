@@ -2351,32 +2351,19 @@ def process_comprehensive_bullhorn_monitors():
                 app.logger.error(f"📤 STEP 5 ERROR: Upload failed: {str(e)}")
                 app.logger.error(f"📤 STEP 5 ERROR DETAILS: {traceback.format_exc()}")
             
-            # STEP 6: Queue email notifications (only for actual job changes, not routine remapping)
-            app.logger.info("📊 PROGRESS: [●●●●●●○○] Step 6/8 - Email notifications")
-            app.logger.info("📧 STEP 6/8: Queueing email notifications...")
+            # STEP 6: Data sync summary (email notifications handled by dedicated XML monitor)
+            app.logger.info("📊 PROGRESS: [●●●●●●○○] Step 6/8 - Data sync summary")
+            app.logger.info("📊 STEP 6/8: Data synchronization complete")
             
-            # Only send emails for actual job changes (adds/removes), not routine field remapping
-            meaningful_changes = bool(cycle_changes['added'] or cycle_changes['removed'])
-            
-            if meaningful_changes:
-                # Store changes for batched email (handled by separate 5-minute job)
-                if not hasattr(app, '_pending_email_changes'):
-                    app._pending_email_changes = {'added': [], 'removed': [], 'modified': []}
-                
-                app._pending_email_changes['added'].extend(cycle_changes['added'])
-                app._pending_email_changes['removed'].extend(cycle_changes['removed'])
-                # Note: We exclude routine modifications from email notifications
-                
-                total_meaningful_changes = len(cycle_changes['added']) + len(cycle_changes['removed'])
-                app.logger.info(f"📧 STEP 6: Queued {total_meaningful_changes} meaningful changes for email notification")
+            total_changes = len(cycle_changes['added']) + len(cycle_changes['removed']) + len(cycle_changes['modified'])
+            if total_changes > 0:
+                app.logger.info(f"📊 STEP 6: Completed {total_changes} data sync operations")
                 app.logger.info(f"    ➕ Jobs added: {len(cycle_changes['added'])}")
-                app.logger.info(f"    ➖ Jobs removed: {len(cycle_changes['removed'])}")
-                if cycle_changes['modified']:
-                    app.logger.info(f"    🔄 Jobs remapped: {len(cycle_changes['modified'])} (routine updates, no email)")
+                app.logger.info(f"    ➖ Jobs removed: {len(cycle_changes['removed'])}")  
+                app.logger.info(f"    🔄 Jobs remapped: {len(cycle_changes['modified'])} (complete field refresh)")
+                app.logger.info("    📧 Email notifications: Handled by dedicated XML Change Monitor")
             else:
-                app.logger.info("📧 STEP 6: No meaningful job changes - no email notifications queued")
-                if cycle_changes['modified']:
-                    app.logger.info(f"    🔄 Routine remapping: {len(cycle_changes['modified'])} jobs updated (normal operation)")
+                app.logger.info("📊 STEP 6: No sync operations required - data already current")
             
             # STEP 7: Fix CDATA/HTML formatting with comprehensive HTML repair
             app.logger.info("📊 PROGRESS: [●●●●●●●○] Step 7/8 - Formatting review")

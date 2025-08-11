@@ -54,16 +54,17 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
   3. Removes jobs no longer in tearsheets
   4. **COMPLETE REMAPPING**: Re-maps ALL fields for every existing job from Bullhorn (ensures 100% data accuracy)
   5. Uploads all changes to web server (SFTP port 2222)
-  6. Batches email notifications for efficiency (only for meaningful job changes, not routine remapping)
+  6. Completes data synchronization summary (email notifications handled by dedicated XML Change Monitor)
   7. Reviews and fixes CDATA/HTML formatting
   8. Runs FULL AUDIT with automatic corruption detection - uploads clean local XML when orphaned jobs detected on live server
 
-**Live XML Change Monitor** (Every 6 minutes): Direct XML validation system:
+**Live XML Change Monitor** (Every 6 minutes): **Primary email notification system**:
   1. Downloads current live XML from web server
   2. Extracts all job field data (title, description, location, etc.)  
   3. Compares with previous snapshot for precise change detection
-  4. Sends focused email notifications only when actual changes detected
+  4. **Sends focused email notifications only when actual changes detected**
   5. Maintains snapshot history for reliable comparison
+  6. **ONLY EMAIL SOURCE**: All job change notifications come from this system
   
 - **Orphan Prevention System**: Automated duplicate detection and removal, conservative cleanup approach, and monitoring safeguards to prevent job pollution
 - **Real-Time Progress Tracking**: Visual progress indicators [●●●●●●●○] show current step (Step 1/8 through Step 8/8)
