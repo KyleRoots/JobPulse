@@ -735,6 +735,11 @@ class XMLIntegrationService:
                         # Job exists but was NOT modified in this cycle - keep existing reference
                         self.logger.debug(f"Job {job_id} exists with reference {existing_reference_number} - preserving it")
                     
+                    # Check if reference number was preserved in the job data
+                    if '_preserved_reference' in bullhorn_job:
+                        existing_reference_number = bullhorn_job['_preserved_reference']
+                        self.logger.debug(f"Using preserved reference {existing_reference_number} for job {job_id}")
+                    
                     # Map Bullhorn job to XML format 
                     # Pass None for reference if we want to force a new one for modified jobs
                     xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=False)

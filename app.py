@@ -2183,12 +2183,11 @@ def process_comprehensive_bullhorn_monitors():
                                         
                                         # Re-add job with complete field mapping from Bullhorn BUT preserve reference number
                                         monitor_name = bullhorn_job.get('_monitor_name')
-                                        xml_job = xml_service.map_bullhorn_job_to_xml(
-                                            bullhorn_job, 
-                                            existing_reference_number=existing_ref,  # PRESERVE existing ref number
-                                            monitor_name=monitor_name
-                                        )
-                                        xml_service.add_job_to_xml(xml_file, xml_job)
+                                        
+                                        # CRITICAL FIX: Pass the original Bullhorn job data, not the mapped XML
+                                        # The add_job_to_xml function will map it internally with the preserved reference
+                                        bullhorn_job['_preserved_reference'] = existing_ref  # Store ref to preserve
+                                        success = xml_service.add_job_to_xml(xml_file, bullhorn_job, monitor_name=monitor_name)
                                         
                                         remapped_count += 1
                                         
