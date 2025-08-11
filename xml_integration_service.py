@@ -1280,27 +1280,33 @@ class XMLIntegrationService:
                     # Find existing job by bhatsid to preserve AI classifications and potentially reference
                     for job in root.xpath('.//job'):
                         bhatsid_elem = job.find('.//bhatsid')
-                        if bhatsid_elem is not None and bhatsid_elem.text and bhatsid_elem.text.strip() == job_id:
-                            # Get existing reference number BEFORE removal
-                            ref_elem = job.find('.//referencenumber')
-                            if ref_elem is not None and ref_elem.text:
-                                existing_reference_for_preservation = ref_elem.text.strip()
-                                if 'CDATA' in existing_reference_for_preservation:
-                                    existing_reference_for_preservation = existing_reference_for_preservation[9:-3].strip()
-                                self.logger.info(f"Found existing reference for job {job_id}: {existing_reference_for_preservation}")
+                        if bhatsid_elem is not None and bhatsid_elem.text:
+                            bhatsid_text = bhatsid_elem.text.strip()
+                            # Remove CDATA wrapper if present (CRITICAL FIX for duplicate bug)
+                            if '<![CDATA[' in bhatsid_text:
+                                bhatsid_text = bhatsid_text.replace('<![CDATA[', '').replace(']]>', '').strip()
                             
-                            # CRITICAL: Preserve existing AI classification values
-                            ai_fields = ['jobfunction', 'jobindustries', 'senoritylevel']
-                            for ai_field in ai_fields:
-                                ai_elem = job.find(f'.//{ai_field}')
-                                if ai_elem is not None and ai_elem.text:
-                                    # Extract text from CDATA if present
-                                    ai_value = ai_elem.text.strip()
-                                    if ai_value:
-                                        existing_ai_classifications[ai_field] = ai_value
-                                        self.logger.info(f"Preserving existing {ai_field}: {ai_value}")
-                            
-                            break
+                            if bhatsid_text == str(job_id):
+                                # Get existing reference number BEFORE removal
+                                ref_elem = job.find('.//referencenumber')
+                                if ref_elem is not None and ref_elem.text:
+                                    existing_reference_for_preservation = ref_elem.text.strip()
+                                    if 'CDATA' in existing_reference_for_preservation:
+                                        existing_reference_for_preservation = existing_reference_for_preservation[9:-3].strip()
+                                    self.logger.info(f"Found existing reference for job {job_id}: {existing_reference_for_preservation}")
+                                
+                                # CRITICAL: Preserve existing AI classification values
+                                ai_fields = ['jobfunction', 'jobindustries', 'senoritylevel']
+                                for ai_field in ai_fields:
+                                    ai_elem = job.find(f'.//{ai_field}')
+                                    if ai_elem is not None and ai_elem.text:
+                                        # Extract text from CDATA if present
+                                        ai_value = ai_elem.text.strip()
+                                        if ai_value:
+                                            existing_ai_classifications[ai_field] = ai_value
+                                            self.logger.info(f"Preserving existing {ai_field}: {ai_value}")
+                                
+                                break
                             
                 except Exception as e:
                     self.logger.warning(f"Could not get existing data: {e}")
