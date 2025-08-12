@@ -659,7 +659,7 @@ class XMLIntegrationService:
             self.logger.error(f"Error sorting XML jobs by date: {str(e)}")
             return False
     
-    def add_job_to_xml(self, xml_file_path: str, bullhorn_job: Dict, monitor_name: Optional[str] = None) -> bool:
+    def add_job_to_xml(self, xml_file_path: str, bullhorn_job: Dict, monitor_name: Optional[str] = None, existing_reference_number: Optional[str] = None, existing_ai_fields: Optional[Dict] = None) -> bool:
         """
         Add a new job to the XML file at the top (first position after </publisherurl>)
         WITH THREAD-SAFE DUPLICATE PREVENTION
@@ -668,6 +668,8 @@ class XMLIntegrationService:
             xml_file_path: Path to the XML file
             bullhorn_job: Bullhorn job data dictionary
             monitor_name: Optional monitor name for company assignment
+            existing_reference_number: Optional existing reference number to preserve
+            existing_ai_fields: Optional existing AI classification fields to preserve
             
         Returns:
             bool: True if job was added successfully, False otherwise
@@ -756,39 +758,43 @@ class XMLIntegrationService:
                         existing_reference_number = bullhorn_job['_preserved_reference']
                         self.logger.debug(f"Using preserved reference {existing_reference_number} for job {job_id}")
                     
-                    # Extract existing AI classification fields from XML to preserve static behavior
-                    existing_ai_fields = {}
-                    try:
-                        with open(xml_file_path, 'rb') as f:
-                            content = f.read().decode('utf-8')
-                        
-                        # Find existing job data to extract AI classification fields
-                        job_pattern = rf'<job>.*?<bhatsid>(?:<!\[CDATA\[)?{re.escape(str(job_id))}(?:\]\]>)?</bhatsid>.*?</job>'
-                        job_match = re.search(job_pattern, content, re.DOTALL)
-                        
-                        if job_match:
-                            job_content = job_match.group(0)
+                    # Use passed existing_ai_fields parameter, or extract from XML if not provided
+                    ai_fields_to_use = existing_ai_fields
+                    if not ai_fields_to_use:
+                        ai_fields_to_use = {}
+                        try:
+                            with open(xml_file_path, 'rb') as f:
+                                content = f.read().decode('utf-8')
                             
-                            # Extract existing AI classification fields
-                            jobfunction_match = re.search(r'<jobfunction>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</jobfunction>', job_content)
-                            if jobfunction_match:
-                                existing_ai_fields['jobfunction'] = jobfunction_match.group(1).strip()
+                            # Find existing job data to extract AI classification fields only if none were passed
+                            job_pattern = rf'<job>.*?<bhatsid>(?:<!\[CDATA\[)?{re.escape(str(job_id))}(?:\]\]>)?</bhatsid>.*?</job>'
+                            job_match = re.search(job_pattern, content, re.DOTALL)
                             
-                            jobindustries_match = re.search(r'<jobindustries>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</jobindustries>', job_content)  
-                            if jobindustries_match:
-                                existing_ai_fields['jobindustries'] = jobindustries_match.group(1).strip()
-                            
-                            senioritylevel_match = re.search(r'<senoritylevel>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</senoritylevel>', job_content)
-                            if senioritylevel_match:
-                                existing_ai_fields['senioritylevel'] = senioritylevel_match.group(1).strip()
+                            if job_match:
+                                job_content = job_match.group(0)
                                 
-                            self.logger.debug(f"Extracted existing AI fields for job {job_id}: {existing_ai_fields}")
-                            
-                    except Exception as e:
-                        self.logger.debug(f"Could not extract existing AI fields for job {job_id}: {e}")
+                                # Extract existing AI classification fields
+                                jobfunction_match = re.search(r'<jobfunction>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</jobfunction>', job_content)
+                                if jobfunction_match:
+                                    ai_fields_to_use['jobfunction'] = jobfunction_match.group(1).strip()
+                                
+                                jobindustries_match = re.search(r'<jobindustries>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</jobindustries>', job_content)  
+                                if jobindustries_match:
+                                    ai_fields_to_use['jobindustries'] = jobindustries_match.group(1).strip()
+                                
+                                senioritylevel_match = re.search(r'<senoritylevel>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</senoritylevel>', job_content)
+                                if senioritylevel_match:
+                                    ai_fields_to_use['senioritylevel'] = senioritylevel_match.group(1).strip()
+                                    
+                                self.logger.debug(f"Extracted existing AI fields for job {job_id}: {ai_fields_to_use}")
+                                
+                        except Exception as e:
+                            self.logger.debug(f"Could not extract existing AI fields for job {job_id}: {e}")
+                    else:
+                        self.logger.info(f"Using passed AI fields for job {job_id}: {ai_fields_to_use}")
                     
                     # Map Bullhorn job to XML format with existing AI fields preserved
-                    xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=False, existing_ai_fields=existing_ai_fields)
+                    xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, existing_reference_number, monitor_name, skip_ai_classification=False, existing_ai_fields=ai_fields_to_use)
                     if not xml_job or not xml_job.get('title') or not xml_job.get('referencenumber'):
                         self.logger.error(f"Failed to map job {job_id} to XML format - invalid XML job data")
                         if attempt < max_retries - 1:
