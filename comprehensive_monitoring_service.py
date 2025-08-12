@@ -522,8 +522,12 @@ class ComprehensiveMonitoringService:
             
             # Extract existing reference number
             existing_reference_number = existing_job.get('referencenumber', '').strip()
+            self.logger.info(f"🔍 DEBUG: Job {job_id} existing_job keys: {list(existing_job.keys())}")
+            self.logger.info(f"🔍 DEBUG: Job {job_id} raw referencenumber value: '{existing_job.get('referencenumber', 'NOT_FOUND')}'")
             if existing_reference_number:
                 self.logger.info(f"✅ PRESERVING existing reference number for job {job_id}: {existing_reference_number}")
+            else:
+                self.logger.warning(f"⚠️ No existing reference number found for job {job_id} - will generate new one")
             
             # Extract existing AI classification fields for preservation
             existing_ai_fields = {
