@@ -375,7 +375,10 @@ class ComprehensiveMonitoringService:
             bullhorn_str = str(bullhorn_value).strip() if bullhorn_value else ''
             xml_str = current_xml_value.strip()
             
-            if bullhorn_str != xml_str and xml_field != 'referencenumber':  # Don't change reference numbers
+            # Static fields that should never change during daily monitoring
+            static_fields = {'referencenumber', 'jobfunction', 'jobindustries', 'senioritylevel'}
+            
+            if bullhorn_str != xml_str and xml_field not in static_fields:
                 modifications.append({
                     'field': xml_field,
                     'old_value': xml_str,
@@ -411,14 +414,15 @@ class ComprehensiveMonitoringService:
                 xml_job = current_xml_jobs[job_id]
                 discrepancies = self._check_field_modifications(bullhorn_job, xml_job)
                 
-                # CRITICAL FIX: Remove reference number discrepancies - these should NEVER be changed during audit
-                business_discrepancies = [d for d in discrepancies if d['field'] != 'referencenumber']
-                reference_discrepancies = [d for d in discrepancies if d['field'] == 'referencenumber']
+                # CRITICAL FIX: Remove static field discrepancies - these should NEVER be changed during audit
+                static_fields = {'referencenumber', 'jobfunction', 'jobindustries', 'senioritylevel'}
+                business_discrepancies = [d for d in discrepancies if d['field'] not in static_fields]
+                static_discrepancies = [d for d in discrepancies if d['field'] in static_fields]
                 
-                if reference_discrepancies:
-                    self.logger.info(f"🔒 AUDIT IGNORING reference number discrepancies for job {job_id} (reference numbers are static)")
-                    for ref_disc in reference_discrepancies:
-                        self.logger.info(f"    Ignoring: {ref_disc['field']}: '{ref_disc['old_value']}' (keeping existing)")
+                if static_discrepancies:
+                    self.logger.info(f"🔒 AUDIT IGNORING static field discrepancies for job {job_id} (reference numbers & AI fields are static)")
+                    for static_disc in static_discrepancies:
+                        self.logger.info(f"    Ignoring: {static_disc['field']}: '{static_disc['old_value']}' (keeping existing)")
                 
                 if business_discrepancies:
                     # Only correct business field discrepancies, not reference numbers
