@@ -130,6 +130,15 @@ class XMLChangeMonitor:
             'total_changes': 0
         }
         
+        # CRITICAL: These fields should NEVER trigger modification notifications
+        # They are set once and remain static (except during weekly automation for reference numbers)
+        STATIC_FIELDS = {
+            'referencenumber',     # Only changes for new jobs or weekly automation
+            'jobfunction',         # AI classification - set once for new jobs
+            'jobindustries',       # AI classification - set once for new jobs  
+            'senioritylevel'       # AI classification - set once for new jobs
+        }
+        
         previous_ids = set(previous_jobs.keys())
         current_ids = set(current_jobs.keys())
         
@@ -149,10 +158,14 @@ class XMLChangeMonitor:
             current_job = current_jobs[job_id]
             previous_job = previous_jobs[job_id]
             
-            # Compare each field
+            # Compare each field EXCEPT static fields
             field_changes = []
             for field in current_job.keys():
-                if field != 'id' and current_job.get(field, '') != previous_job.get(field, ''):
+                # Skip ID and static fields when detecting modifications
+                if field == 'id' or field in STATIC_FIELDS:
+                    continue
+                    
+                if current_job.get(field, '') != previous_job.get(field, ''):
                     field_changes.append({
                         'field': field,
                         'old_value': previous_job.get(field, ''),
