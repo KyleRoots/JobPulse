@@ -698,7 +698,8 @@ class XMLIntegrationService:
                         return False
                     
                     # DUPLICATE CHECK: Re-check if job exists right before adding (within lock)
-                    existing_reference_number = None
+                    # CRITICAL FIX: Don't overwrite the existing_reference_number parameter!
+                    found_in_xml_reference = None
                     job_already_exists = False
                     
                     try:
@@ -720,10 +721,10 @@ class XMLIntegrationService:
                                     job_already_exists = True
                                     ref_elem = job.find('.//referencenumber')
                                     if ref_elem is not None and ref_elem.text:
-                                        existing_reference_number = ref_elem.text.strip()
-                                        if 'CDATA' in existing_reference_number:
-                                            existing_reference_number = existing_reference_number[9:-3].strip()
-                                        self.logger.info(f"Job {job_id} already exists in XML with reference {existing_reference_number}")
+                                        found_in_xml_reference = ref_elem.text.strip()
+                                        if 'CDATA' in found_in_xml_reference:
+                                            found_in_xml_reference = found_in_xml_reference[9:-3].strip()
+                                        self.logger.info(f"Job {job_id} already exists in XML with reference {found_in_xml_reference}")
                                     else:
                                         self.logger.info(f"Job {job_id} already exists in XML")
                                     break
@@ -738,8 +739,7 @@ class XMLIntegrationService:
                             os.remove(backup_path)
                         return True  # Return True as the job is already in the file
                     
-                    # DEBUG: Log the incoming existing_reference_number parameter
-                    self.logger.info(f"🔍 DEBUG: add_job_to_xml received existing_reference_number={existing_reference_number} for job {job_id}")
+
                     
                     # CRITICAL FIX: Only generate new reference numbers for jobs that were ACTUALLY modified
                     # in the current monitoring cycle, not all jobs that have ever been modified

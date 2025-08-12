@@ -27,7 +27,7 @@ This Flask-based web application automates the processing of XML job feed files 
 - ✅ **AI PRESERVATION FIX (2025-08-11)**: Fixed critical issue where jobs removed/re-added during remapping bypassed AI preservation - now preserves existing AI values even during complete remapping cycles
 - ✅ **DEFINITIVE AI PRESERVATION SOLUTION (2025-08-11)**: Resolved core issue by capturing initial XML snapshot before removals and using it for AI field preservation - should eliminate all classification change notifications
 - ✅ **DEPLOYMENT**: Complete with comprehensive dual-monitoring system (Bullhorn + live XML validation)
-- ✅ **REFERENCE NUMBER PRESERVATION FIX (2025-08-12)**: Implemented distinction between daily monitoring (preserve references) and weekly automation (regenerate references). Modified XMLProcessor to accept preserve_reference_numbers parameter, updated comprehensive_monitoring_service to set _monitor_flagged_as_modified flag correctly, and ensured reference numbers remain static during daily monitoring cycles while regenerating weekly for freshness.
+- ✅ **REFERENCE NUMBER PRESERVATION FIX (2025-08-12)**: Fixed critical bug where `existing_reference_number` parameter was being overwritten to None in xml_integration_service.py line 709. Now using separate variable `found_in_xml_reference` for duplicate checks, preserving the passed parameter. Reference numbers now correctly remain static during daily monitoring cycles while regenerating weekly for automation.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

@@ -2116,16 +2116,70 @@ def process_comprehensive_bullhorn_monitors():
                         if duplicates_found:
                             app.logger.warning(f"    ⚠️ DUPLICATE PREVENTION: Found {len(duplicates_found)} job(s) with duplicates")
                             xml_service = XMLIntegrationService()
+                            
+                            # CRITICAL FIX: First extract existing reference numbers and AI fields before removing
+                            existing_refs_for_duplicates = {}
+                            existing_ai_for_duplicates = {}
+                            try:
+                                import xml.etree.ElementTree as ET
+                                tree = ET.parse(xml_file)
+                                root = tree.getroot()
+                                
+                                for job_elem in root.findall('.//job'):
+                                    bhatsid_elem = job_elem.find('bhatsid')
+                                    ref_elem = job_elem.find('referencenumber')
+                                    
+                                    if bhatsid_elem is not None:
+                                        job_id_text = bhatsid_elem.text
+                                        if job_id_text:
+                                            # Clean CDATA wrapper if present
+                                            if 'CDATA' in job_id_text:
+                                                job_id_text = job_id_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                            
+                                            if ref_elem is not None and ref_elem.text:
+                                                ref_text = ref_elem.text
+                                                if 'CDATA' in ref_text:
+                                                    ref_text = ref_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                                existing_refs_for_duplicates[job_id_text] = ref_text
+                                            
+                                            # Also extract AI fields
+                                            ai_fields = {}
+                                            for field_name in ['jobfunction', 'jobindustries', 'senioritylevel']:
+                                                field_elem = job_elem.find(field_name)
+                                                if field_elem is not None and field_elem.text:
+                                                    field_text = field_elem.text
+                                                    if 'CDATA' in field_text:
+                                                        field_text = field_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                                    ai_fields[field_name] = field_text
+                                            
+                                            if ai_fields:
+                                                existing_ai_for_duplicates[job_id_text] = ai_fields
+                            except Exception as e:
+                                app.logger.error(f"    Error extracting references for duplicates: {str(e)}")
+                            
                             for job_id, count in duplicates_found.items():
                                 # Remove all occurrences and re-add once
                                 for _ in range(count):
                                     xml_service.remove_job_from_xml(xml_file, job_id)
-                                # Re-add the job once from Bullhorn data
+                                # Re-add the job once from Bullhorn data WITH preserved reference and AI fields
                                 if job_id in all_bullhorn_jobs:
                                     job_data = all_bullhorn_jobs[job_id]
                                     monitor_name = job_data.get('_monitor_name')
-                                    # CRITICAL FIX: Pass the Bullhorn job data directly, not the mapped XML
-                                    success = xml_service.add_job_to_xml(xml_file, job_data, monitor_name=monitor_name)
+                                    
+                                    # CRITICAL FIX: Pass existing reference number and AI fields when re-adding
+                                    existing_ref = existing_refs_for_duplicates.get(str(job_id))
+                                    existing_ai = existing_ai_for_duplicates.get(str(job_id))
+                                    
+                                    if existing_ref:
+                                        app.logger.info(f"      🔒 Preserving reference {existing_ref} when removing duplicates for job {job_id}")
+                                    
+                                    success = xml_service.add_job_to_xml(
+                                        xml_file, 
+                                        job_data, 
+                                        monitor_name=monitor_name,
+                                        existing_reference_number=existing_ref,
+                                        existing_ai_fields=existing_ai
+                                    )
                                     duplicate_count += (count - 1)
                                     app.logger.info(f"      🔧 Removed {count-1} duplicates of job {job_id}")
                     except Exception as e:
@@ -2218,10 +2272,7 @@ def process_comprehensive_bullhorn_monitors():
                                         existing_ref = existing_reference_numbers.get(str(job_id))
                                         existing_ai = existing_ai_fields.get(str(job_id))
                                         
-                                        # DEBUG: Log what we found
-                                        app.logger.info(f"      🔍 DEBUG: Looking up job_id={job_id} (type={type(job_id)})")
-                                        app.logger.info(f"      🔍 DEBUG: existing_reference_numbers keys sample: {list(existing_reference_numbers.keys())[:5]}")
-                                        app.logger.info(f"      🔍 DEBUG: Found existing_ref={existing_ref} for job {job_id}")
+
                                         
                                         # Remove existing job from XML (if present)
                                         try:
@@ -2239,6 +2290,9 @@ def process_comprehensive_bullhorn_monitors():
                                         else:
                                             app.logger.info(f"      ⚠️ No existing reference for job {job_id} - will generate new")
                                         
+                                        # DEBUG: Log right before the method call
+
+                                        
                                         success = xml_service.add_job_to_xml(
                                             xml_file, 
                                             bullhorn_job, 
@@ -2246,6 +2300,9 @@ def process_comprehensive_bullhorn_monitors():
                                             existing_reference_number=existing_ref,
                                             existing_ai_fields=existing_ai
                                         )
+                                        
+                                        # DEBUG: Log after the method call
+
                                         
                                         if existing_ai:
                                             app.logger.info(f"      🤖 PRESERVED AI fields for job {job_id}: {existing_ai['jobfunction'][:20]}...")
