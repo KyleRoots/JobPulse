@@ -194,6 +194,9 @@ class ComprehensiveMonitoringService:
                 
                 modifications = self._check_field_modifications(bullhorn_job, xml_job)
                 if modifications:
+                    # CRITICAL: Mark jobs in Step 4 as NOT requiring new reference numbers
+                    # Reference numbers should only change for weekly automation
+                    bullhorn_job['_monitor_flagged_as_modified'] = False
                     self._update_job_in_xml(xml_file, job_id, bullhorn_job, modifications)
                     cycle_changes['modified'].append({
                         'id': job_id,
@@ -528,9 +531,10 @@ class ComprehensiveMonitoringService:
     def _update_job_in_xml(self, xml_file: str, job_id: str, job_data: Dict, modifications: List[Dict]):
         """Update job fields in XML file"""
         try:
-            # CRITICAL FIX: Use initial XML snapshot for AI + reference number preservation (before any removals)
-            existing_xml_jobs = getattr(self, 'initial_xml_snapshot', {}) or self._load_xml_jobs(xml_file)
-            existing_job = existing_xml_jobs.get(job_id, {})
+            # CRITICAL FIX: Always load current XML to get the actual reference number
+            # Don't rely on snapshots which might be outdated
+            current_xml_jobs = self._load_xml_jobs(xml_file)
+            existing_job = current_xml_jobs.get(job_id, {})
             self.logger.info(f"🔍 PRESERVATION CHECK for job {job_id} during UPDATE: snapshot has {len(existing_xml_jobs)} jobs")
             
             # Extract existing reference number
@@ -555,6 +559,10 @@ class ComprehensiveMonitoringService:
             else:
                 existing_ai_fields = None
                 self.logger.info(f"⚠️ Missing/incomplete AI fields for job {job_id}, will generate new: {existing_ai_fields}")
+            
+            # CRITICAL: Mark this as NOT actively modified to preserve reference number
+            # Only jobs explicitly modified in Step 4 should get new references
+            job_data['_monitor_flagged_as_modified'] = False
             
             # Update in XML file with preserved reference number and AI fields
             monitor_name = job_data.get('_monitor_name')
