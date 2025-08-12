@@ -139,6 +139,7 @@ class ComprehensiveMonitoringService:
             current_xml_jobs = self._load_xml_jobs(xml_file)
             # Store initial XML snapshot for AI preservation during complete remapping
             self.initial_xml_snapshot = current_xml_jobs.copy()
+            self.logger.info(f"📸 CAPTURED XML SNAPSHOT: {len(self.initial_xml_snapshot)} jobs for AI preservation")
             current_xml_ids = set(current_xml_jobs.keys())
             bullhorn_ids = set(bullhorn_jobs.keys())
             
@@ -464,6 +465,7 @@ class ComprehensiveMonitoringService:
             try:
                 # Use the initial snapshot if available, otherwise load current XML
                 existing_xml_jobs = getattr(self, 'initial_xml_snapshot', {}) or self._load_xml_jobs(xml_file)
+                self.logger.info(f"🔍 AI PRESERVATION CHECK for job {job_id}: snapshot has {len(existing_xml_jobs)} jobs")
                 if job_id in existing_xml_jobs:
                     existing_job = existing_xml_jobs[job_id]
                     existing_ai_fields = {

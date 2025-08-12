@@ -141,7 +141,7 @@ class XMLIntegrationService:
                 job_function = existing_ai_fields.get('jobfunction', '')
                 job_industry = existing_ai_fields.get('jobindustries', '')
                 seniority_level = existing_ai_fields.get('senioritylevel', '')
-                self.logger.debug(f"Preserving existing AI classification for job {job_id}: Function={job_function}, Industry={job_industry}, Seniority={seniority_level}")
+                self.logger.info(f"✅ PRESERVING existing AI classification for job {job_id}: Function={job_function}, Industry={job_industry}, Seniority={seniority_level}")
             elif skip_ai_classification:
                 # For real-time monitoring, use empty values to prevent timeouts
                 job_function = ''
