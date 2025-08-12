@@ -2133,8 +2133,9 @@ def process_comprehensive_bullhorn_monitors():
                         remapped_count = 0
                         failed_count = 0
                         
-                        # First, extract existing reference numbers from XML
+                        # CRITICAL FIX: Extract existing reference numbers AND AI classification fields
                         existing_reference_numbers = {}
+                        existing_ai_fields = {}
                         try:
                             import xml.etree.ElementTree as ET
                             tree = ET.parse(xml_file)
@@ -2144,7 +2145,12 @@ def process_comprehensive_bullhorn_monitors():
                                 bhatsid_elem = job_elem.find('bhatsid')
                                 ref_elem = job_elem.find('referencenumber')
                                 
-                                if bhatsid_elem is not None and ref_elem is not None:
+                                # Extract AI classification fields
+                                jobfunction_elem = job_elem.find('jobfunction')
+                                jobindustries_elem = job_elem.find('jobindustries')
+                                senioritylevel_elem = job_elem.find('senoritylevel')
+                                
+                                if bhatsid_elem is not None:
                                     # Extract job ID from bhatsid
                                     xml_job_id = bhatsid_elem.text
                                     if xml_job_id and '<![CDATA[' in xml_job_id:
@@ -2152,19 +2158,41 @@ def process_comprehensive_bullhorn_monitors():
                                     else:
                                         xml_job_id = xml_job_id.strip() if xml_job_id else ''
                                     
-                                    # Extract reference number
-                                    ref_number = ref_elem.text
-                                    if ref_number and '<![CDATA[' in ref_number:
-                                        ref_number = ref_number.replace('<![CDATA[', '').replace(']]>', '').strip()
-                                    else:
-                                        ref_number = ref_number.strip() if ref_number else None
+                                    # Extract and preserve reference number
+                                    if ref_elem is not None:
+                                        ref_number = ref_elem.text
+                                        if ref_number and '<![CDATA[' in ref_number:
+                                            ref_number = ref_number.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                        else:
+                                            ref_number = ref_number.strip() if ref_number else None
+                                        
+                                        if xml_job_id and ref_number:
+                                            existing_reference_numbers[xml_job_id] = ref_number
                                     
-                                    if xml_job_id and ref_number:
-                                        existing_reference_numbers[xml_job_id] = ref_number
+                                    # Extract and preserve AI classification fields
+                                    if jobfunction_elem is not None and jobindustries_elem is not None and senioritylevel_elem is not None:
+                                        def extract_cdata_value(elem):
+                                            text = elem.text or ''
+                                            if '<![CDATA[' in text:
+                                                return text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                            return text.strip()
+                                        
+                                        jobfunction = extract_cdata_value(jobfunction_elem)
+                                        jobindustries = extract_cdata_value(jobindustries_elem)
+                                        senioritylevel = extract_cdata_value(senioritylevel_elem)
+                                        
+                                        # Only preserve if all AI fields are present (complete classification)
+                                        if jobfunction and jobindustries and senioritylevel:
+                                            existing_ai_fields[xml_job_id] = {
+                                                'jobfunction': jobfunction,
+                                                'jobindustries': jobindustries,
+                                                'senioritylevel': senioritylevel
+                                            }
                                         
                             app.logger.info(f"    📋 Preserved {len(existing_reference_numbers)} existing reference numbers")
+                            app.logger.info(f"    🤖 Preserved {len(existing_ai_fields)} existing AI classification sets")
                         except Exception as ref_error:
-                            app.logger.error(f"    ⚠️ Error extracting reference numbers: {str(ref_error)}")
+                            app.logger.error(f"    ⚠️ Error extracting reference numbers and AI fields: {str(ref_error)}")
                         
                         # Process in batches for better performance
                         batch_size = 10
@@ -2179,8 +2207,9 @@ def process_comprehensive_bullhorn_monitors():
                                     try:
                                         bullhorn_job = all_bullhorn_jobs[job_id]
                                         
-                                        # Get existing reference number for this job
+                                        # Get existing reference number and AI fields for this job
                                         existing_ref = existing_reference_numbers.get(str(job_id))
+                                        existing_ai = existing_ai_fields.get(str(job_id))
                                         
                                         # Remove existing job from XML (if present)
                                         try:
@@ -2189,13 +2218,20 @@ def process_comprehensive_bullhorn_monitors():
                                             # Job might not exist, that's okay
                                             pass
                                         
-                                        # Re-add job with complete field mapping from Bullhorn BUT preserve reference number
+                                        # Re-add job with complete field mapping from Bullhorn BUT preserve reference number AND AI fields
                                         monitor_name = bullhorn_job.get('_monitor_name')
                                         
-                                        # CRITICAL FIX: Pass the original Bullhorn job data, not the mapped XML
-                                        # The add_job_to_xml function will map it internally with the preserved reference
-                                        bullhorn_job['_preserved_reference'] = existing_ref  # Store ref to preserve
-                                        success = xml_service.add_job_to_xml(xml_file, bullhorn_job, monitor_name=monitor_name)
+                                        # CRITICAL FIX: Pass preserved reference number AND AI classification fields
+                                        success = xml_service.add_job_to_xml(
+                                            xml_file, 
+                                            bullhorn_job, 
+                                            monitor_name=monitor_name,
+                                            existing_reference_number=existing_ref,
+                                            existing_ai_fields=existing_ai
+                                        )
+                                        
+                                        if existing_ai:
+                                            app.logger.info(f"      🤖 PRESERVED AI fields for job {job_id}: {existing_ai['jobfunction'][:20]}...")
                                         
                                         remapped_count += 1
                                         
