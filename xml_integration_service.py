@@ -68,8 +68,8 @@ class XMLIntegrationService:
             # Remove any other parenthetical content like (J.D)
             clean_title = re.sub(r'\s*\([^)]+\)\s*', ' ', clean_title).strip()
             
-            # Use cleaned title without job ID
-            formatted_title = clean_title
+            # Add job ID in parentheses to the cleaned title
+            formatted_title = f"{clean_title} (ID: {job_id})"
             
             # Log the field mapping for debugging
             self.logger.debug(f"Mapping job {job_id}: title='{formatted_title}'")
