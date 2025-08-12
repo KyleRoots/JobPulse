@@ -507,9 +507,10 @@ class ComprehensiveMonitoringService:
     def _update_job_in_xml(self, xml_file: str, job_id: str, job_data: Dict, modifications: List[Dict]):
         """Update job fields in XML file"""
         try:
-            # Get existing job data to preserve AI classification fields
-            existing_xml_jobs = self._load_xml_jobs(xml_file)
+            # CRITICAL FIX: Use initial XML snapshot for AI preservation (before any removals)
+            existing_xml_jobs = getattr(self, 'initial_xml_snapshot', {}) or self._load_xml_jobs(xml_file)
             existing_job = existing_xml_jobs.get(job_id, {})
+            self.logger.info(f"🔍 AI PRESERVATION CHECK for job {job_id} during UPDATE: snapshot has {len(existing_xml_jobs)} jobs")
             
             # Extract existing AI classification fields for preservation
             existing_ai_fields = {
@@ -517,6 +518,13 @@ class ComprehensiveMonitoringService:
                 'jobindustries': existing_job.get('jobindustries', ''),
                 'senioritylevel': existing_job.get('senioritylevel', '')
             }
+            
+            # Only use if all AI fields are present (complete AI classification)
+            if job_id in existing_xml_jobs and all(existing_ai_fields.values()):
+                self.logger.info(f"✅ PRESERVING existing AI classification for job {job_id} during UPDATE: {existing_ai_fields}")
+            else:
+                existing_ai_fields = None
+                self.logger.info(f"⚠️ Missing/incomplete AI fields for job {job_id}, will generate new: {existing_ai_fields}")
             
             # Map updated job data while preserving AI classification fields
             monitor_name = job_data.get('_monitor_name')
