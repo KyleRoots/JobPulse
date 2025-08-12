@@ -99,8 +99,15 @@ class XMLProcessor:
         self.generated_references.add(reference)
         return reference
     
-    def process_xml(self, input_filepath, output_filepath):
-        """Process XML file and update reference numbers"""
+    def process_xml(self, input_filepath, output_filepath, preserve_reference_numbers=False):
+        """Process XML file and update reference numbers
+        
+        Args:
+            input_filepath: Path to input XML file
+            output_filepath: Path to output XML file
+            preserve_reference_numbers: If True, keep existing reference numbers (for daily monitoring)
+                                       If False, regenerate them (for weekly automation)
+        """
         try:
             # Parse XML file with CDATA preservation
             parser = etree.XMLParser(strip_cdata=False)
@@ -121,27 +128,33 @@ class XMLProcessor:
             reference_stats = defaultdict(int)
             
             for ref_element in reference_elements:
-                # Generate new unique reference number
-                new_reference = self.generate_reference_number()
-                
                 # Store old reference for stats
                 old_reference = ""
                 if ref_element.text:
                     old_reference = ref_element.text.strip()
                     reference_stats[old_reference] += 1
                 
-                # Store the original tail (whitespace after the element)
-                original_tail = ref_element.tail
-                
-                # Clear existing content
-                ref_element.clear()
-                ref_element.text = None
-                
-                # Create new CDATA section with new reference
-                ref_element.text = etree.CDATA(new_reference)
-                
-                # Restore the original tail to maintain formatting
-                ref_element.tail = original_tail
+                # Only generate new reference if not preserving
+                if preserve_reference_numbers:
+                    # Keep existing reference number
+                    new_reference = old_reference
+                    self.logger.debug(f"Preserving reference: {old_reference}")
+                else:
+                    # Generate new unique reference number
+                    new_reference = self.generate_reference_number()
+                    
+                    # Store the original tail (whitespace after the element)
+                    original_tail = ref_element.tail
+                    
+                    # Clear existing content
+                    ref_element.clear()
+                    ref_element.text = None
+                    
+                    # Create new CDATA section with new reference
+                    ref_element.text = etree.CDATA(new_reference)
+                    
+                    # Restore the original tail to maintain formatting
+                    ref_element.tail = original_tail
                 
                 jobs_processed += 1
                 

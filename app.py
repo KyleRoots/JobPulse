@@ -327,8 +327,15 @@ def process_scheduled_files():
                     # Generate temporary output filename
                     temp_output = f"{schedule.file_path}.temp"
                     
-                    # Process the XML - this regenerates ALL reference numbers
-                    result = processor.process_xml(schedule.file_path, temp_output)
+                    # Process the XML - regenerate reference numbers ONLY for weekly schedules
+                    # Daily schedules should preserve reference numbers to avoid unnecessary changes
+                    preserve_refs = (schedule.interval_type != 'weekly')
+                    if preserve_refs:
+                        app.logger.info(f"🔒 PRESERVING reference numbers for {schedule.interval_type} schedule")
+                    else:
+                        app.logger.info(f"🔄 REGENERATING reference numbers for weekly schedule")
+                    
+                    result = processor.process_xml(schedule.file_path, temp_output, preserve_reference_numbers=preserve_refs)
                     
                     # Log the processing result
                     log_entry = ProcessingLog(
@@ -2221,14 +2228,13 @@ def process_comprehensive_bullhorn_monitors():
                                         # Re-add job with complete field mapping from Bullhorn BUT preserve reference number AND AI fields
                                         monitor_name = bullhorn_job.get('_monitor_name')
                                         
-                                        # WEEKLY AUTOMATION: Force regenerate reference numbers but preserve AI fields
-                                        # This ensures reference numbers stay fresh while keeping AI classification static
+                                        # CRITICAL FIX: Pass preserved reference number AND AI classification fields
                                         success = xml_service.add_job_to_xml(
                                             xml_file, 
                                             bullhorn_job, 
                                             monitor_name=monitor_name,
-                                            existing_reference_number=None,  # Force new reference number generation
-                                            existing_ai_fields=existing_ai   # But preserve AI classification
+                                            existing_reference_number=existing_ref,
+                                            existing_ai_fields=existing_ai
                                         )
                                         
                                         if existing_ai:
@@ -2238,7 +2244,7 @@ def process_comprehensive_bullhorn_monitors():
                                         
                                         # Log every 10th job to avoid log spam
                                         if remapped_count % 10 == 0:
-                                            app.logger.info(f"      ✅ Remapped {remapped_count} jobs so far (ref numbers REGENERATED for weekly refresh)...")
+                                            app.logger.info(f"      ✅ Remapped {remapped_count} jobs so far (ref numbers preserved)...")
                                             
                                     except Exception as remap_error:
                                         failed_count += 1
@@ -3286,8 +3292,8 @@ def process_schedule_with_progress(schedule_id):
             # Generate temporary output
             temp_output = f"{schedule.file_path}.temp"
             
-            # Process the XML
-            result = processor.process_xml(schedule.file_path, temp_output)
+            # Process the XML - preserve reference numbers for manual processing (not weekly automation)
+            result = processor.process_xml(schedule.file_path, temp_output, preserve_reference_numbers=True)
             
             if not result.get('success'):
                 update_progress(schedule_id, 1, f"XML processing failed: {result.get('error', 'Unknown error')}", completed=True, error=result.get('error'))
@@ -3521,8 +3527,8 @@ def upload_file():
         # Use current working directory for output
         output_filepath = os.path.join(os.getcwd(), f"{unique_id}_{output_filename}")
         
-        # Process the file
-        result = processor.process_xml(input_filepath, output_filepath)
+        # Process the file - preserve reference numbers for manual uploads
+        result = processor.process_xml(input_filepath, output_filepath, preserve_reference_numbers=True)
         
         # Clean up input file
         os.remove(input_filepath)
@@ -5282,9 +5288,9 @@ def run_automation_demo():
         )
         
         if sync_result.get('success'):
-            # Process the XML
+            # Process the XML - regenerate for demo purposes
             temp_output = f"{demo_xml_file}.processed"
-            process_result = xml_processor.process_xml(demo_xml_file, temp_output)
+            process_result = xml_processor.process_xml(demo_xml_file, temp_output, preserve_reference_numbers=False)
             
             if process_result.get('success'):
                 # Replace original
