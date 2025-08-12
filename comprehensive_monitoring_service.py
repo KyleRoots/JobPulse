@@ -411,19 +411,28 @@ class ComprehensiveMonitoringService:
                 xml_job = current_xml_jobs[job_id]
                 discrepancies = self._check_field_modifications(bullhorn_job, xml_job)
                 
-                if discrepancies:
-                    # Attempt to correct the discrepancies
-                    self.logger.warning(f"Audit found {len(discrepancies)} discrepancies in job {job_id}")
-                    for discrepancy in discrepancies:
+                # CRITICAL FIX: Remove reference number discrepancies - these should NEVER be changed during audit
+                business_discrepancies = [d for d in discrepancies if d['field'] != 'referencenumber']
+                reference_discrepancies = [d for d in discrepancies if d['field'] == 'referencenumber']
+                
+                if reference_discrepancies:
+                    self.logger.info(f"🔒 AUDIT IGNORING reference number discrepancies for job {job_id} (reference numbers are static)")
+                    for ref_disc in reference_discrepancies:
+                        self.logger.info(f"    Ignoring: {ref_disc['field']}: '{ref_disc['old_value']}' (keeping existing)")
+                
+                if business_discrepancies:
+                    # Only correct business field discrepancies, not reference numbers
+                    self.logger.warning(f"Audit found {len(business_discrepancies)} business field discrepancies in job {job_id}")
+                    for discrepancy in business_discrepancies:
                         self.logger.warning(f"  - {discrepancy['field']}: '{discrepancy['old_value']}' → '{discrepancy['new_value']}'")
                     
-                    # Fix the discrepancies
-                    self._update_job_in_xml(xml_file, job_id, bullhorn_job, discrepancies)
-                    audit_results['corrections_made'] += len(discrepancies)
+                    # Fix only the business discrepancies
+                    self._update_job_in_xml(xml_file, job_id, bullhorn_job, business_discrepancies)
+                    audit_results['corrections_made'] += len(business_discrepancies)
                     audit_results['corrections'].append({
                         'job_id': job_id,
                         'title': bullhorn_job.get('title', 'Unknown'),
-                        'discrepancies': discrepancies
+                        'discrepancies': business_discrepancies
                     })
             
             # Verify no extra jobs in XML
