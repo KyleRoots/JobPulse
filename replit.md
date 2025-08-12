@@ -29,6 +29,8 @@ This Flask-based web application automates the processing of XML job feed files 
 - ✅ **DEPLOYMENT**: Complete with comprehensive dual-monitoring system (Bullhorn + live XML validation)
 - ✅ **REFERENCE NUMBER PRESERVATION FIX (2025-08-12)**: Fixed critical bug where `existing_reference_number` parameter was being overwritten to None in xml_integration_service.py line 709. Now using separate variable `found_in_xml_reference` for duplicate checks, preserving the passed parameter. Reference numbers now correctly remain static during daily monitoring cycles while regenerating weekly for automation.
 - ✅ **XML CHANGE MONITOR FIX (2025-08-12)**: Fixed email notification issue by modifying XML Change Monitor to exclude static fields (referencenumber, jobfunction, jobindustries, senioritylevel) from modification detection. These fields no longer trigger "modified" notifications, resulting in focused emails only for actual job content changes.
+- ✅ **JOB ID FORMAT FIX (2025-08-12)**: Updated job title format to include job IDs in parentheses as "Job Title (12345)" instead of "Job Title (ID: 12345)" for cleaner display.
+- ✅ **XML VERSION CONSISTENCY FIX (2025-08-12)**: Resolved critical issue where system was alternating between two XML versions. Removed obsolete `myticas-job-feed-scheduled.xml` from August 8th and updated monitoring to only process main `myticas-job-feed.xml`. This ensures consistent display of job IDs in titles and prevents version flip-flopping.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

@@ -1521,10 +1521,9 @@ def process_bullhorn_monitors():
                     # Find all active schedules
                     active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
                     
-                    # Process main XML files for comprehensive sync
+                    # Process main XML file for comprehensive sync
                     main_xml_files = [
-                        'myticas-job-feed.xml',
-                        'myticas-job-feed-scheduled.xml'
+                        'myticas-job-feed.xml'
                     ]
                     
                     # Import XMLIntegrationService for comprehensive sync
