@@ -453,39 +453,36 @@ class XMLIntegrationService:
             return ''
     
     def _map_recruiter_to_linkedin_tag(self, recruiter_name: str) -> str:
-        """Map recruiter names to LinkedIn-style tags for XML"""
-        # Define recruiter name to LinkedIn tag mapping - REVISED LIST with '1' added
-        recruiter_mapping = {
-            'Adam Gebara': '#LI-AG1',
-            'Amanda Messina': '#LI-AM1',
-            'Bryan Chinzorig': '#LI-BC1',
-            'Christine Carter': '#LI-CC1',
-            'Dan Sifer': '#LI-DS1',
-            'Dominic Scaletta': '#LI-DSC1',
-            'Matheo Theodossiou': '#LI-MAT1',
-            'Michael Theodossiou': '#LI-MIT1',
-            'Michelle Corino': '#LI-MC1',
-            'Mike Gebara': '#LI-MG1',
-            'Myticas Recruiter': '#LI-RS1',    # Now using #LI-RS1
-            'Nick Theodossiou': '#LI-NT1',
-            'Reena Setya': '#LI-RS1',          # Also using #LI-RS1
-            'Runa Parmar': '#LI-RP1'
-        }
-        
-        # Check for exact match first
-        if recruiter_name in recruiter_mapping:
-            # Return format with both tag and name
-            return f"{recruiter_mapping[recruiter_name]}: {recruiter_name}"
-        
-        # Check for case-insensitive match
-        for name, tag in recruiter_mapping.items():
-            if recruiter_name.lower() == name.lower():
-                # Return format with both tag and name
-                return f"{tag}: {name}"
-        
-        # If no mapping found, return the original name
-        self.logger.info(f"No LinkedIn tag mapping found for recruiter: {recruiter_name}")
-        return recruiter_name
+        """Map recruiter names to LinkedIn-style tags for XML using database mappings"""
+        try:
+            # Import RecruiterMapping here to avoid circular imports
+            from app import RecruiterMapping, db, app
+            
+            # Use application context to query database
+            with app.app_context():
+                # First try exact match
+                mapping = RecruiterMapping.query.filter_by(recruiter_name=recruiter_name).first()
+                
+                # If no exact match, try case-insensitive match
+                if not mapping:
+                    all_mappings = RecruiterMapping.query.all()
+                    for m in all_mappings:
+                        if m.recruiter_name.lower() == recruiter_name.lower():
+                            mapping = m
+                            break
+                
+                # If we found a mapping, return the formatted tag with name
+                if mapping:
+                    return f"{mapping.linkedin_tag}: {mapping.recruiter_name}"
+                
+                # If no mapping found, log and return the original name
+                self.logger.info(f"No LinkedIn tag mapping found for recruiter: {recruiter_name}")
+                return recruiter_name
+                
+        except Exception as e:
+            self.logger.warning(f"Error querying recruiter mapping database: {str(e)}")
+            # Fallback to just returning the name if database query fails
+            return recruiter_name
     
     def _clean_description(self, description: str) -> str:
         """Clean and format job description for XML with proper HTML formatting"""

@@ -235,4 +235,15 @@ def create_models(db):
         def __repr__(self):
             return f'<EmailDeliveryLog {self.notification_type} to {self.recipient_email}>'
     
-    return User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog
+    class RecruiterMapping(db.Model):
+        """Mapping of recruiter names to LinkedIn tags (#LI-XXX)"""
+        id = db.Column(db.Integer, primary_key=True)
+        recruiter_name = db.Column(db.String(255), nullable=False, unique=True)  # Full recruiter name
+        linkedin_tag = db.Column(db.String(20), nullable=False)  # LinkedIn tag (e.g., #LI-RP1)
+        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+        
+        def __repr__(self):
+            return f'<RecruiterMapping {self.recruiter_name}: {self.linkedin_tag}>'
+    
+    return User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping
