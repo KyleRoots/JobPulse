@@ -319,7 +319,7 @@ class ComprehensiveMonitoringService:
                     if jobindustries_match:
                         job_data['jobindustries'] = jobindustries_match.group(1).strip()
                     
-                    senioritylevel_match = re.search(r'<senoritylevel>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</senoritylevel>', job_content)
+                    senioritylevel_match = re.search(r'<senioritylevel>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</senioritylevel>', job_content)
                     if senioritylevel_match:
                         job_data['senioritylevel'] = senioritylevel_match.group(1).strip()
                     
@@ -535,7 +535,7 @@ class ComprehensiveMonitoringService:
             # Don't rely on snapshots which might be outdated
             current_xml_jobs = self._load_xml_jobs(xml_file)
             existing_job = current_xml_jobs.get(job_id, {})
-            self.logger.info(f"🔍 PRESERVATION CHECK for job {job_id} during UPDATE: snapshot has {len(existing_xml_jobs)} jobs")
+            self.logger.info(f"🔍 PRESERVATION CHECK for job {job_id} during UPDATE: current XML has {len(current_xml_jobs)} jobs")
             
             # Extract existing reference number
             existing_reference_number = existing_job.get('referencenumber', '').strip()
@@ -563,6 +563,7 @@ class ComprehensiveMonitoringService:
             # CRITICAL: Mark this as NOT actively modified to preserve reference number
             # Only jobs explicitly modified in Step 4 should get new references
             job_data['_monitor_flagged_as_modified'] = False
+            self.logger.info(f"🔒 Job {job_id} marked as NOT actively modified - reference number should be preserved")
             
             # Update in XML file with preserved reference number and AI fields
             monitor_name = job_data.get('_monitor_name')

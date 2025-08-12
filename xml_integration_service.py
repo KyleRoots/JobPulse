@@ -738,20 +738,29 @@ class XMLIntegrationService:
                             os.remove(backup_path)
                         return True  # Return True as the job is already in the file
                     
+                    # DEBUG: Log the incoming existing_reference_number parameter
+                    self.logger.info(f"🔍 DEBUG: add_job_to_xml received existing_reference_number={existing_reference_number} for job {job_id}")
+                    
                     # CRITICAL FIX: Only generate new reference numbers for jobs that were ACTUALLY modified
                     # in the current monitoring cycle, not all jobs that have ever been modified
                     # Check if this job was flagged as modified BY THE MONITOR (not just by date comparison)
                     force_new_reference = False
                     
+                    # Store the original passed reference before any modifications
+                    original_passed_reference = existing_reference_number
+                    
                     # Only force new reference if the monitor explicitly flagged this as a modified job
                     # This prevents bulk reference regeneration for all jobs
-                    if hasattr(bullhorn_job, '_monitor_flagged_as_modified') and bullhorn_job.get('_monitor_flagged_as_modified'):
+                    if bullhorn_job.get('_monitor_flagged_as_modified'):
                         self.logger.info(f"🔄 Job {job_id} was ACTIVELY modified in this cycle - generating NEW reference number")
                         force_new_reference = True
                         existing_reference_number = None  # Force new reference generation
-                    elif existing_reference_number:
-                        # Job exists but was NOT modified in this cycle - keep existing reference
-                        self.logger.debug(f"Job {job_id} exists with reference {existing_reference_number} - preserving it")
+                    elif original_passed_reference:
+                        # CRITICAL: Use the PASSED reference, not what we found in XML (job was already removed)
+                        existing_reference_number = original_passed_reference
+                        self.logger.info(f"✅ PRESERVING passed reference for job {job_id}: {existing_reference_number} (not actively modified)")
+                    else:
+                        self.logger.info(f"⚠️ Job {job_id} has no existing reference number to preserve - will generate new one")
                     
                     # Check if reference number was preserved in the job data
                     if '_preserved_reference' in bullhorn_job:

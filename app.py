@@ -2155,7 +2155,7 @@ def process_comprehensive_bullhorn_monitors():
                                 # Extract AI classification fields
                                 jobfunction_elem = job_elem.find('jobfunction')
                                 jobindustries_elem = job_elem.find('jobindustries')
-                                senioritylevel_elem = job_elem.find('senoritylevel')
+                                senioritylevel_elem = job_elem.find('senioritylevel')
                                 
                                 if bhatsid_elem is not None:
                                     # Extract job ID from bhatsid
@@ -2218,6 +2218,11 @@ def process_comprehensive_bullhorn_monitors():
                                         existing_ref = existing_reference_numbers.get(str(job_id))
                                         existing_ai = existing_ai_fields.get(str(job_id))
                                         
+                                        # DEBUG: Log what we found
+                                        app.logger.info(f"      🔍 DEBUG: Looking up job_id={job_id} (type={type(job_id)})")
+                                        app.logger.info(f"      🔍 DEBUG: existing_reference_numbers keys sample: {list(existing_reference_numbers.keys())[:5]}")
+                                        app.logger.info(f"      🔍 DEBUG: Found existing_ref={existing_ref} for job {job_id}")
+                                        
                                         # Remove existing job from XML (if present)
                                         try:
                                             xml_service.remove_job_from_xml(xml_file, job_id)
@@ -2229,6 +2234,11 @@ def process_comprehensive_bullhorn_monitors():
                                         monitor_name = bullhorn_job.get('_monitor_name')
                                         
                                         # CRITICAL FIX: Pass preserved reference number AND AI classification fields
+                                        if existing_ref:
+                                            app.logger.info(f"      🔒 PRESERVING reference for job {job_id}: {existing_ref}")
+                                        else:
+                                            app.logger.info(f"      ⚠️ No existing reference for job {job_id} - will generate new")
+                                        
                                         success = xml_service.add_job_to_xml(
                                             xml_file, 
                                             bullhorn_job, 
