@@ -182,7 +182,7 @@ class XMLIntegrationService:
                 'assignedrecruiter': clean_field_value(assigned_recruiter),
                 'jobfunction': clean_field_value(job_function),
                 'jobindustries': clean_field_value(job_industry),
-                'senoritylevel': clean_field_value(seniority_level)
+                'senioritylevel': clean_field_value(seniority_level)
             }
             
             self.logger.info(f"Mapped Bullhorn job {job_id} ({title}) to XML format")
@@ -791,7 +791,7 @@ class XMLIntegrationService:
                                 if jobindustries_match:
                                     ai_fields_to_use['jobindustries'] = jobindustries_match.group(1).strip()
                                 
-                                senioritylevel_match = re.search(r'<senoritylevel>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</senoritylevel>', job_content)
+                                senioritylevel_match = re.search(r'<senioritylevel>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</senioritylevel>', job_content)
                                 if senioritylevel_match:
                                     ai_fields_to_use['senioritylevel'] = senioritylevel_match.group(1).strip()
                                     
