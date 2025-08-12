@@ -457,17 +457,25 @@ class ComprehensiveMonitoringService:
     def _add_job_to_xml(self, xml_file: str, job_data: Dict):
         """Add a new job to XML file with AI field preservation"""
         try:
-            # Check if this job previously existed (for static AI preservation during remapping)
+            # Check if this job previously existed (for static AI + reference number preservation during remapping)
             job_id = str(job_data.get('id', ''))
             existing_ai_fields = None
+            existing_reference_number = None
             
-            # Try to get existing AI fields from initial XML snapshot (before any removals)
+            # Try to get existing AI fields AND reference number from initial XML snapshot (before any removals)
             try:
                 # Use the initial snapshot if available, otherwise load current XML
                 existing_xml_jobs = getattr(self, 'initial_xml_snapshot', {}) or self._load_xml_jobs(xml_file)
-                self.logger.info(f"🔍 AI PRESERVATION CHECK for job {job_id}: snapshot has {len(existing_xml_jobs)} jobs")
+                self.logger.info(f"🔍 PRESERVATION CHECK for job {job_id}: snapshot has {len(existing_xml_jobs)} jobs")
                 if job_id in existing_xml_jobs:
                     existing_job = existing_xml_jobs[job_id]
+                    
+                    # Extract existing reference number
+                    existing_reference_number = existing_job.get('referencenumber', '').strip()
+                    if existing_reference_number:
+                        self.logger.info(f"✅ PRESERVING existing reference number for job {job_id}: {existing_reference_number}")
+                    
+                    # Extract existing AI classification fields  
                     existing_ai_fields = {
                         'jobfunction': existing_job.get('jobfunction', ''),
                         'jobindustries': existing_job.get('jobindustries', ''),
@@ -480,19 +488,19 @@ class ComprehensiveMonitoringService:
                         existing_ai_fields = None
                         self.logger.info(f"⚠️ Missing AI fields for job {job_id}, will generate new: {existing_ai_fields}")
             except Exception as e:
-                self.logger.warning(f"Could not retrieve existing AI fields for job {job_id}: {str(e)}")
+                self.logger.warning(f"Could not retrieve existing fields for job {job_id}: {str(e)}")
                 existing_ai_fields = None
+                existing_reference_number = None
             
-            # Map job data to XML format
+            # Add to XML file with preserved reference number and AI fields
             monitor_name = job_data.get('_monitor_name')
-            xml_job = self.xml_integration.map_bullhorn_job_to_xml(
+            success = self.xml_integration.add_job_to_xml(
+                xml_file, 
                 job_data, 
                 monitor_name=monitor_name,
+                existing_reference_number=existing_reference_number,
                 existing_ai_fields=existing_ai_fields
             )
-            
-            # Add to XML file
-            self.xml_integration.add_job_to_xml(xml_file, xml_job)
             
         except Exception as e:
             self.logger.error(f"Error adding job {job_data.get('id')} to XML: {str(e)}")
@@ -507,10 +515,15 @@ class ComprehensiveMonitoringService:
     def _update_job_in_xml(self, xml_file: str, job_id: str, job_data: Dict, modifications: List[Dict]):
         """Update job fields in XML file"""
         try:
-            # CRITICAL FIX: Use initial XML snapshot for AI preservation (before any removals)
+            # CRITICAL FIX: Use initial XML snapshot for AI + reference number preservation (before any removals)
             existing_xml_jobs = getattr(self, 'initial_xml_snapshot', {}) or self._load_xml_jobs(xml_file)
             existing_job = existing_xml_jobs.get(job_id, {})
-            self.logger.info(f"🔍 AI PRESERVATION CHECK for job {job_id} during UPDATE: snapshot has {len(existing_xml_jobs)} jobs")
+            self.logger.info(f"🔍 PRESERVATION CHECK for job {job_id} during UPDATE: snapshot has {len(existing_xml_jobs)} jobs")
+            
+            # Extract existing reference number
+            existing_reference_number = existing_job.get('referencenumber', '').strip()
+            if existing_reference_number:
+                self.logger.info(f"✅ PRESERVING existing reference number for job {job_id}: {existing_reference_number}")
             
             # Extract existing AI classification fields for preservation
             existing_ai_fields = {
@@ -526,16 +539,15 @@ class ComprehensiveMonitoringService:
                 existing_ai_fields = None
                 self.logger.info(f"⚠️ Missing/incomplete AI fields for job {job_id}, will generate new: {existing_ai_fields}")
             
-            # Map updated job data while preserving AI classification fields
+            # Update in XML file with preserved reference number and AI fields
             monitor_name = job_data.get('_monitor_name')
-            xml_job = self.xml_integration.map_bullhorn_job_to_xml(
+            success = self.xml_integration.update_job_in_xml(
+                xml_file, 
                 job_data,
                 monitor_name=monitor_name,
+                existing_reference_number=existing_reference_number,
                 existing_ai_fields=existing_ai_fields
             )
-            
-            # Update in XML file
-            self.xml_integration.update_job_in_xml(xml_file, job_id, xml_job)
             
         except Exception as e:
             self.logger.error(f"Error updating job {job_id} in XML: {str(e)}")

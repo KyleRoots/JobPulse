@@ -1259,7 +1259,7 @@ class XMLIntegrationService:
             self.logger.error(f"Error checking if update needed for job {job_id}: {str(e)}")
             return True, {}  # Assume update needed if comparison fails
     
-    def update_job_in_xml(self, xml_file_path: str, bullhorn_job: Dict, monitor_name: Optional[str] = None) -> bool:
+    def update_job_in_xml(self, xml_file_path: str, bullhorn_job: Dict, monitor_name: Optional[str] = None, existing_reference_number: Optional[str] = None, existing_ai_fields: Optional[Dict] = None) -> bool:
         """
         Update an existing job in the XML file with enhanced error handling and CDATA preservation
         WITH THREAD-SAFE OPERATION
@@ -1267,6 +1267,9 @@ class XMLIntegrationService:
         Args:
             xml_file_path: Path to the XML file
             bullhorn_job: Updated Bullhorn job data dictionary
+            monitor_name: Optional monitor name for tracking
+            existing_reference_number: Existing reference number to preserve
+            existing_ai_fields: Existing AI classification fields to preserve
             
         Returns:
             bool: True if job was updated successfully, False if no update was needed or failed
@@ -1383,15 +1386,17 @@ class XMLIntegrationService:
                         self.logger.warning(f"Job {job_id} has no existing reference to preserve - will generate new one")
                         generate_new_reference = True
                 
-                # Map the job with existing reference (unless actively modified in this cycle)
-                reference_to_use = None if generate_new_reference else existing_reference_for_preservation
-                xml_job = self.map_bullhorn_job_to_xml(bullhorn_job, reference_to_use, monitor_name, skip_ai_classification=True)
+                # Use passed parameters for preservation, fallback to discovered values
+                final_reference = existing_reference_number or existing_reference_for_preservation
+                final_ai_fields = existing_ai_fields or existing_ai_classifications
                 
-                # CRITICAL: Restore existing AI classification values that were preserved
-                if existing_ai_classifications:
-                    for ai_field, ai_value in existing_ai_classifications.items():
-                        xml_job[ai_field] = ai_value
-                        self.logger.info(f"Restored preserved {ai_field}: {ai_value}")
+                # Map the job with preserved reference and AI fields 
+                xml_job = self.map_bullhorn_job_to_xml(
+                    bullhorn_job, 
+                    monitor_name=monitor_name, 
+                    existing_reference_number=final_reference,
+                    existing_ai_fields=final_ai_fields
+                )
                 
                 if not xml_job:
                     self.logger.error(f"Failed to map job {job_id} to XML format")
