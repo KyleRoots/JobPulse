@@ -2221,13 +2221,14 @@ def process_comprehensive_bullhorn_monitors():
                                         # Re-add job with complete field mapping from Bullhorn BUT preserve reference number AND AI fields
                                         monitor_name = bullhorn_job.get('_monitor_name')
                                         
-                                        # CRITICAL FIX: Pass preserved reference number AND AI classification fields
+                                        # WEEKLY AUTOMATION: Force regenerate reference numbers but preserve AI fields
+                                        # This ensures reference numbers stay fresh while keeping AI classification static
                                         success = xml_service.add_job_to_xml(
                                             xml_file, 
                                             bullhorn_job, 
                                             monitor_name=monitor_name,
-                                            existing_reference_number=existing_ref,
-                                            existing_ai_fields=existing_ai
+                                            existing_reference_number=None,  # Force new reference number generation
+                                            existing_ai_fields=existing_ai   # But preserve AI classification
                                         )
                                         
                                         if existing_ai:
@@ -2237,7 +2238,7 @@ def process_comprehensive_bullhorn_monitors():
                                         
                                         # Log every 10th job to avoid log spam
                                         if remapped_count % 10 == 0:
-                                            app.logger.info(f"      ✅ Remapped {remapped_count} jobs so far (ref numbers preserved)...")
+                                            app.logger.info(f"      ✅ Remapped {remapped_count} jobs so far (ref numbers REGENERATED for weekly refresh)...")
                                             
                                     except Exception as remap_error:
                                         failed_count += 1
