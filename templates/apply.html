@@ -139,6 +139,30 @@
             background: rgba(79, 195, 247, 0.12);
         }
         
+        /* Subtle style for optional file upload areas */
+        .file-upload-area.subtle {
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 1.2rem;
+            background: rgba(255, 255, 255, 0.08);
+            font-size: 0.95rem;
+        }
+        
+        .file-upload-area.subtle:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.12);
+        }
+        
+        .file-upload-area.subtle .file-upload-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .file-upload-area.subtle h5 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
         .file-upload-icon {
             font-size: 3rem;
             color: rgba(255, 255, 255, 0.7);
@@ -463,17 +487,16 @@
                     <!-- Supporting Documentation Upload (Optional) -->
                     <div class="form-section">
                         <h3><i class="fas fa-file-text me-2"></i>(Optional) Upload other supporting documentation if necessary</h3>
-                        <div class="file-upload-area" id="coverLetterUploadArea">
+                        <div class="file-upload-area subtle" id="coverLetterUploadArea">
                             <div class="file-upload-icon">
-                                <i class="fas fa-cloud-upload-alt"></i>
+                                <i class="fas fa-paperclip"></i>
                             </div>
-                            <h5>Drag & drop your supporting documents here</h5>
-                            <p class="mb-3" style="color: rgba(255, 255, 255, 0.7);">or click to browse files</p>
+                            <h5>Drag & drop supporting documents or click to browse</h5>
                             <input type="file" id="coverLetterFile" name="coverLetterFile" accept=".pdf,.doc,.docx" style="display: none;">
-                            <button type="button" class="btn btn-outline-light" onclick="document.getElementById('coverLetterFile').click(); event.stopPropagation();">
+                            <button type="button" class="btn btn-sm btn-outline-light" onclick="document.getElementById('coverLetterFile').click(); event.stopPropagation();">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
-                            <small class="d-block mt-2" style="color: rgba(255, 255, 255, 0.7);">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
+                            <small class="d-block mt-2" style="color: rgba(255, 255, 255, 0.6);">PDF, DOC, DOCX (Max 10MB)</small>
                         </div>
                         <div id="coverLetterFileInfo" class="file-info">
                             <i class="fas fa-file-text me-2"></i>
