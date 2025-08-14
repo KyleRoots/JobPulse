@@ -32,6 +32,7 @@ This Flask-based web application automates the processing of XML job feed files 
 - ✅ **JOB ID FORMAT FIX (2025-08-12)**: Updated job title format to include job IDs in parentheses as "Job Title (12345)" instead of "Job Title (ID: 12345)" for cleaner display.
 - ✅ **XML VERSION CONSISTENCY FIX (2025-08-12)**: Resolved critical issue where system was alternating between two XML versions. Removed obsolete `myticas-job-feed-scheduled.xml` from August 8th and updated monitoring to only process main `myticas-job-feed.xml`. This ensures consistent display of job IDs in titles and prevents version flip-flopping.
 - ✅ **DATABASE-DRIVEN RECRUITER MAPPING (2025-08-12)**: Implemented comprehensive recruiter mapping system using PostgreSQL database. Created RecruiterMapping model to store LinkedIn tag assignments from Excel file. Updated XML processing to query database for recruiter name-to-tag mappings in real-time. Added 29 recruiter mappings plus name variations for consistent tag application across all job postings.
+- ✅ **JOB APPLICATION FORM UX ENHANCEMENT (2025-08-14)**: Improved job application form user experience by moving resume upload above personal information fields and adding parsing instruction text. Updated cover letter section to "optional supporting documentation". Form now guides users to upload resume first for auto-parsing of contact information into fields below.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
