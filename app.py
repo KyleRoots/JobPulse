@@ -269,13 +269,8 @@ def process_scheduled_files():
             if overdue_schedules:
                 app.logger.warning(f"HEALTH CHECK: Found {len(overdue_schedules)} schedules overdue by >1 hour. Auto-correcting timing...")
                 for schedule in overdue_schedules:
-                    # Reset to next normal interval
-                    if schedule.interval_type == 'daily':
-                        schedule.next_run = now + timedelta(days=1)
-                    elif schedule.interval_type == 'weekly':
-                        schedule.next_run = now + timedelta(weeks=1)
-                    else:
-                        schedule.next_run = now + timedelta(hours=1)
+                    # Reset to next normal interval based on schedule_days
+                    schedule.next_run = now + timedelta(days=schedule.schedule_days)
                 db.session.commit()
             
             # Get all active schedules that are due
@@ -308,7 +303,7 @@ def process_scheduled_files():
                         'weekly': 167   # 167 hours (just under 7 days) minimum
                     }
                     
-                    min_interval = min_hours_between_runs.get(schedule.interval_type, 1)
+                    min_interval = min_hours_between_runs.get(schedule.interval_type, schedule.schedule_days * 24 - 1)
                     hours_since_last_run = time_since_last_run / 3600
                     
                     if hours_since_last_run < min_interval:
@@ -329,9 +324,9 @@ def process_scheduled_files():
                     
                     # Process the XML - regenerate reference numbers ONLY for weekly schedules
                     # Daily schedules should preserve reference numbers to avoid unnecessary changes
-                    preserve_refs = (schedule.interval_type != 'weekly')
+                    preserve_refs = (schedule.schedule_days != 7)  # Don't preserve for weekly schedules
                     if preserve_refs:
-                        app.logger.info(f"🔒 PRESERVING reference numbers for {schedule.interval_type} schedule")
+                        app.logger.info(f"🔒 PRESERVING reference numbers for {schedule.schedule_days}-day schedule")
                     else:
                         app.logger.info(f"🔄 REGENERATING reference numbers for weekly schedule")
                     
@@ -4466,12 +4461,8 @@ def fix_system_timing():
         
         for schedule in overdue_schedules:
             old_time = schedule.next_run
-            if schedule.interval_type == 'daily':
-                schedule.next_run = current_time + timedelta(days=1)
-            elif schedule.interval_type == 'weekly':
-                schedule.next_run = current_time + timedelta(weeks=1)
-            else:
-                schedule.next_run = current_time + timedelta(hours=1)
+            # Reset to next normal interval based on schedule_days
+            schedule.next_run = current_time + timedelta(days=schedule.schedule_days)
             fixed_items.append(f"Schedule '{schedule.name}': {old_time} → {schedule.next_run}")
         
         db.session.commit()

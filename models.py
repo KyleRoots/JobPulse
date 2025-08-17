@@ -56,6 +56,18 @@ def create_models(db):
         def __repr__(self):
             return f'<ScheduleConfig {self.name}>'
         
+        @property
+        def interval_type(self):
+            """Derive interval type from schedule_days for backward compatibility"""
+            if self.schedule_days == 1:
+                return 'daily'
+            elif self.schedule_days == 7:
+                return 'weekly'
+            elif self.schedule_days < 1:
+                return 'hourly'
+            else:
+                return 'weekly'  # Default for custom intervals
+        
         def calculate_next_run(self):
             """Calculate the next run time based on schedule_days"""
             if self.last_run:
