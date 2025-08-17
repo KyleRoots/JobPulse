@@ -1022,7 +1022,8 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
     def _log_email_delivery(self, notification_type: str, job_id: str = None, job_title: str = None,
                           recipient_email: str = "", delivery_status: str = "sent", 
                           sendgrid_message_id: str = None, error_message: str = None,
-                          schedule_name: str = None, changes_summary: str = None):
+                          schedule_name: str = None, changes_summary: str = None,
+                          subject: str = None, content: str = None):
         """
         Log email delivery to database
         
