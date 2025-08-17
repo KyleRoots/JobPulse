@@ -382,6 +382,195 @@ class EmailService:
             logging.error(f"Error sending error notification: {str(e)}")
             return False
 
+    def send_reference_number_refresh_notification(self, to_email: str, schedule_name: str,
+                                                  total_jobs: int, refresh_details: dict,
+                                                  status: str = "success", error_message: str = None) -> bool:
+        """
+        Send notification after reference number refresh automation completes
+        
+        Args:
+            to_email: Recipient email address
+            schedule_name: Name of the schedule that triggered the refresh
+            total_jobs: Total number of jobs processed
+            refresh_details: Dictionary with details about the refresh operation
+            status: 'success' or 'error'
+            error_message: Error details if status is 'error'
+            
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        try:
+            if not self.api_key:
+                logging.error("EmailService: No SendGrid API key available")
+                return False
+                
+            # Check for recent duplicates (30-minute threshold for reference number refresh)
+            if self._check_recent_notification('reference_number_refresh', to_email, 
+                                             schedule_name=schedule_name, minutes_threshold=30):
+                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate reference number refresh notification for {schedule_name}")
+                return True  # Skip duplicate
+            
+            if status == "success":
+                subject = f"✅ Reference Number Refresh Complete - {schedule_name}"
+                
+                # Build detailed refresh summary
+                refresh_summary = []
+                if refresh_details.get('jobs_refreshed', 0) > 0:
+                    refresh_summary.append(f"• {refresh_details['jobs_refreshed']} jobs received new reference numbers")
+                if refresh_details.get('jobs_preserved', 0) > 0:
+                    refresh_summary.append(f"• {refresh_details['jobs_preserved']} jobs kept existing reference numbers")
+                if refresh_details.get('upload_status'):
+                    refresh_summary.append(f"• XML file uploaded to server: {refresh_details['upload_status']}")
+                if refresh_details.get('processing_time'):
+                    refresh_summary.append(f"• Processing completed in {refresh_details['processing_time']:.2f} seconds")
+                
+                html_content = f"""
+                <html>
+                <body>
+                    <h2>Reference Number Refresh Complete ✅</h2>
+                    <p>The automated reference number refresh has completed successfully.</p>
+                    
+                    <h3>Refresh Details:</h3>
+                    <ul>
+                        <li><strong>Schedule:</strong> {schedule_name}</li>
+                        <li><strong>Total Jobs Processed:</strong> {total_jobs}</li>
+                        <li><strong>Status:</strong> ✅ SUCCESS</li>
+                        <li><strong>Completion Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                    </ul>
+                    
+                    <h3>Processing Summary:</h3>
+                    <ul>
+                        {''.join(f'<li>{item[2:]}</li>' for item in refresh_summary) if refresh_summary else '<li>All jobs processed successfully</li>'}
+                    </ul>
+                    
+                    <p><strong>Next scheduled refresh:</strong> {refresh_details.get('next_run', 'Not scheduled')}</p>
+                    
+                    <hr>
+                    <p><em>This is an automated notification from the Job Feed Reference Number Refresh system.</em></p>
+                </body>
+                </html>
+                """
+
+                text_content = f"""
+Reference Number Refresh Automation Complete
+
+Schedule: {schedule_name}
+Total Jobs Processed: {total_jobs}
+Status: ✅ SUCCESS
+Completion Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+Refresh Details:
+{chr(10).join(refresh_summary) if refresh_summary else '• All jobs processed successfully'}
+
+Next scheduled refresh: {refresh_details.get('next_run', 'Not scheduled')}
+
+---
+This is an automated notification from the Job Feed Reference Number Refresh system.
+                """
+            else:
+                subject = f"❌ Reference Number Refresh Failed - {schedule_name}"
+                
+                html_content = f"""
+                <html>
+                <body>
+                    <h2>Reference Number Refresh Failed ❌</h2>
+                    <p>The automated reference number refresh encountered an error.</p>
+                    
+                    <h3>Error Details:</h3>
+                    <ul>
+                        <li><strong>Schedule:</strong> {schedule_name}</li>
+                        <li><strong>Status:</strong> ❌ ERROR</li>
+                        <li><strong>Failure Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                    </ul>
+                    
+                    <h3>Error Message:</h3>
+                    <p style="background-color: #f8f8f8; padding: 10px; border-left: 4px solid #ff0000;">
+                        {error_message or 'Unknown error occurred'}
+                    </p>
+                    
+                    <p>Please check the system logs and retry the operation manually if needed.</p>
+                    
+                    <hr>
+                    <p><em>This is an automated notification from the Job Feed Reference Number Refresh system.</em></p>
+                </body>
+                </html>
+                """
+                
+                text_content = f"""
+Reference Number Refresh Automation Failed
+
+Schedule: {schedule_name}
+Status: ❌ ERROR
+Failure Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+Error Details:
+{error_message or 'Unknown error occurred'}
+
+Please check the system logs and retry the operation manually if needed.
+
+---
+This is an automated notification from the Job Feed Reference Number Refresh system.
+                """
+
+            # Create and send email
+            message = Mail(
+                from_email=Email(self.from_email),
+                to_emails=To(to_email),
+                subject=subject,
+                html_content=Content("text/html", html_content),
+                plain_text_content=Content("text/plain", text_content)
+            )
+
+            response = self.sg.send(message)
+            
+            # Extract SendGrid message ID from response headers
+            sendgrid_message_id = None
+            try:
+                if hasattr(response, 'headers') and hasattr(response.headers, 'get'):
+                    sendgrid_message_id = response.headers.get('X-Message-Id')
+            except Exception:
+                pass
+            
+            # Log successful delivery
+            delivery_status = 'sent' if response.status_code == 202 else 'failed'
+            error_msg = None if response.status_code == 202 else f"SendGrid returned status code: {response.status_code}"
+            
+            self._log_email_delivery(
+                notification_type='reference_number_refresh',
+                recipient_email=to_email,
+                subject=subject,
+                content=text_content,
+                delivery_status=delivery_status,
+                sendgrid_message_id=sendgrid_message_id,
+                error_message=error_msg,
+                schedule_name=schedule_name,
+                changes_summary=f"Jobs: {total_jobs}, Status: {status}"
+            )
+            
+            if response.status_code == 202:
+                logging.info(f"📧 Reference number refresh notification sent to {to_email} for {schedule_name}")
+                return True
+            else:
+                logging.error(f"Failed to send reference number refresh notification. Status code: {response.status_code}")
+                return False
+            
+        except Exception as e:
+            logging.error(f"Failed to send reference number refresh notification: {e}")
+            
+            # Log failed delivery
+            self._log_email_delivery(
+                notification_type='reference_number_refresh',
+                recipient_email=to_email,
+                subject=f"Reference Number Refresh - {schedule_name}",
+                content="Failed to send notification",
+                delivery_status='failed',
+                error_message=str(e),
+                schedule_name=schedule_name,
+                changes_summary=f"Jobs: {total_jobs}, Status: {status}"
+            )
+            
+            return False
+
     def send_bullhorn_notification(self,
                                    to_email: str,
                                    monitor_name: str,

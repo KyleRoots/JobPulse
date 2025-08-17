@@ -418,21 +418,51 @@ def process_scheduled_files():
                                 if (email_enabled and email_enabled.setting_value == 'true' and 
                                     email_address and email_address.setting_value):
                                     
-                                    # Send email notification immediately after XML processing
-                                    
                                     email_service = get_email_service()
-                                    email_sent = email_service.send_processing_notification(
-                                        to_email=email_address.setting_value,
-                                        schedule_name=schedule.name,
-                                        jobs_processed=result.get('jobs_processed', 0),
-                                        xml_file_path=schedule.file_path,
-                                        original_filename=original_filename,
-                                        sftp_upload_success=sftp_upload_success
-                                    )
-                                    if email_sent:
-                                        app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
+                                    
+                                    # Send specific notification based on whether reference numbers were refreshed
+                                    if not preserve_refs:  # Reference numbers were regenerated (weekly refresh)
+                                        app.logger.info(f"📧 Sending reference number refresh notification for {schedule.name}")
+                                        
+                                        # Calculate processing time
+                                        processing_time = (datetime.utcnow() - now).total_seconds()
+                                        
+                                        # Build refresh details
+                                        refresh_details = {
+                                            'jobs_refreshed': result.get('jobs_processed', 0),
+                                            'jobs_preserved': 0,  # All reference numbers regenerated in weekly refresh
+                                            'upload_status': 'successful' if sftp_upload_success else 'failed',
+                                            'processing_time': processing_time,
+                                            'next_run': schedule.next_run.strftime('%Y-%m-%d %H:%M UTC') if schedule.next_run else 'Not scheduled'
+                                        }
+                                        
+                                        # Send reference number refresh notification
+                                        refresh_email_sent = email_service.send_reference_number_refresh_notification(
+                                            to_email=email_address.setting_value,
+                                            schedule_name=schedule.name,
+                                            total_jobs=result.get('jobs_processed', 0),
+                                            refresh_details=refresh_details,
+                                            status='success'
+                                        )
+                                        
+                                        if refresh_email_sent:
+                                            app.logger.info(f"📧 Reference number refresh notification sent to {email_address.setting_value}")
+                                        else:
+                                            app.logger.warning(f"Failed to send reference number refresh notification")
                                     else:
-                                        app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
+                                        # Send regular processing notification (for daily/hourly schedules)
+                                        email_sent = email_service.send_processing_notification(
+                                            to_email=email_address.setting_value,
+                                            schedule_name=schedule.name,
+                                            jobs_processed=result.get('jobs_processed', 0),
+                                            xml_file_path=schedule.file_path,
+                                            original_filename=original_filename,
+                                            sftp_upload_success=sftp_upload_success
+                                        )
+                                        if email_sent:
+                                            app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
+                                        else:
+                                            app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
                                 else:
                                     app.logger.warning(f"Email notification requested but credentials not configured in Global Settings")
                             except Exception as e:
@@ -447,23 +477,60 @@ def process_scheduled_files():
                             'sftp_upload_success': sftp_upload_success
                         }
                         
-                        # Create a general activity entry for scheduled processing
+                        # Create specific activity entry for reference number refresh vs regular processing
+                        if not preserve_refs:
+                            activity_type = 'reference_number_refresh'
+                            activity_details = f"Reference number refresh completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs with new reference numbers"
+                            app.logger.info(f"📋 REFERENCE NUMBER REFRESH LOGGED: {schedule.name} - {result.get('jobs_processed', 0)} jobs refreshed")
+                        else:
+                            activity_type = 'scheduled_processing'
+                            activity_details = f"Scheduled processing completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs processed (reference numbers preserved)"
+                        
                         activity_entry = BullhornActivity(
                             monitor_id=None,  # No specific monitor - this is a general system activity
-                            activity_type='scheduled_processing',
+                            activity_type=activity_type,
                             job_id=None,
                             job_title=None,
-                            details=f"Scheduled processing completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs processed",
+                            details=activity_details,
                             notification_sent=schedule.send_email_notifications
                         )
                         db.session.add(activity_entry)
-                        app.logger.info(f"ATS activity logged for scheduled processing: {schedule.name}")
+                        app.logger.info(f"ATS activity logged for {activity_type}: {schedule.name}")
                         
                     else:
                         # Clean up temp file on failure
                         if os.path.exists(temp_output):
                             os.remove(temp_output)
                         app.logger.error(f"Failed to process scheduled file: {schedule.file_path} - {result.get('error')}")
+                        
+                        # Send error email notification if configured and this was a reference number refresh
+                        if schedule.send_email_notifications and not preserve_refs:
+                            try:
+                                # Get email settings from Global Settings
+                                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
+                                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                                
+                                if (email_enabled and email_enabled.setting_value == 'true' and 
+                                    email_address and email_address.setting_value):
+                                    
+                                    email_service = get_email_service()
+                                    
+                                    # Send reference number refresh failure notification
+                                    refresh_error_sent = email_service.send_reference_number_refresh_notification(
+                                        to_email=email_address.setting_value,
+                                        schedule_name=schedule.name,
+                                        total_jobs=0,
+                                        refresh_details={},
+                                        status='error',
+                                        error_message=result.get('error', 'Unknown processing error occurred')
+                                    )
+                                    
+                                    if refresh_error_sent:
+                                        app.logger.info(f"📧 Reference number refresh error notification sent to {email_address.setting_value}")
+                                    else:
+                                        app.logger.warning(f"Failed to send reference number refresh error notification")
+                            except Exception as e:
+                                app.logger.error(f"Error sending reference number refresh error notification: {str(e)}")
                         
                         # Log failure in ATS monitoring system
                         activity_entry = BullhornActivity(
@@ -6197,6 +6264,63 @@ def start_scheduler_manual():
             'scheduler_running': scheduler.running
         })
     except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/test-reference-refresh-notification')
+@login_required
+def test_reference_refresh_notification():
+    """Test the reference number refresh notification system"""
+    try:
+        # Get email settings from Global Settings
+        email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
+        email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+        
+        if not (email_enabled and email_enabled.setting_value == 'true' and 
+                email_address and email_address.setting_value):
+            return jsonify({
+                'success': False,
+                'error': 'Email notifications not configured in Global Settings'
+            })
+        
+        # Create test notification
+        email_service = get_email_service()
+        
+        # Sample refresh details for testing
+        test_refresh_details = {
+            'jobs_refreshed': 53,
+            'jobs_preserved': 0,
+            'upload_status': 'successful',
+            'processing_time': 12.34,
+            'next_run': '2025-08-24 22:15 UTC'
+        }
+        
+        # Send test notification
+        notification_sent = email_service.send_reference_number_refresh_notification(
+            to_email=email_address.setting_value,
+            schedule_name='Test Master Job Feed',
+            total_jobs=53,
+            refresh_details=test_refresh_details,
+            status='success'
+        )
+        
+        if notification_sent:
+            app.logger.info(f"📧 Test reference number refresh notification sent to {email_address.setting_value}")
+            return jsonify({
+                'success': True,
+                'message': f'Test notification sent successfully to {email_address.setting_value}',
+                'details': test_refresh_details
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to send test notification'
+            })
+        
+    except Exception as e:
+        app.logger.error(f"Error testing reference refresh notification: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
