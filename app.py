@@ -3323,17 +3323,8 @@ def refresh_reference_numbers():
         else:
             app.logger.warning("SFTP not configured - skipping upload")
         
-        # Log this manual activity
-        activity = Activity(
-            activity_type='manual_refresh',
-            description=f'Manual reference number refresh by {current_user.username}',
-            jobs_processed=result['jobs_processed'],
-            file_size=os.path.getsize(xml_file),
-            success=True,
-            created_at=datetime.utcnow()
-        )
-        db.session.add(activity)
-        db.session.commit()
+        # Log this manual activity to application log
+        app.logger.info(f"🔄 MANUAL REFRESH COMPLETE: User {current_user.username} refreshed {result['jobs_processed']} reference numbers")
         
         # Send notification email
         try:
