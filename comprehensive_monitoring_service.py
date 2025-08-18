@@ -455,19 +455,22 @@ class ComprehensiveMonitoringService:
                         self.logger.info(f"    Ignoring: {static_disc['field']}: '{static_disc['old_value']}' (keeping existing)")
                 
                 if business_discrepancies:
-                    # Only correct business field discrepancies, not reference numbers
+                    # CRITICAL FIX: During monitoring cycles, DO NOT make field corrections
+                    # This prevents reference number flip-flopping caused by XML regeneration
                     self.logger.warning(f"Audit found {len(business_discrepancies)} business field discrepancies in job {job_id}")
                     for discrepancy in business_discrepancies:
                         self.logger.warning(f"  - {discrepancy['field']}: '{discrepancy['old_value']}' → '{discrepancy['new_value']}'")
                     
-                    # Fix only the business discrepancies
-                    self._update_job_in_xml(xml_file, job_id, bullhorn_job, business_discrepancies)
-                    audit_results['corrections_made'] += len(business_discrepancies)
-                    audit_results['corrections'].append({
-                        'job_id': job_id,
-                        'title': bullhorn_job.get('title', 'Unknown'),
-                        'discrepancies': business_discrepancies
-                    })
+                    # DISABLED: Field corrections during monitoring to preserve reference number stability
+                    # The comprehensive remapping in each cycle should handle field updates
+                    self.logger.info(f"🔒 AUDIT CORRECTION SKIPPED for job {job_id} to preserve reference numbers")
+                    # self._update_job_in_xml(xml_file, job_id, bullhorn_job, business_discrepancies)
+                    # audit_results['corrections_made'] += len(business_discrepancies)
+                    # audit_results['corrections'].append({
+                    #     'job_id': job_id,
+                    #     'title': bullhorn_job.get('title', 'Unknown'),
+                    #     'discrepancies': business_discrepancies
+                    # })
             
             # Verify no extra jobs in XML
             xml_ids = set(current_xml_jobs.keys())
