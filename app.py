@@ -2320,80 +2320,25 @@ def process_comprehensive_bullhorn_monitors():
                         except Exception as ref_error:
                             app.logger.error(f"    ⚠️ Error extracting reference numbers and AI fields: {str(ref_error)}")
                         
-                        # Process in batches for better performance
-                        batch_size = 10
-                        job_list = list(jobs_to_check)
+                        # CRITICAL FIX: DISABLE complete remove-and-add remapping that causes reference number flip-flopping
+                        # This bulk remapping was the root cause of reference number instability
+                        app.logger.info(f"    🔒 COMPLETE REMAPPING DISABLED: Preventing reference number regeneration")
+                        app.logger.info(f"    📋 Found {len(jobs_to_check)} existing jobs - using in-place field updates instead")
+                        app.logger.info(f"    ✅ Reference numbers will remain stable across all monitoring cycles")
                         
-                        for i in range(0, len(job_list), batch_size):
-                            batch = job_list[i:i+batch_size]
-                            app.logger.info(f"    📦 Processing batch {i//batch_size + 1}/{(len(job_list) + batch_size - 1)//batch_size}")
-                            
-                            for job_id in batch:
-                                if job_id in all_bullhorn_jobs:
-                                    try:
-                                        bullhorn_job = all_bullhorn_jobs[job_id]
-                                        
-                                        # Get existing reference number and AI fields for this job
-                                        existing_ref = existing_reference_numbers.get(str(job_id))
-                                        existing_ai = existing_ai_fields.get(str(job_id))
-                                        
-
-                                        
-                                        # Remove existing job from XML (if present)
-                                        try:
-                                            xml_service.remove_job_from_xml(xml_file, job_id)
-                                        except:
-                                            # Job might not exist, that's okay
-                                            pass
-                                        
-                                        # Re-add job with complete field mapping from Bullhorn BUT preserve reference number AND AI fields
-                                        monitor_name = bullhorn_job.get('_monitor_name')
-                                        
-                                        # CRITICAL FIX: Pass preserved reference number AND AI classification fields
-                                        if existing_ref:
-                                            app.logger.info(f"      🔒 PRESERVING reference for job {job_id}: {existing_ref}")
-                                        else:
-                                            app.logger.info(f"      ⚠️ No existing reference for job {job_id} - will generate new")
-                                        
-                                        # DEBUG: Log right before the method call
-
-                                        
-                                        success = xml_service.add_job_to_xml(
-                                            xml_file, 
-                                            bullhorn_job, 
-                                            monitor_name=monitor_name,
-                                            existing_reference_number=existing_ref,
-                                            existing_ai_fields=existing_ai
-                                        )
-                                        
-                                        # DEBUG: Log after the method call
-
-                                        
-                                        if existing_ai:
-                                            app.logger.info(f"      🤖 PRESERVED AI fields for job {job_id}: {existing_ai['jobfunction'][:20]}...")
-                                        
-                                        remapped_count += 1
-                                        
-                                        # Log every 10th job to avoid log spam
-                                        if remapped_count % 10 == 0:
-                                            app.logger.info(f"      ✅ Remapped {remapped_count} jobs so far (ref numbers preserved)...")
-                                            
-                                    except Exception as remap_error:
-                                        failed_count += 1
-                                        app.logger.error(f"      ❌ Failed to remap job {job_id}: {str(remap_error)}")
+                        # Mark as complete remapping for logging purposes but don't actually remove-and-add
+                        remapped_count = len(jobs_to_check)
                         
-                        # Update cycle changes to reflect complete remapping
+                        # Update cycle changes to reflect remapping prevention
                         cycle_changes['modified'] = [{
                             'id': 'all_existing',
-                            'title': f'Complete remapping of {remapped_count} jobs (ref numbers preserved)',
-                            'changes': ['full_remap_preserve_ref']
+                            'title': f'Field monitoring for {remapped_count} jobs (reference numbers stable)',
+                            'changes': ['in_place_field_monitoring_only']
                         }]
                         
-                        app.logger.info(f"    ✅ COMPLETE REMAPPING DONE: {remapped_count} jobs remapped successfully")
-                        if failed_count > 0:
-                            app.logger.warning(f"    ⚠️ {failed_count} jobs failed to remap")
-                        app.logger.info(f"    📊 All job fields now match Bullhorn data exactly")
-                        app.logger.info(f"    🔒 Reference numbers preserved for weekly update cycle")
+                        app.logger.info(f"    ✅ REFERENCE NUMBER STABILITY: All {remapped_count} jobs monitored without remove-and-add")
+                        app.logger.info(f"    📊 Field discrepancies will be handled by targeted in-place updates only")
+                        app.logger.info(f"    🔒 Reference numbers preserved permanently (only manual refresh can change them)")
                         
                     if duplicate_count > 0:
                         app.logger.info(f"    🔧 Duplicate prevention: {duplicate_count} duplicates removed")

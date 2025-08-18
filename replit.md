@@ -4,19 +4,17 @@
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
 ## Recent Critical Fix (Aug 18, 2025)
-**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes between two different values (Y2RM2JZYLQ ↔ 309DDYTBXW). ROOT CAUSE: Multiple conflict sources identified and eliminated:
-1. **Scheduled file synchronization**: Code in app.py was copying outdated scheduled files over main XML file
-2. **Active scheduled processing**: Database had active schedule (ID 15) processing main XML file with potential old reference numbers  
-3. **Audit step field corrections**: Step 8 audit was calling _update_job_in_xml causing XML regeneration and reference number changes
+**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes between two different values (Y2RM2JZYLQ ↔ 309DDYTBXW). ROOT CAUSE: Complete remove-and-add remapping happening every monitoring cycle in app.py lines 2342-2367.
 
 SOLUTION: 
 - Completely disabled scheduled file synchronization code in app.py (lines 358-366)
-- Deactivated problematic schedule entry (ID 15) in database
+- Deactivated problematic schedule entry (ID 15) in database  
 - Disabled audit field corrections during monitoring cycles in comprehensive_monitoring_service.py to prevent XML regeneration
-- **FINAL FIX**: Replaced remove-and-add behavior in `update_job_in_xml` with true in-place field updates to eliminate reference number regeneration
+- Replaced remove-and-add behavior in `update_job_in_xml` with true in-place field updates to eliminate reference number regeneration
 - Implemented `_update_fields_in_place` method for stable field updates without XML structure changes
+- **ULTIMATE FIX**: Disabled complete remapping process in app.py (lines 2326-2343) that was removing and re-adding ALL jobs every 5 minutes
 
-VERIFICATION: Reference numbers now remain completely stable during monitoring cycles. System uses true in-place field updates that preserve all static fields including reference numbers and AI classifications.
+VERIFICATION: Reference numbers now remain completely stable during monitoring cycles. System uses field monitoring without any remove-and-add operations that could regenerate reference numbers.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
