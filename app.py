@@ -3327,30 +3327,24 @@ def refresh_reference_numbers():
         # Log this manual activity to application log
         app.logger.info(f"🔄 MANUAL REFRESH COMPLETE: User {current_user.username} refreshed {result['jobs_processed']} reference numbers")
         
-        # Send notification email
+        # Send simplified notification email
         try:
-            email_body = f"""
-🔄 Manual Reference Number Refresh Completed
-
-User: {current_user.username}
-Date: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
-
-Processing Details:
-• Jobs processed: {result['jobs_processed']}
-• File size: {os.path.getsize(xml_file):,} bytes
-• Upload to server: {'✅ Success' if upload_success else '❌ Failed'}
-
-All reference numbers have been refreshed while preserving all other job data.
-The scheduled automation continues unchanged.
-"""
-            
             # Get notification email from global settings
             notification_email_setting = GlobalSettings.query.filter_by(setting_key='notification_email').first()
             if notification_email_setting and notification_email_setting.setting_value:
-                notification_result = email_service.send_email(
+                # Use the correct EmailService method with simplified details
+                refresh_details = {
+                    'jobs_refreshed': result['jobs_processed'],
+                    'upload_status': 'Success' if upload_success else 'Failed',
+                    'processing_time': 0  # Simple implementation
+                }
+                
+                notification_result = email_service.send_reference_number_refresh_notification(
                     to_email=notification_email_setting.setting_value,
-                    subject="Manual Reference Number Refresh Complete",
-                    text_content=email_body.strip()
+                    schedule_name="Manual Refresh",
+                    total_jobs=result['jobs_processed'],
+                    refresh_details=refresh_details,
+                    status="success"
                 )
                 if notification_result:
                     app.logger.info(f"📧 Notification sent to {notification_email_setting.setting_value}")

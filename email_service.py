@@ -411,62 +411,18 @@ class EmailService:
                 return True  # Skip duplicate
             
             if status == "success":
-                subject = f"✅ Reference Number Refresh Complete - {schedule_name}"
+                subject = f"Reference Number Refresh Complete"
                 
-                # Build detailed refresh summary
-                refresh_summary = []
-                if refresh_details.get('jobs_refreshed', 0) > 0:
-                    refresh_summary.append(f"• {refresh_details['jobs_refreshed']} jobs received new reference numbers")
-                if refresh_details.get('jobs_preserved', 0) > 0:
-                    refresh_summary.append(f"• {refresh_details['jobs_preserved']} jobs kept existing reference numbers")
-                if refresh_details.get('upload_status'):
-                    refresh_summary.append(f"• XML file uploaded to server: {refresh_details['upload_status']}")
-                if refresh_details.get('processing_time'):
-                    refresh_summary.append(f"• Processing completed in {refresh_details['processing_time']:.2f} seconds")
-                
+                # Simple, basic email content
                 html_content = f"""
                 <html>
                 <body>
-                    <h2>Reference Number Refresh Complete ✅</h2>
-                    <p>The automated reference number refresh has completed successfully.</p>
-                    
-                    <h3>Refresh Details:</h3>
-                    <ul>
-                        <li><strong>Schedule:</strong> {schedule_name}</li>
-                        <li><strong>Total Jobs Processed:</strong> {total_jobs}</li>
-                        <li><strong>Status:</strong> ✅ SUCCESS</li>
-                        <li><strong>Completion Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
-                    </ul>
-                    
-                    <h3>Processing Summary:</h3>
-                    <ul>
-                        {''.join(f'<li>{item[2:]}</li>' for item in refresh_summary) if refresh_summary else '<li>All jobs processed successfully</li>'}
-                    </ul>
-                    
-                    <p><strong>Next scheduled refresh:</strong> {refresh_details.get('next_run', 'Not scheduled')}</p>
-                    
-                    <hr>
-                    <p><em>This is an automated notification from the Job Feed Reference Number Refresh system.</em></p>
+                    <p>All {total_jobs} reference numbers have been refreshed.</p>
                 </body>
                 </html>
                 """
-
-                text_content = f"""
-Reference Number Refresh Automation Complete
-
-Schedule: {schedule_name}
-Total Jobs Processed: {total_jobs}
-Status: ✅ SUCCESS
-Completion Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
-
-Refresh Details:
-{chr(10).join(refresh_summary) if refresh_summary else '• All jobs processed successfully'}
-
-Next scheduled refresh: {refresh_details.get('next_run', 'Not scheduled')}
-
----
-This is an automated notification from the Job Feed Reference Number Refresh system.
-                """
+                
+                text_content = f"All {total_jobs} reference numbers have been refreshed."
             else:
                 subject = f"❌ Reference Number Refresh Failed - {schedule_name}"
                 
