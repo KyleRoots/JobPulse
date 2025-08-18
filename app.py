@@ -3223,17 +3223,146 @@ def get_schedule_status(schedule_id):
                 'processing_success': latest_log.success,
                 'error_message': latest_log.error_message
             })
-        else:
-            return jsonify({
-                'success': True,
-                'last_processed': None,
-                'jobs_processed': 0,
-                'processing_success': None,
-                'error_message': None
-            })
+        
+        return jsonify({
+            'success': True,
+            'last_processed': None,
+            'jobs_processed': 0,
+            'processing_success': None,
+            'error_message': None
+        })
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/refresh-reference-numbers', methods=['POST'])
+@login_required
+def refresh_reference_numbers():
+    """Ad-hoc refresh of all reference numbers while preserving all other XML content"""
+    try:
+        app.logger.info("🔄 AD-HOC REFERENCE NUMBER REFRESH: Starting manual refresh")
+        
+        # Target file
+        xml_file = "myticas-job-feed.xml"
+        
+        if not os.path.exists(xml_file):
+            return jsonify({
+                'success': False, 
+                'error': f'XML file {xml_file} not found'
+            }), 404
+        
+        # Create backup first
+        backup_file = f"{xml_file}.backup_{int(time.time())}"
+        shutil.copy2(xml_file, backup_file)
+        app.logger.info(f"📄 Backup created: {backup_file}")
+        
+        # Initialize services
+        processor = XMLProcessor()
+        ftp_service = FTPService()
+        email_service = EmailService()
+        
+        # Count jobs before processing
+        initial_job_count = processor.count_jobs(xml_file)
+        app.logger.info(f"📊 Found {initial_job_count} jobs in XML file")
+        
+        # Process XML with reference number refresh only (preserve_reference_numbers=False)
+        temp_file = f"{xml_file}.temp_{int(time.time())}"
+        result = processor.process_xml(xml_file, temp_file, preserve_reference_numbers=False)
+        
+        if not result['success']:
+            os.remove(backup_file)  # Clean up backup
+            return jsonify({
+                'success': False,
+                'error': f"Failed to process XML: {result.get('error', 'Unknown error')}"
+            }), 500
+        
+        # Verify job count remains the same
+        final_job_count = processor.count_jobs(temp_file)
+        if final_job_count != initial_job_count:
+            os.remove(backup_file)
+            os.remove(temp_file)
+            return jsonify({
+                'success': False,
+                'error': f'Job count mismatch: expected {initial_job_count}, got {final_job_count}'
+            }), 500
+        
+        # Replace original file with processed file
+        shutil.move(temp_file, xml_file)
+        app.logger.info(f"✅ Reference numbers refreshed in {xml_file}")
+        
+        # Upload to SFTP server
+        upload_success = False
+        if ftp_service.test_connection():
+            upload_result = ftp_service.upload_file(xml_file, f"public_html/{xml_file}")
+            if upload_result['success']:
+                upload_success = True
+                app.logger.info(f"📤 Successfully uploaded {xml_file} to server")
+            else:
+                app.logger.error(f"Upload failed: {upload_result.get('error', 'Unknown error')}")
+        else:
+            app.logger.error("SFTP connection failed")
+        
+        # Log this manual activity
+        activity = Activity(
+            activity_type='manual_refresh',
+            description=f'Manual reference number refresh by {current_user.username}',
+            jobs_processed=result['jobs_processed'],
+            file_size=os.path.getsize(xml_file),
+            success=True,
+            created_at=datetime.utcnow()
+        )
+        db.session.add(activity)
+        db.session.commit()
+        
+        # Send notification email
+        try:
+            email_body = f"""
+🔄 Manual Reference Number Refresh Completed
+
+User: {current_user.username}
+Date: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+
+Processing Details:
+• Jobs processed: {result['jobs_processed']}
+• File size: {os.path.getsize(xml_file):,} bytes
+• Upload to server: {'✅ Success' if upload_success else '❌ Failed'}
+
+All reference numbers have been refreshed while preserving all other job data.
+The scheduled automation continues unchanged.
+"""
+            
+            # Get notification email from global settings
+            global_settings = GlobalSettings.query.first()
+            if global_settings and global_settings.notification_email:
+                notification_result = email_service.send_email(
+                    to_email=global_settings.notification_email,
+                    subject="Manual Reference Number Refresh Complete",
+                    text_content=email_body.strip()
+                )
+                if notification_result:
+                    app.logger.info(f"📧 Notification sent to {global_settings.notification_email}")
+                else:
+                    app.logger.warning("Failed to send notification email")
+        
+        except Exception as email_error:
+            app.logger.error(f"Email notification failed: {str(email_error)}")
+        
+        # Clean up backup (keep for troubleshooting if needed)
+        os.remove(backup_file)
+        
+        return jsonify({
+            'success': True,
+            'jobs_processed': result['jobs_processed'],
+            'upload_success': upload_success,
+            'message': f'Successfully refreshed {result["jobs_processed"]} reference numbers'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error in manual reference number refresh: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/schedules/replace-file', methods=['POST'])
 def replace_schedule_file():

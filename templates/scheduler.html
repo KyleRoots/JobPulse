@@ -345,9 +345,14 @@
                 
                 <!-- Main Content Header with Clean Actions -->
                 <div class="text-center mb-4">
-                    <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
-                        <i class="fas fa-plus me-2"></i>New Schedule
-                    </button>
+                    <div class="d-flex gap-3 justify-content-center flex-wrap">
+                        <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
+                            <i class="fas fa-plus me-2"></i>New Schedule
+                        </button>
+                        <button type="button" class="btn btn-warning btn-lg" id="refreshAllBtn" onclick="refreshAllReferenceNumbers()">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh All
+                        </button>
+                    </div>
                     
                     <!-- User Info with Prominent Logout -->
                     <div class="mt-4">
@@ -1027,6 +1032,46 @@
             if (modal) {
                 modal.hide();
             }
+        }
+
+        // Ad-hoc reference number refresh functionality
+        function refreshAllReferenceNumbers() {
+            if (!confirm('Are you sure you want to refresh ALL reference numbers?\n\nThis will:\n• Generate new reference numbers for all jobs\n• Preserve all other job data\n• Upload updated file to server\n• NOT affect scheduled automation timing\n\nContinue?')) {
+                return;
+            }
+            
+            const button = document.getElementById('refreshAllBtn');
+            const originalText = button.innerHTML;
+            
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Refreshing...';
+            
+            // Call API
+            fetch('/api/refresh-reference-numbers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                button.disabled = false;
+                button.innerHTML = originalText;
+                
+                if (data.success) {
+                    alert(`✅ Reference Number Refresh Complete!\n\n• Processed: ${data.jobs_processed} jobs\n• Server Upload: ${data.upload_success ? 'Success' : 'Failed'}\n• Email notification sent\n\nScheduled automation continues unchanged.`);
+                    location.reload(); // Refresh page to show updated timestamps
+                } else {
+                    alert('❌ Refresh Failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                button.disabled = false;
+                button.innerHTML = originalText;
+                console.error('Error:', error);
+                alert('❌ Network Error: ' + error.message);
+            });
         }
     </script>
 
