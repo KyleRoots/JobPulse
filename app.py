@@ -3312,11 +3312,12 @@ def refresh_reference_numbers():
         if ftp_service:
             if ftp_service.test_connection():
                 upload_result = ftp_service.upload_file(xml_file, xml_file)
-                if upload_result['success']:
+                # FTPService.upload_file returns a boolean, not a dict
+                if upload_result:
                     upload_success = True
                     app.logger.info(f"📤 Successfully uploaded {xml_file} to server")
                 else:
-                    app.logger.error(f"Upload failed: {upload_result.get('error', 'Unknown error')}")
+                    app.logger.error("Upload failed: FTP service returned False")
             else:
                 app.logger.error("SFTP connection failed")
         else:
