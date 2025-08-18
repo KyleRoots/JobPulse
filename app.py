@@ -355,15 +355,18 @@ def process_scheduled_files():
                         files_processed += 1  # Increment counter for successful processing
                         app.logger.info(f"Successfully processed scheduled file: {schedule.file_path}")
                         
-                        # CRITICAL: Sync main XML file with scheduled file to ensure consistency
-                        main_xml_path = 'myticas-job-feed.xml'
-                        if schedule.file_path != main_xml_path and os.path.exists(main_xml_path):
-                            try:
-                                # Copy the updated scheduled file to main XML file
-                                shutil.copy2(schedule.file_path, main_xml_path)
-                                app.logger.info(f"✅ Synchronized main XML file {main_xml_path} with scheduled file {schedule.file_path}")
-                            except Exception as sync_error:
-                                app.logger.error(f"❌ Failed to sync main XML file: {str(sync_error)}")
+                        # DISABLED: Sync main XML file with scheduled file to prevent reference number conflicts
+                        # This was causing the reference number flip-flopping issue
+                        # main_xml_path = 'myticas-job-feed.xml'
+                        # if schedule.file_path != main_xml_path and os.path.exists(main_xml_path):
+                        #     try:
+                        #         # Copy the updated scheduled file to main XML file
+                        #         shutil.copy2(schedule.file_path, main_xml_path)
+                        #         app.logger.info(f"✅ Synchronized main XML file {main_xml_path} with scheduled file {schedule.file_path}")
+                        #     except Exception as sync_error:
+                        #         app.logger.error(f"❌ Failed to sync main XML file: {str(sync_error)}")
+                        
+                        app.logger.info(f"⚠️ Scheduled file sync disabled to prevent reference number conflicts")
                         
                         # Get original filename for email/FTP (use stored original filename if available)
                         original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
