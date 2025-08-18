@@ -37,6 +37,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Enhanced Audit Reporting**: Detailed summaries of discrepancies and corrections.
 - **Upload Failure Monitoring**: Comprehensive logging of SFTP connection issues.
 - **Comprehensive Status Logging**: Step-by-step progress updates.
+- **Ad-hoc Reference Number Refresh**: Manual "Refresh All" button for immediate reference number updates while preserving all job data, with SFTP upload, email notifications, and activity logging.
 - **Job Application Form**: Responsive, public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, structured email submission, and Bullhorn job ID integration. Features unique branding and robust duplicate prevention.
 - **UI/UX**: Responsive dark-themed interface with real-time feedback.
 - **Security**: Login-protected routes and admin user management.

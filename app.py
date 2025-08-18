@@ -3344,15 +3344,15 @@ The scheduled automation continues unchanged.
 """
             
             # Get notification email from global settings
-            global_settings = GlobalSettings.query.first()
-            if global_settings and global_settings.notification_email:
+            notification_email_setting = GlobalSettings.query.filter_by(setting_key='notification_email').first()
+            if notification_email_setting and notification_email_setting.setting_value:
                 notification_result = email_service.send_email(
-                    to_email=global_settings.notification_email,
+                    to_email=notification_email_setting.setting_value,
                     subject="Manual Reference Number Refresh Complete",
                     text_content=email_body.strip()
                 )
                 if notification_result:
-                    app.logger.info(f"📧 Notification sent to {global_settings.notification_email}")
+                    app.logger.info(f"📧 Notification sent to {notification_email_setting.setting_value}")
                 else:
                     app.logger.warning("Failed to send notification email")
         
