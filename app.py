@@ -1187,13 +1187,13 @@ def process_bullhorn_monitors():
                                                     break
                                             
                                             if current_job_data:
-                                                # CRITICAL: Flag this job as actively modified in THIS monitoring cycle
-                                                # This tells the XML service to generate a new reference number
-                                                current_job_data['_monitor_flagged_as_modified'] = True
+                                                # REFERENCE NUMBER PRESERVATION: Do NOT flag jobs as modified during routine monitoring
+                                                # Reference numbers should only be changed during manual refresh operations
+                                                current_job_data['_monitor_flagged_as_modified'] = False
                                                 
                                                 if xml_service.update_job_in_xml(xml_filename, current_job_data, monitor.name):
                                                     immediate_sync_summary['updated_count'] += 1
-                                                    app.logger.info(f"📝 Immediately updated job {job_id}: {current_job_data.get('title')} in {xml_filename} with NEW reference number")
+                                                    app.logger.info(f"📝 Immediately updated job {job_id}: {current_job_data.get('title')} in {xml_filename} (reference number preserved)")
                                     
                                     app.logger.info(f"✅ IMMEDIATE SYNC COMPLETE for {xml_filename}: {immediate_sync_summary['added_count']} added, {immediate_sync_summary['removed_count']} removed, {immediate_sync_summary['updated_count']} updated")
                                     
@@ -1710,8 +1710,9 @@ def process_bullhorn_monitors():
                                                             break
                                                     
                                                     if updated_job_data:
-                                                        # CRITICAL: Flag this job as actively modified for proper reference number handling
-                                                        updated_job_data['_monitor_flagged_as_modified'] = True
+                                                        # REFERENCE NUMBER PRESERVATION: Do NOT flag jobs as modified during routine monitoring
+                                                        # Reference numbers should only be changed during manual refresh operations  
+                                                        updated_job_data['_monitor_flagged_as_modified'] = False
                                                         
                                                         # Update the job in XML with the new data
                                                         if xml_service.update_job_in_xml(xml_filename, updated_job_data, monitor.name):
