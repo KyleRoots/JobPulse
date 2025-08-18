@@ -3258,8 +3258,25 @@ def refresh_reference_numbers():
         
         # Initialize services
         processor = XMLProcessor()
-        ftp_service = FTPService()
         email_service = EmailService()
+        
+        # Initialize FTP service with proper credentials from GlobalSettings
+        sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+        sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+        sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+        sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+        sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+        
+        ftp_service = None
+        if sftp_hostname and sftp_username and sftp_password:
+            ftp_service = FTPService(
+                hostname=sftp_hostname.setting_value,
+                username=sftp_username.setting_value,
+                password=sftp_password.setting_value,
+                target_directory=sftp_directory.setting_value if sftp_directory else "public_html",
+                port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                use_sftp=True
+            )
         
         # Count jobs before processing
         initial_job_count = processor.count_jobs(xml_file)
@@ -3292,15 +3309,18 @@ def refresh_reference_numbers():
         
         # Upload to SFTP server
         upload_success = False
-        if ftp_service.test_connection():
-            upload_result = ftp_service.upload_file(xml_file, f"public_html/{xml_file}")
-            if upload_result['success']:
-                upload_success = True
-                app.logger.info(f"📤 Successfully uploaded {xml_file} to server")
+        if ftp_service:
+            if ftp_service.test_connection():
+                upload_result = ftp_service.upload_file(xml_file, xml_file)
+                if upload_result['success']:
+                    upload_success = True
+                    app.logger.info(f"📤 Successfully uploaded {xml_file} to server")
+                else:
+                    app.logger.error(f"Upload failed: {upload_result.get('error', 'Unknown error')}")
             else:
-                app.logger.error(f"Upload failed: {upload_result.get('error', 'Unknown error')}")
+                app.logger.error("SFTP connection failed")
         else:
-            app.logger.error("SFTP connection failed")
+            app.logger.warning("SFTP not configured - skipping upload")
         
         # Log this manual activity
         activity = Activity(
