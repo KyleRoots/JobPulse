@@ -137,9 +137,9 @@ class ComprehensiveMonitoringService:
             # STEP 2 & 3: Load current XML and identify additions/removals
             self.logger.info("\n📄 STEP 2 & 3: Comparing with current XML...")
             current_xml_jobs = self._load_xml_jobs(xml_file)
-            # Store initial XML snapshot for AI preservation during complete remapping
-            self.initial_xml_snapshot = current_xml_jobs.copy()
-            self.logger.info(f"📸 CAPTURED XML SNAPSHOT: {len(self.initial_xml_snapshot)} jobs for AI preservation")
+            # CRITICAL FIX: DO NOT store snapshots! Always read current XML state
+            # This prevents reference number flip-flopping when manual refreshes occur
+            self.logger.info(f"📸 REAL-TIME MODE: Always reading current XML state to prevent reference number conflicts")
             current_xml_ids = set(current_xml_jobs.keys())
             bullhorn_ids = set(bullhorn_jobs.keys())
             
@@ -478,11 +478,11 @@ class ComprehensiveMonitoringService:
             existing_ai_fields = None
             existing_reference_number = None
             
-            # Try to get existing AI fields AND reference number from initial XML snapshot (before any removals)
+            # Try to get existing AI fields AND reference number from CURRENT XML state
             try:
-                # Use the initial snapshot if available, otherwise load current XML
-                existing_xml_jobs = getattr(self, 'initial_xml_snapshot', {}) or self._load_xml_jobs(xml_file)
-                self.logger.info(f"🔍 PRESERVATION CHECK for job {job_id}: snapshot has {len(existing_xml_jobs)} jobs")
+                # CRITICAL FIX: ALWAYS load current XML - never use snapshots that could be outdated
+                existing_xml_jobs = self._load_xml_jobs(xml_file)
+                self.logger.info(f"🔍 PRESERVATION CHECK for job {job_id}: current XML has {len(existing_xml_jobs)} jobs")
                 if job_id in existing_xml_jobs:
                     existing_job = existing_xml_jobs[job_id]
                     

@@ -4,7 +4,7 @@
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
 ## Recent Critical Fix (Aug 18, 2025)
-**Reference Number Flip-Flopping Bug Fixed**: Resolved critical issue where reference numbers were changing every 5 minutes between two different values. The problem was that routine monitoring cycles were incorrectly flagging jobs as "modified" causing new reference numbers to be generated. Fixed by ensuring `_monitor_flagged_as_modified = False` during routine monitoring, preserving reference numbers as intended. Now reference numbers only change during manual "Refresh All" operations.
+**Reference Number Flip-Flopping Bug Fixed**: Resolved critical issue where reference numbers were changing every 5 minutes between two different values. ROOT CAUSE: The comprehensive monitoring service was using outdated XML snapshots to "preserve" reference numbers, overriding manual refresh changes. SOLUTION: Eliminated snapshot system - monitoring service now always reads current XML state in real-time, preventing conflicts with manual refreshes. Reference numbers are now properly preserved during routine monitoring and only change during manual "Refresh All" operations.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
