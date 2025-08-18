@@ -213,11 +213,30 @@ class ComprehensiveMonitoringService:
             if format_fixes > 0:
                 self.logger.info(f"    Fixed formatting in {format_fixes} locations")
             
-            # STEP 8: FULL AUDIT - Verify ALL mapped fields
+            # STEP 8: FULL AUDIT - Verify ALL mapped fields  
             self.logger.info("\n✅ STEP 8: Running FULL AUDIT on all mapped fields...")
+            
+            # CRITICAL DEBUG: Check reference numbers before audit
+            with open(xml_file, 'r') as f:
+                pre_audit_content = f.read()
+            pre_audit_refs = re.findall(r'<referencenumber><!\[CDATA\[\s*([^]]+)\s*\]\]></referencenumber>', pre_audit_content)
+            self.logger.info(f"🔍 PRE-AUDIT DEBUG: Reference numbers BEFORE audit: {pre_audit_refs[:3]}...")
+            
             audit_results = self._run_full_audit(xml_file, bullhorn_jobs)
             cycle_results['fields_corrected'] = audit_results['corrections_made']
             cycle_results['audit_passed'] = audit_results['passed']
+            
+            # CRITICAL DEBUG: Check reference numbers after audit  
+            with open(xml_file, 'r') as f:
+                post_audit_content = f.read()
+            post_audit_refs = re.findall(r'<referencenumber><!\[CDATA\[\s*([^]]+)\s*\]\]></referencenumber>', post_audit_content)
+            self.logger.info(f"🔍 POST-AUDIT DEBUG: Reference numbers AFTER audit: {post_audit_refs[:3]}...")
+            
+            # Alert if reference numbers changed during audit
+            if pre_audit_refs != post_audit_refs:
+                self.logger.error(f"⚠️ CRITICAL: AUDIT CHANGED REFERENCE NUMBERS! Before: {pre_audit_refs[:3]}, After: {post_audit_refs[:3]}")
+            else:
+                self.logger.info("✅ AUDIT PRESERVED reference numbers correctly")
             
             if audit_results['corrections_made'] > 0:
                 self.logger.info(f"    Made {audit_results['corrections_made']} field corrections during audit")
@@ -230,13 +249,21 @@ class ComprehensiveMonitoringService:
             
             # STEP 5: Upload to web server
             self.logger.info("\n📤 STEP 5: Uploading to web server...")
+            
+            # CRITICAL DEBUG: Check reference numbers before upload
+            with open(xml_file, 'r') as f:
+                upload_content = f.read()
+            ref_numbers = re.findall(r'<referencenumber><!\[CDATA\[\s*([^]]+)\s*\]\]></referencenumber>', upload_content)
+            self.logger.info(f"🔍 UPLOAD DEBUG: About to upload file with reference numbers: {ref_numbers[:3]}...")
+            
             upload_success = self._upload_to_sftp(xml_file)
             cycle_results['upload_success'] = upload_success
             
             if upload_success:
                 self.logger.info("    ✅ Successfully uploaded XML to production")
-                # Also upload scheduled version
-                self._upload_to_sftp('myticas-job-feed-scheduled.xml')
+                # CRITICAL FIX: DO NOT upload scheduled version - it contains old data
+                # The scheduled version was causing reference number flip-flopping
+                self.logger.info("    🔒 Scheduled version upload DISABLED to prevent conflicts")
             else:
                 self.logger.error("    ❌ Failed to upload XML to production")
             
