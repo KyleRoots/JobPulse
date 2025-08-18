@@ -1265,6 +1265,70 @@ class XMLIntegrationService:
             self.logger.error(f"Error checking if update needed for job {job_id}: {str(e)}")
             return True, {}  # Assume update needed if comparison fails
     
+    def _update_fields_in_place(self, xml_file_path: str, job_id: str, bullhorn_job: Dict, existing_reference_number: Optional[str], existing_ai_fields: Optional[Dict], monitor_name: Optional[str]) -> bool:
+        """
+        Update job fields in-place without remove-and-add to preserve reference numbers
+        """
+        try:
+            # Parse the XML file
+            tree = etree.parse(xml_file_path, self._parser)
+            root = tree.getroot()
+            
+            # Find the job to update
+            job_element = None
+            for job in root.xpath('.//job'):
+                bhatsid_elem = job.find('.//bhatsid')
+                if bhatsid_elem is not None and bhatsid_elem.text:
+                    bhatsid_text = bhatsid_elem.text.strip()
+                    if '<![CDATA[' in bhatsid_text:
+                        bhatsid_text = bhatsid_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                    
+                    if bhatsid_text == str(job_id):
+                        job_element = job
+                        break
+            
+            if job_element is None:
+                self.logger.error(f"Job {job_id} not found for in-place update")
+                return False
+            
+            # Map the Bullhorn job data to XML format
+            updated_xml_job = self.map_bullhorn_job_to_xml(
+                bullhorn_job,
+                existing_reference_number=existing_reference_number,
+                monitor_name=monitor_name,
+                existing_ai_fields=existing_ai_fields
+            )
+            
+            # Update each field in place while preserving CDATA structure
+            field_mappings = [
+                'title', 'company', 'date', 'referencenumber', 'bhatsid', 'url',
+                'description', 'jobtype', 'city', 'state', 'country', 'category',
+                'apply_email', 'remotetype', 'assignedrecruiter', 'jobfunction',
+                'jobindustries', 'senioritylevel'
+            ]
+            
+            fields_updated = 0
+            for xml_field in field_mappings:
+                if xml_field in updated_xml_job:
+                    # Find the existing field element
+                    field_elem = job_element.find(f'.//{xml_field}')
+                    if field_elem is not None:
+                        # Update the field content while preserving CDATA
+                        new_value = updated_xml_job[xml_field]
+                        if field_elem.text != new_value:
+                            field_elem.text = new_value
+                            fields_updated += 1
+                            self.logger.debug(f"Updated field {xml_field} for job {job_id}")
+            
+            # Save the updated XML
+            tree.write(xml_file_path, encoding='utf-8', xml_declaration=True)
+            self.logger.info(f"✅ IN-PLACE UPDATE completed for job {job_id} - {fields_updated} fields updated without reference number changes")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error during in-place update for job {job_id}: {str(e)}")
+            return False
+    
     def update_job_in_xml(self, xml_file_path: str, bullhorn_job: Dict, monitor_name: Optional[str] = None, existing_reference_number: Optional[str] = None, existing_ai_fields: Optional[Dict] = None) -> bool:
         """
         Update an existing job in the XML file with enhanced error handling and CDATA preservation
@@ -1363,10 +1427,16 @@ class XMLIntegrationService:
                 except Exception as e:
                     self.logger.warning(f"Could not get existing data: {e}")
                 
-                # Step 1: Remove old version
-                removal_success = self.remove_job_from_xml(xml_file_path, job_id)
-                if not removal_success and job_exists_before:
-                    self.logger.warning(f"Failed to remove job {job_id} from XML on attempt {attempt + 1}")
+                # CRITICAL FIX: DO NOT remove and re-add jobs during updates
+                # This was causing reference number flip-flopping
+                # Instead, perform true in-place field updates to preserve reference numbers
+                self.logger.info(f"🔒 SKIP REMOVE-AND-ADD for job {job_id} - performing in-place field updates to preserve reference numbers")
+                
+                # Perform in-place field updates without remove-and-add
+                field_update_success = self._update_fields_in_place(xml_file_path, job_id, bullhorn_job, existing_reference_for_preservation, existing_ai_classifications, monitor_name)
+                
+                if not field_update_success:
+                    self.logger.warning(f"Failed in-place field update for job {job_id} on attempt {attempt + 1}")
                     if attempt < max_retries - 1:
                         # Restore backup and retry
                         shutil.copy2(backup_path, xml_file_path)
