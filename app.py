@@ -2538,49 +2538,28 @@ def process_comprehensive_bullhorn_monitors():
             
             app.logger.info(f"🔧 STEP 7 COMPLETE: {format_fixes} formatting fixes applied")
             
-            # STEP 8: FULL AUDIT for 100% accuracy (LIVE WEB SERVER COMPARISON)
+            # STEP 8: FULL AUDIT for 100% accuracy (LOCAL XML ONLY - no server download)
             app.logger.info("📊 PROGRESS: [●●●●●●●●] Step 8/8 - Final audit")
-            app.logger.info("✅ STEP 8/8: Running FULL AUDIT against LIVE web server XML...")
+            app.logger.info("✅ STEP 8/8: Running FULL AUDIT on local XML files...")
             audit_passed = True
             corrections_made = 0
             audit_summary = []
             
-            # ENHANCED AUDIT: Download and compare LIVE web server XML files
-            live_xml_urls = {
-                'myticas-job-feed.xml': 'https://myticas.com/myticas-job-feed.xml'
-            }
+            # CRITICAL FIX: Removed LIVE XML download that was causing reference number flip-flopping
+            # The system now only audits the local XML files to maintain consistency
             
             for xml_file in xml_files:
-                if xml_file in live_xml_urls:
-                    try:
-                        # Download current LIVE XML from web server with improved error handling
-                        import requests
-                        import shutil
-                        
-                        app.logger.info(f"    🔄 Attempting to download LIVE {xml_file}...")
-                        response = requests.get(live_xml_urls[xml_file], timeout=15, 
-                                              headers={'User-Agent': 'Myticas-Monitor/1.0'})
-                        
-                        if response.status_code == 200 and len(response.text) > 100:
-                            live_content = response.text
-                            app.logger.info(f"    📥 Successfully downloaded LIVE {xml_file} ({len(live_content)} chars)")
-                        else:
-                            app.logger.warning(f"    ⚠️ Live XML download issue (Status: {response.status_code}, Length: {len(response.text)})")
-                            app.logger.warning(f"    📁 Using local copy of {xml_file} for audit")
-                            with open(xml_file, 'r') as f:
-                                live_content = f.read()
-                    except requests.exceptions.Timeout:
-                        app.logger.warning(f"    ⏰ Timeout downloading live {xml_file} - using local copy")
-                        with open(xml_file, 'r') as f:
-                            live_content = f.read()
-                    except Exception as e:
-                        app.logger.error(f"    ❌ Error downloading live {xml_file}: {str(e)[:100]} - using local copy")
-                        with open(xml_file, 'r') as f:
-                            live_content = f.read()
-                else:
-                    # Read local XML content for files without live URLs
+                # CRITICAL FIX: Always use local XML for audit to prevent reference number flip-flopping
+                # The issue was that downloading LIVE XML from server caused timing/sync issues
+                # where the server had different reference numbers, causing continuous "fixes"
+                try:
+                    app.logger.info(f"    📄 Auditing local {xml_file} (server download disabled to prevent flip-flopping)...")
                     with open(xml_file, 'r') as f:
                         live_content = f.read()
+                    app.logger.info(f"    ✅ Loaded local {xml_file} ({len(live_content)} chars)")
+                except Exception as e:
+                    app.logger.error(f"    ❌ Error reading local {xml_file}: {str(e)}")
+                    continue
                 
                 try:
                         

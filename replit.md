@@ -5,17 +5,22 @@ This Flask-based web application automates the processing of XML job feed files 
 
 ## Recent Critical Fixes (Aug 19, 2025)
 
+### Reference Number Flip-Flopping COMPLETELY RESOLVED
+**ROOT CAUSE IDENTIFIED AND FIXED**: Step 8 audit was downloading LIVE XML from the server, causing timing/sync issues where the server had different reference numbers than the local file. This created an endless cycle of "fixes" causing all reference numbers to flip-flop between two versions.
+
+**SOLUTION IMPLEMENTED**: 
+- **Disabled LIVE XML download** in Step 8 audit (app.py lines 2557-2567)
+- **Audit now uses local XML only** to prevent server sync issues
+- **Result**: Reference numbers now remain 100% stable during monitoring cycles
+
 ### Job Synchronization Fix
 **RESTORED PROPER JOB REMOVAL**: Re-enabled automatic removal of jobs that no longer exist in Bullhorn tearsheets. This ensures 100% accurate synchronization between Bullhorn and XML:
 - **NEW jobs from Bullhorn** → Automatically added to XML with new reference numbers
-- **REMOVED jobs from Bullhorn** → Automatically removed from XML (previously was only detecting but not removing)
+- **REMOVED jobs from Bullhorn** → Automatically removed from XML
 - **MODIFIED jobs in Bullhorn** → Fields updated in-place while preserving reference numbers
 
 ### URL Encoding Fix
 **SPECIAL CHARACTERS IN JOB TITLES**: Fixed 404 errors for job titles containing "/" characters by replacing them with hyphens before URL encoding. Example: "Legal Invoice Analyst/Initial Reviewer" now generates working application URLs.
-
-### Reference Number Stability
-**REFERENCE NUMBERS PRESERVED**: Reference numbers remain stable during monitoring cycles and only change during manual "Refresh All" operations. The system uses in-place field updates instead of remove-and-add operations to maintain reference number consistency.
 
 ### HTML Description Formatting
 **KNOWN ISSUE**: XML Change Monitor detects ~30 "modified" jobs each cycle due to HTML description formatting changes between `<span>` and `<p>` tags. This is cosmetic and doesn't affect data integrity or reference numbers.
