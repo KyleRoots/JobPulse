@@ -264,14 +264,14 @@ class SimplifiedMonitoringService:
         
         try:
             # Upload main XML file
-            if os.path.exists('myticas-job-feed.xml'):
-                self.ftp_service.upload_file('myticas-job-feed.xml', 'myticas-job-feed.xml')
+            if os.path.exists('myticas-job-feed-CORRECT-1755627190.xml'):
+                self.ftp_service.upload_file('myticas-job-feed-CORRECT-1755627190.xml', 'myticas-job-feed-CORRECT-1755627190.xml')
                 logger.info("Uploaded main XML file to FTP")
                 
             # Copy to scheduled version for consistency
-            if os.path.exists('myticas-job-feed.xml'):
+            if os.path.exists('myticas-job-feed-CORRECT-1755627190.xml'):
                 import shutil
-                shutil.copy2('myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml')
+                shutil.copy2('myticas-job-feed-CORRECT-1755627190.xml', 'myticas-job-feed-scheduled.xml')
                 logger.info("Synchronized scheduled XML file")
                 
         except Exception as e:

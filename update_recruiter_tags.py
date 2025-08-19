@@ -69,7 +69,7 @@ def main():
     
     # List of XML files to update
     xml_files = [
-        'myticas-job-feed.xml',
+        'myticas-job-feed-CORRECT-1755627190.xml',
         'myticas-job-feed-scheduled.xml'
     ]
     

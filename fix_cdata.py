@@ -1,7 +1,7 @@
 import re
 
 # Read the XML file
-with open('myticas-job-feed.xml', 'r', encoding='utf-8') as f:
+with open('myticas-job-feed-CORRECT-1755627190.xml', 'r', encoding='utf-8') as f:
     content = f.read()
 
 # List of ALL fields that should have CDATA
@@ -32,13 +32,13 @@ for field in cdata_fields:
         fixed_count += len(matches)
 
 # Save the fixed file
-with open('myticas-job-feed.xml', 'w', encoding='utf-8') as f:
+with open('myticas-job-feed-CORRECT-1755627190.xml', 'w', encoding='utf-8') as f:
     f.write(content)
 
 print(f"\n✅ Fixed {fixed_count} fields with missing CDATA")
 
 # Verify the fix
-with open('myticas-job-feed.xml', 'r', encoding='utf-8') as f:
+with open('myticas-job-feed-CORRECT-1755627190.xml', 'r', encoding='utf-8') as f:
     content = f.read()
     cdata_count = content.count('<![CDATA[')
     print(f"✅ Total CDATA sections now: {cdata_count}")

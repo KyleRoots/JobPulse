@@ -58,7 +58,7 @@ class ComprehensiveMonitoringService:
         self.cycle_start_time = None
         self.max_cycle_seconds = 110  # Leave buffer for 2-minute cycle
         
-    def run_complete_monitoring_cycle(self, monitors: List, xml_file: str = 'myticas-job-feed.xml'):
+    def run_complete_monitoring_cycle(self, monitors: List, xml_file: str = 'myticas-job-feed-CORRECT-1755627190.xml'):
         """
         Execute complete 8-step monitoring process
         Returns: Dict with cycle results

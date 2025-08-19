@@ -124,7 +124,7 @@ class XMLDuplicatePrevention:
     
     def monitor_and_fix_xml_files(self):
         """Monitor and fix XML files to ensure no duplicates."""
-        xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+        xml_files = ['myticas-job-feed-CORRECT-1755627190.xml', 'myticas-job-feed-scheduled.xml']
         
         for xml_file in xml_files:
             if os.path.exists(xml_file):
@@ -158,7 +158,7 @@ def main():
     
     # Clean files before upload
     print("\n=== Ensuring Clean Files for Upload ===")
-    xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+    xml_files = ['myticas-job-feed-CORRECT-1755627190.xml', 'myticas-job-feed-scheduled.xml']
     results = preventer.ensure_no_duplicates_before_upload(xml_files)
     
     for file, count in results.items():

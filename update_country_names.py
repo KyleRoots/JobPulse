@@ -55,7 +55,7 @@ def main():
             logger.info(f"\n✅ Total jobs found: {len(all_jobs)}")
             
             # Process each XML file
-            xml_files = ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']
+            xml_files = ['myticas-job-feed-CORRECT-1755627190.xml', 'myticas-job-feed-scheduled.xml']
             
             for xml_file in xml_files:
                 logger.info(f"\n{'='*50}")

@@ -227,7 +227,7 @@ if __name__ == "__main__":
     # Test safeguards
     safeguards = XMLSafeguards()
     
-    for xml_file in ['myticas-job-feed.xml', 'myticas-job-feed-scheduled.xml']:
+    for xml_file in ['myticas-job-feed-CORRECT-1755627190.xml', 'myticas-job-feed-scheduled.xml']:
         if os.path.exists(xml_file):
             print(f"\nValidating {xml_file}...")
             validation = safeguards.validate_xml_structure(xml_file)
