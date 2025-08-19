@@ -215,7 +215,10 @@ class XMLIntegrationService:
                 clean_title = "position"
             
             # URL encode the title to handle special characters and spaces
-            encoded_title = urllib.parse.quote(str(clean_title).strip(), safe='')
+            # Replace forward slashes with hyphens to prevent URL parsing issues
+            # This prevents 404 errors when job titles contain "/" characters
+            safe_title = str(clean_title).strip().replace('/', '-')
+            encoded_title = urllib.parse.quote(safe_title, safe='')
             
             # CONFIGURABLE: Use environment variable to determine base URL
             # This allows switching between apply.myticas.com (production) and current domain (development)
