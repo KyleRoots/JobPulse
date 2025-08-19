@@ -1,6 +1,22 @@
 {
-  "timestamp": "2025-08-19T21:00:33.565155",
+  "timestamp": "2025-08-19T21:12:59.872083",
   "jobs": {
+    "34087": {
+      "id": "34087",
+      "title": "SAP Data Migration Lead (34087)",
+      "company": "Myticas Consulting",
+      "description": "<p>Myticas Consulting is actively seeking an experienced <strong>SAP Data Migration Lead</strong> for a high-impact, long-term contract with our client in the natural resources sector. This role is based in <strong>Vancouver, BC</strong> and follows a <strong>hybrid model</strong> with <strong>20\u201330% travel</strong>.</p> <p>The selected candidate will lead the <strong>data migration stream</strong> as part of an SAP S/4HANA and Ariba implementation. We\u2019re looking for a hands-on leader who can architect, manage, and deliver high-quality data conversion solutions.</p> <hr> <h3><strong>Responsibilities:</strong></h3> <ul> <li> <p>Lead the SAP S/4HANA and Ariba data migration stream</p> <li> <p>Manage data conversion activities across the full lifecycle: design, build, test, validation, cutover</p> <li> <p>Set up data migration technical architecture using <strong>Syniti ADMM</strong></p> <li> <p>Provide technical direction to the data conversion team</p> <li> <p>Collaborate with functional teams to map and transform source data</p> <li> <p>Conduct data profiling, cleansing, and reconciliation</p> <li> <p>Develop and monitor data quality dashboards and pre/post-validation reports</p> </ul> <hr> <h3><strong>Required Qualifications:</strong></h3> <ul> <li> <p><strong>5\u201310 years of SAP MDM/Data Migration experience</strong></p> <li> <p>Minimum of <strong>5 full-cycle SAP implementations</strong></p> <li> <p><strong>Expertise with Syniti ADMM (Advanced Data Migration and Management)</strong><br> (Candidates with <strong>BODS only</strong> will be considered after Syniti profiles)</p> <li> <p>Experience loading S/4HANA data using IDOCs, LTMC/LTMOM, LSMW, and custom methods</p> <li> <p>Strong hands-on experience in SQL and data analysis tools</p> <li> <p>Proven knowledge of SAP data objects and functional modules:</p> <ul> </ul><li> <p>FI, CO (Record to Report)</p> <li> <p>MM, IM, EWM (Procure to Pay)</p> <li> <p>PM, QM, IBP, PS, HR</p> </ul> <hr> <h3><strong>Preferred Experience:</strong></h3> <ul> <li> <p>Data migration project experience in the <strong>Energy or Natural Resources sector</strong></p> <li> <p>Deep hands-on knowledge of Syniti ADMM tools:</p> <ul> </ul><li> <p>Snapshot Management (data extraction)</p> <li> <p>Quality Module (profiling, dashboards)</p> <li> <p>Syniti Match, Construct, Migrate apps</p> <li> <p>Data migration cockpit and LTMOM</p> <li> <p>Data orchestration and CDC (Change Data Capture)</p> <li> <p>Security features (encryption, masking, user management)</p> </ul>",
+      "location": "",
+      "country": "Canada",
+      "date": "July 31, 2025",
+      "referencenumber": "GR572QXDD1",
+      "remotetype": "Hybrid",
+      "url": "https://apply.myticas.com/34087/SAP%20Data%20Migration%20Lead/?source=LinkedIn",
+      "salary": "",
+      "jobfunction": "Information Technology",
+      "jobindustries": "Computer Software",
+      "senioritylevel": "Mid-Senior level"
+    },
     "34230": {
       "id": "34230",
       "title": "SAP Fiori Consultant (34230)",
