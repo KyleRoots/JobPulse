@@ -114,7 +114,7 @@
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada]]></country>
-    <category/>
+    <category></category>
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Onsite]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
@@ -503,7 +503,7 @@
     <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
-    <title>IT Business Analyst – SharePoint &amp; RFP Consultant (34103)</title>
+    <title><![CDATA[IT Business Analyst – SharePoint &amp; RFP Consultant (34103)]]></title>
     <company><![CDATA[Myticas Consulting]]></company>
     <date><![CDATA[August 05, 2025]]></date>
     <referencenumber><![CDATA[6HVML79X3M]]></referencenumber>
@@ -563,7 +563,7 @@
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
-    <title>MuleSoft Developer &amp; Integration Consultant (34105)</title>
+    <title><![CDATA[MuleSoft Developer &amp; Integration Consultant (34105)]]></title>
     <company><![CDATA[Myticas Consulting]]></company>
     <date><![CDATA[August 06, 2025]]></date>
     <referencenumber><![CDATA[U2JLCYL4W6]]></referencenumber>
@@ -619,11 +619,11 @@
     <remotetype><![CDATA[Onsite]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AG1: Adam Gebara]]></assignedrecruiter>
     <jobfunction><![CDATA[Engineering]]></jobfunction>
-    <jobindustries>Aviation and Aerospace</jobindustries>
+    <jobindustries><![CDATA[Aviation and Aerospace]]></jobindustries>
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
-    <title>Senior High-Speed Analog IC Design R&amp;D Engineer (34222)</title>
+    <title><![CDATA[Senior High-Speed Analog IC Design R&amp;D Engineer (34222)]]></title>
     <company><![CDATA[Myticas Consulting]]></company>
     <date><![CDATA[August 08, 2025]]></date>
     <referencenumber><![CDATA[FYZJNKLY9S]]></referencenumber>
@@ -691,10 +691,10 @@
     <url><![CDATA[https://apply.myticas.com/34101/Sr.%20Drupal%20Developer/?source=LinkedIn]]></url>
     <description><![CDATA[<p>We are seeking a highly skilled <strong>Senior Drupal Developer</strong> with deep experience in PHP and Drupal to lead and support the development of robust, scalable web solutions. The ideal candidate has a strong command of both front-end and back-end development, is comfortable working with a variety of contrib modules and custom code, and thrives in a collaborative, DevOps-driven environment.</p> <p><strong>Key Responsibilities:</strong></p> <ul> <li> <p>Lead and contribute to the design, development, and maintenance of Drupal-based websites and applications.</p> <li> <p>Build and customize content types, views, and display logic using modules such as Display Suite and Webforms.</p> <li> <p>Develop custom modules and maintain high standards for coding practices, testing, and documentation.</p> <li> <p>Optimize site performance through Search API integrations with ElasticSearch.</p> <li> <p>Lead or support complex Drupal migrations using the <strong>Drupal Migrate</strong> module.</p> <li> <p>Apply and create patches to core and contrib modules as necessary.</p> <li> <p>Integrate and develop web services (RESTful APIs) and support external integrations.</p> <li> <p>Collaborate with front-end developers using JavaScript and CSS/Sass to create seamless user experiences.</p> <li> <p>Utilize container-based development environments using <strong>Docker DDEV</strong> or work in <strong>VirtualBox</strong>-based systems (e.g., AlmaLinux).</p> <li> <p>Manage source control, branching, and CI/CD pipelines using <strong>Git</strong> and <strong>GitHub Actions</strong>.</p> <li> <p>Participate in code reviews, sprint planning, and DevOps discussions.</p> </ul> <p><strong>Required Qualifications:</strong></p> <ul> <li> <p>5+ years of hands-on experience with <strong>Drupal (7/8/9/10)</strong> and <strong>PHP</strong> development.</p> <li> <p>Expertise in a wide variety of <strong>contrib modules</strong> and <strong>custom module development</strong>.</p> <li> <p>Deep understanding of <strong>Drupal theming</strong>, <strong>content type customization</strong>, and <strong>site-building best practices</strong>.</p> <li> <p>Strong experience with <strong>Search API</strong>, <strong>ElasticSearch</strong>, and performance tuning.</p> <li> <p>Demonstrated knowledge of <strong>web services integration</strong> and <strong>Drupal migration</strong> workflows.</p> <li> <p>Competency with front-end technologies including <strong>JavaScript</strong>, <strong>CSS/Sass</strong>.</p> <li> <p>Proficiency with <strong>Docker DDEV</strong> or <strong>VirtualBox</strong>-based Linux environments (especially <strong>AlmaLinux</strong>).</p> <li> <p>Comfortable with <strong>Git</strong>, <strong>GitHub</strong>, and CI/CD pipelines.</p> </ul> <p><strong>Nice to Have:</strong></p> <ul> <li> <p>Experience integrating with <strong>Microsoft Dynamics 365 CRM</strong>.</p> <li> <p>Familiarity with <strong>Azure Cloud</strong> environments.</p> <li> <p>Knowledge of <strong>C# and .NET</strong> development.</p> </ul> <p><strong>Personal Attributes:</strong></p> <ul> <li> <p>Strong problem-solving skills and attention to detail.</p> <li> <p>Ability to work independently and in a team environment.</p> <li> <p>Excellent communication and time management skills.</p> </ul>]]></description>
     <jobtype><![CDATA[Contract]]></jobtype>
-    <city></city>
+    <city/>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada]]></country>
-    <category></category>
+    <category/>
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AG1: Adam Gebara]]></assignedrecruiter>
@@ -818,7 +818,7 @@
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Onsite]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-DS1: Dan Sifer]]></assignedrecruiter>
-    <jobfunction><![CDATA[Analyst]]></jobfunction>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
     <jobindustries><![CDATA[Biotechnology]]></jobindustries>
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
@@ -843,7 +843,7 @@
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
-    <title>Employment Equity Resource - Federal Job Evaluation &amp; Pay Equity (34080)</title>
+    <title><![CDATA[Employment Equity Resource - Federal Job Evaluation &amp; Pay Equity (34080)]]></title>
     <company><![CDATA[Myticas Consulting]]></company>
     <date><![CDATA[July 29, 2025]]></date>
     <referencenumber><![CDATA[DX27O6XUO5]]></referencenumber>
@@ -899,7 +899,7 @@
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Matheo Theodossiou]]></assignedrecruiter>
     <jobfunction><![CDATA[Product Management]]></jobfunction>
-    <jobindustries><![CDATA[Computer Networking]]></jobindustries>
+    <jobindustries><![CDATA[Telecommunications]]></jobindustries>
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
@@ -1059,7 +1059,7 @@
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RS1: Myticas Recruiter]]></assignedrecruiter>
     <jobfunction><![CDATA[Legal]]></jobfunction>
-    <jobindustries><![CDATA[Legal Services]]></jobindustries>
+    <jobindustries><![CDATA[Alternative Dispute Resolution]]></jobindustries>
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
@@ -1198,7 +1198,7 @@
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Onsite]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-CC1: Christine Carter]]></assignedrecruiter>
-    <jobfunction><![CDATA[Marketing]]></jobfunction>
+    <jobfunction><![CDATA[Consulting]]></jobfunction>
     <jobindustries><![CDATA[Marketing and Advertising]]></jobindustries>
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
