@@ -1985,13 +1985,45 @@ class XMLIntegrationService:
                     for update in fields_updated:
                         self.logger.info(f"  - {update['field']}: '{update['old']}' → '{update['new']}'")
                     
-                    # Remove and re-add the job with all updated fields
-                    self.logger.info(f"Removing job {job_id} for complete re-sync...")
-                    if self.remove_job_from_xml(xml_file_path, job_id):
-                        self.logger.info(f"Re-adding job {job_id} with updated fields...")
-                        return self.add_job_to_xml(xml_file_path, bullhorn_job, monitor_name)
+                    # CRITICAL FIX: Use in-place field updates instead of remove-and-add to preserve reference numbers
+                    self.logger.info(f"🔒 PERFORMING IN-PLACE UPDATE for job {job_id} to preserve reference numbers")
+                    
+                    # Get existing reference number and AI fields for preservation
+                    existing_reference = None
+                    existing_ai_fields = {}
+                    
+                    ref_elem = current_xml_job.find('.//referencenumber')
+                    if ref_elem is not None and ref_elem.text:
+                        existing_reference = ref_elem.text.strip()
+                        if 'CDATA' in existing_reference:
+                            existing_reference = existing_reference[9:-3].strip()
+                    
+                    # Get existing AI fields
+                    ai_fields = ['jobfunction', 'jobindustries', 'senioritylevel']
+                    for ai_field in ai_fields:
+                        ai_elem = current_xml_job.find(f'.//{ai_field}')
+                        if ai_elem is not None and ai_elem.text:
+                            ai_value = ai_elem.text.strip()
+                            if 'CDATA' in ai_value:
+                                ai_value = ai_value[9:-3].strip()
+                            if ai_value:
+                                existing_ai_fields[ai_field] = ai_value
+                    
+                    # Perform in-place field updates
+                    success = self._update_fields_in_place(
+                        xml_file_path, 
+                        job_id, 
+                        bullhorn_job, 
+                        existing_reference, 
+                        existing_ai_fields if existing_ai_fields else None, 
+                        monitor_name
+                    )
+                    
+                    if success:
+                        self.logger.info(f"✅ In-place update completed for job {job_id} - reference number preserved: {existing_reference}")
+                        return True
                     else:
-                        self.logger.error(f"Failed to remove job {job_id} during comprehensive sync")
+                        self.logger.error(f"Failed in-place update for job {job_id}")
                         return False
                 else:
                     self.logger.info(f"✅ Job {job_id} is already fully synchronized - all fields match")

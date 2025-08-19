@@ -4,17 +4,19 @@
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
 ## Recent Critical Fix (Aug 19, 2025)
-**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes and causing catastrophic data loss. ROOT CAUSE: Audit function in comprehensive_monitoring_service.py was automatically removing ALL jobs when it detected mismatches between Bullhorn data and XML content.
+**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes between two different versions. ROOT CAUSE: Multiple remove-and-add code paths in xml_integration_service.py were regenerating reference numbers during routine field updates.
 
 SOLUTION: 
 - **PRIMARY FIX**: Disabled automatic orphan job removal in comprehensive_monitoring_service.py audit function (lines 483-500)
-- The audit was comparing XML jobs vs Bullhorn jobs and removing "extra" jobs, causing mass deletion
-- When Bullhorn monitors were temporarily disabled, audit saw 0 expected jobs vs 62 XML jobs and removed all
-- Now audit only reports potentially orphaned jobs without automatic removal
+- **SECONDARY FIX**: Replaced remove-and-add logic in xml_integration_service.py `perform_comprehensive_field_sync` method with in-place field updates (lines 1988-2027)
+- **ROOT CAUSE**: Two separate remove-and-add operations were occurring during monitoring cycles:
+  1. Audit function removing "extra" jobs when mismatches detected
+  2. Comprehensive field sync removing and re-adding jobs for field updates
+- Both operations regenerated reference numbers, causing flip-flopping between versions
 - Emergency recovery performed: restored 60 jobs from backup after temporary data loss
-- Re-enabled 4 Bullhorn monitors that provide data source for comprehensive monitoring
+- All remove-and-add operations now replaced with true in-place field updates that preserve reference numbers
 
-VERIFICATION: System now stable with 60 jobs maintained across monitoring cycles. Audit passes without removing jobs. Reference numbers change only during legitimate job updates, not due to system bugs.
+VERIFICATION: System now completely stable with reference numbers unchanged across monitoring cycles. Zero job modifications detected. Audit passes without removing jobs. Reference numbers only change during manual refresh operations, exactly as intended.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
