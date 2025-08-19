@@ -3,18 +3,18 @@
 ## Overview
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
-## Recent Critical Fix (Aug 18, 2025)
-**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes between two different values (Y2RM2JZYLQ ↔ 309DDYTBXW). ROOT CAUSE: Complete remove-and-add remapping happening every monitoring cycle in app.py lines 2342-2367.
+## Recent Critical Fix (Aug 19, 2025)
+**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes and causing catastrophic data loss. ROOT CAUSE: Audit function in comprehensive_monitoring_service.py was automatically removing ALL jobs when it detected mismatches between Bullhorn data and XML content.
 
 SOLUTION: 
-- Completely disabled scheduled file synchronization code in app.py (lines 358-366)
-- Deactivated problematic schedule entry (ID 15) in database  
-- Disabled audit field corrections during monitoring cycles in comprehensive_monitoring_service.py to prevent XML regeneration
-- Replaced remove-and-add behavior in `update_job_in_xml` with true in-place field updates to eliminate reference number regeneration
-- Implemented `_update_fields_in_place` method for stable field updates without XML structure changes
-- **ULTIMATE FIX**: Disabled complete remapping process in app.py (lines 2326-2343) that was removing and re-adding ALL jobs every 5 minutes
+- **PRIMARY FIX**: Disabled automatic orphan job removal in comprehensive_monitoring_service.py audit function (lines 483-500)
+- The audit was comparing XML jobs vs Bullhorn jobs and removing "extra" jobs, causing mass deletion
+- When Bullhorn monitors were temporarily disabled, audit saw 0 expected jobs vs 62 XML jobs and removed all
+- Now audit only reports potentially orphaned jobs without automatic removal
+- Emergency recovery performed: restored 60 jobs from backup after temporary data loss
+- Re-enabled 4 Bullhorn monitors that provide data source for comprehensive monitoring
 
-VERIFICATION: Reference numbers now remain completely stable during monitoring cycles. System uses field monitoring without any remove-and-add operations that could regenerate reference numbers.
+VERIFICATION: System now stable with 60 jobs maintained across monitoring cycles. Audit passes without removing jobs. Reference numbers change only during legitimate job updates, not due to system bugs.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

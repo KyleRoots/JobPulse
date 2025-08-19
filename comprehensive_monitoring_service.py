@@ -478,14 +478,25 @@ class ComprehensiveMonitoringService:
             extra_jobs = xml_ids - bullhorn_ids
             
             if extra_jobs:
-                self.logger.warning(f"Audit found {len(extra_jobs)} extra jobs in XML")
-                for job_id in extra_jobs:
-                    self._remove_job_from_xml(xml_file, job_id)
-                    audit_results['corrections_made'] += 1
-                    audit_results['corrections'].append({
-                        'job_id': job_id,
-                        'action': 'removed_extra_job'
-                    })
+                # CRITICAL FIX: Do NOT remove "extra" jobs during routine audit
+                # These could be legitimate jobs that are temporarily unavailable from Bullhorn
+                # Only manual cleanup should remove jobs to prevent data loss
+                self.logger.warning(f"Audit found {len(extra_jobs)} potentially orphaned jobs in XML")
+                self.logger.info(f"🔒 ORPHAN REMOVAL DISABLED during routine audit to prevent data loss")
+                self.logger.info(f"    Potentially orphaned job IDs: {sorted(list(extra_jobs))}")
+                self.logger.info(f"    Use manual cleanup if these are confirmed orphans")
+                
+                # Track but don't remove - let manual processes handle orphan cleanup
+                audit_results['issues'].append(f"Found {len(extra_jobs)} potentially orphaned jobs - manual review needed")
+                
+                # DISABLED: Automatic removal during routine monitoring
+                # for job_id in extra_jobs:
+                #     self._remove_job_from_xml(xml_file, job_id)
+                #     audit_results['corrections_made'] += 1
+                #     audit_results['corrections'].append({
+                #         'job_id': job_id,
+                #         'action': 'removed_extra_job'
+                #     })
             
             # Final verification
             if audit_results['corrections_made'] == 0 and not audit_results['issues']:
