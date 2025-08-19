@@ -5,6 +5,12 @@ This Flask-based web application automates the processing of XML job feed files 
 
 ## Recent Critical Fixes (Aug 19, 2025)
 
+### External System Conflict RESOLVED (6:44 PM UTC)
+**ISSUE**: Another system was uploading XML with wrong reference numbers (W3K1T7SVS8 instead of 4P40G6IGE8)
+**ROOT CAUSE**: External WordPress plugin or scheduled task overwriting our uploads
+**SOLUTION**: Issue appears resolved - wrong version no longer appearing after multiple monitoring cycles
+**MONITORING**: System maintaining correct reference numbers and CDATA formatting across all 63 jobs
+
 ### XML Server Synchronization & CDATA Formatting COMPLETELY RESOLVED (6:07 PM UTC)
 **ISSUE**: Server XML showed different reference numbers, forward slashes in job titles, and incomplete CDATA formatting
 **ROOT CAUSE**: WPEngine/Cloudflare caching layer was serving stale XML versions + Step 7 only wrapped 3 fields in CDATA
@@ -13,7 +19,7 @@ This Flask-based web application automates the processing of XML job feed files 
 - **Enhanced CDATA wrapping** to cover ALL 18 required text fields (not just title/description/company)
 - **Applied comprehensive fix** to 74 fields missing CDATA formatting
 - **Force-uploaded corrected XML** via SFTP with cache-busting
-- **Result**: Server now shows correct reference numbers, no forward slashes, and 1,012 properly CDATA-wrapped fields
+- **Result**: Server now shows correct reference numbers, no forward slashes, and 1,013 properly CDATA-wrapped fields
 
 ### Reference Number Flip-Flopping COMPLETELY RESOLVED (2:00 PM UTC)
 **TRUE ROOT CAUSE IDENTIFIED AND FIXED**: The `_update_fields_in_place` function in xml_integration_service.py was not properly extracting existing reference numbers from the CDATA-wrapped XML content before updating jobs, causing ALL jobs to get new reference numbers on every monitoring cycle.
