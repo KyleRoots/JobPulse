@@ -198,9 +198,19 @@ class ComprehensiveMonitoringService:
             
             # STEP 4: Monitor field modifications
             self.logger.info("\n🔍 STEP 4: Checking for field modifications...")
+            jobs_checked_count = 0
             for job_id in jobs_to_check:
                 bullhorn_job = bullhorn_jobs[job_id]
                 xml_job = current_xml_jobs[job_id]
+                jobs_checked_count += 1
+                
+                # Debug log for job 32444 (Legal Invoice Analyst)
+                if job_id == '32444':
+                    self.logger.info(f"    🔍 DEBUG: Checking job 32444 title...")
+                    self.logger.info(f"        Bullhorn title: {bullhorn_job.get('title', 'N/A')}")
+                    xml_title_match = re.search(r'<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>', xml_job.get('_xml_content', ''))
+                    if xml_title_match:
+                        self.logger.info(f"        XML title: {xml_title_match.group(1).strip()}")
                 
                 modifications = self._check_field_modifications(bullhorn_job, xml_job)
                 if modifications:
@@ -215,6 +225,17 @@ class ComprehensiveMonitoringService:
                     })
                     cycle_results['jobs_modified'] += 1
                     self.logger.info(f"    Modified job {job_id}: {len(modifications)} field changes")
+                    # Log specific changes for debugging
+                    for mod in modifications:
+                        self.logger.info(f"        Changed {mod['field']}: '{mod['old_value']}' → '{mod['new_value']}'")
+            
+            # Log Step 4 summary
+            if jobs_checked_count > 0:
+                self.logger.info(f"    ✅ STEP 4 checked {jobs_checked_count} jobs for modifications")
+                if cycle_results['jobs_modified'] == 0:
+                    self.logger.info(f"    📝 No field modifications detected in any of the {jobs_checked_count} jobs")
+            else:
+                self.logger.info(f"    ⚠️ STEP 4 had no jobs to check (all jobs might be new additions)")
             
             # STEP 7: Review and fix CDATA/HTML formatting
             self.logger.info("\n🔧 STEP 7: Reviewing CDATA and HTML formatting...")
