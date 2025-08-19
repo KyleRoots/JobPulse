@@ -159,10 +159,17 @@ class ComprehensiveMonitoringService:
                 'field_corrections': []
             }
             
-            # STEP 2: Add new jobs
+            # STEP 2: Add new jobs with duplicate prevention
             if jobs_to_add:
                 self.logger.info("\n➕ Adding new jobs to XML...")
                 for job_id in jobs_to_add:
+                    # CRITICAL: Double-check job doesn't already exist before adding
+                    # This prevents duplicate additions during race conditions
+                    current_xml_jobs = self._load_xml_jobs(xml_file)
+                    if job_id in current_xml_jobs:
+                        self.logger.warning(f"    ⚠️ DUPLICATE PREVENTION: Job {job_id} already exists in XML, skipping addition")
+                        continue
+                    
                     job_data = bullhorn_jobs[job_id]
                     self._add_job_to_xml(xml_file, job_data)
                     cycle_changes['added'].append({
@@ -173,18 +180,20 @@ class ComprehensiveMonitoringService:
                     cycle_results['jobs_added'] += 1
                     self.logger.info(f"    Added job {job_id}: {job_data.get('title')}")
             
-            # STEP 3: Remove obsolete jobs
+            # STEP 3: CRITICAL FIX - DO NOT REMOVE JOBS DURING MONITORING
+            # Jobs should only be removed during manual operations to prevent reference number changes
             if jobs_to_remove:
-                self.logger.info("\n➖ Removing obsolete jobs from XML...")
+                self.logger.info("\n⚠️ ORPHAN DETECTION: Found jobs not in Bullhorn but SKIPPING removal to preserve reference numbers")
                 for job_id in jobs_to_remove:
                     job_info = current_xml_jobs.get(job_id, {})
-                    self._remove_job_from_xml(xml_file, job_id)
+                    self.logger.info(f"    ⚠️ DETECTED (but not removing): Job {job_id}: {job_info.get('title', f'Job {job_id}')}")
+                    # Track as potential orphans but DON'T remove
                     cycle_changes['removed'].append({
                         'id': job_id,
-                        'title': job_info.get('title', f'Job {job_id}')
+                        'title': job_info.get('title', f'Job {job_id}'),
+                        'action': 'detected_not_removed'
                     })
-                    cycle_results['jobs_removed'] += 1
-                    self.logger.info(f"    Removed job {job_id}: {job_info.get('title')}")
+                self.logger.info(f"    📌 {len(jobs_to_remove)} orphaned jobs detected but preserved - manual review recommended")
             
             # STEP 4: Monitor field modifications
             self.logger.info("\n🔍 STEP 4: Checking for field modifications...")

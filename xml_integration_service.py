@@ -1939,8 +1939,18 @@ class XMLIntegrationService:
                     self.logger.warning(f"Job {job_id} not found during comprehensive sync")
                     return False
                 
+                # CRITICAL FIX: Extract existing reference number BEFORE mapping for comparison
+                existing_ref_for_comparison = None
+                ref_elem = current_xml_job.find('.//referencenumber')
+                if ref_elem is not None and ref_elem.text:
+                    existing_ref_for_comparison = ref_elem.text.strip()
+                    if 'CDATA' in existing_ref_for_comparison:
+                        existing_ref_for_comparison = existing_ref_for_comparison[9:-3].strip()
+                    self.logger.debug(f"Using existing reference {existing_ref_for_comparison} for comparison mapping")
+                
                 # Map Bullhorn data to XML format for comprehensive comparison
-                new_xml_data = self.map_bullhorn_job_to_xml(bullhorn_job, None, monitor_name, skip_ai_classification=False)
+                # CRITICAL: Pass existing reference to prevent generating new one during comparison
+                new_xml_data = self.map_bullhorn_job_to_xml(bullhorn_job, existing_ref_for_comparison, monitor_name, skip_ai_classification=False)
                 
                 # Compare ALL fields comprehensively
                 fields_to_sync = [
