@@ -54,6 +54,10 @@ class XMLIntegrationService:
             job_id = str(bullhorn_job.get('id', ''))
             title = bullhorn_job.get('title', 'Untitled Position')
             
+            # CRITICAL FIX: Remove forward slashes from job titles
+            # Replace forward slash with space to prevent URL and XML issues
+            title = title.replace('/', ' ')
+            
             # Ensure job_id is not empty for validation
             if not job_id or job_id == 'None':
                 self.logger.error(f"Invalid job ID: {job_id} for job: {title}")
