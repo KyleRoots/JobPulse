@@ -2536,7 +2536,21 @@ def process_comprehensive_bullhorn_monitors():
                         
                         # ONLY add CDATA if it's missing - don't touch fields that already have CDATA
                         # This regex only matches fields WITHOUT CDATA (no <![CDATA[ in the content)
-                        content = re.sub(r'<(title|description|company)>(?!<!\[CDATA\[)([^<]+)</\1>', r'<\1><![CDATA[\2]]></\1>', content)
+                        # Apply CDATA to ALL text fields that need it
+                        fields_needing_cdata = [
+                            'title', 'description', 'company', 'date', 'referencenumber',
+                            'bhatsid', 'url', 'jobtype', 'city', 'state', 'country',
+                            'apply_email', 'remotetype', 'assignedrecruiter', 
+                            'jobfunction', 'jobindustries', 'senioritylevel', 'publisher', 'publisherurl'
+                        ]
+                        
+                        for field in fields_needing_cdata:
+                            # Only add CDATA if not already present
+                            content = re.sub(
+                                rf'<{field}>(?!<!\[CDATA\[)([^<]+)</{field}>',
+                                rf'<{field}><![CDATA[\1]]></{field}>',
+                                content
+                            )
                         
                         # Use html.unescape for proper HTML entity handling
                         import html
