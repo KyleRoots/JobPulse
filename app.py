@@ -2078,11 +2078,30 @@ def process_comprehensive_bullhorn_monitors():
                         jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
                     
                     if jobs:
+                        # ENHANCEMENT: Refresh each job with latest data from entity API
+                        # This bypasses tearsheet caching to ensure we get real-time updates
+                        refreshed_count = 0
                         for job in jobs:
                             job_id = str(job.get('id'))
+                            
+                            # Try to get fresh data directly from entity API
+                            try:
+                                fresh_job = bullhorn_service.get_job_by_id(int(job_id))
+                                if fresh_job:
+                                    # Merge fresh data with tearsheet data (fresh data takes precedence)
+                                    job.update(fresh_job)
+                                    refreshed_count += 1
+                                    
+                                    # Log if title changed
+                                    if 'title' in fresh_job and fresh_job['title'] != job.get('title'):
+                                        app.logger.info(f"    📝 Job {job_id} title updated: '{job.get('title')}' → '{fresh_job['title']}'")
+                            except Exception as refresh_error:
+                                app.logger.debug(f"    Could not refresh job {job_id}: {str(refresh_error)}")
+                            
                             all_bullhorn_jobs[job_id] = job
                             job['_monitor_name'] = monitor.name  # Track source
-                        app.logger.info(f"    Found {len(jobs)} jobs")
+                        
+                        app.logger.info(f"    Found {len(jobs)} jobs ({refreshed_count} refreshed from entity API)")
                         monitors_processed += 1
                     else:
                         app.logger.info(f"    No jobs found")
