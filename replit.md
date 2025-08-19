@@ -3,23 +3,22 @@
 ## Overview
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
-## Recent Critical Fix (Aug 19, 2025)
-**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes between two different versions. ROOT CAUSE: Step 8 audit was downloading LIVE XML from server and automatically removing "orphaned" jobs, causing them to be re-added with new reference numbers in the next cycle.
+## Recent Critical Fixes (Aug 19, 2025)
 
-COMPREHENSIVE SOLUTION IMPLEMENTED:
-1. **Disabled automatic orphan job removal during Step 8 audit** in app.py (lines 2759-2772) - Jobs detected as orphaned are now only logged for manual review
-2. **Previously disabled orphan removal** in comprehensive_monitoring_service.py audit function (lines 483-500) and Step 3 monitoring (lines 179-193)
-3. **Fixed misleading log messages** - Changed "Jobs remapped: ALL existing jobs" to "Jobs monitored: ALL existing jobs" to accurately reflect preservation behavior
-4. **Confirmed reference number preservation** throughout add/update operations in comprehensive_monitoring_service.py
+### Job Synchronization Fix
+**RESTORED PROPER JOB REMOVAL**: Re-enabled automatic removal of jobs that no longer exist in Bullhorn tearsheets. This ensures 100% accurate synchronization between Bullhorn and XML:
+- **NEW jobs from Bullhorn** → Automatically added to XML with new reference numbers
+- **REMOVED jobs from Bullhorn** → Automatically removed from XML (previously was only detecting but not removing)
+- **MODIFIED jobs in Bullhorn** → Fields updated in-place while preserving reference numbers
 
-ROOT CAUSE IDENTIFIED:
-- Step 8 audit was downloading LIVE XML from server
-- Detecting jobs as "orphaned" when server had older data
-- Automatically removing these jobs from local XML
-- Next cycle would re-add them with NEW reference numbers
-- Created endless flip-flop cycle between two reference numbers
+### URL Encoding Fix
+**SPECIAL CHARACTERS IN JOB TITLES**: Fixed 404 errors for job titles containing "/" characters by replacing them with hyphens before URL encoding. Example: "Legal Invoice Analyst/Initial Reviewer" now generates working application URLs.
 
-VERIFICATION COMPLETE: System tested stable through multiple 5-minute monitoring cycles. Job 34230 consistently maintains reference number `MFXO0NSF6I`. All 60 jobs maintain stable reference numbers. Reference numbers now ONLY change during manual "Refresh All" operations, exactly as intended.
+### Reference Number Stability
+**REFERENCE NUMBERS PRESERVED**: Reference numbers remain stable during monitoring cycles and only change during manual "Refresh All" operations. The system uses in-place field updates instead of remove-and-add operations to maintain reference number consistency.
+
+### HTML Description Formatting
+**KNOWN ISSUE**: XML Change Monitor detects ~30 "modified" jobs each cycle due to HTML description formatting changes between `<span>` and `<p>` tags. This is cosmetic and doesn't affect data integrity or reference numbers.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

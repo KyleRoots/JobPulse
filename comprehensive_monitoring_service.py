@@ -180,20 +180,21 @@ class ComprehensiveMonitoringService:
                     cycle_results['jobs_added'] += 1
                     self.logger.info(f"    Added job {job_id}: {job_data.get('title')}")
             
-            # STEP 3: CRITICAL FIX - DO NOT REMOVE JOBS DURING MONITORING
-            # Jobs should only be removed during manual operations to prevent reference number changes
+            # STEP 3: Remove jobs that no longer exist in Bullhorn
+            # These are jobs that have been closed/deleted in Bullhorn and should be removed from XML
             if jobs_to_remove:
-                self.logger.info("\n⚠️ ORPHAN DETECTION: Found jobs not in Bullhorn but SKIPPING removal to preserve reference numbers")
+                self.logger.info("\n➖ STEP 3: Removing jobs no longer in Bullhorn...")
                 for job_id in jobs_to_remove:
                     job_info = current_xml_jobs.get(job_id, {})
-                    self.logger.info(f"    ⚠️ DETECTED (but not removing): Job {job_id}: {job_info.get('title', f'Job {job_id}')}")
-                    # Track as potential orphans but DON'T remove
+                    self.logger.info(f"    Removing job {job_id}: {job_info.get('title', f'Job {job_id}')}")
+                    self._remove_job_from_xml(xml_file, job_id)
                     cycle_changes['removed'].append({
                         'id': job_id,
                         'title': job_info.get('title', f'Job {job_id}'),
-                        'action': 'detected_not_removed'
+                        'action': 'removed'
                     })
-                self.logger.info(f"    📌 {len(jobs_to_remove)} orphaned jobs detected but preserved - manual review recommended")
+                    cycle_results['jobs_removed'] += 1
+                self.logger.info(f"    ✅ Removed {len(jobs_to_remove)} jobs that are no longer in Bullhorn")
             
             # STEP 4: Monitor field modifications
             self.logger.info("\n🔍 STEP 4: Checking for field modifications...")
