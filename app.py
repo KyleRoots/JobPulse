@@ -6214,6 +6214,66 @@ scheduler.add_job(
 )
 app.logger.info("Scheduled daily file cleanup job")
 
+# Daily Lightweight Reference Number Refresh
+def daily_reference_refresh():
+    """Daily automatic refresh of all reference numbers while preserving all other XML data"""
+    with app.app_context():
+        try:
+            app.logger.info("🔄 Starting daily reference number refresh...")
+            
+            # Import the lightweight refresh function
+            from lightweight_reference_refresh import lightweight_refresh_references
+            
+            # Refresh reference numbers in the main XML file
+            result = lightweight_refresh_references('myticas-job-feed.xml')
+            
+            if result['success']:
+                app.logger.info(f"✅ Daily reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
+                
+                # Upload to SFTP
+                try:
+                    ftp_service = get_ftp_service()
+                    if ftp_service:
+                        upload_success = ftp_service.upload_file('myticas-job-feed.xml', 'myticas-job-feed.xml')
+                        if upload_success:
+                            app.logger.info("📤 Refreshed XML uploaded to server successfully")
+                        else:
+                            app.logger.warning("Failed to upload refreshed XML to server")
+                except Exception as upload_error:
+                    app.logger.error(f"Error uploading refreshed XML: {str(upload_error)}")
+                
+                # Log activity
+                try:
+                    activity = BullhornActivity(
+                        monitor_id=None,  # System-level activity
+                        activity_type='reference_refresh',
+                        details=f'Daily automatic refresh: {result["jobs_updated"]} reference numbers updated',
+                        notification_sent=False,
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.add(activity)
+                    db.session.commit()
+                except Exception as log_error:
+                    app.logger.warning(f"Could not log refresh activity: {str(log_error)}")
+                    
+            else:
+                app.logger.error(f"❌ Daily reference refresh failed: {result.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            app.logger.error(f"Daily reference refresh error: {str(e)}")
+
+# Schedule daily reference refresh at 3:00 AM UTC
+scheduler.add_job(
+    func=daily_reference_refresh,
+    trigger='cron',
+    hour=3,
+    minute=0,
+    id='daily_reference_refresh',
+    name='Daily Reference Number Refresh',
+    replace_existing=True
+)
+app.logger.info("📅 Scheduled daily reference number refresh at 3:00 AM UTC")
+
 # XML Change Monitor - monitors live XML file for changes and sends focused notifications
 def run_xml_change_monitor():
     """Run XML change monitor and send notifications for detected changes"""
