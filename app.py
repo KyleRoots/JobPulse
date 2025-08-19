@@ -2757,39 +2757,16 @@ def process_comprehensive_bullhorn_monitors():
                         audit_passed = False
                         
                     if extra_jobs:
-                        app.logger.warning(f"    ⚠️ LIVE AUDIT: {len(extra_jobs)} ORPHANED jobs in LIVE {xml_file} - REBUILDING XML!")
-                        app.logger.info(f"       Orphaned job IDs to remove: {sorted(list(extra_jobs))}")
-                        audit_summary.append(f"Removed {len(extra_jobs)} orphaned jobs from LIVE {xml_file}: {sorted(list(extra_jobs)[:3])}{'...' if len(extra_jobs) > 3 else ''}")
+                        # CRITICAL FIX: DO NOT REMOVE JOBS DURING AUDIT - This causes reference number flip-flopping
+                        # Jobs detected as "orphaned" might just be temporarily out of sync between server and local
+                        app.logger.warning(f"    ⚠️ LIVE AUDIT: {len(extra_jobs)} potential orphans detected but NOT removing (prevents ref# instability)")
+                        app.logger.info(f"       Potential orphan IDs (manual review recommended): {sorted(list(extra_jobs))[:10]}...")
+                        audit_summary.append(f"Detected {len(extra_jobs)} potential orphans in {xml_file} (removal disabled for stability)")
                         
-                        # REMOVE ORPHANED JOBS - Simple direct approach
-                        app.logger.info(f"    🔧 REMOVING {len(extra_jobs)} orphaned jobs from {xml_file}...")
-                        try:
-                            xml_service = XMLIntegrationService()
-                            
-                            # Create backup before making changes
-                            temp_backup = f"{xml_file}.orphan_cleanup_backup"
-                            shutil.copy2(xml_file, temp_backup)
-                            
-                            # Remove each orphaned job directly
-                            jobs_removed = 0
-                            for orphan_job_id in sorted(list(extra_jobs)):
-                                app.logger.info(f"    🗑️ Removing orphaned job {orphan_job_id}")
-                                try:
-                                    success = xml_service.remove_job_from_xml(xml_file, orphan_job_id)
-                                    if success:
-                                        jobs_removed += 1
-                                        app.logger.info(f"    ✅ Successfully removed orphaned job {orphan_job_id}")
-                                    else:
-                                        app.logger.warning(f"    ⚠️ Failed to remove orphaned job {orphan_job_id}")
-                                except Exception as remove_error:
-                                    app.logger.error(f"    ❌ Error removing job {orphan_job_id}: {str(remove_error)}")
-                            
-                            app.logger.info(f"    ✅ ORPHAN CLEANUP: Removed {jobs_removed}/{len(extra_jobs)} orphaned jobs from {xml_file}")
-                            corrections_made += jobs_removed
-                            
-                        except Exception as e:
-                            app.logger.error(f"    ❌ Error removing orphaned jobs from {xml_file}: {str(e)}")
-                            audit_passed = False
+                        # DISABLED: Automatic orphan removal during audit to prevent reference number flip-flopping
+                        # The server might have older data causing false orphan detection
+                        app.logger.info(f"    🔒 ORPHAN REMOVAL DISABLED: Preserving job stability and reference numbers")
+                        app.logger.info(f"    📌 Manual review recommended for potential orphans: {sorted(list(extra_jobs))[:5]}...")
                             
                     if missing_jobs:
                         corrections_made += len(missing_jobs)
@@ -2816,9 +2793,9 @@ def process_comprehensive_bullhorn_monitors():
             app.logger.info(f"⏱️  Cycle time: {cycle_time:.2f} seconds")
             app.logger.info(f"➕ Jobs added: {len(cycle_changes['added'])}")
             app.logger.info(f"➖ Jobs removed: {len(cycle_changes['removed'])}")
-            # For complete remapping, modified count represents all existing jobs
+            # For monitoring cycles, no actual remapping happens (reference numbers preserved)
             if cycle_changes['modified'] and cycle_changes['modified'][0].get('id') == 'all_existing':
-                app.logger.info(f"🔄 Jobs remapped: ALL existing jobs (complete field remapping)")
+                app.logger.info(f"📊 Jobs monitored: ALL existing jobs (reference numbers preserved)")
             else:
                 app.logger.info(f"📝 Jobs modified: {len(cycle_changes['modified'])}")
             app.logger.info(f"🔧 Format fixes: {format_fixes}")

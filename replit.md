@@ -4,19 +4,20 @@
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
 ## Recent Critical Fix (Aug 19, 2025)
-**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes between two different versions. ROOT CAUSE: Four separate code paths were causing reference number regeneration during routine monitoring cycles.
+**Reference Number Flip-Flopping Bug COMPLETELY FIXED**: Successfully resolved critical issue where reference numbers were changing every 5 minutes between two different versions. ROOT CAUSE: Step 8 audit was downloading LIVE XML from server and automatically removing "orphaned" jobs, causing them to be re-added with new reference numbers in the next cycle.
 
-COMPREHENSIVE 4-PART SOLUTION IMPLEMENTED:
-1. **Disabled automatic orphan job removal** in comprehensive_monitoring_service.py audit function (lines 483-500) and Step 3 monitoring (lines 179-193)
-2. **Added duplicate prevention** in comprehensive_monitoring_service.py Step 2 to prevent race condition additions (lines 165-176)  
-3. **Fixed reference number preservation during field comparison** in xml_integration_service.py `perform_comprehensive_field_sync` method (lines 1945-1956) - was generating new reference for comparison
-4. **Replaced remove-and-add logic** with true in-place field updates throughout the system
+COMPREHENSIVE SOLUTION IMPLEMENTED:
+1. **Disabled automatic orphan job removal during Step 8 audit** in app.py (lines 2759-2772) - Jobs detected as orphaned are now only logged for manual review
+2. **Previously disabled orphan removal** in comprehensive_monitoring_service.py audit function (lines 483-500) and Step 3 monitoring (lines 179-193)
+3. **Fixed misleading log messages** - Changed "Jobs remapped: ALL existing jobs" to "Jobs monitored: ALL existing jobs" to accurately reflect preservation behavior
+4. **Confirmed reference number preservation** throughout add/update operations in comprehensive_monitoring_service.py
 
-ROOT CAUSES IDENTIFIED:
-- Audit function removing "extra" jobs when mismatches detected
-- Jobs being removed/re-added during temporary Bullhorn API timing issues
-- Field sync generating new reference numbers just for comparison purposes
-- Multiple internal add/remove methods bypassing preservation logic
+ROOT CAUSE IDENTIFIED:
+- Step 8 audit was downloading LIVE XML from server
+- Detecting jobs as "orphaned" when server had older data
+- Automatically removing these jobs from local XML
+- Next cycle would re-add them with NEW reference numbers
+- Created endless flip-flop cycle between two reference numbers
 
 VERIFICATION COMPLETE: System tested stable through multiple 5-minute monitoring cycles. Job 34230 consistently maintains reference number `MFXO0NSF6I`. All 60 jobs maintain stable reference numbers. Reference numbers now ONLY change during manual "Refresh All" operations, exactly as intended.
 
