@@ -2534,8 +2534,9 @@ def process_comprehensive_bullhorn_monitors():
                         # Fix malformed HTML lists
                         content = re.sub(r'<li[^>]*>([^<]*(?:<[^/][^>]*>[^<]*)*[^<]*)</li>\s*<li[^>]*>', r'<li>\1</li>\n<li>', content)
                         
-                        # Ensure CDATA sections are properly formatted
-                        content = re.sub(r'<(title|description|company)>([^<]*)</\1>', r'<\1><![CDATA[\2]]></\1>', content)
+                        # ONLY add CDATA if it's missing - don't touch fields that already have CDATA
+                        # This regex only matches fields WITHOUT CDATA (no <![CDATA[ in the content)
+                        content = re.sub(r'<(title|description|company)>(?!<!\[CDATA\[)([^<]+)</\1>', r'<\1><![CDATA[\2]]></\1>', content)
                         
                         # Use html.unescape for proper HTML entity handling
                         import html

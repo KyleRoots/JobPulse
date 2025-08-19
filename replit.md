@@ -14,6 +14,12 @@ This Flask-based web application automates the processing of XML job feed files 
 - **Step 8 audit disabled LIVE XML download** (app.py lines 2557-2567) to prevent server sync issues
 - **Result**: Reference numbers now remain 100% stable during monitoring cycles - verified across multiple cycles
 
+### CDATA Formatting Issue Fixed (3:57 PM UTC)
+**ISSUE**: Step 7 formatting review was incorrectly stripping CDATA wrappers from all XML fields
+**ROOT CAUSE**: Regex pattern in Step 7 was matching fields with CDATA and replacing them without CDATA
+**FIX APPLIED**: Modified regex to only add CDATA to fields that don't already have it (app.py line 2539)
+**RESULT**: CDATA formatting now preserved during monitoring cycles
+
 ### Job Synchronization Fix
 **RESTORED PROPER JOB REMOVAL**: Re-enabled automatic removal of jobs that no longer exist in Bullhorn tearsheets. This ensures 100% accurate synchronization between Bullhorn and XML:
 - **NEW jobs from Bullhorn** → Automatically added to XML with new reference numbers
