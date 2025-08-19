@@ -471,10 +471,10 @@
     <url><![CDATA[https://apply.myticas.com/32549/FPGA%20Developer%2C%20Senior/?source=LinkedIn]]></url>
     <description><![CDATA[<p><strong>Overview:</strong><br /> A leading provider of real-time video processing technology is seeking a <strong>Senior FPGA Developer</strong> to join its core signal processing team. This group is responsible for developing high-performance media transport and processing systems used by global clients in live production, broadcast, and media environments.</p> <p>This is an opportunity to work on cutting-edge, high-bandwidth systems built on advanced FPGA platforms—delivering critical real-time features that enable professional-grade media production. You’ll be surrounded by a highly experienced team that values innovation, collaboration, and practical problem solving.</p> <p><strong>Key Responsibilities:</strong></p> <ul> <li> <p>Design and implement RTL for advanced real-time media systems with interfaces including memory, PCIe, and hardware-accelerated video processing.</p> </li> <li> <p>Develop transport protocol implementations (e.g., SDI, SMPTE 2110) within FPGAs.</p> </li> <li> <p>Collaborate on system architecture—reviewing schematics, optimizing clocking, thermal considerations, and FPGA resource allocation.</p> </li> <li> <p>Perform full IO ring designs for leading FPGA families (e.g., Arria10, Stratix-10, Ultrascale+, Agilex).</p> </li> <li> <p>Define and document high-level system requirements; support component selection and scheduling.</p> </li> <li> <p>Create simulation testbenches (Verilog/SystemVerilog); perform functional verification and debugging.</p> </li> <li> <p>Collaborate cross-functionally with software, hardware, and manufacturing teams through the full product lifecycle.</p> </li> <li> <p>Mentor peers and support technical knowledge sharing within the team.</p> </li> </ul> <p><strong>Requirements:</strong></p> <ul> <li> <p>5+ years of hands-on FPGA design experience, preferably with exposure to video or audio systems.</p> </li> <li> <p>Strong Verilog/SystemVerilog and scripting skills (TCL).</p> </li> <li> <p>Experience with Intel and/or Xilinx FPGAs and their respective toolchains (Quartus, Vivado).</p> </li> <li> <p>Familiarity with high-speed serial interfaces, DDR3/4, HBM, PLLs, and signal integrity principles.</p> </li> <li> <p>Excellent debugging and validation skills; proficiency with lab tools (oscilloscopes, logic analyzers, WFMs, etc.).</p> </li> <li> <p>Background in embedded systems (Linux, bash, C/C++) considered a plus.</p> </li> <li> <p>Understanding of media production workflows and digital video standards (SMPTE, HDR, SDI) is advantageous.</p> </li> <li> <p>Ability to work independently and collaboratively in a fast-paced engineering environment.</p> </li> </ul>]]></description>
     <jobtype><![CDATA[Direct Hire]]></jobtype>
-    <city/>
-    <state/>
+    <city></city>
+    <state></state>
     <country><![CDATA[Canada]]></country>
-    <category/>
+    <category></category>
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT2: Michael Theodossiou]]></assignedrecruiter>
@@ -503,7 +503,7 @@
     <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
-    <title>IT Business Analyst – SharePoint &amp; RFP Consultant (34103)</title>
+    <title><![CDATA[IT Business Analyst – SharePoint &amp; RFP Consultant (34103)]]></title>
     <company><![CDATA[Myticas Consulting]]></company>
     <date><![CDATA[August 05, 2025]]></date>
     <referencenumber><![CDATA[6HVML79X3M]]></referencenumber>
@@ -563,7 +563,7 @@
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
-    <title>MuleSoft Developer &amp; Integration Consultant (34105)</title>
+    <title><![CDATA[MuleSoft Developer &amp; Integration Consultant (34105)]]></title>
     <company><![CDATA[Myticas Consulting]]></company>
     <date><![CDATA[August 06, 2025]]></date>
     <referencenumber><![CDATA[U2JLCYL4W6]]></referencenumber>
@@ -619,11 +619,11 @@
     <remotetype><![CDATA[Onsite]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AG1: Adam Gebara]]></assignedrecruiter>
     <jobfunction><![CDATA[Engineering]]></jobfunction>
-    <jobindustries>Aviation and Aerospace</jobindustries>
+    <jobindustries><![CDATA[Telecommunications]]></jobindustries>
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
-    <title>Senior High-Speed Analog IC Design R&amp;D Engineer (34222)</title>
+    <title><![CDATA[Senior High-Speed Analog IC Design R&amp;D Engineer (34222)]]></title>
     <company><![CDATA[Myticas Consulting]]></company>
     <date><![CDATA[August 08, 2025]]></date>
     <referencenumber><![CDATA[FYZJNKLY9S]]></referencenumber>
@@ -843,7 +843,7 @@
     <senoritylevel> Mid-Senior level </senoritylevel>
   </job>
   <job>
-    <title>Employment Equity Resource - Federal Job Evaluation &amp; Pay Equity (34080)</title>
+    <title><![CDATA[Employment Equity Resource - Federal Job Evaluation &amp; Pay Equity (34080)]]></title>
     <company><![CDATA[Myticas Consulting]]></company>
     <date><![CDATA[July 29, 2025]]></date>
     <referencenumber><![CDATA[DX27O6XUO5]]></referencenumber>
@@ -1194,7 +1194,7 @@
     <city><![CDATA[Ada]]></city>
     <state><![CDATA[Michigan]]></state>
     <country><![CDATA[United States]]></country>
-    <category></category>
+    <category/>
     <apply_email><![CDATA[apply@myticas.com]]></apply_email>
     <remotetype><![CDATA[Onsite]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-CC1: Christine Carter]]></assignedrecruiter>
