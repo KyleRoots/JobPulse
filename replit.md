@@ -5,13 +5,14 @@ This Flask-based web application automates the processing of XML job feed files 
 
 ## Recent Critical Fixes (Aug 19, 2025)
 
-### Reference Number Flip-Flopping COMPLETELY RESOLVED
-**ROOT CAUSE IDENTIFIED AND FIXED**: Step 8 audit was downloading LIVE XML from the server, causing timing/sync issues where the server had different reference numbers than the local file. This created an endless cycle of "fixes" causing all reference numbers to flip-flop between two versions.
+### Reference Number Flip-Flopping COMPLETELY RESOLVED (2:00 PM UTC)
+**TRUE ROOT CAUSE IDENTIFIED AND FIXED**: The `_update_fields_in_place` function in xml_integration_service.py was not properly extracting existing reference numbers from the CDATA-wrapped XML content before updating jobs, causing ALL jobs to get new reference numbers on every monitoring cycle.
 
 **SOLUTION IMPLEMENTED**: 
-- **Disabled LIVE XML download** in Step 8 audit (app.py lines 2557-2567)
-- **Audit now uses local XML only** to prevent server sync issues
-- **Result**: Reference numbers now remain 100% stable during monitoring cycles
+- **Fixed reference number extraction** in `_update_fields_in_place` function (xml_integration_service.py line 1298-1307)
+- **Now properly extracts and preserves** existing reference numbers from CDATA format before updating
+- **Step 8 audit disabled LIVE XML download** (app.py lines 2557-2567) to prevent server sync issues
+- **Result**: Reference numbers now remain 100% stable during monitoring cycles - verified across multiple cycles
 
 ### Job Synchronization Fix
 **RESTORED PROPER JOB REMOVAL**: Re-enabled automatic removal of jobs that no longer exist in Bullhorn tearsheets. This ensures 100% accurate synchronization between Bullhorn and XML:

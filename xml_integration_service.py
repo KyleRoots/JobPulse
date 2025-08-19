@@ -1279,6 +1279,9 @@ class XMLIntegrationService:
             
             # Find the job to update
             job_element = None
+            actual_existing_reference = None
+            actual_existing_ai_fields = {}
+            
             for job in root.xpath('.//job'):
                 bhatsid_elem = job.find('.//bhatsid')
                 if bhatsid_elem is not None and bhatsid_elem.text:
@@ -1288,18 +1291,47 @@ class XMLIntegrationService:
                     
                     if bhatsid_text == str(job_id):
                         job_element = job
+                        
+                        # CRITICAL FIX: Extract the ACTUAL existing reference number from the current XML
+                        ref_elem = job.find('.//referencenumber')
+                        if ref_elem is not None and ref_elem.text:
+                            ref_text = ref_elem.text.strip()
+                            # Remove CDATA wrapper if present
+                            if '<![CDATA[' in ref_text:
+                                actual_existing_reference = ref_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                            else:
+                                actual_existing_reference = ref_text
+                            self.logger.info(f"✅ EXTRACTED existing reference from XML for job {job_id}: {actual_existing_reference}")
+                        
+                        # Also extract existing AI fields
+                        for ai_field in ['jobfunction', 'jobindustries', 'senioritylevel']:
+                            ai_elem = job.find(f'.//{ai_field}')
+                            if ai_elem is not None and ai_elem.text:
+                                ai_value = ai_elem.text.strip()
+                                if '<![CDATA[' in ai_value:
+                                    ai_value = ai_value.replace('<![CDATA[', '').replace(']]>', '').strip()
+                                if ai_value:
+                                    actual_existing_ai_fields[ai_field] = ai_value
+                        
                         break
             
             if job_element is None:
                 self.logger.error(f"Job {job_id} not found for in-place update")
                 return False
             
-            # Map the Bullhorn job data to XML format
+            # Use the ACTUAL extracted reference number, fallback to passed parameter
+            final_reference = actual_existing_reference or existing_reference_number
+            final_ai_fields = actual_existing_ai_fields if actual_existing_ai_fields else existing_ai_fields
+            
+            if not final_reference:
+                self.logger.warning(f"⚠️ No reference number found for job {job_id} - will generate new one")
+            
+            # Map the Bullhorn job data to XML format with preserved reference
             updated_xml_job = self.map_bullhorn_job_to_xml(
                 bullhorn_job,
-                existing_reference_number=existing_reference_number,
+                existing_reference_number=final_reference,
                 monitor_name=monitor_name,
-                existing_ai_fields=existing_ai_fields
+                existing_ai_fields=final_ai_fields
             )
             
             # Update each field in place while preserving CDATA structure
