@@ -6236,17 +6236,17 @@ def daily_reference_refresh():
             app.logger.error(f"Daily reference refresh error: {str(e)}")
 
 if is_primary_worker:
-    # Schedule daily reference refresh at 3:00 AM UTC
+    # Schedule daily reference refresh at 5:00 AM UTC
     scheduler.add_job(
         func=daily_reference_refresh,
         trigger='cron',
-        hour=3,
+        hour=5,
         minute=0,
         id='daily_reference_refresh',
         name='Daily Reference Number Refresh',
         replace_existing=True
     )
-    app.logger.info("📅 Scheduled daily reference number refresh at 3:00 AM UTC")
+    app.logger.info("📅 Scheduled daily reference number refresh at 5:00 AM UTC")
 
 # XML Change Monitor - monitors live XML file for changes and sends focused notifications
 def run_xml_change_monitor():
