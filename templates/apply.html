@@ -562,10 +562,7 @@
             const resumeFileName = document.getElementById('resumeFileName');
             const resumeUploadArea = document.getElementById('resumeUploadArea');
             
-            const coverLetterFile = document.getElementById('coverLetterFile');
-            const coverLetterFileInfo = document.getElementById('coverLetterFileInfo');
-            const coverLetterFileName = document.getElementById('coverLetterFileName');
-            const coverLetterUploadArea = document.getElementById('coverLetterUploadArea');
+
             
             // Resume file selection
             resumeFile.addEventListener('change', function(e) {
@@ -585,20 +582,7 @@
                 }
             });
             
-            // Cover letter file selection
-            coverLetterFile.addEventListener('change', function(e) {
-                console.log('📁 Cover letter file selected:', e.target.files.length);
-                if (e.target.files.length > 0) {
-                    const file = e.target.files[0];
-                    console.log('📂 Cover letter file details:', file.name, file.size);
-                    
-                    coverLetterFileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
-                    coverLetterUploadArea.style.display = 'none';
-                    coverLetterFileInfo.style.display = 'block';
-                    
-                    console.log('✅ Cover letter file upload UI updated');
-                }
-            });
+
             
             // Form submission
             document.getElementById('applicationForm').addEventListener('submit', function(e) {
@@ -623,15 +607,10 @@
                 formData.append('source', '{{ source }}');
                 
                 const resumeFile = document.getElementById('resumeFile').files[0];
-                const coverLetterFile = document.getElementById('coverLetterFile').files[0];
                 
                 if (resumeFile) {
                     formData.append('resume', resumeFile);
                     console.log('📎 Resume file attached:', resumeFile.name);
-                }
-                if (coverLetterFile) {
-                    formData.append('coverLetter', coverLetterFile);
-                    console.log('📎 Cover letter file attached:', coverLetterFile.name);
                 }
                 
                 // Show loading
@@ -678,11 +657,6 @@
             document.getElementById('parsedInfo').style.display = 'none';
         }
         
-        function removeCoverLetterFile() {
-            document.getElementById('coverLetterFile').value = '';
-            document.getElementById('coverLetterUploadArea').style.display = 'block';
-            document.getElementById('coverLetterFileInfo').style.display = 'none';
-        }
         
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
@@ -722,7 +696,6 @@
             document.getElementById('email').value = '';
             document.getElementById('phone').value = '';
             document.getElementById('resumeFile').value = '';
-            document.getElementById('coverLetterFile').value = '';
             
             // Disable all form inputs
             const inputs = document.querySelectorAll('#applicationForm input, #applicationForm button');
@@ -734,8 +707,6 @@
             // Hide file upload areas
             document.getElementById('resumeUploadArea').style.display = 'none';
             document.getElementById('resumeFileInfo').style.display = 'none';
-            document.getElementById('coverLetterUploadArea').style.display = 'none';
-            document.getElementById('coverLetterFileInfo').style.display = 'none';
             
             // Show completion message in form
             const formSection = document.querySelector('.application-body');
