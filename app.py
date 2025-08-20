@@ -6215,13 +6215,45 @@ def daily_reference_refresh():
                 # The 8-step monitor running every 5 minutes will detect and upload changes
                 app.logger.info("📝 Reference numbers refreshed locally (upload handled by 8-step monitor)")
                 
+                # Send email notification confirming daily refresh execution
+                try:
+                    from email_service import send_notification_email
+                    
+                    # Get notification email from global settings
+                    email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                    if email_setting and email_setting.setting_value:
+                        subject = "Daily Reference Number Refresh Complete"
+                        message = f"""
+Daily Reference Number Refresh Completed Successfully
+
+✅ Execution Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+📊 Jobs Updated: {result['jobs_updated']} reference numbers refreshed
+⏱️ Processing Time: {result['time_seconds']:.2f} seconds
+🔄 Next Refresh: Tomorrow at 5:00 AM UTC
+
+The system has successfully completed the daily reference number refresh. All job reference numbers have been updated while preserving all other job data.
+
+This is an automated notification confirming the daily refresh executed as scheduled.
+"""
+                        send_notification_email(
+                            subject=subject,
+                            message=message,
+                            to_email=email_setting.setting_value
+                        )
+                        app.logger.info(f"📧 Daily refresh confirmation email sent to {email_setting.setting_value}")
+                    else:
+                        app.logger.warning("📧 No notification email configured - skipping confirmation email")
+                        
+                except Exception as email_error:
+                    app.logger.error(f"📧 Failed to send daily refresh confirmation email: {str(email_error)}")
+                
                 # Log activity
                 try:
                     activity = BullhornActivity(
                         monitor_id=None,  # System-level activity
                         activity_type='reference_refresh',
                         details=f'Daily automatic refresh: {result["jobs_updated"]} reference numbers updated',
-                        notification_sent=False,
+                        notification_sent=True,  # Email notification attempted
                         created_at=datetime.utcnow()
                     )
                     db.session.add(activity)
@@ -6231,6 +6263,35 @@ def daily_reference_refresh():
                     
             else:
                 app.logger.error(f"❌ Daily reference refresh failed: {result.get('error', 'Unknown error')}")
+                
+                # Send failure notification email
+                try:
+                    from email_service import send_notification_email
+                    
+                    # Get notification email from global settings
+                    email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                    if email_setting and email_setting.setting_value:
+                        subject = "⚠️ Daily Reference Number Refresh Failed"
+                        message = f"""
+Daily Reference Number Refresh Failed
+
+❌ Execution Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+🚨 Error: {result.get('error', 'Unknown error')}
+🔄 Next Attempt: Tomorrow at 5:00 AM UTC
+
+The daily reference number refresh encountered an error and was unable to complete successfully. Please check the system logs for more details.
+
+This is an automated notification alert.
+"""
+                        send_notification_email(
+                            subject=subject,
+                            message=message,
+                            to_email=email_setting.setting_value
+                        )
+                        app.logger.info(f"📧 Daily refresh failure alert sent to {email_setting.setting_value}")
+                        
+                except Exception as email_error:
+                    app.logger.error(f"📧 Failed to send daily refresh failure alert: {str(email_error)}")
                 
         except Exception as e:
             app.logger.error(f"Daily reference refresh error: {str(e)}")
