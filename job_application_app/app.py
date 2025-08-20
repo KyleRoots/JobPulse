@@ -45,15 +45,19 @@ def job_application_form(job_id, job_title):
         
         # Create response with cache-busting headers to force fresh content
         from flask import make_response
+        import time
         response = make_response(render_template('apply.html', 
                                                 job_id=job_id, 
                                                 job_title=decoded_title, 
-                                                source=source))
+                                                source=source,
+                                                version=str(int(time.time()))))  # Add version timestamp
         
-        # Prevent caching to ensure users always get the latest form
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        # Aggressive cache prevention for CDN and browsers
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, private, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
+        response.headers['X-Accel-Expires'] = '0'  # For nginx
+        response.headers['Surrogate-Control'] = 'no-store'  # For CDN
         
         return response
     except Exception as e:
