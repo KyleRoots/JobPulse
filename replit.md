@@ -3,6 +3,20 @@
 ## Overview
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
+## Recent Critical Fixes (Aug 20, 2025)
+
+### Upload Consolidation Fix (1:45 AM UTC)
+**ISSUE**: Multiple upload sources causing duplicate uploads seconds apart in Recent Activity
+**ROOT CAUSE**: Three different functions were triggering uploads - immediate sync, daily refresh, and Step 6
+**SOLUTION**: Disabled all upload sources except Step 6 of the 8-step monitor
+**RESULT**: Single, clean uploads every 5 minutes instead of duplicates
+
+### Job Application Form Simplification (1:20 AM UTC)
+**ISSUE**: Supporting documentation upload section was unnecessary complexity
+**SOLUTION**: Removed supporting documentation section from template, kept only resume upload
+**CACHE FIX**: Added no-cache headers to force browsers to load fresh content
+**RESULT**: Simplified, cleaner application form (requires deployment to production)
+
 ## Recent Critical Fixes (Aug 19, 2025)
 
 ### External System Conflict RESOLVED (7:22 PM UTC)
