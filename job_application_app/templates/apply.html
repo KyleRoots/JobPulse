@@ -455,30 +455,6 @@
                         </div>
                     </div>
 
-                    <!-- Supporting Documentation Upload (Optional) -->
-                    <div class="form-section">
-                        <h3><i class="fas fa-file-text me-2"></i>(Optional) Upload other supporting documentation if necessary</h3>
-                        <div class="file-upload-area" id="coverLetterUploadArea">
-                            <div class="file-upload-icon">
-                                <i class="fas fa-cloud-upload-alt"></i>
-                            </div>
-                            <h5>Drag & drop your supporting documents here</h5>
-                            <p class="mb-3" style="color: rgba(255, 255, 255, 0.7);">or click to browse files</p>
-                            <input type="file" id="coverLetterFile" name="coverLetterFile" accept=".pdf,.doc,.docx" style="display: none;">
-                            <button type="button" class="btn btn-outline-light" onclick="document.getElementById('coverLetterFile').click(); event.stopPropagation();">
-                                <i class="fas fa-folder-open me-2"></i>Browse Files
-                            </button>
-                            <small class="d-block mt-2" style="color: rgba(255, 255, 255, 0.7);">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
-                        </div>
-                        <div id="coverLetterFileInfo" class="file-info">
-                            <i class="fas fa-file-text me-2"></i>
-                            <span id="coverLetterFileName"></span>
-                            <button type="button" class="btn btn-sm btn-outline-danger float-end" onclick="removeCoverLetterFile()">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Validation Warning -->
                     <div id="validationWarning" class="validation-warning">
                         <h6><i class="fas fa-exclamation-triangle me-2"></i>Please Verify Your Information</h6>
