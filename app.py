@@ -883,50 +883,10 @@ def process_bullhorn_monitors():
                                         # Get original filename for SFTP upload (no reference number regeneration for real-time monitoring)
                                         original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
                                         
-                                        # Upload to SFTP if configured
-                                        if schedule.auto_upload_ftp:
-                                            try:
-                                                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
-                                                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                                                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                                                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                                                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                                                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
-                                                
-                                                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
-                                                    sftp_hostname and sftp_hostname.setting_value and 
-                                                    sftp_username and sftp_username.setting_value and 
-                                                    sftp_password and sftp_password.setting_value):
-                                                    
-                                                    ftp_service = FTPService(
-                                                        hostname=sftp_hostname.setting_value,
-                                                        username=sftp_username.setting_value,
-                                                        password=sftp_password.setting_value,
-                                                        target_directory=sftp_directory.setting_value if sftp_directory else "/",
-                                                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                                                        use_sftp=True
-                                                    )
-                                                    
-                                                    sftp_upload_success = ftp_service.upload_file(
-                                                        local_file_path=schedule.file_path,
-                                                        remote_filename=original_filename
-                                                    )
-                                                    
-                                                    if sftp_upload_success:
-                                                        app.logger.info(f"Updated XML file uploaded to SFTP: {original_filename}")
-                                                        xml_sync_summary['sftp_upload_success'] = True
-                                                        
-                                                        # Update the schedule's last_file_upload timestamp  
-                                                        schedule.last_file_upload = datetime.utcnow()
-                                                    else:
-                                                        app.logger.warning(f"Failed to upload updated XML to SFTP")
-                                                        xml_sync_summary['sftp_upload_success'] = False
-                                                else:
-                                                    app.logger.warning(f"SFTP upload requested but credentials not configured")
-                                                    xml_sync_summary['sftp_upload_success'] = False
-                                            except Exception as e:
-                                                app.logger.error(f"Error uploading updated XML to SFTP: {str(e)}")
-                                                xml_sync_summary['sftp_upload_success'] = False
+                                        # DISABLED: Old monitor upload - Only Step 6 of 8-step monitor should upload
+                                        # This old monitor function should not be running anyway, but disabling upload to be safe
+                                        # The Enhanced 8-Step Monitor handles all uploads now
+                                        xml_sync_summary['sftp_upload_success'] = False  # Upload handled by 8-step monitor
                                     
                                 except Exception as e:
                                     app.logger.error(f"Error syncing XML for schedule '{schedule.name}': {str(e)}")
@@ -1203,60 +1163,12 @@ def process_bullhorn_monitors():
                                     
                                     app.logger.info(f"✅ IMMEDIATE SYNC COMPLETE for {xml_filename}: {immediate_sync_summary['added_count']} added, {immediate_sync_summary['removed_count']} removed, {immediate_sync_summary['updated_count']} updated")
                                     
-                                    # IMMEDIATE SFTP UPLOAD after XML sync
+                                    # DISABLED: Immediate SFTP upload - Step 6 handles all uploads
+                                    # Duplicate uploads were happening because both immediate sync and Step 6 were uploading
+                                    # Now ONLY Step 6 of the 8-step process performs uploads to prevent duplication
                                     total_immediate_changes = immediate_sync_summary['added_count'] + immediate_sync_summary['removed_count'] + immediate_sync_summary['updated_count']
                                     if total_immediate_changes > 0:
-                                        # Always upload to SFTP when changes are made - don't depend on schedule matching
-                                        app.logger.info(f"📤 IMMEDIATE SFTP UPLOAD: Uploading {xml_filename} with {total_immediate_changes} changes")
-                                        
-                                        try:
-                                                # Get SFTP settings
-                                                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
-                                                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                                                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                                                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                                                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                                                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
-                                                
-                                                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
-                                                    sftp_hostname and sftp_hostname.setting_value and 
-                                                    sftp_username and sftp_username.setting_value and 
-                                                    sftp_password and sftp_password.setting_value):
-                                                    
-                                                    from ftp_service import FTPService
-                                                    
-                                                    port = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222
-                                                    directory = sftp_directory.setting_value if sftp_directory else ''
-                                                    
-                                                    # Create FTP service instance
-                                                    ftp_service = FTPService(
-                                                        hostname=sftp_hostname.setting_value,
-                                                        username=sftp_username.setting_value,
-                                                        password=sftp_password.setting_value,
-                                                        target_directory=directory,
-                                                        port=port,
-                                                        use_sftp=True  # Use SFTP for secure transfer
-                                                    )
-                                                    
-                                                    # Upload the file
-                                                    upload_success = ftp_service.upload_file(
-                                                        local_file_path=xml_filename,
-                                                        remote_filename=os.path.basename(xml_filename)
-                                                    )
-                                                    
-                                                    if upload_success:
-                                                        immediate_sync_summary['sftp_upload_success'] = True
-                                                        app.logger.info(f"✅ IMMEDIATE SFTP UPLOAD SUCCESSFUL for {xml_filename}")
-                                                        
-                                                        # Update the last_file_upload timestamp for the schedule
-                                                        if schedule:
-                                                            schedule.last_file_upload = datetime.utcnow()
-                                                            db.session.commit()
-                                                            app.logger.info(f"Updated last_file_upload timestamp for schedule: {schedule.name}")
-                                                    else:
-                                                        app.logger.error(f"❌ Immediate SFTP upload failed")
-                                        except Exception as upload_error:
-                                            app.logger.error(f"Error during immediate SFTP upload: {str(upload_error)}")
+                                        app.logger.info(f"📝 Saved {total_immediate_changes} changes to {xml_filename} (upload deferred to Step 6)")
                                     
                                 except Exception as e:
                                     app.logger.error(f"Error in immediate sync for {xml_filename}: {str(e)}")
@@ -6290,17 +6202,10 @@ def daily_reference_refresh():
             if result['success']:
                 app.logger.info(f"✅ Daily reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
                 
-                # Upload to SFTP
-                try:
-                    ftp_service = get_ftp_service()
-                    if ftp_service:
-                        upload_success = ftp_service.upload_file('myticas-job-feed.xml', 'myticas-job-feed.xml')
-                        if upload_success:
-                            app.logger.info("📤 Refreshed XML uploaded to server successfully")
-                        else:
-                            app.logger.warning("Failed to upload refreshed XML to server")
-                except Exception as upload_error:
-                    app.logger.error(f"Error uploading refreshed XML: {str(upload_error)}")
+                # DISABLED: Upload to SFTP - Step 6 of 8-step monitor handles all uploads
+                # Daily refresh only updates reference numbers locally
+                # The 8-step monitor running every 5 minutes will detect and upload changes
+                app.logger.info("📝 Reference numbers refreshed locally (upload handled by 8-step monitor)")
                 
                 # Log activity
                 try:
