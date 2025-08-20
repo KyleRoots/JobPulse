@@ -577,6 +577,10 @@
                         <h5 class="card-title mb-0">
                             <i class="fas fa-desktop me-2"></i>
                             Active Monitors ({{ monitors|length }})
+                            {% set total_jobs = monitor_job_counts.values() | select('number') | sum %}
+                            {% if total_jobs > 0 %}
+                                <span class="text-muted">| {{ total_jobs }} jobs in all tearsheets</span>
+                            {% endif %}
                         </h5>
                         <div>
                             <button onclick="syncNow()" class="btn btn-success me-2" id="syncNowBtn">
