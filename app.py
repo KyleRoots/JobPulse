@@ -2390,150 +2390,9 @@ def process_comprehensive_bullhorn_monitors():
                         
             app.logger.info("📊 PROGRESS: [●●●●○○○○] Step 4/8 - Field modifications complete")
             
-            # STEP 5: Upload to web server
-            app.logger.info("📊 PROGRESS: [●●●●●○○○] Step 5/8 - Uploading to web server")
-            app.logger.info("📤 STEP 5/8: Uploading to web server...")
-            try:
-                # SCOPE FIX: Import FTPService locally to ensure availability
-                from ftp_service import FTPService
-                upload_success = True
-                
-                # Use SFTP for secure upload to live server
-                app.logger.info("    🔄 Attempting SFTP upload...")
-                ftp_service = FTPService(
-                    hostname=os.environ.get('SFTP_HOST'),
-                    username=os.environ.get('SFTP_USERNAME'),
-                    password=os.environ.get('SFTP_PASSWORD'),
-                    port=2222,
-                    use_sftp=True
-                )
-                
-                ftp_success = True
-                failed_files = []
-                
-                for xml_file in xml_files:
-                    if os.path.exists(xml_file):
-                        success = ftp_service.upload_file(xml_file, xml_file)
-                        if success:
-                            app.logger.info(f"    ✅ FTP uploaded {xml_file}")
-                        else:
-                            app.logger.warning(f"    ⚠️ FTP failed for {xml_file}")
-                            ftp_success = False
-                            failed_files.append(xml_file)
-                            break  # Stop trying FTP after first failure
-                            
-                # If FTP failed, try SFTP fallback for all files
-                if not ftp_success and failed_files:
-                    app.logger.info("    🔄 FTP failed - attempting SFTP fallback for all files...")
-                    sftp_service = FTPService(
-                        hostname=os.environ.get('SFTP_HOST'),
-                        username=os.environ.get('SFTP_USERNAME'),
-                        password=os.environ.get('SFTP_PASSWORD'),
-                        port=2222,  # WP Engine SFTP port
-                        use_sftp=True
-                    )
-                    
-                    sftp_success = True
-                    for xml_file in xml_files:  # Try SFTP for ALL files
-                        if os.path.exists(xml_file):
-                            success = sftp_service.upload_file(xml_file, xml_file)
-                            if success:
-                                app.logger.info(f"    ✅ SFTP uploaded {xml_file}")
-                            else:
-                                app.logger.error(f"    ❌ SFTP failed for {xml_file}")
-                                sftp_success = False
-                    
-                    upload_success = sftp_success
-                else:
-                    upload_success = ftp_success
-                
-                if upload_success:
-                    app.logger.info("📤 STEP 5 COMPLETE: All files uploaded successfully")
-                    
-                    # Update schedule timestamp to match server upload time for scheduler page accuracy
-                    try:
-                        for schedule in ScheduleConfig.query.filter_by(is_active=True).all():
-                            if schedule.file_path == xml_file:
-                                schedule.last_file_upload = datetime.utcnow()
-                                db.session.commit()
-                                app.logger.info(f"    📊 Updated server timestamp for scheduler display: {schedule.name}")
-                                break
-                    except Exception as timestamp_error:
-                        app.logger.error(f"    ⚠️ Error updating server timestamp: {str(timestamp_error)}")
-                    
-                    # Log successful upload activity
-                    try:
-                        upload_activity = BullhornActivity(
-                            monitor_id=None,  # System-level activity
-                            activity_type='upload_success',
-                            details=json.dumps({
-                                'files_uploaded': len(xml_files),
-                                'upload_method': 'SFTP' if not ftp_success else 'FTP',
-                                'timestamp': datetime.utcnow().isoformat()
-                            }),
-                            notification_sent=True  # No email needed for success
-                        )
-                        db.session.add(upload_activity)
-                        db.session.commit()  # CRITICAL: Commit the transaction
-                        app.logger.info("📊 UPLOAD SUCCESS LOGGED: Activity saved to monitoring system")
-                    except Exception as e:
-                        app.logger.error(f"Error logging upload success: {str(e)}")
-                        db.session.rollback()
-                else:
-                    app.logger.warning("📤 STEP 5 WARNING: Some uploads failed")
-                    
-                    # Log detailed upload failure activity for troubleshooting
-                    try:
-                        connection_details = {
-                            'host': os.environ.get('SFTP_HOST'),
-                            'username': os.environ.get('SFTP_USERNAME'),
-                            'files_attempted': len(xml_files),
-                            'ftp_attempted': True,
-                            'sftp_attempted': not ftp_success,
-                            'failure_point': 'SFTP' if not ftp_success else 'FTP',
-                            'timestamp': datetime.utcnow().isoformat(),
-                            'troubleshooting_note': 'Persistent timeout suggests network connectivity issue between Replit and WP Engine SFTP servers'
-                        }
-                        
-                        upload_failure_activity = BullhornActivity(
-                            monitor_id=None,  # System-level activity
-                            activity_type='upload_failure',
-                            details=json.dumps(connection_details),
-                            notification_sent=True  # No email spam
-                        )
-                        db.session.add(upload_failure_activity)
-                        db.session.commit()  # CRITICAL: Commit the transaction
-                        
-                        app.logger.warning("📋 UPLOAD FAILURE LOGGED: Detailed connection info saved to activity monitoring")
-                        app.logger.info(f"    Host: {connection_details['host']}")
-                        app.logger.info(f"    Method attempted: {connection_details['failure_point']}")
-                        app.logger.info(f"    Files: {connection_details['files_attempted']}")
-                        
-                    except Exception as e:
-                        app.logger.error(f"Error logging upload failure details: {str(e)}")
-                        db.session.rollback()
-                    
-            except Exception as e:
-                app.logger.error(f"📤 STEP 5 ERROR: Upload failed: {str(e)}")
-                app.logger.error(f"📤 STEP 5 ERROR DETAILS: {traceback.format_exc()}")
-            
-            # STEP 6: Data sync summary (email notifications handled by dedicated XML monitor)
-            app.logger.info("📊 PROGRESS: [●●●●●●○○] Step 6/8 - Data sync summary")
-            app.logger.info("📊 STEP 6/8: Data synchronization complete")
-            
-            total_changes = len(cycle_changes['added']) + len(cycle_changes['removed']) + len(cycle_changes['modified'])
-            if total_changes > 0:
-                app.logger.info(f"📊 STEP 6: Completed {total_changes} data sync operations")
-                app.logger.info(f"    ➕ Jobs added: {len(cycle_changes['added'])}")
-                app.logger.info(f"    ➖ Jobs removed: {len(cycle_changes['removed'])}")  
-                app.logger.info(f"    🔄 Jobs remapped: {len(cycle_changes['modified'])} (complete field refresh)")
-                app.logger.info("    📧 Email notifications: Handled by dedicated XML Change Monitor")
-            else:
-                app.logger.info("📊 STEP 6: No sync operations required - data already current")
-            
-            # STEP 7: Fix CDATA/HTML formatting with comprehensive HTML repair
-            app.logger.info("📊 PROGRESS: [●●●●●●●○] Step 7/8 - Formatting review")
-            app.logger.info("🔧 STEP 7/8: Reviewing CDATA and HTML formatting...")
+            # STEP 5: Fix CDATA/HTML formatting BEFORE upload (moved from Step 7)
+            app.logger.info("📊 PROGRESS: [●●●●●○○○] Step 5/8 - Formatting review")
+            app.logger.info("🔧 STEP 5/8: Reviewing CDATA and HTML formatting BEFORE upload...")
             format_fixes = 0
             for xml_file in xml_files:
                 if os.path.exists(xml_file):
@@ -2596,7 +2455,148 @@ def process_comprehensive_bullhorn_monitors():
                     except Exception as e:
                         app.logger.error(f"    Error fixing {xml_file}: {str(e)}")
             
-            app.logger.info(f"🔧 STEP 7 COMPLETE: {format_fixes} formatting fixes applied")
+            app.logger.info(f"🔧 STEP 5 COMPLETE: {format_fixes} formatting fixes applied BEFORE upload")
+            
+            # STEP 6: Upload to web server (moved from Step 5)
+            app.logger.info("📊 PROGRESS: [●●●●●●○○] Step 6/8 - Uploading to web server")
+            app.logger.info("📤 STEP 6/8: Uploading to web server...")
+            try:
+                # SCOPE FIX: Import FTPService locally to ensure availability
+                from ftp_service import FTPService
+                upload_success = True
+                
+                # Use SFTP for secure upload to live server
+                app.logger.info("    🔄 Attempting SFTP upload...")
+                ftp_service = FTPService(
+                    hostname=os.environ.get('SFTP_HOST'),
+                    username=os.environ.get('SFTP_USERNAME'),
+                    password=os.environ.get('SFTP_PASSWORD'),
+                    port=2222,
+                    use_sftp=True
+                )
+                
+                ftp_success = True
+                failed_files = []
+                
+                for xml_file in xml_files:
+                    if os.path.exists(xml_file):
+                        success = ftp_service.upload_file(xml_file, xml_file)
+                        if success:
+                            app.logger.info(f"    ✅ FTP uploaded {xml_file}")
+                        else:
+                            app.logger.warning(f"    ⚠️ FTP failed for {xml_file}")
+                            ftp_success = False
+                            failed_files.append(xml_file)
+                            break  # Stop trying FTP after first failure
+                            
+                # If FTP failed, try SFTP fallback for all files
+                if not ftp_success and failed_files:
+                    app.logger.info("    🔄 FTP failed - attempting SFTP fallback for all files...")
+                    sftp_service = FTPService(
+                        hostname=os.environ.get('SFTP_HOST'),
+                        username=os.environ.get('SFTP_USERNAME'),
+                        password=os.environ.get('SFTP_PASSWORD'),
+                        port=2222,  # WP Engine SFTP port
+                        use_sftp=True
+                    )
+                    
+                    sftp_success = True
+                    for xml_file in xml_files:  # Try SFTP for ALL files
+                        if os.path.exists(xml_file):
+                            success = sftp_service.upload_file(xml_file, xml_file)
+                            if success:
+                                app.logger.info(f"    ✅ SFTP uploaded {xml_file}")
+                            else:
+                                app.logger.error(f"    ❌ SFTP failed for {xml_file}")
+                                sftp_success = False
+                    
+                    upload_success = sftp_success
+                else:
+                    upload_success = ftp_success
+                
+                if upload_success:
+                    app.logger.info("📤 STEP 6 COMPLETE: All files uploaded successfully")
+                    
+                    # Update schedule timestamp to match server upload time for scheduler page accuracy
+                    try:
+                        for schedule in ScheduleConfig.query.filter_by(is_active=True).all():
+                            if schedule.file_path == xml_file:
+                                schedule.last_file_upload = datetime.utcnow()
+                                db.session.commit()
+                                app.logger.info(f"    📊 Updated server timestamp for scheduler display: {schedule.name}")
+                                break
+                    except Exception as timestamp_error:
+                        app.logger.error(f"    ⚠️ Error updating server timestamp: {str(timestamp_error)}")
+                    
+                    # Log successful upload activity
+                    try:
+                        upload_activity = BullhornActivity(
+                            monitor_id=None,  # System-level activity
+                            activity_type='upload_success',
+                            details=json.dumps({
+                                'files_uploaded': len(xml_files),
+                                'upload_method': 'SFTP' if not ftp_success else 'FTP',
+                                'timestamp': datetime.utcnow().isoformat()
+                            }),
+                            notification_sent=True  # No email needed for success
+                        )
+                        db.session.add(upload_activity)
+                        db.session.commit()  # CRITICAL: Commit the transaction
+                        app.logger.info("📊 UPLOAD SUCCESS LOGGED: Activity saved to monitoring system")
+                    except Exception as e:
+                        app.logger.error(f"Error logging upload success: {str(e)}")
+                        db.session.rollback()
+                else:
+                    app.logger.warning("📤 STEP 6 WARNING: Some uploads failed")
+                    
+                    # Log detailed upload failure activity for troubleshooting
+                    try:
+                        connection_details = {
+                            'host': os.environ.get('SFTP_HOST'),
+                            'username': os.environ.get('SFTP_USERNAME'),
+                            'files_attempted': len(xml_files),
+                            'ftp_attempted': True,
+                            'sftp_attempted': not ftp_success,
+                            'failure_point': 'SFTP' if not ftp_success else 'FTP',
+                            'timestamp': datetime.utcnow().isoformat(),
+                            'troubleshooting_note': 'Persistent timeout suggests network connectivity issue between Replit and WP Engine SFTP servers'
+                        }
+                        
+                        upload_failure_activity = BullhornActivity(
+                            monitor_id=None,  # System-level activity
+                            activity_type='upload_failure',
+                            details=json.dumps(connection_details),
+                            notification_sent=True  # No email spam
+                        )
+                        db.session.add(upload_failure_activity)
+                        db.session.commit()  # CRITICAL: Commit the transaction
+                        
+                        app.logger.warning("📋 UPLOAD FAILURE LOGGED: Detailed connection info saved to activity monitoring")
+                        app.logger.info(f"    Host: {connection_details['host']}")
+                        app.logger.info(f"    Method attempted: {connection_details['failure_point']}")
+                        app.logger.info(f"    Files: {connection_details['files_attempted']}")
+                        
+                    except Exception as e:
+                        app.logger.error(f"Error logging upload failure details: {str(e)}")
+                        db.session.rollback()
+                    
+            except Exception as e:
+                app.logger.error(f"📤 STEP 6 ERROR: Upload failed: {str(e)}")
+                app.logger.error(f"📤 STEP 6 ERROR DETAILS: {traceback.format_exc()}")
+            
+            # STEP 7: Data sync summary (email notifications handled by dedicated XML monitor)
+            app.logger.info("📊 PROGRESS: [●●●●●●●○] Step 7/8 - Data sync summary")
+            app.logger.info("📊 STEP 7/8: Data synchronization complete")
+            
+            total_changes = len(cycle_changes['added']) + len(cycle_changes['removed']) + len(cycle_changes['modified'])
+            if total_changes > 0:
+                app.logger.info(f"📊 STEP 7: Completed {total_changes} data sync operations")
+                app.logger.info(f"    ➕ Jobs added: {len(cycle_changes['added'])}")
+                app.logger.info(f"    ➖ Jobs removed: {len(cycle_changes['removed'])}")  
+                app.logger.info(f"    🔄 Jobs remapped: {len(cycle_changes['modified'])} (complete field refresh)")
+                app.logger.info("    📧 Email notifications: Handled by dedicated XML Change Monitor")
+            else:
+                app.logger.info("📊 STEP 7: No sync operations required - data already current")
             
             # STEP 8: FULL AUDIT for 100% accuracy (LOCAL XML ONLY - no server download)
             app.logger.info("📊 PROGRESS: [●●●●●●●●] Step 8/8 - Final audit")
