@@ -2816,16 +2816,23 @@ def process_comprehensive_bullhorn_monitors():
 monitoring_func = process_comprehensive_bullhorn_monitors
 app.logger.info("Using ENHANCED 8-step comprehensive monitoring process")
 
-# Add monitoring to scheduler (extended to 5 minutes for complete field remapping)
-scheduler.add_job(
-    func=monitoring_func,
-    trigger=IntervalTrigger(minutes=5),  # Extended from 3 to 5 minutes for complete remapping
-    id='process_bullhorn_monitors',
-    name='Enhanced 8-Step Monitor with Complete Remapping',
-    replace_existing=True
-)
+# Prevent duplicate schedulers in production with worker ID check
+import os
+worker_id = os.environ.get('GUNICORN_WORKER_ID', '0')
+is_primary_worker = worker_id == '0' or not os.environ.get('DEPLOYMENT_TARGET')
 
-app.logger.info("⏱️ TIMING ADJUSTMENT: Monitoring interval extended to 5 minutes for complete field remapping from Bullhorn")
+if is_primary_worker:
+    # Add monitoring to scheduler (extended to 5 minutes for complete field remapping)
+    scheduler.add_job(
+        func=monitoring_func,
+        trigger=IntervalTrigger(minutes=5),  # Extended from 3 to 5 minutes for complete remapping
+        id='process_bullhorn_monitors',
+        name='Enhanced 8-Step Monitor with Complete Remapping',
+        replace_existing=True
+    )
+    app.logger.info("⏱️ TIMING ADJUSTMENT: Monitoring interval extended to 5 minutes for complete field remapping from Bullhorn")
+else:
+    app.logger.info(f"⚠️ Skipping scheduler setup for worker {worker_id} - only primary worker runs scheduler")
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -6149,42 +6156,43 @@ def ensure_background_services():
     
     return True
 
-# Add monitor health check job - run every 15 minutes
-scheduler.add_job(
-    func=check_monitor_health,
-    trigger=IntervalTrigger(minutes=15),
-    id='check_monitor_health',
-    name='Monitor Health Check',
-    replace_existing=True
-)
+# Only add scheduler jobs on primary worker to prevent duplicates in production
+if is_primary_worker:
+    # Add monitor health check job - run every 15 minutes
+    scheduler.add_job(
+        func=check_monitor_health,
+        trigger=IntervalTrigger(minutes=15),
+        id='check_monitor_health',
+        name='Monitor Health Check',
+        replace_existing=True
+    )
+    app.logger.info("Monitor health check system enabled - will check every 15 minutes for overdue monitors")
 
-app.logger.info("Monitor health check system enabled - will check every 15 minutes for overdue monitors")
+    # Schedule automatic file cleanup
+    def schedule_file_cleanup():
+        """Schedule automatic file cleanup"""
+        with app.app_context():
+            try:
+                # Initialize file consolidation service if needed
+                file_service = lazy_init_file_consolidation()
+                
+                if file_service and file_service is not False:
+                    results = file_service.run_full_cleanup()
+                    app.logger.info(f"Scheduled file cleanup completed: {results.get('summary', {})}")
+                else:
+                    app.logger.warning("File consolidation service not available for scheduled cleanup")
+            except Exception as e:
+                app.logger.error(f"Scheduled file cleanup error: {e}")
 
-# Schedule automatic file cleanup
-def schedule_file_cleanup():
-    """Schedule automatic file cleanup"""
-    with app.app_context():
-        try:
-            # Initialize file consolidation service if needed
-            file_service = lazy_init_file_consolidation()
-            
-            if file_service and file_service is not False:
-                results = file_service.run_full_cleanup()
-                app.logger.info(f"Scheduled file cleanup completed: {results.get('summary', {})}")
-            else:
-                app.logger.warning("File consolidation service not available for scheduled cleanup")
-        except Exception as e:
-            app.logger.error(f"Scheduled file cleanup error: {e}")
-
-scheduler.add_job(
-    func=schedule_file_cleanup,
-    trigger="interval", 
-    hours=24,
-    id="file_cleanup_job",
-    name="Daily File Cleanup",
-    replace_existing=True
-)
-app.logger.info("Scheduled daily file cleanup job")
+    scheduler.add_job(
+        func=schedule_file_cleanup,
+        trigger="interval", 
+        hours=24,
+        id="file_cleanup_job",
+        name="Daily File Cleanup",
+        replace_existing=True
+    )
+    app.logger.info("Scheduled daily file cleanup job")
 
 # Daily Lightweight Reference Number Refresh
 def daily_reference_refresh():
@@ -6227,17 +6235,18 @@ def daily_reference_refresh():
         except Exception as e:
             app.logger.error(f"Daily reference refresh error: {str(e)}")
 
-# Schedule daily reference refresh at 3:00 AM UTC
-scheduler.add_job(
-    func=daily_reference_refresh,
-    trigger='cron',
-    hour=3,
-    minute=0,
-    id='daily_reference_refresh',
-    name='Daily Reference Number Refresh',
-    replace_existing=True
-)
-app.logger.info("📅 Scheduled daily reference number refresh at 3:00 AM UTC")
+if is_primary_worker:
+    # Schedule daily reference refresh at 3:00 AM UTC
+    scheduler.add_job(
+        func=daily_reference_refresh,
+        trigger='cron',
+        hour=3,
+        minute=0,
+        id='daily_reference_refresh',
+        name='Daily Reference Number Refresh',
+        replace_existing=True
+    )
+    app.logger.info("📅 Scheduled daily reference number refresh at 3:00 AM UTC")
 
 # XML Change Monitor - monitors live XML file for changes and sends focused notifications
 def run_xml_change_monitor():
@@ -6296,15 +6305,15 @@ def run_xml_change_monitor():
     except Exception as e:
         app.logger.error(f"XML change monitor error: {str(e)}")
 
-scheduler.add_job(
-    func=run_xml_change_monitor,
-    trigger=IntervalTrigger(minutes=6),  # 6-minute interval to avoid overlap with 5-minute cycle
-    id='xml_change_monitor',
-    name='Live XML Change Monitor',
-    replace_existing=True
-)
-
-app.logger.info("📧 XML Change Monitor: Scheduled to run every 6 minutes for focused change notifications")
+if is_primary_worker:
+    scheduler.add_job(
+        func=run_xml_change_monitor,
+        trigger=IntervalTrigger(minutes=6),  # 6-minute interval to avoid overlap with 5-minute cycle
+        id='xml_change_monitor',
+        name='Live XML Change Monitor',
+        replace_existing=True
+    )
+    app.logger.info("📧 XML Change Monitor: Scheduled to run every 6 minutes for focused change notifications")
 
 # Add deployment health check routes
 @app.route('/ready')
