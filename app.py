@@ -1144,7 +1144,7 @@ def process_bullhorn_monitors():
                         field_sync_service = XMLFieldSyncService()
                         
                         # Determine which XML files need updating - use actual XML files in root
-                        xml_files_to_update = ['myticas-job-feed-CORRECT-1755627190.xml']  # Using CORRECT version to avoid external system conflicts
+                        xml_files_to_update = ['myticas-job-feed.xml']  # Back to standard file name
                         active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
                         
                         # Process each XML file immediately
@@ -1588,7 +1588,7 @@ def process_bullhorn_monitors():
                     
                     # Process main XML file for comprehensive sync
                     main_xml_files = [
-                        'myticas-job-feed-CORRECT-1755627190.xml'
+                        'myticas-job-feed.xml'
                     ]
                     
                     # Import XMLIntegrationService for comprehensive sync
@@ -2118,7 +2118,7 @@ def process_comprehensive_bullhorn_monitors():
             
             # STEP 2 & 3: Compare with XML and identify changes
             app.logger.info("📄 STEP 2-3/8: Comparing with current XML files...")
-            xml_files = ['myticas-job-feed-CORRECT-1755627190.xml']  # Using CORRECT version to avoid external system conflicts
+            xml_files = ['myticas-job-feed.xml']  # Back to standard file name
             cycle_changes = {'added': [], 'removed': [], 'modified': []}
             
             for xml_file in xml_files:
@@ -3049,7 +3049,7 @@ def scheduler_dashboard():
     # Get information about the actively maintained XML files
     # Use schedule info if available for server timestamps, otherwise local file info
     active_xml_files = []
-    for filename in ['myticas-job-feed-CORRECT-1755627190.xml']:  # Using CORRECT version to avoid external system conflicts
+    for filename in ['myticas-job-feed.xml']:  # Back to standard file name
         if os.path.exists(filename):
             file_stats = os.stat(filename)
             
@@ -3208,7 +3208,7 @@ def refresh_reference_numbers():
         app.logger.info("🔄 AD-HOC REFERENCE NUMBER REFRESH: Starting manual refresh")
         
         # Target file - using CORRECT version to avoid external system conflicts
-        xml_file = "myticas-job-feed-CORRECT-1755627190.xml"
+        xml_file = "myticas-job-feed.xml"
         
         if not os.path.exists(xml_file):
             return jsonify({
@@ -4344,7 +4344,7 @@ def trigger_ai_classification_fix():
         from lxml import etree
         import os
         
-        xml_files = ['myticas-job-feed-CORRECT-1755627190.xml']  # Using CORRECT version to avoid external system conflicts
+        xml_files = ['myticas-job-feed.xml']  # Back to standard file name
         total_jobs_fixed = 0
         
         for xml_file in xml_files:
