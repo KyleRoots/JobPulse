@@ -597,14 +597,17 @@ def process_scheduled_files():
             app.logger.error(f"Error in scheduled processing: {str(e)}")
             db.session.rollback()
 
-# Add the scheduled job to check every 2 minutes for faster response
-scheduler.add_job(
-    func=process_scheduled_files,
-    trigger=IntervalTrigger(minutes=2),  # Reduced from 5 to 2 minutes
-    id='process_scheduled_files',
-    name='Process Scheduled XML Files',
-    replace_existing=True
-)
+# DISABLED: Process Scheduled XML Files - not needed since Enhanced 8-Step Monitor handles all updates
+# This was running every 2 minutes but with 0 active schedules, it was just creating unnecessary cycles
+# that could potentially conflict with the main monitoring process
+# scheduler.add_job(
+#     func=process_scheduled_files,
+#     trigger=IntervalTrigger(minutes=2),  # Reduced from 5 to 2 minutes
+#     id='process_scheduled_files',
+#     name='Process Scheduled XML Files',
+#     replace_existing=True
+# )
+app.logger.info("📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates")
 
 def process_bullhorn_monitors():
     """Process all active Bullhorn monitors for tearsheet changes - with time limit"""
@@ -2048,7 +2051,36 @@ def process_comprehensive_bullhorn_monitors():
     8. Run FULL AUDIT ensuring 100% accuracy
     """
     with app.app_context():
+        # File lock to prevent concurrent modifications
+        lock_file = 'monitoring.lock'
+        
         try:
+            # Check if another process is already running
+            if os.path.exists(lock_file):
+                try:
+                    with open(lock_file, 'r') as f:
+                        lock_data = f.read().strip()
+                        if lock_data:
+                            lock_time = datetime.fromisoformat(lock_data)
+                            lock_age = (datetime.utcnow() - lock_time).total_seconds()
+                            
+                            # If lock is less than 4 minutes old, skip this cycle
+                            if lock_age < 240:  # 4 minutes
+                                app.logger.warning(f"🔒 MONITORING LOCKED: Another process is running (locked {lock_age:.0f}s ago). Skipping cycle.")
+                                return
+                            else:
+                                app.logger.warning(f"🔓 STALE LOCK DETECTED: Removing lock older than 4 minutes ({lock_age:.0f}s)")
+                                os.remove(lock_file)
+                except Exception as e:
+                    app.logger.warning(f"Error reading lock file: {str(e)}. Proceeding with monitoring.")
+                    if os.path.exists(lock_file):
+                        os.remove(lock_file)
+            
+            # Create lock file with current timestamp
+            with open(lock_file, 'w') as f:
+                f.write(datetime.utcnow().isoformat())
+            app.logger.info("🔒 Lock acquired for monitoring cycle")
+            
             app.logger.info("=" * 60)
             app.logger.info("🔄 COMPREHENSIVE 8-STEP MONITORING CYCLE STARTING")
             app.logger.info("📊 PROGRESS: [●○○○○○○○] Step 1/8 - Fetching jobs from Bullhorn")
@@ -2858,6 +2890,15 @@ def process_comprehensive_bullhorn_monitors():
         except Exception as e:
             app.logger.error(f"❌ Critical error in comprehensive monitoring: {str(e)}")
             db.session.rollback()
+        
+        finally:
+            # Always remove lock file when monitoring completes
+            if os.path.exists(lock_file):
+                try:
+                    os.remove(lock_file)
+                    app.logger.info("🔓 Lock released after monitoring cycle")
+                except Exception as e:
+                    app.logger.error(f"Error removing lock file: {str(e)}")
 
 # Use enhanced monitoring with 8-step process
 monitoring_func = process_comprehensive_bullhorn_monitors
