@@ -53,9 +53,15 @@ def lightweight_refresh_references(xml_path='myticas-job-feed.xml', output_path=
                 
                 used_references.add(new_ref)
                 
-                # Update ONLY the reference number
-                # Always use regular text for reference numbers (CDATA not needed for simple references)
-                ref_elem.text = new_ref
+                # Update ONLY the reference number with CDATA wrapping
+                # Clear existing content and add CDATA
+                ref_elem.text = None
+                ref_elem.tail = ref_elem.tail  # Preserve any trailing whitespace
+                # Clear any existing children (in case there's old CDATA)
+                for child in ref_elem:
+                    ref_elem.remove(child)
+                # Add new reference as CDATA
+                ref_elem.text = etree.CDATA(f" {new_ref} ")
                 
                 jobs_updated += 1
         
