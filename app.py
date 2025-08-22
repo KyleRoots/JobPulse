@@ -6242,35 +6242,35 @@ def reference_number_refresh():
                 
                 # Send email notification confirming refresh execution
                 try:
-                    from email_service import send_notification_email
+                    from email_service import EmailService
                     
                     # Get notification email from global settings
                     email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
                     if email_setting and email_setting.setting_value:
-                        subject = "Reference Number Refresh Complete (48-Hour Cycle)"
-                        message = f"""
-Reference Number Refresh Completed Successfully
-
-✅ Execution Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
-📊 Jobs Updated: {result['jobs_updated']} reference numbers refreshed
-⏱️ Processing Time: {result['time_seconds']:.2f} seconds
-🔄 Next Refresh: In 48 hours
-
-The system has successfully completed the 48-hour reference number refresh. All job reference numbers have been updated while preserving all other job data.
-
-This is an automated notification confirming the refresh executed successfully.
-"""
-                        send_notification_email(
-                            subject=subject,
-                            message=message,
-                            to_email=email_setting.setting_value
-                        )
-                        app.logger.info(f"📧 Refresh confirmation email sent to {email_setting.setting_value}")
+                        email_service = EmailService()
                         
-                        # Update refresh log with email status
-                        if refresh_log:
-                            refresh_log.email_sent = True
-                            db.session.commit()
+                        refresh_details = {
+                            'execution_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                            'processing_time': result['time_seconds'],
+                            'jobs_updated': result['jobs_updated']
+                        }
+                        
+                        email_sent = email_service.send_reference_number_refresh_notification(
+                            to_email=email_setting.setting_value,
+                            schedule_name="48-Hour Reference Number Refresh",
+                            total_jobs=result['jobs_updated'],
+                            refresh_details=refresh_details,
+                            status="success"
+                        )
+                        
+                        if email_sent:
+                            app.logger.info(f"📧 Refresh confirmation email sent to {email_setting.setting_value}")
+                            # Update refresh log with email status
+                            if refresh_log:
+                                refresh_log.email_sent = True
+                                db.session.commit()
+                        else:
+                            app.logger.warning("📧 Failed to send refresh confirmation email")
                     else:
                         app.logger.warning("📧 No notification email configured - skipping confirmation email")
                         
@@ -6296,29 +6296,31 @@ This is an automated notification confirming the refresh executed successfully.
                 
                 # Send failure notification email
                 try:
-                    from email_service import send_notification_email
+                    from email_service import EmailService
                     
                     # Get notification email from global settings
                     email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
                     if email_setting and email_setting.setting_value:
-                        subject = "⚠️ Reference Number Refresh Failed"
-                        message = f"""
-Reference Number Refresh Failed (48-Hour Cycle)
-
-❌ Execution Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
-🚨 Error: {result.get('error', 'Unknown error')}
-🔄 Next Attempt: In 48 hours
-
-The reference number refresh encountered an error and was unable to complete successfully. Please check the system logs for more details.
-
-This is an automated notification alert.
-"""
-                        send_notification_email(
-                            subject=subject,
-                            message=message,
-                            to_email=email_setting.setting_value
+                        email_service = EmailService()
+                        
+                        refresh_details = {
+                            'execution_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                            'error': result.get('error', 'Unknown error')
+                        }
+                        
+                        email_sent = email_service.send_reference_number_refresh_notification(
+                            to_email=email_setting.setting_value,
+                            schedule_name="48-Hour Reference Number Refresh",
+                            total_jobs=0,
+                            refresh_details=refresh_details,
+                            status="error",
+                            error_message=result.get('error', 'Unknown error')
                         )
-                        app.logger.info(f"📧 Refresh failure alert sent to {email_setting.setting_value}")
+                        
+                        if email_sent:
+                            app.logger.info(f"📧 Refresh failure alert sent to {email_setting.setting_value}")
+                        else:
+                            app.logger.warning("📧 Failed to send refresh failure alert")
                         
                 except Exception as email_error:
                     app.logger.error(f"📧 Failed to send refresh failure alert: {str(email_error)}")
