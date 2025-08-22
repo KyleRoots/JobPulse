@@ -122,6 +122,19 @@ def create_models(db):
         def __repr__(self):
             return f'<ProcessingLog {self.file_path} - {self.processing_type}>'
     
+    class RefreshLog(db.Model):
+        """Track reference number refresh completions"""
+        id = db.Column(db.Integer, primary_key=True)
+        refresh_date = db.Column(db.Date, nullable=False, unique=True)
+        refresh_time = db.Column(db.DateTime, nullable=False)
+        jobs_updated = db.Column(db.Integer, nullable=False, default=0)
+        processing_time = db.Column(db.Float, nullable=False, default=0.0)
+        email_sent = db.Column(db.Boolean, default=False)
+        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        
+        def __repr__(self):
+            return f'<RefreshLog {self.refresh_date}>'
+    
     class GlobalSettings(db.Model):
         """Global application settings including SFTP credentials"""
         id = db.Column(db.Integer, primary_key=True)
@@ -258,4 +271,4 @@ def create_models(db):
         def __repr__(self):
             return f'<RecruiterMapping {self.recruiter_name}: {self.linkedin_tag}>'
     
-    return User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping
+    return User, ScheduleConfig, ProcessingLog, RefreshLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping

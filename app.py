@@ -192,7 +192,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 # Import and initialize models
 from models import create_models
-User, ScheduleConfig, ProcessingLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping = create_models(db)
+User, ScheduleConfig, ProcessingLog, RefreshLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping = create_models(db)
 
 # Initialize database tables
 with app.app_context():
@@ -6194,12 +6194,21 @@ if is_primary_worker:
     )
     app.logger.info("Scheduled daily file cleanup job")
 
-# Daily Lightweight Reference Number Refresh
-def daily_reference_refresh():
-    """Daily automatic refresh of all reference numbers while preserving all other XML data"""
+# Reference Number Refresh (48-hour cycle)
+def reference_number_refresh():
+    """Automatic refresh of all reference numbers every 48 hours while preserving all other XML data"""
     with app.app_context():
         try:
-            app.logger.info("🔄 Starting daily reference number refresh...")
+            from datetime import date
+            today = date.today()
+            
+            # Check if refresh was already done today
+            existing_refresh = RefreshLog.query.filter_by(refresh_date=today).first()
+            if existing_refresh:
+                app.logger.info(f"📝 Reference refresh already completed today at {existing_refresh.refresh_time}")
+                return
+            
+            app.logger.info("🔄 Starting 48-hour reference number refresh...")
             
             # Import the lightweight refresh function
             from lightweight_reference_refresh import lightweight_refresh_references
@@ -6208,44 +6217,65 @@ def daily_reference_refresh():
             result = lightweight_refresh_references('myticas-job-feed.xml')
             
             if result['success']:
-                app.logger.info(f"✅ Daily reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
+                app.logger.info(f"✅ Reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
+                
+                # Log the refresh completion to database
+                try:
+                    refresh_log = RefreshLog(
+                        refresh_date=today,
+                        refresh_time=datetime.utcnow(),
+                        jobs_updated=result['jobs_updated'],
+                        processing_time=result['time_seconds'],
+                        email_sent=False
+                    )
+                    db.session.add(refresh_log)
+                    db.session.commit()
+                    app.logger.info("📝 Refresh completion logged to database")
+                except Exception as log_error:
+                    app.logger.error(f"Failed to log refresh completion: {str(log_error)}")
+                    db.session.rollback()
                 
                 # DISABLED: Upload to SFTP - Step 6 of 8-step monitor handles all uploads
-                # Daily refresh only updates reference numbers locally
+                # Refresh only updates reference numbers locally
                 # The 8-step monitor running every 5 minutes will detect and upload changes
                 app.logger.info("📝 Reference numbers refreshed locally (upload handled by 8-step monitor)")
                 
-                # Send email notification confirming daily refresh execution
+                # Send email notification confirming refresh execution
                 try:
                     from email_service import send_notification_email
                     
                     # Get notification email from global settings
                     email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
                     if email_setting and email_setting.setting_value:
-                        subject = "Daily Reference Number Refresh Complete"
+                        subject = "Reference Number Refresh Complete (48-Hour Cycle)"
                         message = f"""
-Daily Reference Number Refresh Completed Successfully
+Reference Number Refresh Completed Successfully
 
 ✅ Execution Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 📊 Jobs Updated: {result['jobs_updated']} reference numbers refreshed
 ⏱️ Processing Time: {result['time_seconds']:.2f} seconds
-🔄 Next Refresh: Tomorrow at 5:00 AM UTC
+🔄 Next Refresh: In 48 hours
 
-The system has successfully completed the daily reference number refresh. All job reference numbers have been updated while preserving all other job data.
+The system has successfully completed the 48-hour reference number refresh. All job reference numbers have been updated while preserving all other job data.
 
-This is an automated notification confirming the daily refresh executed as scheduled.
+This is an automated notification confirming the refresh executed successfully.
 """
                         send_notification_email(
                             subject=subject,
                             message=message,
                             to_email=email_setting.setting_value
                         )
-                        app.logger.info(f"📧 Daily refresh confirmation email sent to {email_setting.setting_value}")
+                        app.logger.info(f"📧 Refresh confirmation email sent to {email_setting.setting_value}")
+                        
+                        # Update refresh log with email status
+                        if refresh_log:
+                            refresh_log.email_sent = True
+                            db.session.commit()
                     else:
                         app.logger.warning("📧 No notification email configured - skipping confirmation email")
                         
                 except Exception as email_error:
-                    app.logger.error(f"📧 Failed to send daily refresh confirmation email: {str(email_error)}")
+                    app.logger.error(f"📧 Failed to send refresh confirmation email: {str(email_error)}")
                 
                 # Log activity
                 try:
@@ -6262,7 +6292,7 @@ This is an automated notification confirming the daily refresh executed as sched
                     app.logger.warning(f"Could not log refresh activity: {str(log_error)}")
                     
             else:
-                app.logger.error(f"❌ Daily reference refresh failed: {result.get('error', 'Unknown error')}")
+                app.logger.error(f"❌ Reference refresh failed: {result.get('error', 'Unknown error')}")
                 
                 # Send failure notification email
                 try:
@@ -6271,15 +6301,15 @@ This is an automated notification confirming the daily refresh executed as sched
                     # Get notification email from global settings
                     email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
                     if email_setting and email_setting.setting_value:
-                        subject = "⚠️ Daily Reference Number Refresh Failed"
+                        subject = "⚠️ Reference Number Refresh Failed"
                         message = f"""
-Daily Reference Number Refresh Failed
+Reference Number Refresh Failed (48-Hour Cycle)
 
 ❌ Execution Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 🚨 Error: {result.get('error', 'Unknown error')}
-🔄 Next Attempt: Tomorrow at 5:00 AM UTC
+🔄 Next Attempt: In 48 hours
 
-The daily reference number refresh encountered an error and was unable to complete successfully. Please check the system logs for more details.
+The reference number refresh encountered an error and was unable to complete successfully. Please check the system logs for more details.
 
 This is an automated notification alert.
 """
@@ -6288,26 +6318,49 @@ This is an automated notification alert.
                             message=message,
                             to_email=email_setting.setting_value
                         )
-                        app.logger.info(f"📧 Daily refresh failure alert sent to {email_setting.setting_value}")
+                        app.logger.info(f"📧 Refresh failure alert sent to {email_setting.setting_value}")
                         
                 except Exception as email_error:
-                    app.logger.error(f"📧 Failed to send daily refresh failure alert: {str(email_error)}")
+                    app.logger.error(f"📧 Failed to send refresh failure alert: {str(email_error)}")
                 
         except Exception as e:
-            app.logger.error(f"Daily reference refresh error: {str(e)}")
+            app.logger.error(f"Reference refresh error: {str(e)}")
 
 if is_primary_worker:
-    # Schedule daily reference refresh at 5:00 AM UTC
+    # Schedule reference refresh every 48 hours
     scheduler.add_job(
-        func=daily_reference_refresh,
-        trigger='cron',
-        hour=5,
-        minute=0,
-        id='daily_reference_refresh',
-        name='Daily Reference Number Refresh',
+        func=reference_number_refresh,
+        trigger='interval',
+        hours=48,
+        id='reference_number_refresh',
+        name='48-Hour Reference Number Refresh',
         replace_existing=True
     )
-    app.logger.info("📅 Scheduled daily reference number refresh at 5:00 AM UTC")
+    app.logger.info("📅 Scheduled reference number refresh every 48 hours")
+    
+    # Check if catch-up refresh is needed on startup
+    try:
+        with app.app_context():
+            from datetime import date, timedelta
+            
+            # Get the last refresh from database
+            last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
+            
+            if last_refresh:
+                # Check if 48 hours have passed since last refresh
+                time_since_refresh = datetime.utcnow() - last_refresh.refresh_time
+                if time_since_refresh > timedelta(hours=48):
+                    app.logger.info(f"⏰ Last refresh was {time_since_refresh.total_seconds() / 3600:.1f} hours ago, running catch-up refresh...")
+                    reference_number_refresh()
+                else:
+                    hours_until_next = 48 - (time_since_refresh.total_seconds() / 3600)
+                    app.logger.info(f"📝 Last refresh was {time_since_refresh.total_seconds() / 3600:.1f} hours ago, next refresh in {hours_until_next:.1f} hours")
+            else:
+                # No previous refresh found, run one now
+                app.logger.info("🆕 No previous refresh found, running initial refresh...")
+                reference_number_refresh()
+    except Exception as startup_error:
+        app.logger.error(f"Failed to check/run startup refresh: {str(startup_error)}")
 
 # XML Change Monitor - monitors live XML file for changes and sends focused notifications
 def run_xml_change_monitor():
