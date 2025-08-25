@@ -3083,6 +3083,12 @@ def test_stsi_form(job_id, job_title):
                     <strong>Preview Mode:</strong> This is how the STSI-branded application form will appear when accessed from apply.stsigroup.com
                 </div>
                 <form>
+                    <div class="mb-4">
+                        <label class="form-label">Resume Upload *</label>
+                        <p class="text-muted small">Upload your resume and our system will do its best to parse your information into the fields below.</p>
+                        <input type="file" class="form-control" accept=".pdf,.doc,.docx">
+                        <small class="text-muted">PDF, DOC, or DOCX (Max 5MB)</small>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">First Name *</label>
                         <input type="text" class="form-control" placeholder="Enter your first name">
@@ -3099,19 +3105,14 @@ def test_stsi_form(job_id, job_title):
                         <label class="form-label">Phone Number *</label>
                         <input type="tel" class="form-control" placeholder="Enter your phone">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Resume Upload *</label>
-                        <input type="file" class="form-control" accept=".pdf,.doc,.docx">
-                        <small class="text-muted">PDF, DOC, or DOCX (Max 5MB)</small>
-                    </div>
                     <div class="text-center mt-4">
                         <button type="button" class="btn btn-submit" onclick="alert('This is a preview - form submissions will go to apply@myticas.com')">
                             Submit Application
                         </button>
                     </div>
                 </form>
-                <div class="text-center mt-4 text-muted">
-                    <small><i class="fas fa-envelope"></i> All applications are sent to: apply@myticas.com</small>
+                <div class="text-center mt-4" style="padding: 1rem; background: #f8f9fa; border-top: 1px solid #dee2e6;">
+                    <small class="text-muted">Powered by <span style="color: #00B5B5; font-weight: 500;">JobPulse™</span></small>
                 </div>
             </div>
         </div>
