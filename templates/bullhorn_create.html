@@ -112,6 +112,40 @@
             transform: translateY(-4px);
             box-shadow: 0 15px 40px rgba(0,0,0,0.2);
         }
+
+        /* Monitor Type Card Interactive Styles */
+        .monitor-type-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .monitor-type-card .fas {
+            color: #F5F9FC !important;
+            transition: all 0.3s ease;
+        }
+        
+        .monitor-type-card.selected .fas,
+        .monitor-type-card:has(input:checked) .fas {
+            color: #5ed9ff !important;
+        }
+        
+        .monitor-type-card .card-title {
+            transition: all 0.3s ease;
+        }
+        
+        .monitor-type-card.selected .card-title,
+        .monitor-type-card:has(input:checked) .card-title {
+            color: #5ed9ff !important;
+        }
+        
+        .monitor-type-card .form-check-label strong {
+            transition: all 0.3s ease;
+        }
+        
+        .monitor-type-card.selected .form-check-label strong,
+        .monitor-type-card:has(input:checked) .form-check-label strong {
+            color: #5ed9ff !important;
+        }
     
         /* Resume with pulse line effect */
         .jobpulse-logo {
@@ -285,13 +319,13 @@
                                     <div class="col-md-6">
                                         <div class="card h-100 monitor-type-card" data-type="tearsheet">
                                             <div class="card-body text-center">
-                                                <i class="fas fa-clipboard-list fa-3x text-primary mb-3"></i>
-                                                <h5 class="card-title" style="color: #FF6666;">Tearsheet Jobs</h5>
+                                                <i class="fas fa-clipboard-list fa-3x mb-3"></i>
+                                                <h5 class="card-title">Tearsheet Jobs</h5>
                                                 <p class="card-text">Monitor jobs added or removed from a specific tearsheet</p>
                                                 <div class="form-check">
                                                     <input class="form-check-input" type="radio" name="monitor_type" id="type_tearsheet" value="tearsheet" checked>
                                                     <label class="form-check-label" for="type_tearsheet">
-                                                        <strong style="color: #FF6666;">Recommended for most users</strong>
+                                                        <strong>Recommended for most users</strong>
                                                     </label>
                                                 </div>
                                             </div>
@@ -300,13 +334,13 @@
                                     <div class="col-md-6">
                                         <div class="card h-100 monitor-type-card" data-type="query">
                                             <div class="card-body text-center">
-                                                <i class="fas fa-search fa-3x text-secondary mb-3"></i>
-                                                <h5 class="card-title" style="color: #FF6666;">Custom Search</h5>
+                                                <i class="fas fa-search fa-3x mb-3"></i>
+                                                <h5 class="card-title">Custom Search</h5>
                                                 <p class="card-text">Monitor jobs matching custom search criteria</p>
                                                 <div class="form-check">
                                                     <input class="form-check-input" type="radio" name="monitor_type" id="type_query" value="query">
                                                     <label class="form-check-label" for="type_query">
-                                                        <strong style="color: #FF6666;">For advanced users</strong>
+                                                        <strong>For advanced users</strong>
                                                     </label>
                                                 </div>
                                             </div>
@@ -478,26 +512,26 @@
                             How Job Monitoring Works
                         </h5>
                     </div>
-                    <div class="card-body" style="color: rgb(48.4, 37.6, 102);">
+                    <div class="card-body" style="color: #F5F9FC;">
                         <p>Monitor jobs in Bullhorn using custom search queries. You can create queries to track specific types of jobs:</p>
                         
                         <h6 class="mt-3">Common Query Examples:</h6>
                         <ul>
-                            <li><code style="color: #dc3545;">status:Open</code> - Monitor all open jobs</li>
-                            <li><code style="color: #dc3545;">isPublic:1</code> - Monitor all public jobs</li>
-                            <li><code style="color: #dc3545;">status:Open AND isPublic:1</code> - Monitor open public jobs</li>
-                            <li><code style="color: #dc3545;">clientCorporation.id:12345</code> - Monitor jobs for a specific client</li>
-                            <li><code style="color: #dc3545;">title:Sales*</code> - Monitor jobs with "Sales" in the title</li>
-                            <li><code style="color: #dc3545;">dateAdded:[NOW-7DAYS TO *]</code> - Monitor jobs added in the last 7 days</li>
+                            <li><code style="color: rgb(48, 37, 102);">status:Open</code> - Monitor all open jobs</li>
+                            <li><code style="color: rgb(48, 37, 102);">isPublic:1</code> - Monitor all public jobs</li>
+                            <li><code style="color: rgb(48, 37, 102);">status:Open AND isPublic:1</code> - Monitor open public jobs</li>
+                            <li><code style="color: rgb(48, 37, 102);">clientCorporation.id:12345</code> - Monitor jobs for a specific client</li>
+                            <li><code style="color: rgb(48, 37, 102);">title:Sales*</code> - Monitor jobs with "Sales" in the title</li>
+                            <li><code style="color: rgb(48, 37, 102);">dateAdded:[NOW-7DAYS TO *]</code> - Monitor jobs added in the last 7 days</li>
                         </ul>
                         
                         <h6 class="mt-3">Query Operators:</h6>
                         <ul>
-                            <li><code style="color: #dc3545;">AND</code> - Both conditions must be true</li>
-                            <li><code style="color: #dc3545;">OR</code> - Either condition can be true</li>
-                            <li><code style="color: #dc3545;">NOT</code> - Exclude matching results</li>
-                            <li><code style="color: #dc3545;">*</code> - Wildcard for partial matches</li>
-                            <li><code style="color: #dc3545;">[ TO ]</code> - Range queries for dates and numbers</li>
+                            <li><code style="color: rgb(48, 37, 102);">AND</code> - Both conditions must be true</li>
+                            <li><code style="color: rgb(48, 37, 102);">OR</code> - Either condition can be true</li>
+                            <li><code style="color: rgb(48, 37, 102);">NOT</code> - Exclude matching results</li>
+                            <li><code style="color: rgb(48, 37, 102);">*</code> - Wildcard for partial matches</li>
+                            <li><code style="color: rgb(48, 37, 102);">[ TO ]</code> - Range queries for dates and numbers</li>
                         </ul>
                         
                         <div class="alert alert-info mt-3">
@@ -528,8 +562,22 @@
             const tearsheetRadio = document.getElementById('type_tearsheet');
             const queryRadio = document.getElementById('type_query');
             
+            // Handle card click functionality
+            function updateCardStates() {
+                monitorTypeCards.forEach(card => {
+                    const radio = card.querySelector('input[type="radio"]');
+                    if (radio && radio.checked) {
+                        card.classList.add('selected');
+                    } else {
+                        card.classList.remove('selected');
+                    }
+                });
+            }
+            
             // Handle monitor type selection
             function updateMonitorType() {
+                updateCardStates(); // Update visual states
+                
                 if (tearsheetRadio && tearsheetRadio.checked) {
                     if (tearsheetOptions) tearsheetOptions.style.display = 'block';
                     if (queryOptions) queryOptions.style.display = 'none';
@@ -547,7 +595,7 @@
                 }
             }
             
-            // Handle card clicks
+            // Handle card clicks  
             monitorTypeCards.forEach(card => {
                 card.addEventListener('click', function() {
                     const type = this.dataset.type;
@@ -591,26 +639,6 @@
             });
         });
     </script>
-    <style>
-        .monitor-type-card {
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
-        }
-        
-        .monitor-type-card:hover {
-            border-color: var(--bs-primary);
-            transform: translateY(-2px);
-        }
-        
-        .monitor-type-card.active {
-            border-color: var(--bs-primary);
-            background-color: var(--bs-primary-bg-subtle);
-        }
-        
-        .form-check-input:checked ~ .form-check-label {
-            color: var(--bs-primary);
-        }
     
         /* Resume with pulse line effect */
         .jobpulse-logo {
