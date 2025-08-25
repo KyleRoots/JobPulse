@@ -5296,7 +5296,29 @@ def parse_resume():
         # Parse the resume
         parse_result = job_app_service.parse_resume(resume_file)
         
-        return jsonify(parse_result)
+        # Fix the nested structure issue - flatten the response
+        if parse_result.get('success') and parse_result.get('parsed_info'):
+            parsed_info = parse_result['parsed_info']
+            # Check if the actual parsing succeeded
+            if parsed_info.get('success', False):
+                return jsonify({
+                    'success': True,
+                    'parsed_info': parsed_info
+                })
+            else:
+                # Parsing failed, return the error
+                return jsonify({
+                    'success': False,
+                    'error': parsed_info.get('error', 'Failed to parse resume'),
+                    'parsed_info': {'parsed_data': {}}
+                })
+        else:
+            # Service-level error
+            return jsonify({
+                'success': False,
+                'error': parse_result.get('error', 'Failed to parse resume'),
+                'parsed_info': {'parsed_data': {}}
+            })
         
     except Exception as e:
         app.logger.error(f"Error parsing resume: {str(e)}")
