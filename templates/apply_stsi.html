@@ -359,36 +359,39 @@
     <script>
         let selectedFile = null;
         
-        // File upload handling
+        // File upload handling - all element IDs are correct
         const resumeDropZone = document.getElementById('resumeDropZone');
         const resumeInput = document.getElementById('resumeInput');
         const selectedResume = document.getElementById('selectedResume');
         
-        resumeDropZone.addEventListener('click', () => resumeInput.click());
-        
-        resumeDropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            resumeDropZone.classList.add('dragover');
-        });
-        
-        resumeDropZone.addEventListener('dragleave', () => {
-            resumeDropZone.classList.remove('dragover');
-        });
-        
-        resumeDropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            resumeDropZone.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFileSelect(files[0]);
-            }
-        });
-        
-        resumeInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
-            }
-        });
+        // Only add event listeners if elements exist
+        if (resumeDropZone && resumeInput && selectedResume) {
+            resumeDropZone.addEventListener('click', () => resumeInput.click());
+            
+            resumeDropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                resumeDropZone.classList.add('dragover');
+            });
+            
+            resumeDropZone.addEventListener('dragleave', () => {
+                resumeDropZone.classList.remove('dragover');
+            });
+            
+            resumeDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                resumeDropZone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileSelect(files[0]);
+                }
+            });
+            
+            resumeInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileSelect(e.target.files[0]);
+                }
+            });
+        }
         
         function handleFileSelect(file) {
             const maxSize = 5 * 1024 * 1024; // 5MB

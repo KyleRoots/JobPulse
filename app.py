@@ -5369,11 +5369,12 @@ def submit_application():
                 'error': 'Resume file is required'
             })
         
-        # Submit the application
+        # Submit the application with request host for branding detection
         submission_result = job_app_service.submit_application(
             application_data=application_data,
             resume_file=resume_file,
-            cover_letter_file=cover_letter_file if cover_letter_file and cover_letter_file.filename != '' else None
+            cover_letter_file=cover_letter_file if cover_letter_file and cover_letter_file.filename != '' else None,
+            request_host=request.host
         )
         
         return jsonify(submission_result)
