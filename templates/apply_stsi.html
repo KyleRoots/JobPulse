@@ -448,6 +448,7 @@
             })
             .then(response => response.json())
             .then(data => {
+                console.log('Parse response:', data);  // Debug log
                 if (data.success && data.parsed_info) {
                     // Auto-fill form fields
                     if (data.parsed_info.first_name) {
@@ -462,9 +463,22 @@
                     if (data.parsed_info.phone) {
                         document.getElementById('phone').value = data.parsed_info.phone;
                     }
-                    showAlert('Resume parsed successfully! Please review the auto-filled information.', 'success');
+                    
+                    // Show the extracted data in the alert for debugging
+                    let extractedInfo = [];
+                    if (data.parsed_info.first_name) extractedInfo.push(`First: ${data.parsed_info.first_name}`);
+                    if (data.parsed_info.last_name) extractedInfo.push(`Last: ${data.parsed_info.last_name}`);
+                    if (data.parsed_info.email) extractedInfo.push(`Email: ${data.parsed_info.email}`);
+                    if (data.parsed_info.phone) extractedInfo.push(`Phone: ${data.parsed_info.phone}`);
+                    
+                    if (extractedInfo.length > 0) {
+                        showAlert('Resume parsed successfully! Please review the auto-filled information.', 'success');
+                    } else {
+                        showAlert('Resume uploaded but no information could be extracted.', 'warning');
+                    }
                 } else {
-                    console.log('Resume parsing failed:', data.error);
+                    console.log('Resume parsing failed:', data);
+                    showAlert('Resume uploaded but parsing failed.', 'warning');
                 }
             })
             .catch(error => {
