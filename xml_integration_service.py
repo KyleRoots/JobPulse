@@ -19,6 +19,7 @@ except ImportError:
 from xml_processor import XMLProcessor
 from job_classification_service import JobClassificationService
 from xml_safeguards import XMLSafeguards
+from tearsheet_config import TearsheetConfig
 
 
 class XMLIntegrationService:
@@ -78,12 +79,10 @@ class XMLIntegrationService:
             # Log the field mapping for debugging
             self.logger.debug(f"Mapping job {job_id}: title='{formatted_title}'")
             
-            # Determine company name based on tearsheet/monitor
-            if monitor_name and 'Sponsored - STSI' in monitor_name:
-                company_name = 'STSI Group'
-                self.logger.info(f"Job {job_id} from STSI tearsheet - using company: STSI Group")
-            else:
-                company_name = 'Myticas Consulting'
+            # Determine company name based on tearsheet/monitor using configuration
+            company_name = TearsheetConfig.get_company_name(monitor_name)
+            if monitor_name and 'STSI' in monitor_name:
+                self.logger.info(f"Job {job_id} from STSI tearsheet - using company: {company_name}")
             
             # Extract location information ONLY from Bullhorn structured address fields
             # Never fallback to job description parsing for location data
@@ -136,8 +135,8 @@ class XMLIntegrationService:
             # Use the actual Bullhorn job ID for bhatsid (critical for matching/updating)
             bhatsid = str(job_id)
             
-            # Generate unique job application URL (clean_title is already defined above)
-            job_url = self._generate_job_application_url(bhatsid, clean_title)
+            # Generate unique job application URL based on tearsheet configuration
+            job_url = TearsheetConfig.get_application_url(monitor_name, bhatsid, clean_title)
             
             # Handle AI classification - preserve existing values if provided
             if existing_ai_fields and existing_ai_fields.get('jobfunction') and existing_ai_fields.get('jobindustries') and existing_ai_fields.get('senioritylevel'):

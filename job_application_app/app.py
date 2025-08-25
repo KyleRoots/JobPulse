@@ -23,6 +23,11 @@ logger = logging.getLogger(__name__)
 
 # Import services
 from job_application_service import JobApplicationService
+import sys
+import os
+# Add parent directory to path to import tearsheet_config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tearsheet_config import TearsheetConfig
 
 # Initialize job application service
 job_app_service = JobApplicationService()
@@ -34,7 +39,7 @@ def index():
 
 @app.route('/apply/<job_id>/<job_title>/')
 def job_application_form(job_id, job_title):
-    """Display job application form"""
+    """Display job application form with appropriate branding based on domain"""
     try:
         # Get source from query parameters
         source = request.args.get('source', '')
@@ -43,13 +48,28 @@ def job_application_form(job_id, job_title):
         import urllib.parse
         decoded_title = urllib.parse.unquote(job_title)
         
+        # Detect which domain is being accessed
+        domain = request.host.lower()
+        
+        # Get branding configuration based on domain
+        branding = TearsheetConfig.get_branding_for_domain(domain)
+        
+        # Select appropriate template based on branding
+        if 'stsigroup' in domain:
+            template = 'apply_stsi.html'
+            logger.info(f"Using STSI branded template for domain: {domain}")
+        else:
+            template = 'apply.html'
+            logger.info(f"Using Myticas branded template for domain: {domain}")
+        
         # Create response with cache-busting headers to force fresh content
         from flask import make_response
         import time
-        response = make_response(render_template('apply.html', 
+        response = make_response(render_template(template, 
                                                 job_id=job_id, 
                                                 job_title=decoded_title, 
                                                 source=source,
+                                                branding=branding,
                                                 version=str(int(time.time()))))  # Add version timestamp
         
         # Aggressive cache prevention for CDN and browsers

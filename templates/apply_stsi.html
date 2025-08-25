@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply for {{ job_title }} - STSI Group</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #003d4d 0%, #00B5B5 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: white;
+        }
+        
+        .application-container {
+            max-width: 700px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .application-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .application-header {
+            background: linear-gradient(135deg, #003d4d 0%, #00B5B5 100%);
+            padding: 2.5rem 2rem 1.5rem 2rem;
+            text-align: center;
+            color: white;
+        }
+        
+        .stsi-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stsi-logo {
+            height: 70px;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+        
+        .stsi-brand h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .application-header h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: white;
+            opacity: 0.95;
+        }
+        
+        .application-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+        
+        .application-body {
+            padding: 2rem;
+            color: #333;
+        }
+        
+        .job-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #00B5B5;
+            color: #333;
+        }
+        
+        .job-info h3 {
+            color: #003d4d;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .job-info p {
+            color: #6c757d;
+            margin: 0;
+        }
+        
+        .form-section {
+            margin-bottom: 2rem;
+        }
+        
+        .form-section h3 {
+            color: #003d4d;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-bottom: 2px solid #00B5B5;
+            padding-bottom: 0.5rem;
+        }
+        
+        .form-label {
+            color: #003d4d;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+            background: white;
+            color: #333;
+            font-size: 1rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #00B5B5;
+            box-shadow: 0 0 0 0.2rem rgba(0, 181, 181, 0.15);
+            outline: 0;
+        }
+        
+        .form-control::placeholder {
+            color: #6c757d;
+        }
+        
+        .file-upload-area {
+            border: 2px dashed #00B5B5;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .file-upload-area:hover {
+            background: #e9ecef;
+            border-color: #008080;
+        }
+        
+        .file-upload-area.dragover {
+            background: #e0f7f7;
+            border-color: #00B5B5;
+            transform: scale(1.02);
+        }
+        
+        .file-upload-icon {
+            font-size: 3rem;
+            color: #00B5B5;
+            margin-bottom: 1rem;
+        }
+        
+        .file-upload-text {
+            color: #003d4d;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        .file-upload-hint {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .selected-file {
+            background: #e0f7f7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .selected-file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #003d4d;
+        }
+        
+        .btn-submit {
+            background: linear-gradient(135deg, #00B5B5, #008080);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 1rem 3rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 181, 181, 0.2);
+        }
+        
+        .btn-submit:hover {
+            background: linear-gradient(135deg, #008080, #006666);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 181, 181, 0.3);
+            color: white;
+        }
+        
+        .btn-submit:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-remove {
+            background: transparent;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+            border-radius: 6px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-remove:hover {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .spinner-border {
+            width: 1.25rem;
+            height: 1.25rem;
+            border-width: 0.2rem;
+        }
+        
+        .tagline {
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.9);
+            margin-top: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .powered-by {
+            text-align: center;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            color: #6c757d;
+            font-size: 0.9rem;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .powered-by a {
+            color: #00B5B5;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .powered-by a:hover {
+            color: #008080;
+        }
+    </style>
+</head>
+<body>
+    <div class="application-container">
+        <div class="application-card">
+            <div class="application-header">
+                <div class="stsi-brand">
+                    <img src="/static/images/stsi_logo.png" alt="STSI Group" class="stsi-logo">
+                    <h1>STSI Group</h1>
+                    <p class="tagline">Strategic Workforce Solutions for High-Stakes Projects</p>
+                </div>
+                <h2>{{ job_title }}</h2>
+                <p>Job ID: {{ job_id }}</p>
+            </div>
+            
+            <div class="application-body">
+                <div id="alertContainer"></div>
+                
+                <form id="applicationForm" enctype="multipart/form-data">
+                    <input type="hidden" name="jobId" value="{{ job_id }}">
+                    <input type="hidden" name="jobTitle" value="{{ job_title }}">
+                    <input type="hidden" name="source" value="{{ source }}">
+                    
+                    <div class="form-section">
+                        <h3><i class="fas fa-user me-2"></i>Personal Information</h3>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="firstName" class="form-label">First Name *</label>
+                                <input type="text" class="form-control" id="firstName" name="firstName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lastName" class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" id="lastName" name="lastName" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email Address *</label>
+                                <input type="email" class="form-control" id="email" name="email" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">Phone Number *</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h3><i class="fas fa-file-alt me-2"></i>Resume Upload</h3>
+                        <div class="file-upload-area" id="resumeDropZone">
+                            <input type="file" id="resumeInput" name="resume" accept=".pdf,.doc,.docx" style="display: none;" required>
+                            <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                            <p class="file-upload-text">Click to upload or drag and drop your resume</p>
+                            <p class="file-upload-hint">PDF, DOC, or DOCX (Max 5MB)</p>
+                        </div>
+                        <div id="selectedResume" style="display: none;"></div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="autoFill">
+                            <label class="form-check-label" for="autoFill" style="color: #003d4d;">
+                                Auto-fill application from resume
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-submit" id="submitBtn">
+                            <span id="submitText">Submit Application</span>
+                            <span id="submitSpinner" style="display: none;">
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                Submitting...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="powered-by">
+                <p class="mb-0">Powered by <a href="https://stsigroup.com" target="_blank">STSI Group</a> - Engineering Industries Staffing</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedFile = null;
+        
+        // File upload handling
+        const resumeDropZone = document.getElementById('resumeDropZone');
+        const resumeInput = document.getElementById('resumeInput');
+        const selectedResume = document.getElementById('selectedResume');
+        const autoFillCheckbox = document.getElementById('autoFill');
+        
+        resumeDropZone.addEventListener('click', () => resumeInput.click());
+        
+        resumeDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            resumeDropZone.classList.add('dragover');
+        });
+        
+        resumeDropZone.addEventListener('dragleave', () => {
+            resumeDropZone.classList.remove('dragover');
+        });
+        
+        resumeDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            resumeDropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        resumeInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            
+            if (!allowedTypes.includes(file.type)) {
+                showAlert('Please upload a PDF, DOC, or DOCX file.', 'danger');
+                return;
+            }
+            
+            if (file.size > maxSize) {
+                showAlert('File size must be less than 5MB.', 'danger');
+                return;
+            }
+            
+            selectedFile = file;
+            displaySelectedFile(file);
+            
+            if (autoFillCheckbox.checked) {
+                parseResume(file);
+            }
+        }
+        
+        function displaySelectedFile(file) {
+            const fileSize = (file.size / 1024).toFixed(2) + ' KB';
+            selectedResume.innerHTML = `
+                <div class="selected-file">
+                    <div class="selected-file-info">
+                        <i class="fas fa-file-pdf fa-2x" style="color: #00B5B5;"></i>
+                        <div>
+                            <div style="font-weight: 500;">${file.name}</div>
+                            <div style="font-size: 0.9rem; color: #6c757d;">${fileSize}</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-remove" onclick="removeFile()">
+                        <i class="fas fa-times"></i> Remove
+                    </button>
+                </div>
+            `;
+            selectedResume.style.display = 'block';
+            resumeDropZone.style.display = 'none';
+        }
+        
+        function removeFile() {
+            selectedFile = null;
+            resumeInput.value = '';
+            selectedResume.style.display = 'none';
+            resumeDropZone.style.display = 'block';
+        }
+        
+        function parseResume(file) {
+            const formData = new FormData();
+            formData.append('resume', file);
+            
+            fetch('/parse-resume', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.parsed_info) {
+                    // Auto-fill form fields
+                    if (data.parsed_info.first_name) {
+                        document.getElementById('firstName').value = data.parsed_info.first_name;
+                    }
+                    if (data.parsed_info.last_name) {
+                        document.getElementById('lastName').value = data.parsed_info.last_name;
+                    }
+                    if (data.parsed_info.email) {
+                        document.getElementById('email').value = data.parsed_info.email;
+                    }
+                    if (data.parsed_info.phone) {
+                        document.getElementById('phone').value = data.parsed_info.phone;
+                    }
+                    showAlert('Resume parsed successfully! Please review the auto-filled information.', 'success');
+                } else {
+                    console.log('Resume parsing failed:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error parsing resume:', error);
+            });
+        }
+        
+        autoFillCheckbox.addEventListener('change', () => {
+            if (autoFillCheckbox.checked && selectedFile) {
+                parseResume(selectedFile);
+            }
+        });
+        
+        // Form submission
+        document.getElementById('applicationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!selectedFile) {
+                showAlert('Please upload your resume.', 'danger');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const submitText = document.getElementById('submitText');
+            const submitSpinner = document.getElementById('submitSpinner');
+            
+            submitBtn.disabled = true;
+            submitText.style.display = 'none';
+            submitSpinner.style.display = 'inline-block';
+            
+            const formData = new FormData(e.target);
+            formData.append('resume', selectedFile);
+            
+            try {
+                const response = await fetch('/submit-application', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Your application has been submitted successfully! We will review it and get back to you soon.', 'success');
+                    e.target.reset();
+                    removeFile();
+                    autoFillCheckbox.checked = false;
+                } else {
+                    showAlert(result.error || 'Failed to submit application. Please try again.', 'danger');
+                }
+            } catch (error) {
+                showAlert('An error occurred while submitting your application. Please try again.', 'danger');
+            } finally {
+                submitBtn.disabled = false;
+                submitText.style.display = 'inline-block';
+                submitSpinner.style.display = 'none';
+            }
+        });
+        
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

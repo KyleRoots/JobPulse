@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from xml_integration_service import XMLIntegrationService
 from bullhorn_service import BullhornService
 from email_service import EmailService
+from tearsheet_config import TearsheetConfig
 
 class ComprehensiveMonitoringService:
     """
@@ -172,10 +173,13 @@ class ComprehensiveMonitoringService:
                     
                     job_data = bullhorn_jobs[job_id]
                     self._add_job_to_xml(xml_file, job_data)
+                    # Get company name based on tearsheet/monitor
+                    monitor_name = job_data.get('_monitor_name', '')
+                    company_name = TearsheetConfig.get_company_name(monitor_name)
                     cycle_changes['added'].append({
                         'id': job_id,
                         'title': job_data.get('title', 'Unknown'),
-                        'company': job_data.get('_monitor_name', 'Myticas Consulting')
+                        'company': company_name
                     })
                     cycle_results['jobs_added'] += 1
                     self.logger.info(f"    Added job {job_id}: {job_data.get('title')}")
