@@ -51,7 +51,8 @@ class JobApplicationService:
             }
     
     def submit_application(self, application_data: Dict, resume_file: FileStorage, 
-                          cover_letter_file: Optional[FileStorage] = None) -> Dict[str, any]:
+                          cover_letter_file: Optional[FileStorage] = None, 
+                          request_host: Optional[str] = None) -> Dict[str, any]:
         """
         Submit job application by sending structured email
         
@@ -74,8 +75,11 @@ class JobApplicationService:
             
             subject = f"{clean_job_title} ({application_data['jobId']}) - {application_data['firstName']} {application_data['lastName']} has applied on {source}"
             
-            html_content = self._build_application_email_html(application_data)
-            text_content = self._build_application_email_text(application_data)
+            # Detect if this is an STSI application based on domain
+            is_stsi = request_host and 'stsigroup' in request_host.lower()
+            
+            html_content = self._build_application_email_html(application_data, is_stsi)
+            text_content = self._build_application_email_text(application_data, is_stsi)
             
             # Create email message
             message = Mail(
@@ -86,8 +90,8 @@ class JobApplicationService:
                 plain_text_content=Content("text/plain", text_content)
             )
             
-            # Add Myticas logo as inline attachment
-            logo_attachment = self._create_logo_attachment()
+            # Add appropriate logo as inline attachment based on branding
+            logo_attachment = self._create_logo_attachment(is_stsi)
             if logo_attachment:
                 message.add_attachment(logo_attachment)
             
@@ -126,7 +130,7 @@ class JobApplicationService:
                 'error': f'Error submitting application: {str(e)}'
             }
     
-    def _build_application_email_html(self, data: Dict) -> str:
+    def _build_application_email_html(self, data: Dict, is_stsi: bool = False) -> str:
         """Build HTML email content for job application"""
         
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
@@ -135,15 +139,25 @@ class JobApplicationService:
         import urllib.parse
         clean_job_title = urllib.parse.unquote(data['jobTitle']).replace('+', ' ')
         
+        # Determine branding
+        if is_stsi:
+            logo_cid = "stsi_logo"
+            company_name = "STSI (Staffing Technical Services Inc.)"
+            alt_text = "STSI Group"
+        else:
+            logo_cid = "myticas_logo"
+            company_name = "Myticas Consulting"
+            alt_text = "Myticas Consulting"
+        
         html_content = f"""
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f5f5f5; padding: 20px;">
             <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                 
-                <!-- Myticas Branding -->
+                <!-- Company Branding -->
                 <div style="text-align: center; margin-bottom: 10px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                    <img src="cid:myticas_logo" alt="Myticas Consulting" style="max-width: 250px; height: auto; margin-bottom: 8px;">
-                    <p style="margin: 0; color: #6c757d; font-size: 14px; font-style: italic;">Job posting is on behalf of Myticas Consulting</p>
+                    <img src="cid:{logo_cid}" alt="{alt_text}" style="max-width: 250px; height: auto; margin-bottom: 8px;">
+                    <p style="margin: 0; color: #6c757d; font-size: 14px; font-style: italic;">Job posting is on behalf of {company_name}</p>
                 </div>
                 
                 <!-- Job Information -->
@@ -204,7 +218,7 @@ class JobApplicationService:
         
         return html_content
     
-    def _build_application_email_text(self, data: Dict) -> str:
+    def _build_application_email_text(self, data: Dict, is_stsi: bool = False) -> str:
         """Build plain text email content for job application"""
         
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
@@ -213,8 +227,11 @@ class JobApplicationService:
         import urllib.parse
         clean_job_title = urllib.parse.unquote(data['jobTitle']).replace('+', ' ')
         
+        # Determine company name
+        company_name = "STSI (Staffing Technical Services Inc.)" if is_stsi else "Myticas Consulting"
+        
         text_content = f"""
-Job posting is on behalf of Myticas Consulting
+Job posting is on behalf of {company_name}
 
 POSITION DETAILS:
 Job Title: {clean_job_title}
@@ -270,13 +287,21 @@ JobPulse™ Processing & Automation System
             logger.error(f"Error creating {file_type} attachment: {str(e)}")
             return None
     
-    def _create_logo_attachment(self) -> Optional[Attachment]:
-        """Create inline logo attachment for email"""
+    def _create_logo_attachment(self, is_stsi: bool = False) -> Optional[Attachment]:
+        """Create inline logo attachment for email based on branding"""
         try:
-            logo_path = "static/myticas-logo.png"
+            # Determine which logo to use
+            if is_stsi:
+                logo_path = "static/stsi-logo.png"
+                logo_filename = "stsi-logo.png"
+                content_id = "stsi_logo"
+            else:
+                logo_path = "static/myticas-logo.png"
+                logo_filename = "myticas-logo.png"
+                content_id = "myticas_logo"
             
             if not os.path.exists(logo_path):
-                logger.warning("Myticas logo file not found - skipping logo attachment")
+                logger.warning(f"Logo file not found: {logo_path} - skipping logo attachment")
                 return None
             
             # Read logo file
@@ -290,9 +315,9 @@ JobPulse™ Processing & Automation System
             logo_attachment = Attachment(
                 file_content=encoded_logo,
                 file_type="image/png",
-                file_name="myticas-logo.png",
+                file_name=logo_filename,
                 disposition="inline",
-                content_id="myticas_logo"
+                content_id=content_id
             )
             
             return logo_attachment

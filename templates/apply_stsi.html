@@ -302,6 +302,24 @@
                     <input type="hidden" name="source" value="{{ source }}">
                     
                     <div class="form-section">
+                        <h3><i class="fas fa-file-alt me-2"></i>Resume Upload</h3>
+                        <p style="color: #6c757d; margin-bottom: 1rem;">Upload your resume and our system will do its best to parse your information into the fields below.</p>
+                        <div class="file-upload-area" id="resumeDropZone">
+                            <input type="file" id="resumeInput" name="resume" accept=".pdf,.doc,.docx" style="display: none;" required>
+                            <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                            <p class="file-upload-text">Click to upload or drag and drop your resume</p>
+                            <p class="file-upload-hint">PDF, DOC, or DOCX (Max 5MB)</p>
+                        </div>
+                        <div id="selectedResume" style="display: none;"></div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="autoFill">
+                            <label class="form-check-label" for="autoFill" style="color: #003d4d;">
+                                Auto-fill application from resume
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
                         <h3><i class="fas fa-user me-2"></i>Personal Information</h3>
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -322,23 +340,6 @@
                                 <label for="phone" class="form-label">Phone Number *</label>
                                 <input type="tel" class="form-control" id="phone" name="phone" required>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h3><i class="fas fa-file-alt me-2"></i>Resume Upload</h3>
-                        <div class="file-upload-area" id="resumeDropZone">
-                            <input type="file" id="resumeInput" name="resume" accept=".pdf,.doc,.docx" style="display: none;" required>
-                            <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
-                            <p class="file-upload-text">Click to upload or drag and drop your resume</p>
-                            <p class="file-upload-hint">PDF, DOC, or DOCX (Max 5MB)</p>
-                        </div>
-                        <div id="selectedResume" style="display: none;"></div>
-                        <div class="form-check mt-3">
-                            <input class="form-check-input" type="checkbox" id="autoFill">
-                            <label class="form-check-label" for="autoFill" style="color: #003d4d;">
-                                Auto-fill application from resume
-                            </label>
                         </div>
                     </div>
                     
