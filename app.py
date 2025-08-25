@@ -2838,7 +2838,7 @@ else:
 def login():
     """User login page"""
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('bullhorn_dashboard'))
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -2865,7 +2865,7 @@ def login():
             if next_page:
                 return redirect(next_page)
             # Force scroll to top by adding fragment
-            return redirect(url_for('index') + '#top')
+            return redirect(url_for('bullhorn_dashboard') + '#top')
         else:
             flash('Invalid username or password.', 'error')
     
@@ -3680,19 +3680,19 @@ def upload_file():
         # Check if file was uploaded
         if 'file' not in request.files:
             flash('No file selected', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('bullhorn_dashboard'))
         
         file = request.files['file']
         
         # Check if file was actually selected
         if file.filename == '':
             flash('No file selected', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('bullhorn_dashboard'))
         
         # Check file extension
         if not allowed_file(file.filename):
             flash('Invalid file type. Please upload an XML file.', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('bullhorn_dashboard'))
         
         # Generate unique filename
         original_filename = secure_filename(file.filename or 'unknown.xml')
@@ -3710,7 +3710,7 @@ def upload_file():
         if not processor.validate_xml(input_filepath):
             flash('Invalid XML file structure. Please check your file and try again.', 'error')
             os.remove(input_filepath)
-            return redirect(url_for('index'))
+            return redirect(url_for('bullhorn_dashboard'))
         
         # Generate output filename (preserve original name without "updated_" prefix)
         output_filename = original_filename
@@ -3801,12 +3801,12 @@ def upload_file():
                                  show_progress=True)
         else:
             flash(f'Error processing file: {result["error"]}', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('bullhorn_dashboard'))
             
     except Exception as e:
         app.logger.error(f"Error in upload_file: {str(e)}")
         flash(f'An error occurred while processing the file: {str(e)}', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('bullhorn_dashboard'))
 
 @app.route('/manual-upload-progress/<upload_id>')
 def get_manual_upload_progress(upload_id):
@@ -3845,7 +3845,7 @@ def download_file(download_key):
         
         if session_key not in app.config:
             flash('Download link has expired or is invalid', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('bullhorn_dashboard'))
         
         file_info = app.config[session_key]
         filepath = file_info['filepath']
@@ -3853,7 +3853,7 @@ def download_file(download_key):
         
         if not os.path.exists(filepath):
             flash('File not found', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('bullhorn_dashboard'))
         
         # Send file and clean up
         from flask import after_this_request
@@ -3875,7 +3875,7 @@ def download_file(download_key):
     except Exception as e:
         app.logger.error(f"Error in download_file: {str(e)}")
         flash(f'Error downloading file: {str(e)}', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('bullhorn_dashboard'))
 
 @app.route('/settings')
 @login_required
@@ -3898,7 +3898,7 @@ def settings():
     except Exception as e:
         app.logger.error(f"Error loading settings: {str(e)}")
         flash('Error loading settings', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('bullhorn_dashboard'))
 
 @app.route('/settings', methods=['POST'])
 def update_settings():
