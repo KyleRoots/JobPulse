@@ -5259,10 +5259,18 @@ def job_application_form(job_id, job_title):
         import urllib.parse
         decoded_title = urllib.parse.unquote(job_title)
         
-        return render_template('apply.html', 
+        from flask import make_response
+        response = make_response(render_template('apply.html', 
                              job_id=job_id, 
                              job_title=decoded_title, 
-                             source=source)
+                             source=source))
+        
+        # Add cache-busting headers to force fresh content
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
     except Exception as e:
         app.logger.error(f"Error displaying job application form: {str(e)}")
         return f"Error loading application form: {str(e)}", 500
