@@ -41,13 +41,17 @@ class JobApplicationService:
             Dict with parsing results
         """
         try:
-            return self.resume_parser.parse_resume(resume_file)
+            parsed_data = self.resume_parser.parse_resume(resume_file)
+            return {
+                'success': True,
+                'parsed_info': parsed_data
+            }
         except Exception as e:
             logger.error(f"Error parsing resume: {str(e)}")
             return {
                 'success': False,
                 'error': f'Error parsing resume: {str(e)}',
-                'parsed_data': {}
+                'parsed_info': {}
             }
     
     def submit_application(self, application_data: Dict, resume_file: FileStorage, 
