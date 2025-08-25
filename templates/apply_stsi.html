@@ -520,9 +520,15 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showAlert('Your application has been submitted successfully! We will review it and get back to you soon.', 'success');
+                    // Show success modal
+                    showSuccessModal();
                     e.target.reset();
                     removeFile();
+                    // Clear the fields
+                    document.getElementById('firstName').value = '';
+                    document.getElementById('lastName').value = '';
+                    document.getElementById('email').value = '';
+                    document.getElementById('phone').value = '';
                 } else {
                     showAlert(result.error || 'Failed to submit application. Please try again.', 'danger');
                 }
@@ -550,6 +556,68 @@
             setTimeout(() => {
                 alertDiv.remove();
             }, 5000);
+        }
+        
+        function showSuccessModal() {
+            // Create modal backdrop
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.style.zIndex = '1040';
+            
+            // Create modal
+            const modal = document.createElement('div');
+            modal.className = 'modal fade show';
+            modal.style.display = 'block';
+            modal.style.zIndex = '1050';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content" style="border: 2px solid #00B5B5;">
+                        <div class="modal-header" style="background: linear-gradient(135deg, #003d4d 0%, #00B5B5 100%); color: white; border-bottom: none;">
+                            <h5 class="modal-title">
+                                <i class="fas fa-check-circle me-2"></i>Application Submitted Successfully!
+                            </h5>
+                        </div>
+                        <div class="modal-body text-center" style="padding: 2rem;">
+                            <div class="mb-3">
+                                <i class="fas fa-check-circle text-success" style="font-size: 4rem; color: #00B5B5 !important;"></i>
+                            </div>
+                            <h5 style="color: #003d4d;">Thank You for Your Application!</h5>
+                            <p class="mb-4" style="color: #666;">
+                                Your application has been received and will be reviewed by our team. 
+                                We will contact you if your qualifications match our requirements.
+                            </p>
+                            <button type="button" class="btn" style="background: linear-gradient(135deg, #00B5B5, #008080); color: white; padding: 0.75rem 2rem;" onclick="closeSuccessModal()">
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(backdrop);
+            document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden';
+            
+            // Store references globally for closing
+            window.successModalBackdrop = backdrop;
+            window.successModal = modal;
+            
+            // Auto-close after 10 seconds
+            setTimeout(() => {
+                closeSuccessModal();
+            }, 10000);
+        }
+        
+        function closeSuccessModal() {
+            if (window.successModal) {
+                window.successModal.remove();
+                window.successModal = null;
+            }
+            if (window.successModalBackdrop) {
+                window.successModalBackdrop.remove();
+                window.successModalBackdrop = null;
+            }
+            document.body.style.overflow = '';
         }
     </script>
 </body>
