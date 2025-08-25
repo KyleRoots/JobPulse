@@ -2975,17 +2975,17 @@ def root():
     if current_user.is_authenticated:
         # Ensure scheduler is running for authenticated users
         ensure_background_services()
-        return redirect(url_for('index'))
+        return redirect(url_for('bullhorn_dashboard'))
     else:
         return redirect(url_for('login'))
 
 @app.route('/dashboard')
 @login_required
-def index():
-    """Main page with file upload form"""
+def dashboard_redirect():
+    """Redirect dashboard to the actual JobPulse interface (Bullhorn dashboard)"""
     # Ensure scheduler is running for authenticated users
     ensure_background_services()
-    return render_template('index.html')
+    return redirect(url_for('bullhorn_dashboard'))
 
 @app.route('/scheduler')
 @login_required
