@@ -53,10 +53,15 @@ class ResumeParser:
             text = self._extract_text_from_file(file)
             
             if not text:
+                # Return success with empty data to allow manual entry
                 return {
-                    'success': False,
-                    'error': 'Could not extract text from resume file',
-                    'parsed_data': {}
+                    'success': True,
+                    'parsed_data': {
+                        'first_name': None,
+                        'last_name': None,
+                        'email': None,
+                        'phone': None
+                    }
                 }
             
             # Parse extracted text
@@ -99,7 +104,8 @@ class ResumeParser:
             elif filename.lower().endswith('.doc'):
                 return self._extract_doc_text(file_path)
             else:
-                raise ValueError(f"Unsupported file type: {filename}")
+                logger.warning(f"Unsupported file type: {filename} - allowing manual entry")
+                return ""  # Return empty string for unsupported files
                 
         finally:
             # Clean up temporary file if created
@@ -109,24 +115,28 @@ class ResumeParser:
     def _extract_pdf_text(self, file_path: str) -> str:
         """Extract text from PDF file"""
         if not PDF_AVAILABLE:
-            raise ValueError("PDF parsing not available - PyPDF2 not installed")
+            logger.warning("PDF parsing not available - PyPDF2 not installed")
+            return ""  # Return empty string instead of raising error
         
         text = ""
         try:
             with open(file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
         except Exception as e:
-            logger.error(f"Error extracting PDF text: {str(e)}")
-            raise ValueError(f"Could not extract text from PDF: {str(e)}")
+            logger.warning(f"Could not extract text from PDF: {str(e)} - allowing manual entry")
+            return ""  # Return empty string instead of raising error
         
         return text.strip()
     
     def _extract_docx_text(self, file_path: str) -> str:
         """Extract text from DOCX file"""
         if not DOCX_AVAILABLE:
-            raise ValueError("DOCX parsing not available - python-docx not installed")
+            logger.warning("DOCX parsing not available - python-docx not installed")
+            return ""  # Return empty string instead of raising error
         
         try:
             doc = Document(file_path)
@@ -135,13 +145,14 @@ class ResumeParser:
                 text += paragraph.text + "\n"
             return text.strip()
         except Exception as e:
-            logger.error(f"Error extracting DOCX text: {str(e)}")
-            raise ValueError(f"Could not extract text from DOCX: {str(e)}")
+            logger.warning(f"Could not extract text from DOCX: {str(e)} - allowing manual entry")
+            return ""  # Return empty string instead of raising error
     
     def _extract_doc_text(self, file_path: str) -> str:
         """Extract text from DOC file (legacy format)"""
-        # For simplicity, we'll suggest users convert to PDF or DOCX
-        raise ValueError("Legacy DOC format not supported. Please convert to PDF or DOCX format.")
+        # Legacy DOC format not supported - return empty string for manual entry
+        logger.info("Legacy DOC format not supported - allowing manual entry")
+        return ""
     
     def _parse_text(self, text: str) -> Dict[str, Optional[str]]:
         """Parse extracted text to find candidate information"""
