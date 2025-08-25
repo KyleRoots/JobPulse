@@ -2987,6 +2987,7 @@ def test_stsi_form(job_id, job_title):
         }
         
         # Create response with cache-busting headers
+        from flask import make_response
         import time
         response = make_response(render_template('apply_stsi.html', 
                                                 job_id=job_id, 
