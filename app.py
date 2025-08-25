@@ -2969,15 +2969,46 @@ def ping():
 
 @app.route('/test-stsi/<job_id>/<job_title>/')
 def test_stsi_form(job_id, job_title):
-    """TEST ROUTE: Preview STSI branded form before subdomain mapping"""
+    """TEST ROUTE: Functional STSI branded form with resume parsing"""
     try:
+        # Get source from query parameters
+        source = request.args.get('source', '')
+        
         # Decode job title from URL
         import urllib.parse
         decoded_title = urllib.parse.unquote(job_title)
         
-        # Create simple HTML form with STSI branding
-        html = f'''<!DOCTYPE html>
-<html lang="en">
+        # Force STSI branding for testing
+        branding = {
+            'brand_name': 'STSI Group',
+            'logo_path': '/static/images/stsi_logo.png',
+            'primary_color': '#00B5B5',
+            'secondary_color': '#003d4d'
+        }
+        
+        # Create response with cache-busting headers
+        import time
+        response = make_response(render_template('apply_stsi.html', 
+                                                job_id=job_id, 
+                                                job_title=decoded_title, 
+                                                source=source,
+                                                branding=branding,
+                                                version=str(int(time.time()))))
+        
+        # Aggressive cache prevention
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, private, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        app.logger.info(f"TEST: Showing functional STSI branded form for job {job_id}")
+        return response
+        
+    except Exception as e:
+        app.logger.error(f"Error displaying test STSI form: {str(e)}")
+        return f"Error loading test form: {str(e)}", 500
+
+# OLD STATIC HTML PREVIEW - REMOVED
+'''<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3119,12 +3150,7 @@ def test_stsi_form(job_id, job_title):
     </div>
 </body>
 </html>'''
-        
-        return html
-        
-    except Exception as e:
-        app.logger.error(f"Error displaying test STSI form: {str(e)}")
-        return f"Error loading test form: {str(e)}", 500
+# END OF OLD STATIC HTML PREVIEW
 
 @app.route('/')
 def root():

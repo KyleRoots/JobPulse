@@ -139,30 +139,6 @@
             background: rgba(79, 195, 247, 0.12);
         }
         
-        /* Subtle style for optional file upload areas */
-        .file-upload-area.subtle {
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 12px;
-            padding: 1.2rem;
-            background: rgba(255, 255, 255, 0.08);
-            font-size: 0.95rem;
-        }
-        
-        .file-upload-area.subtle:hover {
-            border-color: rgba(255, 255, 255, 0.25);
-            background: rgba(255, 255, 255, 0.12);
-        }
-        
-        .file-upload-area.subtle .file-upload-icon {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .file-upload-area.subtle h5 {
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-        }
-        
         .file-upload-icon {
             font-size: 3rem;
             color: rgba(255, 255, 255, 0.7);
@@ -425,11 +401,6 @@
 
                 <!-- Application Form -->
                 <form id="applicationForm" enctype="multipart/form-data">
-                    <!-- Hidden fields for job information -->
-                    <input type="hidden" name="jobId" value="{{ job_id }}">
-                    <input type="hidden" name="jobTitle" value="{{ job_title }}">
-                    <input type="hidden" name="source" value="{{ source }}">
-                    
                     <!-- Resume Upload -->
                     <div class="form-section">
                         <h3><i class="fas fa-file-alt me-2"></i>Resume *</h3>
@@ -443,7 +414,7 @@
                             <h5>Drag & drop your resume here</h5>
                             <p class="mb-3" style="color: rgba(255, 255, 255, 0.7);">or click to browse files</p>
                             <input type="file" id="resumeFile" name="resumeFile" accept=".pdf,.doc,.docx" required style="display: none;">
-                            <button type="button" class="btn btn-outline-light" onclick="console.log('🖱️ Browse button clicked for resume'); document.getElementById('resumeFile').click(); event.stopPropagation();">
+                            <button type="button" class="btn btn-outline-light" onclick="document.getElementById('resumeFile').click(); event.stopPropagation();">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
                             <small class="d-block mt-2" style="color: rgba(255, 255, 255, 0.7);">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
@@ -514,14 +485,14 @@
                     <h5 class="modal-title">
                         <i class="fas fa-check-circle me-2"></i>Application Submitted Successfully
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="closeApplicationTab()"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p>Thank you for your application! We have received your information and will review it shortly.</p>
                     <p class="mb-0"><strong>What's next?</strong> Our team will review your application and contact you if your qualifications match our requirements.</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-custom" data-bs-dismiss="modal" onclick="closeApplicationTab()">Close</button>
+                    <button type="button" class="btn btn-custom" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -533,259 +504,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        console.log('🚀 SIMPLIFIED FILE UPLOAD WITH PROFESSIONAL STYLING');
-        
-        let formSubmitted = false; // Prevent duplicate submissions
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('✅ DOM ready - Setting up simplified handlers');
-            
-            // Set up comprehensive modal close behavior to close browser tab
-            const successModal = document.getElementById('successModal');
-            
-            // Handle all modal close events (X button, outside click, escape key, etc.)
-            successModal.addEventListener('hidden.bs.modal', function() {
-                setTimeout(closeApplicationTab, 300); // Small delay to ensure modal animation completes
-            });
-            
-            // Also handle backdrop clicks directly
-            successModal.addEventListener('click', function(e) {
-                if (e.target === successModal) {
-                    setTimeout(closeApplicationTab, 300);
-                }
-            });
-            
-            // Simple file upload handlers
-            const resumeFile = document.getElementById('resumeFile');
-            const resumeFileInfo = document.getElementById('resumeFileInfo');
-            const resumeFileName = document.getElementById('resumeFileName');
-            const resumeUploadArea = document.getElementById('resumeUploadArea');
-            
-
-            
-            // Resume file selection
-            resumeFile.addEventListener('change', function(e) {
-                console.log('📁 Resume file selected:', e.target.files.length);
-                if (e.target.files.length > 0) {
-                    const file = e.target.files[0];
-                    console.log('📂 Resume file details:', file.name, file.size);
-                    
-                    resumeFileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
-                    resumeUploadArea.style.display = 'none';
-                    resumeFileInfo.style.display = 'block';
-                    
-                    console.log('✅ Resume file upload UI updated');
-                    
-                    // Parse resume
-                    parseResumeFile(file);
-                }
-            });
-            
-
-            
-            // Form submission
-            document.getElementById('applicationForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                // Prevent duplicate submissions
-                if (formSubmitted) {
-                    console.log('⚠️ Form already submitted, ignoring duplicate');
-                    return;
-                }
-                
-                formSubmitted = true;
-                console.log('📝 Form submission started');
-                
-                const formData = new FormData();
-                formData.append('firstName', document.getElementById('firstName').value);
-                formData.append('lastName', document.getElementById('lastName').value);
-                formData.append('email', document.getElementById('email').value);
-                formData.append('phone', document.getElementById('phone').value);
-                formData.append('jobId', '{{ job_id }}');
-                formData.append('jobTitle', '{{ job_title }}');
-                formData.append('source', '{{ source }}');
-                
-                const resumeFile = document.getElementById('resumeFile').files[0];
-                
-                if (resumeFile) {
-                    formData.append('resume', resumeFile);
-                    console.log('📎 Resume file attached:', resumeFile.name);
-                }
-                
-                // Show loading
-                document.getElementById('submitText').style.display = 'none';
-                document.getElementById('loadingSpinner').style.display = 'inline';
-                document.getElementById('submitBtn').disabled = true;
-                
-                fetch('/submit-application', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('📤 Server response:', data);
-                    if (data.success) {
-                        // Show success modal instead of alert
-                        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-                        successModal.show();
-                        formSubmitted = false; // Allow new submission
-                    } else {
-                        alert('❌ Error: ' + (data.error || 'Unknown error'));
-                        formSubmitted = false; // Allow retry
-                    }
-                })
-                .catch(error => {
-                    console.error('💥 Error:', error);
-                    alert('❌ Network error: ' + error.message);
-                    formSubmitted = false; // Allow retry
-                })
-                .finally(() => {
-                    // Reset button
-                    document.getElementById('submitText').style.display = 'inline';
-                    document.getElementById('loadingSpinner').style.display = 'none';
-                    document.getElementById('submitBtn').disabled = false;
-                });
-            });
-        });
-        
-        // Keep the original professional functions
-        function removeResumeFile() {
-            document.getElementById('resumeFile').value = '';
-            document.getElementById('resumeUploadArea').style.display = 'block';
-            document.getElementById('resumeFileInfo').style.display = 'none';
-            document.getElementById('parsedInfo').style.display = 'none';
-        }
-        
-        
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        function closeApplicationTab() {
-            console.log('🔄 Application completed - attempting to close tab');
-            
-            // A) Try to close tab immediately
-            try {
-                window.close();
-            } catch (e) {
-                console.log('Browser prevented auto-close');
-            }
-            
-            // B) If tab doesn't close, erase form data and lock it
-            setTimeout(() => {
-                if (!window.closed) {
-                    lockAndClearForm();
-                }
-            }, 100);
-        }
-        
-        function lockAndClearForm() {
-            console.log('🔒 Locking form and clearing data');
-            
-            // Lock form submissions permanently
-            formSubmitted = true;
-            
-            // Clear all form fields
-            document.getElementById('firstName').value = '';
-            document.getElementById('lastName').value = '';
-            document.getElementById('email').value = '';
-            document.getElementById('phone').value = '';
-            document.getElementById('resumeFile').value = '';
-            
-            // Disable all form inputs
-            const inputs = document.querySelectorAll('#applicationForm input, #applicationForm button');
-            inputs.forEach(input => {
-                input.disabled = true;
-                input.style.opacity = '0.5';
-            });
-            
-            // Hide file upload areas
-            document.getElementById('resumeUploadArea').style.display = 'none';
-            document.getElementById('resumeFileInfo').style.display = 'none';
-            
-            // Show completion message in form
-            const formSection = document.querySelector('.application-body');
-            formSection.innerHTML = `
-                <div class="text-center py-5">
-                    <i class="fas fa-check-circle text-success mb-4" style="font-size: 4rem;"></i>
-                    <h3 class="text-success mb-3">Application Submitted Successfully!</h3>
-                    <p class="mb-3">Thank you for your application. We have received your information.</p>
-                    <p><strong>You can now close this browser tab.</strong></p>
-                </div>
-            `;
-        }
-        
-        function parseResumeFile(file) {
-            console.log('📋 Starting resume parsing for:', file.name);
-            
-            const formData = new FormData();
-            formData.append('resume', file);
-            
-            fetch('/parse-resume', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('📋 Resume parsing result:', data);
-                
-                if (data.success && data.parsed_data) {
-                    // Auto-fill form fields
-                    if (data.parsed_data.first_name) {
-                        document.getElementById('firstName').value = data.parsed_data.first_name;
-                    }
-                    if (data.parsed_data.last_name) {
-                        document.getElementById('lastName').value = data.parsed_data.last_name;
-                    }
-                    if (data.parsed_data.email) {
-                        document.getElementById('email').value = data.parsed_data.email;
-                    }
-                    if (data.parsed_data.phone) {
-                        document.getElementById('phone').value = data.parsed_data.phone;
-                    }
-                    
-                    // Show parsed info with extracted information
-                    const parsedInfo = document.getElementById('parsedInfo');
-                    let infoHtml = '<h5><i class="fas fa-magic me-2"></i>Information Extracted from Resume</h5>';
-                    infoHtml += '<p>We\'ve automatically filled in some fields from your resume. Please verify the information below is correct.</p>';
-                    infoHtml += '<ul class="mb-0">';
-                    
-                    if (data.parsed_data.first_name) {
-                        infoHtml += `<li><strong>First Name:</strong> ${data.parsed_data.first_name}</li>`;
-                    }
-                    if (data.parsed_data.last_name) {
-                        infoHtml += `<li><strong>Last Name:</strong> ${data.parsed_data.last_name}</li>`;
-                    }
-                    if (data.parsed_data.email) {
-                        infoHtml += `<li><strong>Email:</strong> ${data.parsed_data.email}</li>`;
-                    }
-                    if (data.parsed_data.phone) {
-                        infoHtml += `<li><strong>Phone:</strong> ${data.parsed_data.phone}</li>`;
-                    }
-                    
-                    infoHtml += '</ul>';
-                    parsedInfo.innerHTML = infoHtml;
-                    parsedInfo.style.display = 'block';
-                } else {
-                    // Show parsing error or no data extracted
-                    const parsedInfo = document.getElementById('parsedInfo');
-                    parsedInfo.innerHTML = '<div class="alert alert-warning" role="alert"><i class="fas fa-exclamation-triangle me-2"></i>' + 
-                        (data.error || 'Could not extract information from resume. Please fill in the form manually.') + '</div>';
-                    parsedInfo.style.display = 'block';
-                }
-            })
-            .catch(error => {
-                console.error('❌ Resume parsing error:', error);
-                const parsedInfo = document.getElementById('parsedInfo');
-                parsedInfo.innerHTML = '<div class="alert alert-danger" role="alert"><i class="fas fa-exclamation-circle me-2"></i>Error parsing resume. Please fill in the form manually.</div>';
-                parsedInfo.style.display = 'block';
-            });
-        }
-    </script>
+    <script src="{{ url_for('static', filename='js/job-application.js') }}"></script>
 </body>
 </html>

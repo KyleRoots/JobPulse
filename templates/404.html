@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Myticas Consulting - Job Applications</title>
+    <title>Page Not Found - Myticas Consulting</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -16,35 +16,35 @@
             justify-content: center;
         }
         
-        .welcome-container {
+        .error-container {
             text-align: center;
-            max-width: 600px;
+            max-width: 500px;
             padding: 2rem;
         }
         
-        .myticas-logo {
-            height: 80px;
-            margin-bottom: 2rem;
-        }
-        
-        .welcome-card {
+        .error-card {
             background: rgba(0, 0, 0, 0.4);
             border-radius: 20px;
             padding: 3rem 2rem;
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
+        
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
-    <div class="welcome-container">
-        <div class="welcome-card">
-            <img src="{{ url_for('static', filename='images/myticas-logo-bw-revised.png') }}" alt="Myticas Consulting" class="myticas-logo">
-            <h1>Welcome to Myticas Consulting</h1>
-            <p class="lead">Professional Career Opportunities</p>
-            <p>This is the job application portal. To apply for a specific position, please use the direct application link provided in the job posting.</p>
+    <div class="error-container">
+        <div class="error-card">
+            <div class="error-code">404</div>
+            <h2>Page Not Found</h2>
+            <p>The page you're looking for doesn't exist or may have been moved.</p>
             <hr class="my-4" style="border-color: rgba(255,255,255,0.3);">
-            <p class="small">For more information about our company and services, visit <a href="https://myticas.com" class="text-white">myticas.com</a></p>
+            <a href="{{ url_for('index') }}" class="btn btn-light">Go Home</a>
         </div>
     </div>
 </body>

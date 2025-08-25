@@ -39,7 +39,7 @@ def index():
 
 @app.route('/test-stsi/<job_id>/<job_title>/')
 def test_stsi_form(job_id, job_title):
-    """TEST ROUTE: Preview STSI branded form before subdomain mapping"""
+    """TEST ROUTE: Fully functional STSI branded form for testing before subdomain mapping"""
     try:
         # Get source from query parameters
         source = request.args.get('source', '')
@@ -71,7 +71,7 @@ def test_stsi_form(job_id, job_title):
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         
-        logger.info(f"TEST: Showing STSI branded form for job {job_id}")
+        logger.info(f"TEST: Showing fully functional STSI branded form for job {job_id}")
         return response
         
     except Exception as e:
