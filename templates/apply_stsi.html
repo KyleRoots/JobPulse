@@ -479,12 +479,11 @@
                         showAlert('Resume uploaded but no information could be extracted.', 'warning');
                     }
                 } else {
-                    console.log('Resume parsing failed:', data);
                     showAlert('Resume uploaded but parsing failed.', 'warning');
                 }
             })
             .catch(error => {
-                console.error('Error parsing resume:', error);
+                // Silent error - form can still be submitted manually
             });
         }
         
