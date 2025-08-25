@@ -20,12 +20,12 @@ class TearsheetConfig:
         
         # New STSI tearsheet
         'Sponsored - STSI': {
-            'company_name': 'STSI Group',
+            'company_name': 'STSI (Staffing Technical Services Inc.)',
             'domain': 'apply.stsigroup.com',
             'logo': '/static/images/stsi_logo.png',
             'primary_color': '#00B5B5',  # Teal from STSI branding
             'secondary_color': '#6c757d',  # Gray
-            'brand_name': 'STSI Group'
+            'brand_name': 'STSI (Staffing Technical Services Inc.)'
         },
         
         # Fallback for any tearsheet not explicitly defined

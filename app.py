@@ -3071,7 +3071,7 @@ def test_stsi_form(job_id, job_title):
             <div class="application-header">
                 <div class="stsi-brand">
                     <img src="/static/images/stsi_logo.png" alt="STSI Group" class="stsi-logo">
-                    <h1>STSI Group</h1>
+                    <h1>STSI (Staffing Technical Services Inc.)</h1>
                     <p class="tagline">Strategic Workforce Solutions for High-Stakes Projects</p>
                 </div>
                 <h2>{decoded_title}</h2>
