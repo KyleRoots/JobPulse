@@ -37,6 +37,47 @@ def index():
     """Landing page for job applications"""
     return render_template('index.html')
 
+@app.route('/test-stsi/<job_id>/<job_title>/')
+def test_stsi_form(job_id, job_title):
+    """TEST ROUTE: Preview STSI branded form before subdomain mapping"""
+    try:
+        # Get source from query parameters
+        source = request.args.get('source', '')
+        
+        # Decode job title from URL
+        import urllib.parse
+        decoded_title = urllib.parse.unquote(job_title)
+        
+        # Force STSI branding for testing
+        branding = {
+            'brand_name': 'STSI Group',
+            'logo_path': '/static/images/stsi_logo.png',
+            'primary_color': '#00B5B5',
+            'secondary_color': '#003d4d'
+        }
+        
+        # Create response with cache-busting headers
+        from flask import make_response
+        import time
+        response = make_response(render_template('apply_stsi.html', 
+                                                job_id=job_id, 
+                                                job_title=decoded_title, 
+                                                source=source,
+                                                branding=branding,
+                                                version=str(int(time.time()))))
+        
+        # Aggressive cache prevention
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, private, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        logger.info(f"TEST: Showing STSI branded form for job {job_id}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error displaying test STSI form: {str(e)}")
+        return f"Error loading test form: {str(e)}", 500
+
 @app.route('/apply/<job_id>/<job_title>/')
 def job_application_form(job_id, job_title):
     """Display job application form with appropriate branding based on domain"""
