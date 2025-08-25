@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Apply for {{ job_title }} - STSI Group</title>
+    <title>Apply for {{ job_title.replace('-', ' ') }} - STSI Group</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -289,7 +289,7 @@
                     <h1>STSI Group</h1>
                     <p class="tagline">Strategic Workforce Solutions for High-Stakes Projects</p>
                 </div>
-                <h2>{{ job_title }}</h2>
+                <h2>{{ job_title.replace('-', ' ') }}</h2>
                 <p>Job ID: {{ job_id }}</p>
             </div>
             
@@ -448,7 +448,6 @@
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Parse response:', data);  // Debug log
                 if (data.success && data.parsed_info) {
                     // The actual parsed data is nested in parsed_info.parsed_data
                     const parsedData = data.parsed_info.parsed_data || data.parsed_info;
