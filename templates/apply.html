@@ -504,5 +504,206 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedFile = null;
+        
+        // File upload handling
+        const resumeDropZone = document.getElementById('resumeDropZone');
+        const resumeInput = document.getElementById('resumeInput');
+        const selectedResume = document.getElementById('selectedResume');
+        
+        resumeDropZone.addEventListener('click', () => resumeInput.click());
+        
+        resumeDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            resumeDropZone.classList.add('dragover');
+        });
+        
+        resumeDropZone.addEventListener('dragleave', () => {
+            resumeDropZone.classList.remove('dragover');
+        });
+        
+        resumeDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            resumeDropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        resumeInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            
+            if (!allowedTypes.includes(file.type)) {
+                showAlert('Please upload a PDF, DOC, or DOCX file.', 'danger');
+                return;
+            }
+            
+            if (file.size > maxSize) {
+                showAlert('File size must be less than 5MB.', 'danger');
+                return;
+            }
+            
+            selectedFile = file;
+            displaySelectedFile(file);
+            
+            // Auto-parse resume immediately
+            parseResume(file);
+        }
+        
+        function displaySelectedFile(file) {
+            const fileSize = (file.size / 1024).toFixed(2) + ' KB';
+            selectedResume.innerHTML = `
+                <div class="selected-file">
+                    <div class="selected-file-info">
+                        <i class="fas fa-file-pdf fa-2x" style="color: #007bff;"></i>
+                        <div>
+                            <div style="font-weight: 500;">${file.name}</div>
+                            <div style="font-size: 0.9rem; color: #6c757d;">${fileSize}</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-remove" onclick="removeFile()">
+                        <i class="fas fa-times"></i> Remove
+                    </button>
+                </div>
+            `;
+            selectedResume.style.display = 'block';
+            resumeDropZone.style.display = 'none';
+        }
+        
+        function removeFile() {
+            selectedFile = null;
+            resumeInput.value = '';
+            selectedResume.style.display = 'none';
+            resumeDropZone.style.display = 'block';
+        }
+        
+        function parseResume(file) {
+            const formData = new FormData();
+            formData.append('resume', file);
+            
+            fetch('/parse-resume', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.parsed_info) {
+                    // The actual parsed data is nested in parsed_info.parsed_data
+                    const parsedData = data.parsed_info.parsed_data || data.parsed_info;
+                    
+                    // Auto-fill form fields
+                    if (parsedData.first_name) {
+                        document.getElementById('firstName').value = parsedData.first_name;
+                    }
+                    if (parsedData.last_name) {
+                        document.getElementById('lastName').value = parsedData.last_name;
+                    }
+                    if (parsedData.email) {
+                        document.getElementById('email').value = parsedData.email;
+                    }
+                    if (parsedData.phone) {
+                        document.getElementById('phone').value = parsedData.phone;
+                    }
+                    
+                    // Show the extracted data in the alert
+                    let extractedInfo = [];
+                    if (parsedData.first_name) extractedInfo.push(`First: ${parsedData.first_name}`);
+                    if (parsedData.last_name) extractedInfo.push(`Last: ${parsedData.last_name}`);
+                    if (parsedData.email) extractedInfo.push(`Email: ${parsedData.email}`);
+                    if (parsedData.phone) extractedInfo.push(`Phone: ${parsedData.phone}`);
+                    
+                    if (extractedInfo.length > 0) {
+                        showAlert('Resume parsed successfully! Please review the auto-filled information.', 'success');
+                    } else {
+                        showAlert('Resume uploaded but no information could be extracted.', 'warning');
+                    }
+                } else {
+                    // Don't show error messages, just silently continue
+                    // Form can still be submitted manually
+                }
+            })
+            .catch(error => {
+                // Silent error - form can still be submitted manually
+                console.log('Resume parsing encountered an issue, manual entry required');
+            });
+        }
+        
+        // Form submission
+        document.getElementById('applicationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!selectedFile) {
+                showAlert('Please upload your resume.', 'danger');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const submitText = document.getElementById('submitText');
+            const submitSpinner = document.getElementById('submitSpinner');
+            
+            submitBtn.disabled = true;
+            submitText.style.display = 'none';
+            submitSpinner.style.display = 'inline-block';
+            
+            const formData = new FormData(e.target);
+            formData.append('resume', selectedFile);
+            
+            try {
+                const response = await fetch('/submit-application', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success modal
+                    const modal = new bootstrap.Modal(document.getElementById('successModal'));
+                    modal.show();
+                    e.target.reset();
+                    removeFile();
+                    // Clear the fields
+                    document.getElementById('firstName').value = '';
+                    document.getElementById('lastName').value = '';
+                    document.getElementById('email').value = '';
+                    document.getElementById('phone').value = '';
+                } else {
+                    showAlert(result.error || 'Failed to submit application. Please try again.', 'danger');
+                }
+            } catch (error) {
+                showAlert('An error occurred while submitting your application. Please try again.', 'danger');
+            } finally {
+                submitBtn.disabled = false;
+                submitText.style.display = 'inline-block';
+                submitSpinner.style.display = 'none';
+            }
+        });
+        
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+    </script>
 </body>
 </html>
