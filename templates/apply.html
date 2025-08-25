@@ -507,32 +507,32 @@
     <script>
         let selectedFile = null;
         
-        // File upload handling
-        const resumeDropZone = document.getElementById('resumeDropZone');
-        const resumeInput = document.getElementById('resumeInput');
-        const selectedResume = document.getElementById('selectedResume');
+        // File upload handling - using correct element IDs
+        const resumeUploadArea = document.getElementById('resumeUploadArea');
+        const resumeFile = document.getElementById('resumeFile');
+        const resumeFileInfo = document.getElementById('resumeFileInfo');
+        const resumeFileName = document.getElementById('resumeFileName');
         
-        resumeDropZone.addEventListener('click', () => resumeInput.click());
-        
-        resumeDropZone.addEventListener('dragover', (e) => {
+        // Handle drag and drop
+        resumeUploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
-            resumeDropZone.classList.add('dragover');
+            resumeUploadArea.classList.add('dragover');
         });
         
-        resumeDropZone.addEventListener('dragleave', () => {
-            resumeDropZone.classList.remove('dragover');
+        resumeUploadArea.addEventListener('dragleave', () => {
+            resumeUploadArea.classList.remove('dragover');
         });
         
-        resumeDropZone.addEventListener('drop', (e) => {
+        resumeUploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
-            resumeDropZone.classList.remove('dragover');
+            resumeUploadArea.classList.remove('dragover');
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 handleFileSelect(files[0]);
             }
         });
         
-        resumeInput.addEventListener('change', (e) => {
+        resumeFile.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 handleFileSelect(e.target.files[0]);
             }
@@ -561,29 +561,16 @@
         
         function displaySelectedFile(file) {
             const fileSize = (file.size / 1024).toFixed(2) + ' KB';
-            selectedResume.innerHTML = `
-                <div class="selected-file">
-                    <div class="selected-file-info">
-                        <i class="fas fa-file-pdf fa-2x" style="color: #007bff;"></i>
-                        <div>
-                            <div style="font-weight: 500;">${file.name}</div>
-                            <div style="font-size: 0.9rem; color: #6c757d;">${fileSize}</div>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-remove" onclick="removeFile()">
-                        <i class="fas fa-times"></i> Remove
-                    </button>
-                </div>
-            `;
-            selectedResume.style.display = 'block';
-            resumeDropZone.style.display = 'none';
+            resumeFileName.textContent = file.name + ' (' + fileSize + ')';
+            resumeFileInfo.style.display = 'block';
+            resumeUploadArea.style.display = 'none';
         }
         
-        function removeFile() {
+        function removeResumeFile() {
             selectedFile = null;
-            resumeInput.value = '';
-            selectedResume.style.display = 'none';
-            resumeDropZone.style.display = 'block';
+            resumeFile.value = '';
+            resumeFileInfo.style.display = 'none';
+            resumeUploadArea.style.display = 'block';
         }
         
         function parseResume(file) {
@@ -648,11 +635,11 @@
             
             const submitBtn = document.getElementById('submitBtn');
             const submitText = document.getElementById('submitText');
-            const submitSpinner = document.getElementById('submitSpinner');
+            const loadingSpinner = document.getElementById('loadingSpinner');
             
             submitBtn.disabled = true;
             submitText.style.display = 'none';
-            submitSpinner.style.display = 'inline-block';
+            loadingSpinner.style.display = 'inline-block';
             
             const formData = new FormData(e.target);
             formData.append('resume', selectedFile);
@@ -684,7 +671,7 @@
             } finally {
                 submitBtn.disabled = false;
                 submitText.style.display = 'inline-block';
-                submitSpinner.style.display = 'none';
+                loadingSpinner.style.display = 'none';
             }
         });
         
