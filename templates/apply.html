@@ -383,6 +383,9 @@
             </div>
             
             <div class="application-body">
+                <!-- Alert Container for messages -->
+                <div id="alertContainer"></div>
+                
                 <!-- Job Information -->
                 <div class="job-info">
                     <h3><i class="fas fa-info-circle me-2"></i>Position Details</h3>
@@ -401,6 +404,11 @@
 
                 <!-- Application Form -->
                 <form id="applicationForm" enctype="multipart/form-data">
+                    <!-- Hidden inputs for form data -->
+                    <input type="hidden" name="jobId" value="{{ job_id }}">
+                    <input type="hidden" name="jobTitle" value="{{ job_title }}">
+                    <input type="hidden" name="source" value="{{ source }}">
+                    
                     <!-- Resume Upload -->
                     <div class="form-section">
                         <h3><i class="fas fa-file-alt me-2"></i>Resume *</h3>
@@ -657,7 +665,7 @@
                     const modal = new bootstrap.Modal(document.getElementById('successModal'));
                     modal.show();
                     e.target.reset();
-                    removeFile();
+                    removeResumeFile();
                     // Clear the fields
                     document.getElementById('firstName').value = '';
                     document.getElementById('lastName').value = '';
