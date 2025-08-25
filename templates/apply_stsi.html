@@ -450,26 +450,29 @@
             .then(data => {
                 console.log('Parse response:', data);  // Debug log
                 if (data.success && data.parsed_info) {
+                    // The actual parsed data is nested in parsed_info.parsed_data
+                    const parsedData = data.parsed_info.parsed_data || data.parsed_info;
+                    
                     // Auto-fill form fields
-                    if (data.parsed_info.first_name) {
-                        document.getElementById('firstName').value = data.parsed_info.first_name;
+                    if (parsedData.first_name) {
+                        document.getElementById('firstName').value = parsedData.first_name;
                     }
-                    if (data.parsed_info.last_name) {
-                        document.getElementById('lastName').value = data.parsed_info.last_name;
+                    if (parsedData.last_name) {
+                        document.getElementById('lastName').value = parsedData.last_name;
                     }
-                    if (data.parsed_info.email) {
-                        document.getElementById('email').value = data.parsed_info.email;
+                    if (parsedData.email) {
+                        document.getElementById('email').value = parsedData.email;
                     }
-                    if (data.parsed_info.phone) {
-                        document.getElementById('phone').value = data.parsed_info.phone;
+                    if (parsedData.phone) {
+                        document.getElementById('phone').value = parsedData.phone;
                     }
                     
                     // Show the extracted data in the alert for debugging
                     let extractedInfo = [];
-                    if (data.parsed_info.first_name) extractedInfo.push(`First: ${data.parsed_info.first_name}`);
-                    if (data.parsed_info.last_name) extractedInfo.push(`Last: ${data.parsed_info.last_name}`);
-                    if (data.parsed_info.email) extractedInfo.push(`Email: ${data.parsed_info.email}`);
-                    if (data.parsed_info.phone) extractedInfo.push(`Phone: ${data.parsed_info.phone}`);
+                    if (parsedData.first_name) extractedInfo.push(`First: ${parsedData.first_name}`);
+                    if (parsedData.last_name) extractedInfo.push(`Last: ${parsedData.last_name}`);
+                    if (parsedData.email) extractedInfo.push(`Email: ${parsedData.email}`);
+                    if (parsedData.phone) extractedInfo.push(`Phone: ${parsedData.phone}`);
                     
                     if (extractedInfo.length > 0) {
                         showAlert('Resume parsed successfully! Please review the auto-filled information.', 'success');
