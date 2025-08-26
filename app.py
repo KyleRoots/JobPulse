@@ -3065,7 +3065,41 @@ def scheduler_dashboard():
     # Get recent processing logs
     recent_logs = ProcessingLog.query.order_by(ProcessingLog.processed_at.desc()).limit(10).all()
     
-    return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs, active_xml_files=active_xml_files)
+    # Calculate next reference number refresh timestamp
+    next_refresh_info = {
+        'next_run': None,
+        'last_run': None,
+        'time_until_next': None,
+        'hours_until_next': None
+    }
+    
+    try:
+        # Get the last refresh from database
+        last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
+        
+        if last_refresh:
+            # Calculate next refresh (48 hours after last)
+            next_refresh_time = last_refresh.refresh_time + timedelta(hours=48)
+            time_until_next = next_refresh_time - datetime.utcnow()
+            
+            next_refresh_info.update({
+                'next_run': next_refresh_time,
+                'last_run': last_refresh.refresh_time,
+                'time_until_next': time_until_next,
+                'hours_until_next': time_until_next.total_seconds() / 3600 if time_until_next.total_seconds() > 0 else 0
+            })
+        else:
+            # No previous refresh found - next refresh will be soon
+            next_refresh_info.update({
+                'next_run': datetime.utcnow() + timedelta(minutes=5),  # Approximate next run
+                'last_run': None,
+                'time_until_next': timedelta(minutes=5),
+                'hours_until_next': 0.08  # ~5 minutes
+            })
+    except Exception as e:
+        app.logger.warning(f"Could not calculate next refresh timestamp: {str(e)}")
+    
+    return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs, active_xml_files=active_xml_files, next_refresh_info=next_refresh_info)
 
 @app.route('/api/schedules', methods=['POST'])
 def create_schedule():

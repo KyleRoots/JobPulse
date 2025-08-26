@@ -428,6 +428,69 @@
                             Scheduled Reference Number Updates
                         </h4>
                         
+                        <!-- Next Reference Number Refresh Info -->
+                        {% if next_refresh_info %}
+                        <div class="alert alert-primary mb-4" style="background: rgba(0, 123, 255, 0.15); border: 1px solid rgba(0, 123, 255, 0.3); border-radius: 10px;">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="fas fa-clock text-primary me-3" style="font-size: 1.2rem;"></i>
+                                        <div>
+                                            <h6 class="mb-1 text-primary" style="font-weight: 600;">
+                                                48-Hour Automatic Reference Refresh
+                                            </h6>
+                                            <p class="mb-0 text-muted" style="font-size: 0.9rem;">
+                                                All job reference numbers are automatically refreshed every 48 hours
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-md-end">
+                                    {% if next_refresh_info.next_run %}
+                                        <div class="mb-2">
+                                            <small class="text-muted d-block">Next Refresh</small>
+                                            <strong class="text-success" style="font-size: 1rem;">
+                                                {{ next_refresh_info.next_run.strftime('%b %d, %Y') }}
+                                            </strong>
+                                            <br>
+                                            <small class="text-success" style="font-weight: 500;">
+                                                {{ next_refresh_info.next_run.strftime('%H:%M UTC') }}
+                                            </small>
+                                        </div>
+                                        {% if next_refresh_info.hours_until_next > 0 %}
+                                        <small class="text-warning" style="font-weight: 500;">
+                                            <i class="fas fa-hourglass-half me-1"></i>
+                                            {% if next_refresh_info.hours_until_next < 1 %}
+                                                {{ (next_refresh_info.hours_until_next * 60) | round | int }} minutes remaining
+                                            {% elif next_refresh_info.hours_until_next < 24 %}
+                                                {{ next_refresh_info.hours_until_next | round(1) }} hours remaining
+                                            {% else %}
+                                                {{ (next_refresh_info.hours_until_next / 24) | round(1) }} days remaining
+                                            {% endif %}
+                                        </small>
+                                        {% else %}
+                                        <small class="text-info" style="font-weight: 500;">
+                                            <i class="fas fa-sync-alt me-1"></i>
+                                            Refresh due soon
+                                        </small>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if next_refresh_info.last_run %}
+                            <div class="row mt-2 pt-2" style="border-top: 1px solid rgba(255,255,255,0.1);">
+                                <div class="col-12">
+                                    <small class="text-muted">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        Last refresh completed: 
+                                        <strong>{{ next_refresh_info.last_run.strftime('%b %d, %Y at %H:%M UTC') }}</strong>
+                                    </small>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
                         <!-- Dynamic Schedules -->
                         {% if schedules %}
                             {% for schedule in schedules %}
