@@ -436,7 +436,7 @@
                                     <div class="d-flex align-items-center mb-2">
                                         <i class="fas fa-clock text-primary me-3" style="font-size: 1.2rem;"></i>
                                         <div>
-                                            <h6 class="mb-1 text-primary" style="font-weight: 600;">
+                                            <h6 class="mb-1" style="font-weight: 600; color: #FF6666;">
                                                 48-Hour Automatic Reference Refresh
                                             </h6>
                                             <p class="mb-0 text-muted" style="font-size: 0.9rem;">
@@ -458,8 +458,8 @@
                                             </small>
                                         </div>
                                         {% if next_refresh_info.hours_until_next > 0 %}
-                                        <small class="text-warning" style="font-weight: 500;">
-                                            <i class="fas fa-hourglass-half me-1"></i>
+                                        <small style="font-weight: 500; color: #F5F9FC;">
+                                            <i class="fas fa-hourglass-half me-1" style="color: #F5F9FC;"></i>
                                             {% if next_refresh_info.hours_until_next < 1 %}
                                                 {{ (next_refresh_info.hours_until_next * 60) | round | int }} minutes remaining
                                             {% elif next_refresh_info.hours_until_next < 24 %}
