@@ -10,6 +10,7 @@ import shutil
 import time
 import threading
 import urllib.parse
+import html
 from typing import Dict, List, Optional
 from datetime import datetime
 try:
@@ -54,6 +55,9 @@ class XMLIntegrationService:
             # Extract basic job information
             job_id = str(bullhorn_job.get('id', ''))
             title = bullhorn_job.get('title', 'Untitled Position')
+            
+            # HTML ENTITY FIX: Decode HTML entities in job titles (e.g., &amp; → &)
+            title = html.unescape(title)
             
             # CRITICAL FIX: Remove forward slashes from job titles
             # Replace forward slash with space to prevent URL and XML issues
@@ -1351,12 +1355,37 @@ class XMLIntegrationService:
                     # Find the existing field element
                     field_elem = job_element.find(f'.//{xml_field}')
                     if field_elem is not None:
-                        # Update the field content while preserving CDATA
+                        # Extract current field value, handling CDATA
+                        current_value = field_elem.text or ''
+                        if '<![CDATA[' in current_value:
+                            current_value = current_value.replace('<![CDATA[', '').replace(']]>', '').strip()
+                        
+                        # Get new field value (already processed with HTML entity decoding)
                         new_value = updated_xml_job[xml_field]
-                        if field_elem.text != new_value:
+                        
+                        # Extract clean new value for comparison
+                        clean_new_value = new_value
+                        if '<![CDATA[' in clean_new_value:
+                            clean_new_value = clean_new_value.replace('<![CDATA[', '').replace(']]>', '').strip()
+                        
+                        # Debug logging for job 34258 (FPGA job) to trace HTML entity issue
+                        if job_id == '34258' and xml_field == 'title':
+                            self.logger.info(f"🔍 DEBUG job {job_id}: field_elem.text = '{field_elem.text}'")
+                            self.logger.info(f"🔍 DEBUG job {job_id}: current_value = '{current_value}'")
+                            self.logger.info(f"🔍 DEBUG job {job_id}: new_value = '{new_value}'")
+                            self.logger.info(f"🔍 DEBUG job {job_id}: clean_new_value = '{clean_new_value}'")
+                            self.logger.info(f"🔍 DEBUG job {job_id}: comparison result = {current_value.strip() != clean_new_value.strip()}")
+                        
+                        # Compare clean values and update if different
+                        if current_value.strip() != clean_new_value.strip():
                             field_elem.text = new_value
                             fields_updated += 1
-                            self.logger.debug(f"Updated field {xml_field} for job {job_id}")
+                            if xml_field == 'title':
+                                self.logger.info(f"🔧 HTML ENTITY FIX APPLIED: Updated {xml_field} for job {job_id}: '{current_value}' → '{clean_new_value}'")
+                            else:
+                                self.logger.debug(f"Updated field {xml_field} for job {job_id}")
+                        elif xml_field == 'title' and '&amp;' in current_value:
+                            self.logger.debug(f"Title already correct for job {job_id}: '{current_value}'")
             
             # Save the updated XML
             tree.write(xml_file_path, encoding='utf-8', xml_declaration=True)

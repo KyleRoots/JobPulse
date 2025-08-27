@@ -2374,15 +2374,17 @@ def process_comprehensive_bullhorn_monitors():
                                 content
                             )
                         
-                        # Use html.unescape for proper HTML entity handling
+                        # Use html.unescape for proper HTML entity handling in both titles and descriptions
                         import html
-                        # Apply html.unescape to description content within CDATA
+                        # Apply html.unescape to content within CDATA for titles and descriptions
                         def fix_cdata_html(match):
+                            field_name = match.group(1)
                             cdata_content = match.group(2)
                             unescaped = html.unescape(cdata_content)
-                            return f'<{match.group(1)}><![CDATA[{unescaped}]]></{match.group(1)}>'
+                            return f'<{field_name}><![CDATA[{unescaped}]]></{field_name}>'
                         
-                        content = re.sub(r'<(description)><!\[CDATA\[(.*?)\]\]></\1>', fix_cdata_html, content, flags=re.DOTALL)
+                        # Apply HTML entity decoding to both titles and descriptions
+                        content = re.sub(r'<(title|description)><!\[CDATA\[(.*?)\]\]></\1>', fix_cdata_html, content, flags=re.DOTALL)
                         
                         if content != original_content:
                             with open(xml_file, 'w') as f:
