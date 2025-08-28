@@ -218,7 +218,7 @@ def lazy_apply_optimizations():
             from optimization_improvements import apply_optimizations
             optimizer = apply_optimizations(app, db, scheduler)
             app.logger.info("Application optimizations applied lazily")
-        except ImportError:
+        except (ImportError, ModuleNotFoundError):
             app.logger.debug("Optimization improvements module not available")
             optimizer = False  # Mark as attempted
         except Exception as e:
@@ -235,6 +235,9 @@ def lazy_init_file_consolidation():
             from file_consolidation_service import FileConsolidationService
             app.file_consolidation = FileConsolidationService()
             app.logger.info("File consolidation service initialized lazily")
+        except (ImportError, ModuleNotFoundError) as e:
+            app.logger.debug(f"File consolidation service not available: {e}")
+            app.file_consolidation = False  # Mark as attempted
         except Exception as e:
             app.logger.warning(f"File consolidation service not available: {e}")
             app.file_consolidation = False  # Mark as attempted
@@ -2381,9 +2384,9 @@ def process_comprehensive_bullhorn_monitors():
                 # Use SFTP for secure upload to live server
                 app.logger.info("    🔄 Attempting SFTP upload...")
                 ftp_service = FTPService(
-                    hostname=os.environ.get('SFTP_HOST'),
-                    username=os.environ.get('SFTP_USERNAME'),
-                    password=os.environ.get('SFTP_PASSWORD'),
+                    hostname=os.environ.get('SFTP_HOST', ''),
+                    username=os.environ.get('SFTP_USERNAME', ''),
+                    password=os.environ.get('SFTP_PASSWORD', ''),
                     port=2222,
                     use_sftp=True
                 )
@@ -2406,9 +2409,9 @@ def process_comprehensive_bullhorn_monitors():
                 if not ftp_success and failed_files:
                     app.logger.info("    🔄 FTP failed - attempting SFTP fallback for all files...")
                     sftp_service = FTPService(
-                        hostname=os.environ.get('SFTP_HOST'),
-                        username=os.environ.get('SFTP_USERNAME'),
-                        password=os.environ.get('SFTP_PASSWORD'),
+                        hostname=os.environ.get('SFTP_HOST', ''),
+                        username=os.environ.get('SFTP_USERNAME', ''),
+                        password=os.environ.get('SFTP_PASSWORD', ''),
                         port=2222,  # WP Engine SFTP port
                         use_sftp=True
                     )
@@ -2432,12 +2435,14 @@ def process_comprehensive_bullhorn_monitors():
                     
                     # Update schedule timestamp to match server upload time for scheduler page accuracy
                     try:
-                        for schedule in ScheduleConfig.query.filter_by(is_active=True).all():
-                            if schedule.file_path == xml_file:
-                                schedule.last_file_upload = datetime.utcnow()
-                                db.session.commit()
-                                app.logger.info(f"    📊 Updated server timestamp for scheduler display: {schedule.name}")
-                                break
+                        xml_file_to_check = xml_files[-1] if xml_files else None
+                        if xml_file_to_check:
+                            for schedule in ScheduleConfig.query.filter_by(is_active=True).all():
+                                if schedule.file_path == xml_file_to_check:
+                                    schedule.last_file_upload = datetime.utcnow()
+                                    db.session.commit()
+                                    app.logger.info(f"    📊 Updated server timestamp for scheduler display: {schedule.name}")
+                                    break
                     except Exception as timestamp_error:
                         app.logger.error(f"    ⚠️ Error updating server timestamp: {str(timestamp_error)}")
                     
@@ -2577,9 +2582,9 @@ def process_comprehensive_bullhorn_monitors():
                             try:
                                 from ftp_service import FTPService
                                 ftp_service = FTPService(
-                                    hostname=os.environ.get('SFTP_HOST'),
-                                    username=os.environ.get('SFTP_USERNAME'), 
-                                    password=os.environ.get('SFTP_PASSWORD'),
+                                    hostname=os.environ.get('SFTP_HOST', ''),
+                                    username=os.environ.get('SFTP_USERNAME', ''), 
+                                    password=os.environ.get('SFTP_PASSWORD', ''),
                                     port=2222,  # WP Engine SFTP port
                                     use_sftp=True
                                 )
@@ -2587,6 +2592,7 @@ def process_comprehensive_bullhorn_monitors():
                                 # Enhanced upload with retry logic for corruption fixes
                                 upload_result = False
                                 max_retries = 3
+                                retry = 0  # Initialize retry variable
                                 for retry in range(max_retries):
                                     try:
                                         app.logger.info(f"    🔄 CORRUPTION FIX: Upload attempt {retry + 1}/{max_retries}")
@@ -3051,20 +3057,16 @@ def scheduler_dashboard():
             next_refresh_time = last_refresh.refresh_time + timedelta(hours=48)
             time_until_next = next_refresh_time - datetime.utcnow()
             
-            next_refresh_info.update({
-                'next_run': next_refresh_time,
-                'last_run': last_refresh.refresh_time,
-                'time_until_next': time_until_next,
-                'hours_until_next': time_until_next.total_seconds() / 3600 if time_until_next.total_seconds() > 0 else 0
-            })
+            next_refresh_info['next_run'] = next_refresh_time
+            next_refresh_info['last_run'] = last_refresh.refresh_time
+            next_refresh_info['time_until_next'] = time_until_next
+            next_refresh_info['hours_until_next'] = time_until_next.total_seconds() / 3600 if time_until_next.total_seconds() > 0 else 0
         else:
             # No previous refresh found - next refresh will be soon
-            next_refresh_info.update({
-                'next_run': datetime.utcnow() + timedelta(minutes=5),  # Approximate next run
-                'last_run': None,
-                'time_until_next': timedelta(minutes=5),
-                'hours_until_next': 0.08  # ~5 minutes
-            })
+            next_refresh_info['next_run'] = datetime.utcnow() + timedelta(minutes=5)  # Approximate next run
+            next_refresh_info['last_run'] = None
+            next_refresh_info['time_until_next'] = timedelta(minutes=5)
+            next_refresh_info['hours_until_next'] = 0.08  # ~5 minutes
     except Exception as e:
         app.logger.warning(f"Could not calculate next refresh timestamp: {str(e)}")
     
@@ -3417,7 +3419,8 @@ def replace_schedule_file():
             
         except Exception as e:
             # Clean up temporary file if it exists
-            if 'temp_file' in locals() and temp_file and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
+            temp_file = locals().get('temp_file')
+            if temp_file and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
                 try:
                     os.unlink(temp_file.name)
                 except:
@@ -3743,9 +3746,9 @@ def upload_file():
                     port = db.session.query(GlobalSettings).filter_by(setting_key='sftp_port').first()
                     
                     if all([hostname, username, password]) and all([
-                        hostname.setting_value, 
-                        username.setting_value, 
-                        password.setting_value
+                        hostname and hostname.setting_value, 
+                        username and username.setting_value, 
+                        password and password.setting_value
                     ]):
                         from ftp_service import FTPService
                         
@@ -4205,11 +4208,18 @@ def trigger_job_sync():
         
         try:
             from simplified_monitoring_service import MonitoringService
-        except ImportError:
+        except (ImportError, ModuleNotFoundError):
             app.logger.warning("Simplified monitoring service not available, using direct processing")
             # Fallback to direct processing if simplified service not available
-            from bullhorn_monitoring import process_bullhorn_monitors
-            process_bullhorn_monitors()
+            try:
+                from bullhorn_monitoring import process_bullhorn_monitors
+                process_bullhorn_monitors()
+            except (ImportError, ModuleNotFoundError):
+                app.logger.warning("Bullhorn monitoring module not available")
+                return jsonify({
+                    'success': False,
+                    'error': 'No monitoring service available'
+                }), 500
             return jsonify({
                 'success': True,
                 'message': 'Job sync triggered successfully (fallback mode)',
@@ -5544,8 +5554,9 @@ def run_automation_demo():
         else:
             # Clean up on failure
             try:
-                if 'demo_xml_file' in locals() and demo_xml_file and os.path.exists(demo_xml_file):
-                    os.remove(demo_xml_file)
+                demo_xml_file_var = locals().get('demo_xml_file')
+                if demo_xml_file_var and os.path.exists(demo_xml_file_var):
+                    os.remove(demo_xml_file_var)
             except:
                 pass
             return {
@@ -5556,8 +5567,9 @@ def run_automation_demo():
     except Exception as e:
         # Clean up on exception
         try:
-            if 'demo_xml_file' in locals() and demo_xml_file and os.path.exists(demo_xml_file):
-                os.remove(demo_xml_file)
+            demo_xml_file_var = locals().get('demo_xml_file')
+            if demo_xml_file_var and os.path.exists(demo_xml_file_var):
+                os.remove(demo_xml_file_var)
         except:
             pass
         return {
@@ -6302,8 +6314,9 @@ def reference_number_refresh():
                         if email_sent:
                             app.logger.info(f"📧 Refresh confirmation email sent to {email_setting.setting_value}")
                             # Update refresh log with email status
-                            if refresh_log:
-                                refresh_log.email_sent = True
+                            refresh_log_var = locals().get('refresh_log')
+                            if refresh_log_var:
+                                refresh_log_var.email_sent = True
                                 db.session.commit()
                         else:
                             app.logger.warning("📧 Failed to send refresh confirmation email")
