@@ -3209,7 +3209,7 @@ def refresh_reference_numbers():
     try:
         app.logger.info("🔄 AD-HOC REFERENCE NUMBER REFRESH: Starting manual refresh")
         
-        # Target file - using CORRECT version to avoid external system conflicts
+        # Target file - using local file that gets uploaded as v2
         xml_file = "myticas-job-feed.xml"
         
         if not os.path.exists(xml_file):
@@ -3278,11 +3278,13 @@ def refresh_reference_numbers():
         upload_success = False
         if ftp_service:
             if ftp_service.test_connection():
-                upload_result = ftp_service.upload_file(xml_file, xml_file)
+                # Upload with new filename to avoid external system conflicts
+                remote_filename = "myticas-job-feed-v2.xml"
+                upload_result = ftp_service.upload_file(xml_file, remote_filename)
                 # FTPService.upload_file returns a boolean, not a dict
                 if upload_result:
                     upload_success = True
-                    app.logger.info(f"📤 Successfully uploaded {xml_file} to server")
+                    app.logger.info(f"📤 Successfully uploaded {xml_file} as {remote_filename} to server")
                 else:
                     app.logger.error("Upload failed: FTP service returned False")
             else:
