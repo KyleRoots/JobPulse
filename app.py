@@ -2791,10 +2791,41 @@ def process_comprehensive_bullhorn_monitors():
 monitoring_func = process_comprehensive_bullhorn_monitors
 app.logger.info("Using ENHANCED 8-step comprehensive monitoring process")
 
-# Prevent duplicate schedulers in production with worker ID check
+# Prevent duplicate schedulers with robust file-based lock
 import os
-worker_id = os.environ.get('GUNICORN_WORKER_ID', '0')
-is_primary_worker = worker_id == '0' or not os.environ.get('DEPLOYMENT_TARGET')
+import fcntl
+import atexit
+
+scheduler_lock_file = '/tmp/jobpulse_scheduler.lock'
+scheduler_lock_fd = None
+is_primary_worker = False
+
+def release_scheduler_lock():
+    """Release the scheduler lock on process exit"""
+    global scheduler_lock_fd
+    if scheduler_lock_fd:
+        try:
+            fcntl.flock(scheduler_lock_fd, fcntl.LOCK_UN)
+            os.close(scheduler_lock_fd)
+            app.logger.info("🔓 Released scheduler lock on process exit")
+        except Exception as e:
+            app.logger.warning(f"Error releasing scheduler lock: {e}")
+
+# Try to acquire exclusive lock for scheduler
+try:
+    scheduler_lock_fd = os.open(scheduler_lock_file, os.O_CREAT | os.O_WRONLY)
+    fcntl.flock(scheduler_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    is_primary_worker = True
+    worker_pid = os.getpid()
+    app.logger.info(f"✅ Process {worker_pid} acquired scheduler lock - will run as PRIMARY scheduler")
+    atexit.register(release_scheduler_lock)
+except (IOError, OSError) as e:
+    worker_pid = os.getpid()
+    app.logger.info(f"⚠️ Process {worker_pid} could not acquire scheduler lock - another scheduler is already running")
+    is_primary_worker = False
+    if scheduler_lock_fd:
+        os.close(scheduler_lock_fd)
+        scheduler_lock_fd = None
 
 if is_primary_worker:
     # Add monitoring to scheduler (extended to 5 minutes for complete field remapping)
@@ -2807,7 +2838,7 @@ if is_primary_worker:
     )
     app.logger.info("⏱️ TIMING ADJUSTMENT: Monitoring interval extended to 5 minutes for complete field remapping from Bullhorn")
 else:
-    app.logger.info(f"⚠️ Skipping scheduler setup for worker {worker_id} - only primary worker runs scheduler")
+    app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
