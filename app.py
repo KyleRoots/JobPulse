@@ -322,13 +322,12 @@ def process_scheduled_files():
                     # Generate temporary output filename
                     temp_output = f"{schedule.file_path}.temp"
                     
-                    # Process the XML - regenerate reference numbers ONLY for weekly schedules
-                    # Daily schedules should preserve reference numbers to avoid unnecessary changes
-                    preserve_refs = (schedule.schedule_days != 7)  # Don't preserve for weekly schedules
-                    if preserve_refs:
-                        app.logger.info(f"🔒 PRESERVING reference numbers for {schedule.schedule_days}-day schedule")
-                    else:
-                        app.logger.info(f"🔄 REGENERATING reference numbers for weekly schedule")
+                    # CRITICAL FIX: Always preserve reference numbers for automated scheduled runs
+                    # Only regenerate reference numbers for explicit manual refresh operations
+                    # The old weekly logic (schedule_days != 7) was causing monitoring cycles to regenerate refs
+                    preserve_refs = True  # Always preserve for automated schedules
+                    app.logger.info(f"🔒 PRESERVING reference numbers for automated schedule '{schedule.name}' ({schedule.schedule_days}-day interval)")
+                    app.logger.info(f"📝 Reference number regeneration only available via manual 'Refresh All' button")
                     
                     result = processor.process_xml(schedule.file_path, temp_output, preserve_reference_numbers=preserve_refs)
                     
@@ -423,49 +422,25 @@ def process_scheduled_files():
                                     
                                     email_service = get_email_service()
                                     
-                                    # Send specific notification based on whether reference numbers were refreshed
-                                    if not preserve_refs:  # Reference numbers were regenerated (weekly refresh)
-                                        app.logger.info(f"📧 Sending reference number refresh notification for {schedule.name}")
-                                        
-                                        # Calculate processing time
-                                        processing_time = (datetime.utcnow() - now).total_seconds()
-                                        
-                                        # Build refresh details
-                                        refresh_details = {
-                                            'jobs_refreshed': result.get('jobs_processed', 0),
-                                            'jobs_preserved': 0,  # All reference numbers regenerated in weekly refresh
-                                            'upload_status': 'successful' if sftp_upload_success else 'failed',
-                                            'processing_time': processing_time,
-                                            'next_run': schedule.next_run.strftime('%Y-%m-%d %H:%M UTC') if schedule.next_run else 'Not scheduled'
-                                        }
-                                        
-                                        # Send reference number refresh notification
-                                        refresh_email_sent = email_service.send_reference_number_refresh_notification(
-                                            to_email=email_address.setting_value,
-                                            schedule_name=schedule.name,
-                                            total_jobs=result.get('jobs_processed', 0),
-                                            refresh_details=refresh_details,
-                                            status='success'
-                                        )
-                                        
-                                        if refresh_email_sent:
-                                            app.logger.info(f"📧 Reference number refresh notification sent to {email_address.setting_value}")
-                                        else:
-                                            app.logger.warning(f"Failed to send reference number refresh notification")
+                                    # Send regular processing notification (reference numbers always preserved now)
+                                    app.logger.info(f"📧 Sending scheduled processing notification for {schedule.name}")
+                                    
+                                    # Calculate processing time
+                                    processing_time = (datetime.utcnow() - now).total_seconds()
+                                    
+                                    # Send regular processing notification (all automated schedules preserve reference numbers)
+                                    email_sent = email_service.send_processing_notification(
+                                        to_email=email_address.setting_value,
+                                        schedule_name=schedule.name,
+                                        jobs_processed=result.get('jobs_processed', 0),
+                                        xml_file_path=schedule.file_path,
+                                        original_filename=original_filename,
+                                        sftp_upload_success=sftp_upload_success
+                                    )
+                                    if email_sent:
+                                        app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
                                     else:
-                                        # Send regular processing notification (for daily/hourly schedules)
-                                        email_sent = email_service.send_processing_notification(
-                                            to_email=email_address.setting_value,
-                                            schedule_name=schedule.name,
-                                            jobs_processed=result.get('jobs_processed', 0),
-                                            xml_file_path=schedule.file_path,
-                                            original_filename=original_filename,
-                                            sftp_upload_success=sftp_upload_success
-                                        )
-                                        if email_sent:
-                                            app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
-                                        else:
-                                            app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
+                                        app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
                                 else:
                                     app.logger.warning(f"Email notification requested but credentials not configured in Global Settings")
                             except Exception as e:
@@ -480,14 +455,9 @@ def process_scheduled_files():
                             'sftp_upload_success': sftp_upload_success
                         }
                         
-                        # Create specific activity entry for reference number refresh vs regular processing
-                        if not preserve_refs:
-                            activity_type = 'reference_number_refresh'
-                            activity_details = f"Reference number refresh completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs with new reference numbers"
-                            app.logger.info(f"📋 REFERENCE NUMBER REFRESH LOGGED: {schedule.name} - {result.get('jobs_processed', 0)} jobs refreshed")
-                        else:
-                            activity_type = 'scheduled_processing'
-                            activity_details = f"Scheduled processing completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs processed (reference numbers preserved)"
+                        # Create activity entry for scheduled processing (reference numbers always preserved now)
+                        activity_type = 'scheduled_processing'
+                        activity_details = f"Scheduled processing completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs processed (reference numbers preserved)"
                         
                         activity_entry = BullhornActivity(
                             monitor_id=None,  # No specific monitor - this is a general system activity
@@ -506,8 +476,8 @@ def process_scheduled_files():
                             os.remove(temp_output)
                         app.logger.error(f"Failed to process scheduled file: {schedule.file_path} - {result.get('error')}")
                         
-                        # Send error email notification if configured and this was a reference number refresh
-                        if schedule.send_email_notifications and not preserve_refs:
+                        # Send error email notification if configured (for any scheduled processing failure)
+                        if schedule.send_email_notifications:
                             try:
                                 # Get email settings from Global Settings
                                 email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
@@ -518,22 +488,19 @@ def process_scheduled_files():
                                     
                                     email_service = get_email_service()
                                     
-                                    # Send reference number refresh failure notification
-                                    refresh_error_sent = email_service.send_reference_number_refresh_notification(
+                                    # Send scheduled processing failure notification
+                                    error_sent = email_service.send_processing_error_notification(
                                         to_email=email_address.setting_value,
                                         schedule_name=schedule.name,
-                                        total_jobs=0,
-                                        refresh_details={},
-                                        status='error',
                                         error_message=result.get('error', 'Unknown processing error occurred')
                                     )
                                     
-                                    if refresh_error_sent:
-                                        app.logger.info(f"📧 Reference number refresh error notification sent to {email_address.setting_value}")
+                                    if error_sent:
+                                        app.logger.info(f"📧 Scheduled processing error notification sent to {email_address.setting_value}")
                                     else:
-                                        app.logger.warning(f"Failed to send reference number refresh error notification")
+                                        app.logger.warning(f"Failed to send scheduled processing error notification")
                             except Exception as e:
-                                app.logger.error(f"Error sending reference number refresh error notification: {str(e)}")
+                                app.logger.error(f"Error sending scheduled processing error notification: {str(e)}")
                         
                         # Log failure in ATS monitoring system
                         activity_entry = BullhornActivity(
