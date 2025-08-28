@@ -3060,8 +3060,11 @@ def scheduler_dashboard():
                 # Fallback to current time if not a datetime
                 server_time_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
             
+            # Display the remote filename that users actually access
+            display_filename = "myticas-job-feed-v2.xml" if filename == "myticas-job-feed.xml" else filename
+            
             active_xml_files.append({
-                'filename': filename,
+                'filename': display_filename,
                 'file_size': file_stats.st_size,
                 'display_size': display_size,
                 'last_modified': last_modified,  # UTC time
