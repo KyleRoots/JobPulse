@@ -15,7 +15,7 @@ from lxml import etree
 # Email service will be passed in from app.py
 
 class XMLChangeMonitor:
-    def __init__(self, xml_file_url: str = "https://myticas.com/myticas-job-feed.xml"):
+    def __init__(self, xml_file_url: str = "https://myticas.com/myticas-job-feed-v2.xml"):
         self.xml_url = xml_file_url
         self.snapshot_file = "xml_snapshot.json"
         self.logger = logging.getLogger(__name__)

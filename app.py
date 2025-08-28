@@ -2396,9 +2396,11 @@ def process_comprehensive_bullhorn_monitors():
                 
                 for xml_file in xml_files:
                     if os.path.exists(xml_file):
-                        success = ftp_service.upload_file(xml_file, xml_file)
+                        # Upload with new filename to avoid external system conflicts
+                        remote_filename = "myticas-job-feed-v2.xml" if xml_file == "myticas-job-feed.xml" else xml_file
+                        success = ftp_service.upload_file(xml_file, remote_filename)
                         if success:
-                            app.logger.info(f"    ✅ FTP uploaded {xml_file}")
+                            app.logger.info(f"    ✅ FTP uploaded {xml_file} as {remote_filename}")
                         else:
                             app.logger.warning(f"    ⚠️ FTP failed for {xml_file}")
                             ftp_success = False
@@ -2419,9 +2421,11 @@ def process_comprehensive_bullhorn_monitors():
                     sftp_success = True
                     for xml_file in xml_files:  # Try SFTP for ALL files
                         if os.path.exists(xml_file):
-                            success = sftp_service.upload_file(xml_file, xml_file)
+                            # Upload with new filename to avoid external system conflicts
+                            remote_filename = "myticas-job-feed-v2.xml" if xml_file == "myticas-job-feed.xml" else xml_file
+                            success = sftp_service.upload_file(xml_file, remote_filename)
                             if success:
-                                app.logger.info(f"    ✅ SFTP uploaded {xml_file}")
+                                app.logger.info(f"    ✅ SFTP uploaded {xml_file} as {remote_filename}")
                             else:
                                 app.logger.error(f"    ❌ SFTP failed for {xml_file}")
                                 sftp_success = False
@@ -6475,7 +6479,7 @@ def run_xml_change_monitor():
                             'removed_jobs': changes.get('removed', 0) if isinstance(changes.get('removed'), int) else len(changes.get('removed', [])),
                             'modified_jobs': changes.get('modified', 0) if isinstance(changes.get('modified'), int) else len(changes.get('modified', [])),
                             'email_sent_to': email_setting.setting_value,
-                            'xml_url': 'https://myticas.com/myticas-job-feed.xml'
+                            'xml_url': 'https://myticas.com/myticas-job-feed-v2.xml'
                         }
                         
                         xml_monitor_activity = BullhornActivity(
