@@ -6475,7 +6475,7 @@ def run_xml_change_monitor():
                             'removed_jobs': changes.get('removed', 0) if isinstance(changes.get('removed'), int) else len(changes.get('removed', [])),
                             'modified_jobs': changes.get('modified', 0) if isinstance(changes.get('modified'), int) else len(changes.get('modified', [])),
                             'email_sent_to': email_setting.setting_value,
-                            'xml_url': 'https://myticas.com/myticas-job-feed-CORRECT-1755627190.xml'
+                            'xml_url': 'https://myticas.com/myticas-job-feed.xml'
                         }
                         
                         xml_monitor_activity = BullhornActivity(
