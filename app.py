@@ -6323,10 +6323,107 @@ def reference_number_refresh():
                     app.logger.error(f"Failed to log refresh completion: {str(log_error)}")
                     db.session.rollback()
                 
-                # DISABLED: Upload to SFTP - Step 6 of 8-step monitor handles all uploads
-                # Refresh only updates reference numbers locally
-                # The 8-step monitor running every 5 minutes will detect and upload changes
-                app.logger.info("📝 Reference numbers refreshed locally (upload handled by 8-step monitor)")
+                # ENABLED: Direct SFTP upload with same locking mechanism as monitoring cycle
+                # This ensures 48-hour refresh uploads immediately while preventing conflicts
+                upload_success = False
+                upload_error_message = None
+                
+                # Use same lock mechanism as monitoring cycle for complete separation
+                lock_file = 'monitoring.lock'
+                
+                try:
+                    # Check if monitoring cycle is already running
+                    if os.path.exists(lock_file):
+                        try:
+                            with open(lock_file, 'r') as f:
+                                lock_data = f.read().strip()
+                                if lock_data:
+                                    lock_time = datetime.fromisoformat(lock_data)
+                                    lock_age = (datetime.utcnow() - lock_time).total_seconds()
+                                    
+                                    # If monitoring lock is fresh, wait for it to complete
+                                    if lock_age < 240:  # 4 minutes
+                                        app.logger.info(f"🔒 Monitoring cycle is running, waiting 30 seconds before upload...")
+                                        time.sleep(30)  # Brief wait for monitoring to complete
+                                        
+                                        # Check again after wait
+                                        if os.path.exists(lock_file):
+                                            with open(lock_file, 'r') as f2:
+                                                lock_data2 = f2.read().strip()
+                                                if lock_data2:
+                                                    lock_time2 = datetime.fromisoformat(lock_data2)
+                                                    lock_age2 = (datetime.utcnow() - lock_time2).total_seconds()
+                                                    if lock_age2 < 240:
+                                                        app.logger.warning("🔒 Monitoring cycle still running, skipping upload (will retry in next cycle)")
+                                                        upload_error_message = "Monitoring cycle was running, upload skipped"
+                                                    else:
+                                                        os.remove(lock_file)  # Remove stale lock
+                                    else:
+                                        app.logger.info("🔓 Removing stale monitoring lock")
+                                        os.remove(lock_file)
+                        except Exception as e:
+                            app.logger.warning(f"Error reading monitoring lock: {str(e)}. Proceeding with upload.")
+                            if os.path.exists(lock_file):
+                                os.remove(lock_file)
+                    
+                    # If no lock conflicts, proceed with upload
+                    if not upload_error_message:
+                        # Create temporary lock to prevent monitoring interference
+                        with open(lock_file, 'w') as f:
+                            f.write(datetime.utcnow().isoformat())
+                        app.logger.info("🔒 Lock acquired for reference refresh upload")
+                        
+                        try:
+                            # Upload the refreshed XML file
+                            from ftp_service import FTPService
+                            ftp_service = FTPService()
+                            
+                            app.logger.info("📤 Uploading refreshed XML to server...")
+                            upload_result = ftp_service.upload_file(
+                                local_file_path='myticas-job-feed.xml',
+                                remote_filename='myticas-job-feed-v2.xml'
+                            )
+                            
+                            if upload_result['success']:
+                                upload_success = True
+                                app.logger.info(f"✅ Upload successful: {upload_result.get('message', 'File uploaded')}")
+                            else:
+                                upload_error_message = upload_result.get('error', 'Unknown upload error')
+                                app.logger.error(f"❌ Upload failed: {upload_error_message}")
+                        
+                        finally:
+                            # Always remove lock when upload completes
+                            if os.path.exists(lock_file):
+                                try:
+                                    os.remove(lock_file)
+                                    app.logger.info("🔓 Lock released after reference refresh upload")
+                                except Exception as e:
+                                    app.logger.error(f"Error removing upload lock: {str(e)}")
+                                
+                except Exception as upload_exception:
+                    upload_error_message = str(upload_exception)
+                    app.logger.error(f"❌ Upload process failed: {upload_error_message}")
+                    # Ensure lock is removed even on exception
+                    if os.path.exists(lock_file):
+                        try:
+                            os.remove(lock_file)
+                        except:
+                            pass
+                
+                # Update status message based on upload result
+                if upload_success:
+                    app.logger.info("✅ Reference refresh complete: Local XML updated AND uploaded to server")
+                elif upload_error_message:
+                    app.logger.warning(f"⚠️ Reference refresh complete: Local XML updated, but upload failed: {upload_error_message}")
+                else:
+                    app.logger.info("✅ Reference refresh complete: Local XML updated (upload handled separately)")
+                    
+                # Store upload status for email notification
+                upload_status_for_email = {
+                    'upload_attempted': True,
+                    'upload_success': upload_success, 
+                    'upload_error': upload_error_message
+                }
                 
                 # Send email notification confirming refresh execution
                 try:
@@ -6340,7 +6437,10 @@ def reference_number_refresh():
                         refresh_details = {
                             'execution_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                             'processing_time': result['time_seconds'],
-                            'jobs_updated': result['jobs_updated']
+                            'jobs_updated': result['jobs_updated'],
+                            'upload_attempted': upload_status_for_email['upload_attempted'],
+                            'upload_success': upload_status_for_email['upload_success'],
+                            'upload_error': upload_status_for_email['upload_error']
                         }
                         
                         email_sent = email_service.send_reference_number_refresh_notification(

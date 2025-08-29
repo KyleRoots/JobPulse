@@ -5,6 +5,20 @@ This Flask-based web application automates the processing of XML job feed files 
 
 ## Recent Critical Fixes (Aug 29, 2025)
 
+### 48-Hour Reference Refresh Upload Fix (3:48 PM UTC) - CRITICAL SYSTEM FIX
+**ISSUE RESOLVED**: 48-hour reference refresh was updating local XML but NOT uploading to server, causing live XML to show old reference numbers despite email confirmations
+**ROOT CAUSE**: Reference numbers were excluded from monitoring cycle uploads (marked as STATIC_FIELDS), so refresh relied on monitoring to detect changes but monitoring ignored reference number changes
+**SOLUTION IMPLEMENTED**: Added direct upload capability to `reference_number_refresh()` function with complete separation from monitoring cycle
+**TECHNICAL APPROACH**: 
+- Used identical locking mechanism as 5-minute monitoring cycle (`monitoring.lock` with 4-minute timeout)
+- Added intelligent conflict detection (waits 30 seconds if monitoring is running, then skips if still busy)
+- Upload happens immediately after local refresh, ensuring server synchronization
+- Enhanced email notifications now include upload status (success/failure/skipped)
+- Uploads to `myticas-job-feed-v2.xml` (consistent with V2 migration)
+**COORDINATION**: Both 48-hour refresh and 5-minute monitoring now use same lock file, guaranteeing mutual exclusion and zero conflicts
+**RESULT**: Next 48-hour refresh will update local XML AND upload to server immediately, ensuring live reference numbers are always fresh
+**VERIFICATION**: Monitor logs for "✅ Reference refresh complete: Local XML updated AND uploaded to server" message
+
 ### Email Notification Optimization (12:10 AM UTC)
 **CHANGE**: Temporarily disabled email notifications from regular XML monitoring cycles (every 6 minutes) to reduce redundant notifications
 **APPROACH**: Modified `xml_change_monitor.py` to accept `enable_email_notifications` parameter and set to `False` for regular monitoring cycles
