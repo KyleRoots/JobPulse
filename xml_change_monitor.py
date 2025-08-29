@@ -255,7 +255,7 @@ class XMLChangeMonitor:
             self.logger.error(f"Error sending change notification: {str(e)}")
             return False
     
-    def monitor_xml_changes(self, notification_email: str, email_service=None) -> Dict:
+    def monitor_xml_changes(self, notification_email: str, email_service=None, enable_email_notifications: bool = True) -> Dict:
         """Main monitoring function - download, compare, and notify"""
         try:
             self.logger.info("🔍 XML CHANGE MONITOR: Starting live XML monitoring cycle")
@@ -286,10 +286,12 @@ class XMLChangeMonitor:
                 self.logger.info(f"    🔄 Modified: {len(changes['modified'])} jobs")
                 self.logger.info(f"    📊 Total changes: {changes['total_changes']}")
                 
-                # Send notification if changes detected
-                if changes['total_changes'] > 0:
+                # Send notification if changes detected and email notifications are enabled
+                if changes['total_changes'] > 0 and enable_email_notifications:
                     email_sent = self.send_change_notification(changes, notification_email, email_service)
                     self.logger.info(f"📧 EMAIL NOTIFICATION: {'Sent successfully' if email_sent else 'Failed to send'}")
+                elif changes['total_changes'] > 0:
+                    self.logger.info(f"📧 EMAIL NOTIFICATION: Skipped (disabled) - {changes['total_changes']} changes detected")
                 else:
                     self.logger.info("📧 EMAIL NOTIFICATION: No changes detected, no email sent")
             else:

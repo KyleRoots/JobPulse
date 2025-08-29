@@ -3,6 +3,15 @@
 ## Overview
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
+## Recent Critical Fixes (Aug 29, 2025)
+
+### Email Notification Optimization (12:10 AM UTC)
+**CHANGE**: Temporarily disabled email notifications from regular XML monitoring cycles (every 6 minutes) to reduce redundant notifications
+**APPROACH**: Modified `xml_change_monitor.py` to accept `enable_email_notifications` parameter and set to `False` for regular monitoring cycles
+**PRESERVED**: Email notifications continue working for manual refresh button and 48-hour automatic refresh
+**RESULT**: Cleaner notification flow - users only receive emails for manual actions and scheduled refreshes, not regular monitoring cycles
+**REVERT INSTRUCTIONS**: Change `enable_email_notifications=False` to `enable_email_notifications=True` in app.py line 6473
+
 ## Recent Critical Fixes (Aug 20, 2025)
 
 ### Upload Consolidation Fix (1:45 AM UTC)

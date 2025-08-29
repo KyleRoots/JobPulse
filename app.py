@@ -6466,14 +6466,15 @@ def run_xml_change_monitor():
                 
             xml_monitor = create_xml_monitor()
             email_service = get_email_service()
-            result = xml_monitor.monitor_xml_changes(email_setting.setting_value, email_service)
+            # Temporarily disable email notifications from regular monitoring cycles
+            result = xml_monitor.monitor_xml_changes(email_setting.setting_value, email_service, enable_email_notifications=False)
         
             if result.get('success'):
                 changes = result.get('changes', {})
                 total_changes = changes.get('total_changes', 0)
                 
                 if total_changes > 0:
-                    app.logger.info(f"🔍 XML MONITOR COMPLETE: {total_changes} changes detected and email sent")
+                    app.logger.info(f"🔍 XML MONITOR COMPLETE: {total_changes} changes detected (email notifications temporarily disabled)")
                     
                     # Log to Activity monitoring system
                     try:
