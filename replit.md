@@ -3,6 +3,20 @@
 ## Overview
 This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. It provides a robust, automated solution for maintaining accurate job listings, ensuring real-time synchronization, and streamlining application workflows, thereby enhancing job visibility. The system ensures correct reference number formatting, manages XML file updates, handles SFTP uploads, and offers a user-friendly interface for file uploads and validation.
 
+## Recent Critical Fixes (Aug 30, 2025)
+
+### Client Branding Domain Detection Fix (1:10 AM UTC)
+**ISSUE RESOLVED**: STSI jobs accessed via apply.stsigroup.com were showing Myticas branding instead of STSI branding
+**ROOT CAUSE**: Job application route was hardcoded to always render 'apply.html' (Myticas template) regardless of requesting domain
+**SOLUTION IMPLEMENTED**: Added domain-based template selection with intelligent client detection
+**TECHNICAL APPROACH**: 
+- Added `request.host.lower()` domain detection in job application route
+- Logic: `stsigroup.com` domains → `apply_stsi.html`, all others → `apply.html` (default Myticas)
+- Preserves all existing functionality while enabling client-specific branding
+- Added logging to track template selection for monitoring
+**RESULT**: STSI jobs now correctly display STSI branding when accessed via apply.stsigroup.com
+**EXTENSIBILITY**: Framework ready for additional client domains in the future
+
 ## Recent Critical Fixes (Aug 29, 2025)
 
 ### 48-Hour Reference Refresh Upload Fix (3:48 PM UTC) - CRITICAL SYSTEM FIX

@@ -5303,7 +5303,7 @@ job_app_service = JobApplicationService()
 
 @app.route('/<job_id>/<job_title>/')
 def job_application_form(job_id, job_title):
-    """Display job application form"""
+    """Display job application form with client-specific branding"""
     try:
         # Get source from query parameters
         source = request.args.get('source', '')
@@ -5312,8 +5312,17 @@ def job_application_form(job_id, job_title):
         import urllib.parse
         decoded_title = urllib.parse.unquote(job_title)
         
+        # Domain-based template selection for client branding
+        host = request.host.lower()
+        if 'stsigroup.com' in host:
+            template = 'apply_stsi.html'
+            app.logger.info(f"Serving STSI template for domain: {host}")
+        else:
+            template = 'apply.html'
+            app.logger.info(f"Serving Myticas template for domain: {host}")
+        
         from flask import make_response
-        response = make_response(render_template('apply.html', 
+        response = make_response(render_template(template, 
                              job_id=job_id, 
                              job_title=decoded_title, 
                              source=source))
