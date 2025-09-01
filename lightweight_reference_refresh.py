@@ -103,20 +103,39 @@ def scheduled_reference_refresh():
     result = lightweight_refresh_references()
     
     if result['success']:
-        # Optional: Upload to SFTP
-        # This would add minimal overhead
-        from ftp_service import upload_to_sftp
-        upload_result = upload_to_sftp('myticas-job-feed.xml')
+        # Upload to SFTP using same credentials as regular monitoring
+        upload_result = False
+        try:
+            import os
+            from ftp_service import FTPService
+            
+            # Use environment variables for FTP credentials (same as monitoring cycle)
+            ftp_service = FTPService(
+                hostname=os.environ.get('SFTP_HOSTNAME', ''),
+                username=os.environ.get('SFTP_USERNAME', ''),
+                password=os.environ.get('SFTP_PASSWORD', ''),
+                port=2222,  # WP Engine SFTP port
+                use_sftp=True
+            )
+            
+            # Upload with v2 filename to avoid external system conflicts (same as monitoring)
+            upload_result = ftp_service.upload_file('myticas-job-feed.xml', 'myticas-job-feed-v2.xml')
+            
+            if upload_result:
+                logger.info("📤 ✅ Reference refresh complete: Local XML updated AND uploaded to server")
+            else:
+                logger.warning("⚠️ Reference refresh complete: Local XML updated, but upload failed")
+                
+        except Exception as e:
+            logger.error(f"❌ Upload process failed: {str(e)}")
+            logger.warning(f"⚠️ Reference refresh complete: Local XML updated, but upload failed: {str(e)}")
         
-        if upload_result:
-            logger.info("📤 Uploaded refreshed XML to server")
-        
-        # Log activity
-        log_refresh_activity(result['jobs_updated'])
+        # Log activity with upload status
+        log_refresh_activity(result['jobs_updated'], upload_result)
     
     return result
 
-def log_refresh_activity(job_count):
+def log_refresh_activity(job_count, upload_success=False):
     """Log the refresh activity to database"""
     try:
         from app import db
