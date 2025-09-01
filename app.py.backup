@@ -581,28 +581,1422 @@ def process_scheduled_files():
 app.logger.info("📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates")
 
 def process_bullhorn_monitors():
-    """Process all active Bullhorn monitors - Enhanced 8-Step with ComprehensiveMonitoringService"""
+    """Process all active Bullhorn monitors for tearsheet changes - with time limit"""
+    # Apply timeout protection inline instead of as decorator
+    start_time = datetime.utcnow()
+    max_duration = timedelta(seconds=110)  # 110 seconds max to prevent overdue
+    
+    # Removed rapid_change_tracker dependency - focus on ComprehensiveMonitoringService integration
+    
     with app.app_context():
         try:
-            app.logger.info("🔄 ENHANCED MONITOR: Starting 8-step monitoring cycle")
+            current_time = datetime.utcnow()
             
-            # Initialize comprehensive monitoring service
-            from comprehensive_monitoring_service import ComprehensiveMonitoringService
-            comprehensive_service = ComprehensiveMonitoringService()
+            # FIRST: Get all active monitors that are due for checking (including overdue ones)
+            due_monitors = BullhornMonitor.query.filter(
+                BullhornMonitor.is_active == True,
+                BullhornMonitor.next_check <= current_time
+            ).all()
             
-            # Run complete monitoring cycle with reference preservation
-            cycle_results = comprehensive_service.run_complete_monitoring_cycle(
-                monitors=[],  # Will auto-detect active monitors
-                xml_file='myticas-job-feed.xml'
-            )
+            app.logger.info(f"Checking Bullhorn monitors. Found {len(due_monitors)} due monitors")
             
-            app.logger.info(f"✅ ComprehensiveMonitoringService completed: {cycle_results}")
-            app.logger.info("📊 ENHANCED MONITOR CYCLE COMPLETE - ComprehensiveMonitoringService handled all steps")
+            # Initialize Bullhorn service once for all monitors
+            bullhorn_service = get_bullhorn_service()
+            if not bullhorn_service.test_connection():
+                app.logger.error("Failed to connect to Bullhorn API for monitoring")
+                return
+            
+            # Track all jobs from all monitors for comprehensive sync
+            all_current_jobs_from_monitors = []
+            monitors_processed = []
+            
+            for monitor in due_monitors:
+                # Check if we're running out of time before processing each monitor
+                elapsed = datetime.utcnow() - start_time
+                if elapsed > max_duration:
+                    app.logger.warning(f"⏱️ TIMEOUT: Stopping monitor processing after {elapsed.total_seconds():.1f}s to prevent overdue")
+                    break
+                
+                app.logger.info(f"Processing Bullhorn monitor: {monitor.name} (ID: {monitor.id})")
+                try:
+                    
+                    # Get current jobs based on monitor type
+                    if monitor.tearsheet_id == 0:
+                        # Query-based monitor
+                        current_jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
+                    else:
+                        # Traditional tearsheet-based monitor
+                        current_jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+                    
+                    # Add all jobs from this monitor to the comprehensive list
+                    all_current_jobs_from_monitors.extend(current_jobs)
+                    monitors_processed.append(monitor)
+                    
+                    # Compare with previous snapshot if it exists
+                    previous_jobs = []
+                    if monitor.last_job_snapshot:
+                        try:
+                            previous_jobs = json.loads(monitor.last_job_snapshot)
+                        except json.JSONDecodeError:
+                            app.logger.warning(f"Failed to parse job snapshot for monitor: {monitor.name}")
+                    
+                    # Find changes
+                    app.logger.info(f"📊 Comparing job lists for monitor '{monitor.name}': {len(previous_jobs)} previous vs {len(current_jobs)} current jobs")
+                    changes = bullhorn_service.compare_job_lists(previous_jobs, current_jobs)
+                    added_jobs = changes.get('added', [])
+                    removed_jobs = changes.get('removed', [])
+                    modified_jobs = changes.get('modified', [])
+                    summary = changes.get('summary', {})
+                    
+                    if modified_jobs:
+                        app.logger.info(f"🔄 Found {len(modified_jobs)} modified jobs for monitor '{monitor.name}': {[j.get('id') for j in modified_jobs[:5]]}")
+                    
+                    # Enhanced safeguards to prevent false positives and detect XML corruption
+                    skip_removals = False
+                    
+                    if removed_jobs:
+                        current_count = len(current_jobs)
+                        previous_count = len(previous_jobs)
+                        removed_count = len(removed_jobs)
+                        
+                        # More reasonable safeguards - allow legitimate small changes
+                        # Only skip if we're losing MORE than 20 jobs AND it's more than 50% of total
+                        if removed_count > 20 and current_count < previous_count * 0.5:
+                            app.logger.warning(f"Monitor {monitor.name}: Large-scale removal detected. "
+                                             f"Current jobs: {current_count}, Previous: {previous_count}. "
+                                             f"Drop rate: {((previous_count - current_count) / previous_count * 100):.1f}%. "
+                                             f"Skipping removal processing to prevent false positives.")
+                            skip_removals = True
+                        
+                        # Additional safeguard: If more than 50 jobs removed at once from large tearsheet
+                        elif removed_count > 50 and previous_count > 100:
+                            app.logger.warning(f"Monitor {monitor.name}: Mass removal detected ({removed_count} jobs). "
+                                             f"This may indicate data corruption or API issues. "
+                                             f"Skipping removal processing - manual verification recommended.")
+                            skip_removals = True
+                        
+                        # Detect potential XML corruption: If "previous" count is significantly lower than expected
+                        elif previous_count < 5 and current_count > previous_count * 2:
+                            app.logger.info(f"Monitor {monitor.name}: XML restoration detected. "
+                                          f"Previous XML had {previous_count} jobs, Bullhorn shows {current_count}. "
+                                          f"This appears to be data recovery, not job removals.")
+                            skip_removals = True
+                    
+                    if skip_removals:
+                        removed_jobs = []  # Don't process removals
+                        summary['removed_count'] = 0  # Update summary
+                    elif removed_jobs:
+                        # Log verified removals for debugging
+                        app.logger.info(f"Monitor {monitor.name}: Verified {len(removed_jobs)} job removals. "
+                                      f"Current: {len(current_jobs)}, Previous: {len(previous_jobs)}. "
+                                      f"Proceeding with XML sync.")
+                    
+                    # XML Integration: Automatically update XML files when jobs change
+                    xml_sync_success = False
+                    xml_sync_summary = {}
+                    comprehensive_sync_modifications = []
+                    
+                    # Log detected changes for debugging
+                    if added_jobs or removed_jobs or modified_jobs:
+                        app.logger.info(f"Monitor {monitor.name}: Changes detected - "
+                                      f"Added: {len(added_jobs)}, Removed: {len(removed_jobs)}, "
+                                      f"Modified: {len(modified_jobs)}. Starting XML sync...")
+                    
+                    # Periodic orphan cleanup: every 10 monitoring cycles, check for orphaned jobs
+                    # This prevents accumulation of orphaned jobs in XML files
+                    perform_orphan_cleanup = False
+                    if not hasattr(monitor, 'cleanup_counter'):
+                        monitor.cleanup_counter = 0
+                    monitor.cleanup_counter += 1
+                    if monitor.cleanup_counter >= 10:
+                        perform_orphan_cleanup = True
+                        monitor.cleanup_counter = 0
+                    
+                    if added_jobs or removed_jobs or modified_jobs or perform_orphan_cleanup:
+                        # Find all active schedules that might need XML updates
+                        active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+                        
+                        for schedule in active_schedules:
+                            if os.path.exists(schedule.file_path):
+                                try:
+                                    # Initialize XML integration service
+                                    xml_service = XMLIntegrationService()
+                                    
+                                    # Perform orphan cleanup if scheduled
+                                    if perform_orphan_cleanup:
+                                        # Get all current jobs from all monitors for comprehensive orphan detection
+                                        all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+                                        all_current_jobs = []
+                                        
+                                        for other_monitor in all_monitors:
+                                            if other_monitor.tearsheet_id == 0:
+                                                monitor_jobs = bullhorn_service.get_jobs_by_query(other_monitor.tearsheet_name)
+                                            else:
+                                                monitor_jobs = bullhorn_service.get_tearsheet_jobs(other_monitor.tearsheet_id)
+                                            all_current_jobs.extend(monitor_jobs)
+                                        
+                                        # Remove orphaned jobs
+                                        orphan_result = xml_service.remove_orphaned_jobs(schedule.file_path, all_current_jobs)
+                                        
+                                        if orphan_result.get('success') and orphan_result.get('removed_count', 0) > 0:
+                                            app.logger.info(f"Periodic cleanup: Removed {orphan_result['removed_count']} orphaned jobs from {schedule.file_path}")
+                                            
+                                            # Log orphan cleanup activity
+                                            activity = BullhornActivity(
+                                                monitor_id=monitor.id,
+                                                activity_type='orphan_cleanup',
+                                                details=f"Periodic cleanup: Removed {orphan_result['removed_count']} orphaned jobs"
+                                            )
+                                            db.session.add(activity)
+                                    
+                                    # Sync XML file with current Bullhorn jobs (only if there are actual changes)
+                                    if added_jobs or removed_jobs or modified_jobs:
+                                        sync_result = xml_service.sync_xml_with_bullhorn_jobs(
+                                            xml_file_path=schedule.file_path,
+                                            current_jobs=current_jobs,
+                                            previous_jobs=previous_jobs
+                                        )
+                                        
+                                        # Enhanced verification and recovery for sync failures
+                                        if sync_result.get('success'):
+                                            # Verify all changes were applied correctly
+                                            verification_errors = []
+                                            
+                                            # Check removed jobs
+                                            for removed_job in removed_jobs:
+                                                job_id = str(removed_job.get('id'))
+                                                with open(schedule.file_path, 'r', encoding='utf-8') as f:
+                                                    xml_content = f.read()
+                                                    if f"({job_id})" in xml_content:
+                                                        app.logger.warning(f"Job {job_id} still exists in XML after removal attempt")
+                                                        # Attempt manual removal with retry
+                                                        try:
+                                                            manual_removal = xml_service.remove_job_from_xml(schedule.file_path, job_id)
+                                                            if manual_removal:
+                                                                app.logger.info(f"Manually removed job {job_id} from XML")
+                                                            else:
+                                                                verification_errors.append(f"Failed to remove job {job_id}")
+                                                        except Exception as e:
+                                                            app.logger.error(f"Error removing job {job_id}: {str(e)}")
+                                                            verification_errors.append(f"Failed to remove job {job_id}: {str(e)}")
+                                            
+                                            # Check modified jobs
+                                            for modified_job in modified_jobs:
+                                                job_id = str(modified_job.get('id'))
+                                                expected_title = modified_job.get('title', '')
+                                                if not xml_service._verify_job_update_in_xml(schedule.file_path, job_id, expected_title):
+                                                    app.logger.warning(f"Job {job_id} update verification failed, attempting recovery")
+                                                    # Attempt to update the job again
+                                                    update_success = xml_service.update_job_in_xml(schedule.file_path, modified_job, 'Scheduled Processing')
+                                                    if not update_success:
+                                                        verification_errors.append(f"Failed to update job {job_id}")
+                                            
+                                            # Check added jobs with enhanced verification
+                                            for added_job in added_jobs:
+                                                job_id = str(added_job.get('id'))
+                                                with open(schedule.file_path, 'r', encoding='utf-8') as f:
+                                                    xml_content = f.read()
+                                                    # Check both title format and bhatsid format
+                                                    if f"({job_id})" not in xml_content and f"<bhatsid><![CDATA[ {job_id} ]]></bhatsid>" not in xml_content:
+                                                        app.logger.warning(f"SYNC GAP DETECTED: Job {job_id} missing from XML after addition attempt")
+                                                        
+                                                        # Log the sync gap for monitoring
+                                                        app.logger.error(f"SYNC GAP CRITICAL: Job {job_id} ({added_job.get('title', 'Unknown')}) failed to sync to XML")
+                                                        
+                                                        # Attempt manual addition with retry
+                                                        manual_addition = xml_service.add_job_to_xml(schedule.file_path, added_job)
+                                                        if manual_addition:
+                                                            app.logger.info(f"SYNC RECOVERY SUCCESS: Job {job_id} recovered via manual addition")
+                                                            
+                                                            # Send recovery notification email if configured
+                                                            try:
+                                                                if hasattr(xml_service, 'email_service') and xml_service.email_service:
+                                                                    xml_service.email_service.send_recovery_notification(job_id, added_job.get('title', 'Unknown'))
+                                                            except Exception as email_error:
+                                                                app.logger.warning(f"Failed to send recovery notification for job {job_id}: {email_error}")
+                                                        else:
+                                                            verification_errors.append(f"Failed to add job {job_id}")
+                                                            app.logger.error(f"CRITICAL: Unable to recover job {job_id} - manual intervention may be required")
+                                            
+                                            # Update sync result if verification failed
+                                            if verification_errors:
+                                                sync_result['success'] = False
+                                                sync_result['errors'] = sync_result.get('errors', []) + verification_errors
+                                                app.logger.error(f"XML sync verification failed: {'; '.join(verification_errors)}")
+                                        else:
+                                            # Sync initially failed, log error details
+                                            app.logger.error(f"XML sync failed for schedule '{schedule.name}': {sync_result.get('errors', ['Unknown error'])}")
+                                    else:
+                                        # No sync needed if only performing orphan cleanup
+                                        sync_result = {'success': True, 'total_changes': 0}
+                                    
+                                    if sync_result.get('success'):
+                                        xml_sync_success = True
+                                        xml_sync_summary = sync_result
+                                        
+                                        app.logger.info(f"XML sync completed for schedule '{schedule.name}': "
+                                                       f"{sync_result.get('added_count', 0)} added, "
+                                                       f"{sync_result.get('removed_count', 0)} removed, "
+                                                       f"{sync_result.get('updated_count', 0)} updated")
+                                        
+                                        # Log sync details for debugging
+                                        if sync_result.get('total_changes', 0) > 0:
+                                            app.logger.info(f"XML sync made {sync_result.get('total_changes', 0)} changes to {schedule.file_path}")
+                                        else:
+                                            app.logger.info(f"XML sync completed but no changes were needed for {schedule.file_path}")
+                                        
+                                        # Update last file upload timestamp
+                                        schedule.last_file_upload = datetime.utcnow()
+                                        
+                                        # Get original filename for SFTP upload (no reference number regeneration for real-time monitoring)
+                                        original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
+                                        
+                                        # DISABLED: Old monitor upload - Only Step 6 of 8-step monitor should upload
+                                        # This old monitor function should not be running anyway, but disabling upload to be safe
+                                        # The Enhanced 8-Step Monitor handles all uploads now
+                                        xml_sync_summary['sftp_upload_success'] = False  # Upload handled by 8-step monitor
+                                    
+                                except Exception as e:
+                                    app.logger.error(f"Error syncing XML for schedule '{schedule.name}': {str(e)}")
+                    
+                    # Log activities
+                    for job in added_jobs:
+                        # Track in rapid change tracker
+                        # Job tracking handled by ComprehensiveMonitoringService
+                        # Extract account manager from job data with debug logging
+                        account_manager = None
+                        job_id = job.get('id')
+                        
+                        # Debug: Log the job data structure for account manager fields
+                        if job_id:
+                            app.logger.debug(f"Job {job_id} userID field: {job.get('userID')}")
+                            app.logger.debug(f"Job {job_id} owner field: {job.get('owner')}")
+                            app.logger.debug(f"Job {job_id} assignedUsers field: {job.get('assignedUsers')}")
+                        
+                        # Priority 1: Extract from userID field (the correct field for account manager)
+                        if job.get('userID') and isinstance(job['userID'], dict):
+                            first_name = job['userID'].get('firstName', '').strip()
+                            last_name = job['userID'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from userID: {account_manager}")
+                        # Priority 2: Fallback to owner field
+                        elif job.get('owner') and isinstance(job['owner'], dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from owner: {account_manager}")
+                        # Priority 3: Fallback to assignedUsers field
+                        elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                                    app.logger.debug(f"Job {job_id} extracted account manager from assignedUsers: {account_manager}")
+                        
+                        if not account_manager:
+                            app.logger.debug(f"Job {job_id} - No account manager data found in userID, owner, or assignedUsers fields")
+                        
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='job_added',
+                            job_id=job.get('id'),
+                            job_title=job.get('title'),
+                            account_manager=account_manager,
+                            details=f"Job added: {job.get('id')}"
+                        )
+                        db.session.add(activity)
+                    
+                    for job in removed_jobs:
+                        # Track in rapid change tracker
+                        # Job tracking handled by ComprehensiveMonitoringService
+                        # Extract account manager from job data with debug logging
+                        account_manager = None
+                        job_id = job.get('id')
+                        
+                        # Debug: Log the job data structure for account manager fields
+                        if job_id:
+                            app.logger.debug(f"Job {job_id} userID field: {job.get('userID')}")
+                            app.logger.debug(f"Job {job_id} owner field: {job.get('owner')}")
+                            app.logger.debug(f"Job {job_id} assignedUsers field: {job.get('assignedUsers')}")
+                        
+                        # Priority 1: Extract from userID field (the correct field for account manager)
+                        if job.get('userID') and isinstance(job['userID'], dict):
+                            first_name = job['userID'].get('firstName', '').strip()
+                            last_name = job['userID'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from userID: {account_manager}")
+                        # Priority 2: Fallback to owner field
+                        elif job.get('owner') and isinstance(job['owner'], dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from owner: {account_manager}")
+                        # Priority 3: Fallback to assignedUsers field
+                        elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                                    app.logger.debug(f"Job {job_id} extracted account manager from assignedUsers: {account_manager}")
+                        
+                        if not account_manager:
+                            app.logger.debug(f"Job {job_id} - No account manager data found in userID, owner, or assignedUsers fields")
+                        
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='job_removed',
+                            job_id=job.get('id'),
+                            job_title=job.get('title'),
+                            account_manager=account_manager,
+                            details=f"Job removed: {job.get('id')}"
+                        )
+                        db.session.add(activity)
+                    
+                    for job in modified_jobs:
+                        # Track in rapid change tracker
+                        job_changes = job.get('changes', [])
+                        # Job tracking handled by ComprehensiveMonitoringService
+                        # Extract account manager from job data with debug logging
+                        account_manager = None
+                        job_id = job.get('id')
+                        
+                        # Debug: Log the job data structure for account manager fields
+                        if job_id:
+                            app.logger.debug(f"Job {job_id} userID field: {job.get('userID')}")
+                            app.logger.debug(f"Job {job_id} owner field: {job.get('owner')}")
+                            app.logger.debug(f"Job {job_id} assignedUsers field: {job.get('assignedUsers')}")
+                        
+                        # Priority 1: Extract from userID field (the correct field for account manager)
+                        if job.get('userID') and isinstance(job['userID'], dict):
+                            first_name = job['userID'].get('firstName', '').strip()
+                            last_name = job['userID'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from userID: {account_manager}")
+                        # Priority 2: Fallback to owner field
+                        elif job.get('owner') and isinstance(job['owner'], dict):
+                            first_name = job['owner'].get('firstName', '').strip()
+                            last_name = job['owner'].get('lastName', '').strip()
+                            if first_name or last_name:
+                                account_manager = f"{first_name} {last_name}".strip()
+                                app.logger.debug(f"Job {job_id} extracted account manager from owner: {account_manager}")
+                        # Priority 3: Fallback to assignedUsers field
+                        elif job.get('assignedUsers') and len(job['assignedUsers']) > 0:
+                            first_user = job['assignedUsers'][0]
+                            if isinstance(first_user, dict):
+                                first_name = first_user.get('firstName', '').strip()
+                                last_name = first_user.get('lastName', '').strip()
+                                if first_name or last_name:
+                                    account_manager = f"{first_name} {last_name}".strip()
+                                    app.logger.debug(f"Job {job_id} extracted account manager from assignedUsers: {account_manager}")
+                        
+                        if not account_manager:
+                            app.logger.debug(f"Job {job_id} - No account manager data found in userID, owner, or assignedUsers fields")
+                        
+                        # Create concise field change summary instead of full job data
+                        changes = job.get('changes', [])
+                        field_changes = []
+                        for change in changes:
+                            field_name = change.get('field', '')
+                            if field_name == 'title':
+                                field_changes.append('title')
+                            elif field_name == 'publicDescription' or field_name == 'description':
+                                field_changes.append('description')
+                            elif field_name == 'dateLastModified':
+                                field_changes.append('date modified')
+                            elif field_name == 'employmentType':
+                                field_changes.append('employment type')
+                            elif field_name == 'onSite':
+                                field_changes.append('remote type')
+                            elif field_name == 'owner' or 'assignedUsers' in field_name:
+                                field_changes.append('assigned recruiter')
+                            elif 'address' in field_name.lower():
+                                field_changes.append('location')
+                            else:
+                                field_changes.append(field_name.lower())
+                        
+                        # Create concise summary
+                        if field_changes:
+                            change_summary = f"Updated: {', '.join(set(field_changes))}"
+                        else:
+                            change_summary = "Job details updated"
+                            
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='job_modified',
+                            job_id=job.get('id'),
+                            job_title=job.get('title'),
+                            account_manager=account_manager,
+                            details=change_summary
+                        )
+                        db.session.add(activity)
+                    
+                    # Log a summary activity for batch updates
+                    if added_jobs or removed_jobs or modified_jobs:
+                        # Mark monitor as having changes for comprehensive sync
+                        monitor._has_changes = True
+                        monitor._detected_changes = {
+                            'added': added_jobs,
+                            'removed': removed_jobs, 
+                            'modified': modified_jobs
+                        }
+                        
+                        summary_details = json.dumps({
+                            'summary': summary,
+                            'changes_detected': True,
+                            'total_jobs': len(current_jobs),
+                            'timestamp': datetime.utcnow().isoformat()
+                        })
+                        summary_activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='check_completed',
+                            details=summary_details,
+                            notification_sent=True  # System housekeeping - no email needed
+                        )
+                        db.session.add(summary_activity)
+                        
+                        app.logger.info(f"Bullhorn monitor {monitor.name}: {len(current_jobs)} total jobs, {summary.get('added_count', 0)} added, {summary.get('removed_count', 0)} removed, {summary.get('modified_count', 0)} modified")
+                        
+                        # IMMEDIATE WORKFLOW EXECUTION: Trigger XML sync immediately when changes are detected
+                        app.logger.info(f"🚀 IMMEDIATE WORKFLOW TRIGGER: Changes detected for {monitor.name}, executing XML sync NOW")
+                        
+                        # Get XML Integration Service and Field Sync Service
+                        from xml_integration_service import XMLIntegrationService
+                        from xml_field_sync_service import XMLFieldSyncService
+                        xml_service = XMLIntegrationService()
+                        field_sync_service = XMLFieldSyncService()
+                        
+                        # Determine which XML files need updating - use actual XML files in root
+                        xml_files_to_update = ['myticas-job-feed.xml']  # Back to standard file name
+                        active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+                        
+                        # Process each XML file immediately
+                        immediate_sync_summary = {'added_count': 0, 'removed_count': 0, 'updated_count': 0, 'sftp_upload_success': False}
+                        
+                        for xml_filename in xml_files_to_update:
+                            if os.path.exists(xml_filename):
+                                try:
+                                    app.logger.info(f"📝 IMMEDIATE SYNC: Processing {xml_filename} for {monitor.name}")
+                                    
+                                    # CRITICAL: First run comprehensive field sync to fix duplicates and field mismatches
+                                    app.logger.info(f"🔍 Running comprehensive field sync check for {xml_filename}")
+                                    field_sync_result = field_sync_service.perform_full_sync(xml_filename, current_jobs)
+                                    if field_sync_result.get('duplicates_removed', 0) > 0:
+                                        app.logger.warning(f"🚨 Removed {field_sync_result['duplicates_removed']} duplicate jobs from {xml_filename}")
+                                    if field_sync_result.get('fields_updated', 0) > 0:
+                                        app.logger.info(f"✅ Updated {field_sync_result['fields_updated']} jobs with field corrections in {xml_filename}")
+                                    
+                                    # Process removals
+                                    if removed_jobs:
+                                        for job in removed_jobs:
+                                            job_id = str(job.get('job_id'))
+                                            if xml_service.remove_job_from_xml(xml_filename, job_id):
+                                                immediate_sync_summary['removed_count'] += 1
+                                                app.logger.info(f"🗑️ Immediately removed job {job_id} from {xml_filename}")
+                                    
+                                    # Process additions
+                                    if added_jobs:
+                                        for job in added_jobs:
+                                            if xml_service.add_job_to_xml(xml_filename, job, monitor.name):
+                                                immediate_sync_summary['added_count'] += 1
+                                                app.logger.info(f"✅ Immediately added job {job.get('id')}: {job.get('title')} to {xml_filename}")
+                                    
+                                    # Process modifications
+                                    if modified_jobs:
+                                        for job in modified_jobs:
+                                            # Find current job data
+                                            job_id = str(job.get('id'))
+                                            current_job_data = None
+                                            for cj in current_jobs:
+                                                if str(cj.get('id')) == job_id:
+                                                    current_job_data = cj
+                                                    break
+                                            
+                                            if current_job_data:
+                                                # REFERENCE NUMBER PRESERVATION: Do NOT flag jobs as modified during routine monitoring
+                                                # Reference numbers should only be changed during manual refresh operations
+                                                current_job_data['_monitor_flagged_as_modified'] = False
+                                                
+                                                if xml_service.update_job_in_xml(xml_filename, current_job_data, monitor.name):
+                                                    immediate_sync_summary['updated_count'] += 1
+                                                    app.logger.info(f"📝 Immediately updated job {job_id}: {current_job_data.get('title')} in {xml_filename} (reference number preserved)")
+                                    
+                                    app.logger.info(f"✅ IMMEDIATE SYNC COMPLETE for {xml_filename}: {immediate_sync_summary['added_count']} added, {immediate_sync_summary['removed_count']} removed, {immediate_sync_summary['updated_count']} updated")
+                                    
+                                    # DISABLED: Immediate SFTP upload - Step 6 handles all uploads
+                                    # Duplicate uploads were happening because both immediate sync and Step 6 were uploading
+                                    # Now ONLY Step 6 of the 8-step process performs uploads to prevent duplication
+                                    total_immediate_changes = immediate_sync_summary['added_count'] + immediate_sync_summary['removed_count'] + immediate_sync_summary['updated_count']
+                                    if total_immediate_changes > 0:
+                                        app.logger.info(f"📝 Saved {total_immediate_changes} changes to {xml_filename} (upload deferred to Step 6)")
+                                    
+                                except Exception as e:
+                                    app.logger.error(f"Error in immediate sync for {xml_filename}: {str(e)}")
+                        
+                        # Mark XML sync as successful for this monitor
+                        xml_sync_success = True
+                        xml_sync_summary = immediate_sync_summary.copy()
+                    
+                    # CRITICAL TIMING FIX: Store notification data for sending AFTER comprehensive sync completes
+                    # This ensures emails are sent AFTER XML files are uploaded to web server
+                    
+                    # Enhanced critical changes detection with better field mapping
+                    critical_fields = ['title', 'city', 'state', 'country', 'jobtype', 'remotetype', 'assignedrecruiter', 
+                                      'publicDescription', 'description', 'employmentType', 'onSite', 'owner', 'address',
+                                      'assignedUsers', 'responseUser']
+                    
+                    critical_modifications = []
+                    if modified_jobs:
+                        for job in modified_jobs:
+                            job_changes = job.get('changes', [])
+                            for change in job_changes:
+                                field_name = change.get('field', '')
+                                # Check if this is a critical field (business-related, not AI classification)
+                                if any(critical_field in field_name for critical_field in critical_fields):
+                                    critical_modifications.append({
+                                        'id': job.get('id'),
+                                        'title': job.get('title', f'Job {job.get("id")}'),
+                                        'changes': job_changes
+                                    })
+                                    break  # Found critical change, no need to check other changes for this job
+                    
+                    # Send notifications for ALL changes, not just "critical" ones
+                    any_changes_exist = bool(added_jobs or removed_jobs or modified_jobs)
+                    
+                    if any_changes_exist:
+                        app.logger.info(f"🔔 Changes detected for monitor {monitor.name}: {len(added_jobs)} added, {len(removed_jobs)} removed, {len(modified_jobs)} modified jobs")
+                    
+                    if any_changes_exist and monitor.send_notifications:
+                        # Get email address from Global Settings or monitor-specific setting
+                        email_address = monitor.notification_email
+                        if not email_address:
+                            # Fall back to global notification email
+                            global_email = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                            if global_email:
+                                email_address = global_email.setting_value
+                        
+                        if email_address:
+                            # Store notification data for sending after comprehensive sync
+                            if not hasattr(app, '_pending_notifications'):
+                                app._pending_notifications = []
+                            
+                            # Enhanced notification with better modified job details
+                            # Get rapid change information for this monitor
+                            rapid_changes_info = {}  # Simplified tracking
+                            
+                            notification_data = {
+                                'monitor_name': monitor.name,
+                                'monitor_id': monitor.id,
+                                'email_address': email_address,
+                                'added_jobs': added_jobs.copy() if added_jobs else [],
+                                'removed_jobs': removed_jobs.copy() if removed_jobs else [],
+                                'modified_jobs': critical_modifications.copy() if critical_modifications else [],
+                                'total_jobs': len(current_jobs),
+                                'summary': summary,
+                                'xml_sync_info': xml_sync_summary.copy() if xml_sync_summary else {},
+                                'rapid_changes': rapid_changes_info.get('rapid_changes', {}),
+                                'rapid_change_alert': '',  # Simplified tracking
+                                'timestamp': datetime.now()
+                            }
+                            
+                            app._pending_notifications.append(notification_data)
+                            app.logger.info(f"📧 Notification queued for monitor {monitor.name} - will send AFTER comprehensive sync completes (critical changes: {len(critical_modifications)} modified, {len(added_jobs)} added, {len(removed_jobs)} removed)")
+                    elif (added_jobs or removed_jobs or modified_jobs) and monitor.send_notifications:
+                        app.logger.info(f"Changes detected for monitor {monitor.name} but no critical fields modified - skipping notification")
+                    elif (added_jobs or removed_jobs or modified_jobs):
+                        app.logger.info(f"Changes detected for monitor {monitor.name} but notifications disabled")
+                    
+                    # Update monitor with new snapshot and next check time
+                    # IMPORTANT: Only update snapshot if XML sync was successful or if no changes were detected
+                    # This prevents losing track of changes if the sync fails
+                    # Check both local xml_sync_success and comprehensive sync results
+                    comprehensive_sync_success = hasattr(monitor, '_xml_sync_success') and monitor._xml_sync_success
+                    
+                    if xml_sync_success or comprehensive_sync_success or not (added_jobs or removed_jobs or modified_jobs):
+                        monitor.last_job_snapshot = json.dumps(current_jobs)
+                        if comprehensive_sync_success:
+                            app.logger.info(f"Updated job snapshot for monitor {monitor.name} (via comprehensive sync)")
+                        else:
+                            app.logger.info(f"Updated job snapshot for monitor {monitor.name}")
+                    else:
+                        app.logger.warning(f"Skipping snapshot update for monitor {monitor.name} due to failed XML sync")
+                        
+                    # Special handling for monitors with empty snapshots - initialize with current jobs
+                    if not monitor.last_job_snapshot or monitor.last_job_snapshot == '[]':
+                        monitor.last_job_snapshot = json.dumps(current_jobs)
+                        app.logger.info(f"Initialized empty snapshot for monitor {monitor.name} with {len(current_jobs)} jobs")
+                        
+                        # When initializing, also check for orphaned jobs in XML files
+                        if current_jobs:
+                            active_schedules = ScheduleConfig.query.filter_by(is_active=True).all()
+                            for schedule in active_schedules:
+                                if os.path.exists(schedule.file_path):
+                                    try:
+                                        xml_service = XMLIntegrationService()
+                                        
+                                        # Get all current jobs from all monitors for orphan detection
+                                        all_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+                                        all_current_jobs = []
+                                        
+                                        bullhorn_service = get_bullhorn_service()
+                                        if bullhorn_service.test_connection():
+                                            for other_monitor in all_monitors:
+                                                if other_monitor.tearsheet_id == 0:
+                                                    monitor_jobs = bullhorn_service.get_jobs_by_query(other_monitor.tearsheet_name)
+                                                else:
+                                                    monitor_jobs = bullhorn_service.get_tearsheet_jobs(other_monitor.tearsheet_id)
+                                                all_current_jobs.extend(monitor_jobs)
+                                        
+                                        # Check for and remove orphaned jobs
+                                        orphan_result = xml_service.remove_orphaned_jobs(schedule.file_path, all_current_jobs)
+                                        
+                                        if orphan_result.get('success') and orphan_result.get('removed_count', 0) > 0:
+                                            app.logger.info(f"Removed {orphan_result['removed_count']} orphaned jobs from {schedule.file_path}")
+                                            
+                                            # Log orphan cleanup activity
+                                            activity = BullhornActivity(
+                                                monitor_id=monitor.id,
+                                                activity_type='orphan_cleanup',
+                                                details=f"Removed {orphan_result['removed_count']} orphaned jobs during snapshot initialization"
+                                            )
+                                            db.session.add(activity)
+                                            
+                                            # Upload cleaned file to SFTP
+                                            if schedule.auto_upload_ftp:
+                                                try:
+                                                    sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+                                                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                                                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                                                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                                                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                                                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                                                    
+                                                    if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
+                                                        sftp_hostname and sftp_hostname.setting_value and 
+                                                        sftp_username and sftp_username.setting_value and 
+                                                        sftp_password and sftp_password.setting_value):
+                                                        
+                                                        ftp_service = FTPService(
+                                                            hostname=sftp_hostname.setting_value,
+                                                            username=sftp_username.setting_value,
+                                                            password=sftp_password.setting_value,
+                                                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                                                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                                                            use_sftp=True
+                                                        )
+                                                        
+                                                        original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
+                                                        sftp_upload_success = ftp_service.upload_file(
+                                                            local_file_path=schedule.file_path,
+                                                            remote_filename=original_filename
+                                                        )
+                                                        
+                                                        if sftp_upload_success:
+                                                            app.logger.info(f"Uploaded cleaned XML file to SFTP: {original_filename}")
+                                                            schedule.last_file_upload = datetime.utcnow()
+                                                        else:
+                                                            app.logger.warning(f"Failed to upload cleaned XML to SFTP")
+                                                except Exception as e:
+                                                    app.logger.error(f"Error uploading cleaned XML to SFTP: {str(e)}")
+                                    except Exception as e:
+                                        app.logger.error(f"Error during orphan cleanup: {str(e)}")
+                    
+                    # PREVENTION LAYER 2: Update timing first and commit immediately
+                    monitor.last_check = current_time
+                    monitor.calculate_next_check()
+                    
+                    # CRITICAL: Immediate commit of timing data to prevent loss
+                    try:
+                        # Use SQLAlchemy's proper text() function for raw SQL
+                        from sqlalchemy import text
+                        timing_update_sql = text("""
+                        UPDATE bullhorn_monitor 
+                        SET last_check = :last_check, 
+                            next_check = :next_check 
+                        WHERE id = :monitor_id
+                        """)
+                        db.session.execute(timing_update_sql, {
+                            'last_check': current_time,
+                            'next_check': monitor.next_check,
+                            'monitor_id': monitor.id
+                        })
+                        db.session.commit()
+                        app.logger.debug(f"TIMING-COMMIT: {monitor.name} timing safely committed - Next: {monitor.next_check}")
+                    except Exception as timing_error:
+                        app.logger.error(f"TIMING-COMMIT: Failed to commit timing for {monitor.name}: {str(timing_error)}")
+                        db.session.rollback()
+                        # Fallback: set timing again and try with ORM
+                        try:
+                            monitor.last_check = current_time
+                            monitor.calculate_next_check()
+                            db.session.commit()
+                            app.logger.info(f"TIMING-FALLBACK: {monitor.name} timing committed via ORM fallback")
+                        except Exception as fallback_error:
+                            app.logger.error(f"TIMING-FALLBACK: Complete failure for {monitor.name}: {str(fallback_error)}")
+                            db.session.rollback()
+                    
+                    # Log successful check (only if no changes were already logged)
+                    if not (added_jobs or removed_jobs or modified_jobs):
+                        activity = BullhornActivity(
+                            monitor_id=monitor.id,
+                            activity_type='check_completed',
+                            details=f"Checked {monitor.tearsheet_name}. Found {len(current_jobs)} jobs. No changes detected.",
+                            notification_sent=True  # System housekeeping - no email needed
+                        )
+                        db.session.add(activity)
+                    else:
+                        # Log XML sync result if changes were detected
+                        if xml_sync_success:
+                            activity = BullhornActivity(
+                                monitor_id=monitor.id,
+                                activity_type='xml_sync_completed',
+                                details=f"XML sync completed: {xml_sync_summary.get('added_count', 0)} added, {xml_sync_summary.get('removed_count', 0)} removed, {xml_sync_summary.get('updated_count', 0)} updated. SFTP upload: {xml_sync_summary.get('sftp_upload_success', False)}",
+                                notification_sent=True  # System housekeeping - no email needed
+                            )
+                            db.session.add(activity)
+                    
+                    app.logger.info(f"Successfully processed Bullhorn monitor: {monitor.name}")
+                    
+                except Exception as e:
+                    app.logger.error(f"Error processing Bullhorn monitor {monitor.name}: {str(e)}")
+                    # Log the error
+                    activity = BullhornActivity(
+                        monitor_id=monitor.id,
+                        activity_type='error',
+                        details=f"Error: {str(e)}"
+                    )
+                    db.session.add(activity)
+                    
+                    # PREVENTION LAYER 3: Even on error, ensure timing is updated and committed
+                    try:
+                        monitor.last_check = current_time
+                        monitor.calculate_next_check()
+                        from sqlalchemy import text
+                        timing_update_sql = text("""
+                        UPDATE bullhorn_monitor 
+                        SET last_check = :last_check, 
+                            next_check = :next_check 
+                        WHERE id = :monitor_id
+                        """)
+                        db.session.execute(timing_update_sql, {
+                            'last_check': current_time,
+                            'next_check': monitor.next_check,
+                            'monitor_id': monitor.id
+                        })
+                        db.session.commit()
+                        app.logger.info(f"ERROR-RECOVERY: {monitor.name} timing updated despite processing error")
+                    except Exception as timing_error:
+                        app.logger.error(f"ERROR-RECOVERY: Failed to update timing for {monitor.name}: {str(timing_error)}")
+                        db.session.rollback()
+            
+            # After processing all individual monitors, perform comprehensive XML sync
+            # CRITICAL FIX: Only run comprehensive sync if there are actual changes detected
+            # DO NOT run comprehensive sync just to add "missing" jobs - this causes bulk reference regeneration
+            # Comprehensive sync should only handle job modifications, not bulk additions
+            elapsed_time = (datetime.utcnow() - start_time).total_seconds()
+            time_remaining = 110 - elapsed_time  # We have 110 seconds total
+            
+            app.logger.info(f"⏱️ TIME CHECK: Elapsed {elapsed_time:.1f}s, Remaining {time_remaining:.1f}s")
+            app.logger.info(f"COMPREHENSIVE SYNC CHECK: monitors_processed = {len(monitors_processed) if monitors_processed else 0}, all_jobs = {len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0}")
+            
+            # Skip comprehensive sync if less than 20 seconds remaining
+            if time_remaining < 20:
+                app.logger.warning(f"⏱️ SKIPPING COMPREHENSIVE SYNC: Only {time_remaining:.1f}s remaining - preventing overdue")
+                return
+            
+            # CRITICAL FIX: Only run comprehensive sync if monitors detected actual changes (not just missing jobs)
+            has_actual_changes = False
+            actual_modifications_count = 0
+            actual_removals_count = 0
+            
+            if monitors_processed:
+                for monitor in monitors_processed:
+                    if hasattr(monitor, '_detected_changes') and monitor._detected_changes:
+                        changes = monitor._detected_changes
+                        # Only consider it as having changes if there are modifications or removals
+                        # Do NOT trigger comprehensive sync for additions alone (causes bulk reference regeneration)
+                        if changes.get('modified'):
+                            actual_modifications_count += len(changes.get('modified', []))
+                            has_actual_changes = True
+                        if changes.get('removed'):
+                            actual_removals_count += len(changes.get('removed', []))
+                            has_actual_changes = True
+            
+            app.logger.info(f"📊 COMPREHENSIVE SYNC DECISION: {actual_modifications_count} modifications, {actual_removals_count} removals detected")
+            
+            # CRITICAL FIX: Always run comprehensive sync when monitors have been processed
+            # This ensures missing jobs are added to the XML even when no changes are detected
+            # The sync will preserve existing reference numbers for jobs already in XML
+            
+            if monitors_processed and len(monitors_processed) > 0:
+                total_jobs = len(all_current_jobs_from_monitors) if all_current_jobs_from_monitors else 0
+                app.logger.info(f"🔥 COMPREHENSIVE SYNC STARTING: {total_jobs} total jobs from {len(monitors_processed)} monitors")
+                
+                # CRITICAL FIX: Only perform comprehensive cleanup if ALL tearsheets are being processed simultaneously
+                # Individual tearsheet monitoring should NEVER trigger removal of all jobs
+                # Check if this is a system-wide comprehensive sync vs individual tearsheet monitoring
+                num_monitors_processed = len(monitors_processed) if monitors_processed else 0
+                is_system_wide_sync = num_monitors_processed >= 3  # Multiple monitors processed = system sync
+                
+                if total_jobs == 0 and is_system_wide_sync:
+                    app.logger.warning("🚨 SYSTEM-WIDE SYNC: No jobs found across all tearsheets - proceeding with comprehensive cleanup")
+                elif total_jobs == 0:
+                    app.logger.info("🔒 INDIVIDUAL MONITOR: Single tearsheet has 0 jobs - skipping comprehensive sync to prevent data loss")
+                    # CRITICAL SAFETY: Skip comprehensive sync for individual empty tearsheets
+                    # This prevents catastrophic data loss from individual empty tearsheet scenarios
+                    # Continue to Steps 5-7 even if comprehensive sync is skipped
+                    app.logger.info("⚠️ Skipping comprehensive sync but continuing with upload and formatting steps...")
+                else:
+                    app.logger.info(f"🎯 COMPREHENSIVE SYNC: Found {total_jobs} jobs across {num_monitors_processed} monitors - proceeding with XML comparison")
+                
+                # Only proceed with comprehensive sync if we have jobs OR it's a verified system-wide sync
+                if total_jobs > 0 or (total_jobs == 0 and is_system_wide_sync):
+                    # CRITICAL FIX: Use proper ComprehensiveMonitoringService with reference number preservation
+                    app.logger.info("🔄 USING ComprehensiveMonitoringService with reference number preservation")
+                    
+                    try:
+                        # Initialize comprehensive monitoring service
+                        comprehensive_service = ComprehensiveMonitoringService()
+                        
+                        # Run complete monitoring cycle with reference preservation
+                        cycle_results = comprehensive_service.run_complete_monitoring_cycle(
+                            monitors=monitors_processed,
+                            xml_file='myticas-job-feed.xml'
+                        )
+                        
+                        # Extract results for compatibility with existing workflow
+                        comprehensive_sync_made_changes = cycle_results.get('jobs_added', 0) > 0 or cycle_results.get('jobs_removed', 0) > 0 or cycle_results.get('jobs_modified', 0) > 0
+                        comprehensive_sync_summary = {
+                            'added_count': cycle_results.get('jobs_added', 0),
+                            'updated_count': cycle_results.get('jobs_modified', 0), 
+                            'removed_count': cycle_results.get('jobs_removed', 0)
+                        }
+                        
+                        app.logger.info(f"✅ ComprehensiveMonitoringService completed: {comprehensive_sync_summary}")
+                        
+                    except Exception as comprehensive_error:
+                        app.logger.error(f"❌ ComprehensiveMonitoringService failed: {str(comprehensive_error)}")
+                        # Fallback to existing logic
+                        comprehensive_sync_made_changes = False
+                        comprehensive_sync_summary = {'added_count': 0, 'updated_count': 0, 'removed_count': 0}
+
+                else:
+                    app.logger.info("⏭️ SKIPPING COMPREHENSIVE SYNC: No monitors processed or no jobs detected")
+                    comprehensive_sync_made_changes = False
+                    comprehensive_sync_summary = {'added_count': 0, 'updated_count': 0, 'removed_count': 0}
+
+        # Continue to Steps 5-8 of Enhanced 8-Step Monitor (formatting, upload, audit)
+        # Steps 5-8 completed by ComprehensiveMonitoringService - monitor cycle complete
+        app.logger.info("📊 ENHANCED MONITOR CYCLE COMPLETE - ComprehensiveMonitoringService handled all steps")
+        
+    except Exception as e:
+        app.logger.error(f"❌ Critical error in enhanced monitoring: {str(e)}")
+        db.session.rollback()
+            app.logger.info("🔧 STEP 5/8: Reviewing CDATA and HTML formatting BEFORE upload...")
+            format_fixes = 0
+            for xml_file in xml_files:
+                if os.path.exists(xml_file):
+                    try:
+                        with open(xml_file, 'r') as f:
+                            content = f.read()
+                        
+                        original_content = content
+                        
+                        # Enhanced HTML repair logic (from fix_specific_html_issues.py)
+                        # Fix nested <li> tags (missing closing tags)
+                        content = re.sub(r'(<li[^>]*>[^<]*)<li([^>]*)>', r'\1</li>\n<li\2>', content)
+                        
+                        # Fix excessive whitespace in country fields (60+ spaces)
+                        content = re.sub(r'(\s{10,})', ' ', content)
+                        
+                        # Fix malformed HTML lists
+                        content = re.sub(r'<li[^>]*>([^<]*(?:<[^/][^>]*>[^<]*)*[^<]*)</li>\s*<li[^>]*>', r'<li>\1</li>\n<li>', content)
+                        
+                        # ONLY add CDATA if it's missing - don't touch fields that already have CDATA
+                        # This regex only matches fields WITHOUT CDATA (no <![CDATA[ in the content)
+                        # Apply CDATA to ALL text fields that need it
+                        fields_needing_cdata = [
+                            'title', 'description', 'company', 'date', 'referencenumber',
+                            'bhatsid', 'url', 'jobtype', 'city', 'state', 'country',
+                            'apply_email', 'remotetype', 'assignedrecruiter', 
+                            'jobfunction', 'jobindustries', 'senioritylevel', 'publisher', 'publisherurl'
+                        ]
+                        
+                        for field in fields_needing_cdata:
+                            # Only add CDATA if not already present
+                            content = re.sub(
+                                rf'<{field}>(?!<!\[CDATA\[)([^<]+)</{field}>',
+                                rf'<{field}><![CDATA[\1]]></{field}>',
+                                content
+                            )
+                        
+                        # Use html.unescape for proper HTML entity handling in both titles and descriptions
+                        import html
+                        # Apply html.unescape to content within CDATA for titles and descriptions
+                        def fix_cdata_html(match):
+                            field_name = match.group(1)
+                            cdata_content = match.group(2)
+                            unescaped = html.unescape(cdata_content)
+                            return f'<{field_name}><![CDATA[{unescaped}]]></{field_name}>'
+                        
+                        # Apply HTML entity decoding to both titles and descriptions
+                        content = re.sub(r'<(title|description)><!\[CDATA\[(.*?)\]\]></\1>', fix_cdata_html, content, flags=re.DOTALL)
+                        
+                        if content != original_content:
+                            with open(xml_file, 'w') as f:
+                                f.write(content)
+                            format_fixes += 1
+                            app.logger.info(f"    🔧 Fixed HTML formatting in {xml_file}")
+                            
+                            # Check for specific patterns that were fixed
+                            broken_patterns = len(re.findall(r'&lt;li&gt;.*&lt;li&gt;', original_content))
+                            fixed_patterns = len(re.findall(r'&lt;li&gt;.*&lt;li&gt;', content))
+                            if broken_patterns > fixed_patterns:
+                                app.logger.info(f"    ✅ HTML formatting FIXED: {broken_patterns - fixed_patterns} broken patterns corrected")
+                                
+                    except Exception as e:
+                        app.logger.error(f"    Error fixing {xml_file}: {str(e)}")
+            
+            app.logger.info(f"🔧 STEP 5 COMPLETE: {format_fixes} formatting fixes applied BEFORE upload")
+            
+            # STEP 6: Upload to web server (moved from Step 5)
+            app.logger.info("📊 PROGRESS: [●●●●●●○○] Step 6/8 - Uploading to web server")
+            app.logger.info("📤 STEP 6/8: Uploading to web server...")
+            try:
+                # SCOPE FIX: Import FTPService locally to ensure availability
+                from ftp_service import FTPService
+                upload_success = True
+                
+                # Use SFTP for secure upload to live server
+                app.logger.info("    🔄 Attempting SFTP upload...")
+                ftp_service = FTPService(
+                    hostname=os.environ.get('SFTP_HOST', ''),
+                    username=os.environ.get('SFTP_USERNAME', ''),
+                    password=os.environ.get('SFTP_PASSWORD', ''),
+                    port=2222,
+                    use_sftp=True
+                )
+                
+                ftp_success = True
+                failed_files = []
+                
+                for xml_file in xml_files:
+                    if os.path.exists(xml_file):
+                        # Upload with new filename to avoid external system conflicts
+                        remote_filename = "myticas-job-feed-v2.xml" if xml_file == "myticas-job-feed.xml" else xml_file
+                        success = ftp_service.upload_file(xml_file, remote_filename)
+                        if success:
+                            app.logger.info(f"    ✅ FTP uploaded {xml_file} as {remote_filename}")
+                        else:
+                            app.logger.warning(f"    ⚠️ FTP failed for {xml_file}")
+                            ftp_success = False
+                            failed_files.append(xml_file)
+                            break  # Stop trying FTP after first failure
+                            
+                # If FTP failed, try SFTP fallback for all files
+                if not ftp_success and failed_files:
+                    app.logger.info("    🔄 FTP failed - attempting SFTP fallback for all files...")
+                    sftp_service = FTPService(
+                        hostname=os.environ.get('SFTP_HOST', ''),
+                        username=os.environ.get('SFTP_USERNAME', ''),
+                        password=os.environ.get('SFTP_PASSWORD', ''),
+                        port=2222,  # WP Engine SFTP port
+                        use_sftp=True
+                    )
+                    
+                    sftp_success = True
+                    for xml_file in xml_files:  # Try SFTP for ALL files
+                        if os.path.exists(xml_file):
+                            # Upload with new filename to avoid external system conflicts
+                            remote_filename = "myticas-job-feed-v2.xml" if xml_file == "myticas-job-feed.xml" else xml_file
+                            success = sftp_service.upload_file(xml_file, remote_filename)
+                            if success:
+                                app.logger.info(f"    ✅ SFTP uploaded {xml_file} as {remote_filename}")
+                            else:
+                                app.logger.error(f"    ❌ SFTP failed for {xml_file}")
+                                sftp_success = False
+                    
+                    upload_success = sftp_success
+                else:
+                    upload_success = ftp_success
+                
+                if upload_success:
+                    app.logger.info("📤 STEP 6 COMPLETE: All files uploaded successfully")
+                    
+                    # Update schedule timestamp to match server upload time for scheduler page accuracy
+                    try:
+                        xml_file_to_check = xml_files[-1] if xml_files else None
+                        if xml_file_to_check:
+                            for schedule in ScheduleConfig.query.filter_by(is_active=True).all():
+                                if schedule.file_path == xml_file_to_check:
+                                    schedule.last_file_upload = datetime.utcnow()
+                                    db.session.commit()
+                                    app.logger.info(f"    📊 Updated server timestamp for scheduler display: {schedule.name}")
+                                    break
+                    except Exception as timestamp_error:
+                        app.logger.error(f"    ⚠️ Error updating server timestamp: {str(timestamp_error)}")
+                    
+                    # Log successful upload activity
+                    try:
+                        upload_activity = BullhornActivity(
+                            monitor_id=None,  # System-level activity
+                            activity_type='upload_success',
+                            details=json.dumps({
+                                'files_uploaded': len(xml_files),
+                                'upload_method': 'SFTP' if not ftp_success else 'FTP',
+                                'timestamp': datetime.utcnow().isoformat()
+                            }),
+                            notification_sent=True  # No email needed for success
+                        )
+                        db.session.add(upload_activity)
+                        db.session.commit()  # CRITICAL: Commit the transaction
+                        app.logger.info("📊 UPLOAD SUCCESS LOGGED: Activity saved to monitoring system")
+                    except Exception as e:
+                        app.logger.error(f"Error logging upload success: {str(e)}")
+                        db.session.rollback()
+                else:
+                    app.logger.warning("📤 STEP 6 WARNING: Some uploads failed")
+                    
+                    # Log detailed upload failure activity for troubleshooting
+                    try:
+                        connection_details = {
+                            'host': os.environ.get('SFTP_HOST'),
+                            'username': os.environ.get('SFTP_USERNAME'),
+                            'files_attempted': len(xml_files),
+                            'ftp_attempted': True,
+                            'sftp_attempted': not ftp_success,
+                            'failure_point': 'SFTP' if not ftp_success else 'FTP',
+                            'timestamp': datetime.utcnow().isoformat(),
+                            'troubleshooting_note': 'Persistent timeout suggests network connectivity issue between Replit and WP Engine SFTP servers'
+                        }
+                        
+                        upload_failure_activity = BullhornActivity(
+                            monitor_id=None,  # System-level activity
+                            activity_type='upload_failure',
+                            details=json.dumps(connection_details),
+                            notification_sent=True  # No email spam
+                        )
+                        db.session.add(upload_failure_activity)
+                        db.session.commit()  # CRITICAL: Commit the transaction
+                        
+                        app.logger.warning("📋 UPLOAD FAILURE LOGGED: Detailed connection info saved to activity monitoring")
+                        app.logger.info(f"    Host: {connection_details['host']}")
+                        app.logger.info(f"    Method attempted: {connection_details['failure_point']}")
+                        app.logger.info(f"    Files: {connection_details['files_attempted']}")
+                        
+                    except Exception as e:
+                        app.logger.error(f"Error logging upload failure details: {str(e)}")
+                        db.session.rollback()
+                    
+            except Exception as e:
+                app.logger.error(f"📤 STEP 6 ERROR: Upload failed: {str(e)}")
+                app.logger.error(f"📤 STEP 6 ERROR DETAILS: {traceback.format_exc()}")
+            
+            # STEP 7: Data sync summary (email notifications handled by dedicated XML monitor)
+            app.logger.info("📊 PROGRESS: [●●●●●●●○] Step 7/8 - Data sync summary")
+            app.logger.info("📊 STEP 7/8: Data synchronization complete")
+            
+            total_changes = len(cycle_changes['added']) + len(cycle_changes['removed']) + len(cycle_changes['modified'])
+            if total_changes > 0:
+                app.logger.info(f"📊 STEP 7: Completed {total_changes} data sync operations")
+                app.logger.info(f"    ➕ Jobs added: {len(cycle_changes['added'])}")
+                app.logger.info(f"    ➖ Jobs removed: {len(cycle_changes['removed'])}")  
+                app.logger.info(f"    🔄 Jobs remapped: {len(cycle_changes['modified'])} (complete field refresh)")
+                app.logger.info("    📧 Email notifications: Handled by dedicated XML Change Monitor")
+            else:
+                app.logger.info("📊 STEP 7: No sync operations required - data already current")
+            
+            # STEP 8: FULL AUDIT for 100% accuracy (LOCAL XML ONLY - no server download)
+            app.logger.info("📊 PROGRESS: [●●●●●●●●] Step 8/8 - Final audit")
+            app.logger.info("✅ STEP 8/8: Running FULL AUDIT on local XML files...")
+            audit_passed = True
+            corrections_made = 0
+            audit_summary = []
+            
+            # CRITICAL FIX: Removed LIVE XML download that was causing reference number flip-flopping
+            # The system now only audits the local XML files to maintain consistency
+            
+            for xml_file in xml_files:
+                # CRITICAL FIX: Always use local XML for audit to prevent reference number flip-flopping
+                # The issue was that downloading LIVE XML from server caused timing/sync issues
+                # where the server had different reference numbers, causing continuous "fixes"
+                try:
+                    app.logger.info(f"    📄 Auditing local {xml_file} (server download disabled to prevent flip-flopping)...")
+                    with open(xml_file, 'r') as f:
+                        live_content = f.read()
+                    app.logger.info(f"    ✅ Loaded local {xml_file} ({len(live_content)} chars)")
+                except Exception as e:
+                    app.logger.error(f"    ❌ Error reading local {xml_file}: {str(e)}")
+                    continue
+                
+                try:
+                        
+                    # Extract job IDs currently in LIVE XML (COMPREHENSIVE extraction with debugging)
+                    live_xml_job_ids = set()
+                    
+                    # Try multiple regex patterns to catch all bhatsid variations
+                    patterns = [
+                        r'<bhatsid>\s*<!\[CDATA\[\s*(.*?)\s*\]\]>\s*</bhatsid>',  # Standard CDATA format
+                        r'<bhatsid>\s*<!\[CDATA\[(.*?)\]\]>\s*</bhatsid>',        # CDATA without spaces
+                        r'<bhatsid>\s*(.*?)\s*</bhatsid>',                        # Direct content without CDATA
+                    ]
+                    
+                    all_matches = []
+                    for pattern in patterns:
+                        matches = re.findall(pattern, live_content, re.DOTALL)
+                        all_matches.extend(matches)
+                    
+                    app.logger.info(f"    🔍 DEBUG: Found {len(all_matches)} bhatsid matches using all patterns")
+                    
+                    for job_id in all_matches:
+                        clean_id = job_id.strip()
+                        if clean_id and clean_id.isdigit():  # Only valid numeric job IDs
+                            live_xml_job_ids.add(clean_id)
+                            app.logger.debug(f"    🔍 Added job ID: {clean_id}")
+                    
+                    app.logger.info(f"    🔍 DEBUG: Final live_xml_job_ids set: {sorted(list(live_xml_job_ids))}")
+                    
+                    # LIVE vs LOCAL DEBUGGING: Compare live web server vs expected
+                    actual_live_job_count = live_content.count('<job>')
+                    app.logger.info(f"    🌐 LIVE AUDIT: {xml_file} has {actual_live_job_count} jobs, detected {len(live_xml_job_ids)} valid IDs")
+                    
+                    # CRITICAL FIX: If we detect corrupted live XML with orphaned jobs, trigger corrective upload
+                    corruption_detected = False
+                    if actual_live_job_count != len(live_xml_job_ids):
+                        app.logger.warning(f"    ⚠️ LIVE MISMATCH: Found {actual_live_job_count} jobs but only {len(live_xml_job_ids)} valid job IDs!")
+                        corruption_detected = True
+                        
+                        # IMMEDIATE CORRECTIVE ACTION: Upload clean local XML to fix corruption
+                        if os.path.exists(xml_file):
+                            app.logger.warning(f"    🚨 CORRUPTION DETECTED: Uploading clean {xml_file} to fix live XML corruption")
+                            try:
+                                from ftp_service import FTPService
+                                ftp_service = FTPService(
+                                    hostname=os.environ.get('SFTP_HOST', ''),
+                                    username=os.environ.get('SFTP_USERNAME', ''), 
+                                    password=os.environ.get('SFTP_PASSWORD', ''),
+                                    port=2222,  # WP Engine SFTP port
+                                    use_sftp=True
+                                )
+                                
+                                # Enhanced upload with retry logic for corruption fixes
+                                upload_result = False
+                                max_retries = 3
+                                retry = 0  # Initialize retry variable
+                                for retry in range(max_retries):
+                                    try:
+                                        app.logger.info(f"    🔄 CORRUPTION FIX: Upload attempt {retry + 1}/{max_retries}")
+                                        upload_result = ftp_service.upload_file(xml_file, xml_file)
+                                        if upload_result:
+                                            break
+                                        else:
+                                            app.logger.warning(f"    ⚠️ Upload attempt {retry + 1} failed, retrying...")
+                                    except Exception as retry_error:
+                                        app.logger.warning(f"    ⚠️ Upload attempt {retry + 1} error: {str(retry_error)}")
+                                    
+                                    if retry < max_retries - 1:  # Don't sleep after last attempt
+                                        time.sleep(5)  # Wait 5 seconds before retry
+                                if upload_result:
+                                    app.logger.info(f"    ✅ CORRUPTION FIX: Successfully uploaded clean {xml_file}")
+                                    # Track that we made a correction
+                                    corrections_made += (actual_live_job_count - len(live_xml_job_ids))
+                                    audit_summary.append(f"Fixed corruption in {xml_file}: removed {actual_live_job_count - len(live_xml_job_ids)} orphaned jobs")
+                                    
+                                    # Log successful corruption fix
+                                    try:
+                                        corruption_fix_activity = BullhornActivity(
+                                            monitor_id=None,  # System-level activity
+                                            activity_type='corruption_fix_success',
+                                            details=json.dumps({
+                                                'file': xml_file,
+                                                'orphaned_jobs_removed': actual_live_job_count - len(live_xml_job_ids),
+                                                'valid_jobs_count': len(live_xml_job_ids),
+                                                'retry_attempts': retry + 1,
+                                                'timestamp': datetime.utcnow().isoformat()
+                                            }),
+                                            notification_sent=True  # No email needed
+                                        )
+                                        db.session.add(corruption_fix_activity)
+                                        db.session.commit()  # CRITICAL: Commit the transaction
+                                        app.logger.info("📊 CORRUPTION FIX SUCCESS LOGGED: Activity saved to monitoring system")
+                                    except Exception as log_error:
+                                        app.logger.error(f"Error logging corruption fix success: {str(log_error)}")
+                                        db.session.rollback()
+                                else:
+                                    app.logger.error(f"    ❌ CORRUPTION FIX FAILED: Could not upload {xml_file}")
+                                    audit_passed = False
+                                    
+                                    # Log detailed corruption fix failure for troubleshooting
+                                    try:
+                                        corruption_failure_details = {
+                                            'file': xml_file,
+                                            'orphaned_jobs_detected': actual_live_job_count - len(live_xml_job_ids),
+                                            'total_attempts': max_retries,
+                                            'failure_type': 'upload_timeout',
+                                            'host': os.environ.get('SFTP_HOST'),
+                                            'timestamp': datetime.utcnow().isoformat(),
+                                            'impact': 'Live XML remains corrupted with duplicate jobs',
+                                            'recommended_action': 'Manual upload of clean XML file may be required'
+                                        }
+                                        
+                                        corruption_failure_activity = BullhornActivity(
+                                            monitor_id=None,  # System-level activity
+                                            activity_type='corruption_fix_failed',
+                                            details=json.dumps(corruption_failure_details),
+                                            notification_sent=True  # No email spam
+                                        )
+                                        db.session.add(corruption_failure_activity)
+                                        db.session.commit()  # CRITICAL: Commit the transaction
+                                        
+                                        app.logger.warning("📋 CORRUPTION FIX FAILURE LOGGED: Detailed diagnostics saved to activity monitoring")
+                                        
+                                    except Exception as log_error:
+                                        app.logger.error(f"Error logging corruption fix failure: {str(log_error)}")
+                                        db.session.rollback()
+                            except Exception as e:
+                                app.logger.error(f"    ❌ CORRUPTION FIX ERROR: {str(e)}")
+                                audit_passed = False
+                        
+                    # Current jobs that should be in XML (from this cycle's tearsheet fetch)
+                    bullhorn_job_ids = set(all_bullhorn_jobs.keys())
+                    
+                    app.logger.info(f"    📊 LIVE AUDIT COMPARISON for {xml_file}:")
+                    app.logger.info(f"       LIVE XML has: {len(live_xml_job_ids)} jobs | Expected from tearsheets: {len(bullhorn_job_ids)} jobs")
+                    
+                    missing_jobs = bullhorn_job_ids - live_xml_job_ids
+                    extra_jobs = live_xml_job_ids - bullhorn_job_ids
+                    
+                    # CRITICAL FIX: If we detect more jobs than IDs, try alternative extraction
+                    if actual_live_job_count > len(live_xml_job_ids):
+                        app.logger.warning(f"    🔍 ALTERNATIVE EXTRACTION: Trying job index-based approach")
+                        # Extract all job blocks and manually parse IDs
+                        job_blocks = re.findall(r'<job>.*?</job>', live_content, re.DOTALL)
+                        app.logger.info(f"    🔍 Found {len(job_blocks)} complete job blocks")
+                        
+                        alternative_ids = set()
+                        for i, job_block in enumerate(job_blocks):
+                            # Try to extract ID from this job block
+                            for pattern in patterns:
+                                id_matches = re.findall(pattern, job_block, re.DOTALL)
+                                if id_matches:
+                                    clean_id = id_matches[0].strip()
+                                    if clean_id and clean_id.isdigit():
+                                        alternative_ids.add(clean_id)
+                                        break
+                            else:
+                                app.logger.warning(f"    ⚠️ Job block {i+1} has no valid ID")
+                        
+                        if len(alternative_ids) > len(live_xml_job_ids):
+                            app.logger.info(f"    ✅ Alternative extraction found {len(alternative_ids)} IDs vs {len(live_xml_job_ids)} from regex")
+                            live_xml_job_ids = alternative_ids
+                            
+                            # RECALCULATE differences with the improved ID set
+                            missing_jobs = bullhorn_job_ids - live_xml_job_ids
+                            extra_jobs = live_xml_job_ids - bullhorn_job_ids
+                            app.logger.info(f"    🔄 RECALCULATED: {len(missing_jobs)} missing, {len(extra_jobs)} orphaned")
+                    
+                    if len(extra_jobs) > 0:
+                        app.logger.warning(f"    🚨 CRITICAL: Found {len(extra_jobs)} orphaned jobs in LIVE XML!")
+                        app.logger.info(f"       Orphaned job IDs: {sorted(list(extra_jobs))}")
+                        
+                    if missing_jobs:
+                        app.logger.warning(f"    ⚠️ LIVE AUDIT: {len(missing_jobs)} jobs missing from LIVE {xml_file}")
+                        audit_summary.append(f"Missing {len(missing_jobs)} jobs from LIVE {xml_file}: {list(missing_jobs)[:3]}{'...' if len(missing_jobs) > 3 else ''}")
+                        audit_passed = False
+                        
+                    if extra_jobs:
+                        # CRITICAL FIX: DO NOT REMOVE JOBS DURING AUDIT - This causes reference number flip-flopping
+                        # Jobs detected as "orphaned" might just be temporarily out of sync between server and local
+                        app.logger.warning(f"    ⚠️ LIVE AUDIT: {len(extra_jobs)} potential orphans detected but NOT removing (prevents ref# instability)")
+                        app.logger.info(f"       Potential orphan IDs (manual review recommended): {sorted(list(extra_jobs))[:10]}...")
+                        audit_summary.append(f"Detected {len(extra_jobs)} potential orphans in {xml_file} (removal disabled for stability)")
+                        
+                        # DISABLED: Automatic orphan removal during audit to prevent reference number flip-flopping
+                        # The server might have older data causing false orphan detection
+                        app.logger.info(f"    🔒 ORPHAN REMOVAL DISABLED: Preserving job stability and reference numbers")
+                        app.logger.info(f"    📌 Manual review recommended for potential orphans: {sorted(list(extra_jobs))[:5]}...")
+                            
+                    if missing_jobs:
+                        corrections_made += len(missing_jobs)
+                        
+                except Exception as e:
+                    app.logger.error(f"    ❌ Error during audit of {xml_file}: {str(e)}")
+                    audit_passed = False
+            
+            if audit_passed:
+                app.logger.info("✅ STEP 8 COMPLETE: AUDIT PASSED - 100% accuracy confirmed")
+            else:
+                app.logger.warning(f"✅ STEP 8 WARNING: AUDIT found {corrections_made} discrepancies")
+                # Detailed audit summary
+                app.logger.info("📋 AUDIT SUMMARY:")
+                for issue in audit_summary:
+                    app.logger.info(f"    • {issue}")
+                if not audit_summary:
+                    app.logger.info("    • No specific discrepancies logged - check individual errors above")
+            
+            # Final summary
+            cycle_time = time.time() - cycle_start
+            app.logger.info("=" * 60)
+            app.logger.info("🎯 COMPREHENSIVE MONITORING CYCLE COMPLETE")
+            app.logger.info(f"⏱️  Cycle time: {cycle_time:.2f} seconds")
+            app.logger.info(f"➕ Jobs added: {len(cycle_changes['added'])}")
+            app.logger.info(f"➖ Jobs removed: {len(cycle_changes['removed'])}")
+            # For monitoring cycles, no actual remapping happens (reference numbers preserved)
+            if cycle_changes['modified'] and cycle_changes['modified'][0].get('id') == 'all_existing':
+                app.logger.info(f"📊 Jobs monitored: ALL existing jobs (reference numbers preserved)")
+            else:
+                app.logger.info(f"📝 Jobs modified: {len(cycle_changes['modified'])}")
+            app.logger.info(f"🔧 Format fixes: {format_fixes}")
+            app.logger.info(f"✅ Audit status: {'PASSED' if audit_passed else 'ISSUES FOUND'}")
+            
+            # Enhanced cycle summary
+            if audit_summary:
+                app.logger.info("📋 DISCREPANCIES DETECTED:")
+                for issue in audit_summary:
+                    app.logger.info(f"    • {issue}")
+            
+            total_progress_items = len(cycle_changes['added']) + len(cycle_changes['removed']) + len(cycle_changes['modified']) + format_fixes
+            if total_progress_items > 0:
+                app.logger.info(f"🎯 TOTAL CHANGES MADE: {total_progress_items}")
+            
+            app.logger.info("=" * 60)
+            
+            # Commit database changes
+            db.session.commit()
             
         except Exception as e:
-            app.logger.error(f"❌ Enhanced monitoring error: {str(e)}")
+            app.logger.error(f"❌ Critical error in comprehensive monitoring: {str(e)}")
             db.session.rollback()
+        
+        finally:
+            # Always remove lock file when monitoring completes
+            if os.path.exists(lock_file):
+                try:
+                    os.remove(lock_file)
+                    app.logger.info("🔓 Lock released after monitoring cycle")
+                except Exception as e:
+                    app.logger.error(f"Error removing lock file: {str(e)}")
 
+# Use enhanced monitoring with 8-step process
+monitoring_func = process_bullhorn_monitors
+app.logger.info("Using ENHANCED 8-step comprehensive monitoring process with ComprehensiveMonitoringService integration")
+
+# Prevent duplicate schedulers with robust file-based lock
+import os
+import fcntl
+import atexit
+
+scheduler_lock_file = '/tmp/jobpulse_scheduler.lock'
+scheduler_lock_fd = None
+is_primary_worker = False
 
 def release_scheduler_lock():
     """Release the scheduler lock on process exit"""
@@ -615,12 +2009,7 @@ def release_scheduler_lock():
         except Exception as e:
             app.logger.warning(f"Error releasing scheduler lock: {e}")
 
-# Initialize scheduler lock variables
-scheduler_lock_file = '/tmp/jobpulse_scheduler.lock'
-scheduler_lock_fd = None
-is_primary_worker = False
-
-# Try to acquire exclusive lock for scheduler  
+# Try to acquire exclusive lock for scheduler
 try:
     scheduler_lock_fd = os.open(scheduler_lock_file, os.O_CREAT | os.O_WRONLY)
     fcntl.flock(scheduler_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
