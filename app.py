@@ -215,16 +215,9 @@ def lazy_apply_optimizations():
     """Apply optimizations only when needed, not during startup"""
     global optimizer
     if optimizer is None:
-        try:
-            from optimization_improvements import apply_optimizations
-            optimizer = apply_optimizations(app, db, scheduler)
-            app.logger.info("Application optimizations applied lazily")
-        except (ImportError, ModuleNotFoundError):
-            app.logger.debug("Optimization improvements module not available")
-            optimizer = False  # Mark as attempted
-        except Exception as e:
-            app.logger.warning(f"Failed to apply optimizations: {str(e)}")
-            optimizer = False
+        # Optimization module removed - marked as not available
+        app.logger.debug("Optimization improvements module not available")
+        optimizer = False  # Mark as attempted
     return optimizer
 
 # Defer file consolidation service initialization
@@ -232,16 +225,9 @@ app.file_consolidation = None
 def lazy_init_file_consolidation():
     """Initialize file consolidation service only when needed"""
     if app.file_consolidation is None:
-        try:
-            from file_consolidation_service import FileConsolidationService
-            app.file_consolidation = FileConsolidationService()
-            app.logger.info("File consolidation service initialized lazily")
-        except (ImportError, ModuleNotFoundError) as e:
-            app.logger.debug(f"File consolidation service not available: {e}")
-            app.file_consolidation = False  # Mark as attempted
-        except Exception as e:
-            app.logger.warning(f"File consolidation service not available: {e}")
-            app.file_consolidation = False  # Mark as attempted
+        # File consolidation module removed - marked as not available
+        app.logger.debug("File consolidation service not available")
+        app.file_consolidation = False  # Mark as attempted
     return app.file_consolidation
 
 # Cleanup scheduler on exit with proper error handling
@@ -615,6 +601,10 @@ def release_scheduler_lock():
         except Exception as e:
             app.logger.warning(f"Error releasing scheduler lock: {e}")
 
+# Import required modules for scheduler lock
+import fcntl
+import atexit
+
 # Initialize scheduler lock variables
 scheduler_lock_file = '/tmp/jobpulse_scheduler.lock'
 scheduler_lock_fd = None
@@ -639,7 +629,7 @@ except (IOError, OSError) as e:
 if is_primary_worker:
     # Add monitoring to scheduler (extended to 5 minutes for complete field remapping)
     scheduler.add_job(
-        func=monitoring_func,
+        func=process_bullhorn_monitors,
         trigger=IntervalTrigger(minutes=5),  # Extended from 3 to 5 minutes for complete remapping
         id='process_bullhorn_monitors',
         name='Enhanced 8-Step Monitor with Complete Remapping',
@@ -698,34 +688,22 @@ def logout():
 @app.route('/health')
 def health_check():
     """Optimized health check with cached database status"""
-    try:
-        start_time = time.time()
-        
-        # Use cached database status if available (refresh every 10 seconds)
-        db_status = 'unknown'
-        cache_key = 'db_health_cache'
-        cache_time_key = 'db_health_cache_time'
-        
-        # Check if we have a recent cached result (within 10 seconds)
-        if hasattr(app, cache_time_key):
-            cache_age = time.time() - getattr(app, cache_time_key, 0)
-            if cache_age < 10:  # Use cached result if less than 10 seconds old
-                db_status = getattr(app, cache_key, 'unknown')
-            else:
-                # Perform quick database check with short timeout
-                try:
-                    # Use a connection from the pool with timeout
-                    with db.engine.connect() as conn:
-                        conn.execute(db.text('SELECT 1'))
-                    db_status = 'connected'
-                except Exception:
-                    db_status = 'disconnected'
-                # Cache the result
-                setattr(app, cache_key, db_status)
-                setattr(app, cache_time_key, time.time())
+    start_time = time.time()
+    
+    # Use cached database status if available (refresh every 10 seconds)
+    db_status = 'unknown'
+    cache_key = 'db_health_cache'
+    cache_time_key = 'db_health_cache_time'
+    
+    # Check if we have a recent cached result (within 10 seconds)
+    if hasattr(app, cache_time_key):
+        cache_age = time.time() - getattr(app, cache_time_key, 0)
+        if cache_age < 10:  # Use cached result if less than 10 seconds old
+            db_status = getattr(app, cache_key, 'unknown')
         else:
-            # First check - do a quick test
+            # Perform quick database check with short timeout
             try:
+                # Use a connection from the pool with timeout
                 with db.engine.connect() as conn:
                     conn.execute(db.text('SELECT 1'))
                 db_status = 'connected'
@@ -734,32 +712,35 @@ def health_check():
             # Cache the result
             setattr(app, cache_key, db_status)
             setattr(app, cache_time_key, time.time())
-        
-        # Quick scheduler check
-        scheduler_status = 'stopped'  # Default to stopped (lazy loading)
-        if 'scheduler' in globals():
-            try:
-                scheduler_status = 'running' if scheduler.running else 'stopped'
-            except:
-                pass
-        
-        health_status = {
-            'status': 'healthy' if db_status == 'connected' else 'degraded',
-            'timestamp': datetime.utcnow().isoformat(),
-            'database': db_status,
-            'scheduler': scheduler_status,
-            'response_time_ms': round((time.time() - start_time) * 1000, 2)
-        }
-        
-        return jsonify(health_status), 200
-    except Exception as e:
-        error_status = {
-            'status': 'unhealthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'error': str(e)
-        }
-        app.logger.error(f"Health check failed: {str(e)}")
-        return jsonify(error_status), 503
+    else:
+        # First check - do a quick test
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(db.text('SELECT 1'))
+            db_status = 'connected'
+        except Exception:
+            db_status = 'disconnected'
+        # Cache the result
+        setattr(app, cache_key, db_status)
+        setattr(app, cache_time_key, time.time())
+    
+    # Quick scheduler check
+    scheduler_status = 'stopped'  # Default to stopped (lazy loading)
+    if 'scheduler' in globals():
+        try:
+            scheduler_status = 'running' if scheduler.running else 'stopped'
+        except:
+            pass
+    
+    health_status = {
+        'status': 'healthy' if db_status == 'connected' else 'degraded',
+        'timestamp': datetime.utcnow().isoformat(),
+        'database': db_status,
+        'scheduler': scheduler_status,
+        'response_time_ms': round((time.time() - start_time) * 1000, 2)
+    }
+    
+    return jsonify(health_status), 200
 
 @app.route('/ready')
 def readiness_check():
@@ -2051,36 +2032,17 @@ def trigger_job_sync():
         # Ensure background services are initialized when doing manual operations
         ensure_background_services()
         
-        try:
-            from simplified_monitoring_service import MonitoringService
-        except (ImportError, ModuleNotFoundError):
-            app.logger.warning("Simplified monitoring service not available, using direct processing")
-            # Fallback to direct processing if simplified service not available
-            try:
-                from bullhorn_monitoring import process_bullhorn_monitors
-                process_bullhorn_monitors()
-            except (ImportError, ModuleNotFoundError):
-                app.logger.warning("Bullhorn monitoring module not available")
-                return jsonify({
-                    'success': False,
-                    'error': 'No monitoring service available'
-                }), 500
-            return jsonify({
-                'success': True,
-                'message': 'Job sync triggered successfully (fallback mode)',
-                'timestamp': datetime.utcnow().isoformat()
-            })
+        # Monitoring services removed - use comprehensive monitoring instead
+        from comprehensive_monitoring_service import ComprehensiveMonitoringService
+        comprehensive_service = ComprehensiveMonitoringService()
         
-        # Run monitoring immediately
-        service = MonitoringService(db.session)
-        service.xml_service = XMLIntegrationService()
-        service.email_service = get_email_service()
-        service.BullhornMonitor = BullhornMonitor
-        service.BullhornActivity = BullhornActivity
-        service.GlobalSettings = GlobalSettings
-        service.ScheduledProcessing = ScheduleConfig  # ScheduledProcessing is actually ScheduleConfig
+        # Run complete monitoring cycle
+        cycle_results = comprehensive_service.run_complete_monitoring_cycle(
+            monitors=[],  # Will auto-detect active monitors
+            xml_file='myticas-job-feed.xml'
+        )
         
-        service.process_all_monitors()
+        app.logger.info(f"Manual job sync completed: {cycle_results}")
         
         return jsonify({
             'success': True,
