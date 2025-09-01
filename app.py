@@ -1486,26 +1486,44 @@ def process_bullhorn_monitors():
                             
                             # Compare current XML jobs with all Bullhorn jobs
                             try:
-                                # Get current job IDs in XML
+                                # CRITICAL: Extract existing reference numbers BEFORE any modifications
+                                existing_reference_numbers = {}  # job_id -> reference_number
                                 xml_job_ids = set()
                                 if etree:
                                     parser = etree.XMLParser(remove_blank_text=False, strip_cdata=False)
                                     tree = etree.parse(xml_filename, parser)
                                     root = tree.getroot()
                                     
-                                    # Extract job IDs from URL elements (format: https://apply.myticas.com/?jobId=12345)
-                                    for url_elem in root.xpath('.//url'):
-                                        if url_elem.text and 'jobId=' in url_elem.text:
-                                            job_id = url_elem.text.split('jobId=')[-1].strip()
-                                            if job_id:
-                                                xml_job_ids.add(job_id)
-                                    
-                                    # Also check for bhatsid elements for backward compatibility
-                                    for bhatsid_elem in root.xpath('.//bhatsid'):
-                                        if bhatsid_elem.text:
+                                    # Extract job IDs AND reference numbers from XML
+                                    for job_elem in root.xpath('.//job'):
+                                        job_id = None
+                                        reference_number = None
+                                        
+                                        # Get job ID from bhatsid element
+                                        bhatsid_elem = job_elem.find('bhatsid')
+                                        if bhatsid_elem is not None and bhatsid_elem.text:
                                             job_id = bhatsid_elem.text.strip()
-                                            if job_id:
-                                                xml_job_ids.add(job_id)
+                                        
+                                        # Also try to extract from URL if bhatsid not found
+                                        if not job_id:
+                                            url_elem = job_elem.find('url')
+                                            if url_elem is not None and url_elem.text and 'jobId=' in url_elem.text:
+                                                job_id = url_elem.text.split('jobId=')[-1].strip()
+                                        
+                                        # Get reference number
+                                        ref_elem = job_elem.find('referencenumber')
+                                        if ref_elem is not None and ref_elem.text:
+                                            # Handle CDATA wrapping
+                                            ref_text = ref_elem.text.strip() if ref_elem.text else ""
+                                            reference_number = ref_text
+                                        
+                                        # Store the mapping
+                                        if job_id and reference_number:
+                                            xml_job_ids.add(job_id)
+                                            existing_reference_numbers[job_id] = reference_number
+                                            app.logger.debug(f"🔍 PRESERVED: Job {job_id} -> Reference {reference_number}")
+                                
+                                    app.logger.info(f"🔐 REFERENCE PRESERVATION: Found {len(existing_reference_numbers)} existing reference numbers")
                                 else:
                                     app.logger.warning(f"lxml not available, skipping XML comparison for {xml_filename}")
                                 
@@ -1563,11 +1581,17 @@ def process_bullhorn_monitors():
                                                 break
                                         
                                         if job_data:
-                                            # Add the job - do NOT flag as modified to avoid reference regeneration
-                                            if xml_service.add_job_to_xml(xml_filename, job_data, monitor_name):
+                                            # CRITICAL: Check if job has existing reference number to preserve
+                                            existing_ref = existing_reference_numbers.get(job_id)
+                                            if existing_ref:
+                                                app.logger.info(f"🔐 PRESERVING reference {existing_ref} for job {job_id}")
+                                            
+                                            # Add the job with preserved reference number
+                                            if xml_service.add_job_to_xml(xml_filename, job_data, monitor_name, existing_reference_number=existing_ref):
                                                 jobs_added += 1
                                                 comprehensive_sync_made_changes = True
-                                                app.logger.info(f"✅ Added missing job {job_id}: {job_data.get('title', 'Unknown')}")
+                                                preserve_msg = f" (preserved reference: {existing_ref})" if existing_ref else " (new reference generated)"
+                                                app.logger.info(f"✅ Added missing job {job_id}: {job_data.get('title', 'Unknown')}{preserve_msg}")
                                     
                                     if jobs_added > 0:
                                         comprehensive_sync_summary['added_count'] += jobs_added
@@ -1602,8 +1626,13 @@ def process_bullhorn_monitors():
                                                         # Reference numbers should only be changed during manual refresh operations  
                                                         updated_job_data['_monitor_flagged_as_modified'] = False
                                                         
-                                                        # Update the job in XML with the new data
-                                                        if xml_service.update_job_in_xml(xml_filename, updated_job_data, monitor.name):
+                                                        # CRITICAL: Check if job has existing reference number to preserve
+                                                        existing_ref = existing_reference_numbers.get(job_id)
+                                                        if existing_ref:
+                                                            app.logger.info(f"🔐 PRESERVING reference {existing_ref} for updated job {job_id}")
+                                                        
+                                                        # Update the job in XML with preserved reference number
+                                                        if xml_service.update_job_in_xml(xml_filename, updated_job_data, monitor.name, existing_reference_number=existing_ref):
                                                             jobs_updated += 1
                                                             comprehensive_sync_made_changes = True
                                                             
