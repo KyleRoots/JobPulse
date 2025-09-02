@@ -30,7 +30,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 
 ### Core Features
 - **Dual Monitoring Architecture**:
-    - **Enhanced 8-Step Comprehensive Monitoring**: Bullhorn-focused data integrity system that fetches, adds, removes, and re-maps all job fields from Bullhorn tearsheets, ensuring 100% data accuracy and uploading changes to the web server.
+    - **Enhanced 8-Step Comprehensive Monitoring**: Bullhorn-focused data integrity system that fetches, adds, removes, and re-maps all job fields from Bullhorn tearsheets, ensuring 100% data accuracy and uploading changes to the web server. Properly formats STSI company name as "STSI (Staffing Technical Services Inc.)" for tearsheet 1556.
     - **Live XML Change Monitor**: Primary email notification system that downloads the live XML, compares it with previous snapshots, and sends focused email notifications only for actual job content changes.
 - **Orphan Prevention System**: Automated duplicate detection and removal to prevent job pollution.
 - **Ad-hoc Reference Number Refresh**: Manual "Refresh All" button for immediate reference number updates with SFTP upload and notifications.
