@@ -703,23 +703,31 @@ class ComprehensiveMonitoringService:
     def _upload_to_sftp(self, xml_file: str) -> bool:
         """Upload XML file to SFTP server"""
         try:
-            hostname = os.environ.get('SFTP_HOST')
+            # Use SFTP environment variables (they are the ones that are set)
+            hostname = os.environ.get('SFTP_HOSTNAME') or os.environ.get('SFTP_HOST')
             username = os.environ.get('SFTP_USERNAME')
             password = os.environ.get('SFTP_PASSWORD')
+            port = int(os.environ.get('SFTP_PORT', 2222))
             
             if not all([hostname, username, password]):
-                self.logger.error("SFTP credentials not configured")
+                self.logger.error(f"SFTP credentials not configured: host={hostname}, user={username}, pass={'***' if password else 'None'}")
                 return False
             
-            transport = paramiko.Transport((hostname, 2222))
+            self.logger.info(f"Uploading to {hostname}:{port}")
+            
+            transport = paramiko.Transport((hostname, port))
             transport.connect(username=username, password=password)
             sftp = paramiko.SFTPClient.from_transport(transport)
             
-            sftp.put(xml_file, xml_file)
+            # Upload to the correct remote filename
+            remote_file = '/myticas-job-feed-v2.xml'
+            self.logger.info(f"Uploading {xml_file} to {remote_file}")
+            sftp.put(xml_file, remote_file)
             
             sftp.close()
             transport.close()
             
+            self.logger.info(f"✅ Successfully uploaded {xml_file} to {hostname}:{remote_file}")
             return True
             
         except Exception as e:
@@ -833,6 +841,10 @@ class ComprehensiveMonitoringService:
     
     def _map_remote_type(self, onsite_value: str) -> str:
         """Map Bullhorn onSite to XML remotetype"""
+        # Handle list values (sometimes Bullhorn returns arrays)
+        if isinstance(onsite_value, list):
+            onsite_value = onsite_value[0] if onsite_value else 'No Preference'
+        
         mapping = {
             'On-Site': 'Onsite',
             'Remote': 'Remote',
