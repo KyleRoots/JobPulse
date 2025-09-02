@@ -43,13 +43,13 @@
     <city><![CDATA[Toronto]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Matheo Theodossiou]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Business Systems Analyst – Payments Modernization (34237)]]></title>
@@ -128,13 +128,13 @@ SECRET CLEARANCE - Mandatgory</p>
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Analyst]]></jobfunction>
+    <jobindustries><![CDATA[Banking]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Senior Network Architect  (32577)]]></title>
@@ -200,13 +200,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MG1: Mike Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Networking]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Director of Information Technology  – Cloud Technology & Infrastructure (34234)]]></title>
@@ -248,13 +248,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-DS1: Dominic Scaletta]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Director]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Senior ASIC Product Engineer  (34268)]]></title>
@@ -292,13 +292,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Sunnyvale]]></city>
     <state><![CDATA[CA]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MG1: Mike Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Consumer Electronics]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[SAP EWM Lead (Contract) – Hybrid Winnipeg  (34267)]]></title>
@@ -372,13 +372,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Winnipeg]]></city>
     <state><![CDATA[MB]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Consulting]]></jobfunction>
+    <jobindustries><![CDATA[Information Technology and Services]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Senior FPGA / RTL Design Engineer - EDGE Technologies (2 Positions) (34261)]]></title>
@@ -466,13 +466,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-DS1: Dominic Scaletta]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Computer Hardware]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[ Senior, FPGA / Hardware Design Engineer (2 Positions) (34260)]]></title>
@@ -538,13 +538,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Michael Theodossiou]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Consumer Electronics]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[FPGA / Hardware Design Engineer, Intermediate  (2 Positions) (34259)]]></title>
@@ -615,13 +615,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-DS1: Dominic Scaletta]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Broadcast Media]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Technical Lead – FPGA & Real-Time Systems  (2 Positions) (34258)]]></title>
@@ -666,13 +666,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Michael Theodossiou]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Computer Hardware]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Product Security Architect (34252)]]></title>
@@ -761,13 +761,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AG1: Adam Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Aviation and Aerospace]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Microsoft AI and Automation Specialist (34238)]]></title>
@@ -842,13 +842,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Business Development Leader - Google (34233)]]></title>
@@ -949,13 +949,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Toronto]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-DS1: Dominic Scaletta]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Business Development]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[SAP Fiori Consultant (34230)]]></title>
@@ -1043,13 +1043,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Consulting]]></jobfunction>
+    <jobindustries><![CDATA[Information Technology and Services]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[SAP CM/OCM Consultant (S/4HANA) (34250)]]></title>
@@ -1119,13 +1119,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Vancouver]]></city>
     <state><![CDATA[BC]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Consulting]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Dynamics 365 CRM Dev Lead (34244)]]></title>
@@ -1182,13 +1182,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city/>
     <state/>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Product Line Manager - CIP (32607)]]></title>
@@ -1216,13 +1216,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city/>
     <state/>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Matheo Theodossiou]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Product Management]]></jobfunction>
+    <jobindustries><![CDATA[Telecommunications]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Network Verification & Test Engineer (34227)]]></title>
@@ -1312,13 +1312,13 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AG1: Adam Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Computer Networking]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Project Managers – Real Property (34124)]]></title>
@@ -1327,7 +1327,7 @@ The Sr. Network Architect is a Subject Matter Expert (SME) on all aspects of the
     <referencenumber><![CDATA[NC0IHWF0GS]]></referencenumber>
     <bhatsid><![CDATA[34124]]></bhatsid>
     <url><![CDATA[https://apply.myticas.com/jobs/34124]]></url>
-    <description><![CDATA[<p>Myticas is seeking <strong>intermediate and senior-level Project Managers</strong> with experience in <strong>Real Property</strong> for upcoming federal government initiatives.&nbsp;</p>
+    <description><![CDATA[<p>Myticas is seeking <strong>intermediate and senior-level Project Managers</strong> with experience in <strong>Real Property</strong> for upcoming federal government initiatives. </p>
 
 <p><strong>Overall Responsibilities:</strong><br />
 Candidates must demonstrate experience in managing <strong>real property projects</strong>, which may include asset acquisitions, fit-ups, construction, renovations, or remediation of buildings, land, or infrastructure.</p>
@@ -1435,13 +1435,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Project Management]]></jobfunction>
+    <jobindustries><![CDATA[Commercial Real Estate]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Back-End Developer - Intermediate/Senior (32266)]]></title>
@@ -1510,13 +1510,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Toronto]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Matheo Theodossiou]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Senior High-Speed Analog IC Design R&D Engineer (34222)]]></title>
@@ -1568,16 +1568,16 @@ Candidates must demonstrate experience in managing <strong>real property project
 </ul>
 ]]></description>
     <jobtype><![CDATA[Contract]]></jobtype>
-    <city></city>
+    <city/>
     <state><![CDATA[CA]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AG1: Adam Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Semiconductors]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[ DevOps Technical Analyst (32638)]]></title>
@@ -1676,13 +1676,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Google Cloud Practice Leader – Delivery Consulting (34134)]]></title>
@@ -1742,7 +1742,7 @@ Candidates must demonstrate experience in managing <strong>real property project
 	<li style="margin: 0.0cm;"><span style="font-size: 11.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="">Proven success in building service offerings and bringing new solutions to market.</span></span></span>
 	<li style="margin: 0.0cm;"><span style="font-size: 11.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="">A leadership style that emphasizes accountability, ownership, and collaboration.</span></span></span>
 	<li style="margin: 0.0cm;"><span style="font-size: 11.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="">Familiarity with Google Cloud partnerships, certification paths, and ecosystem programs is an asset.</span></span></span>
-	<li style="margin: 0.0cm;"><span style="font-size: 11.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="">Bachelor&apos;s degree in a related discipline or equivalent experience.</span></span></span>
+	<li style="margin: 0.0cm;"><span style="font-size: 11.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="">Bachelor's degree in a related discipline or equivalent experience.</span></span></span>
 </ul>
 <br>
  ]]></description>
@@ -1750,13 +1750,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Toronto]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Michael Theodossiou]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Consulting]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Director]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Ambulatory Clinical Informatics Analyst - Oracle Health Cerner (32649)]]></title>
@@ -1851,13 +1851,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city/>
     <state><![CDATA[NS]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Analyst]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Lead & Senior Machine Learning Engineer - MLOps & Platform Engineering (34110)]]></title>
@@ -1929,13 +1929,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Toronto]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Matheo Theodossiou]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Workflow Application Engineer (32655)]]></title>
@@ -2044,13 +2044,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MG1: Mike Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[ Privileged Access Management - PAM – BeyondTrust SMR (34132)]]></title>
@@ -2124,13 +2124,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Montreal]]></city>
     <state><![CDATA[QC]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer and Network Security]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Drupal Developer (32659)]]></title>
@@ -2217,13 +2217,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[Ontario]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MG1: Mike Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[IP Network Architect (32569)]]></title>
@@ -2271,7 +2271,7 @@ Candidates must demonstrate experience in managing <strong>real property project
 <span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><strong>Education & Experience</strong></span></span>
 
 <ul>
-	<li style="margin: 0.0cm 0.0cm 8.0pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;">Bachelor&apos;s degree in computer science, Information Technology, or a related field or equivalent work experience.</span></span>
+	<li style="margin: 0.0cm 0.0cm 8.0pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;">Bachelor's degree in computer science, Information Technology, or a related field or equivalent work experience.</span></span>
 	<li style="margin: 0.0cm 0.0cm 8.0pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;">10+ years of progressive experience in designing and architecting IP networks, with a focus on routing, firewalls, SDWAN, IPSEC VPNs, and deep packet inspection.</span></span>
 	<li style="margin: 0.0cm 0.0cm 8.0pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;">Understanding of Metro Ethernet Forum (MEF) standards and objectives as they relate to Carrier Ethernet Services.</span></span>
 	<li style="margin: 0.0cm 0.0cm 8.0pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;">Professional certifications such as CCIE, CCNP, CISSP or equivalent are highly desirable.</span></span>
@@ -2296,13 +2296,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MG1: Mike Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Networking]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Development Lead (Back-End) (32269)]]></title>
@@ -2379,7 +2379,7 @@ Candidates must demonstrate experience in managing <strong>real property project
 <p><strong>Education:</strong></p>
 
 <ul>
-	<li>Bachelor&apos;s degree in Computer Science, Engineering, or a related field.
+	<li>Bachelor's degree in Computer Science, Engineering, or a related field.
 </ul>
 
 <p><strong>PREFERRED QUALIFICATIONS</strong></p>
@@ -2395,13 +2395,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Toronto]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MT1: Matheo Theodossiou]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[ SAP Data Migration Lead (34087)]]></title>
@@ -2515,13 +2515,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Vancouver]]></city>
     <state><![CDATA[BC]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
     <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Robotic Power Automate Developer (34090)]]></title>
@@ -2613,13 +2613,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Montreal]]></city>
     <state><![CDATA[QC]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RP1: Runa Parmar]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Financial Services]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Technical Manager Customer Support (32657)]]></title>
@@ -2700,13 +2700,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-AG1: Adam Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Customer Service]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Technical Manager, Professional Services (32658)]]></title>
@@ -2760,7 +2760,7 @@ Candidates must demonstrate experience in managing <strong>real property project
 	<p>Analyze existing customer setups to identify inefficiencies and propose optimizations using the broader product suite.</p>
 	
 	<li>
-	<p>Serve as a technical advisor, helping customers align their needs with the capabilities of our client&apos;s platform.</p>
+	<p>Serve as a technical advisor, helping customers align their needs with the capabilities of our client's platform.</p>
 	
 </ul>
 
@@ -2789,13 +2789,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Ottawa]]></city>
     <state><![CDATA[ON]]></state>
     <country><![CDATA[Canada                                                          ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MG1: Mike Gebara]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Management]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[IT Project Manager-Physical Security System Platform (34271)]]></title>
@@ -2863,13 +2863,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Waukegan]]></city>
     <state><![CDATA[IL]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MR1: Myticas Recruiter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Project Management]]></jobfunction>
+    <jobindustries><![CDATA[Computer and Network Security]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Legal Analyst Attorney (34082)]]></title>
@@ -2907,13 +2907,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Minneapolis]]></city>
     <state><![CDATA[MN]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MR1: Myticas Recruiter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Legal]]></jobfunction>
+    <jobindustries><![CDATA[Alternative Dispute Resolution]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Business Data Analyst (34265)]]></title>
@@ -2955,13 +2955,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Waukegan]]></city>
     <state><![CDATA[IL]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MR1: Myticas Recruiter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Analyst]]></jobfunction>
+    <jobindustries><![CDATA[Information Technology and Services]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Senior IT Program Manager (34269)]]></title>
@@ -3002,13 +3002,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Chicago]]></city>
     <state><![CDATA[IL]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MR1: Myticas Recruiter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Project Management]]></jobfunction>
+    <jobindustries><![CDATA[Information Technology and Services]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[AWS Cloud/DevOps Engineer (34262)]]></title>
@@ -3061,13 +3061,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Chicago, IL]]></city>
     <state/>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MR1: Myticas Recruiter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Sr Business Systems Analyst  (32632)]]></title>
@@ -3107,13 +3107,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Chicago]]></city>
     <state><![CDATA[IL]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MR1: Myticas Recruiter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Analyst]]></jobfunction>
+    <jobindustries><![CDATA[Information Technology and Services]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Sr Business Systems Consultant/PM (34245)]]></title>
@@ -3122,7 +3122,7 @@ Candidates must demonstrate experience in managing <strong>real property project
     <referencenumber><![CDATA[FHT5YFMWDI]]></referencenumber>
     <bhatsid><![CDATA[34245]]></bhatsid>
     <url><![CDATA[https://apply.myticas.com/jobs/34245]]></url>
-    <description><![CDATA[Myticas&apos;s direct client is seeking <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Sr Business Systems Consultant/PM</span></span></span></span><strong> <em>for 5+</em></strong> <strong><em>Months Contract</em></strong> role <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">at </span><span style="color: black;">Waukegan, IL <strong>(Hybrid-3 days onsite)</strong></span></span></span></span><br>
+    <description><![CDATA[Myticas's direct client is seeking <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Sr Business Systems Consultant/PM</span></span></span></span><strong> <em>for 5+</em></strong> <strong><em>Months Contract</em></strong> role <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">at </span><span style="color: black;">Waukegan, IL <strong>(Hybrid-3 days onsite)</strong></span></span></span></span><br>
  
 <p><strong><u>TOP 5 skills/experience</u></strong><strong><u>:</u></strong></p>
 
@@ -3197,13 +3197,13 @@ Candidates must demonstrate experience in managing <strong>real property project
     <city><![CDATA[Chicago]]></city>
     <state><![CDATA[IL]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MR1: Myticas Recruiter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Project Management]]></jobfunction>
+    <jobindustries><![CDATA[Information Technology and Services]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Project Manager (34236)]]></title>
@@ -3212,7 +3212,7 @@ Candidates must demonstrate experience in managing <strong>real property project
     <referencenumber><![CDATA[FXDLB9E67L]]></referencenumber>
     <bhatsid><![CDATA[34236]]></bhatsid>
     <url><![CDATA[https://apply.myticas.com/jobs/34236]]></url>
-    <description><![CDATA[<p>Myticas&apos;s direct client is seeking <strong>Project Manager</strong> <strong><em>for 12+</em></strong> <strong><em>Months Contract</em></strong> role. (Potential of Extension).</p>
+    <description><![CDATA[<p>Myticas's direct client is seeking <strong>Project Manager</strong> <strong><em>for 12+</em></strong> <strong><em>Months Contract</em></strong> role. (Potential of Extension).</p>
 
 <hr>
 <h3><strong>IMPORTANT NOTE: </strong>Resource will be working a hybrid schedule. NO REMOTE ONLY OPTION. Will need to be onsite from day 1, two days a week. Local candidates only - Candidates must be located within 2 hours of Lansing, MI at time of submission.<br>
@@ -3273,13 +3273,13 @@ The State of Michigan is seeking an experienced and dynamic Senior Project Manag
     <city><![CDATA[Lansing]]></city>
     <state><![CDATA[MI]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MR1: Myticas Recruiter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Project Management]]></jobfunction>
+    <jobindustries><![CDATA[Information Technology and Services]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[IT Infrastructure Manager - Manufacturing (32619)]]></title>
@@ -3351,13 +3351,13 @@ Clover Consulting (a Myticas Co.) is seeking an <strong>IT Plant Manager</strong
     <city><![CDATA[Auburn Hills]]></city>
     <state><![CDATA[Michigan]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MC1: Michelle Corino]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Electrical/Electronic Manufacturing]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Technical Support and Customer Service Associate (34264)]]></title>
@@ -3434,13 +3434,13 @@ Clover Consulting (a Myticas Co.) is seeking an <strong>IT Plant Manager</strong
     <city><![CDATA[Oak Brook]]></city>
     <state><![CDATA[Illinois]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MC1: Michelle Corino]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Customer Service]]></jobfunction>
+    <jobindustries><![CDATA[Consumer Services]]></jobindustries>
+    <senioritylevel><![CDATA[Associate]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Business Intelligence Business Objects SQL Developer (32539)]]></title>
@@ -3449,11 +3449,11 @@ Clover Consulting (a Myticas Co.) is seeking an <strong>IT Plant Manager</strong
     <referencenumber><![CDATA[2QYZ0BI5M3]]></referencenumber>
     <bhatsid><![CDATA[32539]]></bhatsid>
     <url><![CDATA[https://apply.myticas.com/jobs/32539]]></url>
-    <description><![CDATA[<p><strong>Location:</strong>&nbsp;Remote (with occasional travel to Springfield, Illinois)</p>
+    <description><![CDATA[<p><strong>Location:</strong> Remote (with occasional travel to Springfield, Illinois)</p>
 
-<p><strong>Contract:&nbsp;</strong>12 months with possibly multiyear extension/s</p>
+<p><strong>Contract: </strong>12 months with possibly multiyear extension/s</p>
 
-<p><strong>Functional Description:&nbsp;</strong></p>
+<p><strong>Functional Description: </strong></p>
 
 <p>Clover Consulting (a Myticas Co.) is seeking a skilled and experienced BI BusinessObjects/SQL Developer to design, develop, and maintain business intelligence solutions using SAP BusinessObjects and SQL. This role supports Medicaid/CHIP claims and other healthcare data systems, ensuring accurate reporting and data integrity for state and federal stakeholders.</p>
 
@@ -3486,7 +3486,7 @@ Clover Consulting (a Myticas Co.) is seeking an <strong>IT Plant Manager</strong
 	<li>Strong team collaboration and adaptability.</li>
 </ul>
 
-<p><strong>Preferred Qualifications:&nbsp;</strong></p>
+<p><strong>Preferred Qualifications: </strong></p>
 
 <ul>
 	<li>2+ years of experience as Business Objects server administrator</li>
@@ -3498,13 +3498,13 @@ Clover Consulting (a Myticas Co.) is seeking an <strong>IT Plant Manager</strong
     <city><![CDATA[Springfield]]></city>
     <state><![CDATA[Illinois]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-DS1: Dan Sifer]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Windchill Solutions Consultant (34225)]]></title>
@@ -3567,13 +3567,13 @@ Hybrid - Grand Rapids, MI</strong><br style="color: rgb(0,0,0);font-family: Aria
     <city><![CDATA[Grand Rapids]]></city>
     <state><![CDATA[Michigan]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MC1: Michelle Corino]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Consulting]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Cyber Posture Management Analyst (34098)]]></title>
@@ -3588,7 +3588,7 @@ Hybrid - Grand Rapids, MI</strong><br style="color: rgb(0,0,0);font-family: Aria
 
 <p><strong>Location: </strong>Lansing, Michigan</p>
 
-<p>Clover Consulting (a Myticas Co.) has a large, direct client seeking a skilled Cyber Posture Mgmt. Analyst I to join the team as part of their Information Security & Privacy team. This position provides security analysis for the company&apos;s Identity and Access Management (IAM) Operation&apos;s program. This role requires knowledge across multiple platforms, applications, processes, and procedures to enable access management of business initiatives across the enterprise.</p>
+<p>Clover Consulting (a Myticas Co.) has a large, direct client seeking a skilled Cyber Posture Mgmt. Analyst I to join the team as part of their Information Security & Privacy team. This position provides security analysis for the company's Identity and Access Management (IAM) Operation's program. This role requires knowledge across multiple platforms, applications, processes, and procedures to enable access management of business initiatives across the enterprise.</p>
 
 <p><strong><u>Essential Responsibilities</u></strong></p>
 
@@ -3628,7 +3628,7 @@ Hybrid - Grand Rapids, MI</strong><br style="color: rgb(0,0,0);font-family: Aria
 <p><strong><u>Qualifications</u></strong></p>
 
 <ul>
-	<li>Bachelor&apos;s Degree or equivalent experience and/or education required.
+	<li>Bachelor's Degree or equivalent experience and/or education required.
 	<li>1+ years knowledge of financial products, regulatory requirements, and business process preferred.
 	<li>Cloud Identity experience preferred.
 	<li>SC-300 Microsoft Certified Identity and Access Administrator Associate preferred.
@@ -3639,13 +3639,13 @@ Hybrid - Grand Rapids, MI</strong><br style="color: rgb(0,0,0);font-family: Aria
     <city><![CDATA[Lansing]]></city>
     <state><![CDATA[Michigan]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MC1: Michelle Corino]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer and Network Security]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[EDW Informatica ETL Developer (32541)]]></title>
@@ -3714,13 +3714,13 @@ Hybrid - Grand Rapids, MI</strong><br style="color: rgb(0,0,0);font-family: Aria
     <city><![CDATA[Chicago]]></city>
     <state><![CDATA[Illinois]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MC1: Michelle Corino]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Information Technology]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Manufacturing Engineer (32643)]]></title>
@@ -3780,13 +3780,13 @@ Required Skills and Competencies
     <city><![CDATA[Grand Rapids]]></city>
     <state><![CDATA[Michigan]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-CC1: Christine Carter]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Electrical/Electronic Manufacturing]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Technical Support and Customer Service Associate (34264)]]></title>
@@ -3863,13 +3863,13 @@ Required Skills and Competencies
     <city><![CDATA[Oak Brook]]></city>
     <state><![CDATA[Illinois]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
-    <assignedrecruiter></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <assignedrecruiter/>
+    <jobfunction><![CDATA[Customer Service]]></jobfunction>
+    <jobindustries><![CDATA[Consumer Services]]></jobindustries>
+    <senioritylevel><![CDATA[Associate]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Technical Support and Customer Service Associate (34226)]]></title>
@@ -3942,16 +3942,16 @@ Required Skills and Competencies
 <p>If you’re ready for a dynamic support role where no two days are the same, apply now or reach out to learn more.</p>
 ]]></description>
     <jobtype><![CDATA[Contract]]></jobtype>
-    <city></city>
+    <city/>
     <state><![CDATA[Illinois]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
-    <assignedrecruiter></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <assignedrecruiter/>
+    <jobfunction><![CDATA[Customer Service]]></jobfunction>
+    <jobindustries><![CDATA[Consumer Services]]></jobindustries>
+    <senioritylevel><![CDATA[Associate]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Technical NetSuite Architect (34219)]]></title>
@@ -4022,13 +4022,13 @@ Required Skills and Competencies
     <city/>
     <state/>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[No Preference]]></remotetype>
-    <assignedrecruiter></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <assignedrecruiter/>
+    <jobfunction><![CDATA[Consulting]]></jobfunction>
+    <jobindustries><![CDATA[Computer Software]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Process Engineer - CFD, SNCR, SCR (32990)]]></title>
@@ -4080,16 +4080,16 @@ Benefits: Access to Client Full Benefits Package</strong><br>
 <em>We are an Equal Opportunity Employer and do not discriminate on the basis of race, color, religion, sex, national origin, age, disability, veteran status, genetic information, sexual orientation, gender identity, or any other legally protected status. All qualified applicants will receive consideration for employment without regard to any of these characteristics.</em><br>
  ]]></description>
     <jobtype><![CDATA[Contract]]></jobtype>
-    <city></city>
+    <city/>
     <state><![CDATA[IL]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RM1: Rachel Mann]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Chemical]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Sr. Architect (34278)]]></title>
@@ -4104,7 +4104,7 @@ Benefits: Access to Benefit Package<br>
 Pay Range: $110,000-$130,000</p>
 
 <p><strong><u>Summary:</u></strong><br>
-The Architect will perform discipline responsibilities within Project and Departmental Budgets. Architect is accountable technically and administratively to the Department Manager as well as Project Managers for successfully executing the architectural group&apos;s work. Architects are expected to serve in the role of Project Discipline Lead to execute several projects of different sizes simultaneously. This position will have a focus on pharmaceutical market projects.</p>
+The Architect will perform discipline responsibilities within Project and Departmental Budgets. Architect is accountable technically and administratively to the Department Manager as well as Project Managers for successfully executing the architectural group's work. Architects are expected to serve in the role of Project Discipline Lead to execute several projects of different sizes simultaneously. This position will have a focus on pharmaceutical market projects.</p>
 
 <p><strong><u>Responsibilities:</u></strong></p>
 
@@ -4123,7 +4123,7 @@ The Architect will perform discipline responsibilities within Project and Depart
 	<li>Coordinate with and assist affected disciplines with construction bulletins, requests for information.
 	<li>Review construction phase submittals.
 	<li>Attend and lead project and discipline/department meetings as required.
-	<li>Ensure conformance of the discipline&apos;s work with customers and Company standards and practices.
+	<li>Ensure conformance of the discipline's work with customers and Company standards and practices.
 	<li>Manage the issuance of documents for quality control through the department and office.
 </ul>
 
@@ -4156,13 +4156,13 @@ The Architect will perform discipline responsibilities within Project and Depart
     <city/>
     <state><![CDATA[OH]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RM1: Rachel Mann]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Design]]></jobfunction>
+    <jobindustries><![CDATA[Architecture and Planning]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Site Management Supervisor (34276)]]></title>
@@ -4225,7 +4225,7 @@ Benefits: Medical, Dental, & Vision</p>
 	<li>Review monthly contract service reports for each installation, advising management as to project status, regulatory agency permit compliance, and technical/plant management attitudes.
 	<li>Support regional personnel with the handling of local problems and in the development of client relations strategies to assure successful on-going business at each site.
 	<li>Develop budgets and assist in the preparation of operations strategies to achieve compliance with regulatory agency requirements and O&M corporate objectives.
-	<li>Review all monthly project reports and utilize these materials to more effectively manage O&M client services and to assure O&M&apos;s compliance with all contract provisions and client understanding and satisfaction of services rendered.
+	<li>Review all monthly project reports and utilize these materials to more effectively manage O&M client services and to assure O&M's compliance with all contract provisions and client understanding and satisfaction of services rendered.
 	<li>Actively participate in regional and local professional groups, and reports on any technology or service advancements desired by local groups and/or O&M clients.
 </ul>
 
@@ -4235,13 +4235,13 @@ Benefits: Medical, Dental, & Vision</p>
     <city><![CDATA[Denver]]></city>
     <state><![CDATA[CO]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-TD1: Tarra Dziurman]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Management]]></jobfunction>
+    <jobindustries><![CDATA[Utilities]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Senior Electrical Engineer, Pharma (34274)]]></title>
@@ -4276,7 +4276,7 @@ Benefits: Access to full company benefits package</strong></p>
 <p>Here is what you’ll need:</p>
 
 <ul>
-	<li>Bachelor&apos;s or Master of Science Degree in Electrical Engineering from accredited program
+	<li>Bachelor's or Master of Science Degree in Electrical Engineering from accredited program
 	<li>Professional Engineer license in IN or ability to obtain
 	<li>At least 15 years of experience in electrical engineering design of buildings
 	<li>Solid working knowledge of NFPA 70 (NEC)
@@ -4307,13 +4307,13 @@ Benefits: Access to full company benefits package</strong></p>
     <city><![CDATA[Indianapolis]]></city>
     <state><![CDATA[IN]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-TD1: Tarra Dziurman]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Pharmaceuticals]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Electrical Revit Designer (34275)]]></title>
@@ -4378,13 +4378,13 @@ Various offices across the USA.<br>
     <city><![CDATA[Cincinnati]]></city>
     <state><![CDATA[OH]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RO1: Ryan Oliver]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Design]]></jobfunction>
+    <jobindustries><![CDATA[Architecture and Planning]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Electrical Engineer (34277)]]></title>
@@ -4529,13 +4529,13 @@ Benefits: Standard Medical, Dental, and 401(k)<br>
     <city/>
     <state/>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-RO1: Ryan Oliver]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Chemical]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Architectural Department Manager (34273)]]></title>
@@ -4549,7 +4549,7 @@ Location: Cincinnati, OH (On-site or Remote)</p>
 
 <p>Benefits: Access to Benefits Package</p>
 
-<p><strong><u>Summary:</u></strong> Reporting to the Director of Engineering (DOE), the Department Manager (DM) represents the company in such a way that embodies the company&apos;s values and beliefs. The DM collaborates with the Best Practices to determine the best resource assignments for projects based on availability of the resource(s) and the best overall direction for the company and the team member&apos;s career objectives.</p>
+<p><strong><u>Summary:</u></strong> Reporting to the Director of Engineering (DOE), the Department Manager (DM) represents the company in such a way that embodies the company's values and beliefs. The DM collaborates with the Best Practices to determine the best resource assignments for projects based on availability of the resource(s) and the best overall direction for the company and the team member's career objectives.</p>
 
 <p><strong><u>Responsibilities:</u></strong></p>
 
@@ -4589,13 +4589,13 @@ Location: Cincinnati, OH (On-site or Remote)</p>
     <city><![CDATA[Cincinnati]]></city>
     <state><![CDATA[OH]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Remote]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MS1: Mike Scalzitti]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Management]]></jobfunction>
+    <jobindustries><![CDATA[Architecture and Planning]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
   <job>
     <title><![CDATA[Electrical Engineer - Power Equipment/Controls (34272)]]></title>
@@ -4635,7 +4635,7 @@ Pay Range: $115,000-$150,000</p>
 <p><strong>REQUIREMENTS</strong></p>
 
 <ul>
-	<li>Bachelor&apos;s degree in electrical engineering is required.
+	<li>Bachelor's degree in electrical engineering is required.
 	<li>5-7+ years of experience in electrical engineering is required.
 	<li>Power experience is a plus (i.e. power distribution centers, motor control centers, large frequency drives, medium voltage )
 	<li>Project management experience
@@ -4652,15 +4652,15 @@ Pay Range: $115,000-$150,000</p>
 <br>
 <em>We are an Equal Opportunity Employer and do not discriminate on the basis of race, color, religion, sex, national origin, age, disability, veteran status, genetic information, sexual orientation, gender identity, or any other legally protected status. All qualified applicants will receive consideration for employment without regard to any of these characteristics.</em>]]></description>
     <jobtype><![CDATA[Contract]]></jobtype>
-    <city></city>
+    <city/>
     <state><![CDATA[CO]]></state>
     <country><![CDATA[United States                                                   ]]></country>
-    <category></category>
-    <apply_email></apply_email>
+    <category/>
+    <apply_email/>
     <remotetype><![CDATA[Hybrid]]></remotetype>
     <assignedrecruiter><![CDATA[#LI-MS1: Mike Scalzitti]]></assignedrecruiter>
-    <jobfunction></jobfunction>
-    <jobindustries></jobindustries>
-    <senoritylevel></senoritylevel>
+    <jobfunction><![CDATA[Engineering]]></jobfunction>
+    <jobindustries><![CDATA[Oil and Energy]]></jobindustries>
+    <senioritylevel><![CDATA[Mid-Senior level]]></senioritylevel>
   </job>
 </source>
