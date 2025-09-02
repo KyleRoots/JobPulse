@@ -232,7 +232,7 @@ class XMLIntegrationService:
             # Determine base URL based on company
             import os
             if company_name and 'STSI' in company_name:
-                base_url = 'https://apply.stsi.com'
+                base_url = 'https://apply.stsigroup.com'
             else:
                 base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
             
@@ -250,7 +250,7 @@ class XMLIntegrationService:
                     import os
                     # Determine fallback base URL
                     if company_name and 'STSI' in company_name:
-                        base_url = 'https://apply.stsi.com'
+                        base_url = 'https://apply.stsigroup.com'
                     else:
                         base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
                     fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source=LinkedIn"
