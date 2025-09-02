@@ -139,8 +139,8 @@ class XMLIntegrationService:
             # Use the actual Bullhorn job ID for bhatsid (critical for matching/updating)
             bhatsid = str(job_id)
             
-            # Generate unique job application URL based on tearsheet configuration
-            job_url = TearsheetConfig.get_application_url(monitor_name, bhatsid, clean_title)
+            # Generate unique job application URL with proper domain based on company
+            job_url = self._generate_job_application_url(bhatsid, clean_title, company_name)
             
             # Handle AI classification - preserve existing values if provided
             if existing_ai_fields and existing_ai_fields.get('jobfunction') and existing_ai_fields.get('jobindustries') and existing_ai_fields.get('senioritylevel'):
@@ -199,17 +199,19 @@ class XMLIntegrationService:
             self.logger.error(f"Error mapping Bullhorn job to XML: {str(e)}")
             return {}
     
-    def _generate_job_application_url(self, bhatsid: str, clean_title: str) -> str:
+    def _generate_job_application_url(self, bhatsid: str, clean_title: str, company_name: str = None) -> str:
         """
         Generate unique job application URL for each job
         
         Args:
             bhatsid: Job ID from Bullhorn
             clean_title: Clean job title without ID
+            company_name: Company name to determine domain (STSI vs Myticas)
             
         Returns:
             str: Unique job application URL in format:
                  https://apply.myticas.com/[bhatsid]/[title]/?source=LinkedIn
+                 https://apply.stsi.com/[bhatsid]/[title]/?source=LinkedIn (for STSI jobs)
         """
         try:
             # Validate inputs to prevent fallback to generic URL
@@ -227,10 +229,12 @@ class XMLIntegrationService:
             safe_title = str(clean_title).strip().replace('/', '-')
             encoded_title = urllib.parse.quote(safe_title, safe='')
             
-            # CONFIGURABLE: Use environment variable to determine base URL
-            # This allows switching between apply.myticas.com (production) and current domain (development)
+            # Determine base URL based on company
             import os
-            base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
+            if company_name and 'STSI' in company_name:
+                base_url = 'https://apply.stsi.com'
+            else:
+                base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
             
             # Generate the unique URL  
             job_url = f"{base_url}/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
@@ -244,7 +248,11 @@ class XMLIntegrationService:
             try:
                 if bhatsid and str(bhatsid).strip():
                     import os
-                    base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
+                    # Determine fallback base URL
+                    if company_name and 'STSI' in company_name:
+                        base_url = 'https://apply.stsi.com'
+                    else:
+                        base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
                     fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source=LinkedIn"
                     self.logger.warning(f"Using fallback URL with job ID: {fallback_url}")
                     return fallback_url
