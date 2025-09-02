@@ -584,13 +584,14 @@ def process_bullhorn_monitors():
                     self.tearsheet_id = tearsheet_id
                     self.is_active = True
             
-            # Always use hardcoded tearsheets to ensure we have jobs
+            # Use correct tearsheets based on actual monitors from screenshot
+            # OTT = Ottawa, VMS = VMS, GR = Grand Rapids, CHI = Chicago, STSI = STSI
             monitors = [
-                MockMonitor('Ottawa Sponsored Jobs', 1256),
-                MockMonitor('Clover Sponsored Jobs', 1499),
-                MockMonitor('VMS Sponsored Jobs', 1264),
-                MockMonitor('QTS-SW Sponsored Jobs', 1257),
-                MockMonitor('Health Jobs Tearsheet', 1556)
+                MockMonitor('Sponsored - OTT', 1256),   # Ottawa - 34 jobs
+                MockMonitor('Sponsored - VMS', 1264),   # VMS - 8 jobs
+                MockMonitor('Sponsored - GR', 1499),    # Grand Rapids - 7 jobs  
+                MockMonitor('Sponsored - CHI', 1257),   # Chicago - 3 jobs
+                MockMonitor('Sponsored - STSI', 1556)   # STSI - 8 jobs
             ]
             
             app.logger.info(f"Using {len(monitors)} hardcoded tearsheet monitors")
