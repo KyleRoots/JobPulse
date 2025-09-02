@@ -1101,8 +1101,21 @@ def refresh_reference_numbers():
         else:
             app.logger.warning("SFTP not configured - skipping upload")
         
-        # Log this manual activity to application log
+        # Log this manual activity to application log and database
         app.logger.info(f"🔄 MANUAL REFRESH COMPLETE: User {current_user.username} refreshed {result['jobs_processed']} reference numbers")
+        
+        # Record the refresh in database to prevent monitoring from reverting
+        try:
+            refresh_log = RefreshLog(
+                schedule_name="Manual Refresh",
+                jobs_refreshed=result['jobs_processed'],
+                status="success"
+            )
+            db.session.add(refresh_log)
+            db.session.commit()
+            app.logger.info("📝 Recorded manual refresh in database to prevent monitoring reversion")
+        except Exception as e:
+            app.logger.error(f"Failed to record refresh log: {e}")
         
         # Send simplified notification email
         try:

@@ -546,6 +546,25 @@ class ComprehensiveMonitoringService:
         
         return audit_results
     
+    def _check_recent_manual_refresh(self) -> bool:
+        """Check if a manual refresh happened recently (within last hour)"""
+        try:
+            from models import RefreshLog
+            from datetime import datetime, timedelta
+            
+            # Check for recent manual refresh
+            with self.app.app_context():
+                last_refresh = RefreshLog.query.order_by(RefreshLog.created_at.desc()).first()
+                if last_refresh:
+                    time_since_refresh = datetime.now() - last_refresh.created_at
+                    if time_since_refresh < timedelta(hours=1):
+                        self.logger.warning(f"⚠️ RECENT MANUAL REFRESH DETECTED ({time_since_refresh.total_seconds()/60:.1f} minutes ago)")
+                        self.logger.warning(f"   Monitoring will preserve NEW reference numbers from manual refresh")
+                        return True
+        except Exception as e:
+            self.logger.debug(f"Could not check for recent refresh: {e}")
+        return False
+    
     def _add_job_to_xml(self, xml_file: str, job_data: Dict):
         """Add a new job to XML file with AI field preservation"""
         try:
@@ -553,6 +572,9 @@ class ComprehensiveMonitoringService:
             job_id = str(job_data.get('id', ''))
             existing_ai_fields = None
             existing_reference_number = None
+            
+            # Check if a manual refresh happened recently
+            recent_refresh = self._check_recent_manual_refresh()
             
             # Try to get existing AI fields AND reference number from CURRENT XML state
             try:
@@ -565,7 +587,10 @@ class ComprehensiveMonitoringService:
                     # Extract existing reference number
                     existing_reference_number = existing_job.get('referencenumber', '').strip()
                     if existing_reference_number:
-                        self.logger.info(f"✅ PRESERVING existing reference number for job {job_id}: {existing_reference_number}")
+                        if recent_refresh:
+                            self.logger.info(f"✅ PRESERVING NEW reference from manual refresh for job {job_id}: {existing_reference_number}")
+                        else:
+                            self.logger.info(f"✅ PRESERVING existing reference number for job {job_id}: {existing_reference_number}")
                     
                     # Extract existing AI classification fields  
                     existing_ai_fields = {
@@ -607,6 +632,9 @@ class ComprehensiveMonitoringService:
     def _update_job_in_xml(self, xml_file: str, job_id: str, job_data: Dict, modifications: List[Dict]):
         """Update job fields in XML file"""
         try:
+            # Check if a manual refresh happened recently
+            recent_refresh = self._check_recent_manual_refresh()
+            
             # CRITICAL FIX: Always load current XML to get the actual reference number
             # Don't rely on snapshots which might be outdated
             current_xml_jobs = self._load_xml_jobs(xml_file)
@@ -618,7 +646,10 @@ class ComprehensiveMonitoringService:
             self.logger.info(f"🔍 DEBUG: Job {job_id} existing_job keys: {list(existing_job.keys())}")
             self.logger.info(f"🔍 DEBUG: Job {job_id} raw referencenumber value: '{existing_job.get('referencenumber', 'NOT_FOUND')}'")
             if existing_reference_number:
-                self.logger.info(f"✅ PRESERVING existing reference number for job {job_id}: {existing_reference_number}")
+                if recent_refresh:
+                    self.logger.info(f"✅ PRESERVING NEW reference from manual refresh for job {job_id}: {existing_reference_number}")
+                else:
+                    self.logger.info(f"✅ PRESERVING existing reference number for job {job_id}: {existing_reference_number}")
             else:
                 self.logger.warning(f"⚠️ No existing reference number found for job {job_id} - will generate new one")
             
