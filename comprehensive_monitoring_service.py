@@ -123,6 +123,12 @@ class ComprehensiveMonitoringService:
                             tearsheet_jobs[monitor.tearsheet_id].append(job_id)
                             # Store monitor name for company mapping
                             job['_monitor_name'] = monitor.name
+                            
+                            # DEBUG: Log job 34305 specifically
+                            if job_id == '34305':
+                                self.logger.info(f"    🔍 DEBUG: Found job 34305 in tearsheet {monitor.tearsheet_id} ({monitor.name})")
+                                self.logger.info(f"    🔍 DEBUG: Job 34305 title from Bullhorn: '{job.get('title', 'NO TITLE')}'")
+                                self.logger.info(f"    🔍 DEBUG: Job 34305 publicDescription length: {len(job.get('publicDescription', ''))}")
                         
                         self.logger.info(f"    Found {len(jobs)} jobs in {monitor.name}")
                         cycle_results['monitors_processed'] += 1
