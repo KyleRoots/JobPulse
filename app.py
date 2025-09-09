@@ -603,6 +603,51 @@ def process_bullhorn_monitors():
             )
             
             app.logger.info(f"✅ ComprehensiveMonitoringService completed: {cycle_results}")
+            
+            # Log activities to database for dashboard visibility
+            try:
+                # Log upload success activity if upload was successful
+                if cycle_results.get('upload_success', False):
+                    upload_activity = BullhornActivity(
+                        monitor_id=None,  # System-level activity
+                        activity_type='upload_success',
+                        details=json.dumps({
+                            'monitors_processed': cycle_results.get('monitors_processed', 0),
+                            'jobs_added': cycle_results.get('jobs_added', 0),
+                            'jobs_removed': cycle_results.get('jobs_removed', 0),
+                            'jobs_modified': cycle_results.get('jobs_modified', 0),
+                            'cycle_time': cycle_results.get('cycle_time', 0)
+                        }),
+                        notification_sent=False,
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.add(upload_activity)
+                    app.logger.info("📝 Logged upload_success activity to database")
+                
+                # Log email notification activity if email was sent
+                if cycle_results.get('email_sent', False):
+                    email_activity = BullhornActivity(
+                        monitor_id=None,  # System-level activity
+                        activity_type='email_notification',
+                        details=json.dumps({
+                            'changes_detected': cycle_results.get('jobs_added', 0) + 
+                                              cycle_results.get('jobs_removed', 0) + 
+                                              cycle_results.get('jobs_modified', 0),
+                            'monitor_type': 'Enhanced 8-Step Monitor'
+                        }),
+                        notification_sent=True,
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.add(email_activity)
+                    app.logger.info("📝 Logged email_notification activity to database")
+                
+                db.session.commit()
+                app.logger.info("✅ Activity logs saved to database successfully")
+                
+            except Exception as log_error:
+                app.logger.error(f"Failed to log activities to database: {str(log_error)}")
+                db.session.rollback()
+            
             app.logger.info("📊 ENHANCED MONITOR CYCLE COMPLETE - ComprehensiveMonitoringService handled all steps")
             
         except Exception as e:
