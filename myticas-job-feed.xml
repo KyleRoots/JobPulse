@@ -3,6 +3,46 @@
   <publisher>Myticas Consulting</publisher>
   <publisherurl>https://www.myticas.com</publisherurl>
   <job>
+    <title><![CDATA[ :Full Stack Developer (34305) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ September 09, 2025 ]]></date>
+    <referencenumber><![CDATA[ RE1ES5ZKGG ]]></referencenumber>
+    <bhatsid><![CDATA[ 34305 ]]></bhatsid>
+    <url><![CDATA[ https://apply.myticas.com/34305/%3AFull%20Stack%20Developer/?source=LinkedIn ]]></url>
+    <description><![CDATA[ <p>Our client is looking for a Full stack developer for a Hybrid contract in Toronto. The Banking client has a new concept for its <strong>mobile/web app</strong> ready for implementation. You’ll help plan the implementation and build key features for a new page within the app.</p> <p><strong>Responsibilities</strong></p> <ul> <li> <p>Implement front-end features and responsive UI for mobile/web (accessibility-compliant)</p> <li> <p>Integrate with back-end APIs; manage sessions, errors, and <strong>RBAC</strong></p> <li> <p>Contribute to CI/CD pipelines and version control practices</p> <li> <p>Work across the SDLC (design ? build ? test ? release) in <strong>Agile/Scrum</strong></p> <li> <p>Collaborate with designers, product, and platform teams</p> </ul> <p><strong>Required Qualifications (3–5+ years)</strong></p> <ul> <li> <p><strong>Front-end:</strong> <strong>Angular</strong>, HTML, CSS, JavaScript; responsive development; <strong>WCAG 2.x / AODA</strong></p> <li> <p><strong>Back-end:</strong> <strong>Node.js</strong>; API integration (REST/GraphQL), <strong>JWT</strong>, <strong>OAuth 2.0</strong></p> <li> <p><strong>Dev practices/tools:</strong> Git/GitHub, <strong>CI/CD</strong> (Jenkins or Azure DevOps), <strong>Docker</strong>, Postman</p> <li> <p><strong>Security & app concerns:</strong> <strong>RBAC</strong>, error handling, session management</p> <li> <p>Familiarity with <strong>GitHub Copilot</strong> or similar AI coding tools</p> <li> <p>UI libraries: <strong>Bootstrap</strong>, <strong>Material UI</strong></p> <li> <p>SDLC experience; Agile/Scrum delivery</p> </ul> <p><strong>Nice to Have</strong></p> <ul> <li> <p><strong>React</strong> exposure, banking/financial services experience</p> </ul> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[ Toronto ]]></city>
+    <state><![CDATA[ Ontario ]]></state>
+    <country><![CDATA[ Canada ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Onsite ]]></remotetype>
+    <assignedrecruiter><![CDATA[ #LI-RP1: Runa Parmar ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Information Technology ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senioritylevel><![CDATA[ Mid-Senior level ]]></senioritylevel>
+  </job>
+  <job>
+    <title><![CDATA[ QA Engineer   QA Developer (34307) ]]></title>
+    <company><![CDATA[ Myticas Consulting ]]></company>
+    <date><![CDATA[ September 09, 2025 ]]></date>
+    <referencenumber><![CDATA[ OLICFV96U4 ]]></referencenumber>
+    <bhatsid><![CDATA[ 34307 ]]></bhatsid>
+    <url><![CDATA[ https://apply.myticas.com/34307/QA%20Engineer%20%20%20QA%20Developer/?source=LinkedIn ]]></url>
+    <description><![CDATA[ <p>Our client is looking for a <strong>QA developer</strong> for a <strong>hybrid contract</strong> to support a new <strong>mobile/web app</strong> page rollout for a major Canadian bank. You’ll plan test strategy and execute <strong>manual + automated</strong> testing across UI, API, and responsive layers, ensuring accessibility and quality for a fast-moving product build.</p> <p><strong>Project Background</strong></p> <ul> <li> <p>New concept for the bank’s <strong>mobile app</strong> is ready for implementation.</p> <li> <p>You’ll help plan the implementation and validate features/functionality that will live on the new mobile/web app page.</p> </ul> <p><strong>Responsibilities</strong></p> <ul> <li> <p>Define and execute <strong>test strategies</strong>, test plans, and test cases (manual & automated).</p> <li> <p>Perform <strong>API testing</strong>, <strong>web responsive testing</strong>, regression, and accessibility checks (WCAG).</p> <li> <p>Create automation scripts; integrate with CI workflows; log/track defects and drive resolution.</p> <li> <p>Partner with product, design, and engineering in an <strong>Agile/Scrum</strong> environment; report test outcomes.</p> </ul> <p><strong>Required Qualifications (4–5+ years)</strong></p> <ul> <li> <p>Hands-on <strong>manual & automation</strong> testing (UI + API).</p> <li> <p>Web responsiveness testing; solid test strategy creation and execution.</p> <li> <p><strong>Accessibility (WCAG)</strong> testing exposure.</p> <li> <p>Familiar with <strong>GitHub Copilot</strong> or similar AI coding tools.</p> <li> <p>Comfortable across the <strong>SDLC</strong> (design ? planning ? execution).</p> </ul> <p><strong>Tech & Tools</strong></p> <ul> <li> <p><strong>Automation:</strong> Selenium; <strong>JUnit/TestNG</strong> (or equivalent)</p> <li> <p><strong>API:</strong> Postman, SoapUI</p> <li> <p><strong>Responsive testing:</strong> BrowserStack, LambdaTest</p> <li> <p><strong>Test Management/Defect:</strong> TestRail, Jira, qTest</p> <li> <p><strong>Accessibility:</strong> Lighthouse (or equivalent)</p> <li> <p><strong>Methodology:</strong> Agile/Scrum</p> </ul> ]]></description>
+    <jobtype><![CDATA[ Contract ]]></jobtype>
+    <city><![CDATA[ Toronto ]]></city>
+    <state><![CDATA[  ]]></state>
+    <country><![CDATA[ United States ]]></country>
+    <category><![CDATA[  ]]></category>
+    <apply_email><![CDATA[ apply@myticas.com ]]></apply_email>
+    <remotetype><![CDATA[ Onsite ]]></remotetype>
+    <assignedrecruiter><![CDATA[ #LI-RP1: Runa Parmar ]]></assignedrecruiter>
+    <jobfunction><![CDATA[ Quality Assurance ]]></jobfunction>
+    <jobindustries><![CDATA[ Banking ]]></jobindustries>
+    <senioritylevel><![CDATA[ Mid-Senior level ]]></senioritylevel>
+  </job>
+  <job>
     <title><![CDATA[ Technical Manager Customer Support (32657) ]]></title>
     <company><![CDATA[ Myticas Consulting ]]></company>
     <date><![CDATA[ July 24, 2025 ]]></date>
