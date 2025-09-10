@@ -16,13 +16,13 @@ import xml.dom.minidom as minidom
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Tearsheet configurations
+# Tearsheet configurations (from database)
 TEARSHEETS = [
-    {'id': 1234, 'name': 'Open Tech Opportunities (OTT)', 'company': 'Myticas Consulting'},
-    {'id': 1267, 'name': 'VMS Active Jobs', 'company': 'Myticas Consulting'},
+    {'id': 1256, 'name': 'Sponsored - OTT', 'company': 'Myticas Consulting'},
+    {'id': 1264, 'name': 'Sponsored - VMS', 'company': 'Myticas Consulting'},
     {'id': 1556, 'name': 'Sponsored - STSI', 'company': 'STSI (Staffing Technical Services Inc.)'},
-    {'id': 1300, 'name': 'Grow (GR)', 'company': 'Myticas Consulting'},
-    {'id': 1523, 'name': 'Chicago (CHI)', 'company': 'Myticas Consulting'}
+    {'id': 1499, 'name': 'Sponsored - GR', 'company': 'Myticas Consulting'},
+    {'id': 1239, 'name': 'Sponsored - CHI', 'company': 'Myticas Consulting'}
 ]
 
 def fetch_tearsheet_jobs(tearsheet_id, tearsheet_name):
