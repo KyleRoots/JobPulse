@@ -199,10 +199,24 @@ class IncrementalMonitoringService:
     def _fetch_all_tearsheet_jobs(self) -> Dict[str, Dict]:
         """Fetch all jobs from monitored tearsheets with proper pagination"""
         all_jobs = {}
-        monitors = TearsheetConfig.get_active_monitors()
+        
+        # Get active monitors - hardcoded for now since TearsheetConfig method doesn't exist
+        class MockMonitor:
+            def __init__(self, name, tearsheet_id):
+                self.name = name
+                self.tearsheet_id = tearsheet_id
+                self.is_active = True
+        
+        monitors = [
+            MockMonitor('Sponsored - OTT', 1256),
+            MockMonitor('Sponsored - VMS', 1264),
+            MockMonitor('Sponsored - GR', 1499),
+            MockMonitor('Sponsored - CHI', 1239),
+            MockMonitor('Sponsored - STSI', 1556)
+        ]
         
         for monitor in monitors:
-            if not monitor.is_active:
+            if not hasattr(monitor, 'is_active') or not monitor.is_active:
                 continue
             
             try:
@@ -298,25 +312,25 @@ class IncrementalMonitoringService:
         monitor_name = bullhorn_job.get('_monitor_name', '')
         company_name = TearsheetConfig.get_company_name(monitor_name)
         
-        # Extract and trim location fields
+        # Extract and trim location fields - handle lists
         address = bullhorn_job.get('address', {}) or {}
-        city = (address.get('city') or '').strip()
-        state = (address.get('state') or '').strip()
-        country = (address.get('countryName') or 'United States').strip()
+        city = self._safe_extract_string(address.get('city'))
+        state = self._safe_extract_string(address.get('state'))
+        country = self._safe_extract_string(address.get('countryName', 'United States'))
         
         # Extract job type
-        employment_type = (bullhorn_job.get('employmentType') or '').strip()
+        employment_type = self._safe_extract_string(bullhorn_job.get('employmentType'))
         job_type = self._map_employment_type(employment_type)
         
         # Extract remote type
-        on_site = (bullhorn_job.get('onSite') or '').strip()
+        on_site = self._safe_extract_string(bullhorn_job.get('onSite'))
         remote_type = self._map_remote_type(on_site)
         
         # Extract recruiter
         recruiter = self._extract_recruiter(bullhorn_job)
         
         # Build clean title
-        title = (bullhorn_job.get('title') or '').strip()
+        title = self._safe_extract_string(bullhorn_job.get('title'))
         job_id = str(bullhorn_job.get('id', ''))
         
         # Generate or preserve reference number
@@ -418,6 +432,19 @@ class IncrementalMonitoringService:
             'Michael Theodossiou': '#LI-MT2'
         }
         return tags.get(name, '')
+    
+    def _safe_extract_string(self, value) -> str:
+        """Safely extract string from value that might be a list, string, or None"""
+        if value is None:
+            return ''
+        elif isinstance(value, list):
+            # If it's a list, take the first non-empty item
+            for item in value:
+                if item and str(item).strip():
+                    return str(item).strip()
+            return ''
+        else:
+            return str(value).strip()
     
     def _format_date(self, timestamp) -> str:
         """Format date from timestamp"""
