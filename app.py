@@ -600,7 +600,7 @@ def process_bullhorn_monitors():
                 MockMonitor('Sponsored - OTT', 1256),   # Ottawa - 34 jobs
                 MockMonitor('Sponsored - VMS', 1264),   # VMS - 8 jobs
                 MockMonitor('Sponsored - GR', 1499),    # Grand Rapids - 7 jobs  
-                MockMonitor('Sponsored - CHI', 1257),   # Chicago - 3 jobs
+                MockMonitor('Sponsored - CHI', 1239),   # Chicago - 3 jobs
                 MockMonitor('Sponsored - STSI', 1556)   # STSI - 8 jobs
             ]
             
