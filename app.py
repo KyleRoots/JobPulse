@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 import json
 import re
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_sqlalchemy import SQLAlchemy
@@ -1769,34 +1769,47 @@ def download_file(download_key):
 @app.route('/download-current-xml')
 @login_required
 def download_current_xml():
-    """Download the current live XML feed file for manual upload"""
+    """Generate and download fresh XML from all Bullhorn tearsheets"""
     try:
-        xml_file = 'myticas-job-feed-v2.xml'
+        app.logger.info("🚀 Starting fresh XML generation for download")
         
-        if not os.path.exists(xml_file):
-            flash('XML feed file not found. Please run the monitoring service first.', 'error')
-            return redirect(url_for('bullhorn_dashboard'))
+        # Import simplified generator
+        from simplified_xml_generator import SimplifiedXMLGenerator
         
-        # Get file stats for user info
-        file_stats = os.stat(xml_file)
-        file_size = file_stats.st_size
+        # Create generator instance with database access
+        generator = SimplifiedXMLGenerator(db=db)
         
-        # Count jobs in the file
-        with open(xml_file, 'r') as f:
-            content = f.read()
-            job_count = content.count('<job>')
+        # Generate fresh XML
+        xml_content, stats = generator.generate_fresh_xml()
         
-        app.logger.info(f"User downloading current XML: {job_count} jobs, {file_size} bytes")
+        # Create temporary file for download
+        temp_filename = f'myticas-job-feed-v2_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xml'
+        temp_filepath = os.path.join(tempfile.gettempdir(), temp_filename)
+        
+        # Write XML to temporary file
+        with open(temp_filepath, 'w', encoding='utf-8') as f:
+            f.write(xml_content)
+        
+        app.logger.info(f"✅ Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
+        
+        # Clean up temp file after sending
+        @after_this_request
+        def remove_temp_file(response):
+            try:
+                os.remove(temp_filepath)
+            except Exception as e:
+                app.logger.error(f"Error cleaning up temp file: {str(e)}")
+            return response
         
         # Return the file for download
-        return send_file(xml_file,
+        return send_file(temp_filepath,
                         as_attachment=True,
-                        download_name=f'myticas-job-feed-v2_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xml',
+                        download_name=temp_filename,
                         mimetype='application/xml')
         
     except Exception as e:
-        app.logger.error(f"Error downloading current XML: {str(e)}")
-        flash(f'Error downloading XML file: {str(e)}', 'error')
+        app.logger.error(f"Error generating fresh XML: {str(e)}")
+        flash(f'Error generating XML file: {str(e)}', 'error')
         return redirect(url_for('bullhorn_dashboard'))
 
 @app.route('/settings')

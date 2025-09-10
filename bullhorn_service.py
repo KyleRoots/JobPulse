@@ -710,3 +710,95 @@ class BullhornService:
             'modified': modified_jobs,
             'summary': summary
         }
+    
+    def get_tearsheet_members(self, tearsheet_id: int) -> List[Dict]:
+        """
+        Get tearsheet members (job IDs) from a tearsheet
+        
+        Args:
+            tearsheet_id: ID of the tearsheet
+            
+        Returns:
+            List[Dict]: List of member dictionaries with job IDs
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+        
+        try:
+            url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}/jobOrders"
+            params = {
+                'fields': 'id',
+                'count': 500,  # Large batch size for members
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('data', [])
+            else:
+                logging.error(f"Failed to get tearsheet members: {response.status_code} - {response.text}")
+                return []
+                
+        except Exception as e:
+            logging.error(f"Error getting tearsheet members: {str(e)}")
+            return []
+    
+    def get_jobs_batch(self, job_ids: List[int]) -> List[Dict]:
+        """
+        Get multiple jobs by their IDs using search query
+        
+        Args:
+            job_ids: List of job IDs to fetch
+            
+        Returns:
+            List[Dict]: List of job dictionaries
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+        
+        if not job_ids:
+            return []
+        
+        try:
+            # Build OR query for multiple IDs
+            id_queries = [f"id:{job_id}" for job_id in job_ids]
+            query = " OR ".join(id_queries)
+            
+            # Define comprehensive fields for XML mapping (removed invalid assignments field)
+            fields = [
+                "id", "title", "status", "isOpen", "dateAdded", 
+                "dateLastModified", "clientCorporation(name)", "publicDescription", 
+                "description", "address(city,state,countryName)", "employmentType",
+                "onSite", "assignedUsers(firstName,lastName)", 
+                "responseUser(firstName,lastName)", "owner(firstName,lastName)",
+                "salary", "salaryUnit", "categories(name)", "skillList", 
+                "degreeList", "certificationList", "benefits", "bonusPackage", 
+                "numOpenings", "isPublic"
+            ]
+            
+            url = f"{self.base_url}search/JobOrder"
+            params = {
+                'query': query,
+                'fields': ','.join(fields),
+                'count': len(job_ids),  # Expect exactly this many results
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                jobs_data = data.get('data', [])
+                logging.info(f"Retrieved {len(jobs_data)} jobs out of {len(job_ids)} requested")
+                return jobs_data
+            else:
+                logging.error(f"Failed to get jobs batch: {response.status_code} - {response.text}")
+                return []
+                
+        except Exception as e:
+            logging.error(f"Error getting jobs batch: {str(e)}")
+            return []

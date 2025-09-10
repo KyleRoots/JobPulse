@@ -592,8 +592,8 @@
                             <button onclick="triggerFileCleanup()" class="btn btn-outline-info me-2 cleanup-btn" id="cleanupBtn" title="Clean up temporary and backup files">
                                 <i class="fas fa-broom me-2"></i>File Cleanup
                             </button>
-                            <a href="{{ url_for('download_current_xml') }}" class="btn btn-outline-success me-2" title="Download the current XML feed for manual upload">
-                                <i class="fas fa-download me-2"></i>Download Current XML
+                            <a href="{{ url_for('download_current_xml') }}" class="btn btn-success me-2" title="Generate fresh XML from all Bullhorn tearsheets and download for manual upload">
+                                <i class="fas fa-sync-alt me-2"></i>Generate Fresh XML
                             </a>
                             <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
                                 <i class="fas fa-plus me-2"></i>Create Monitor
