@@ -692,6 +692,8 @@ class ComprehensiveMonitoringService:
     
     def _fix_xml_formatting(self, xml_file: str) -> int:
         """Fix CDATA and HTML formatting in XML file"""
+        import re
+        import html
         fixes_made = 0
         
         try:
@@ -723,7 +725,6 @@ class ComprehensiveMonitoringService:
                 content = re.sub(pattern, add_cdata, content)
             
             # Fix HTML entities within CDATA sections - they should be raw HTML
-            import html
             
             def fix_cdata_content(match):
                 """Fix HTML entities within CDATA sections"""
@@ -748,6 +749,46 @@ class ComprehensiveMonitoringService:
             content = content.replace('&amp;lt;', '<')
             content = content.replace('&amp;gt;', '>')
             content = content.replace('&amp;amp;', '&')
+            
+            # Fix self-closing empty tags to proper CDATA format
+            empty_fields = ['category', 'apply_email']
+            for field in empty_fields:
+                old_pattern = f'<{field}/>'
+                new_pattern = f'<{field}><![CDATA[  ]]></{field}>'
+                if old_pattern in content:
+                    content = content.replace(old_pattern, new_pattern)
+                    fixes_made += content.count(new_pattern) - original_content.count(new_pattern)
+            
+            # Fix fields missing CDATA tags (especially senioritylevel)
+            fields_missing_cdata = ['senioritylevel']
+            for field in fields_missing_cdata:
+                # Pattern: <field>content</field> where content doesn't start with CDATA
+                pattern = f'<{field}>([^<]*)</{field}>'
+                
+                def add_missing_cdata(match):
+                    nonlocal fixes_made
+                    content_text = match.group(1)
+                    if not content_text.startswith('<![CDATA['):
+                        fixes_made += 1
+                        return f'<{field}><![CDATA[{content_text}]]></{field}>'
+                    return match.group(0)
+                
+                content = re.sub(pattern, add_missing_cdata, content)
+            
+            # Clean up excessive whitespace in CDATA sections
+            cdata_cleanup_pattern = r'<(\w+)><!\[CDATA\[\s*([^]]*?)\s*\]\]></\1>'
+            
+            def clean_cdata_whitespace(match):
+                nonlocal fixes_made
+                field_name = match.group(1)
+                cdata_content = match.group(2).strip()
+                original_match = match.group(0)
+                clean_match = f'<{field_name}><![CDATA[ {cdata_content} ]]></{field_name}>'
+                if original_match != clean_match:
+                    fixes_made += 1
+                return clean_match
+            
+            content = re.sub(cdata_cleanup_pattern, clean_cdata_whitespace, content)
             
             if content != original_content:
                 with open(xml_file, 'w') as f:
