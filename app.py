@@ -570,11 +570,21 @@ def process_bullhorn_monitors():
     """Process all active Bullhorn monitors - Enhanced 8-Step with ComprehensiveMonitoringService"""
     with app.app_context():
         try:
+            # Check if XML feed is frozen
+            from feeds.freeze_manager import FreezeManager
+            freeze_mgr = FreezeManager()
+            if freeze_mgr.is_frozen():
+                app.logger.info("🔒 XML FEED FROZEN: Skipping monitoring cycle")
+                return
+            
             app.logger.info("🔄 ENHANCED MONITOR: Starting 8-step monitoring cycle")
             
             # Initialize comprehensive monitoring service
             from comprehensive_monitoring_service import ComprehensiveMonitoringService
             comprehensive_service = ComprehensiveMonitoringService()
+            
+            # Check if we should use the new feed generator
+            use_new_feed = os.environ.get('USE_NEW_FEED', '').lower() == 'true'
             
             # CRITICAL FIX: Use hardcoded tearsheets when no database monitors exist
             # This prevents empty XML uploads when database monitors are missing
