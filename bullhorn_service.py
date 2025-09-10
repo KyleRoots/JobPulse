@@ -384,10 +384,12 @@ class BullhornService:
                 else:
                     logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
                     break
-            # Validate against entity API count and limit results if needed
+            # Validate against entity API count but DO NOT limit results
+            # The search API is more reliable than entity API for complete results
             if entity_total > 0 and len(all_jobs) > entity_total:
-                logging.warning(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs but entity API indicates {entity_total}. Limiting to entity count.")
-                all_jobs = all_jobs[:entity_total]
+                logging.warning(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs but entity API indicates {entity_total}. Using all {len(all_jobs)} jobs from search API.")
+                # FIXED: Don't limit results - trust the search API for complete data
+                # all_jobs = all_jobs[:entity_total]  # This was causing job 34305 to be missed!
             
             return all_jobs
                 
