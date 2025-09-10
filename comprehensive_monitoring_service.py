@@ -123,12 +123,6 @@ class ComprehensiveMonitoringService:
                             tearsheet_jobs[monitor.tearsheet_id].append(job_id)
                             # Store monitor name for company mapping
                             job['_monitor_name'] = monitor.name
-                            
-                            # DEBUG: Log job 34305 specifically
-                            if job_id == '34305':
-                                self.logger.info(f"    🔍 DEBUG: Found job 34305 in tearsheet {monitor.tearsheet_id} ({monitor.name})")
-                                self.logger.info(f"    🔍 DEBUG: Job 34305 title from Bullhorn: '{job.get('title', 'NO TITLE')}'")
-                                self.logger.info(f"    🔍 DEBUG: Job 34305 publicDescription length: {len(job.get('publicDescription', ''))}")
                         
                         self.logger.info(f"    Found {len(jobs)} jobs in {monitor.name}")
                         cycle_results['monitors_processed'] += 1
@@ -667,7 +661,7 @@ class ComprehensiveMonitoringService:
             }
             
             # Only use if all AI fields are present (complete AI classification)
-            if job_id in current_xml_jobs and all(existing_ai_fields.values()):
+            if job_id in existing_xml_jobs and all(existing_ai_fields.values()):
                 self.logger.info(f"✅ PRESERVING existing AI classification for job {job_id} during UPDATE: {existing_ai_fields}")
             else:
                 existing_ai_fields = None
@@ -706,7 +700,7 @@ class ComprehensiveMonitoringService:
                 'title', 'company', 'date', 'referencenumber', 'bhatsid', 'url',
                 'description', 'jobtype', 'city', 'state', 'country', 'category',
                 'apply_email', 'remotetype', 'assignedrecruiter', 'jobfunction',
-                'jobindustries', 'senioritylevel'  # Fixed typo: was 'senoritylevel'
+                'jobindustries', 'senoritylevel'
             ]
             
             for field in fields_needing_cdata:
@@ -715,23 +709,13 @@ class ComprehensiveMonitoringService:
                 
                 def add_cdata(match):
                     nonlocal fixes_made
-                    content = match.group(1).strip()
+                    content = match.group(1)
                     if not content.startswith('<![CDATA['):
                         fixes_made += 1
-                        # Add default value for apply_email if empty
-                        if field == 'apply_email' and not content:
-                            content = 'apply@myticas.com'
-                        return f'<{field}><![CDATA[ {content} ]]></{field}>'
+                        return f'<{field}><![CDATA[{content}]]></{field}>'
                     return match.group(0)
                 
                 content = re.sub(pattern, add_cdata, content)
-                
-                # Also fix self-closing tags (e.g., <apply_email/>)
-                self_closing_pattern = f'<{field}/>'
-                if self_closing_pattern in content:
-                    fixes_made += 1
-                    default_value = 'apply@myticas.com' if field == 'apply_email' else ''
-                    content = content.replace(self_closing_pattern, f'<{field}><![CDATA[ {default_value} ]]></{field}>')
             
             # Fix any double-encoded HTML entities
             content = content.replace('&amp;lt;', '<')

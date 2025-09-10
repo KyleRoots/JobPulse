@@ -584,14 +584,14 @@ def process_bullhorn_monitors():
                     self.tearsheet_id = tearsheet_id
                     self.is_active = True
             
-            # Use correct tearsheets - these IDs have been verified to return the right job counts
-            # OTT = Ottawa (42 jobs, expected 41), VMS = VMS (7 jobs), GR = Grand Rapids (8 jobs), CHI = Chicago (0 jobs), STSI = STSI (13 jobs, expected 12)
+            # Use correct tearsheets based on actual monitors from screenshot
+            # OTT = Ottawa, VMS = VMS, GR = Grand Rapids, CHI = Chicago, STSI = STSI
             monitors = [
-                MockMonitor('Sponsored - OTT', 1256),   # Ottawa - returns 42 jobs (1 extra)
-                MockMonitor('Sponsored - VMS', 1264),   # VMS - returns 7 jobs (correct)
-                MockMonitor('Sponsored - GR', 1499),    # Grand Rapids - returns 8 jobs (correct)
-                MockMonitor('Sponsored - CHI', 1239),   # Chicago - returns 0 jobs (correct)
-                MockMonitor('Sponsored - STSI', 1556)   # STSI - returns 13 jobs (1 extra)
+                MockMonitor('Sponsored - OTT', 1256),   # Ottawa - 34 jobs
+                MockMonitor('Sponsored - VMS', 1264),   # VMS - 8 jobs
+                MockMonitor('Sponsored - GR', 1499),    # Grand Rapids - 7 jobs  
+                MockMonitor('Sponsored - CHI', 1257),   # Chicago - 3 jobs
+                MockMonitor('Sponsored - STSI', 1556)   # STSI - 8 jobs
             ]
             
             app.logger.info(f"Using {len(monitors)} hardcoded tearsheet monitors")
@@ -603,51 +603,6 @@ def process_bullhorn_monitors():
             )
             
             app.logger.info(f"✅ ComprehensiveMonitoringService completed: {cycle_results}")
-            
-            # Log activities to database for dashboard visibility
-            try:
-                # Log upload success activity if upload was successful
-                if cycle_results.get('upload_success', False):
-                    upload_activity = BullhornActivity(
-                        monitor_id=None,  # System-level activity
-                        activity_type='upload_success',
-                        details=json.dumps({
-                            'monitors_processed': cycle_results.get('monitors_processed', 0),
-                            'jobs_added': cycle_results.get('jobs_added', 0),
-                            'jobs_removed': cycle_results.get('jobs_removed', 0),
-                            'jobs_modified': cycle_results.get('jobs_modified', 0),
-                            'cycle_time': cycle_results.get('cycle_time', 0)
-                        }),
-                        notification_sent=False,
-                        created_at=datetime.utcnow()
-                    )
-                    db.session.add(upload_activity)
-                    app.logger.info("📝 Logged upload_success activity to database")
-                
-                # Log email notification activity if email was sent
-                if cycle_results.get('email_sent', False):
-                    email_activity = BullhornActivity(
-                        monitor_id=None,  # System-level activity
-                        activity_type='email_notification',
-                        details=json.dumps({
-                            'changes_detected': cycle_results.get('jobs_added', 0) + 
-                                              cycle_results.get('jobs_removed', 0) + 
-                                              cycle_results.get('jobs_modified', 0),
-                            'monitor_type': 'Enhanced 8-Step Monitor'
-                        }),
-                        notification_sent=True,
-                        created_at=datetime.utcnow()
-                    )
-                    db.session.add(email_activity)
-                    app.logger.info("📝 Logged email_notification activity to database")
-                
-                db.session.commit()
-                app.logger.info("✅ Activity logs saved to database successfully")
-                
-            except Exception as log_error:
-                app.logger.error(f"Failed to log activities to database: {str(log_error)}")
-                db.session.rollback()
-            
             app.logger.info("📊 ENHANCED MONITOR CYCLE COMPLETE - ComprehensiveMonitoringService handled all steps")
             
         except Exception as e:
@@ -692,15 +647,15 @@ except (IOError, OSError) as e:
         scheduler_lock_fd = None
 
 if is_primary_worker:
-    # DISABLED: Auto-monitoring disabled to maintain exactly 70 jobs in XML feed
-    # scheduler.add_job(
-    #     func=process_bullhorn_monitors,
-    #     trigger=IntervalTrigger(minutes=5),  # Extended from 3 to 5 minutes for complete remapping
-    #     id='process_bullhorn_monitors',
-    #     name='Enhanced 8-Step Monitor with Complete Remapping',
-    #     replace_existing=True
-    # )
-    app.logger.info("🚫 MONITORING DISABLED: Auto-monitoring disabled to prevent overwriting 70-job XML feed")
+    # Add monitoring to scheduler (extended to 5 minutes for complete field remapping)
+    scheduler.add_job(
+        func=process_bullhorn_monitors,
+        trigger=IntervalTrigger(minutes=5),  # Extended from 3 to 5 minutes for complete remapping
+        id='process_bullhorn_monitors',
+        name='Enhanced 8-Step Monitor with Complete Remapping',
+        replace_existing=True
+    )
+    app.logger.info("⏱️ TIMING ADJUSTMENT: Monitoring interval extended to 5 minutes for complete field remapping from Bullhorn")
 else:
     app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 
@@ -942,8 +897,8 @@ def scheduler_dashboard():
         last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
         
         if last_refresh:
-            # Calculate next refresh (120 hours after last)
-            next_refresh_time = last_refresh.refresh_time + timedelta(hours=120)
+            # Calculate next refresh (48 hours after last)
+            next_refresh_time = last_refresh.refresh_time + timedelta(hours=48)
             time_until_next = next_refresh_time - datetime.utcnow()
             
             next_refresh_info['next_run'] = next_refresh_time
@@ -1966,33 +1921,6 @@ def validate_file():
     except Exception as e:
         app.logger.error(f"Error in validate_file: {str(e)}")
         return jsonify({'valid': False, 'error': str(e)})
-
-@app.route('/xml/<filename>')
-def serve_xml_file(filename):
-    """Serve XML files directly"""
-    try:
-        # Security check - only allow specific XML files
-        allowed_files = ['myticas-job-feed.xml', 'myticas-job-feed-v2.xml']
-        if filename not in allowed_files:
-            return "File not found", 404
-        
-        # Map to the actual file
-        if filename == 'myticas-job-feed-v2.xml':
-            filename = 'myticas-job-feed.xml'  # Local file uploaded as v2
-        
-        if not os.path.exists(filename):
-            return f"XML file {filename} not found", 404
-        
-        # Return the XML file with proper content type
-        return send_file(
-            filename,
-            mimetype='application/xml',
-            as_attachment=False,
-            download_name=filename
-        )
-    except Exception as e:
-        app.logger.error(f"Error serving XML file: {str(e)}")
-        return f"Error serving XML file: {str(e)}", 500
 
 @app.route('/bullhorn')
 @login_required
@@ -4163,9 +4091,9 @@ if is_primary_worker:
     )
     app.logger.info("Scheduled daily file cleanup job")
 
-# Reference Number Refresh (120-hour cycle)
+# Reference Number Refresh (48-hour cycle)
 def reference_number_refresh():
-    """Automatic refresh of all reference numbers every 120 hours while preserving all other XML data"""
+    """Automatic refresh of all reference numbers every 48 hours while preserving all other XML data"""
     with app.app_context():
         try:
             from datetime import date
@@ -4177,7 +4105,7 @@ def reference_number_refresh():
                 app.logger.info(f"📝 Reference refresh already completed today at {existing_refresh.refresh_time}")
                 return
             
-            app.logger.info("🔄 Starting 120-hour reference number refresh...")
+            app.logger.info("🔄 Starting 48-hour reference number refresh...")
             
             # Import the lightweight refresh function
             from lightweight_reference_refresh import lightweight_refresh_references
@@ -4326,7 +4254,7 @@ def reference_number_refresh():
                         
                         email_sent = email_service.send_reference_number_refresh_notification(
                             to_email=email_setting.setting_value,
-                            schedule_name="120-Hour Reference Number Refresh",
+                            schedule_name="48-Hour Reference Number Refresh",
                             total_jobs=result['jobs_updated'],
                             refresh_details=refresh_details,
                             status="success"
@@ -4380,7 +4308,7 @@ def reference_number_refresh():
                         
                         email_sent = email_service.send_reference_number_refresh_notification(
                             to_email=email_setting.setting_value,
-                            schedule_name="120-Hour Reference Number Refresh",
+                            schedule_name="48-Hour Reference Number Refresh",
                             total_jobs=0,
                             refresh_details=refresh_details,
                             status="error",
@@ -4399,16 +4327,16 @@ def reference_number_refresh():
             app.logger.error(f"Reference refresh error: {str(e)}")
 
 if is_primary_worker:
-    # Schedule reference refresh every 120 hours
+    # Schedule reference refresh every 48 hours
     scheduler.add_job(
         func=reference_number_refresh,
         trigger='interval',
-        hours=120,
+        hours=48,
         id='reference_number_refresh',
-        name='120-Hour Reference Number Refresh',
+        name='48-Hour Reference Number Refresh',
         replace_existing=True
     )
-    app.logger.info("📅 Scheduled reference number refresh every 120 hours")
+    app.logger.info("📅 Scheduled reference number refresh every 48 hours")
     
     # Check if catch-up refresh is needed on startup
     try:
@@ -4419,13 +4347,13 @@ if is_primary_worker:
             last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
             
             if last_refresh:
-                # Check if 120 hours have passed since last refresh
+                # Check if 48 hours have passed since last refresh
                 time_since_refresh = datetime.utcnow() - last_refresh.refresh_time
-                if time_since_refresh > timedelta(hours=120):
+                if time_since_refresh > timedelta(hours=48):
                     app.logger.info(f"⏰ Last refresh was {time_since_refresh.total_seconds() / 3600:.1f} hours ago, running catch-up refresh...")
                     reference_number_refresh()
                 else:
-                    hours_until_next = 120 - (time_since_refresh.total_seconds() / 3600)
+                    hours_until_next = 48 - (time_since_refresh.total_seconds() / 3600)
                     app.logger.info(f"📝 Last refresh was {time_since_refresh.total_seconds() / 3600:.1f} hours ago, next refresh in {hours_until_next:.1f} hours")
             else:
                 # No previous refresh found, run one now
