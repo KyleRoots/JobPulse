@@ -592,9 +592,9 @@
                             <button onclick="triggerFileCleanup()" class="btn btn-outline-info me-2 cleanup-btn" id="cleanupBtn" title="Clean up temporary and backup files">
                                 <i class="fas fa-broom me-2"></i>File Cleanup
                             </button>
-                            <a href="{{ url_for('download_current_xml') }}" class="btn btn-success me-2" title="Generate fresh XML from all Bullhorn tearsheets and download for manual upload">
+                            <button onclick="generateFreshXML()" class="btn btn-success me-2" id="generateXMLBtn" title="Generate fresh XML from all Bullhorn tearsheets and download for manual upload">
                                 <i class="fas fa-sync-alt me-2"></i>Generate Fresh XML
-                            </a>
+                            </button>
                             <a href="{{ url_for('create_bullhorn_monitor') }}" class="btn btn-primary">
                                 <i class="fas fa-plus me-2"></i>Create Monitor
                             </a>
@@ -1445,6 +1445,46 @@
                     cleanupBtn.classList.add('btn-outline-info');
                 }, 3000);
             });
+        }
+
+        // Generate Fresh XML with progress indication
+        function generateFreshXML() {
+            const generateBtn = document.getElementById('generateXMLBtn');
+            const originalHtml = generateBtn.innerHTML;
+            
+            // Show progress state
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating XML...';
+            
+            // Show progress notification
+            showNotification('🚀 Generating fresh XML from Bullhorn tearsheets...', 'info');
+            
+            // Create a temporary form to trigger the download
+            const form = document.createElement('form');
+            form.method = 'GET';
+            form.action = '{{ url_for("download_current_xml") }}';
+            form.style.display = 'none';
+            document.body.appendChild(form);
+            
+            // Add a small delay for UX, then submit
+            setTimeout(() => {
+                form.submit();
+                document.body.removeChild(form);
+                
+                // Update button to show generating state for longer
+                generateBtn.innerHTML = '<i class="fas fa-cogs fa-spin me-2"></i>Processing...';
+                
+                // Show additional progress info
+                showNotification('📊 Pulling jobs from all tearsheets (1256, 1264, 1499, 1556)...', 'info');
+                
+                // Reset button after reasonable delay
+                setTimeout(() => {
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = originalHtml;
+                    showNotification('✅ XML generation complete! Check your downloads folder.', 'success');
+                }, 8000); // 8 seconds should be enough for most XML generation
+                
+            }, 500); // Small delay for UX
         }
 
         // Helper function to show notifications

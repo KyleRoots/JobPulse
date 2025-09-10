@@ -157,11 +157,14 @@ class SimplifiedXMLGenerator:
                     for job in jobs:
                         job_id = job.get('id')
                         if job_id and job_id not in seen_job_ids:
-                            # Only include active jobs
-                            if job.get('status', '').upper() in ['ACTIVE', 'OPEN']:
+                            # Include jobs with isOpen=True OR status in active states
+                            is_open = job.get('isOpen', False)
+                            status = job.get('status', '').upper()
+                            
+                            if is_open or status in ['ACTIVE', 'OPEN', 'PUBLISHED', 'ACCEPTING']:
                                 all_jobs.append(job)
                                 seen_job_ids.add(job_id)
-                                self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')}")
+                                self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')} [isOpen={is_open}, status={status}]")
                 
             except Exception as e:
                 self.logger.error(f"Error processing tearsheet {tearsheet_id}: {str(e)}")
@@ -203,11 +206,11 @@ class SimplifiedXMLGenerator:
                 # Get existing reference number or None for new generation
                 existing_ref = existing_references.get(job_id)
                 
-                # Map job to XML format using existing service
+                # Map job to XML format using existing service with AI classification
                 xml_job = self.xml_integration.map_bullhorn_job_to_xml(
                     job_data, 
                     existing_reference_number=existing_ref,
-                    skip_ai_classification=True  # Skip AI for faster generation
+                    skip_ai_classification=False  # Enable AI classification for complete data
                 )
                 
                 if not xml_job:
