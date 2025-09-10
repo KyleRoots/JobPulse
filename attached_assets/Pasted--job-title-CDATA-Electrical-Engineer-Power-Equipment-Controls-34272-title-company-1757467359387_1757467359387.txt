@@ -1,0 +1,48 @@
+<job>
+<title>
+<![CDATA[ Electrical Engineer - Power Equipment/Controls (34272) ]]>
+</title>
+<company>
+<![CDATA[ STSI (Staffing Technical Services Inc.) ]]>
+</company>
+<date>
+<![CDATA[ August 29, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ S0EHZQHCXB ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34272 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.stsigroup.com/34272/Electrical%20Engineer%20-%20Power%20Equipment%2FControls/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ &lt;p&gt;&lt;strong&gt;Electrical Engineer III&lt;/strong&gt;&lt;br&gt; &lt;strong&gt;Louisville, CO&lt;/strong&gt;&lt;br&gt; &lt;strong&gt;100% on site role - in office presence required&lt;/strong&gt;&lt;br&gt; &lt;br&gt; Benefits: Access to Client Benefits Package&lt;br&gt; Pay Range: $115,000-$150,000&lt;/p&gt; &lt;p&gt;&lt;strong&gt;POSITION SUMMARY&lt;/strong&gt;&lt;/p&gt; &lt;p&gt;Seeking an Electrical Engineer III to join our client’s team in the energy, mining, industrial power markets, and Integrated bio-energy solutions. The Electrical Engineer III will research, develop, design, and test electrical components, equipment and systems including power / control systems, applying principles and techniques of electrical engineering.&lt;/p&gt; &lt;p&gt;&lt;strong&gt;RESPONSIBILITIES&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Design electrical equipment, facilities, components, products, and systems for industrial purposes. &lt;li&gt;Design and direct personnel in fabrication of control apparatus and equipment, and determine methods, procedures, and conditions for testing products such as generators, transformers, control devices, motors, conveyors, power distribution, and safety systems. &lt;li&gt;Develop applications of controls, instruments, and systems for industrial uses, including motors and conveyance systems; lead activities to ensure that manufacturing, construction, installation, and operation conform to functional specifications and customer requirements. &lt;li&gt;Direct and coordinate operation, maintenance and repair of equipment and systems in field installations utilizing computer-assisted engineering and design software and equipment to perform engineering tasks. &lt;li&gt;Perform specific and limited portions of a broader assignment of an experienced engineer. Lead a single group of Engineers, Designers and Technicians. &lt;li&gt;Independently evaluate, select, and apply standard practices and techniques in specific situations, adjust and correlate data, recognize discrepancies in the results, and follow operations through a series of related detailed steps or processes. &lt;li&gt;Ability to design a complete standard electrical engineering drawings package, which includes, power one-lines, control schematics, control panel layouts with bills of material, interconnection diagrams, cable schedules, cable tray design criteria, and cable tray drawings. &lt;li&gt;Ability to create program projects, modify, debug PLC software, and understand the various communication networks used. &lt;li&gt;Serve as the primary electrical resource for the installation and start-up of the assignment. &lt;li&gt;Ability to manage electrical contractors along with Modular Fabrication resources to complete unitized and pre-assembled work. &lt;li&gt;Collaborate with the estimation department to create and execute project estimations. &lt;li&gt;Work with project management to create schedules for assignments. Manage electrical portion of some projects. &lt;/ul&gt; &lt;p&gt;&lt;strong&gt;REQUIREMENTS&lt;/strong&gt;&lt;/p&gt; &lt;ul&gt; &lt;li&gt;Bachelor's degree in electrical engineering is required. &lt;li&gt;5-7+ years of experience in electrical engineering is required. &lt;li&gt;Power experience is a plus (i.e. power distribution centers, motor control centers, large frequency drives, medium voltage ) &lt;li&gt;Project management experience &lt;li&gt;AutoCAD and drafting experience beyond a basic level is preferred. &lt;li&gt;Experience developing drawings for fabrication of wire way systems are preferred. &lt;li&gt;Experience with selection and specification of switch gear, motor control centers, large generators, medium to high voltage transformers, water systems, support equipment and/or HVAC equipment is preferred. &lt;li&gt;Strong mechanical aptitude and hands-on experience are preferred. &lt;li&gt;Process knowledge of P&amp;ID’s. &lt;li&gt;Excellent communication skills are required. &lt;li&gt;EIT registration is preferred. &lt;li&gt;Microsoft Office proficiency &lt;/ul&gt; &lt;br&gt; &lt;br&gt; &lt;em&gt;We are an Equal Opportunity Employer and do not discriminate on the basis of race, color, religion, sex, national origin, age, disability, veteran status, genetic information, sexual orientation, gender identity, or any other legally protected status. All qualified applicants will receive consideration for employment without regard to any of these characteristics.&lt;/em&gt; ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city/>
+<state>
+<![CDATA[ CO ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category/>
+<apply_email/>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MS1: Mike Scalzitti ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Engineering ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Oil and Energy ]]>
+</jobindustries>
+<senioritylevel>Mid-Senior level</senioritylevel>
+</job>
