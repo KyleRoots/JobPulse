@@ -6,6 +6,11 @@ This Flask-based web application automates the processing of XML job feed files 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Deployment workflow: Always confirm deployment requirements at the end of any changes or updates.
+**Development Approval Process**: Before executing any development task, always provide "stack recommendation" including:
+  - Model type (Standard/High-Performance)
+  - Extended thinking (Yes/No)
+  - Brief rationale for the choice
+  - Wait for user approval before proceeding
 
 ## System Architecture
 
