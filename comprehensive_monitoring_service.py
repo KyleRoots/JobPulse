@@ -409,6 +409,11 @@ class ComprehensiveMonitoringService:
             if xml_field == 'title':
                 # Remove job ID from title
                 bullhorn_value = re.sub(r'\s*\(\d{5}\)\s*', '', str(bullhorn_value))
+            elif xml_field == 'description':
+                # Fix HTML entities in descriptions - unescape HTML from Bullhorn
+                import html
+                if bullhorn_value and isinstance(bullhorn_value, str):
+                    bullhorn_value = html.unescape(bullhorn_value)
             elif xml_field == 'jobtype':
                 bullhorn_value = self._map_employment_type(bullhorn_value)
             elif xml_field == 'remotetype':
