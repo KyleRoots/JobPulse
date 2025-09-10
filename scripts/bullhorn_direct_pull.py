@@ -30,62 +30,43 @@ def fetch_tearsheet_jobs(tearsheet_id, tearsheet_name):
     try:
         from bullhorn_service import BullhornService
         
-        bs = BullhornService()
+        bs = BullhornService(
+            client_id=os.environ.get('BULLHORN_CLIENT_ID'),
+            client_secret=os.environ.get('BULLHORN_CLIENT_SECRET'),
+            username=os.environ.get('BULLHORN_USERNAME'),
+            password=os.environ.get('BULLHORN_PASSWORD')
+        )
         bs.authenticate()
         
         print(f"  Fetching tearsheet {tearsheet_id} ({tearsheet_name})...")
         
-        # Get tearsheet with jobs
-        tearsheet = bs.get_tearsheet(tearsheet_id, associations='jobOrders')
+        # Get all jobs from tearsheet using the correct method
+        jobs = bs.get_tearsheet_jobs(tearsheet_id)
         
-        if not tearsheet:
-            print(f"    ERROR: Could not fetch tearsheet {tearsheet_id}")
+        if not jobs:
+            print(f"    No jobs found in tearsheet {tearsheet_id}")
             return []
         
-        # Extract job IDs
-        job_ids = []
-        if tearsheet.get('jobOrders') and tearsheet['jobOrders'].get('data'):
-            job_ids = [job['id'] for job in tearsheet['jobOrders']['data']]
+        print(f"    Found {len(jobs)} jobs in tearsheet")
         
-        print(f"    Found {len(job_ids)} jobs in tearsheet")
-        
-        if not job_ids:
-            return []
-        
-        # Fetch full job details
-        fields = [
-            'id', 'title', 'publicDescription', 'dateAdded', 'dateLastModified',
-            'address', 'employmentType', 'onSite', 'assignedUsers', 'owner',
-            'customText12', 'customText13', 'customText14',  # AI classification fields
-            'isOpen', 'isPublic', 'status'
-        ]
-        
-        jobs = []
-        batch_size = 20
-        
-        for i in range(0, len(job_ids), batch_size):
-            batch = job_ids[i:i+batch_size]
-            batch_jobs = bs.get_multiple_job_orders(batch, fields=','.join(fields))
-            if batch_jobs:
-                jobs.extend(batch_jobs)
-        
-        # Fetch assigned user names
+        # Process assigned user names
         for job in jobs:
             if job.get('assignedUsers') and job['assignedUsers'].get('data'):
-                user_ids = [u['id'] for u in job['assignedUsers']['data']]
-                if user_ids:
-                    users = bs.get_corporate_users(user_ids[:5])  # Limit to 5 users
-                    names = []
-                    for user in users:
-                        name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
-                        if name:
-                            names.append(name)
-                    job['assignedUsers_names'] = names
+                names = []
+                for user in job['assignedUsers']['data']:
+                    first = user.get('firstName', '')
+                    last = user.get('lastName', '')
+                    name = f"{first} {last}".strip()
+                    if name:
+                        names.append(name)
+                job['assignedUsers_names'] = names[:5]  # Limit to 5 users
         
         return jobs
         
     except Exception as e:
         print(f"    ERROR fetching tearsheet {tearsheet_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def generate_reference_number(job_id):
@@ -153,13 +134,13 @@ def format_job_for_xml(job, company):
     
     # Location
     address = job.get('address', {})
-    formatted['city'] = address.get('city', '')
-    formatted['state'] = address.get('state', '')
-    formatted['country'] = address.get('countryName', 'United States')
+    formatted['city'] = address.get('city', '') if address else ''
+    formatted['state'] = address.get('state', '') if address else ''
+    formatted['country'] = address.get('countryName', 'United States') if address else 'United States'
     
     # Fix Canada/US inconsistencies
     canada_cities = ['Toronto', 'Ottawa', 'Vancouver', 'Montreal', 'Calgary', 'Edmonton']
-    if any(city in formatted['city'] for city in canada_cities):
+    if formatted['city'] and any(city in formatted['city'] for city in canada_cities):
         formatted['country'] = 'Canada'
     
     # Category (empty in current system)
@@ -170,6 +151,9 @@ def format_job_for_xml(job, company):
     
     # Remote type
     on_site = job.get('onSite', '')
+    # Handle case where onSite might be a list
+    if isinstance(on_site, list):
+        on_site = on_site[0] if on_site else ''
     remote_map = {
         'Remote': 'Remote',
         'Hybrid': 'Hybrid',
