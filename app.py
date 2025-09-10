@@ -692,15 +692,15 @@ except (IOError, OSError) as e:
         scheduler_lock_fd = None
 
 if is_primary_worker:
-    # Add monitoring to scheduler (extended to 5 minutes for complete field remapping)
-    scheduler.add_job(
-        func=process_bullhorn_monitors,
-        trigger=IntervalTrigger(minutes=5),  # Extended from 3 to 5 minutes for complete remapping
-        id='process_bullhorn_monitors',
-        name='Enhanced 8-Step Monitor with Complete Remapping',
-        replace_existing=True
-    )
-    app.logger.info("⏱️ TIMING ADJUSTMENT: Monitoring interval extended to 5 minutes for complete field remapping from Bullhorn")
+    # DISABLED: Auto-monitoring disabled to maintain exactly 70 jobs in XML feed
+    # scheduler.add_job(
+    #     func=process_bullhorn_monitors,
+    #     trigger=IntervalTrigger(minutes=5),  # Extended from 3 to 5 minutes for complete remapping
+    #     id='process_bullhorn_monitors',
+    #     name='Enhanced 8-Step Monitor with Complete Remapping',
+    #     replace_existing=True
+    # )
+    app.logger.info("🚫 MONITORING DISABLED: Auto-monitoring disabled to prevent overwriting 70-job XML feed")
 else:
     app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 
