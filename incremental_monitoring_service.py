@@ -588,7 +588,7 @@ class IncrementalMonitoringService:
         def add_field(name: str, value: str):
             elem = etree.SubElement(job, name)
             if value and any(char in value for char in ['<', '>', '&', '"', "'"]):
-                elem.text = f'<![CDATA[ {value} ]]>'
+                elem.text = etree.CDATA(f' {value} ')
             else:
                 elem.text = value
         
