@@ -384,10 +384,9 @@ class BullhornService:
                 else:
                     logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
                     break
-            # Validate against entity API count and limit results if needed
-            if entity_total > 0 and len(all_jobs) > entity_total:
-                logging.warning(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs but entity API indicates {entity_total}. Limiting to entity count.")
-                all_jobs = all_jobs[:entity_total]
+            # Log discrepancy but trust the search API results (more reliable for pagination)
+            if entity_total > 0 and len(all_jobs) != entity_total:
+                logging.info(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs while entity API indicates {entity_total}. Using search API results (more complete).")
             
             return all_jobs
                 

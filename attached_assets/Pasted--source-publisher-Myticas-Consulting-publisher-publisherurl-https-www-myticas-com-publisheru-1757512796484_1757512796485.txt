@@ -1,0 +1,563 @@
+<source>
+<publisher>Myticas Consulting</publisher>
+<publisherurl>https://www.myticas.com</publisherurl>
+<job>
+<title>
+<![CDATA[ Civil Designer (34310) ]]>
+</title>
+<company>
+<![CDATA[ STSI (Staffing Technical Services Inc.) ]]>
+</company>
+<date>
+<![CDATA[ September 10, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ S4V4Q7F9OC ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34310 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.stsigroup.com/34310/Civil%20Designer/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <strong>Civil Designer</strong><br> Locations: Salt Lake City, UT or Kansas City, MO (Hybrid) <br> <br> Benefits: Access to Client Benefits Package <br> <br> <u><strong>Responsibilities: </strong></u> <ul> <li>Designers are expected to observe professional ethics in their association with others including fellow employees, clients, and vendors</li> <li>Reviews rough sketches, drawings, specifications, and other engineering data received from the Engineer.</li> <li>Reviews project scope of work and notify project management of any perceived changes in scope that may appear during the design phase.</li> <li>Reviews the design input and communicates any ambiguous, incomplete, or conflicting information to the supplier of the input for resolution (includes processing information such as vendor drawings, marked up drawings, design basis, notes, and verbal instructions).</li> <li>Reviews design output to verify it meets design input (i.e., verify output meets design basis, design input and standard industry practices).</li> <li>Track and log all design decisions.</li> <li>Performs work related to design changes after validated documents are issued and notify project management of any perceived changes in scope resulting from the change.</li> </ul> <br> <u><strong>Requirements: </strong></u> <ul> <li>A high level of competency in AutoCAD Civil 3D is required.</li> <li>An associate degree (A. A.) or equivalent from two-year college or technical school; and 5 to 7+ years’ experience and/or training; or equivalent combination of education and experience.</li> <li>Ability to review survey data from multiple sources, utilizing Civil 3D Grading, Corridor and Rail design tools.</li> <li>Ability to coordinate scope hand-offs between other disciplines.</li> <li>Communicate Civil 3D design and scope through Navisworks for all underground piping, roadway/rail designs, and 3D grading models.</li> <li>Ability to communicate effectively with all levels of professionals and all aspects of the industrial design process including but not limited to, process engineers, electrical and instrumentation engineers, architects etc.</li> </ul> <br> <em>We are an Equal Opportunity Employer and do not discriminate on the basis of race, color, religion, sex, national origin, age, disability, veteran status, genetic information, sexual orientation, gender identity, or any other legally protected status. All qualified applicants will receive consideration for employment without regard to any of these characteristics.</em><br> ]]>
+</description>
+<jobtype>
+<![CDATA[ Direct Hire ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-RO1: Ryan Oliver ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Design ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Civil Engineering ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Mid-Senior level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Process Engineer (34308) ]]>
+</title>
+<company>
+<![CDATA[ STSI (Staffing Technical Services Inc.) ]]>
+</company>
+<date>
+<![CDATA[ September 10, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ WSXHWVCIC6 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34308 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.stsigroup.com/34308/Process%20Engineer/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 14.0px;"><strong>Process Engineer</strong></span><br> <span style="font-size: 12.0px;">Locations: Salt Lake City, UT or Kansas City, MO (Hybrid) <br> <br> Benefits: Access to Client Benefits Package <br> <br> WHAT YOU’LL BE DOING: <br> In this position, you’ll join a dynamic engineering team in the execution of client projects. This person will execute process designs primarily within the consumer products industry that includes the investigation and analysis of data to make sound process design decisions aligned with company, client, and project objectives. You’ll be expected to apply theory in a practical context to determine feasibility of design, identify potential process upsets and malfunctions incorporating appropriate remediations, and apply commercially available technology for process execution. Perhaps most importantly, we place a high value on professional ethics, both in the application of codes and standards and in your interactions with our clients. <br> <br> Requirements: </span></span> <ul> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">B.S. in Chemical or Mechanical Engineering. </span></span> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">Experience in the consumer products industry preferred. </span></span> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">Experience in leading or executing process designs in the form of engineering calculations documented on PFD’s, P&ID’s, general arrangement drawings, specifications, design basis, and associated lists. </span></span> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">Knowledge of typical chemicals and fluids used in consumer products applications, interactions with materials of construction, and proper design considerations.</span></span> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">Fluency with AutoCAD and Fathom.</span></span> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">Understanding of fluid control valves and instrumentation.</span></span> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">Familiarity with specification and sizing of pumps, heat exchangers, vessels, and other process equipment.</span></span> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">Great customer relationship skills/management experience. </span></span> <li><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;">Preferably on-site, in plant, and startup experience </span></span> </ul> <br> <span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><span style="font-size: 12.0px;"><em>We are an Equal Opportunity Employer and do not discriminate on the basis of race, color, religion, sex, national origin, age, disability, veteran status, genetic information, sexual orientation, gender identity, or any other legally protected status. All qualified applicants will receive consideration for employment without regard to any of these characteristics.</em></span></span><br> <br> <br> ]]>
+</description>
+<jobtype>
+<![CDATA[ Direct Hire ]]>
+</jobtype>
+<city>
+<![CDATA[ ]]>
+</city>
+<state>
+<![CDATA[ ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-RO1: Ryan Oliver ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Engineering ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Consumer Goods ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Mid-Senior level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Content Annotation Specialist (34248) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ August 19, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ HYGF35CES1 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34248 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.myticas.com/34248/Content%20Annotation%20Specialist/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ Myticas's direct client, based in Wichita, KS, is seeking a <strong>Content Annotation Specialist</strong> for a hybrid contract position. <p><strong>Shift Time: 8-5 and 30-40 hours per week</strong></p> <p>NOTE: W2 Only!</p> <strong>Job Responsibilities:</strong> <p>The position will be utilizing marked up Word documents to analyze changes from prior versions and template version to determine the changes needed to integrate the new version of dynamic forms within an audit "title" for approximately 20 titles. Candidates should be familiar with Word and Excel. Basic understanding of XML is recommended but not required. Must be able to quickly adapt to new systems. High-level attention to detail is a must. Needs ability to produce quality output under tight deadlines. Receive on-the-job training and direction from more experienced staff to ensure requisite learning is achieved and utilized to complete assignments. Business knowledge of auditing is a bonus.</p> <br> <strong>Required Skills/Experience/Qualifications:</strong><br> • Bachelor’s degree. <br> • Analytical and detail-oriented mindset. <br> • Strong organizational skills and proficiency with Microsoft Office 365 suite. <br> • Familiarity with content management systems. <br> • Excellent verbal and written communication skills in English. <br> • Ability to work collaboratively in a team environment. <br> • Flexibility, responsiveness to change, and a proactive attitude. <br> • Able to adhere to production and process standards within a content team.<br> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Wichita ]]>
+</city>
+<state>
+<![CDATA[ KS ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-RS1: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Quality Assurance ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Business Supplies and Equipment ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Entry level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Senior Data Warehouse Business Analyst (34075) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ July 29, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ ABQ7V9YTN4 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34075 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.myticas.com/34075/Senior%20Data%20Warehouse%20Business%20Analyst/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;"><strong>Clover Consulting (a Myticas Co.) has a direct client in Springfield, IL in need of a Data Warehouse BA for a REMOTE, long-term contract. Travel to Springfield may be required 2-4 times/year. Qualified candidates please provide resume. <br> <br> Functional Description: </strong></span></span></span><br> <span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">We are seeking a highly motivated Senior Business Analyst to support a large-scale Enterprise Data Warehouse (EDW) project. This role will serve as a critical liaison between business stakeholders and technical teams, ensuring that data warehouse solutions align with business goals. This role involves gathering and translating business requirements into functional specifications, supporting data modeling efforts, and facilitating testing and validation of data warehouse deliverables.</span></span></span><br> <span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;"><strong> </strong></span></span></span><br> <span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;"><strong>Primary Responsibilities </strong></span></span></span> <ul> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Collaborate with business users, data engineers, and BI developers to define and document business and data requirements. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Analyze existing data sources and business processes to identify gaps and opportunities for improvement. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Translate business needs into detailed functional and technical specifications for data warehouse development. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Support the design and implementation of ETL processes, interfaces, data marts, reports, and data analytics. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Work with our testing team to develop and execute test plans to validate data accuracy and integrity. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Facilitate user acceptance testing (UAT) and ensure stakeholder sign-off. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Create and maintain documentation including data dictionaries, process flows, and reporting specifications. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Act as a subject matter expert on data warehouse capabilities and best practices. </span></span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 12.0pt;margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Support change management and training efforts related to new data solutions. </span></span></span> </ul> <span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;"><strong>Required Qualifications: </strong></span></span></span> <ul> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Bachelor’s degree or higher degree in business intelligence, analytics, computer science, engineering, or related STEM field. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">5+ years of healthcare business analysis experience supporting business initiatives through data analysis, writing business requirements and supporting testing of various systems. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Good understanding of Fee for Service (FFS), Managed Care claim adjudication processes from eligibility and enrollment to claims processing to funding/finance. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Experience working on a Medicaid Enterprise System (MES)/MMIS, or EDW DDI or equivalent. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Proficient in MS Word, MS Excel, MS Project, SharePoint, Teams, and MS PowerPoint. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Be a self-starter and able to thrive in an environment with little guidance. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Excellent interpersonal, oral, and written communication skills. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Ability to effectively communicate findings clearly and concisely in writing and verbally to both technical and non-technical audiences </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Ability to work in a challenging environment with multiple teams and competing priorities </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Experience with facilitating meetings. </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Effective organizational, analytical, time management, problem-solving, and multi-tasking skills </span></span></span> <li style="margin: 0.0in 0.0in 0.7pt 0.5pt;"><span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;">Ability to complete assignments under tight deadlines with little/no direct supervision. </span></span></span> </ul> <span style="font-size: 11.0pt;"><span style="font-family: Calibri , sans-serif;"><span style="color: black;"> </span></span></span><br> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Chicago ]]>
+</city>
+<state>
+<![CDATA[ Illinois ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Remote ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MC1: Michelle Corino ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Analyst ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Information Technology and Services ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Mid-Senior level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Lab Quality Control Technician (34289) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ September 04, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ 6BBMIWWLPY ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34289 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.myticas.com/34289/Lab%20Quality%20Control%20Technician/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ Clover Consulting has a direct client in Grand Rapids, MI in need of a<strong> Quality Control Lab Technician</strong> for a <strong>6 months contract.</strong> <strong>Extensions are likely up to 3 years. This is an on-site role. </strong><br> <br> XS Energy Quality Control Lab Technician<br> What is special about this role:<br> <br> As a XS QA lab technician, you will ensure XS Energy Drinks meet the chemical specification requirements by performing Wet Chemistry and Sensory testing. You will have responsibilities related to testing and evaluation, investigation support, laboratory maintenance, environmental monitoring, and other duties. As a part of the high functioning team, you will work in both group and autonomous circumstances while working on-site together. Your ability to work collaboratively will be valued in this role as you work with cross-functional peers in quality and manufacturing to ensure product quality.<br> <br> Roles & Responsibilities:<br> • Conduct quality testing on in-process and finished product in the XS plant • Assay and sensory analysis of liquid CO2<br> • Testing includes use of titrators, density meters, x-rays, and other general laboratory equipment<br> • Perform taste/odor/appearance evaluation on samples throughout production<br> • Work both independently as well as with manufacturing<br> • Communicate with manufacturing when in-process adjustments are required<br> • Maintain laboratory work area and assist with general laboratory cleaning<br> • Inventory management Skills to be successful in this role:<br> • Experience with performing wet chemistry, physical, sensory tests, and can seam testing<br> • Attention to detail to follow standard operating procedures, safety requirements, test procedures and current good manufacturing practices (cGMP)<br> • Ability to offer recommendations for continuous improvements<br> • Talent to prioritize work effectively and complete work efficiently meeting high quality standards<br> • A desire for a sense of ownership and to be an ambassador of Quality to<br> Manufacturing<br> <br> Hours of Operation:<br> • 1 st shift: 6am-4:30pm Monday-Thursday ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Ada ]]>
+</city>
+<state>
+<![CDATA[ Michigan ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Onsite ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-CC1: Christine Carter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Quality Assurance ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Consumer Goods ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Entry level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Quality Lab Tech Sampler (34296) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ September 08, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ JYR6IVW0Y2 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34296 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.myticas.com/34296/Quality%20Lab%20Tech%20Sampler/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong>QA Lab Technician Sampler<br> Onsite - Ada, MI<br> Contract - $16/hr. W2</strong><br> <br> Clover Consulting (a Myticas Company) has a large, direct client in Ada, MI seeking a <strong>QA Lab Technician Sampler</strong>. This is an hourly paid position on a W2 contract. Initial contract terms is 6 months, with GREAT potential for multi-year extension/s.</span></span><br> <br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><u>Description:</u></strong></span></span><br> <br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">The sampling position would include sampling all raw material and packaging components in several warehouses. The raw material sampling would include materials that are used in the cosmetic and home care products, as well as materials that are used in the food industry including allergens. The packaging components would be sampled in the warehouse and this would include inspecting the shipment for defective components.<br> <br> The materials that are sampled are logged in the QA data system where sampling data is entered. The samples are then delivered to the respective labs including micro, chemistry and packaging. This is NOT a QA laboratory job but <strong>may lead to opportunities to gain laboratory experience.</strong><br> <br> <strong><u>Requirements:</u></strong></span></span><br> <br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">- A valid State of Michigan driver’s license. Candidate will be driving around complex.<br> - Basic computer skills.<br> - Science background or science degree is preferred but not required.</span></span> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Ada ]]>
+</city>
+<state>
+<![CDATA[ Michigan ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Onsite ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MC1: Michelle Corino ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Quality Assurance ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Consumer Goods ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Entry level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Records Technician (34291) ]]>
+</title>
+<company>
+<![CDATA[ STSI (Staffing Technical Services Inc.) ]]>
+</company>
+<date>
+<![CDATA[ September 04, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ QAOR29XSS5 ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34291 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.stsigroup.com/34291/Records%20Technician/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong>Records Technician</strong></span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong>Location: </strong>Marysville, OH</span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong>Pay:</strong> $23.50 / hr</span></span><br> <br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><u>Responsibilities</u></strong></span></span><br> <ul> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Under general supervision, responsible for supporting Records Management with established processes. </span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">The ideal candidate will have a strong background in data analysis, data processing, and advanced Excel spreadsheet formula experience as well as PowerBI. </span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">This role will involve analyzing large datasets, creating detailed reports, and providing actionable insights to support business decisions.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Occasional support of pickup, delivery of retrieved records and sending offsite records for Client departments. </span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Ensuring chain of custody is followed and maintain the confidentiality of records as well as updating the location of records in the system. </span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Provide support prepping and quality checking records as required. </span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Verify and document records stored by following established cataloging system.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Assist with digitizing, retrieving and working closely with Department Records Representatives to retrieve and store department records.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Assist with physical records management by ensuring inventory accuracy, analyzing large datasets, and support the disposal process of records eligible for destruction.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Develop and maintain complex Excel spreadsheets, including advanced formulas, pivot tables, and macros.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Provide support / guidance for delivery and pick-up of records with current vendors.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Able to manage their own project load, multitask & prioritize accordingly.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 8.0pt 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Ensure Departments are following the Company Policy on Document Retention and maintain Confidentiality of documents</span></span> </ul> <br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><u>Qualifications</u></strong></span></span><br> <ul> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">High School diploma.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Minimum of 3 years in a professional office environment.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Analytical skills with the ability to use O365 for data analysis and research.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Able to meet deadlines and understand time issues.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Prioritize and work with co-workers, supervisors, and customers.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Resolve customer issues and take responsibility for work performed.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Knowledge of records software systems, scanners, filling, storage and disposal procedures.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Expert proficiency in computer skills, especially when using records tracking system or quick retrieval filling & storage of files</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Proficiency in MS Excel, Pivot Tables, Formulas, PowerBI</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 8.0pt 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Good communication skills (written, read, and verbal)</span></span> </ul> <br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><u>Physical Demands:</u></strong></span></span><br> <ul> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">Physical Activity required, including bending, reaching, lifting, and prolonged periods of standing.</span></span> <li style="margin-top: 0.0in;margin-right: 0.0in;margin-bottom: 0.0in;margin: 0.0in 0.0in 8.0pt 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;">May lift and/or move up to 50 pounds.</span></span> </ul> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract to Hire ]]>
+</jobtype>
+<city>
+<![CDATA[ Marysville ]]>
+</city>
+<state>
+<![CDATA[ OH ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Onsite ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-MS2: Mike Scalzitti ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Administrative ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Business Supplies and Equipment ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Mid-Senior level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ QA Engineer QA Developer (34307) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ September 09, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ 3RTQMTB5YP ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34307 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.myticas.com/34307/QA%20Engineer%20%20%20QA%20Developer/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <p>Our client is looking for a <strong>QA developer</strong> for a <strong>hybrid contract</strong> to support a new <strong>mobile/web app</strong> page rollout for a major Canadian bank. You’ll plan test strategy and execute <strong>manual + automated</strong> testing across UI, API, and responsive layers, ensuring accessibility and quality for a fast-moving product build.</p> <p><strong>Project Background</strong></p> <ul> <li> <p>New concept for the bank’s <strong>mobile app</strong> is ready for implementation.</p> <li> <p>You’ll help plan the implementation and validate features/functionality that will live on the new mobile/web app page.</p> </ul> <p><strong>Responsibilities</strong></p> <ul> <li> <p>Define and execute <strong>test strategies</strong>, test plans, and test cases (manual & automated).</p> <li> <p>Perform <strong>API testing</strong>, <strong>web responsive testing</strong>, regression, and accessibility checks (WCAG).</p> <li> <p>Create automation scripts; integrate with CI workflows; log/track defects and drive resolution.</p> <li> <p>Partner with product, design, and engineering in an <strong>Agile/Scrum</strong> environment; report test outcomes.</p> </ul> <p><strong>Required Qualifications (4–5+ years)</strong></p> <ul> <li> <p>Hands-on <strong>manual & automation</strong> testing (UI + API).</p> <li> <p>Web responsiveness testing; solid test strategy creation and execution.</p> <li> <p><strong>Accessibility (WCAG)</strong> testing exposure.</p> <li> <p>Familiar with <strong>GitHub Copilot</strong> or similar AI coding tools.</p> <li> <p>Comfortable across the <strong>SDLC</strong> (design ? planning ? execution).</p> </ul> <p><strong>Tech & Tools</strong></p> <ul> <li> <p><strong>Automation:</strong> Selenium; <strong>JUnit/TestNG</strong> (or equivalent)</p> <li> <p><strong>API:</strong> Postman, SoapUI</p> <li> <p><strong>Responsive testing:</strong> BrowserStack, LambdaTest</p> <li> <p><strong>Test Management/Defect:</strong> TestRail, Jira, qTest</p> <li> <p><strong>Accessibility:</strong> Lighthouse (or equivalent)</p> <li> <p><strong>Methodology:</strong> Agile/Scrum</p> </ul> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Toronto ]]>
+</city>
+<state>
+<![CDATA[ ON ]]>
+</state>
+<country>
+<![CDATA[ Canada ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Hybrid ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-RP1: Runa Parmar ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Quality Assurance ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Banking ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Mid-Senior level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Data Engineer Scientist (34299) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ September 08, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ L0BZGUX7XU ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34299 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.myticas.com/34299/Data%20Engineer%20Scientist/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ Myticas's direct client is seeking <strong>Data Scientist/Engineer</strong><span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><span style="font-size: 11.0pt;"><span style="background-color: white;"><span style="color: black;"> at </span></span></span></span></span></span><span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Waukegan, IL (Hybrid – 3 days onsite).</span></span></strong></span></span></span><br> <span style="font-size: 10.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="color: rgb(33,33,33);"><strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);">Duration:</span></span></strong><span style="font-size: 11.0pt;"><span style="color: rgb(33,33,33);"> 4 Months Contract (Possible further extension)</span></span></span></span></span><br> <br> <strong>Must-Have Skills Set/Experience:</strong> <ol> <li>Strong experience in Data Engineering, (experience with big data technologies: hive, hadoop, cloudera, dataIQ).</li> <li>Good in Data Strategies and descriptive analysis</li> <li>Strong PYTHON</li> <li>Strong SQL</li> <li>Data Science, Statistical methods, machine learning, natural language processing. </ol> <br> <strong>Work Distribution:</strong> <ul> <li><strong>50% - Data Engineering, Descriptive Analysis & Data Strategies</strong> (manage large datasets, data pipelines, and performing descriptive analytics). <li><strong>25% - Building Dashboard, and Data visualization</strong> <li><strong>25% - Applying Data Science</strong> techniques </ul> <br> <strong>Job Description:</strong><br> The successful Data Scientist/Engineer will translate business needs into analytic questions; conduct data exploration and model specification; mange data flows and ETL operations; visualize data into dashboards; design and perform analyses of operational, transactional, and log data; and translate these analytic findings into leading information and metrics for our business partners. The chosen candidate would be able to take on responsibilities spanning multiple disciplines across data engineering, data science and analytics programming.<br> <br> <strong>Job Responsibilities:</strong><br> • Consult with internal and external stakeholders to determine how best to apply analytical solutions that support business objectives<br> • Work closely with product managers, analysts, and other stakeholders to provide reliable data deliverables<br> • Build and maintain scalable data pipelines. Develop, optimize, and manage ETL processes for structured and unstructured data<br> • Ensure data accuracy, integrity, and security across various platforms<br> • Implement data quality checks and monitor pipeline performance<br> • Collaborate in cloud environments (e.g., AWS, Cloudera, Dataiku, etc.) and with big data technologies (e.g., Spark, Hadoop)<br> • Demonstrate a basic knowledge of data science related concepts (i.e. predictive analytics, unsupervised learning, machine learning, deep learning) and how to use them for solving real world problems<br> • Adhere to agile project management frameworks and set the direction of data science initiatives<br> • Effectively communicate technical concepts to a non-analytic audience<br> <br> <strong>Required Qualifications/Experience:</strong><br> • Bachelor’s degree in Computer Science, Data Analytics, Engineering, Mathematics, Economics, or related field with ?3 years of relevant professional work experience with an outstanding track record<br> • Proficiency in Python and SQL is required. Knowledge of R programming is a plus.<br> • Practical experience with data science techniques and toolkits, including times series forecasting, machine learning, deep learning, and LLMs<br> • Familiarity with navigating in both a relational (Teradata-based) and non-relational (Hadoop) environment. Knowledge of Java/Scala/Apache Spark is a bonus<br> • Practiced in exploratory data analysis (EDA) and manipulating large data sets<br> • Good interpersonal skills and ability to present technical concepts to business stakeholders<br> • Strong analytical and problem-solving skills<br> • Self-starter and intellectually curious with a strong desire to improve business processes through innovation<br> • Motivated to gain the full business understanding behind each analytical request ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Chicago ]]>
+</city>
+<state>
+<![CDATA[ IL ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Remote ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-RS1: Myticas Recruiter ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Information Technology ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Computer Software ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Mid-Senior level ]]>
+</senioritylevel>
+</job>
+<job>
+<title>
+<![CDATA[ Document Control Assistant (34286) ]]>
+</title>
+<company>
+<![CDATA[ STSI (Staffing Technical Services Inc.) ]]>
+</company>
+<date>
+<![CDATA[ September 03, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ KWM5MANNCI ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34286 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.stsigroup.com/34286/Document%20Control%20Assistant/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <p><strong>Document Control Assistant</strong><br> Location: Kansas City, MO<br> Pay Range: $22.00-$26.00/hr.<br> Benefits: Standard Medical, Dental, and 401(k)<br> </p> <p>The Document Control Assistant will assist the document control team and Project Managers to deliver quality materials and input information on engineering projects.</p> <p> </p> <ul> <li>Responsible for setting up on multiple small projects; assist on medium and larger sized projects as needed.</li> <li>Collaborates to set up the standards and procedures for the team.</li> <li>Communicates document system procedures with team members.</li> <li>Coordinates documents with multiple engineers for project needs.</li> <li>Compiles electronic project data books.</li> <li>Issues transmittals to clients and vendors.</li> <li>Processes vendor submittals.</li> <li>Packages electronic documents for clients, vendors, and internal needs.</li> <li>Notifies appropriate person of troubleshooting issues regarding vendors and clients.</li> <li>Monitors workflows for the project team.</li> </ul> <p><strong><u>Requirements:</u></strong></p> <ul> <li>2 Years College (Minimum) / Associates</li> <li>3 years’ applicable experience</li> <li>MS programs, SDx, Procore, Aconex</li> <li>Required knowledge of Microsoft Office including Word, Excel, and Access.</li> <li>Accurate data entry skills.</li> <li>Archiving and Research experience.</li> </ul> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract to Hire ]]>
+</jobtype>
+<city>
+<![CDATA[ Kansas City ]]>
+</city>
+<state>
+<![CDATA[ MO ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Onsite ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-TD1: Tarra Dziurman ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Administrative ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Construction ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Associate ]]>
+</senioritylevel>
+</job>
