@@ -1766,6 +1766,39 @@ def download_file(download_key):
         flash(f'Error downloading file: {str(e)}', 'error')
         return redirect(url_for('bullhorn_dashboard'))
 
+@app.route('/download-current-xml')
+@login_required
+def download_current_xml():
+    """Download the current live XML feed file for manual upload"""
+    try:
+        xml_file = 'myticas-job-feed-v2.xml'
+        
+        if not os.path.exists(xml_file):
+            flash('XML feed file not found. Please run the monitoring service first.', 'error')
+            return redirect(url_for('bullhorn_dashboard'))
+        
+        # Get file stats for user info
+        file_stats = os.stat(xml_file)
+        file_size = file_stats.st_size
+        
+        # Count jobs in the file
+        with open(xml_file, 'r') as f:
+            content = f.read()
+            job_count = content.count('<job>')
+        
+        app.logger.info(f"User downloading current XML: {job_count} jobs, {file_size} bytes")
+        
+        # Return the file for download
+        return send_file(xml_file,
+                        as_attachment=True,
+                        download_name=f'myticas-job-feed-v2_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xml',
+                        mimetype='application/xml')
+        
+    except Exception as e:
+        app.logger.error(f"Error downloading current XML: {str(e)}")
+        flash(f'Error downloading XML file: {str(e)}', 'error')
+        return redirect(url_for('bullhorn_dashboard'))
+
 @app.route('/settings')
 @login_required
 def settings():
