@@ -507,52 +507,47 @@ class XMLIntegrationService:
         if not description:
             return ''
         
-        import html
-        import re
+        import html as html_module
         
         # Convert HTML entities back to proper HTML tags for consistent formatting
         # This ensures &lt;strong&gt; becomes <strong>, &lt;p&gt; becomes <p>, etc.
-        description = html.unescape(description)
+        description = html_module.unescape(description)
         
-        # Fix missing closing </li> tags - CRITICAL HTML FORMATTING FIX
-        # Comprehensive approach: iteratively fix all missing closing tags
-        while True:
-            # Count existing tags
-            li_count = description.count('<li>')
-            li_close_count = description.count('</li>')
+        try:
+            from lxml import html
             
-            if li_count <= li_close_count:
-                break  # All tags are properly closed
-                
-            # Fix missing closing tags before next <li> or </ul>
-            original_description = description
-            description = re.sub(r'<li>([^<]*?)(?=\s*<li>)(?!</li>)', r'<li>\1</li>', description)
-            description = re.sub(r'<li>([^<]*?)(?=\s*</ul>)(?!</li>)', r'<li>\1</li>', description)
+            # Parse the description as an HTML fragment
+            # This automatically fixes unclosed tags like <li>, <p>, etc.
+            fragment = html.fragment_fromstring(description, create_parent='div')
             
-            # If no changes were made, break to prevent infinite loop
-            if description == original_description:
-                break
-        
-        # Clean up any double closing tags that might have been created
-        description = re.sub(r'</li>\s*</li>', '</li>', description)
-        
-        # Remove excessive whitespace but preserve proper line breaks in lists
-        description = ' '.join(description.split())
-        
-        # Log if HTML fixes were applied - ALWAYS log at INFO level for debugging
-        if '</li>' in description and '<li>' in description:
-            li_count = description.count('<li>')
-            li_close_count = description.count('</li>')
-            if li_count != li_close_count:
-                self.logger.error(f"HTML list formatting STILL BROKEN: {li_count} <li> tags, {li_close_count} </li> tags")
+            # Convert back to string with proper HTML serialization
+            fixed_description = html.tostring(fragment, encoding='unicode', method='html')
+            
+            # Remove the wrapper div we added
+            if fixed_description.startswith('<div>') and fixed_description.endswith('</div>'):
+                fixed_description = fixed_description[5:-6]
+            
+            # Clean up any excessive whitespace while preserving structure
+            fixed_description = fixed_description.strip()
+            
+            # Log if HTML fixes were applied
+            if '</li>' in fixed_description and '<li>' in fixed_description:
+                li_count = fixed_description.count('<li>')
+                li_close_count = fixed_description.count('</li>')
+                if li_count != li_close_count:
+                    self.logger.error(f"HTML list formatting STILL BROKEN: {li_count} <li> tags, {li_close_count} </li> tags")
+                else:
+                    self.logger.info(f"✅ HTML list formatting FIXED: {li_count} <li> tags with matching closing tags")
             else:
-                self.logger.info(f"✅ HTML list formatting FIXED: {li_count} <li> tags with matching closing tags")
-        else:
-            self.logger.info(f"📝 HTML description processed (no lists found): {len(description)} chars")
-        
-        # Ensure HTML content is properly formatted within CDATA sections
-        # All HTML tags will now be consistent raw HTML format with proper closing tags
-        return description
+                self.logger.info(f"📝 HTML description processed (no lists found): {len(fixed_description)} chars")
+            
+            return fixed_description
+            
+        except Exception as e:
+            self.logger.warning(f"Error fixing HTML with lxml, returning original: {str(e)}")
+            # If lxml fails for any reason, return the original description
+            # Remove excessive whitespace at least
+            return ' '.join(description.split())
     
     def _format_date(self, date_str: str) -> str:
         """Format date for XML (e.g., 'July 12, 2025')"""

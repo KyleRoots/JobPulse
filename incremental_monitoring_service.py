@@ -581,68 +581,33 @@ class IncrementalMonitoringService:
             return False
     
     def _fix_unclosed_html_tags(self, html_content: str) -> str:
-        """Fix unclosed HTML tags, especially li and p tags"""
+        """Fix unclosed HTML tags using proper HTML parsing"""
         if not html_content:
             return ""
         
-        import re
-        
-        # Fix unclosed <li> tags
-        # Pattern: <li> followed by content until next <li>, </ul>, </ol> or end
-        content = html_content
-        
-        # First pass: close <li> tags
-        lines = content.split('\n')
-        fixed_lines = []
-        in_list = False
-        current_li_content = []
-        
-        for line in lines:
-            # Check if we're starting a ul or ol
-            if '<ul>' in line or '<ol>' in line:
-                in_list = True
-                if current_li_content:
-                    # Close any pending li
-                    fixed_lines.append(''.join(current_li_content) + '</li>')
-                    current_li_content = []
-                fixed_lines.append(line)
-            elif '</ul>' in line or '</ol>' in line:
-                if current_li_content:
-                    # Close any pending li before list ends
-                    fixed_lines.append(''.join(current_li_content) + '</li>')
-                    current_li_content = []
-                in_list = False
-                fixed_lines.append(line)
-            elif in_list and '<li>' in line:
-                # If we have a pending li, close it first
-                if current_li_content:
-                    fixed_lines.append(''.join(current_li_content) + '</li>')
-                # Start new li
-                current_li_content = [line]
-            elif in_list and current_li_content:
-                # Continue accumulating li content
-                current_li_content.append('\n' + line)
-            else:
-                # Not in a list or li
-                fixed_lines.append(line)
-        
-        # Close any remaining li
-        if current_li_content:
-            fixed_lines.append(''.join(current_li_content) + '</li>')
-        
-        content = '\n'.join(fixed_lines)
-        
-        # Second pass: ensure </li> tags are properly placed
-        # Replace patterns like <li>content<li> with <li>content</li><li>
-        content = re.sub(r'(<li[^>]*>)(.*?)(?=<li[^>]*>)', r'\1\2</li>', content, flags=re.DOTALL)
-        
-        # Third pass: fix double </li></li> that might have been created
-        content = re.sub(r'</li>\s*</li>', '</li>', content)
-        
-        # Fourth pass: ensure no <li> without </li> before </ul> or </ol>
-        content = re.sub(r'(<li[^>]*>[^<]*?)(?=</ul>|</ol>)', r'\1</li>', content)
-        
-        return content
+        try:
+            from lxml import html
+            
+            # Parse the HTML content as a fragment
+            # This automatically fixes unclosed tags like <li>, <p>, etc.
+            fragment = html.fragment_fromstring(html_content, create_parent='div')
+            
+            # Convert back to string with proper HTML serialization
+            fixed_content = html.tostring(fragment, encoding='unicode', method='html')
+            
+            # Remove the wrapper div we added
+            if fixed_content.startswith('<div>') and fixed_content.endswith('</div>'):
+                fixed_content = fixed_content[5:-6]
+            
+            # Clean up any excessive whitespace while preserving structure
+            fixed_content = fixed_content.strip()
+            
+            return fixed_content
+            
+        except Exception as e:
+            self.logger.warning(f"Error fixing HTML tags with lxml, returning original: {str(e)}")
+            # If lxml fails for any reason, return the original content
+            return html_content
     
     def _create_job_element(self, job_data: Dict) -> etree.Element:
         """Create XML job element with CDATA wrapping"""
@@ -654,10 +619,14 @@ class IncrementalMonitoringService:
             # Special handling for description field to fix HTML
             if name == 'description' and value:
                 value = self._fix_unclosed_html_tags(value)
-            if value and any(char in value for char in ['<', '>', '&', '"', "'"]):
-                elem.text = etree.CDATA(f' {value} ')
+            # Always wrap ALL fields in CDATA as per requirement
+            # Ensure value is a string and handle None values
+            if value is None:
+                value = ''
             else:
-                elem.text = value
+                value = str(value)
+            # Wrap ALL fields in CDATA sections with spaces before and after
+            elem.text = etree.CDATA(f' {value} ')
         
         # Add all fields
         title_with_id = job_data.get('title', '')
