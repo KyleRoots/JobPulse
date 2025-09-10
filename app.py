@@ -1967,6 +1967,33 @@ def validate_file():
         app.logger.error(f"Error in validate_file: {str(e)}")
         return jsonify({'valid': False, 'error': str(e)})
 
+@app.route('/xml/<filename>')
+def serve_xml_file(filename):
+    """Serve XML files directly"""
+    try:
+        # Security check - only allow specific XML files
+        allowed_files = ['myticas-job-feed.xml', 'myticas-job-feed-v2.xml']
+        if filename not in allowed_files:
+            return "File not found", 404
+        
+        # Map to the actual file
+        if filename == 'myticas-job-feed-v2.xml':
+            filename = 'myticas-job-feed.xml'  # Local file uploaded as v2
+        
+        if not os.path.exists(filename):
+            return f"XML file {filename} not found", 404
+        
+        # Return the XML file with proper content type
+        return send_file(
+            filename,
+            mimetype='application/xml',
+            as_attachment=False,
+            download_name=filename
+        )
+    except Exception as e:
+        app.logger.error(f"Error serving XML file: {str(e)}")
+        return f"Error serving XML file: {str(e)}", 500
+
 @app.route('/bullhorn')
 @login_required
 def bullhorn_dashboard():
