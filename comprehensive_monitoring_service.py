@@ -717,7 +717,29 @@ class ComprehensiveMonitoringService:
                 
                 content = re.sub(pattern, add_cdata, content)
             
-            # Fix any double-encoded HTML entities
+            # Fix HTML entities within CDATA sections - they should be raw HTML
+            import html
+            
+            def fix_cdata_content(match):
+                """Fix HTML entities within CDATA sections"""
+                nonlocal fixes_made
+                field_name = match.group(1)
+                cdata_content = match.group(2)
+                
+                # Check if content has HTML entities that need unescaping
+                if '&lt;' in cdata_content or '&gt;' in cdata_content or '&amp;' in cdata_content:
+                    # Unescape HTML entities within CDATA (should be raw HTML)
+                    unescaped_content = html.unescape(cdata_content)
+                    fixes_made += 1
+                    return f'<{field_name}><![CDATA[{unescaped_content}]]></{field_name}>'
+                
+                return match.group(0)
+            
+            # Fix HTML entities within CDATA sections (especially descriptions)
+            cdata_pattern = r'<(\w+)><!\[CDATA\[(.*?)\]\]></\1>'
+            content = re.sub(cdata_pattern, fix_cdata_content, content, flags=re.DOTALL)
+            
+            # Fix any remaining double-encoded HTML entities
             content = content.replace('&amp;lt;', '<')
             content = content.replace('&amp;gt;', '>')
             content = content.replace('&amp;amp;', '&')
