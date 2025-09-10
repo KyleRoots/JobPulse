@@ -924,8 +924,8 @@ def scheduler_dashboard():
         last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
         
         if last_refresh:
-            # Calculate next refresh (48 hours after last)
-            next_refresh_time = last_refresh.refresh_time + timedelta(hours=48)
+            # Calculate next refresh (120 hours after last)
+            next_refresh_time = last_refresh.refresh_time + timedelta(hours=120)
             time_until_next = next_refresh_time - datetime.utcnow()
             
             next_refresh_info['next_run'] = next_refresh_time
@@ -4118,9 +4118,9 @@ if is_primary_worker:
     )
     app.logger.info("Scheduled daily file cleanup job")
 
-# Reference Number Refresh (48-hour cycle)
+# Reference Number Refresh (120-hour cycle)
 def reference_number_refresh():
-    """Automatic refresh of all reference numbers every 48 hours while preserving all other XML data"""
+    """Automatic refresh of all reference numbers every 120 hours while preserving all other XML data"""
     with app.app_context():
         try:
             from datetime import date
@@ -4132,7 +4132,7 @@ def reference_number_refresh():
                 app.logger.info(f"📝 Reference refresh already completed today at {existing_refresh.refresh_time}")
                 return
             
-            app.logger.info("🔄 Starting 48-hour reference number refresh...")
+            app.logger.info("🔄 Starting 120-hour reference number refresh...")
             
             # Import the lightweight refresh function
             from lightweight_reference_refresh import lightweight_refresh_references
@@ -4281,7 +4281,7 @@ def reference_number_refresh():
                         
                         email_sent = email_service.send_reference_number_refresh_notification(
                             to_email=email_setting.setting_value,
-                            schedule_name="48-Hour Reference Number Refresh",
+                            schedule_name="120-Hour Reference Number Refresh",
                             total_jobs=result['jobs_updated'],
                             refresh_details=refresh_details,
                             status="success"
@@ -4335,7 +4335,7 @@ def reference_number_refresh():
                         
                         email_sent = email_service.send_reference_number_refresh_notification(
                             to_email=email_setting.setting_value,
-                            schedule_name="48-Hour Reference Number Refresh",
+                            schedule_name="120-Hour Reference Number Refresh",
                             total_jobs=0,
                             refresh_details=refresh_details,
                             status="error",
@@ -4354,16 +4354,16 @@ def reference_number_refresh():
             app.logger.error(f"Reference refresh error: {str(e)}")
 
 if is_primary_worker:
-    # Schedule reference refresh every 48 hours
+    # Schedule reference refresh every 120 hours
     scheduler.add_job(
         func=reference_number_refresh,
         trigger='interval',
-        hours=48,
+        hours=120,
         id='reference_number_refresh',
-        name='48-Hour Reference Number Refresh',
+        name='120-Hour Reference Number Refresh',
         replace_existing=True
     )
-    app.logger.info("📅 Scheduled reference number refresh every 48 hours")
+    app.logger.info("📅 Scheduled reference number refresh every 120 hours")
     
     # Check if catch-up refresh is needed on startup
     try:
@@ -4374,13 +4374,13 @@ if is_primary_worker:
             last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
             
             if last_refresh:
-                # Check if 48 hours have passed since last refresh
+                # Check if 120 hours have passed since last refresh
                 time_since_refresh = datetime.utcnow() - last_refresh.refresh_time
-                if time_since_refresh > timedelta(hours=48):
+                if time_since_refresh > timedelta(hours=120):
                     app.logger.info(f"⏰ Last refresh was {time_since_refresh.total_seconds() / 3600:.1f} hours ago, running catch-up refresh...")
                     reference_number_refresh()
                 else:
-                    hours_until_next = 48 - (time_since_refresh.total_seconds() / 3600)
+                    hours_until_next = 120 - (time_since_refresh.total_seconds() / 3600)
                     app.logger.info(f"📝 Last refresh was {time_since_refresh.total_seconds() / 3600:.1f} hours ago, next refresh in {hours_until_next:.1f} hours")
             else:
                 # No previous refresh found, run one now
