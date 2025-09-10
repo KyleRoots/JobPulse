@@ -667,7 +667,7 @@ class ComprehensiveMonitoringService:
             }
             
             # Only use if all AI fields are present (complete AI classification)
-            if job_id in existing_xml_jobs and all(existing_ai_fields.values()):
+            if job_id in current_xml_jobs and all(existing_ai_fields.values()):
                 self.logger.info(f"✅ PRESERVING existing AI classification for job {job_id} during UPDATE: {existing_ai_fields}")
             else:
                 existing_ai_fields = None
