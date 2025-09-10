@@ -46,6 +46,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Monitoring System**: Implements RapidChangeTracker for detecting and reporting multiple job state transitions, enhanced email notifications, timeout protection, and scheduler auto-restarts.
 - **Health Endpoints**: Optimized, ultra-fast dedicated health endpoints (`/health`, `/ready`, `/alive`, `/ping`).
 - **XML Generation Enhancements** (September 2025): All XML fields now wrapped in CDATA sections for proper data handling, HTML descriptions parsed with lxml for proper tag closure.
+- **Simplified XML Generator** (September 2025): Direct Bullhorn integration that pulls from all tearsheets (1256, 1264, 1499, 1556) and generates clean XML on-demand, bypassing complex monitoring for reliable manual workflow.
 
 ### Technical Implementation Details
 - **XML Processing**: Requires root element 'source' and specific required elements (title, company, date, referencenumber). Preserves existing reference numbers during ad-hoc changes.
