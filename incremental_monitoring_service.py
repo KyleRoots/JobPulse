@@ -658,8 +658,20 @@ class IncrementalMonitoringService:
             remote_file = '/myticas-job-feed-v2.xml'
             sftp.put(xml_file, remote_file)
             
+            # Verify upload by checking file size
+            local_stat = os.stat(xml_file)
+            remote_stat = sftp.stat(remote_file)
+            
+            if local_stat.st_size == remote_stat.st_size:
+                self.logger.info(f"Upload verified: {local_stat.st_size} bytes")
+            else:
+                self.logger.warning(f"Size mismatch: local={local_stat.st_size}, remote={remote_stat.st_size}")
+            
             sftp.close()
             transport.close()
+            
+            # Note: CDN cache may delay live site updates
+            self.logger.info("Note: Live site may take time to update due to CDN caching")
             
             return True
             
