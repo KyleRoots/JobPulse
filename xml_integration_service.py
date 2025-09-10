@@ -513,6 +513,26 @@ class XMLIntegrationService:
         # This ensures &lt;strong&gt; becomes <strong>, &lt;p&gt; becomes <p>, etc.
         description = html_module.unescape(description)
         
+        # CRITICAL FIX: Clean up orphaned closing/opening tags BEFORE parsing
+        # These often appear at the beginning of lines from improperly extracted content
+        # Remove orphaned closing tags at the beginning of lines
+        description = re.sub(r'^[\s]*</li>', '', description, flags=re.MULTILINE)
+        # Remove orphaned </li><li> patterns that create invalid HTML
+        description = re.sub(r'</li>[\s]*<li>', '</li>\n<li>', description)
+        
+        # If we have list items without a container, wrap them
+        if '<li>' in description and not ('<ul>' in description or '<ol>' in description):
+            # Find all list items and wrap them in a ul container
+            # This prevents orphaned list items from causing issues
+            li_pattern = r'(<li>.*?</li>)'
+            list_blocks = re.findall(li_pattern, description, re.DOTALL)
+            if list_blocks:
+                # Replace the first occurrence with wrapped version
+                first_block = ''.join(list_blocks)
+                wrapped_block = f'<ul>{first_block}</ul>'
+                description = re.sub(li_pattern, '', description, flags=re.DOTALL)
+                description = wrapped_block + description
+        
         try:
             from lxml import html
             
@@ -529,6 +549,11 @@ class XMLIntegrationService:
             
             # Clean up any excessive whitespace while preserving structure
             fixed_description = fixed_description.strip()
+            
+            # FINAL CLEANUP: Remove any remaining orphaned patterns
+            # Sometimes lxml doesn't catch everything, so do a final pass
+            fixed_description = re.sub(r'^[\s]*</li>', '', fixed_description, flags=re.MULTILINE)
+            fixed_description = re.sub(r'</li>[\s]*<li>', '</li>\n<li>', fixed_description)
             
             # Log if HTML fixes were applied
             if '</li>' in fixed_description and '<li>' in fixed_description:

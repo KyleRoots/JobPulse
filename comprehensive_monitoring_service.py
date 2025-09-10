@@ -690,6 +690,56 @@ class ComprehensiveMonitoringService:
         except Exception as e:
             self.logger.error(f"Error updating job {job_id} in XML: {str(e)}")
     
+    def _fix_unclosed_html_tags(self, html_content: str) -> str:
+        """Fix unclosed HTML tags using proper HTML parsing"""
+        if not html_content:
+            return ""
+        
+        try:
+            from lxml import html
+            
+            # First, clean up orphaned closing/opening tags like </li><li> at the beginning
+            # These often appear when list items are extracted incorrectly from source
+            content = html_content
+            
+            # Remove orphaned closing tags at the beginning
+            content = re.sub(r'^[\s]*</li>', '', content, flags=re.MULTILINE)
+            
+            # Replace orphaned </li><li> patterns with proper list item breaks
+            # This handles cases where list items are incorrectly formatted
+            content = re.sub(r'</li>[\s]*<li>', '</li>\n<li>', content)
+            
+            # Wrap naked list items in a ul/ol container if they exist
+            if '<li>' in content and not ('<ul>' in content or '<ol>' in content):
+                # Find all list items and wrap them
+                content = re.sub(r'(<li>.*?</li>)', r'<ul>\1</ul>', content, flags=re.DOTALL)
+            
+            # Parse the HTML content as a fragment
+            # This automatically fixes unclosed tags like <li>, <p>, etc.
+            fragment = html.fragment_fromstring(content, create_parent='div')
+            
+            # Convert back to string with proper HTML serialization
+            fixed_content = html.tostring(fragment, encoding='unicode', method='html')
+            
+            # Remove the wrapper div we added
+            if fixed_content.startswith('<div>') and fixed_content.endswith('</div>'):
+                fixed_content = fixed_content[5:-6]
+            
+            # Clean up any excessive whitespace while preserving structure
+            fixed_content = fixed_content.strip()
+            
+            return fixed_content
+            
+        except Exception as e:
+            self.logger.warning(f"Error fixing HTML tags with lxml, using fallback cleanup: {str(e)}")
+            # Fallback: At least clean up the most problematic patterns
+            content = html_content
+            # Remove orphaned closing tags at the beginning
+            content = re.sub(r'^[\s]*</li>', '', content, flags=re.MULTILINE)
+            # Replace orphaned </li><li> patterns
+            content = re.sub(r'</li>[\s]*<li>', '</li>\n<li>', content)
+            return content
+    
     def _fix_xml_formatting(self, xml_file: str) -> int:
         """Fix CDATA and HTML formatting in XML file"""
         import re
