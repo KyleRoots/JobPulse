@@ -586,31 +586,48 @@ def process_bullhorn_monitors():
             # Check if we should use the new feed generator
             use_new_feed = os.environ.get('USE_NEW_FEED', '').lower() == 'true'
             
-            # CRITICAL FIX: Use hardcoded tearsheets when no database monitors exist
-            # This prevents empty XML uploads when database monitors are missing
-            class MockMonitor:
-                def __init__(self, name, tearsheet_id):
-                    self.name = name
-                    self.tearsheet_id = tearsheet_id
-                    self.is_active = True
+            # Get monitors from database first
+            db_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
             
-            # Use correct tearsheets based on actual monitors from screenshot
-            # OTT = Ottawa, VMS = VMS, GR = Grand Rapids, CHI = Chicago, STSI = STSI
-            monitors = [
-                MockMonitor('Sponsored - OTT', 1256),   # Ottawa - 34 jobs
-                MockMonitor('Sponsored - VMS', 1264),   # VMS - 8 jobs
-                MockMonitor('Sponsored - GR', 1499),    # Grand Rapids - 7 jobs  
-                MockMonitor('Sponsored - CHI', 1239),   # Chicago - 3 jobs
-                MockMonitor('Sponsored - STSI', 1556)   # STSI - 8 jobs
-            ]
-            
-            app.logger.info(f"Using {len(monitors)} hardcoded tearsheet monitors")
+            if db_monitors:
+                # Use actual database monitors
+                monitors = db_monitors
+                app.logger.info(f"Using {len(monitors)} database monitors")
+            else:
+                # Fallback to hardcoded monitors if database is empty
+                class MockMonitor:
+                    def __init__(self, name, tearsheet_id):
+                        self.name = name
+                        self.tearsheet_id = tearsheet_id
+                        self.is_active = True
+                
+                monitors = [
+                    MockMonitor('Sponsored - OTT', 1256),
+                    MockMonitor('Sponsored - VMS', 1264),
+                    MockMonitor('Sponsored - GR', 1499),
+                    MockMonitor('Sponsored - CHI', 1239),
+                    MockMonitor('Sponsored - STSI', 1556)
+                ]
+                app.logger.info(f"Using {len(monitors)} hardcoded tearsheet monitors (fallback)")
             
             # Run complete monitoring cycle with reference preservation
             cycle_results = comprehensive_service.run_complete_monitoring_cycle(
-                monitors=monitors,  # Use hardcoded monitors
+                monitors=monitors,
                 xml_file='myticas-job-feed.xml'
             )
+            
+            # Update monitor timing in database
+            if db_monitors:
+                current_time = datetime.utcnow()
+                for monitor in db_monitors:
+                    monitor.last_check = current_time
+                    monitor.next_check = current_time + timedelta(minutes=5)  # Set next check for 5 minutes
+                try:
+                    db.session.commit()
+                    app.logger.info(f"✅ Updated timing for {len(db_monitors)} monitors")
+                except Exception as e:
+                    app.logger.error(f"Failed to update monitor timing: {e}")
+                    db.session.rollback()
             
             app.logger.info(f"✅ ComprehensiveMonitoringService completed: {cycle_results}")
             app.logger.info("📊 ENHANCED MONITOR CYCLE COMPLETE - ComprehensiveMonitoringService handled all steps")
