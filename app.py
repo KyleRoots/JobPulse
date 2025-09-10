@@ -15,8 +15,8 @@ from email_service import EmailService
 from ftp_service import FTPService
 from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
-# Monitor health functionality integrated into comprehensive_monitoring_service
-from comprehensive_monitoring_service import ComprehensiveMonitoringService
+# Use simplified incremental monitoring instead of comprehensive monitoring
+from incremental_monitoring_service import IncrementalMonitoringService
 from job_application_service import JobApplicationService
 from xml_change_monitor import create_xml_monitor
 import json
@@ -567,7 +567,7 @@ def process_scheduled_files():
 app.logger.info("📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates")
 
 def process_bullhorn_monitors():
-    """Process all active Bullhorn monitors - Enhanced 8-Step with ComprehensiveMonitoringService"""
+    """Process all active Bullhorn monitors using simplified incremental monitoring"""
     with app.app_context():
         try:
             # Check if XML feed is frozen
@@ -577,11 +577,11 @@ def process_bullhorn_monitors():
                 app.logger.info("🔒 XML FEED FROZEN: Skipping monitoring cycle")
                 return
             
-            app.logger.info("🔄 ENHANCED MONITOR: Starting 8-step monitoring cycle")
+            app.logger.info("🔄 INCREMENTAL MONITOR: Starting simplified monitoring cycle")
             
-            # Initialize comprehensive monitoring service
-            from comprehensive_monitoring_service import ComprehensiveMonitoringService
-            comprehensive_service = ComprehensiveMonitoringService()
+            # Initialize incremental monitoring service
+            from incremental_monitoring_service import IncrementalMonitoringService
+            monitoring_service = IncrementalMonitoringService()
             
             # Check if we should use the new feed generator
             use_new_feed = os.environ.get('USE_NEW_FEED', '').lower() == 'true'
@@ -610,11 +610,8 @@ def process_bullhorn_monitors():
                 ]
                 app.logger.info(f"Using {len(monitors)} hardcoded tearsheet monitors (fallback)")
             
-            # Run complete monitoring cycle with reference preservation
-            cycle_results = comprehensive_service.run_complete_monitoring_cycle(
-                monitors=monitors,
-                xml_file='myticas-job-feed.xml'
-            )
+            # Run incremental monitoring cycle
+            cycle_results = monitoring_service.run_monitoring_cycle()
             
             # Update monitor timing in database
             if db_monitors:
@@ -629,11 +626,11 @@ def process_bullhorn_monitors():
                     app.logger.error(f"Failed to update monitor timing: {e}")
                     db.session.rollback()
             
-            app.logger.info(f"✅ ComprehensiveMonitoringService completed: {cycle_results}")
-            app.logger.info("📊 ENHANCED MONITOR CYCLE COMPLETE - ComprehensiveMonitoringService handled all steps")
+            app.logger.info(f"✅ Incremental monitoring completed: {cycle_results}")
+            app.logger.info("📊 MONITOR CYCLE COMPLETE - Incremental monitoring handled all updates")
             
         except Exception as e:
-            app.logger.error(f"❌ Enhanced monitoring error: {str(e)}")
+            app.logger.error(f"❌ Incremental monitoring error: {str(e)}")
             db.session.rollback()
 
 
@@ -2092,15 +2089,12 @@ def trigger_job_sync():
         # Ensure background services are initialized when doing manual operations
         ensure_background_services()
         
-        # Monitoring services removed - use comprehensive monitoring instead
-        from comprehensive_monitoring_service import ComprehensiveMonitoringService
-        comprehensive_service = ComprehensiveMonitoringService()
+        # Use incremental monitoring service
+        from incremental_monitoring_service import IncrementalMonitoringService
+        monitoring_service = IncrementalMonitoringService()
         
-        # Run complete monitoring cycle
-        cycle_results = comprehensive_service.run_complete_monitoring_cycle(
-            monitors=[],  # Will auto-detect active monitors
-            xml_file='myticas-job-feed.xml'
-        )
+        # Run monitoring cycle
+        cycle_results = monitoring_service.run_monitoring_cycle()
         
         app.logger.info(f"Manual job sync completed: {cycle_results}")
         

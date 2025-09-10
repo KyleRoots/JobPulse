@@ -77,7 +77,7 @@ class MyticasFeedV2:
             
             # Title with CDATA wrapping
             title_elem = etree.SubElement(job, 'title')
-            title = job_data.get('title', '')
+            title = job_data.get('title', '').strip()
             # Format title with job ID in parentheses
             job_id = job_data.get('bhatsid', job_data.get('id', ''))
             if job_id and not re.search(r'\(\d+\)$', title):
@@ -99,7 +99,7 @@ class MyticasFeedV2:
             
             # Company
             company_elem = etree.SubElement(job, 'company')
-            company = job_data.get('company', 'Myticas Consulting')
+            company = job_data.get('company', 'Myticas Consulting').strip()
             company_elem.text = company
             
             # URL - Generate proper application URL
@@ -120,17 +120,17 @@ class MyticasFeedV2:
             
             # Job type
             jobtype_elem = etree.SubElement(job, 'jobtype')
-            jobtype_elem.text = job_data.get('jobtype', 'Contract')
+            jobtype_elem.text = job_data.get('jobtype', 'Contract').strip()
             
-            # Location fields
+            # Location fields (with whitespace trimming)
             city_elem = etree.SubElement(job, 'city')
-            city_elem.text = job_data.get('city', '')
+            city_elem.text = job_data.get('city', '').strip()
             
             state_elem = etree.SubElement(job, 'state')
-            state_elem.text = job_data.get('state', '')
+            state_elem.text = job_data.get('state', '').strip()
             
             country_elem = etree.SubElement(job, 'country')
-            country_elem.text = job_data.get('country', 'United States')
+            country_elem.text = job_data.get('country', 'United States').strip()
             
             # Category (empty as per template)
             category_elem = etree.SubElement(job, 'category')
@@ -143,21 +143,21 @@ class MyticasFeedV2:
             
             # Remote type
             remotetype_elem = etree.SubElement(job, 'remotetype')
-            remotetype_elem.text = job_data.get('remotetype', '')
+            remotetype_elem.text = job_data.get('remotetype', '').strip()
             
             # Assigned recruiter
             recruiter_elem = etree.SubElement(job, 'assignedrecruiter')
-            recruiter_elem.text = job_data.get('assignedrecruiter', '')
+            recruiter_elem.text = job_data.get('assignedrecruiter', '').strip()
             
             # AI-generated fields
             jobfunction_elem = etree.SubElement(job, 'jobfunction')
-            jobfunction_elem.text = job_data.get('jobfunction', '')
+            jobfunction_elem.text = job_data.get('jobfunction', '').strip()
             
             jobindustries_elem = etree.SubElement(job, 'jobindustries')
-            jobindustries_elem.text = job_data.get('jobindustries', '')
+            jobindustries_elem.text = job_data.get('jobindustries', '').strip()
             
             seniority_elem = etree.SubElement(job, 'senioritylevel')
-            seniority_elem.text = job_data.get('senioritylevel', '')
+            seniority_elem.text = job_data.get('senioritylevel', '').strip()
             
             return job
             

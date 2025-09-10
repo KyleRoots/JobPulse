@@ -396,7 +396,7 @@ class BullhornService:
     
     def get_jobs_by_query(self, query: str) -> List[Dict]:
         """
-        Get jobs using a custom search query
+        Get jobs using a custom search query with proper pagination
         
         Args:
             query: Bullhorn search query (e.g., "status:Open AND isPublic:1")
@@ -422,24 +422,46 @@ class BullhornService:
                 "owner(firstName,lastName)"
             ]
             
-            # Make API request
-            url = f"{self.base_url}search/JobOrder"
-            params = {
-                'query': query,
-                'fields': ','.join(fields),
-                'sort': '-dateLastModified',
-                'count': 500,  # Get more results for monitoring
-                'BhRestToken': self.rest_token
-            }
+            # Implement pagination to get ALL jobs
+            all_jobs = []
+            start = 0
+            count = 200  # Max records per page
             
-            response = self.session.get(url, params=params)
+            while True:
+                # Make API request
+                url = f"{self.base_url}search/JobOrder"
+                params = {
+                    'query': query,
+                    'fields': ','.join(fields),
+                    'sort': '-dateLastModified',
+                    'start': start,
+                    'count': count,
+                    'BhRestToken': self.rest_token
+                }
+                
+                response = self.session.get(url, params=params)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    jobs_data = data.get('data', [])
+                    total = data.get('total', 0)
+                    
+                    # Add jobs from this page
+                    all_jobs.extend(jobs_data)
+                    
+                    # Log pagination progress
+                    logging.info(f"Fetched {len(all_jobs)} of {total} jobs for query: {query}")
+                    
+                    # Check if we need to fetch more pages
+                    if len(jobs_data) < count or len(all_jobs) >= total:
+                        break
+                    
+                    start += count
+                else:
+                    logging.error(f"Failed to get jobs by query: {response.status_code} - {response.text}")
+                    break
             
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('data', [])
-            else:
-                logging.error(f"Failed to get jobs by query: {response.status_code} - {response.text}")
-                return []
+            return all_jobs
                 
         except Exception as e:
             logging.error(f"Error getting jobs by query: {str(e)}")
