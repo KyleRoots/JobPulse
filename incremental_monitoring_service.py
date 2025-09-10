@@ -673,8 +673,80 @@ class IncrementalMonitoringService:
             # Note: CDN cache may delay live site updates
             self.logger.info("Note: Live site may take time to update due to CDN caching")
             
+            # Verify live URL after upload
+            self._verify_live_sync(local_stat.st_size)
+            
             return True
             
         except Exception as e:
             self.logger.error(f"SFTP upload error: {str(e)}")
             return False
+    
+    def _verify_live_sync(self, expected_size):
+        """Verify live URL has updated content"""
+        import time
+        import requests
+        
+        max_attempts = 5
+        base_url = "https://myticas.com/myticas-job-feed-v2.xml"
+        
+        for attempt in range(max_attempts):
+            try:
+                # Try without cache-busting first
+                response = requests.get(base_url, timeout=10)
+                live_jobs = response.text.count('<job>')
+                
+                # Also check with timestamp to bypass cache
+                cache_bust_url = f"{base_url}?nocache={int(time.time())}"
+                cache_response = requests.get(cache_bust_url, timeout=10)
+                cache_bust_jobs = cache_response.text.count('<job>')
+                
+                self.logger.info(f"Live verification attempt {attempt + 1}: {live_jobs} jobs (normal), {cache_bust_jobs} jobs (cache-bust)")
+                
+                # Check our local file for comparison
+                with open('myticas-job-feed-v2.xml', 'r') as f:
+                    local_content = f.read()
+                    local_jobs = local_content.count('<job>')
+                
+                if live_jobs == local_jobs:
+                    self.logger.info(f"✅ Live URL synchronized: {live_jobs} jobs match local")
+                    return True
+                elif attempt < max_attempts - 1:
+                    wait_time = 30 * (attempt + 1)  # Progressive backoff
+                    self.logger.warning(f"Live URL shows {live_jobs} jobs, expected {local_jobs}. Waiting {wait_time}s...")
+                    time.sleep(wait_time)
+                    
+            except Exception as e:
+                self.logger.error(f"Live verification error: {str(e)}")
+                
+        # Send alert if sync fails
+        self.logger.error(f"⚠️ CDN SYNC ISSUE: Live site not updating after {max_attempts} attempts")
+        self._send_cdn_sync_alert(local_jobs, live_jobs)
+        return False
+    
+    def _send_cdn_sync_alert(self, local_jobs, live_jobs):
+        """Send alert about CDN sync issues"""
+        try:
+            message = f"""CDN Synchronization Issue Detected:
+            
+            Local XML: {local_jobs} jobs
+            Live URL: {live_jobs} jobs  
+            
+            The SFTP upload succeeded but the live website is not reflecting the changes.
+            This may require manual CDN cache purging or waiting for cache expiration.
+            
+            Alternative solutions:
+            1. Contact hosting provider to purge CDN cache for /myticas-job-feed-v2.xml
+            2. Use versioned URLs (e.g., /myticas-job-feed-v2.xml?v=timestamp)
+            3. Configure shorter cache TTL for XML files
+            """
+            
+            # Log the issue for now - email notification can be added later
+            self.logger.error(message)
+            
+            # Also save to a sync issues log file
+            with open('cdn_sync_issues.log', 'a') as f:
+                f.write(f"\n[{datetime.now()}] {message}\n")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to log CDN alert: {str(e)}")
