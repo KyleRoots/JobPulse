@@ -706,7 +706,7 @@ class ComprehensiveMonitoringService:
                 'title', 'company', 'date', 'referencenumber', 'bhatsid', 'url',
                 'description', 'jobtype', 'city', 'state', 'country', 'category',
                 'apply_email', 'remotetype', 'assignedrecruiter', 'jobfunction',
-                'jobindustries', 'senoritylevel'
+                'jobindustries', 'senioritylevel'  # Fixed typo: was 'senoritylevel'
             ]
             
             for field in fields_needing_cdata:
@@ -715,13 +715,23 @@ class ComprehensiveMonitoringService:
                 
                 def add_cdata(match):
                     nonlocal fixes_made
-                    content = match.group(1)
+                    content = match.group(1).strip()
                     if not content.startswith('<![CDATA['):
                         fixes_made += 1
-                        return f'<{field}><![CDATA[{content}]]></{field}>'
+                        # Add default value for apply_email if empty
+                        if field == 'apply_email' and not content:
+                            content = 'apply@myticas.com'
+                        return f'<{field}><![CDATA[ {content} ]]></{field}>'
                     return match.group(0)
                 
                 content = re.sub(pattern, add_cdata, content)
+                
+                # Also fix self-closing tags (e.g., <apply_email/>)
+                self_closing_pattern = f'<{field}/>'
+                if self_closing_pattern in content:
+                    fixes_made += 1
+                    default_value = 'apply@myticas.com' if field == 'apply_email' else ''
+                    content = content.replace(self_closing_pattern, f'<{field}><![CDATA[ {default_value} ]]></{field}>')
             
             # Fix any double-encoded HTML entities
             content = content.replace('&amp;lt;', '<')
