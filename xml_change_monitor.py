@@ -312,6 +312,60 @@ class XMLChangeMonitor:
             self.logger.error(f"Error in XML change monitoring: {str(e)}")
             return {'success': False, 'error': str(e)}
 
+    def monitor_xml_changes_with_content(self, xml_content: str, notification_email: str, email_service=None, enable_email_notifications: bool = True) -> Dict:
+        """Monitor XML changes using provided XML content instead of downloading from website"""
+        try:
+            self.logger.info("🔍 XML CHANGE MONITOR: Starting monitoring cycle with provided XML content")
+            
+            # Extract job data from provided XML content
+            current_jobs = self.extract_job_data_from_xml(xml_content)
+            self.logger.info(f"🔍 XML MONITOR: Extracted {len(current_jobs)} jobs from generated XML")
+            
+            # Load previous snapshot
+            previous_snapshot = self.load_previous_snapshot()
+            previous_jobs = previous_snapshot.get('jobs', {})
+            
+            if previous_jobs:
+                self.logger.info(f"🔍 XML MONITOR: Comparing with previous snapshot ({len(previous_jobs)} jobs)")
+                
+                # Compare snapshots
+                changes = self.compare_snapshots(previous_jobs, current_jobs)
+                
+                self.logger.info(f"🔍 XML MONITOR: Changes detected:")
+                self.logger.info(f"    ➕ Added: {len(changes['added'])} jobs")
+                self.logger.info(f"    ➖ Removed: {len(changes['removed'])} jobs")
+                self.logger.info(f"    🔄 Modified: {len(changes['modified'])} jobs")
+                self.logger.info(f"    📊 Total changes: {changes['total_changes']}")
+                
+                # Send notification if changes detected and email notifications are enabled
+                email_sent = False
+                if changes['total_changes'] > 0 and enable_email_notifications:
+                    email_sent = self.send_change_notification(changes, notification_email, email_service)
+                    self.logger.info(f"📧 EMAIL NOTIFICATION: {'Sent successfully' if email_sent else 'Failed to send'}")
+                elif changes['total_changes'] > 0:
+                    self.logger.info(f"📧 EMAIL NOTIFICATION: Skipped (disabled) - {changes['total_changes']} changes detected")
+                else:
+                    self.logger.info("📧 EMAIL NOTIFICATION: No changes detected, no email sent")
+            else:
+                self.logger.info("🔍 XML MONITOR: No previous snapshot found, initializing monitoring")
+                changes = {'added': [], 'removed': [], 'modified': [], 'total_changes': 0}
+                email_sent = False
+            
+            # Save current snapshot for next comparison
+            self.save_current_snapshot(current_jobs)
+            
+            return {
+                'success': True,
+                'changes': changes,
+                'current_job_count': len(current_jobs),
+                'previous_job_count': len(previous_jobs),
+                'email_sent': email_sent
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in XML change monitoring with content: {str(e)}")
+            return {'success': False, 'error': str(e), 'email_sent': False}
+
 def create_xml_monitor():
     """Factory function to create XML monitor instance"""
     return XMLChangeMonitor()

@@ -1796,8 +1796,14 @@ def download_current_xml():
                 xml_monitor = create_xml_monitor()
                 email_service = get_email_service()
                 
-                # Run change detection with email notifications ENABLED for downloads
-                result = xml_monitor.monitor_xml_changes(email_setting.setting_value, email_service, enable_email_notifications=True)
+                # Use the GENERATED XML content instead of downloading from website
+                # This ensures we compare the fresh data with the previous state
+                result = xml_monitor.monitor_xml_changes_with_content(
+                    xml_content=xml_content,
+                    notification_email=email_setting.setting_value, 
+                    email_service=email_service, 
+                    enable_email_notifications=True
+                )
                 
                 if result.get('success'):
                     changes = result.get('changes', {})
