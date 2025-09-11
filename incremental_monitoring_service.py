@@ -446,25 +446,23 @@ class IncrementalMonitoringService:
             return 'Hybrid'
     
     def _extract_recruiter(self, bullhorn_job: Dict) -> str:
-        """Extract recruiter information with centralized LinkedIn tag formatting"""
+        """Extract recruiter information using restored LinkedIn tag formatting WITH names"""
         # Import here to avoid circular imports
         from xml_integration_service import XMLIntegrationService
         
-        # Get assigned users data
-        assigned_users_data = []
-        assigned_users = bullhorn_job.get('assignedUsers', {})
-        if assigned_users and isinstance(assigned_users, dict):
-            data = assigned_users.get('data', [])
-            if data and isinstance(data, list):
-                assigned_users_data = data
+        # Create an instance to use the restored _extract_assigned_recruiter method
+        xml_service = XMLIntegrationService()
         
-        # Use centralized LinkedIn tag formatter
-        linkedin_tag = XMLIntegrationService.format_linkedin_recruiter_tag(assigned_users_data)
-        if linkedin_tag:
-            return linkedin_tag
+        # Extract recruiter data from multiple possible fields
+        assignments = bullhorn_job.get('assignments', {})
+        assigned_users = bullhorn_job.get('assignedUsers', {}) 
+        response_user = bullhorn_job.get('responseUser', {})
+        owner = bullhorn_job.get('owner', {})
         
-        # Fallback: return empty string instead of name to avoid LinkedIn tag format issues
-        return ""
+        # Use the restored method that returns full LinkedIn tags with names
+        linkedin_tag_with_name = xml_service._extract_assigned_recruiter(assignments, assigned_users, response_user, owner)
+        
+        return linkedin_tag_with_name
     
     def _get_recruiter_tag(self, name: str) -> str:
         """Get LinkedIn recruiter tag for name"""
