@@ -446,34 +446,25 @@ class IncrementalMonitoringService:
             return 'Hybrid'
     
     def _extract_recruiter(self, bullhorn_job: Dict) -> str:
-        """Extract recruiter information with LinkedIn tag"""
-        recruiter_name = ''
-        recruiter_tag = ''
+        """Extract recruiter information with centralized LinkedIn tag formatting"""
+        # Import here to avoid circular imports
+        from xml_integration_service import XMLIntegrationService
         
-        # Try different fields for recruiter info
+        # Get assigned users data
+        assigned_users_data = []
         assigned_users = bullhorn_job.get('assignedUsers', {})
         if assigned_users and isinstance(assigned_users, dict):
             data = assigned_users.get('data', [])
-            if data and len(data) > 0:
-                first_name = data[0].get('firstName', '')
-                last_name = data[0].get('lastName', '')
-                if first_name or last_name:
-                    recruiter_name = f"{first_name} {last_name}".strip()
-                    recruiter_tag = self._get_recruiter_tag(recruiter_name)
+            if data and isinstance(data, list):
+                assigned_users_data = data
         
-        if not recruiter_name:
-            owner = bullhorn_job.get('owner', {})
-            if owner:
-                first_name = owner.get('firstName', '')
-                last_name = owner.get('lastName', '')
-                if first_name or last_name:
-                    recruiter_name = f"{first_name} {last_name}".strip()
-                    recruiter_tag = self._get_recruiter_tag(recruiter_name)
+        # Use centralized LinkedIn tag formatter
+        linkedin_tag = XMLIntegrationService.format_linkedin_recruiter_tag(assigned_users_data)
+        if linkedin_tag:
+            return linkedin_tag
         
-        if recruiter_name and recruiter_tag:
-            return f"{recruiter_tag}:"
-        else:
-            return recruiter_name
+        # Fallback: return empty string instead of name to avoid LinkedIn tag format issues
+        return ""
     
     def _get_recruiter_tag(self, name: str) -> str:
         """Get LinkedIn recruiter tag for name"""
