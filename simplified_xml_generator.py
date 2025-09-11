@@ -151,9 +151,9 @@ class SimplifiedXMLGenerator:
                     self.logger.warning(f"No members found in tearsheet {tearsheet_id}")
                     continue
                 
-                # Extract JobOrder IDs (not membership IDs)
-                job_ids = [member.get('jobOrder', {}).get('id') for member in members if member.get('jobOrder', {}).get('id')]
-                self.logger.info(f"Found {len(job_ids)} job IDs in tearsheet {tearsheet_id} (using jobOrder.id)")
+                # Extract job IDs directly from tearsheet members 
+                job_ids = [member.get('id') for member in members if member.get('id')]
+                self.logger.info(f"Found {len(job_ids)} job IDs in tearsheet {tearsheet_id}")
                 
                 # Get full job details in batches
                 batch_size = 50
