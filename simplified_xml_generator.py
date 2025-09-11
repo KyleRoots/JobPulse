@@ -206,11 +206,13 @@ class SimplifiedXMLGenerator:
                 # Get existing reference number or None for new generation
                 existing_ref = existing_references.get(job_id)
                 
-                # Map job to XML format using existing service with AI classification
+                # Map job to XML format using existing service
+                # Note: AI classification temporarily disabled to prevent timeouts with 67+ jobs
+                # TODO: Implement batch AI classification for performance
                 xml_job = self.xml_integration.map_bullhorn_job_to_xml(
                     job_data, 
                     existing_reference_number=existing_ref,
-                    skip_ai_classification=False  # Enable AI classification for complete data
+                    skip_ai_classification=True  # Disable AI to prevent worker timeouts
                 )
                 
                 if not xml_job:
