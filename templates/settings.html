@@ -639,7 +639,13 @@
         
         function formatCountdown(targetDate) {
             const now = new Date();
-            const target = new Date(targetDate + 'Z'); // Add Z for UTC parsing
+            // Handle different date formats
+            let target;
+            if (targetDate.includes('Z') || targetDate.includes('+')) {
+                target = new Date(targetDate);
+            } else {
+                target = new Date(targetDate + ' UTC');
+            }
             const diff = target - now;
             
             if (diff <= 0) {
