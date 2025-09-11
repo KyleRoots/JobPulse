@@ -145,9 +145,16 @@ class MyticasFeedV2:
             remotetype_elem = etree.SubElement(job, 'remotetype')
             remotetype_elem.text = job_data.get('remotetype', '').strip()
             
-            # Assigned recruiter
+            # Assigned recruiter - use centralized LinkedIn tag formatter
             recruiter_elem = etree.SubElement(job, 'assignedrecruiter')
-            recruiter_elem.text = job_data.get('assignedrecruiter', '').strip()
+            raw_recruiter = job_data.get('assignedrecruiter', '').strip()
+            
+            # Import here to avoid circular imports
+            from xml_integration_service import XMLIntegrationService
+            
+            # Apply centralized LinkedIn tag formatting (strips trailing names)
+            formatted_recruiter = XMLIntegrationService.sanitize_linkedin_recruiter_tag(raw_recruiter)
+            recruiter_elem.text = formatted_recruiter
             
             # AI-generated fields
             jobfunction_elem = etree.SubElement(job, 'jobfunction')
