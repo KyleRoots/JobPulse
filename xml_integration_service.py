@@ -60,18 +60,19 @@ class XMLIntegrationService:
             assignedrecruiter_value: Raw assignedrecruiter field value
             
         Returns:
-            str: Sanitized LinkedIn tag or original value if not a LinkedIn tag
+            str: Sanitized LinkedIn tag or empty string if not a valid LinkedIn tag
         """
         if not assignedrecruiter_value:
             return ""
         
-        # If it's a LinkedIn tag with trailing content, strip the trailing content
-        linkedin_match = re.match(r'^(#LI-[A-Z]{2}\d+:).*$', assignedrecruiter_value.strip())
+        # If it's a LinkedIn tag with or without trailing content, extract just the tag part
+        # Relaxed pattern to handle future tag formats: #LI-[anything]:
+        linkedin_match = re.match(r'^(#LI-[^:]+:).*$', assignedrecruiter_value.strip())
         if linkedin_match:
             return linkedin_match.group(1)  # Return just the tag part
         
-        # If it's not a LinkedIn tag, return as-is (for backwards compatibility)
-        return assignedrecruiter_value.strip()
+        # If it's not a LinkedIn tag, return empty string to prevent names from leaking
+        return ""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
