@@ -900,6 +900,110 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // HTML escaping utility to prevent XSS
+        function escapeHTML(str) {
+            if (typeof str !== 'string') return str;
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // JavaScript version of the activity detail formatter
+        function formatActivityDetails(activityType, detailsJson) {
+            if (!detailsJson) return "No details available";
+            
+            let details;
+            try {
+                details = typeof detailsJson === 'string' ? JSON.parse(detailsJson) : detailsJson;
+            } catch (e) {
+                return typeof detailsJson === 'string' ? detailsJson : "No details available";
+            }
+            
+            switch (activityType) {
+                case 'email_notification':
+                    const monitorType = details.monitor_type || 'Unknown';
+                    const changes = details.changes_detected || 0;
+                    const added = details.added_jobs || 0;
+                    const removed = details.removed_jobs || 0;
+                    const modified = details.modified_jobs || 0;
+                    
+                    if (changes === 0) return `${monitorType}: No changes detected`;
+                    
+                    const changeParts = [];
+                    if (added > 0) changeParts.push(`+${added} added`);
+                    if (removed > 0) changeParts.push(`-${removed} removed`);
+                    if (modified > 0) changeParts.push(`~${modified} modified`);
+                    
+                    const changeSummary = changeParts.length > 0 ? changeParts.join(', ') : 'processed';
+                    return `${monitorType}: ${changes} jobs (${changeSummary})`;
+                    
+                case 'xml_sync_completed':
+                    const jobsProcessed = details.jobs_processed || details.total_jobs || 0;
+                    const cycleTime = details.cycle_time || 0;
+                    const timeInfo = cycleTime > 0 ? ` in ${cycleTime.toFixed(1)}s` : '';
+                    return `XML Sync: ${jobsProcessed} jobs processed${timeInfo}`;
+                    
+                case 'check_completed':
+                    const results = details.results || {};
+                    const monitorName = details.monitor_name || 'Monitor';
+                    const jobsFound = results.jobs_found || results.total_jobs || 0;
+                    return `${monitorName}: ${jobsFound} jobs verified`;
+                    
+                case 'job_added':
+                    const jobTitle = details.job_title || details.title || 'Unknown Job';
+                    const company = details.company || '';
+                    const location = details.location || '';
+                    
+                    let parts = [jobTitle];
+                    if (company) parts.push(`at ${company}`);
+                    if (location) parts.push(`in ${location}`);
+                    return parts.join(' ');
+                    
+                case 'job_removed':
+                    const removedTitle = details.job_title || details.title || 'Unknown Job';
+                    const reason = details.reason || 'No longer active';
+                    return `${removedTitle} - ${reason}`;
+                    
+                case 'job_modified':
+                    const changes = details.changes || {};
+                    if (typeof changes === 'object' && Object.keys(changes).length > 0) {
+                        const changeList = [];
+                        for (const field in changes) {
+                            const changeInfo = changes[field];
+                            if (typeof changeInfo === 'object' && changeInfo.old && changeInfo.new) {
+                                changeList.push(`${field} updated`);
+                            } else {
+                                changeList.push(field);
+                            }
+                        }
+                        if (changeList.length > 0) {
+                            return `Updated: ${changeList.join(', ')}`;
+                        }
+                    }
+                    return details.description || 'Job details updated';
+                    
+                case 'error':
+                    const errorMsg = details.error || details.message || 'Unknown error';
+                    return `Error: ${errorMsg}`;
+                    
+                case 'automated_upload':
+                    const jobsCount = details.jobs_count || details.total_jobs || 0;
+                    const success = details.upload_success || false;
+                    const status = success ? 'successful' : 'failed';
+                    return `Automated Upload: ${jobsCount} jobs - ${status}`;
+                    
+                default:
+                    // Fallback handling
+                    if (details.message) return details.message;
+                    if (details.description) return details.description;
+                    if (details.total_jobs) return `Processed ${details.total_jobs} jobs`;
+                    if (details.jobs_count) return `Processed ${details.jobs_count} jobs`;
+                    
+                    const detailStr = JSON.stringify(details);
+                    return detailStr.length > 100 ? detailStr.substring(0, 100) + '...' : detailStr;
+            }
+        }
+
         function testMonitor(monitorId) {
             const modal = new bootstrap.Modal(document.getElementById('testModal'));
             const resultDiv = document.getElementById('testResult');
@@ -1041,47 +1145,102 @@
                                 const timeDiff = now - activityTime;
                                 const isCurrentCycle = timeDiff < (6 * 60 * 1000); // 6 minutes
                                 
-                                row.innerHTML = `
-                                    <td>
-                                        <a href="/bullhorn/monitor/${activity.monitor_id}" class="text-decoration-none">
-                                            ${activity.monitor_name || 'Scheduled Processing'}
-                                        </a>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-${activity.activity_type === 'check_completed' ? 'info' : 
-                                            activity.activity_type === 'job_added' ? 'success' : 
-                                            activity.activity_type === 'job_removed' ? 'warning' : 
-                                            activity.activity_type === 'job_modified' ? 'primary' :
-                                            activity.activity_type === 'xml_sync_completed' ? 'secondary' : 'dark'}">
-                                            ${activity.activity_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                        </span>
-                                        ${isCurrentCycle ? '<span class="badge bg-success ms-1" title="Current monitoring cycle"><i class="fas fa-clock"></i></span>' : ''}
-                                    </td>
-                                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                        ${activity.job_id ? 
-                                            `<span class="badge bg-secondary me-2">${activity.job_id}</span>` : ''}
-                                        ${activity.details || (activity.job_title || '')}
-                                    </td>
-                                    <td>
-                                        ${activity.account_manager ? 
-                                            `<span class="badge bg-info">${activity.account_manager}</span>` : 
-                                            '<span class="text-muted">-</span>'}
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">
-                                            ${timeStr} UTC
-                                        </small>
-                                        <br>
-                                        <span class="badge bg-light text-dark" style="font-size: 0.7em;">
-                                            ${dateStr}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        ${activity.notification_sent ? 
-                                            '<i class="fas fa-envelope text-success" title="Email sent"></i>' :
-                                            '<i class="fas fa-envelope-open text-muted" title="No email"></i>'}
-                                    </td>
-                                `;
+                                // Safely construct row using DOM APIs to prevent XSS
+                                const badgeClass = activity.activity_type === 'check_completed' ? 'info' : 
+                                    activity.activity_type === 'job_added' ? 'success' : 
+                                    activity.activity_type === 'job_removed' ? 'warning' : 
+                                    activity.activity_type === 'job_modified' ? 'primary' :
+                                    activity.activity_type === 'xml_sync_completed' ? 'secondary' : 'dark';
+                                
+                                // Column 1: Monitor name with safe link
+                                const td1 = document.createElement('td');
+                                const link = document.createElement('a');
+                                link.className = 'text-decoration-none';
+                                link.href = `/bullhorn/monitor/${activity.monitor_id}`; // Safe URL construction
+                                link.textContent = activity.monitor_name || 'Scheduled Processing';
+                                td1.appendChild(link);
+                                
+                                // Column 2: Activity type badge
+                                const td2 = document.createElement('td');
+                                const badge = document.createElement('span');
+                                badge.className = `badge bg-${badgeClass}`;
+                                badge.textContent = activity.activity_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                td2.appendChild(badge);
+                                
+                                if (isCurrentCycle) {
+                                    const currentBadge = document.createElement('span');
+                                    currentBadge.className = 'badge bg-success ms-1';
+                                    currentBadge.title = 'Current monitoring cycle';
+                                    currentBadge.innerHTML = '<i class="fas fa-clock"></i>';
+                                    td2.appendChild(currentBadge);
+                                }
+                                
+                                // Column 3: Job details with safe content
+                                const td3 = document.createElement('td');
+                                td3.style.maxWidth = '300px';
+                                td3.style.overflow = 'hidden';
+                                td3.style.textOverflow = 'ellipsis';
+                                td3.style.whiteSpace = 'nowrap';
+                                
+                                if (activity.job_id) {
+                                    const jobBadge = document.createElement('span');
+                                    jobBadge.className = 'badge bg-secondary me-2';
+                                    jobBadge.textContent = activity.job_id;
+                                    td3.appendChild(jobBadge);
+                                }
+                                
+                                const detailsText = formatActivityDetails(activity.activity_type, activity.details) || activity.job_title || '';
+                                const detailsSpan = document.createElement('span');
+                                detailsSpan.textContent = detailsText;
+                                td3.appendChild(detailsSpan);
+                                
+                                // Column 4: Account manager
+                                const td4 = document.createElement('td');
+                                if (activity.account_manager) {
+                                    const managerBadge = document.createElement('span');
+                                    managerBadge.className = 'badge bg-info';
+                                    managerBadge.textContent = activity.account_manager;
+                                    td4.appendChild(managerBadge);
+                                } else {
+                                    const placeholder = document.createElement('span');
+                                    placeholder.className = 'text-muted';
+                                    placeholder.textContent = '-';
+                                    td4.appendChild(placeholder);
+                                }
+                                
+                                // Column 5: Timestamp
+                                const td5 = document.createElement('td');
+                                const timeSmall = document.createElement('small');
+                                timeSmall.className = 'text-muted';
+                                timeSmall.textContent = `${timeStr} UTC`;
+                                td5.appendChild(timeSmall);
+                                td5.appendChild(document.createElement('br'));
+                                
+                                const dateBadge = document.createElement('span');
+                                dateBadge.className = 'badge bg-light text-dark';
+                                dateBadge.style.fontSize = '0.7em';
+                                dateBadge.textContent = dateStr;
+                                td5.appendChild(dateBadge);
+                                
+                                // Column 6: Notification status
+                                const td6 = document.createElement('td');
+                                const icon = document.createElement('i');
+                                if (activity.notification_sent) {
+                                    icon.className = 'fas fa-envelope text-success';
+                                    icon.title = 'Email sent';
+                                } else {
+                                    icon.className = 'fas fa-envelope-open text-muted';
+                                    icon.title = 'No email';
+                                }
+                                td6.appendChild(icon);
+                                
+                                // Append all columns to row
+                                row.appendChild(td1);
+                                row.appendChild(td2);
+                                row.appendChild(td3);
+                                row.appendChild(td4);
+                                row.appendChild(td5);
+                                row.appendChild(td6);
                                 tbody.appendChild(row);
                             });
                             
