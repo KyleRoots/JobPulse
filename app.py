@@ -1887,6 +1887,43 @@ def download_current_xml():
         flash(f'Error generating XML file: {str(e)}', 'error')
         return redirect(url_for('bullhorn_dashboard'))
 
+@app.route('/automation-status')
+@login_required
+def automation_status():
+    """Get current automation status and timing information"""
+    try:
+        # Get automation setting
+        automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+        automation_enabled = automation_setting and automation_setting.setting_value == 'true'
+        
+        # Get scheduler job info
+        next_upload_time = None
+        last_upload_time = None
+        upload_interval = "30 minutes"
+        
+        if automation_enabled:
+            try:
+                job = scheduler.get_job('automated_upload')
+                if job and job.next_run_time:
+                    next_upload_time = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S UTC')
+            except Exception as e:
+                app.logger.warning(f"Could not get job timing: {str(e)}")
+        
+        # Get last upload from activity logs (we can implement this later)
+        last_upload_time = "Not available yet"
+        
+        return jsonify({
+            'automation_enabled': automation_enabled,
+            'next_upload_time': next_upload_time,
+            'last_upload_time': last_upload_time,
+            'upload_interval': upload_interval,
+            'status': 'Active' if automation_enabled else 'Disabled'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error getting automation status: {str(e)}")
+        return jsonify({'error': 'Failed to get automation status'}), 500
+
 @app.route('/settings')
 @login_required
 def settings():

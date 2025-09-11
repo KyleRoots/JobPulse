@@ -424,6 +424,41 @@
                                     </small>
                                 </div>
                             </div>
+
+                            <!-- Automation Status Display -->
+                            <div id="automation-status-section" class="row mb-3" style="display: none;">
+                                <div class="col-12">
+                                    <div class="card border-info">
+                                        <div class="card-header bg-info text-white">
+                                            <h6 class="card-title mb-0">
+                                                <i class="fas fa-clock me-2"></i>
+                                                Automated Upload Status
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-3">
+                                                    <strong>Status:</strong>
+                                                    <span id="automation-status" class="badge bg-secondary">Loading...</span>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>Next Upload:</strong>
+                                                    <div id="next-upload-time" class="text-muted">Loading...</div>
+                                                    <small id="countdown-timer" class="text-info"></small>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <strong>Frequency:</strong>
+                                                    <div id="upload-interval" class="text-muted">Every 30 minutes</div>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <strong>Last Upload:</strong>
+                                                    <div id="last-upload-time" class="text-muted">Loading...</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <div class="row mb-3">
                                 <div class="col-md-6">
@@ -598,6 +633,95 @@
                 button.innerHTML = '<i class="fas fa-plug me-2"></i>Test SFTP Connection';
             });
         }
+
+        // Automation Status Management
+        let countdownInterval = null;
+        
+        function formatCountdown(targetDate) {
+            const now = new Date();
+            const target = new Date(targetDate + 'Z'); // Add Z for UTC parsing
+            const diff = target - now;
+            
+            if (diff <= 0) {
+                return "Upload should start soon...";
+            }
+            
+            const minutes = Math.floor(diff / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            if (minutes > 0) {
+                return `in ${minutes}m ${seconds}s`;
+            } else {
+                return `in ${seconds}s`;
+            }
+        }
+        
+        function updateAutomationStatus() {
+            fetch('/automation-status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Error getting automation status:', data.error);
+                        return;
+                    }
+                    
+                    // Update status badge
+                    const statusElement = document.getElementById('automation-status');
+                    const statusSection = document.getElementById('automation-status-section');
+                    
+                    if (data.automation_enabled) {
+                        statusElement.className = 'badge bg-success';
+                        statusElement.textContent = data.status;
+                        statusSection.style.display = 'block';
+                        
+                        // Update timing information
+                        document.getElementById('next-upload-time').textContent = data.next_upload_time || 'Not scheduled';
+                        document.getElementById('last-upload-time').textContent = data.last_upload_time || 'Not available yet';
+                        document.getElementById('upload-interval').textContent = data.upload_interval;
+                        
+                        // Start countdown timer if we have a next upload time
+                        if (data.next_upload_time) {
+                            if (countdownInterval) {
+                                clearInterval(countdownInterval);
+                            }
+                            
+                            const updateCountdown = () => {
+                                const countdown = formatCountdown(data.next_upload_time);
+                                document.getElementById('countdown-timer').textContent = countdown;
+                            };
+                            
+                            updateCountdown(); // Initial update
+                            countdownInterval = setInterval(updateCountdown, 1000);
+                        }
+                    } else {
+                        statusElement.className = 'badge bg-secondary';
+                        statusElement.textContent = 'Disabled';
+                        statusSection.style.display = 'none';
+                        
+                        if (countdownInterval) {
+                            clearInterval(countdownInterval);
+                            countdownInterval = null;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching automation status:', error);
+                });
+        }
+        
+        // Handle toggle changes
+        document.getElementById('automated_uploads_enabled').addEventListener('change', function() {
+            // Wait a moment for the form submission to complete, then update status
+            setTimeout(updateAutomationStatus, 1000);
+        });
+        
+        // Initial load and periodic refresh
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAutomationStatus();
+            
+            // Refresh status every 30 seconds
+            setInterval(updateAutomationStatus, 30000);
+        });
     </script>
     
     <!-- JobPulse™ Footer -->
