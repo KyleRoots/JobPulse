@@ -3122,20 +3122,38 @@ def get_monitor_jobs(monitor_id):
         # Initialize Bullhorn service with credentials from GlobalSettings
         bullhorn_service = get_bullhorn_service()
         
-        if not bullhorn_service.test_connection():
+        # Test connection with better error handling
+        connection_test = bullhorn_service.test_connection()
+        if not connection_test:
+            app.logger.warning(f"Bullhorn connection failed for monitor {monitor_id}")
             return jsonify({
                 'success': False,
-                'error': 'Failed to connect to Bullhorn API. Please check your credentials.'
+                'error': 'Authentication failed: Unable to connect to Bullhorn API. Please refresh the page and try again.'
             })
         
-        # Get jobs based on monitor type
+        # Get jobs based on monitor type with enhanced error handling
         jobs = []
-        if monitor.tearsheet_id == 0:
-            # Query-based monitor
-            jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
-        else:
-            # Traditional tearsheet-based monitor
-            jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+        try:
+            if monitor.tearsheet_id == 0:
+                # Query-based monitor
+                jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
+            else:
+                # Traditional tearsheet-based monitor
+                jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
+        except Exception as api_error:
+            app.logger.error(f"Bullhorn API error for monitor {monitor_id}: {str(api_error)}")
+            # Check if this looks like an authentication error
+            error_msg = str(api_error).lower()
+            if 'auth' in error_msg or 'token' in error_msg or 'login' in error_msg or 'unauthorized' in error_msg:
+                return jsonify({
+                    'success': False,
+                    'error': 'Authentication expired. Please refresh the page and try again.'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'API Error: {str(api_error)}'
+                })
         
         # Format jobs for frontend display
         formatted_jobs = []
@@ -5042,7 +5060,7 @@ def run_xml_change_monitor():
                         
                         xml_monitor_activity = BullhornActivity(
                             monitor_id=None,  # XML monitor is system-level, not tied to specific tearsheet
-                            activity_type='email_notification',
+                            activity_type='xml_sync_completed',
                             details=json.dumps(activity_details),
                             notification_sent=True
                         )
