@@ -404,11 +404,23 @@
                                         <input class="form-check-input" type="checkbox" id="sftp_enabled" name="sftp_enabled" 
                                                {% if settings.sftp_enabled == 'true' %}checked{% endif %}>
                                         <label class="form-check-label" for="sftp_enabled">
-                                            <strong>Enable Automatic SFTP Upload</strong>
+                                            <strong>Enable SFTP Connection</strong>
                                         </label>
                                     </div>
                                     <small class="text-muted">
-                                        When enabled, processed files will automatically upload to your server
+                                        When enabled, SFTP connection will be available for uploads
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="automated_uploads_enabled" name="automated_uploads_enabled" 
+                                               {% if settings.automated_uploads_enabled == 'true' %}checked{% endif %}>
+                                        <label class="form-check-label" for="automated_uploads_enabled">
+                                            <strong>Enable Automated Uploads (Every 30 Minutes)</strong>
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">
+                                        Automatically upload XML files every 30 minutes. Disable for manual workflow only.
                                     </small>
                                 </div>
                             </div>

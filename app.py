@@ -1896,7 +1896,7 @@ def settings():
         settings_data = {}
         setting_keys = [
             'sftp_hostname', 'sftp_username', 'sftp_directory', 'sftp_port', 'sftp_enabled',
-            'email_notifications_enabled', 'default_notification_email'
+            'email_notifications_enabled', 'default_notification_email', 'automated_uploads_enabled'
         ]
         
         for key in setting_keys:
@@ -1930,8 +1930,18 @@ def update_settings():
             'default_notification_email': request.form.get('default_notification_email', '')
         }
         
+        # Update automation settings
+        automation_settings = {
+            'automated_uploads_enabled': 'true' if request.form.get('automated_uploads_enabled') == 'on' else 'false'
+        }
+        
         # Combine all settings
-        all_settings = {**sftp_settings, **email_settings}
+        all_settings = {**sftp_settings, **email_settings, **automation_settings}
+        
+        # Check if automation setting changed to manage scheduler job
+        old_automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+        old_automation_enabled = old_automation_setting.setting_value == 'true' if old_automation_setting else False
+        new_automation_enabled = automation_settings['automated_uploads_enabled'] == 'true'
         
         # Save to database
         for key, value in all_settings.items():
@@ -1952,8 +1962,41 @@ def update_settings():
                 db.session.add(setting)
         
         db.session.commit()
-        flash('Settings updated successfully!', 'success')
         
+        # Manage automated upload scheduler job if setting changed
+        if old_automation_enabled != new_automation_enabled:
+            try:
+                if new_automation_enabled:
+                    # Add automated upload job
+                    if scheduler.get_job('automated_upload') is None:
+                        scheduler.add_job(
+                            func=automated_upload,
+                            trigger='interval',
+                            minutes=30,
+                            id='automated_upload',
+                            name='Automated Upload (Every 30 Minutes)',
+                            replace_existing=True
+                        )
+                        app.logger.info("📤 Automated uploads enabled - 30-minute job added to scheduler")
+                        flash('Automated uploads enabled! XML files will be uploaded every 30 minutes.', 'success')
+                    else:
+                        app.logger.info("📤 Automated upload job already exists")
+                        flash('Automated uploads enabled!', 'success')
+                else:
+                    # Remove automated upload job
+                    try:
+                        scheduler.remove_job('automated_upload')
+                        app.logger.info("📋 Automated uploads disabled - job removed from scheduler")
+                        flash('Automated uploads disabled. Manual download workflow activated.', 'info')
+                    except:
+                        app.logger.info("📋 Automated upload job was not scheduled")
+                        flash('Automated uploads disabled.', 'info')
+            except Exception as scheduler_error:
+                app.logger.error(f"Failed to update automation scheduler: {str(scheduler_error)}")
+                flash('Settings saved but scheduler update failed. Restart application to apply automation changes.', 'warning')
+        else:
+            flash('Settings updated successfully!', 'success')
+            
         return redirect(url_for('settings'))
         
     except Exception as e:
@@ -4242,6 +4285,57 @@ if is_primary_worker:
     )
     app.logger.info("Scheduled daily file cleanup job")
 
+# Activity Retention Cleanup
+def activity_retention_cleanup():
+    """Clean up BullhornActivity records older than 15 days"""
+    with app.app_context():
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=15)
+            
+            # Count activities to be removed
+            old_activities = BullhornActivity.query.filter(
+                BullhornActivity.created_at < cutoff_date
+            ).count()
+            
+            if old_activities > 0:
+                # Delete old activities
+                deleted_count = BullhornActivity.query.filter(
+                    BullhornActivity.created_at < cutoff_date
+                ).delete()
+                
+                db.session.commit()
+                app.logger.info(f"🗑️ Activity cleanup: Removed {deleted_count} activity records older than 15 days")
+                
+                # Log the cleanup as a system activity
+                cleanup_activity = BullhornActivity(
+                    monitor_id=None,
+                    activity_type='system_cleanup',
+                    details=f"Removed {deleted_count} activity records older than 15 days",
+                    notification_sent=False,
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(cleanup_activity)
+                db.session.commit()
+            else:
+                app.logger.info("🗑️ Activity cleanup: No old activities to remove")
+                
+        except Exception as e:
+            app.logger.error(f"Activity cleanup error: {str(e)}")
+            db.session.rollback()
+
+if is_primary_worker:
+    # Add activity retention cleanup - runs daily at 3 AM
+    scheduler.add_job(
+        func=activity_retention_cleanup,
+        trigger='cron',
+        hour=3,
+        minute=0,
+        id='activity_cleanup',
+        name='Activity Retention Cleanup (15 days)',
+        replace_existing=True
+    )
+    app.logger.info("📋 Scheduled activity retention cleanup (15 days)")
+
 # Reference Number Refresh (120-hour cycle)
 def reference_number_refresh():
     """Automatic refresh of all reference numbers every 120 hours while preserving all other XML data"""
@@ -4520,7 +4614,183 @@ def reference_number_refresh():
         except Exception as e:
             app.logger.error(f"Reference refresh error: {str(e)}")
 
+# Automated Upload Function (30 minutes)
+def automated_upload():
+    """Automatically upload fresh XML every 30 minutes if automation is enabled"""
+    with app.app_context():
+        try:
+            # Check if automated uploads are enabled
+            automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+            if not (automation_setting and automation_setting.setting_value == 'true'):
+                app.logger.info("📋 Automated uploads disabled, skipping upload cycle")
+                return
+            
+            # Check if SFTP is enabled and configured
+            sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+            if not (sftp_enabled and sftp_enabled.setting_value == 'true'):
+                app.logger.warning("📤 Automated upload skipped: SFTP not enabled")
+                return
+            
+            app.logger.info("🚀 Starting automated 30-minute upload cycle...")
+            
+            # Generate fresh XML using SimplifiedXMLGenerator
+            from simplified_xml_generator import SimplifiedXMLGenerator
+            generator = SimplifiedXMLGenerator(db=db)
+            xml_content, stats = generator.generate_fresh_xml()
+            
+            app.logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
+            
+            # Use locking mechanism to prevent conflicts with monitoring cycle
+            lock_file = 'monitoring.lock'
+            upload_success = False
+            upload_error_message = None
+            
+            try:
+                # Check if monitoring cycle is running
+                if os.path.exists(lock_file):
+                    try:
+                        with open(lock_file, 'r') as f:
+                            lock_data = f.read().strip()
+                            if lock_data:
+                                lock_time = datetime.fromisoformat(lock_data)
+                                lock_age = (datetime.utcnow() - lock_time).total_seconds()
+                                
+                                if lock_age < 240:  # 4 minutes
+                                    app.logger.warning("🔒 Monitoring cycle is running, skipping automated upload")
+                                    return
+                                else:
+                                    os.remove(lock_file)  # Remove stale lock
+                    except Exception as e:
+                        app.logger.warning(f"Error reading monitoring lock: {str(e)}. Proceeding with upload.")
+                        if os.path.exists(lock_file):
+                            os.remove(lock_file)
+                
+                # Create temporary lock for upload
+                with open(lock_file, 'w') as f:
+                    f.write(datetime.utcnow().isoformat())
+                app.logger.info("🔒 Lock acquired for automated upload")
+                
+                try:
+                    # Save XML to temporary file
+                    import tempfile
+                    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
+                    temp_file.write(xml_content)
+                    temp_file.close()
+                    
+                    # Get SFTP settings
+                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                    
+                    if (sftp_hostname and sftp_hostname.setting_value and 
+                        sftp_username and sftp_username.setting_value and 
+                        sftp_password and sftp_password.setting_value):
+                        
+                        # Upload using SFTP
+                        from ftp_service import FTPService
+                        ftp_service = FTPService(
+                            hostname=sftp_hostname.setting_value,
+                            username=sftp_username.setting_value,
+                            password=sftp_password.setting_value,
+                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                            use_sftp=True
+                        )
+                        
+                        app.logger.info("📤 Uploading fresh XML to server...")
+                        upload_result = ftp_service.upload_file(
+                            local_file_path=temp_file.name,
+                            remote_filename='myticas-job-feed-v2.xml'
+                        )
+                        
+                        if upload_result['success']:
+                            upload_success = True
+                            app.logger.info(f"✅ Automated upload successful: {upload_result.get('message', 'File uploaded')}")
+                        else:
+                            upload_error_message = upload_result.get('error', 'Unknown upload error')
+                            app.logger.error(f"❌ Automated upload failed: {upload_error_message}")
+                    else:
+                        upload_error_message = "SFTP credentials not configured"
+                        app.logger.error("❌ SFTP credentials not configured in Global Settings")
+                    
+                    # Clean up temporary file
+                    try:
+                        os.remove(temp_file.name)
+                    except:
+                        pass
+                
+                finally:
+                    # Always remove lock when upload completes
+                    if os.path.exists(lock_file):
+                        try:
+                            os.remove(lock_file)
+                            app.logger.info("🔓 Lock released after automated upload")
+                        except Exception as e:
+                            app.logger.error(f"Error removing upload lock: {str(e)}")
+                
+                # Send email notification
+                email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+                if email_setting and email_setting.setting_value:
+                    try:
+                        from email_service import EmailService
+                        email_service = EmailService()
+                        
+                        # Prepare notification details
+                        notification_details = {
+                            'execution_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'),
+                            'jobs_count': stats['job_count'],
+                            'xml_size': f"{stats['xml_size_bytes']:,} bytes",
+                            'upload_attempted': True,
+                            'upload_success': upload_success,
+                            'upload_error': upload_error_message,
+                            'next_upload': (datetime.utcnow() + timedelta(minutes=30)).strftime('%Y-%m-%d %H:%M:%S UTC')
+                        }
+                        
+                        status = "success" if upload_success else "error"
+                        email_sent = email_service.send_automated_upload_notification(
+                            to_email=email_setting.setting_value,
+                            total_jobs=stats['job_count'],
+                            upload_details=notification_details,
+                            status=status
+                        )
+                        
+                        if email_sent:
+                            app.logger.info(f"📧 Upload notification sent to {email_setting.setting_value}")
+                        else:
+                            app.logger.warning("📧 Failed to send upload notification email")
+                    
+                    except Exception as email_error:
+                        app.logger.error(f"Failed to send upload notification: {str(email_error)}")
+                
+            except Exception as lock_error:
+                app.logger.error(f"Lock management error during automated upload: {str(lock_error)}")
+            
+        except Exception as e:
+            app.logger.error(f"❌ Automated upload error: {str(e)}")
+
 if is_primary_worker:
+    # Check if automated uploads are enabled before scheduling
+    try:
+        with app.app_context():
+            automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+            if automation_setting and automation_setting.setting_value == 'true':
+                # Schedule automated uploads every 30 minutes
+                scheduler.add_job(
+                    func=automated_upload,
+                    trigger='interval',
+                    minutes=30,
+                    id='automated_upload',
+                    name='Automated Upload (Every 30 Minutes)',
+                    replace_existing=True
+                )
+                app.logger.info("📤 Scheduled automated uploads every 30 minutes")
+            else:
+                app.logger.info("📋 Automated uploads disabled - scheduled job not created")
+    except Exception as e:
+        app.logger.warning(f"Could not check automated upload setting during startup: {str(e)}")
+    
     # Schedule reference refresh every 120 hours
     scheduler.add_job(
         func=reference_number_refresh,

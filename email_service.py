@@ -77,6 +77,141 @@ class EmailService:
             # Fail-safe: allow sending if check fails
             return False
     
+    def send_automated_upload_notification(self, to_email: str, total_jobs: int, 
+                                         upload_details: dict, status: str = "success") -> bool:
+        """
+        Send notification for automated XML uploads (every 30 minutes)
+        
+        Args:
+            to_email: Recipient email address
+            total_jobs: Number of jobs in the upload
+            upload_details: Dictionary with upload information
+            status: Status of the upload ("success" or "error")
+        
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        try:
+            # Check for recent duplicate notifications (prevent spam)
+            if self._check_recent_notification('automated_upload', to_email, minutes_threshold=25):
+                return True  # Already sent recently, skip
+            
+            # Create subject line
+            if status == "success":
+                subject = f"✅ Automated Upload Complete - {total_jobs} Jobs Updated"
+            else:
+                subject = f"❌ Automated Upload Failed - Manual Action Required"
+            
+            # Create HTML content
+            upload_time = upload_details.get('execution_time', 'Unknown')
+            next_upload = upload_details.get('next_upload', 'In 30 minutes')
+            xml_size = upload_details.get('xml_size', 'Unknown')
+            
+            html_content = f"""
+            <html>
+                <head>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; color: #333; }}
+                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                        .header {{ background-color: {'#28a745' if status == 'success' else '#dc3545'}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                        .content {{ background-color: #f8f9fa; padding: 20px; border-radius: 0 0 8px 8px; }}
+                        .details {{ background-color: white; padding: 15px; border-radius: 8px; margin: 15px 0; }}
+                        .status-success {{ color: #28a745; font-weight: bold; }}
+                        .status-error {{ color: #dc3545; font-weight: bold; }}
+                        .footer {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>{'🚀' if status == 'success' else '⚠️'} Automated XML Upload Report</h1>
+                        </div>
+                        <div class="content">
+                            <h2>Upload Summary</h2>
+                            <div class="details">
+                                <p><strong>Upload Time:</strong> {upload_time}</p>
+                                <p><strong>Total Jobs:</strong> {total_jobs}</p>
+                                <p><strong>XML File Size:</strong> {xml_size}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="status-{'success' if status == 'success' else 'error'}">
+                                        {'✅ Successfully Uploaded' if status == 'success' else '❌ Upload Failed'}
+                                    </span>
+                                </p>
+            """
+            
+            if status == "success":
+                html_content += f"""
+                                <p><strong>Next Upload:</strong> {next_upload}</p>
+                            </div>
+                            <div class="details">
+                                <h3>✅ Upload Details</h3>
+                                <p>Your XML job feed has been automatically uploaded to the server with the latest job listings.</p>
+                                <p>The system will continue to upload fresh data every 30 minutes to ensure your job feed stays current.</p>
+                            </div>
+                """
+            else:
+                error_message = upload_details.get('upload_error', 'Unknown error')
+                html_content += f"""
+                                <p><strong>Error:</strong> {error_message}</p>
+                            </div>
+                            <div class="details">
+                                <h3>⚠️ Action Required</h3>
+                                <p><strong>Upload Failed:</strong> {error_message}</p>
+                                <p><strong>Manual Override:</strong> Please use the manual download feature to get the XML file and upload it manually until this issue is resolved.</p>
+                                <ul>
+                                    <li>Go to the application dashboard</li>
+                                    <li>Click "Generate & Download XML"</li>
+                                    <li>Upload the file manually to your server</li>
+                                    <li>Check SFTP settings in the application</li>
+                                </ul>
+                            </div>
+                """
+            
+            html_content += f"""
+                            <div class="footer">
+                                <p>This is an automated message from your Job Feed System.</p>
+                                <p>You can disable automated uploads in the system settings if you prefer manual workflow.</p>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """
+            
+            # Create and send email
+            message = Mail(
+                from_email=self.from_email,
+                to_emails=to_email,
+                subject=subject,
+                html_content=html_content
+            )
+            
+            # Send the email
+            response = self.sg.send(message)
+            
+            # Log delivery
+            if self.db and self.EmailDeliveryLog:
+                try:
+                    log_entry = self.EmailDeliveryLog(
+                        notification_type='automated_upload',
+                        recipient_email=to_email,
+                        subject=subject,
+                        delivery_status='sent' if response.status_code in [200, 202] else 'failed',
+                        sendgrid_message_id=response.headers.get('X-Message-Id', ''),
+                        changes_summary=f"Jobs: {total_jobs}, Status: {status}, Upload: {upload_details.get('upload_success', False)}",
+                        error_message=None if response.status_code in [200, 202] else f"HTTP {response.status_code}"
+                    )
+                    self.db.session.add(log_entry)
+                    self.db.session.commit()
+                except Exception as log_error:
+                    logging.error(f"Failed to log automated upload notification delivery: {str(log_error)}")
+            
+            return response.status_code in [200, 202]
+            
+        except Exception as e:
+            logging.error(f"Failed to send automated upload notification: {str(e)}")
+            return False
+    
     def _deduplicate_job_list(self, job_list):
         """
         Remove duplicate jobs from a list based on job ID
