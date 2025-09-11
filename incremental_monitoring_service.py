@@ -11,6 +11,7 @@ import os
 import logging
 import time
 import fcntl
+import json
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 from lxml import etree
@@ -46,6 +47,7 @@ class IncrementalMonitoringService:
             'cycle_time': 0,
             'errors': []
         }
+        excluded_count = 0  # Initialize before try block
         
         start_time = time.time()
         xml_file = 'myticas-job-feed-v2.xml'
@@ -79,11 +81,13 @@ class IncrementalMonitoringService:
             # Step 1: Fetch all jobs from monitored tearsheets (with proper pagination)
             self.logger.info("\n📋 Step 1: Fetching jobs from tearsheets...")
             bullhorn_jobs = self._fetch_all_tearsheet_jobs()
-            self.logger.info(f"  Total jobs from tearsheets: {len(bullhorn_jobs)}")
+            self.logger.info(f"  ✅ TEARSHEET FETCH COMPLETED: {len(bullhorn_jobs)} jobs")
             
             # Step 2: Load current XML and compare
             self.logger.info("\n📄 Step 2: Loading current XML and comparing...")
+            self.logger.info("  🔍 About to call _load_xml_jobs()...")
             current_xml_jobs = self._load_xml_jobs(xml_file)
+            self.logger.info(f"  ✅ XML LOAD COMPLETED: {len(current_xml_jobs)} jobs")
             self.logger.info(f"  Current XML has {len(current_xml_jobs)} jobs")
             
             # Determine changes
@@ -168,9 +172,12 @@ class IncrementalMonitoringService:
             self.logger.error(f"Monitoring cycle error: {str(e)}")
             cycle_results['errors'].append(f"Cycle error: {str(e)}")
         finally:
-            # Release lock
+            # Release lock first
             self._release_lock()
             cycle_results['cycle_time'] = time.time() - start_time
+            
+            # Create activity record after releasing lock (with app context)
+            self._log_monitoring_activity(cycle_results, excluded_count)
             
             self.logger.info("\n" + "=" * 60)
             self.logger.info(f"CYCLE COMPLETED in {cycle_results['cycle_time']:.1f}s")
@@ -181,6 +188,47 @@ class IncrementalMonitoringService:
             self.logger.info("=" * 60)
         
         return cycle_results
+    
+    def _log_monitoring_activity(self, cycle_results: Dict, excluded_count: int):
+        """Create BullhornActivity record for monitoring cycle"""
+        try:
+            # Import here to avoid circular imports
+            from app import app, db, BullhornActivity
+            
+            # Prepare activity details
+            activity_details = {
+                'jobs_added': cycle_results['jobs_added'],
+                'jobs_removed': cycle_results['jobs_removed'],
+                'jobs_updated': cycle_results['jobs_updated'],
+                'excluded_jobs': excluded_count,
+                'total_jobs': cycle_results['total_jobs'],
+                'cycle_time': round(cycle_results.get('cycle_time', 0), 1),
+                'errors': cycle_results.get('errors', [])
+            }
+            
+            # Create activity entry within Flask app context
+            with app.app_context():
+                try:
+                    activity = BullhornActivity(
+                        monitor_id=None,  # System-level monitoring activity
+                        activity_type='monitoring_cycle_completed',
+                        job_id=None,
+                        job_title=None,
+                        details=json.dumps(activity_details),
+                        notification_sent=False
+                    )
+                    
+                    db.session.add(activity)
+                    db.session.commit()
+                    
+                    self.logger.info("✅ Activity logged: Monitoring cycle completed")
+                    
+                except Exception as db_error:
+                    db.session.rollback()
+                    self.logger.error(f"❌ Database error logging activity: {str(db_error)}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to log monitoring activity: {str(e)}")
     
     def _acquire_lock(self, timeout: int = 30) -> bool:
         """Acquire file lock to prevent concurrent modifications"""

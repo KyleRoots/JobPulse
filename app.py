@@ -315,6 +315,32 @@ def format_activity_details(activity_type, details_json):
         schedule_name = details.get('schedule_name', 'Unknown Schedule')
         return f"Processing Error: {schedule_name} - {error_msg}"
     
+    elif activity_type == 'monitoring_cycle_completed':
+        # Handle incremental monitoring cycle activities
+        if isinstance(details, str):
+            return details
+        added = details.get('jobs_added', 0)
+        removed = details.get('jobs_removed', 0) 
+        updated = details.get('jobs_updated', 0)
+        excluded = details.get('excluded_jobs', 0)
+        total = details.get('total_jobs', 0)
+        
+        changes = []
+        if added > 0:
+            changes.append(f"+{added} added")
+        if removed > 0:
+            changes.append(f"-{removed} removed")  
+        if updated > 0:
+            changes.append(f"~{updated} updated")
+        if excluded > 0:
+            changes.append(f"🚫{excluded} excluded")
+            
+        if changes:
+            change_summary = ", ".join(changes)
+            return f"Monitoring Cycle: {total} total jobs ({change_summary})"
+        else:
+            return f"Monitoring Cycle: {total} total jobs (no changes)"
+    
     # Default fallback for unknown activity types
     if isinstance(details, dict):
         # Try to extract meaningful information
