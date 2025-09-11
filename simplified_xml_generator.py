@@ -129,7 +129,7 @@ class SimplifiedXMLGenerator:
     
     def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int]) -> List[Dict]:
         """
-        Pull jobs from all tearsheets with tearsheet context preserved
+        Pull jobs from all tearsheets using the same proven method as main monitoring system
         
         Args:
             bullhorn_service: Authenticated Bullhorn service
@@ -145,48 +145,36 @@ class SimplifiedXMLGenerator:
             try:
                 self.logger.info(f"Processing tearsheet {tearsheet_id}")
                 
-                # Get tearsheet members (job IDs)
-                members = bullhorn_service.get_tearsheet_members(tearsheet_id)
-                if not members:
-                    self.logger.warning(f"No members found in tearsheet {tearsheet_id}")
+                # Use the same method as main monitoring system (proven to work)
+                jobs = bullhorn_service.get_tearsheet_jobs(tearsheet_id)
+                
+                if not jobs:
+                    self.logger.warning(f"No jobs found in tearsheet {tearsheet_id}")
                     continue
                 
-                # Extract job IDs directly from tearsheet members 
-                job_ids = [member.get('id') for member in members if member.get('id')]
-                self.logger.info(f"Found {len(job_ids)} job IDs in tearsheet {tearsheet_id}")
+                self.logger.info(f"Found {len(jobs)} jobs in tearsheet {tearsheet_id}")
                 
-                # Get full job details in batches
-                batch_size = 50
-                for i in range(0, len(job_ids), batch_size):
-                    batch_ids = job_ids[i:i + batch_size]
-                    
-                    # Fetch full job details
-                    jobs = bullhorn_service.get_jobs_batch(batch_ids)
-                    
-                    for job in jobs:
-                        job_id = job.get('id')
-                        if job_id and job_id not in seen_job_ids:
-                            # Include jobs with isOpen=True OR status in active states
-                            is_open = job.get('isOpen', False)
-                            status = job.get('status', '').upper()
-                            
-                            # Expanded status filter to include all accepting variants
-                            if is_open or status in ['ACTIVE', 'OPEN', 'PUBLISHED', 'ACCEPTING', 'ACCEPTING SUBMISSIONS', 'ACCEPTING_SUBMISSIONS', 'ACCEPTING RESUMES']:
-                                # Add tearsheet context to job data
-                                monitor_name = self.tearsheet_monitor_mapping.get(tearsheet_id, 'default')
-                                job['tearsheet_context'] = {
-                                    'tearsheet_id': tearsheet_id,
-                                    'monitor_name': monitor_name
-                                }
-                                all_jobs.append(job)
-                                seen_job_ids.add(job_id)
-                                self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')} from {monitor_name} [isOpen={is_open}, status={status}]")
+                for job in jobs:
+                    job_id = job.get('id')
+                    if job_id and job_id not in seen_job_ids:
+                        # Add tearsheet context to job data
+                        monitor_name = self.tearsheet_monitor_mapping.get(tearsheet_id, 'default')
+                        job['tearsheet_context'] = {
+                            'tearsheet_id': tearsheet_id,
+                            'monitor_name': monitor_name
+                        }
+                        all_jobs.append(job)
+                        seen_job_ids.add(job_id)
+                        
+                        status = job.get('status', 'Unknown')
+                        is_open = job.get('isOpen', False)
+                        self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')} from {monitor_name} [isOpen={is_open}, status={status}]")
                 
             except Exception as e:
                 self.logger.error(f"Error processing tearsheet {tearsheet_id}: {str(e)}")
                 continue
         
-        self.logger.info(f"Total unique active jobs found: {len(all_jobs)}")
+        self.logger.info(f"Total unique jobs found: {len(all_jobs)}")
         return all_jobs
     
     def _build_clean_xml(self, jobs: List[Dict], existing_references: Dict) -> tuple[str, Dict]:
