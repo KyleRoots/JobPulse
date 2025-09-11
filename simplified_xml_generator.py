@@ -32,8 +32,16 @@ class SimplifiedXMLGenerator:
         self.xml_integration = XMLIntegrationService()
         self.xml_processor = XMLProcessor()
         
-        # Tearsheet IDs to pull from
+        # Tearsheet IDs to pull from with monitor name mapping
         self.tearsheet_ids = [1256, 1264, 1499, 1556]
+        
+        # Tearsheet ID to monitor name mapping (from app.py monitors)
+        self.tearsheet_monitor_mapping = {
+            1256: 'Sponsored - OTT',
+            1264: 'Sponsored - VMS', 
+            1499: 'Sponsored - GR',
+            1556: 'Sponsored - STSI'
+        }
         
         # File to persist reference number mappings
         self.snapshot_file = 'xml_snapshot.json'
@@ -68,21 +76,21 @@ class SimplifiedXMLGenerator:
             if not bullhorn_service.authenticate():
                 raise Exception("Failed to authenticate with Bullhorn")
             
-            # Pull jobs from all tearsheets
-            all_jobs = self._get_jobs_from_tearsheets(bullhorn_service, self.tearsheet_ids)
+            # Pull jobs from all tearsheets with tearsheet context
+            all_jobs_with_context = self._get_jobs_from_tearsheets(bullhorn_service, self.tearsheet_ids)
             
-            if not all_jobs:
+            if not all_jobs_with_context:
                 raise Exception("No jobs found in any tearsheets")
             
-            # Build XML from job data
-            xml_content, updated_references = self._build_clean_xml(all_jobs, existing_references)
+            # Build XML from job data with tearsheet context
+            xml_content, updated_references = self._build_clean_xml(all_jobs_with_context, existing_references)
             
             # Save updated reference mappings
             self._save_reference_snapshot(updated_references)
             
             # Generate stats
             stats = {
-                'job_count': len(all_jobs),
+                'job_count': len(all_jobs_with_context),
                 'tearsheets_processed': len(self.tearsheet_ids),
                 'xml_size_bytes': len(xml_content.encode('utf-8')),
                 'generated_at': datetime.now().isoformat()
@@ -121,14 +129,14 @@ class SimplifiedXMLGenerator:
     
     def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int]) -> List[Dict]:
         """
-        Pull jobs from all tearsheets with deduplication
+        Pull jobs from all tearsheets with tearsheet context preserved
         
         Args:
             bullhorn_service: Authenticated Bullhorn service
             tearsheet_ids: List of tearsheet IDs to process
             
         Returns:
-            List of unique job dictionaries
+            List of job dictionaries with tearsheet_context added
         """
         all_jobs = []
         seen_job_ids = set()
@@ -143,8 +151,9 @@ class SimplifiedXMLGenerator:
                     self.logger.warning(f"No members found in tearsheet {tearsheet_id}")
                     continue
                 
-                job_ids = [member['id'] for member in members if member.get('id')]
-                self.logger.info(f"Found {len(job_ids)} job IDs in tearsheet {tearsheet_id}")
+                # Extract JobOrder IDs (not membership IDs)
+                job_ids = [member.get('jobOrder', {}).get('id') for member in members if member.get('jobOrder', {}).get('id')]
+                self.logger.info(f"Found {len(job_ids)} job IDs in tearsheet {tearsheet_id} (using jobOrder.id)")
                 
                 # Get full job details in batches
                 batch_size = 50
@@ -161,10 +170,17 @@ class SimplifiedXMLGenerator:
                             is_open = job.get('isOpen', False)
                             status = job.get('status', '').upper()
                             
-                            if is_open or status in ['ACTIVE', 'OPEN', 'PUBLISHED', 'ACCEPTING']:
+                            # Expanded status filter to include all accepting variants
+                            if is_open or status in ['ACTIVE', 'OPEN', 'PUBLISHED', 'ACCEPTING', 'ACCEPTING SUBMISSIONS', 'ACCEPTING_SUBMISSIONS', 'ACCEPTING RESUMES']:
+                                # Add tearsheet context to job data
+                                monitor_name = self.tearsheet_monitor_mapping.get(tearsheet_id, 'default')
+                                job['tearsheet_context'] = {
+                                    'tearsheet_id': tearsheet_id,
+                                    'monitor_name': monitor_name
+                                }
                                 all_jobs.append(job)
                                 seen_job_ids.add(job_id)
-                                self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')} [isOpen={is_open}, status={status}]")
+                                self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')} from {monitor_name} [isOpen={is_open}, status={status}]")
                 
             except Exception as e:
                 self.logger.error(f"Error processing tearsheet {tearsheet_id}: {str(e)}")
@@ -206,13 +222,18 @@ class SimplifiedXMLGenerator:
                 # Get existing reference number or None for new generation
                 existing_ref = existing_references.get(job_id)
                 
-                # Map job to XML format using existing service
+                # Extract tearsheet context for proper branding
+                tearsheet_context = job_data.get('tearsheet_context', {})
+                monitor_name = tearsheet_context.get('monitor_name', 'default')
+                
+                # Map job to XML format using existing service with tearsheet context
                 # Note: AI classification temporarily disabled to prevent timeouts with 67+ jobs
                 # TODO: Implement batch AI classification for performance
                 xml_job = self.xml_integration.map_bullhorn_job_to_xml(
                     job_data, 
                     existing_reference_number=existing_ref,
-                    skip_ai_classification=True  # Disable AI to prevent worker timeouts
+                    skip_ai_classification=True,  # Disable AI to prevent worker timeouts
+                    monitor_name=monitor_name  # Pass tearsheet context for proper branding
                 )
                 
                 if not xml_job:
@@ -234,7 +255,9 @@ class SimplifiedXMLGenerator:
                     field_elem.text = etree.CDATA(f" {field_value} ")
                 
             except Exception as e:
-                self.logger.error(f"Error processing job {job_data.get('id', 'unknown')}: {str(e)}")
+                tearsheet_context = job_data.get('tearsheet_context', {})
+                monitor_name = tearsheet_context.get('monitor_name', 'unknown')
+                self.logger.error(f"Error processing job {job_data.get('id', 'unknown')} from {monitor_name}: {str(e)}")
                 continue
         
         # Convert to clean XML string
