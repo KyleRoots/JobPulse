@@ -7,8 +7,7 @@ import os
 import json
 import re
 import logging
-from typing import Dict, List, Optional, Tuple
-from openai import OpenAI
+from typing import Dict, List, Optional, Tuple, Any
 
 class InternalJobClassifier:
     """Fast, reliable internal classifier using keyword-based matching"""
@@ -233,14 +232,7 @@ class JobClassificationService:
         # Initialize internal classifier (fast and reliable!)
         self.internal_classifier = InternalJobClassifier(self.categories)
         
-        # Optional OpenAI fallback (now unused but kept for compatibility)
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if api_key:
-            self.openai_client = OpenAI(api_key=api_key, timeout=8.0)
-            self.logger.info("⚡ Internal keyword-based classifier active (OpenAI available as fallback)")
-        else:
-            self.openai_client = None
-            self.logger.info("⚡ Internal keyword-based classifier active (no OpenAI dependency)")
+        self.logger.info("⚡ Internal keyword-based classifier active - instant and reliable!")
     
     def _load_categories(self):
         """Load predefined job categories from JSON file"""
@@ -258,7 +250,7 @@ class JobClassificationService:
                 'seniority_levels': []
             }
     
-    def classify_jobs_batch(self, jobs: List[Dict[str, str]], batch_size: int = 10, max_retries: int = 2, max_processing_time: int = None) -> List[Dict[str, str]]:
+    def classify_jobs_batch(self, jobs: List[Dict[str, str]], batch_size: int = 10, max_retries: int = 2, max_processing_time: Optional[int] = None) -> List[Dict[str, str]]:
         """
         Classify multiple jobs using fast internal classification - NO TIMEOUTS!
         
