@@ -42,6 +42,58 @@ class JobClassificationService:
                 'seniority_levels': []
             }
     
+    def classify_jobs_batch(self, jobs: List[Dict[str, str]], batch_size: int = 10, max_retries: int = 2) -> List[Dict[str, str]]:
+        """
+        Classify multiple jobs in batches to prevent timeouts
+        
+        Args:
+            jobs: List of dicts with 'title' and 'description' keys
+            batch_size: Number of jobs to process per batch
+            max_retries: Number of retry attempts for failed classifications
+            
+        Returns:
+            List of classification results in same order as input
+        """
+        if not self.openai_client:
+            self.logger.warning("OpenAI client not initialized - returning empty classifications for batch")
+            return [{'success': False, 'job_function': '', 'industries': '', 'seniority_level': '', 'error': 'OpenAI client not initialized'} for _ in jobs]
+        
+        results = []
+        total_jobs = len(jobs)
+        
+        for i in range(0, total_jobs, batch_size):
+            batch = jobs[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (total_jobs + batch_size - 1) // batch_size
+            
+            self.logger.info(f"Processing AI classification batch {batch_num}/{total_batches} ({len(batch)} jobs)")
+            
+            batch_results = []
+            for job in batch:
+                for attempt in range(max_retries + 1):
+                    try:
+                        result = self.classify_job(job['title'], job['description'])
+                        batch_results.append(result)
+                        break
+                    except Exception as e:
+                        if attempt < max_retries:
+                            self.logger.warning(f"Retry {attempt + 1}/{max_retries} for job '{job['title']}': {e}")
+                            import time
+                            time.sleep(1)  # Brief delay before retry
+                        else:
+                            self.logger.error(f"Failed to classify job '{job['title']}' after {max_retries} retries: {e}")
+                            batch_results.append({'success': False, 'job_function': '', 'industries': '', 'seniority_level': '', 'error': str(e)})
+            
+            results.extend(batch_results)
+            
+            # Brief pause between batches to prevent rate limiting
+            if i + batch_size < total_jobs:
+                import time
+                time.sleep(0.5)
+        
+        self.logger.info(f"Completed batch AI classification: {len(results)} jobs processed")
+        return results
+    
     def classify_job(self, job_title: str, job_description: str) -> Dict[str, str]:
         """
         Classify a job based on its title and description

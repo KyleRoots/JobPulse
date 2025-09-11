@@ -39,6 +39,108 @@ class XMLIntegrationService:
         # Thread lock for preventing concurrent XML modifications
         self._xml_lock = threading.Lock()
     
+    def map_bullhorn_jobs_to_xml_batch(self, jobs_data: List[Dict], existing_references: Dict = None, enable_ai_classification: bool = True, monitor_names: Dict = None) -> List[Dict]:
+        """
+        Map multiple Bullhorn jobs to XML format with batch AI classification to prevent timeouts
+        
+        Args:
+            jobs_data: List of Bullhorn job dictionaries
+            existing_references: Dict mapping job_id to existing reference numbers
+            enable_ai_classification: Whether to perform AI classification in batch mode
+            monitor_names: Dict mapping job_id to monitor names for proper branding
+            
+        Returns:
+            List of XML job dictionaries
+        """
+        if not jobs_data:
+            return []
+        
+        existing_references = existing_references or {}
+        monitor_names = monitor_names or {}
+        xml_jobs = []
+        
+        # Perform batch AI classification if enabled
+        ai_results = {}
+        if enable_ai_classification:
+            self.logger.info(f"Starting batch AI classification for {len(jobs_data)} jobs...")
+            
+            # Prepare jobs for batch AI classification
+            jobs_for_ai = []
+            for job_data in jobs_data:
+                job_id = str(job_data.get('id', ''))
+                title = job_data.get('title', 'Untitled Position')
+                
+                # Clean title same way as individual mapping
+                title = html.unescape(title).replace('/', ' ')
+                clean_title = re.sub(r'\s*\([A-Z]+-?\d+\)\s*', '', title)
+                clean_title = re.sub(r'^Local to [A-Z]{2}[^,]*,\s*', '', clean_title)
+                clean_title = re.sub(r'\s*\([^)]+\)\s*', ' ', clean_title).strip()
+                
+                # Extract description
+                description = job_data.get('publicDescription', '') or job_data.get('description', '')
+                
+                jobs_for_ai.append({
+                    'id': job_id,
+                    'title': clean_title,
+                    'description': description
+                })
+            
+            # Perform batch AI classification with smaller batches to prevent timeouts
+            ai_classifications = self.job_classifier.classify_jobs_batch(jobs_for_ai, batch_size=8)
+            
+            # Map results by job ID for easy lookup
+            for i, job_data in enumerate(jobs_data):
+                job_id = str(job_data.get('id', ''))
+                if i < len(ai_classifications):
+                    ai_results[job_id] = ai_classifications[i]
+            
+            self.logger.info(f"Batch AI classification completed for {len(ai_results)} jobs")
+        
+        # Process each job with its AI classification result
+        for job_data in jobs_data:
+            job_id = str(job_data.get('id', ''))
+            monitor_name = monitor_names.get(job_id, '')
+            existing_ref = existing_references.get(job_id, '')
+            ai_result = ai_results.get(job_id, None)
+            
+            # Map individual job with pre-computed AI classification
+            xml_job = self._map_single_job_with_ai_result(
+                job_data,
+                existing_reference_number=existing_ref,
+                monitor_name=monitor_name,
+                ai_classification_result=ai_result
+            )
+            
+            if xml_job:
+                xml_jobs.append(xml_job)
+        
+        self.logger.info(f"Mapped {len(xml_jobs)} jobs to XML format with batch AI classification")
+        return xml_jobs
+    
+    def _map_single_job_with_ai_result(self, bullhorn_job: Dict, existing_reference_number: str = '', monitor_name: str = '', ai_classification_result: Dict = None) -> Dict:
+        """
+        Map a single job with a pre-computed AI classification result
+        This is used by the batch processing method to avoid individual AI calls
+        """
+        # Use existing AI fields logic but with pre-computed result
+        if ai_classification_result and ai_classification_result.get('success'):
+            existing_ai_fields = {
+                'jobfunction': ai_classification_result.get('job_function', ''),
+                'jobindustries': ai_classification_result.get('industries', ''),
+                'senioritylevel': ai_classification_result.get('seniority_level', '')
+            }
+        else:
+            existing_ai_fields = None
+        
+        # Call the existing method with AI results provided as existing fields
+        return self.map_bullhorn_job_to_xml(
+            bullhorn_job,
+            existing_reference_number=existing_reference_number,
+            monitor_name=monitor_name,
+            skip_ai_classification=False,  # We have AI data already
+            existing_ai_fields=existing_ai_fields
+        )
+    
     def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False, existing_ai_fields: Optional[Dict] = None) -> Dict:
         """
         Map Bullhorn job data to XML job structure

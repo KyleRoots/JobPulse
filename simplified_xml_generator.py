@@ -203,34 +203,36 @@ class SimplifiedXMLGenerator:
         
         updated_references = existing_references.copy()
         
+        # 🎉 BATCH AI CLASSIFICATION ENABLED! 
+        # Prepare data for batch processing to prevent timeouts
+        existing_ref_map = {}
+        monitor_name_map = {}
+        
         for job_data in jobs:
-            try:
-                job_id = str(job_data.get('id', ''))
-                
-                # Get existing reference number or None for new generation
-                existing_ref = existing_references.get(job_id)
-                
-                # Extract tearsheet context for proper branding
-                tearsheet_context = job_data.get('tearsheet_context', {})
-                monitor_name = tearsheet_context.get('monitor_name', 'default')
-                
-                # Map job to XML format using existing service with tearsheet context
-                # Note: AI classification temporarily disabled to prevent timeouts with 67+ jobs
-                # TODO: Implement batch AI classification for performance
-                xml_job = self.xml_integration.map_bullhorn_job_to_xml(
-                    job_data, 
-                    existing_reference_number=existing_ref,
-                    skip_ai_classification=True,  # Disable AI to prevent worker timeouts
-                    monitor_name=monitor_name  # Pass tearsheet context for proper branding
-                )
-                
-                if not xml_job:
-                    self.logger.warning(f"Failed to map job {job_id}, skipping")
-                    continue
+            job_id = str(job_data.get('id', ''))
+            existing_ref_map[job_id] = existing_references.get(job_id, '')
+            tearsheet_context = job_data.get('tearsheet_context', {})
+            monitor_name_map[job_id] = tearsheet_context.get('monitor_name', 'default')
+        
+        # Use batch processing with AI classification enabled
+        self.logger.info(f"🤖 Processing {len(jobs)} jobs with batch AI classification...")
+        
+        try:
+            # Process all jobs with AI classification in batches
+            xml_jobs = self.xml_integration.map_bullhorn_jobs_to_xml_batch(
+                jobs_data=jobs,
+                existing_references=existing_ref_map,
+                enable_ai_classification=True,  # 🎉 AI CLASSIFICATION RE-ENABLED!
+                monitor_names=monitor_name_map
+            )
+            
+            # Add XML jobs to the root element
+            for xml_job in xml_jobs:
+                job_id = xml_job.get('bhatsid', '')
                 
                 # Store reference number mapping
                 ref_number = xml_job.get('referencenumber')
-                if ref_number:
+                if ref_number and job_id:
                     updated_references[job_id] = ref_number
                 
                 # Create job element with CDATA wrapping
@@ -241,12 +243,50 @@ class SimplifiedXMLGenerator:
                     field_elem = etree.SubElement(job_elem, field_name)
                     # Wrap all fields in CDATA for proper XML handling
                     field_elem.text = etree.CDATA(f" {field_value} ")
-                
-            except Exception as e:
-                tearsheet_context = job_data.get('tearsheet_context', {})
-                monitor_name = tearsheet_context.get('monitor_name', 'unknown')
-                self.logger.error(f"Error processing job {job_data.get('id', 'unknown')} from {monitor_name}: {str(e)}")
-                continue
+            
+            self.logger.info(f"✅ Successfully processed {len(xml_jobs)} jobs with AI classification")
+            
+        except Exception as batch_error:
+            self.logger.error(f"Batch AI processing failed: {str(batch_error)}")
+            self.logger.warning("⚠️ Falling back to individual processing without AI classification")
+            
+            # Fallback to individual processing without AI as safety measure
+            for job_data in jobs:
+                try:
+                    job_id = str(job_data.get('id', ''))
+                    existing_ref = existing_ref_map.get(job_id, '')
+                    monitor_name = monitor_name_map.get(job_id, 'default')
+                    
+                    xml_job = self.xml_integration.map_bullhorn_job_to_xml(
+                        job_data, 
+                        existing_reference_number=existing_ref,
+                        skip_ai_classification=True,  # Fallback without AI
+                        monitor_name=monitor_name
+                    )
+                    
+                    if not xml_job:
+                        self.logger.warning(f"Failed to map job {job_id}, skipping")
+                        continue
+                    
+                    # Store reference number mapping
+                    ref_number = xml_job.get('referencenumber')
+                    if ref_number:
+                        updated_references[job_id] = ref_number
+                    
+                    # Create job element with CDATA wrapping
+                    job_elem = etree.SubElement(root, "job")
+                    
+                    # Add all fields with CDATA wrapping
+                    for field_name, field_value in xml_job.items():
+                        field_elem = etree.SubElement(job_elem, field_name)
+                        # Wrap all fields in CDATA for proper XML handling
+                        field_elem.text = etree.CDATA(f" {field_value} ")
+                    
+                except Exception as e:
+                    tearsheet_context = job_data.get('tearsheet_context', {})
+                    monitor_name = tearsheet_context.get('monitor_name', 'unknown')
+                    self.logger.error(f"Error processing job {job_data.get('id', 'unknown')} from {monitor_name}: {str(e)}")
+                    continue
         
         # Convert to clean XML string
         xml_string = etree.tostring(
