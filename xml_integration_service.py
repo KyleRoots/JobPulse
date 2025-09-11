@@ -59,10 +59,14 @@ class XMLIntegrationService:
         monitor_names = monitor_names or {}
         xml_jobs = []
         
-        # Perform batch AI classification if enabled
+        # Perform batch AI classification if enabled with timeout protection
         ai_results = {}
         if enable_ai_classification:
-            self.logger.info(f"Starting batch AI classification for {len(jobs_data)} jobs...")
+            import time
+            start_time = time.time()
+            MAX_AI_PROCESSING_TIME = 25  # Max 25 seconds to leave buffer for XML generation
+            
+            self.logger.info(f"Starting batch AI classification for {len(jobs_data)} jobs (max {MAX_AI_PROCESSING_TIME}s)...")
             
             # Prepare jobs for batch AI classification
             jobs_for_ai = []
@@ -85,16 +89,28 @@ class XMLIntegrationService:
                     'description': description
                 })
             
-            # Perform batch AI classification with smaller batches to prevent timeouts
-            ai_classifications = self.job_classifier.classify_jobs_batch(jobs_for_ai, batch_size=8)
-            
-            # Map results by job ID for easy lookup
-            for i, job_data in enumerate(jobs_data):
-                job_id = str(job_data.get('id', ''))
-                if i < len(ai_classifications):
-                    ai_results[job_id] = ai_classifications[i]
-            
-            self.logger.info(f"Batch AI classification completed for {len(ai_results)} jobs")
+            try:
+                # Perform batch AI classification with smaller batches and timeout protection
+                ai_classifications = self.job_classifier.classify_jobs_batch(
+                    jobs_for_ai, 
+                    batch_size=4,
+                    max_processing_time=MAX_AI_PROCESSING_TIME
+                )
+                
+                # Map results by job ID for easy lookup
+                for i, job_data in enumerate(jobs_data):
+                    job_id = str(job_data.get('id', ''))
+                    if i < len(ai_classifications):
+                        ai_results[job_id] = ai_classifications[i]
+                
+                elapsed_time = time.time() - start_time
+                self.logger.info(f"Batch AI classification completed for {len(ai_results)} jobs in {elapsed_time:.1f}s")
+                
+            except Exception as ai_error:
+                elapsed_time = time.time() - start_time
+                self.logger.warning(f"AI classification failed after {elapsed_time:.1f}s: {str(ai_error)}")
+                self.logger.info("Proceeding without AI classification to ensure XML generation completes")
+                ai_results = {}  # Empty results = no AI classification
         
         # Process each job with its AI classification result
         for job_data in jobs_data:

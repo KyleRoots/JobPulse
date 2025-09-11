@@ -42,7 +42,7 @@ class JobClassificationService:
                 'seniority_levels': []
             }
     
-    def classify_jobs_batch(self, jobs: List[Dict[str, str]], batch_size: int = 10, max_retries: int = 2) -> List[Dict[str, str]]:
+    def classify_jobs_batch(self, jobs: List[Dict[str, str]], batch_size: int = 10, max_retries: int = 2, max_processing_time: int = None) -> List[Dict[str, str]]:
         """
         Classify multiple jobs in batches to prevent timeouts
         
@@ -50,6 +50,7 @@ class JobClassificationService:
             jobs: List of dicts with 'title' and 'description' keys
             batch_size: Number of jobs to process per batch
             max_retries: Number of retry attempts for failed classifications
+            max_processing_time: Maximum time in seconds to spend on classification (optional)
             
         Returns:
             List of classification results in same order as input
@@ -58,18 +59,40 @@ class JobClassificationService:
             self.logger.warning("OpenAI client not initialized - returning empty classifications for batch")
             return [{'success': False, 'job_function': '', 'industries': '', 'seniority_level': '', 'error': 'OpenAI client not initialized'} for _ in jobs]
         
+        import time
+        start_time = time.time()
         results = []
         total_jobs = len(jobs)
         
         for i in range(0, total_jobs, batch_size):
+            # Check timeout before starting each batch
+            if max_processing_time and (time.time() - start_time) > max_processing_time:
+                remaining_jobs = total_jobs - len(results)
+                self.logger.warning(f"AI classification timeout reached, skipping remaining {remaining_jobs} jobs")
+                # Add empty results for remaining jobs
+                for _ in range(remaining_jobs):
+                    results.append({'success': False, 'job_function': '', 'industries': '', 'seniority_level': '', 'error': 'Timeout reached'})
+                break
+            
             batch = jobs[i:i + batch_size]
             batch_num = (i // batch_size) + 1
             total_batches = (total_jobs + batch_size - 1) // batch_size
             
-            self.logger.info(f"Processing AI classification batch {batch_num}/{total_batches} ({len(batch)} jobs)")
+            elapsed = time.time() - start_time
+            self.logger.info(f"Processing AI classification batch {batch_num}/{total_batches} ({len(batch)} jobs) - {elapsed:.1f}s elapsed")
             
             batch_results = []
             for job in batch:
+                # Check timeout before each job
+                if max_processing_time and (time.time() - start_time) > max_processing_time:
+                    self.logger.warning(f"Timeout reached during batch {batch_num}, stopping classification")
+                    # Add empty results for remaining jobs in batch and all subsequent jobs
+                    remaining_in_batch = len(batch) - len(batch_results)
+                    remaining_total = remaining_in_batch + (total_jobs - i - len(batch))
+                    for _ in range(remaining_total):
+                        results.append({'success': False, 'job_function': '', 'industries': '', 'seniority_level': '', 'error': 'Timeout reached'})
+                    return results
+                
                 for attempt in range(max_retries + 1):
                     try:
                         result = self.classify_job(job['title'], job['description'])
@@ -78,7 +101,6 @@ class JobClassificationService:
                     except Exception as e:
                         if attempt < max_retries:
                             self.logger.warning(f"Retry {attempt + 1}/{max_retries} for job '{job['title']}': {e}")
-                            import time
                             time.sleep(1)  # Brief delay before retry
                         else:
                             self.logger.error(f"Failed to classify job '{job['title']}' after {max_retries} retries: {e}")
@@ -88,10 +110,10 @@ class JobClassificationService:
             
             # Brief pause between batches to prevent rate limiting
             if i + batch_size < total_jobs:
-                import time
                 time.sleep(0.5)
         
-        self.logger.info(f"Completed batch AI classification: {len(results)} jobs processed")
+        elapsed_total = time.time() - start_time
+        self.logger.info(f"Completed batch AI classification: {len(results)} jobs processed in {elapsed_total:.1f}s")
         return results
     
     def classify_job(self, job_title: str, job_description: str) -> Dict[str, str]:
