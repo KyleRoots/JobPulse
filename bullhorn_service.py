@@ -29,6 +29,42 @@ class BullhornService:
         if not any([client_id, client_secret, username, password]):
             self._load_credentials()
     
+    def _safe_json_parse(self, response):
+        """
+        Safely parse JSON response and detect HTML error pages
+        
+        Args:
+            response: requests.Response object
+            
+        Returns:
+            dict: Parsed JSON data or raises appropriate exception
+            
+        Raises:
+            Exception: If response contains HTML or invalid JSON
+        """
+        try:
+            content_type = response.headers.get('content-type', '').lower()
+            text_content = response.text.strip()
+            
+            # Check if response is HTML (common when authentication fails)
+            if ('text/html' in content_type or 
+                text_content.startswith('<!DOCTYPE') or 
+                text_content.startswith('<html')):
+                logging.warning(f"Received HTML response instead of JSON. Status: {response.status_code}")
+                raise Exception("Authentication failed: Received HTML login page instead of JSON data. Please refresh and try again.")
+            
+            # Attempt to parse JSON
+            return response.json()
+            
+        except json.JSONDecodeError as e:
+            logging.error(f"Invalid JSON response: {str(e)[:200]}")
+            raise Exception(f"Invalid API response format. Please try again.")
+        except Exception as e:
+            if "Authentication failed" in str(e):
+                raise e  # Re-raise authentication errors as-is
+            logging.error(f"Error parsing API response: {str(e)}")
+            raise Exception("API response parsing error. Please refresh and try again.")
+    
     def _load_credentials(self):
         """Load Bullhorn credentials - now handled by passing credentials directly"""
         # This method is now a no-op since credentials are passed directly to __init__
@@ -92,7 +128,7 @@ class BullhornService:
                 logging.error(f"Failed to get login info: {response.status_code} - {response.text}")
                 return False
             
-            login_data = response.json()
+            login_data = self._safe_json_parse(response)
             logging.info(f"Login info response: {login_data}")
             
             # Extract the authorization URL and REST URL
@@ -192,7 +228,7 @@ class BullhornService:
                 logging.error(f"Failed to get access token: {token_response.status_code} - {token_response.text}")
                 return False
             
-            token_info = token_response.json()
+            token_info = self._safe_json_parse(token_response)
             access_token = token_info.get('access_token')
             
             if not access_token:
@@ -211,7 +247,7 @@ class BullhornService:
                 logging.error(f"Failed to get REST token: {rest_response.status_code} - {rest_response.text}")
                 return False
             
-            rest_data = rest_response.json()
+            rest_data = self._safe_json_parse(rest_response)
             self.rest_token = rest_data.get('BhRestToken')
             # Extract the actual REST URL from the response
             self.base_url = rest_data.get('restUrl', rest_url)
