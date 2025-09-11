@@ -26,6 +26,53 @@ from tearsheet_config import TearsheetConfig
 class XMLIntegrationService:
     """Service for integrating Bullhorn job data with XML files"""
     
+    @staticmethod
+    def format_linkedin_recruiter_tag(assigned_users: List[Dict]) -> str:
+        """
+        Centralized LinkedIn recruiter tag formatter - ensures consistent format across all code paths
+        Returns exactly "#LI-XXn:" without trailing names
+        
+        Args:
+            assigned_users: List of assigned user dictionaries from Bullhorn
+            
+        Returns:
+            str: LinkedIn tag in format "#LI-XXn:" or empty string
+        """
+        if not assigned_users or not isinstance(assigned_users, list):
+            return ""
+        
+        for user in assigned_users:
+            if isinstance(user, dict) and user.get('linkedInCompanyID'):
+                company_id = str(user.get('linkedInCompanyID', '')).strip()
+                if company_id:
+                    # Return strictly the LinkedIn tag without any names
+                    return f"#LI-{company_id}:"
+        
+        return ""
+    
+    @staticmethod
+    def sanitize_linkedin_recruiter_tag(assignedrecruiter_value: str) -> str:
+        """
+        Defensive sanitizer to strip trailing names from existing assignedrecruiter values
+        Ensures format is exactly "#LI-XXn:" with no trailing content
+        
+        Args:
+            assignedrecruiter_value: Raw assignedrecruiter field value
+            
+        Returns:
+            str: Sanitized LinkedIn tag or original value if not a LinkedIn tag
+        """
+        if not assignedrecruiter_value:
+            return ""
+        
+        # If it's a LinkedIn tag with trailing content, strip the trailing content
+        linkedin_match = re.match(r'^(#LI-[A-Z]{2}\d+:).*$', assignedrecruiter_value.strip())
+        if linkedin_match:
+            return linkedin_match.group(1)  # Return just the tag part
+        
+        # If it's not a LinkedIn tag, return as-is (for backwards compatibility)
+        return assignedrecruiter_value.strip()
+    
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.xml_processor = XMLProcessor()
