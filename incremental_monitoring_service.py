@@ -446,11 +446,11 @@ class IncrementalMonitoringService:
             return 'Hybrid'
     
     def _extract_recruiter(self, bullhorn_job: Dict) -> str:
-        """Extract recruiter information using restored LinkedIn tag formatting WITH names"""
+        """Extract recruiter information using tag-only LinkedIn format (no names)"""
         # Import here to avoid circular imports
         from xml_integration_service import XMLIntegrationService
         
-        # Create an instance to use the restored _extract_assigned_recruiter method
+        # Create an instance to use the _extract_assigned_recruiter method
         xml_service = XMLIntegrationService()
         
         # Extract recruiter data from multiple possible fields
@@ -459,10 +459,10 @@ class IncrementalMonitoringService:
         response_user = bullhorn_job.get('responseUser', {})
         owner = bullhorn_job.get('owner', {})
         
-        # Use the restored method that returns full LinkedIn tags with names
-        linkedin_tag_with_name = xml_service._extract_assigned_recruiter(assignments, assigned_users, response_user, owner)
+        # Use the method that now returns only LinkedIn tag portion (no names)
+        linkedin_tag_only = xml_service._extract_assigned_recruiter(assignments, assigned_users, response_user, owner)
         
-        return linkedin_tag_with_name
+        return linkedin_tag_only
     
     def _get_recruiter_tag(self, name: str) -> str:
         """Get LinkedIn recruiter tag for name"""

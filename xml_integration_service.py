@@ -687,9 +687,9 @@ class XMLIntegrationService:
                             mapping = m
                             break
                 
-                # If we found a mapping, return the formatted tag with name
+                # If we found a mapping, return only the tag portion (no name)
                 if mapping:
-                    return f"{mapping.linkedin_tag}: {mapping.recruiter_name}"
+                    return mapping.linkedin_tag
                 
                 # If no mapping found, log and return the original name
                 self.logger.info(f"No LinkedIn tag mapping found for recruiter: {recruiter_name}")
