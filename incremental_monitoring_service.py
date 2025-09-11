@@ -423,7 +423,7 @@ class IncrementalMonitoringService:
                     recruiter_tag = self._get_recruiter_tag(recruiter_name)
         
         if recruiter_name and recruiter_tag:
-            return f"{recruiter_tag}: {recruiter_name}"
+            return f"{recruiter_tag}:"
         else:
             return recruiter_name
     

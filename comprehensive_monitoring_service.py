@@ -422,7 +422,7 @@ class ComprehensiveMonitoringService:
                     last_name = user_data.get('lastName', '')
                     if first_name and last_name:
                         initials = f"{first_name[0]}{last_name[0]}"
-                        bullhorn_value = f"#LI-{initials}1: {first_name} {last_name}"
+                        bullhorn_value = f"#LI-{initials}1:"
                     else:
                         bullhorn_value = ''
                 else:
