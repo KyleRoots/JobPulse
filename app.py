@@ -1888,7 +1888,6 @@ def download_current_xml():
         return redirect(url_for('bullhorn_dashboard'))
 
 @app.route('/automation-status')
-@login_required
 def automation_status():
     """Get current automation status and timing information"""
     try:
@@ -4749,12 +4748,22 @@ def automated_upload():
                             remote_filename='myticas-job-feed-v2.xml'
                         )
                         
-                        if upload_result['success']:
-                            upload_success = True
-                            app.logger.info(f"✅ Automated upload successful: {upload_result.get('message', 'File uploaded')}")
+                        # Handle both dict and boolean return types from FTP service
+                        if isinstance(upload_result, dict):
+                            if upload_result['success']:
+                                upload_success = True
+                                app.logger.info(f"✅ Automated upload successful: {upload_result.get('message', 'File uploaded')}")
+                            else:
+                                upload_error_message = upload_result.get('error', 'Unknown upload error')
+                                app.logger.error(f"❌ Automated upload failed: {upload_error_message}")
                         else:
-                            upload_error_message = upload_result.get('error', 'Unknown upload error')
-                            app.logger.error(f"❌ Automated upload failed: {upload_error_message}")
+                            # FTP service returned boolean
+                            if upload_result:
+                                upload_success = True
+                                app.logger.info("✅ Automated upload successful")
+                            else:
+                                upload_error_message = "Upload failed"
+                                app.logger.error("❌ Automated upload failed")
                     else:
                         upload_error_message = "SFTP credentials not configured"
                         app.logger.error("❌ SFTP credentials not configured in Global Settings")
