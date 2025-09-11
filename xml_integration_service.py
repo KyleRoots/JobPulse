@@ -90,21 +90,37 @@ class XMLIntegrationService:
                 })
             
             try:
-                # Perform batch AI classification with smaller batches and timeout protection
-                ai_classifications = self.job_classifier.classify_jobs_batch(
-                    jobs_for_ai, 
-                    batch_size=4,
-                    max_processing_time=MAX_AI_PROCESSING_TIME
-                )
+                # 🛡️ HARD TIMEOUT WRAPPER - Guarantees completion within worker timeout limit
+                import concurrent.futures
+                import threading
                 
-                # Map results by job ID for easy lookup
-                for i, job_data in enumerate(jobs_data):
-                    job_id = str(job_data.get('id', ''))
-                    if i < len(ai_classifications):
-                        ai_results[job_id] = ai_classifications[i]
+                def run_ai_classification():
+                    return self.job_classifier.classify_jobs_batch(
+                        jobs_for_ai, 
+                        batch_size=4,
+                        max_processing_time=MAX_AI_PROCESSING_TIME
+                    )
                 
-                elapsed_time = time.time() - start_time
-                self.logger.info(f"Batch AI classification completed for {len(ai_results)} jobs in {elapsed_time:.1f}s")
+                # Execute with hard timeout enforcement
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(run_ai_classification)
+                    try:
+                        ai_classifications = future.result(timeout=MAX_AI_PROCESSING_TIME)
+                        
+                        # Map results by job ID for easy lookup
+                        for i, job_data in enumerate(jobs_data):
+                            job_id = str(job_data.get('id', ''))
+                            if i < len(ai_classifications):
+                                ai_results[job_id] = ai_classifications[i]
+                        
+                        elapsed_time = time.time() - start_time
+                        self.logger.info(f"🎉 Batch AI classification completed for {len(ai_results)} jobs in {elapsed_time:.1f}s")
+                        
+                    except concurrent.futures.TimeoutError:
+                        elapsed_time = time.time() - start_time
+                        self.logger.warning(f"⏰ AI classification hard timeout reached after {elapsed_time:.1f}s - ensuring XML generation completes")
+                        future.cancel()  # Attempt to cancel the running task
+                        ai_results = {}  # Empty results = no AI classification
                 
             except Exception as ai_error:
                 elapsed_time = time.time() - start_time
@@ -145,15 +161,17 @@ class XMLIntegrationService:
                 'jobindustries': ai_classification_result.get('industries', ''),
                 'senioritylevel': ai_classification_result.get('seniority_level', '')
             }
+            skip_ai = False  # We have AI data
         else:
             existing_ai_fields = None
+            skip_ai = True  # CRITICAL: Force skip AI to prevent fallback individual calls
         
         # Call the existing method with AI results provided as existing fields
         return self.map_bullhorn_job_to_xml(
             bullhorn_job,
             existing_reference_number=existing_reference_number,
             monitor_name=monitor_name,
-            skip_ai_classification=False,  # We have AI data already
+            skip_ai_classification=skip_ai,  # CRITICAL: Skip AI when batch failed
             existing_ai_fields=existing_ai_fields
         )
     

@@ -15,10 +15,12 @@ class JobClassificationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         
-        # Initialize OpenAI client
+        # Initialize OpenAI client with hard timeout to prevent hanging requests
         api_key = os.environ.get("OPENAI_API_KEY")
         if api_key:
-            self.openai_client = OpenAI(api_key=api_key)
+            # CRITICAL: 8-second timeout prevents individual requests from hanging and causing worker timeouts
+            self.openai_client = OpenAI(api_key=api_key, timeout=8.0)
+            self.logger.info("OpenAI client initialized with 8-second timeout protection")
         else:
             self.openai_client = None
             self.logger.warning("OPENAI_API_KEY not found - AI classification will not be available")
