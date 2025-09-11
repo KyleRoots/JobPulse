@@ -602,31 +602,53 @@ class XMLIntegrationService:
         return 'United States'
     
     def _extract_assigned_recruiter(self, assignments, assigned_users, response_user, owner) -> str:
-        """Extract assigned users data and use centralized LinkedIn tag formatter (no names)"""
+        """Extract recruiter name from multiple possible fields and map to LinkedIn-style tag WITH name"""
         try:
-            # Get assigned users data in the format expected by centralized formatter
-            assigned_users_data = []
+            recruiter_name = ''
             
-            # Check assignedUsers first (array of users) - primary source
-            if assigned_users and isinstance(assigned_users, dict):
-                users_data = assigned_users.get('data', [])
-                if isinstance(users_data, list) and users_data:
-                    assigned_users_data = users_data
-            
-            # If no assigned users, check assignments as fallback
-            elif assignments and isinstance(assignments, dict):
+            # Check assignments first (per user mapping requirements)
+            if assignments and isinstance(assignments, dict):
                 assignments_data = assignments.get('data', [])
                 if isinstance(assignments_data, list) and assignments_data:
-                    # Convert assignment format to user format for centralized formatter
-                    for assignment in assignments_data:
-                        if isinstance(assignment, dict):
-                            assigned_to = assignment.get('assignedTo', {})
-                            if assigned_to and isinstance(assigned_to, dict):
-                                assigned_users_data.append(assigned_to)
+                    first_assignment = assignments_data[0]
+                    if isinstance(first_assignment, dict):
+                        assigned_to = first_assignment.get('assignedTo', {})
+                        if assigned_to and isinstance(assigned_to, dict):
+                            first_name = assigned_to.get('firstName', '')
+                            last_name = assigned_to.get('lastName', '')
+                            if first_name or last_name:
+                                recruiter_name = f"{first_name} {last_name}".strip()
             
-            # Use centralized LinkedIn tag formatter (strips names automatically)
-            linkedin_tag = XMLIntegrationService.format_linkedin_recruiter_tag(assigned_users_data)
-            return linkedin_tag  # Returns just "#LI-XXX:" or empty string
+            # Check assignedUsers if no assignments found (array of users)
+            if not recruiter_name and assigned_users and isinstance(assigned_users, dict):
+                users_data = assigned_users.get('data', [])
+                if isinstance(users_data, list) and users_data:
+                    first_user = users_data[0]
+                    if isinstance(first_user, dict):
+                        first_name = first_user.get('firstName', '')
+                        last_name = first_user.get('lastName', '')
+                        if first_name or last_name:
+                            recruiter_name = f"{first_name} {last_name}".strip()
+            
+            # Check responseUser next (single user)
+            if not recruiter_name and response_user and isinstance(response_user, dict):
+                first_name = response_user.get('firstName', '')
+                last_name = response_user.get('lastName', '')
+                if first_name or last_name:
+                    recruiter_name = f"{first_name} {last_name}".strip()
+            
+            # Finally check owner (single user)
+            if not recruiter_name and owner and isinstance(owner, dict):
+                first_name = owner.get('firstName', '')
+                last_name = owner.get('lastName', '')
+                if first_name or last_name:
+                    recruiter_name = f"{first_name} {last_name}".strip()
+            
+            # Apply recruiter name to LinkedIn-style tag mapping with full name
+            if recruiter_name:
+                return self._map_recruiter_to_linkedin_tag(recruiter_name)
+            
+            return ''
             
         except Exception as e:
             self.logger.warning(f"Error extracting assigned recruiter: {str(e)}")
