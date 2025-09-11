@@ -637,15 +637,27 @@
         // Automation Status Management
         let countdownInterval = null;
         
-        function formatCountdown(targetDate) {
+        function formatCountdown(timestamp, isoDate, humanDate) {
             const now = new Date();
-            // Handle different date formats
             let target;
-            if (targetDate.includes('Z') || targetDate.includes('+')) {
-                target = new Date(targetDate);
+            
+            // Use the most reliable format available (timestamp > ISO > human readable)
+            if (timestamp && typeof timestamp === 'number') {
+                target = new Date(timestamp);
+            } else if (isoDate) {
+                target = new Date(isoDate);
+            } else if (humanDate) {
+                // Fallback to human readable format
+                target = new Date(humanDate.replace(' UTC', 'Z').replace(' ', 'T'));
             } else {
-                target = new Date(targetDate + ' UTC');
+                return "Invalid date format";
             }
+            
+            // Validate parsed date
+            if (isNaN(target.getTime())) {
+                return "Date parsing error";
+            }
+            
             const diff = target - now;
             
             if (diff <= 0) {
@@ -685,19 +697,26 @@
                         document.getElementById('last-upload-time').textContent = data.last_upload_time || 'Not available yet';
                         document.getElementById('upload-interval').textContent = data.upload_interval;
                         
-                        // Start countdown timer if we have a next upload time
-                        if (data.next_upload_time) {
+                        // Start countdown timer if we have timing data
+                        if (data.next_upload_timestamp || data.next_upload_iso || data.next_upload_time) {
                             if (countdownInterval) {
                                 clearInterval(countdownInterval);
                             }
                             
                             const updateCountdown = () => {
-                                const countdown = formatCountdown(data.next_upload_time);
+                                const countdown = formatCountdown(
+                                    data.next_upload_timestamp,
+                                    data.next_upload_iso,
+                                    data.next_upload_time
+                                );
                                 document.getElementById('countdown-timer').textContent = countdown;
                             };
                             
                             updateCountdown(); // Initial update
                             countdownInterval = setInterval(updateCountdown, 1000);
+                        } else {
+                            // Clear countdown if no timing data
+                            document.getElementById('countdown-timer').textContent = '';
                         }
                     } else {
                         statusElement.className = 'badge bg-secondary';

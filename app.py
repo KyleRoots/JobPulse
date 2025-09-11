@@ -1898,6 +1898,8 @@ def automation_status():
         
         # Get scheduler job info
         next_upload_time = None
+        next_upload_iso = None
+        next_upload_timestamp = None
         last_upload_time = None
         upload_interval = "30 minutes"
         
@@ -1905,7 +1907,10 @@ def automation_status():
             try:
                 job = scheduler.get_job('automated_upload')
                 if job and job.next_run_time:
+                    # Provide multiple formats for robust client-side handling
                     next_upload_time = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S UTC')
+                    next_upload_iso = job.next_run_time.isoformat()
+                    next_upload_timestamp = int(job.next_run_time.timestamp() * 1000)  # milliseconds
             except Exception as e:
                 app.logger.warning(f"Could not get job timing: {str(e)}")
         
@@ -1914,7 +1919,9 @@ def automation_status():
         
         return jsonify({
             'automation_enabled': automation_enabled,
-            'next_upload_time': next_upload_time,
+            'next_upload_time': next_upload_time,  # Human readable
+            'next_upload_iso': next_upload_iso,    # ISO 8601 format
+            'next_upload_timestamp': next_upload_timestamp,  # Unix timestamp in ms
             'last_upload_time': last_upload_time,
             'upload_interval': upload_interval,
             'status': 'Active' if automation_enabled else 'Disabled'
