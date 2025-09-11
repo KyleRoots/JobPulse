@@ -957,11 +957,11 @@
                     return `${removedTitle} - ${reason}`;
                     
                 case 'job_modified':
-                    const changes = details.changes || {};
-                    if (typeof changes === 'object' && Object.keys(changes).length > 0) {
+                    const modificationChanges = details.changes || {};
+                    if (typeof modificationChanges === 'object' && Object.keys(modificationChanges).length > 0) {
                         const changeList = [];
-                        for (const field in changes) {
-                            const changeInfo = changes[field];
+                        for (const field in modificationChanges) {
+                            const changeInfo = modificationChanges[field];
                             if (typeof changeInfo === 'object' && changeInfo.old && changeInfo.new) {
                                 changeList.push(`${field} updated`);
                             } else {
