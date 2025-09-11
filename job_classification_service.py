@@ -310,7 +310,3 @@ class JobClassificationService:
         """
         # Use internal classifier - instant and reliable!
         return self.internal_classifier.classify_job(job_title, job_description)
-    
-        """
-        Intelligently map AI-suggested industries to our predefined categories
-        
