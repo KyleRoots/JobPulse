@@ -4258,11 +4258,21 @@ def reference_number_refresh():
             
             app.logger.info("🔄 Starting 120-hour reference number refresh...")
             
-            # Import the lightweight refresh function
-            from lightweight_reference_refresh import lightweight_refresh_references
+            # Generate fresh XML content using SimplifiedXMLGenerator
+            from simplified_xml_generator import SimplifiedXMLGenerator
             
-            # Refresh reference numbers in the main XML file
-            result = lightweight_refresh_references('myticas-job-feed.xml')
+            # Create generator instance with database access
+            generator = SimplifiedXMLGenerator(db=db)
+            
+            # Generate fresh XML content first
+            xml_content, stats = generator.generate_fresh_xml()
+            app.logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
+            
+            # Apply reference number refresh to the generated content
+            from lightweight_reference_refresh import lightweight_refresh_references_from_content
+            
+            # Refresh reference numbers in the generated XML content
+            result = lightweight_refresh_references_from_content(xml_content)
             
             if result['success']:
                 app.logger.info(f"✅ Reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
@@ -4334,15 +4344,48 @@ def reference_number_refresh():
                         app.logger.info("🔒 Lock acquired for reference refresh upload")
                         
                         try:
-                            # Upload the refreshed XML file
-                            from ftp_service import FTPService
-                            ftp_service = FTPService()
+                            # Save the refreshed XML to a temporary file for upload
+                            import tempfile
+                            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
+                            temp_file.write(result['xml_content'])
+                            temp_file.close()
                             
-                            app.logger.info("📤 Uploading refreshed XML to server...")
-                            upload_result = ftp_service.upload_file(
-                                local_file_path='myticas-job-feed.xml',
-                                remote_filename='myticas-job-feed-v2.xml'
-                            )
+                            # Get SFTP settings from Global Settings
+                            sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                            sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                            sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                            sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                            sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                            
+                            if (sftp_hostname and sftp_hostname.setting_value and 
+                                sftp_username and sftp_username.setting_value and 
+                                sftp_password and sftp_password.setting_value):
+                                
+                                # Upload the refreshed XML using proper credentials
+                                from ftp_service import FTPService
+                                ftp_service = FTPService(
+                                    hostname=sftp_hostname.setting_value,
+                                    username=sftp_username.setting_value,
+                                    password=sftp_password.setting_value,
+                                    target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                                    port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                                    use_sftp=True
+                                )
+                                
+                                app.logger.info("📤 Uploading refreshed XML to server...")
+                                upload_result = ftp_service.upload_file(
+                                    local_file_path=temp_file.name,
+                                    remote_filename='myticas-job-feed-v2.xml'
+                                )
+                                
+                                # Clean up temporary file
+                                try:
+                                    os.remove(temp_file.name)
+                                except:
+                                    pass
+                            else:
+                                upload_result = {'success': False, 'error': 'SFTP credentials not configured'}
+                                app.logger.error("❌ SFTP credentials not configured in Global Settings")
                             
                             if upload_result['success']:
                                 upload_success = True

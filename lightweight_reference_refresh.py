@@ -92,6 +92,78 @@ def lightweight_refresh_references(xml_path='myticas-job-feed.xml', output_path=
             'error': str(e)
         }
 
+def lightweight_refresh_references_from_content(xml_content):
+    """
+    Ultra-lightweight reference number refresh for XML content string
+    - No file I/O
+    - No API calls
+    - No field remapping
+    - Preserves all existing data
+    - Only touches reference numbers
+    """
+    start_time = datetime.now()
+    
+    try:
+        # Parse XML content preserving CDATA
+        parser = etree.XMLParser(strip_cdata=False)
+        root = etree.fromstring(xml_content.encode('utf-8'), parser)
+        
+        # Track reference numbers to ensure uniqueness
+        used_references = set()
+        jobs_updated = 0
+        
+        # Find all job elements
+        for job in root.findall('.//job'):
+            # Find reference number element
+            ref_elem = job.find('referencenumber')
+            
+            if ref_elem is not None:
+                # Generate unique reference number
+                new_ref = generate_reference_number()
+                while new_ref in used_references:
+                    new_ref = generate_reference_number()
+                
+                used_references.add(new_ref)
+                
+                # Update ONLY the reference number with CDATA wrapping
+                # Clear existing content and add CDATA
+                ref_elem.text = None
+                ref_elem.tail = ref_elem.tail  # Preserve any trailing whitespace
+                # Clear any existing children (in case there's old CDATA)
+                for child in ref_elem:
+                    ref_elem.remove(child)
+                # Add new reference as CDATA
+                ref_elem.text = etree.CDATA(f" {new_ref} ")
+                
+                jobs_updated += 1
+        
+        # Convert back to string preserving formatting
+        refreshed_xml = etree.tostring(root, 
+                                     encoding='utf-8', 
+                                     xml_declaration=True, 
+                                     pretty_print=True).decode('utf-8')
+        
+        elapsed_time = (datetime.now() - start_time).total_seconds()
+        
+        logger.info(f"✅ Content reference refresh complete:")
+        logger.info(f"   - Jobs updated: {jobs_updated}")
+        logger.info(f"   - Time taken: {elapsed_time:.2f} seconds")
+        
+        return {
+            'success': True,
+            'jobs_updated': jobs_updated,
+            'time_seconds': elapsed_time,
+            'xml_content': refreshed_xml,
+            'reference_numbers': list(used_references)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error refreshing references from content: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
 def scheduled_reference_refresh():
     """
     Scheduled task for auto-refreshing references
