@@ -1782,6 +1782,75 @@ def download_current_xml():
         # Generate fresh XML
         xml_content, stats = generator.generate_fresh_xml()
         
+        # Send change notification email ONLY during manual downloads
+        try:
+            app.logger.info("📧 Checking for job changes to include in download notification...")
+            
+            # Check if email notifications are globally enabled
+            email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
+            email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
+            
+            if (email_enabled and email_enabled.setting_value == 'true' and 
+                email_setting and email_setting.setting_value):
+                
+                xml_monitor = create_xml_monitor()
+                email_service = get_email_service()
+                
+                # Run change detection with email notifications ENABLED for downloads
+                result = xml_monitor.monitor_xml_changes(email_setting.setting_value, email_service, enable_email_notifications=True)
+                
+                if result.get('success'):
+                    changes = result.get('changes', {})
+                    total_changes = changes.get('total_changes', 0)
+                    email_sent = result.get('email_sent', False)  # Capture actual email send status
+                    
+                    if total_changes > 0:
+                        if email_sent:
+                            app.logger.info(f"📧 Download notification sent: {total_changes} job changes detected since last download")
+                        else:
+                            app.logger.info(f"📧 Download notification attempted: {total_changes} changes detected but email sending failed")
+                        
+                        # Log to Activity monitoring system with accurate send status
+                        try:
+                            activity_details = {
+                                'monitor_type': 'Manual Download Notification',
+                                'changes_detected': total_changes,
+                                'added_jobs': changes.get('added', 0) if isinstance(changes.get('added'), int) else len(changes.get('added', [])),
+                                'removed_jobs': changes.get('removed', 0) if isinstance(changes.get('removed'), int) else len(changes.get('removed', [])),
+                                'modified_jobs': changes.get('modified', 0) if isinstance(changes.get('modified'), int) else len(changes.get('modified', [])),
+                                'email_attempted_to': email_setting.setting_value[:10] + "...",  # Mask email for privacy
+                                'email_actually_sent': email_sent,
+                                'trigger': 'manual_download'
+                            }
+                            
+                            xml_monitor_activity = BullhornActivity(
+                                monitor_id=None,  # Manual download trigger, not tied to specific tearsheet
+                                activity_type='download_notification',
+                                details=json.dumps(activity_details),
+                                notification_sent=email_sent  # Accurate status based on actual send result
+                            )
+                            db.session.add(xml_monitor_activity)
+                            db.session.commit()
+                            
+                            app.logger.info("📧 Manual download notification logged to Activity monitoring")
+                            
+                        except Exception as e:
+                            app.logger.error(f"Failed to log download notification activity: {str(e)}")
+                            db.session.rollback()
+                    else:
+                        app.logger.info("📧 No job changes detected since last download - no notification sent")
+                else:
+                    app.logger.warning(f"📧 Download notification check failed: {result.get('error', 'Unknown error')}")
+            else:
+                if not email_enabled or email_enabled.setting_value != 'true':
+                    app.logger.info("📧 Email notifications globally disabled - skipping download notification")
+                else:
+                    app.logger.info("📧 No notification email configured - skipping download notification")
+                
+        except Exception as e:
+            app.logger.error(f"Error sending download notification: {str(e)}")
+            # Continue with download even if notification fails
+        
         # Create temporary file for download
         temp_filename = f'myticas-job-feed-v2_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xml'
         temp_filepath = os.path.join(tempfile.gettempdir(), temp_filename)
@@ -4497,14 +4566,9 @@ def run_xml_change_monitor():
         app.logger.error(f"XML change monitor error: {str(e)}")
 
 if is_primary_worker:
-    scheduler.add_job(
-        func=run_xml_change_monitor,
-        trigger=IntervalTrigger(minutes=6),  # 6-minute interval to avoid overlap with 5-minute cycle
-        id='xml_change_monitor',
-        name='Live XML Change Monitor',
-        replace_existing=True
-    )
-    app.logger.info("📧 XML Change Monitor: Scheduled to run every 6 minutes for focused change notifications")
+    # XML Change Monitor - DISABLED automatic scheduling for manual workflow
+    # Change notifications now triggered only during manual downloads
+    app.logger.info("📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads")
 
 # Add deployment health check routes
 @app.route('/ready')
