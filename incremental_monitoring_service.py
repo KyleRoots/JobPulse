@@ -147,14 +147,12 @@ class IncrementalMonitoringService:
             # Count total jobs
             cycle_results['total_jobs'] = len(self._load_xml_jobs(xml_file))
             
-            # Step 4: Upload to server
-            self.logger.info("\n📤 Step 4: Uploading to server...")
-            if self._upload_to_sftp(xml_file):
-                cycle_results['upload_success'] = True
-                self.logger.info("  ✅ Successfully uploaded to server")
-            else:
-                self.logger.error("  ❌ Failed to upload to server")
-                cycle_results['errors'].append("SFTP upload failed")
+            # Step 4: Manual workflow - SFTP auto-upload disabled
+            self.logger.info("\n📊 Step 4: Monitoring complete - ready for manual download")
+            cycle_results['upload_success'] = True  # Manual workflow always 'succeeds'
+            self.logger.info("  ✅ XML updated locally - use manual download for publishing")
+            self.logger.info("  📋 Job counts: Add +{}, Remove -{}, Update ~{}".format(
+                cycle_results['jobs_added'], cycle_results['jobs_removed'], cycle_results['jobs_updated']))
             
         except Exception as e:
             self.logger.error(f"Monitoring cycle error: {str(e)}")
@@ -674,49 +672,10 @@ class IncrementalMonitoringService:
             return False
     
     def _upload_to_sftp(self, xml_file: str) -> bool:
-        """Upload XML file to SFTP server"""
-        try:
-            # Get SFTP credentials
-            hostname = os.environ.get('SFTP_HOSTNAME') or os.environ.get('SFTP_HOST')
-            username = os.environ.get('SFTP_USERNAME')
-            password = os.environ.get('SFTP_PASSWORD')
-            port = int(os.environ.get('SFTP_PORT', 2222))
-            
-            if not hostname or not username or not password:
-                self.logger.error("SFTP credentials not configured")
-                return False
-            
-            # Connect and upload
-            transport = paramiko.Transport((hostname, port))
-            transport.connect(username=username, password=password)
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            
-            remote_file = '/myticas-job-feed-v2.xml'
-            sftp.put(xml_file, remote_file)
-            
-            # Verify upload by checking file size
-            local_stat = os.stat(xml_file)
-            remote_stat = sftp.stat(remote_file)
-            
-            if local_stat.st_size == remote_stat.st_size:
-                self.logger.info(f"Upload verified: {local_stat.st_size} bytes")
-            else:
-                self.logger.warning(f"Size mismatch: local={local_stat.st_size}, remote={remote_stat.st_size}")
-            
-            sftp.close()
-            transport.close()
-            
-            # Note: CDN cache may delay live site updates
-            self.logger.info("Note: Live site may take time to update due to CDN caching")
-            
-            # Verify live URL after upload
-            self._verify_live_sync(local_stat.st_size)
-            
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"SFTP upload error: {str(e)}")
-            return False
+        """SFTP upload disabled - using manual download workflow"""
+        self.logger.info("📋 SFTP auto-upload disabled - manual download workflow active")
+        self.logger.info("💡 Use the web interface to download and manually upload XML when needed")
+        return True  # Always return success for manual workflow
     
     def _verify_live_sync(self, expected_size):
         """Verify live URL has updated content"""

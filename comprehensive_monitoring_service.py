@@ -282,25 +282,18 @@ class ComprehensiveMonitoringService:
             else:
                 self.logger.warning("    ⚠️ AUDIT ISSUES: Some discrepancies could not be resolved")
             
-            # STEP 5: Upload to web server
-            self.logger.info("\n📤 STEP 5: Uploading to web server...")
+            # STEP 5: Manual workflow - auto-upload disabled
+            self.logger.info("\n📊 STEP 5: Monitoring complete - ready for manual download")
             
-            # CRITICAL DEBUG: Check reference numbers before upload
+            # DEBUG: Check final XML state for manual download
             with open(xml_file, 'r') as f:
                 upload_content = f.read()
             ref_numbers = re.findall(r'<referencenumber><!\[CDATA\[\s*([^]]+)\s*\]\]></referencenumber>', upload_content)
-            self.logger.info(f"🔍 UPLOAD DEBUG: About to upload file with reference numbers: {ref_numbers[:3]}...")
+            self.logger.info(f"📋 MANUAL DOWNLOAD: XML ready with reference numbers: {ref_numbers[:3]}...")
             
-            upload_success = self._upload_to_sftp(xml_file)
-            cycle_results['upload_success'] = upload_success
-            
-            if upload_success:
-                self.logger.info("    ✅ Successfully uploaded XML to production")
-                # CRITICAL FIX: DO NOT upload scheduled version - it contains old data
-                # The scheduled version was causing reference number flip-flopping
-                self.logger.info("    🔒 Scheduled version upload DISABLED to prevent conflicts")
-            else:
-                self.logger.error("    ❌ Failed to upload XML to production")
+            cycle_results['upload_success'] = True  # Manual workflow always 'succeeds'
+            self.logger.info("    ✅ XML updated locally - use web interface for manual download")
+            self.logger.info("    🔒 Auto-upload disabled - manual publishing workflow active")
             
             # Accumulate changes for batched email
             self._accumulate_changes(cycle_changes)
@@ -850,38 +843,10 @@ class ComprehensiveMonitoringService:
         return fixes_made
     
     def _upload_to_sftp(self, xml_file: str) -> bool:
-        """Upload XML file to SFTP server"""
-        try:
-            # Use SFTP environment variables (they are the ones that are set)
-            hostname = os.environ.get('SFTP_HOSTNAME') or os.environ.get('SFTP_HOST')
-            username = os.environ.get('SFTP_USERNAME')
-            password = os.environ.get('SFTP_PASSWORD')
-            port = int(os.environ.get('SFTP_PORT', 2222))
-            
-            if not all([hostname, username, password]):
-                self.logger.error(f"SFTP credentials not configured: host={hostname}, user={username}, pass={'***' if password else 'None'}")
-                return False
-            
-            self.logger.info(f"Uploading to {hostname}:{port}")
-            
-            transport = paramiko.Transport((hostname, port))
-            transport.connect(username=username, password=password)
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            
-            # Upload to the correct remote filename
-            remote_file = '/myticas-job-feed-v2.xml'
-            self.logger.info(f"Uploading {xml_file} to {remote_file}")
-            sftp.put(xml_file, remote_file)
-            
-            sftp.close()
-            transport.close()
-            
-            self.logger.info(f"✅ Successfully uploaded {xml_file} to {hostname}:{remote_file}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"SFTP upload error: {str(e)}")
-            return False
+        """SFTP upload disabled - using manual download workflow"""
+        self.logger.info("📋 SFTP auto-upload disabled - manual download workflow active")
+        self.logger.info("💡 Use the web interface to download and manually upload XML when needed")
+        return True  # Always return success for manual workflow
     
     def _accumulate_changes(self, cycle_changes: Dict):
         """Accumulate changes for batched email notification"""
