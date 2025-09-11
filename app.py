@@ -299,6 +299,22 @@ def format_activity_details(activity_type, details_json):
         status = "successful" if success else "failed"
         return f"Automated Upload: {jobs_count} jobs - {status}"
     
+    elif activity_type == 'scheduled_processing':
+        # Handle scheduled processing activities
+        if isinstance(details, str):
+            return details
+        jobs_processed = details.get('jobs_processed', 0)
+        schedule_name = details.get('schedule_name', 'Unknown Schedule')
+        return f"Scheduled Processing: {schedule_name} - {jobs_processed} jobs processed"
+    
+    elif activity_type == 'scheduled_processing_error':
+        # Handle scheduled processing error activities
+        if isinstance(details, str):
+            return details
+        error_msg = details.get('error', 'Unknown error')
+        schedule_name = details.get('schedule_name', 'Unknown Schedule')
+        return f"Processing Error: {schedule_name} - {error_msg}"
+    
     # Default fallback for unknown activity types
     if isinstance(details, dict):
         # Try to extract meaningful information
