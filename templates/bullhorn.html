@@ -767,7 +767,6 @@
                                             <th>Monitor</th>
                                             <th>Activity</th>
                                             <th>Job</th>
-                                            <th>Account Manager</th>
                                             <th>Cycle Time</th>
                                             <th>Status</th>
                                         </tr>
@@ -831,13 +830,6 @@
                                                     </span>
                                                 {% else %}
                                                     -
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if activity.account_manager %}
-                                                    <span class="badge bg-info">{{ activity.account_manager }}</span>
-                                                {% else %}
-                                                    <span class="text-muted">-</span>
                                                 {% endif %}
                                             </td>
                                             <td>
@@ -1194,36 +1186,22 @@
                                 detailsSpan.textContent = detailsText;
                                 td3.appendChild(detailsSpan);
                                 
-                                // Column 4: Account manager
+                                // Column 4: Timestamp
                                 const td4 = document.createElement('td');
-                                if (activity.account_manager) {
-                                    const managerBadge = document.createElement('span');
-                                    managerBadge.className = 'badge bg-info';
-                                    managerBadge.textContent = activity.account_manager;
-                                    td4.appendChild(managerBadge);
-                                } else {
-                                    const placeholder = document.createElement('span');
-                                    placeholder.className = 'text-muted';
-                                    placeholder.textContent = '-';
-                                    td4.appendChild(placeholder);
-                                }
-                                
-                                // Column 5: Timestamp
-                                const td5 = document.createElement('td');
                                 const timeSmall = document.createElement('small');
                                 timeSmall.className = 'text-muted';
                                 timeSmall.textContent = `${timeStr} UTC`;
-                                td5.appendChild(timeSmall);
-                                td5.appendChild(document.createElement('br'));
+                                td4.appendChild(timeSmall);
+                                td4.appendChild(document.createElement('br'));
                                 
                                 const dateBadge = document.createElement('span');
                                 dateBadge.className = 'badge bg-light text-dark';
                                 dateBadge.style.fontSize = '0.7em';
                                 dateBadge.textContent = dateStr;
-                                td5.appendChild(dateBadge);
+                                td4.appendChild(dateBadge);
                                 
-                                // Column 6: Notification status
-                                const td6 = document.createElement('td');
+                                // Column 5: Notification status
+                                const td5 = document.createElement('td');
                                 const icon = document.createElement('i');
                                 if (activity.notification_sent) {
                                     icon.className = 'fas fa-envelope text-success';
@@ -1232,7 +1210,7 @@
                                     icon.className = 'fas fa-envelope-open text-muted';
                                     icon.title = 'No email';
                                 }
-                                td6.appendChild(icon);
+                                td5.appendChild(icon);
                                 
                                 // Append all columns to row
                                 row.appendChild(td1);
@@ -1240,7 +1218,6 @@
                                 row.appendChild(td3);
                                 row.appendChild(td4);
                                 row.appendChild(td5);
-                                row.appendChild(td6);
                                 tbody.appendChild(row);
                             });
                             
