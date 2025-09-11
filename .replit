@@ -33,8 +33,4 @@ waitForPort = 5000
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 43963
-externalPort = 3000
-
 [agent]
