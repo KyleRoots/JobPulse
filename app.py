@@ -4041,16 +4041,25 @@ if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)
 
 def check_monitor_health():
-    """Check monitor health and send notifications for overdue monitors"""
+    """Lightweight health check for manual workflow - job counting focus"""
     with app.app_context():
         try:
-            app.logger.info("Starting monitor health check...")
+            app.logger.info("Starting periodic health check for manual workflow...")
             
-            # Health monitoring integrated into comprehensive_monitoring_service  
-            # health_service = MonitorHealthService(db.session, GlobalSettings, BullhornMonitor)
+            # For manual workflow, just verify monitoring is still active and counting jobs
+            active_monitors = BullhornMonitor.query.filter_by(is_active=True).count()
+            app.logger.info(f"✅ Manual workflow health check: {active_monitors} active monitors for job counting")
             
-            # Health check integrated into comprehensive monitoring system
-            app.logger.info("Health monitoring is handled by comprehensive_monitoring_service")
+            # Check if monitoring cycles are running (less critical for manual workflow)
+            recent_activity = BullhornMonitor.query.filter(
+                BullhornMonitor.last_check > datetime.utcnow() - timedelta(hours=6)
+            ).count()
+            
+            if recent_activity > 0:
+                app.logger.info(f"✅ Job counting active: {recent_activity} monitors updated in last 6 hours")
+            else:
+                app.logger.warning(f"⚠️ Job counting may be stale: no monitor updates in 6+ hours (manual workflow)")
+            
             return
             
             if False:  # Disabled - functionality integrated
@@ -4122,15 +4131,15 @@ def ensure_background_services():
 
 # Only add scheduler jobs on primary worker to prevent duplicates in production
 if is_primary_worker:
-    # Add monitor health check job - run every 15 minutes
+    # Add monitor health check job - reduced frequency for manual workflow
     scheduler.add_job(
         func=check_monitor_health,
-        trigger=IntervalTrigger(minutes=15),
+        trigger=IntervalTrigger(hours=2),
         id='check_monitor_health',
-        name='Monitor Health Check',
+        name='Monitor Health Check (Manual Workflow)',
         replace_existing=True
     )
-    app.logger.info("Monitor health check system enabled - will check every 15 minutes for overdue monitors")
+    app.logger.info("Monitor health check enabled - periodic check every 2 hours for manual workflow")
 
     # Schedule automatic file cleanup
     def schedule_file_cleanup():
