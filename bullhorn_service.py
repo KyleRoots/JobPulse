@@ -25,6 +25,10 @@ class BullhornService:
         self._auth_in_progress = False
         self._last_auth_attempt = None
         
+        # Job exclusion configuration - specific job IDs to filter out
+        self.excluded_job_ids = {31939, 34287}  # Set for O(1) lookup
+        self.excluded_count = 0  # Track how many jobs were excluded in last fetch
+        
         # Only load from DB if no credentials provided
         if not any([client_id, client_secret, username, password]):
             self._load_credentials()
@@ -70,6 +74,30 @@ class BullhornService:
         # This method is now a no-op since credentials are passed directly to __init__
         # Keeping it for backward compatibility
         pass
+    
+    def _filter_excluded_jobs(self, jobs: List[Dict]) -> List[Dict]:
+        """
+        Filter out jobs with IDs in the exclusion list
+        
+        Args:
+            jobs: List of job dictionaries
+            
+        Returns:
+            List[Dict]: Filtered job list with excluded jobs removed
+        """
+        if not jobs or not self.excluded_job_ids:
+            self.excluded_count = 0
+            return jobs
+        
+        original_count = len(jobs)
+        filtered_jobs = [job for job in jobs if job.get('id') not in self.excluded_job_ids]
+        self.excluded_count = original_count - len(filtered_jobs)
+        
+        if self.excluded_count > 0:
+            excluded_ids = [job.get('id') for job in jobs if job.get('id') in self.excluded_job_ids]
+            logging.info(f"🚫 Excluded {self.excluded_count} jobs from processing: {excluded_ids}")
+        
+        return filtered_jobs
         
     def authenticate(self) -> bool:
         """
@@ -366,7 +394,7 @@ class BullhornService:
                     # If there are 5 or fewer jobs, use the entity API data directly (no pagination needed)
                     if entity_total <= 5:
                         entity_jobs = job_orders.get('data', [])
-                        return entity_jobs
+                        return self._filter_excluded_jobs(entity_jobs)
             
             # For larger tearsheets, use search API to get all jobs
             query = f"tearsheets.id:{tearsheet_id}"
@@ -420,11 +448,14 @@ class BullhornService:
                 else:
                     logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
                     break
+            # Apply job exclusion filter
+            filtered_jobs = self._filter_excluded_jobs(all_jobs)
+            
             # Log discrepancy but trust the search API results (more reliable for pagination)
             if entity_total > 0 and len(all_jobs) != entity_total:
                 logging.info(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs while entity API indicates {entity_total}. Using search API results (more complete).")
             
-            return all_jobs
+            return filtered_jobs
                 
         except Exception as e:
             logging.error(f"Error getting tearsheet jobs: {str(e)}")
@@ -497,7 +528,7 @@ class BullhornService:
                     logging.error(f"Failed to get jobs by query: {response.status_code} - {response.text}")
                     break
             
-            return all_jobs
+            return self._filter_excluded_jobs(all_jobs)
                 
         except Exception as e:
             logging.error(f"Error getting jobs by query: {str(e)}")
@@ -830,7 +861,7 @@ class BullhornService:
                 data = response.json()
                 jobs_data = data.get('data', [])
                 logging.info(f"Retrieved {len(jobs_data)} jobs out of {len(job_ids)} requested")
-                return jobs_data
+                return self._filter_excluded_jobs(jobs_data)
             else:
                 logging.error(f"Failed to get jobs batch: {response.status_code} - {response.text}")
                 return []

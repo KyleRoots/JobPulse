@@ -151,8 +151,18 @@ class IncrementalMonitoringService:
             self.logger.info("\n📊 Step 4: Monitoring complete - ready for manual download")
             cycle_results['upload_success'] = True  # Manual workflow always 'succeeds'
             self.logger.info("  ✅ XML updated locally - use manual download for publishing")
-            self.logger.info("  📋 Job counts: Add +{}, Remove -{}, Update ~{}".format(
-                cycle_results['jobs_added'], cycle_results['jobs_removed'], cycle_results['jobs_updated']))
+            
+            # Include excluded job count in reporting
+            excluded_count = getattr(self.bullhorn_service, 'excluded_count', 0) if self.bullhorn_service else 0
+            cycle_results['excluded_jobs'] = excluded_count
+            
+            if excluded_count > 0:
+                self.logger.info("  📋 Job counts: Add +{}, Remove -{}, Update ~{}, Excluded {}".format(
+                    cycle_results['jobs_added'], cycle_results['jobs_removed'], 
+                    cycle_results['jobs_updated'], excluded_count))
+            else:
+                self.logger.info("  📋 Job counts: Add +{}, Remove -{}, Update ~{}".format(
+                    cycle_results['jobs_added'], cycle_results['jobs_removed'], cycle_results['jobs_updated']))
             
         except Exception as e:
             self.logger.error(f"Monitoring cycle error: {str(e)}")
