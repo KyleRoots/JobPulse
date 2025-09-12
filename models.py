@@ -331,10 +331,14 @@ def create_models(db):
                 return False
         
         @classmethod
-        def release_lock(cls, process_id):
+        def release_lock(cls, process_id, environment=None):
             """Release the lock if we own it"""
             try:
-                lock = cls.query.filter_by(id=1, owner_process_id=process_id).first()
+                query = cls.query.filter_by(id=1, owner_process_id=process_id)
+                if environment:
+                    query = query.filter_by(environment=environment)
+                
+                lock = query.first()
                 if lock:
                     db.session.delete(lock)
                     db.session.commit()
@@ -343,6 +347,38 @@ def create_models(db):
             except Exception:
                 db.session.rollback()
                 return False
+        
+        @classmethod
+        def cleanup_expired_locks(cls, environment=None):
+            """Clean up locks that have passed their expires_at time (safe TTL-based cleanup)"""
+            try:
+                from flask import current_app
+                now = datetime.utcnow()
+                query = cls.query.filter(cls.id == 1, cls.expires_at < now)
+                if environment:
+                    query = query.filter(cls.environment == environment)
+                
+                expired_locks = query.all()
+                
+                if expired_locks:
+                    deleted_count = 0
+                    for lock in expired_locks:
+                        current_app.logger.info(f"🧹 Cleaning up expired lock: owner={lock.owner_process_id}, env={lock.environment}, expired_at={lock.expires_at}")
+                        db.session.delete(lock)
+                        deleted_count += 1
+                    db.session.commit()
+                    return deleted_count
+                return 0
+            except Exception as e:
+                try:
+                    from flask import current_app
+                    current_app.logger.error(f"Error cleaning up expired locks: {str(e)}")
+                except:
+                    # Fallback to basic python logging if Flask context unavailable
+                    import logging
+                    logging.getLogger(__name__).error(f"Error cleaning up expired locks: {str(e)}")
+                db.session.rollback()
+                return 0
         
         def __repr__(self):
             return f'<SchedulerLock owner={self.owner_process_id} env={self.environment}>'

@@ -159,6 +159,12 @@ def start_lazy_scheduler():
             return False
             
         try:
+            # Perform safe TTL-based cleanup before attempting to acquire lock
+            with app.app_context():
+                expired_count = SchedulerLock.cleanup_expired_locks(environment='production')
+                if expired_count > 0:
+                    app.logger.info(f"🧹 Cleaned up {expired_count} expired production locks")
+            
             # Generate unique process ID
             process_id = f"prod-{os.getpid()}-{int(time.time())}"
             
