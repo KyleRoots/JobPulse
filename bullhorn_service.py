@@ -150,7 +150,7 @@ class BullhornService:
             login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
             login_info_params = {'username': self.username}
             
-            response = self.session.get(login_info_url, params=login_info_params, timeout=10)
+            response = self.session.get(login_info_url, params=login_info_params, timeout=30)
             logging.info(f"Login info request to {login_info_url} with username: {self.username}")
             if response.status_code != 200:
                 logging.error(f"Failed to get login info: {response.status_code} - {response.text}")
@@ -192,7 +192,7 @@ class BullhornService:
             logging.info(f"Using redirect URI: {redirect_uri}")
             logging.info(f"Auth endpoint: {auth_endpoint}")
             
-            auth_response = self.session.get(auth_endpoint, params=auth_params, allow_redirects=False, timeout=10)
+            auth_response = self.session.get(auth_endpoint, params=auth_params, allow_redirects=False, timeout=30)
             logging.info(f"Auth response status: {auth_response.status_code}")
             logging.info(f"Auth response headers: {dict(auth_response.headers)}")
             
@@ -251,7 +251,7 @@ class BullhornService:
                 'Accept': 'application/json'
             }
             
-            token_response = self.session.post(token_endpoint, data=token_data, headers=headers, timeout=10)
+            token_response = self.session.post(token_endpoint, data=token_data, headers=headers, timeout=30)
             if token_response.status_code != 200:
                 logging.error(f"Failed to get access token: {token_response.status_code} - {token_response.text}")
                 return False
@@ -270,7 +270,7 @@ class BullhornService:
                 'access_token': access_token
             }
             
-            rest_response = self.session.post(rest_login_endpoint, params=rest_params, timeout=10)
+            rest_response = self.session.post(rest_login_endpoint, params=rest_params, timeout=30)
             if rest_response.status_code != 200:
                 logging.error(f"Failed to get REST token: {rest_response.status_code} - {rest_response.text}")
                 return False
@@ -346,7 +346,7 @@ class BullhornService:
                 'BhRestToken': self.rest_token
             }
             
-            response = self.session.get(url, params=params, timeout=10)
+            response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -430,7 +430,7 @@ class BullhornService:
                     'BhRestToken': self.rest_token
                 }
                 
-                response = self.session.get(url, params=params, timeout=10)
+                response = self.session.get(url, params=params, timeout=30)
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -506,7 +506,7 @@ class BullhornService:
                     'BhRestToken': self.rest_token
                 }
                 
-                response = self.session.get(url, params=params, timeout=10)
+                response = self.session.get(url, params=params, timeout=30)
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -558,7 +558,7 @@ class BullhornService:
             }
             
             logging.info(f"Getting job {job_id} from {url}")
-            response = self.session.get(url, params=params, timeout=10)
+            response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -800,7 +800,7 @@ class BullhornService:
                 'BhRestToken': self.rest_token
             }
             
-            response = self.session.get(url, params=params, timeout=10)
+            response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -855,7 +855,7 @@ class BullhornService:
                 'BhRestToken': self.rest_token
             }
             
-            response = self.session.get(url, params=params, timeout=10)
+            response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
