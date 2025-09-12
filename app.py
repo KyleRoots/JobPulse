@@ -135,106 +135,7 @@ def is_production_request():
         app.logger.debug(f"🔍 Production detection failed: {str(e)}")
         return False
 
-def get_environment_info():
-    """Get environment info for current request"""
-    is_prod = is_production_request()
-    return {
-        'is_production': is_prod,
-        'app_env': 'production' if is_prod else 'dev',
-        'manual_upload_mode': not is_prod,
-        'auto_uploads_enabled': is_prod,
-        'show_manual_controls': True  # Manual uploads available as fallback in both environments
-    }
-
-def start_lazy_scheduler():
-    """Complete lazy scheduler setup - immediately schedule automated upload job for production"""
-    global scheduler_started
-    
-    with scheduler_lock:
-        if scheduler_started:
-            return True
-            
-        if not is_production_request():
-            app.logger.debug("Not starting scheduler - not a production request")
-            return False
-            
-        try:
-            # Perform safe TTL-based cleanup before attempting to acquire lock
-            with app.app_context():
-                expired_count = SchedulerLock.cleanup_expired_locks(environment='production')
-                if expired_count > 0:
-                    app.logger.info(f"🧹 Cleaned up {expired_count} expired production locks")
-            
-            # Generate unique process ID
-            process_id = f"prod-{os.getpid()}-{int(time.time())}"
-            
-            # Try to acquire scheduler lock
-            if SchedulerLock.acquire_lock(process_id, 'production'):
-                app.logger.info(f"🔒 Acquired scheduler lock for production environment (Process: {process_id})")
-                
-                # Check database setting for automated uploads (flexible boolean parsing)
-                automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
-                if automation_setting:
-                    val = str(automation_setting.setting_value).strip().lower()
-                    automation_enabled = val in {'true', '1', 'yes', 'enabled'}
-                    app.logger.info(f"📋 Database setting 'automated_uploads_enabled': '{automation_setting.setting_value}' -> {automation_enabled}")
-                else:
-                    automation_enabled = False
-                    app.logger.info("📋 Database setting 'automated_uploads_enabled' not found - defaulting to False")
-                    
-                if automation_enabled:
-                    try:
-                        # Import scheduler components  
-                        from apscheduler.triggers.interval import IntervalTrigger
-                        
-                        # Check if job already exists to avoid duplicates
-                        if not scheduler.get_job('automated_upload'):
-                            # Schedule automated uploads every 30 minutes
-                            scheduler.add_job(
-                                func=automated_upload,
-                                trigger=IntervalTrigger(minutes=30),
-                                id='automated_upload',
-                                name='Automated Upload (Every 30 Minutes) - Production Active',
-                                replace_existing=True
-                            )
-                            app.logger.info("📤 ✅ Automated upload job scheduled successfully")
-                        else:
-                            app.logger.info("📤 ✅ Automated upload job already exists")
-                        
-                        # Ensure scheduler is running
-                        if not scheduler.running:
-                            scheduler.start()
-                            app.logger.info("📤 ✅ Scheduler started successfully")
-                        
-                        # Only set scheduler_started=True after successful job scheduling
-                        scheduler_started = True
-                        app.logger.info("📤 ✅ Lazy scheduler setup completed for PRODUCTION environment")
-                        return True
-                        
-                    except Exception as scheduling_error:
-                        app.logger.error(f"❌ Failed to schedule automated upload job: {str(scheduling_error)}")
-                        # Release lock if scheduling failed
-                        SchedulerLock.release_lock(process_id, 'production')
-                        return False
-                else:
-                    app.logger.info("📋 Database setting: automated uploads disabled - lazy scheduler not started")
-                    # Release lock since we're not using it
-                    SchedulerLock.release_lock(process_id, 'production')
-                    return False
-            else:
-                app.logger.info("🔒 Another production instance already holds the scheduler lock")
-                return False
-                
-        except Exception as e:
-            app.logger.error(f"❌ Failed to start lazy scheduler: {str(e)}")
-            return False
-
-@app.before_request
-def check_lazy_scheduler():
-    """Check if we should start the lazy scheduler on production requests"""
-    if is_production_request() and not scheduler_started:
-        # Start scheduler on first production request
-        start_lazy_scheduler()
+# Simple automated upload scheduling - no complex environment detection needed
 
 app.secret_key = os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -2272,14 +2173,7 @@ def automation_status():
 def manual_test_upload():
     """Manual upload testing for dev environment"""
     try:
-        # Environment check - only allow in dev or manual mode
-        if not (APP_ENV == 'dev' or MANUAL_UPLOAD_MODE):
-            return jsonify({
-                'success': False, 
-                'error': 'Manual test upload only available in dev environment or manual upload mode'
-            }), 403
-        
-        app.logger.info(f"🧪 Manual test upload initiated from {APP_ENV} environment")
+        app.logger.info("🧪 Manual test upload initiated")
         
         # Generate fresh XML
         from simplified_xml_generator import SimplifiedXMLGenerator
@@ -2305,11 +2199,10 @@ def manual_test_upload():
         # In the future, we should modify automated_upload to return success/failure status
         return jsonify({
             'success': True,  # We'll assume success if no exception was raised
-            'message': f'Test upload completed for {APP_ENV} environment',
+            'message': 'Test upload completed',
             'job_count': stats['job_count'],
             'xml_size': stats['xml_size_bytes'],
-            'environment': APP_ENV.upper(),
-            'destination': 'test-dev directory' if APP_ENV == 'dev' else 'production directory',
+            'destination': 'configured SFTP directory',
             'note': 'Upload attempted - check logs for detailed results'
         })
         
@@ -2336,10 +2229,7 @@ def settings():
             setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
             settings_data[key] = setting.setting_value if setting else ''
         
-        # Add environment information for template
-        environment_data = get_environment_info()
-        
-        return render_template('settings.html', settings=settings_data, environment=environment_data)
+        return render_template('settings.html', settings=settings_data)
         
     except Exception as e:
         app.logger.error(f"Error loading settings: {str(e)}")
@@ -5074,20 +4964,7 @@ def automated_upload():
     """Automatically upload fresh XML every 30 minutes if automation is enabled"""
     with app.app_context():
         try:
-            # Environment-aware upload controls
-            app.logger.info(f"🌍 Environment: {APP_ENV.upper()}, Manual Mode: {MANUAL_UPLOAD_MODE}, Auto Uploads Enabled: {AUTO_UPLOADS_ENABLED}")
-            
-            # Check environment override - dev can disable automated uploads entirely
-            if not AUTO_UPLOADS_ENABLED:
-                app.logger.info(f"📋 Automated uploads disabled by environment override (AUTO_UPLOADS_ENABLED=false)")
-                return
-            
-            # Check manual upload mode - dev environment can use manual testing mode
-            if MANUAL_UPLOAD_MODE and APP_ENV == 'dev':
-                app.logger.info(f"📋 Manual upload mode enabled in {APP_ENV} environment - automated uploads disabled")
-                return
-            
-            # Check if automated uploads are enabled in settings (fallback check)
+            # Check if automated uploads are enabled in settings
             automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
             if not (automation_setting and automation_setting.setting_value == 'true'):
                 app.logger.info("📋 Automated uploads disabled in settings, skipping upload cycle")
@@ -5156,17 +5033,10 @@ def automated_upload():
                         sftp_username and sftp_username.setting_value and 
                         sftp_password and sftp_password.setting_value):
                         
-                        # Environment-aware upload destinations
+                        # Simple upload destination using configured settings
                         target_directory = sftp_directory.setting_value if sftp_directory else "/"
                         remote_filename = 'myticas-job-feed-v2.xml'
-                        
-                        if APP_ENV == 'dev':
-                            # Dev environment - upload to test directory
-                            target_directory = target_directory.rstrip('/') + '/test-dev'
-                            remote_filename = f'myticas-job-feed-v2-dev-{datetime.utcnow().strftime("%Y%m%d_%H%M")}.xml'
-                            app.logger.info(f"🧪 DEV environment: uploading to test directory '{target_directory}'")
-                        else:
-                            app.logger.info(f"🏭 PRODUCTION environment: uploading to live directory '{target_directory}'")
+                        app.logger.info(f"📤 Uploading to configured directory: '{target_directory}'")
                         
                         # Upload using SFTP
                         from ftp_service import FTPService
@@ -5179,7 +5049,7 @@ def automated_upload():
                             use_sftp=True
                         )
                         
-                        app.logger.info(f"📤 Uploading fresh XML to {APP_ENV.upper()} server as '{remote_filename}'...")
+                        app.logger.info(f"📤 Uploading fresh XML as '{remote_filename}'...")
                         upload_result = ftp_service.upload_file(
                             local_file_path=temp_file.name,
                             remote_filename=remote_filename
@@ -5261,8 +5131,15 @@ def automated_upload():
             app.logger.error(f"❌ Automated upload error: {str(e)}")
 
 if is_primary_worker:
-    # Lazy scheduler approach - automated uploads will be started on first production request
-    app.logger.info("📋 Using lazy scheduler approach - automated uploads will start on first production request")
+    # Schedule automated uploads every 30 minutes - simple and reliable
+    scheduler.add_job(
+        func=automated_upload,
+        trigger=IntervalTrigger(minutes=30),
+        id='automated_upload',
+        name='Automated Upload (Every 30 Minutes)',
+        replace_existing=True
+    )
+    app.logger.info("📤 Scheduled automated uploads every 30 minutes")
     
     # Schedule reference refresh every 120 hours
     scheduler.add_job(

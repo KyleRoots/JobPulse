@@ -460,67 +460,6 @@
                                 </div>
                             </div>
 
-                            <!-- Environment Controls Section -->
-                            {% if environment %}
-                            <div class="row mb-3">
-                                <div class="col-12">
-                                    <div class="card border-warning">
-                                        <div class="card-header bg-warning text-dark">
-                                            <h6 class="card-title mb-0">
-                                                <i class="fas fa-cogs me-2"></i>
-                                                Environment Controls ({{ environment.app_env.upper() }})
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="row align-items-center">
-                                                <div class="col-md-3">
-                                                    <strong>Environment:</strong>
-                                                    <span class="badge {% if environment.app_env == 'dev' %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                                                        {{ environment.app_env.upper() }}
-                                                    </span>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <strong>Manual Mode:</strong>
-                                                    <span class="badge {% if environment.manual_upload_mode %}bg-info{% else %}bg-secondary{% endif %}">
-                                                        {% if environment.manual_upload_mode %}ON{% else %}OFF{% endif %}
-                                                    </span>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <strong>Auto Uploads:</strong>
-                                                    <span class="badge {% if environment.auto_uploads_enabled %}bg-success{% else %}bg-danger{% endif %}">
-                                                        {% if environment.auto_uploads_enabled %}ENABLED{% else %}DISABLED{% endif %}
-                                                    </span>
-                                                </div>
-                                                {% if environment.show_manual_controls %}
-                                                <div class="col-md-3">
-                                                    <button type="button" class="btn btn-sm btn-warning" onclick="testUploadNow()" id="testUploadBtn">
-                                                        <i class="fas fa-rocket me-1"></i>
-                                                        Test Upload Now
-                                                    </button>
-                                                </div>
-                                                {% endif %}
-                                            </div>
-                                            {% if environment.app_env == 'dev' %}
-                                            <div class="mt-2">
-                                                <small class="text-warning">
-                                                    <i class="fas fa-info-circle me-1"></i>
-                                                    DEV environment uploads to test-dev directory with timestamped filenames
-                                                </small>
-                                            </div>
-                                            {% endif %}
-                                            {% if not environment.auto_uploads_enabled %}
-                                            <div class="mt-2">
-                                                <small class="text-info">
-                                                    <i class="fas fa-hand-paper me-1"></i>
-                                                    Automated uploads disabled by environment override - use manual testing
-                                                </small>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
                             
                             <div class="row mb-3">
                                 <div class="col-md-6">
@@ -696,43 +635,6 @@
             });
         }
 
-        // Manual Test Upload Function
-        function testUploadNow() {
-            const button = document.getElementById('testUploadBtn');
-            
-            // Show loading state
-            button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
-            
-            // Make test upload request
-            fetch('/test-upload', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Show success message with details
-                    const message = `✅ ${data.message}\n` +
-                                  `📊 Jobs: ${data.job_count}\n` +
-                                  `📁 Size: ${data.xml_size} bytes\n` +
-                                  `📤 Destination: ${data.destination}`;
-                    alert(message);
-                } else {
-                    alert('❌ Upload failed: ' + data.error);
-                }
-            })
-            .catch(error => {
-                alert('❌ Failed to perform test upload: ' + error);
-            })
-            .finally(() => {
-                // Reset button
-                button.disabled = false;
-                button.innerHTML = '<i class="fas fa-rocket me-1"></i>Test Upload Now';
-            });
-        }
 
         // Automation Status Management
         let countdownInterval = null;
