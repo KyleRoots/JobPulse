@@ -2203,41 +2203,58 @@ def download_current_xml():
 
 @app.route('/automation-status')
 def automation_status():
-    """Get current automation status and timing information"""
+    """Get current automation status based on REAL scheduler job state"""
     try:
-        # Get automation setting
-        automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
-        automation_enabled = automation_setting and automation_setting.setting_value == 'true'
-        
-        # Get scheduler job info
+        # Check for actual scheduled job first (reality-driven approach)
+        job_exists = False
+        job_scheduled = False
         next_upload_time = None
         next_upload_iso = None
         next_upload_timestamp = None
-        last_upload_time = None
         upload_interval = "30 minutes"
         
-        if automation_enabled:
-            try:
-                job = scheduler.get_job('automated_upload')
-                if job and job.next_run_time:
+        try:
+            job = scheduler.get_job('automated_upload')
+            if job:
+                job_exists = True
+                if job.next_run_time:
+                    job_scheduled = True
                     # Provide multiple formats for robust client-side handling
                     next_upload_time = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S UTC')
                     next_upload_iso = job.next_run_time.isoformat()
                     next_upload_timestamp = int(job.next_run_time.timestamp() * 1000)  # milliseconds
-            except Exception as e:
-                app.logger.warning(f"Could not get job timing: {str(e)}")
+        except Exception as e:
+            app.logger.debug(f"Could not get scheduler job info: {str(e)}")
+        
+        # Get database setting for reference (but don't drive UI from it)
+        automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+        db_setting_enabled = automation_setting and automation_setting.setting_value == 'true'
+        
+        # Determine actual automation status from scheduler reality
+        if job_exists and job_scheduled:
+            automation_enabled = True
+            status = 'Active'
+        elif job_exists and not job_scheduled:
+            automation_enabled = False  
+            status = 'Job exists but not scheduled'
+        else:
+            automation_enabled = False
+            status = 'Not scheduled'
         
         # Get last upload from activity logs (we can implement this later)
         last_upload_time = "Not available yet"
         
         return jsonify({
             'automation_enabled': automation_enabled,
+            'job_exists': job_exists,
+            'job_scheduled': job_scheduled,
+            'db_setting_enabled': db_setting_enabled,  # For debugging discrepancies
             'next_upload_time': next_upload_time,  # Human readable
             'next_upload_iso': next_upload_iso,    # ISO 8601 format
             'next_upload_timestamp': next_upload_timestamp,  # Unix timestamp in ms
             'last_upload_time': last_upload_time,
             'upload_interval': upload_interval,
-            'status': 'Active' if automation_enabled else 'Disabled'
+            'status': status
         })
         
     except Exception as e:
