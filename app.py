@@ -5040,23 +5040,30 @@ def automated_upload():
             app.logger.error(f"❌ Automated upload error: {str(e)}")
 
 if is_primary_worker:
-    # Check if automated uploads are enabled before scheduling
+    # Environment-aware automated upload scheduling
     try:
         with app.app_context():
-            automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
-            if automation_setting and automation_setting.setting_value == 'true':
-                # Schedule automated uploads every 30 minutes
-                scheduler.add_job(
-                    func=automated_upload,
-                    trigger='interval',
-                    minutes=30,
-                    id='automated_upload',
-                    name='Automated Upload (Every 30 Minutes)',
-                    replace_existing=True
-                )
-                app.logger.info("📤 Scheduled automated uploads every 30 minutes")
+            # Check environment override first
+            if not AUTO_UPLOADS_ENABLED:
+                app.logger.info(f"📋 Environment override: AUTO_UPLOADS_ENABLED=false - automated uploads disabled")
+            elif MANUAL_UPLOAD_MODE and APP_ENV == 'dev':
+                app.logger.info(f"📋 Dev environment: MANUAL_UPLOAD_MODE=true - automated uploads disabled, manual testing available")
             else:
-                app.logger.info("📋 Automated uploads disabled - scheduled job not created")
+                # Check database setting (fallback)
+                automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+                if automation_setting and automation_setting.setting_value == 'true':
+                    # Schedule automated uploads every 30 minutes
+                    scheduler.add_job(
+                        func=automated_upload,
+                        trigger='interval',
+                        minutes=30,
+                        id='automated_upload',
+                        name='Automated Upload (Every 30 Minutes)',
+                        replace_existing=True
+                    )
+                    app.logger.info(f"📤 Scheduled automated uploads every 30 minutes (Environment: {APP_ENV.upper()})")
+                else:
+                    app.logger.info("📋 Database setting: automated uploads disabled - scheduled job not created")
     except Exception as e:
         app.logger.warning(f"Could not check automated upload setting during startup: {str(e)}")
     
