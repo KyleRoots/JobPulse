@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 import json
 import re
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_sqlalchemy import SQLAlchemy
@@ -101,21 +101,32 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-# Production domains for environment detection
-PRODUCTION_DOMAINS = {'jobpulse.lyntrix.ai'}
+# Production domains for environment detection (support multiple hostnames)
+PRODUCTION_DOMAINS = {'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'}
 
 # Global scheduler state management
 scheduler_started = False
 scheduler_lock = threading.Lock()
 
 def is_production_request():
-    """Detect if current request is from production domain"""
-    from flask import request
-    try:
-        host = request.host.lower()
-        return host in PRODUCTION_DOMAINS
-    except RuntimeError:
+    """Detect if current request is from production domain with hardened detection"""
+    # Check if we have request context first
+    if not has_request_context():
         # No request context - return False for safety
+        return False
+    
+    try:
+        # Get the host and normalize it
+        host = request.host.lower()
+        
+        # Strip port number if present (e.g., 'jobpulse.lyntrix.ai:443' -> 'jobpulse.lyntrix.ai')
+        if ':' in host:
+            host = host.split(':')[0]
+        
+        # Check against production domains
+        return host in PRODUCTION_DOMAINS
+    except (RuntimeError, AttributeError):
+        # No request context or malformed request - return False for safety
         return False
 
 def get_environment_info():
@@ -198,11 +209,14 @@ else:
     app.logger.warning("DATABASE_URL not set, using default SQLite for development")
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///fallback.db"
 
-# Configure job application URL base for dual-domain deployment
-# Production: jobpulse.lyntrix.ai (main app) + apply.myticas.com (job forms)
-if not os.environ.get('JOB_APPLICATION_BASE_URL'):
-    # Use production domain detection for job application URLs
-    if request and is_production_request():
+def configure_job_application_base_url():
+    """Configure job application URL base for dual-domain deployment - called when needed"""
+    # Don't reconfigure if already set
+    if os.environ.get('JOB_APPLICATION_BASE_URL'):
+        return os.environ['JOB_APPLICATION_BASE_URL']
+    
+    # Use production domain detection for job application URLs (only when request context available)
+    if has_request_context() and is_production_request():
         # Production uses clean branded domain for job applications
         os.environ['JOB_APPLICATION_BASE_URL'] = 'https://apply.myticas.com'
         app.logger.info("Production: Job application URLs will use https://apply.myticas.com")
@@ -215,6 +229,19 @@ if not os.environ.get('JOB_APPLICATION_BASE_URL'):
         else:
             os.environ['JOB_APPLICATION_BASE_URL'] = 'https://apply.myticas.com'
             app.logger.info("Default: Job application URLs will use https://apply.myticas.com")
+    
+    return os.environ['JOB_APPLICATION_BASE_URL']
+
+# Initialize with default for immediate availability
+if not os.environ.get('JOB_APPLICATION_BASE_URL'):
+    # Set a safe default without request context dependency
+    current_domain = os.environ.get('REPLIT_DEV_DOMAIN', 'localhost:5000')
+    if current_domain and current_domain != 'localhost:5000':
+        os.environ['JOB_APPLICATION_BASE_URL'] = f"https://{current_domain}"
+        app.logger.info(f"Development: Job application URLs will use https://{current_domain}")
+    else:
+        os.environ['JOB_APPLICATION_BASE_URL'] = 'https://apply.myticas.com'
+        app.logger.info("Default: Job application URLs will use https://apply.myticas.com")
 
 # Initialize Flask-Login
 login_manager = LoginManager()
