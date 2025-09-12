@@ -101,11 +101,32 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-# Environment configuration using Replit's built-in environment detection
-IS_PRODUCTION = os.environ.get('REPLIT_ENVIRONMENT') == 'production'
-APP_ENV = "production" if IS_PRODUCTION else "dev"
-MANUAL_UPLOAD_MODE = not IS_PRODUCTION  # Dev uses manual mode, production uses automated
-AUTO_UPLOADS_ENABLED = IS_PRODUCTION    # Only enable auto uploads in production
+# Production domains for environment detection
+PRODUCTION_DOMAINS = {'jobpulse.lyntrix.ai'}
+
+# Global scheduler state management
+scheduler_started = False
+scheduler_lock = threading.Lock()
+
+def is_production_request():
+    """Detect if current request is from production domain"""
+    from flask import request
+    try:
+        host = request.host.lower()
+        return host in PRODUCTION_DOMAINS
+    except RuntimeError:
+        # No request context - return False for safety
+        return False
+
+def get_environment_info():
+    """Get environment info for current request"""
+    is_prod = is_production_request()
+    return {
+        'is_production': is_prod,
+        'app_env': 'production' if is_prod else 'dev',
+        'manual_upload_mode': not is_prod,
+        'auto_uploads_enabled': is_prod
+    }
 
 app.secret_key = os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -134,7 +155,8 @@ else:
 # Configure job application URL base for dual-domain deployment
 # Production: jobpulse.lyntrix.ai (main app) + apply.myticas.com (job forms)
 if not os.environ.get('JOB_APPLICATION_BASE_URL'):
-    if os.environ.get('REPLIT_ENVIRONMENT') == 'production':
+    # Use production domain detection for job application URLs
+    if request and is_production_request():
         # Production uses clean branded domain for job applications
         os.environ['JOB_APPLICATION_BASE_URL'] = 'https://apply.myticas.com'
         app.logger.info("Production: Job application URLs will use https://apply.myticas.com")
@@ -5103,32 +5125,8 @@ def automated_upload():
             app.logger.error(f"❌ Automated upload error: {str(e)}")
 
 if is_primary_worker:
-    # Environment-aware automated upload scheduling
-    try:
-        with app.app_context():
-            # Check environment override first
-            if not AUTO_UPLOADS_ENABLED:
-                app.logger.info(f"📋 Environment override: AUTO_UPLOADS_ENABLED=false - automated uploads not scheduled")
-            elif MANUAL_UPLOAD_MODE and APP_ENV == 'dev':
-                app.logger.info(f"📋 Automated uploads not scheduled in DEV manual mode - use Test Upload Now button instead")
-            else:
-                # Check database setting (fallback)
-                automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
-                if automation_setting and automation_setting.setting_value == 'true':
-                    # Schedule automated uploads every 30 minutes
-                    scheduler.add_job(
-                        func=automated_upload,
-                        trigger='interval',
-                        minutes=30,
-                        id='automated_upload',
-                        name='Automated Upload (Every 30 Minutes)',
-                        replace_existing=True
-                    )
-                    app.logger.info(f"📤 Scheduled automated uploads every 30 minutes (Environment: {APP_ENV.upper()})")
-                else:
-                    app.logger.info("📋 Database setting: automated uploads disabled - scheduled job not created")
-    except Exception as e:
-        app.logger.warning(f"Could not check automated upload setting during startup: {str(e)}")
+    # Lazy scheduler approach - automated uploads will be started on first production request
+    app.logger.info("📋 Using lazy scheduler approach - automated uploads will start on first production request")
     
     # Schedule reference refresh every 120 hours
     scheduler.add_job(
