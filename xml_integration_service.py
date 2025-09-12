@@ -413,12 +413,11 @@ class XMLIntegrationService:
             safe_title = str(clean_title).strip().replace('/', '-')
             encoded_title = urllib.parse.quote(safe_title, safe='')
             
-            # Determine base URL based on company
-            import os
-            if company_name and 'STSI' in company_name:
+            # Determine base URL based on company (environment-independent, case-insensitive)
+            if company_name and 'stsi' in company_name.lower():
                 base_url = 'https://apply.stsigroup.com'
             else:
-                base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
+                base_url = 'https://apply.myticas.com'
             
             # Generate the unique URL  
             job_url = f"{base_url}/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
@@ -433,10 +432,10 @@ class XMLIntegrationService:
                 if bhatsid and str(bhatsid).strip():
                     import os
                     # Determine fallback base URL
-                    if company_name and 'STSI' in company_name:
+                    if company_name and 'stsi' in company_name.lower():
                         base_url = 'https://apply.stsigroup.com'
                     else:
-                        base_url = os.environ.get('JOB_APPLICATION_BASE_URL', 'https://apply.myticas.com')
+                        base_url = 'https://apply.myticas.com'
                     fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source=LinkedIn"
                     self.logger.warning(f"Using fallback URL with job ID: {fallback_url}")
                     return fallback_url

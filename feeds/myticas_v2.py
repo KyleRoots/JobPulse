@@ -213,13 +213,11 @@ class MyticasFeedV2:
         Returns:
             str: Full application URL
         """
-        # Determine base URL based on company
-        if 'STSI' in company:
-            base_url = os.environ.get('PUBLIC_JOB_URL_BASE', 'https://apply.stsigroup.com')
-            if 'apply.stsi.com' in base_url:
-                base_url = 'https://apply.stsigroup.com'
+        # Determine base URL based on company (environment-independent, case-insensitive)
+        if 'stsi' in company.lower():
+            base_url = 'https://apply.stsigroup.com'
         else:
-            base_url = os.environ.get('PUBLIC_JOB_URL_BASE', 'https://apply.myticas.com')
+            base_url = 'https://apply.myticas.com'
         
         # Clean and encode title
         safe_title = title.replace('/', ' ').replace('\\', ' ')
