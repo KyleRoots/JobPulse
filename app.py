@@ -2242,12 +2242,7 @@ def settings():
             settings_data[key] = setting.setting_value if setting else ''
         
         # Add environment information for template
-        environment_data = {
-            'app_env': APP_ENV,
-            'manual_upload_mode': MANUAL_UPLOAD_MODE,
-            'auto_uploads_enabled': AUTO_UPLOADS_ENABLED,
-            'show_manual_controls': APP_ENV == 'dev' or MANUAL_UPLOAD_MODE
-        }
+        environment_data = get_environment_info()
         
         return render_template('settings.html', settings=settings_data, environment=environment_data)
         
