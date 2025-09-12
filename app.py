@@ -128,6 +128,52 @@ def get_environment_info():
         'auto_uploads_enabled': is_prod
     }
 
+def start_lazy_scheduler():
+    """Phase 1: Acquire DB lock and set pending flag for lazy scheduler"""
+    global scheduler_started
+    
+    with scheduler_lock:
+        if scheduler_started:
+            return True
+            
+        if not is_production_request():
+            app.logger.debug("Not starting scheduler - not a production request")
+            return False
+            
+        try:
+            # Generate unique process ID
+            process_id = f"prod-{os.getpid()}-{int(time.time())}"
+            
+            # Try to acquire scheduler lock
+            if SchedulerLock.acquire_lock(process_id, 'production'):
+                app.logger.info(f"🔒 Acquired scheduler lock for production environment (Process: {process_id})")
+                
+                # Check database setting for automated uploads
+                automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+                if automation_setting and automation_setting.setting_value == 'true':
+                    # Phase 1: Only set pending flag - no scheduler references yet
+                    app.lazy_scheduler_pending = True
+                    scheduler_started = True  # Prevent re-entry
+                    app.logger.info("📤 Phase 1: Production request detected - scheduling will complete in Phase 2")
+                    return True
+                else:
+                    app.logger.info("📋 Database setting: automated uploads disabled - lazy scheduler not started")
+                    return False
+            else:
+                app.logger.info("🔒 Another production instance already holds the scheduler lock")
+                return False
+                
+        except Exception as e:
+            app.logger.error(f"Failed to start lazy scheduler Phase 1: {str(e)}")
+            return False
+
+@app.before_request
+def check_lazy_scheduler():
+    """Check if we should start the lazy scheduler on production requests"""
+    if is_production_request() and not scheduler_started:
+        # Start scheduler on first production request
+        start_lazy_scheduler()
+
 app.secret_key = os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
@@ -5351,6 +5397,44 @@ def test_reference_refresh_notification():
             'success': False,
             'error': str(e)
         }), 500
+
+# Phase 2: Lazy scheduler setup - happens after all globals are available
+def setup_lazy_scheduled_jobs():
+    """Phase 2: Complete lazy scheduler setup by actually scheduling the job"""
+    if getattr(app, 'lazy_scheduler_pending', False):
+        try:
+            # Import the scheduler and automated_upload from globals (they exist by now)
+            from apscheduler.triggers.interval import IntervalTrigger
+            
+            # Check if job already exists to avoid duplicates
+            if not scheduler.get_job('automated_upload'):
+                # Schedule automated uploads every 30 minutes
+                scheduler.add_job(
+                    func=automated_upload,
+                    trigger=IntervalTrigger(minutes=30),
+                    id='automated_upload',
+                    name='Automated Upload (Every 30 Minutes) - Lazy Started',
+                    replace_existing=True
+                )
+                app.logger.info("📤 Phase 2: Automated upload job scheduled successfully")
+            
+            # Ensure scheduler is running
+            if not scheduler.running:
+                scheduler.start()
+                app.logger.info("📤 Phase 2: Scheduler started successfully")
+            
+            # Clear the pending flag
+            app.lazy_scheduler_pending = False
+            app.logger.info("📤 Lazy scheduler setup completed for PRODUCTION environment")
+            
+        except Exception as e:
+            app.logger.error(f"Failed to complete lazy scheduler setup: {str(e)}")
+
+@app.before_request
+def maybe_finish_lazy_setup():
+    """Check and complete lazy scheduler setup on each request until done"""
+    if getattr(app, 'lazy_scheduler_pending', False):
+        setup_lazy_scheduled_jobs()
 
 # Scheduler and background services will be started lazily when first needed
 # This significantly reduces application startup time for deployment health checks
