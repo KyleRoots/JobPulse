@@ -101,10 +101,11 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-# Environment configuration
-APP_ENV = os.environ.get("APP_ENV", "production").lower()
-MANUAL_UPLOAD_MODE = os.environ.get("MANUAL_UPLOAD_MODE", "false").lower() == "true"
-AUTO_UPLOADS_ENABLED = os.environ.get("AUTO_UPLOADS_ENABLED", "true").lower() == "true"
+# Environment configuration using Replit's built-in environment detection
+IS_PRODUCTION = os.environ.get('REPLIT_ENVIRONMENT') == 'production'
+APP_ENV = "production" if IS_PRODUCTION else "dev"
+MANUAL_UPLOAD_MODE = not IS_PRODUCTION  # Dev uses manual mode, production uses automated
+AUTO_UPLOADS_ENABLED = IS_PRODUCTION    # Only enable auto uploads in production
 
 app.secret_key = os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
