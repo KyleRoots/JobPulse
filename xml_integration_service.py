@@ -30,13 +30,13 @@ class XMLIntegrationService:
     def format_linkedin_recruiter_tag(assigned_users: List[Dict]) -> str:
         """
         Centralized LinkedIn recruiter tag formatter - ensures consistent format across all code paths
-        Returns exactly "#LI-XXn:" without trailing names
+        Returns exactly "#LI-XXn" without trailing colons or names
         
         Args:
             assigned_users: List of assigned user dictionaries from Bullhorn
             
         Returns:
-            str: LinkedIn tag in format "#LI-XXn:" or empty string
+            str: LinkedIn tag in format "#LI-XXn" or empty string
         """
         if not assigned_users or not isinstance(assigned_users, list):
             return ""
@@ -45,16 +45,16 @@ class XMLIntegrationService:
             if isinstance(user, dict) and user.get('linkedInCompanyID'):
                 company_id = str(user.get('linkedInCompanyID', '')).strip()
                 if company_id:
-                    # Return strictly the LinkedIn tag without any names
-                    return f"#LI-{company_id}:"
+                    # Return strictly the LinkedIn tag without colons or names
+                    return f"#LI-{company_id}"
         
         return ""
     
     @staticmethod
     def sanitize_linkedin_recruiter_tag(assignedrecruiter_value: str) -> str:
         """
-        Defensive sanitizer to strip trailing names from existing assignedrecruiter values
-        Ensures format is exactly "#LI-XXn:" with no trailing content
+        Defensive sanitizer to strip trailing colons and names from existing assignedrecruiter values
+        Ensures format is exactly "#LI-XXn" with no trailing content
         
         Args:
             assignedrecruiter_value: Raw assignedrecruiter field value
@@ -65,11 +65,11 @@ class XMLIntegrationService:
         if not assignedrecruiter_value:
             return ""
         
-        # If it's a LinkedIn tag with or without trailing content, extract just the tag part
-        # Relaxed pattern to handle future tag formats: #LI-[anything]:
-        linkedin_match = re.match(r'^(#LI-[^:]+:).*$', assignedrecruiter_value.strip())
+        # If it's a LinkedIn tag with or without trailing content, extract just the tag part without colon
+        # Pattern matches #LI-[alphanumeric] and stops at word boundary to avoid punctuation
+        linkedin_match = re.match(r'^\s*(#LI-[A-Za-z0-9]+)\b', assignedrecruiter_value.strip())
         if linkedin_match:
-            return linkedin_match.group(1)  # Return just the tag part
+            return linkedin_match.group(1)  # Return just the tag part without colon
         
         # If it's not a LinkedIn tag, return empty string to prevent names from leaking
         return ""
