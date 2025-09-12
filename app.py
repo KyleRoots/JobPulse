@@ -116,17 +116,23 @@ def is_production_request():
         return False
     
     try:
-        # Get the host and normalize it
-        host = request.host.lower()
-        
-        # Strip port number if present (e.g., 'jobpulse.lyntrix.ai:443' -> 'jobpulse.lyntrix.ai')
-        if ':' in host:
-            host = host.split(':')[0]
+        # Handle X-Forwarded-Host (common in proxied deployments) and normalize
+        host = request.headers.get('X-Forwarded-Host', request.host or '').split(',')[0].strip()
+        host = host.split(':')[0].rstrip('.').lower()
         
         # Check against production domains
-        return host in PRODUCTION_DOMAINS
-    except (RuntimeError, AttributeError):
-        # No request context or malformed request - return False for safety
+        is_prod = host in PRODUCTION_DOMAINS
+        
+        # Debug logging for troubleshooting
+        if not is_prod:
+            app.logger.debug(f"🔍 Not production: host='{host}' (X-Forwarded-Host={request.headers.get('X-Forwarded-Host', 'None')}, request.host={request.host})")
+        else:
+            app.logger.info(f"🎯 Production request detected: host='{host}'")
+            
+        return is_prod
+        
+    except (RuntimeError, AttributeError) as e:
+        app.logger.debug(f"🔍 Production detection failed: {str(e)}")
         return False
 
 def get_environment_info():
@@ -160,9 +166,17 @@ def start_lazy_scheduler():
             if SchedulerLock.acquire_lock(process_id, 'production'):
                 app.logger.info(f"🔒 Acquired scheduler lock for production environment (Process: {process_id})")
                 
-                # Check database setting for automated uploads
+                # Check database setting for automated uploads (flexible boolean parsing)
                 automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
-                if automation_setting and automation_setting.setting_value == 'true':
+                if automation_setting:
+                    val = str(automation_setting.setting_value).strip().lower()
+                    automation_enabled = val in {'true', '1', 'yes', 'enabled'}
+                    app.logger.info(f"📋 Database setting 'automated_uploads_enabled': '{automation_setting.setting_value}' -> {automation_enabled}")
+                else:
+                    automation_enabled = False
+                    app.logger.info("📋 Database setting 'automated_uploads_enabled' not found - defaulting to False")
+                    
+                if automation_enabled:
                     # Phase 1: Only set pending flag - no scheduler references yet
                     app.lazy_scheduler_pending = True
                     scheduler_started = True  # Prevent re-entry
