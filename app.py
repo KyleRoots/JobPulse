@@ -161,39 +161,74 @@ else:
     app.logger.warning("DATABASE_URL not set, using default SQLite for development")
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///fallback.db"
 
+def is_production_deployment():
+    """Detect production environment using deployment indicators (no request context needed)"""
+    # Check for explicit environment override first
+    explicit_env = os.environ.get("DEPLOYMENT_ENVIRONMENT", "").lower()
+    if explicit_env == "production":
+        app.logger.info("✅ Explicit production environment detected via DEPLOYMENT_ENVIRONMENT")
+        return True
+    elif explicit_env == "development":
+        app.logger.info("🧪 Explicit development environment detected via DEPLOYMENT_ENVIRONMENT")
+        return False
+    
+    # Check for production database URL patterns (Neon/production indicators)
+    database_url = os.environ.get("DATABASE_URL", "")
+    
+    # Production typically uses external PostgreSQL (Neon) with specific patterns
+    is_prod_db = (
+        "neon.tech" in database_url or
+        "aws.neon.tech" in database_url or
+        (database_url.startswith("postgresql://") and "replit" not in database_url)
+    )
+    
+    # Check if we're in a published/deployed environment vs development
+    replit_db_url = os.environ.get("REPLIT_DB_URL")  # Present in dev, absent in production
+    has_replit_vars = bool(os.environ.get('REPL_OWNER'))  # Present in Replit workspace
+    
+    # Production deployment characteristics:
+    # - External database (not Replit's internal DB) 
+    # - No Replit development database URL
+    # - May still have some Replit vars in published apps
+    is_production = is_prod_db and not replit_db_url
+    
+    app.logger.info(f"🔍 Production detection: db_prod={is_prod_db}, no_replit_db={not bool(replit_db_url)}, has_replit_vars={has_replit_vars}, result={is_production}")
+    
+    # Additional logging for debugging
+    if database_url:
+        safe_db_url = database_url.split('@')[0] + '@***' + database_url.split('@')[1] if '@' in database_url else "***"
+        app.logger.debug(f"🔍 Database URL pattern: {safe_db_url}")
+    
+    return is_production
+
 def configure_job_application_base_url():
     """Configure job application URL base for dual-domain deployment - called when needed"""
     # Don't reconfigure if already set
     if os.environ.get('JOB_APPLICATION_BASE_URL'):
         return os.environ['JOB_APPLICATION_BASE_URL']
     
-    # Use production domain detection for job application URLs (only when request context available)
-    if has_request_context() and is_production_request():
+    # Use deployment-based detection (works in background jobs)
+    if is_production_deployment():
         # Production uses clean branded domain for job applications
         os.environ['JOB_APPLICATION_BASE_URL'] = 'https://apply.myticas.com'
-        app.logger.info("Production: Job application URLs will use https://apply.myticas.com")
+        app.logger.info("✅ Production deployment detected: Job application URLs will use https://apply.myticas.com")
     else:
         # Development/testing uses current domain for immediate functionality
         current_domain = os.environ.get('REPLIT_DEV_DOMAIN', 'localhost:5000')
         if current_domain and current_domain != 'localhost:5000':
             os.environ['JOB_APPLICATION_BASE_URL'] = f"https://{current_domain}"
-            app.logger.info(f"Development: Job application URLs will use https://{current_domain}")
+            app.logger.info(f"🧪 Development environment: Job application URLs will use https://{current_domain}")
         else:
+            # Fallback to production domain if detection is unclear
             os.environ['JOB_APPLICATION_BASE_URL'] = 'https://apply.myticas.com'
-            app.logger.info("Default: Job application URLs will use https://apply.myticas.com")
+            app.logger.info("⚠️ Environment unclear - defaulting to production: https://apply.myticas.com")
     
     return os.environ['JOB_APPLICATION_BASE_URL']
 
-# Initialize with default for immediate availability
+# Initialize with production-aware default for immediate availability
 if not os.environ.get('JOB_APPLICATION_BASE_URL'):
-    # Set a safe default without request context dependency
-    current_domain = os.environ.get('REPLIT_DEV_DOMAIN', 'localhost:5000')
-    if current_domain and current_domain != 'localhost:5000':
-        os.environ['JOB_APPLICATION_BASE_URL'] = f"https://{current_domain}"
-        app.logger.info(f"Development: Job application URLs will use https://{current_domain}")
-    else:
-        os.environ['JOB_APPLICATION_BASE_URL'] = 'https://apply.myticas.com'
-        app.logger.info("Default: Job application URLs will use https://apply.myticas.com")
+    # Use deployment-based detection for initial configuration
+    configure_job_application_base_url()
 
 # Initialize Flask-Login
 login_manager = LoginManager()
