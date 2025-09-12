@@ -136,7 +136,8 @@ def get_environment_info():
         'is_production': is_prod,
         'app_env': 'production' if is_prod else 'dev',
         'manual_upload_mode': not is_prod,
-        'auto_uploads_enabled': is_prod
+        'auto_uploads_enabled': is_prod,
+        'show_manual_controls': True  # Manual uploads available as fallback in both environments
     }
 
 def start_lazy_scheduler():
