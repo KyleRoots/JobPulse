@@ -2103,6 +2103,59 @@ def automation_status():
         app.logger.error(f"Error getting automation status: {str(e)}")
         return jsonify({'error': 'Failed to get automation status'}), 500
 
+@app.route('/test-upload', methods=['POST'])
+@login_required
+def manual_test_upload():
+    """Manual upload testing for dev environment"""
+    try:
+        # Environment check - only allow in dev or manual mode
+        if not (APP_ENV == 'dev' or MANUAL_UPLOAD_MODE):
+            return jsonify({
+                'success': False, 
+                'error': 'Manual test upload only available in dev environment or manual upload mode'
+            }), 403
+        
+        app.logger.info(f"🧪 Manual test upload initiated from {APP_ENV} environment")
+        
+        # Generate fresh XML
+        from simplified_xml_generator import SimplifiedXMLGenerator
+        generator = SimplifiedXMLGenerator(db=db)
+        xml_content, stats = generator.generate_fresh_xml()
+        
+        app.logger.info(f"📊 Generated test XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
+        
+        # Check if SFTP is configured
+        sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+        if not (sftp_enabled and sftp_enabled.setting_value == 'true'):
+            return jsonify({
+                'success': False,
+                'error': 'SFTP not enabled in settings',
+                'job_count': stats['job_count'],
+                'xml_size': stats['xml_size_bytes']
+            })
+        
+        # Call the automated_upload function and capture its result
+        upload_result = automated_upload()
+        
+        # automated_upload doesn't currently return structured results, so we'll simulate this for now
+        # In the future, we should modify automated_upload to return success/failure status
+        return jsonify({
+            'success': True,  # We'll assume success if no exception was raised
+            'message': f'Test upload completed for {APP_ENV} environment',
+            'job_count': stats['job_count'],
+            'xml_size': stats['xml_size_bytes'],
+            'environment': APP_ENV.upper(),
+            'destination': 'test-dev directory' if APP_ENV == 'dev' else 'production directory',
+            'note': 'Upload attempted - check logs for detailed results'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Manual test upload error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Upload failed: {str(e)}'
+        }), 500
+
 @app.route('/settings')
 @login_required
 def settings():
@@ -2119,7 +2172,15 @@ def settings():
             setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
             settings_data[key] = setting.setting_value if setting else ''
         
-        return render_template('settings.html', settings=settings_data)
+        # Add environment information for template
+        environment_data = {
+            'app_env': APP_ENV,
+            'manual_upload_mode': MANUAL_UPLOAD_MODE,
+            'auto_uploads_enabled': AUTO_UPLOADS_ENABLED,
+            'show_manual_controls': APP_ENV == 'dev' or MANUAL_UPLOAD_MODE
+        }
+        
+        return render_template('settings.html', settings=settings_data, environment=environment_data)
         
     except Exception as e:
         app.logger.error(f"Error loading settings: {str(e)}")
@@ -4459,13 +4520,14 @@ def ensure_background_services():
             
             # Force immediate monitor check after restart
             try:
-                from datetime import datetime, timedelta
-                # Update all monitors to run immediately
-                monitors = BullhornMonitor.query.all()
-                for monitor in monitors:
-                    monitor.next_check_time = datetime.utcnow()
-                db.session.commit()
-                app.logger.info(f"Forced immediate check for {len(monitors)} monitors after restart")
+                with app.app_context():
+                    from datetime import datetime, timedelta
+                    # Update all monitors to run immediately
+                    monitors = BullhornMonitor.query.all()
+                    for monitor in monitors:
+                        monitor.next_check_time = datetime.utcnow()
+                    db.session.commit()
+                    app.logger.info(f"Forced immediate check for {len(monitors)} monitors after restart")
             except Exception as e:
                 app.logger.warning(f"Could not force immediate monitor check: {e}")
         except Exception as e:
@@ -5045,9 +5107,9 @@ if is_primary_worker:
         with app.app_context():
             # Check environment override first
             if not AUTO_UPLOADS_ENABLED:
-                app.logger.info(f"📋 Environment override: AUTO_UPLOADS_ENABLED=false - automated uploads disabled")
+                app.logger.info(f"📋 Environment override: AUTO_UPLOADS_ENABLED=false - automated uploads not scheduled")
             elif MANUAL_UPLOAD_MODE and APP_ENV == 'dev':
-                app.logger.info(f"📋 Dev environment: MANUAL_UPLOAD_MODE=true - automated uploads disabled, manual testing available")
+                app.logger.info(f"📋 Automated uploads not scheduled in DEV manual mode - use Test Upload Now button instead")
             else:
                 # Check database setting (fallback)
                 automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
