@@ -101,6 +101,11 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
+# Environment configuration
+APP_ENV = os.environ.get("APP_ENV", "production").lower()
+MANUAL_UPLOAD_MODE = os.environ.get("MANUAL_UPLOAD_MODE", "false").lower() == "true"
+AUTO_UPLOADS_ENABLED = os.environ.get("AUTO_UPLOADS_ENABLED", "true").lower() == "true"
+
 app.secret_key = os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
@@ -4848,10 +4853,23 @@ def automated_upload():
     """Automatically upload fresh XML every 30 minutes if automation is enabled"""
     with app.app_context():
         try:
-            # Check if automated uploads are enabled
+            # Environment-aware upload controls
+            app.logger.info(f"🌍 Environment: {APP_ENV.upper()}, Manual Mode: {MANUAL_UPLOAD_MODE}, Auto Uploads Enabled: {AUTO_UPLOADS_ENABLED}")
+            
+            # Check environment override - dev can disable automated uploads entirely
+            if not AUTO_UPLOADS_ENABLED:
+                app.logger.info(f"📋 Automated uploads disabled by environment override (AUTO_UPLOADS_ENABLED=false)")
+                return
+            
+            # Check manual upload mode - dev environment can use manual testing mode
+            if MANUAL_UPLOAD_MODE and APP_ENV == 'dev':
+                app.logger.info(f"📋 Manual upload mode enabled in {APP_ENV} environment - automated uploads disabled")
+                return
+            
+            # Check if automated uploads are enabled in settings (fallback check)
             automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
             if not (automation_setting and automation_setting.setting_value == 'true'):
-                app.logger.info("📋 Automated uploads disabled, skipping upload cycle")
+                app.logger.info("📋 Automated uploads disabled in settings, skipping upload cycle")
                 return
             
             # Check if SFTP is enabled and configured
@@ -4917,21 +4935,33 @@ def automated_upload():
                         sftp_username and sftp_username.setting_value and 
                         sftp_password and sftp_password.setting_value):
                         
+                        # Environment-aware upload destinations
+                        target_directory = sftp_directory.setting_value if sftp_directory else "/"
+                        remote_filename = 'myticas-job-feed-v2.xml'
+                        
+                        if APP_ENV == 'dev':
+                            # Dev environment - upload to test directory
+                            target_directory = target_directory.rstrip('/') + '/test-dev'
+                            remote_filename = f'myticas-job-feed-v2-dev-{datetime.utcnow().strftime("%Y%m%d_%H%M")}.xml'
+                            app.logger.info(f"🧪 DEV environment: uploading to test directory '{target_directory}'")
+                        else:
+                            app.logger.info(f"🏭 PRODUCTION environment: uploading to live directory '{target_directory}'")
+                        
                         # Upload using SFTP
                         from ftp_service import FTPService
                         ftp_service = FTPService(
                             hostname=sftp_hostname.setting_value,
                             username=sftp_username.setting_value,
                             password=sftp_password.setting_value,
-                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
+                            target_directory=target_directory,
                             port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
                             use_sftp=True
                         )
                         
-                        app.logger.info("📤 Uploading fresh XML to server...")
+                        app.logger.info(f"📤 Uploading fresh XML to {APP_ENV.upper()} server as '{remote_filename}'...")
                         upload_result = ftp_service.upload_file(
                             local_file_path=temp_file.name,
-                            remote_filename='myticas-job-feed-v2.xml'
+                            remote_filename=remote_filename
                         )
                         
                         # Handle both dict and boolean return types from FTP service
