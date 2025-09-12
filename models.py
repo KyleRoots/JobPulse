@@ -270,5 +270,81 @@ def create_models(db):
         
         def __repr__(self):
             return f'<RecruiterMapping {self.recruiter_name}: {self.linkedin_tag}>'
+
+    class SchedulerLock(db.Model):
+        """Lock to ensure only one scheduler instance runs automated jobs"""
+        id = db.Column(db.Integer, primary_key=True, default=1)  # Only one row allowed
+        owner_process_id = db.Column(db.String(100), nullable=False)  # Process/instance identifier
+        acquired_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+        expires_at = db.Column(db.DateTime, nullable=False)
+        environment = db.Column(db.String(20), nullable=False)  # 'production' or 'dev'
+        
+        @classmethod
+        def acquire_lock(cls, process_id, environment, duration_minutes=5):
+            """Try to acquire the scheduler lock for specified duration"""
+            expires_at = datetime.utcnow() + timedelta(minutes=duration_minutes)
+            
+            try:
+                # Try to get existing lock
+                lock = cls.query.filter_by(id=1).first()
+                
+                if lock:
+                    # Check if lock has expired or is from same environment
+                    if lock.expires_at < datetime.utcnow() or lock.environment != environment:
+                        # Lock expired or different environment - take it over
+                        lock.owner_process_id = process_id
+                        lock.acquired_at = datetime.utcnow()
+                        lock.expires_at = expires_at
+                        lock.environment = environment
+                        db.session.commit()
+                        return True
+                    else:
+                        # Lock still active for same environment
+                        return False
+                else:
+                    # No lock exists - create new one
+                    new_lock = cls(
+                        owner_process_id=process_id,
+                        expires_at=expires_at,
+                        environment=environment
+                    )
+                    db.session.add(new_lock)
+                    db.session.commit()
+                    return True
+                    
+            except Exception:
+                db.session.rollback()
+                return False
+        
+        @classmethod
+        def renew_lock(cls, process_id, duration_minutes=5):
+            """Renew the lock if we own it"""
+            try:
+                lock = cls.query.filter_by(id=1, owner_process_id=process_id).first()
+                if lock:
+                    lock.expires_at = datetime.utcnow() + timedelta(minutes=duration_minutes)
+                    db.session.commit()
+                    return True
+                return False
+            except Exception:
+                db.session.rollback()
+                return False
+        
+        @classmethod
+        def release_lock(cls, process_id):
+            """Release the lock if we own it"""
+            try:
+                lock = cls.query.filter_by(id=1, owner_process_id=process_id).first()
+                if lock:
+                    db.session.delete(lock)
+                    db.session.commit()
+                    return True
+                return False
+            except Exception:
+                db.session.rollback()
+                return False
+        
+        def __repr__(self):
+            return f'<SchedulerLock owner={self.owner_process_id} env={self.environment}>'
     
-    return User, ScheduleConfig, ProcessingLog, RefreshLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping
+    return User, ScheduleConfig, ProcessingLog, RefreshLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping, SchedulerLock
