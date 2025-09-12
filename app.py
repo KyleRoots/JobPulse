@@ -147,7 +147,7 @@ def get_environment_info():
     }
 
 def start_lazy_scheduler():
-    """Phase 1: Acquire DB lock and set pending flag for lazy scheduler"""
+    """Complete lazy scheduler setup - immediately schedule automated upload job for production"""
     global scheduler_started
     
     with scheduler_lock:
@@ -177,20 +177,50 @@ def start_lazy_scheduler():
                     app.logger.info("📋 Database setting 'automated_uploads_enabled' not found - defaulting to False")
                     
                 if automation_enabled:
-                    # Phase 1: Only set pending flag - no scheduler references yet
-                    app.lazy_scheduler_pending = True
-                    scheduler_started = True  # Prevent re-entry
-                    app.logger.info("📤 Phase 1: Production request detected - scheduling will complete in Phase 2")
-                    return True
+                    try:
+                        # Import scheduler components  
+                        from apscheduler.triggers.interval import IntervalTrigger
+                        
+                        # Check if job already exists to avoid duplicates
+                        if not scheduler.get_job('automated_upload'):
+                            # Schedule automated uploads every 30 minutes
+                            scheduler.add_job(
+                                func=automated_upload,
+                                trigger=IntervalTrigger(minutes=30),
+                                id='automated_upload',
+                                name='Automated Upload (Every 30 Minutes) - Production Active',
+                                replace_existing=True
+                            )
+                            app.logger.info("📤 ✅ Automated upload job scheduled successfully")
+                        else:
+                            app.logger.info("📤 ✅ Automated upload job already exists")
+                        
+                        # Ensure scheduler is running
+                        if not scheduler.running:
+                            scheduler.start()
+                            app.logger.info("📤 ✅ Scheduler started successfully")
+                        
+                        # Only set scheduler_started=True after successful job scheduling
+                        scheduler_started = True
+                        app.logger.info("📤 ✅ Lazy scheduler setup completed for PRODUCTION environment")
+                        return True
+                        
+                    except Exception as scheduling_error:
+                        app.logger.error(f"❌ Failed to schedule automated upload job: {str(scheduling_error)}")
+                        # Release lock if scheduling failed
+                        SchedulerLock.release_lock(process_id, 'production')
+                        return False
                 else:
                     app.logger.info("📋 Database setting: automated uploads disabled - lazy scheduler not started")
+                    # Release lock since we're not using it
+                    SchedulerLock.release_lock(process_id, 'production')
                     return False
             else:
                 app.logger.info("🔒 Another production instance already holds the scheduler lock")
                 return False
                 
         except Exception as e:
-            app.logger.error(f"Failed to start lazy scheduler Phase 1: {str(e)}")
+            app.logger.error(f"❌ Failed to start lazy scheduler: {str(e)}")
             return False
 
 @app.before_request
@@ -5435,43 +5465,7 @@ def test_reference_refresh_notification():
             'error': str(e)
         }), 500
 
-# Phase 2: Lazy scheduler setup - happens after all globals are available
-def setup_lazy_scheduled_jobs():
-    """Phase 2: Complete lazy scheduler setup by actually scheduling the job"""
-    if getattr(app, 'lazy_scheduler_pending', False):
-        try:
-            # Import the scheduler and automated_upload from globals (they exist by now)
-            from apscheduler.triggers.interval import IntervalTrigger
-            
-            # Check if job already exists to avoid duplicates
-            if not scheduler.get_job('automated_upload'):
-                # Schedule automated uploads every 30 minutes
-                scheduler.add_job(
-                    func=automated_upload,
-                    trigger=IntervalTrigger(minutes=30),
-                    id='automated_upload',
-                    name='Automated Upload (Every 30 Minutes) - Lazy Started',
-                    replace_existing=True
-                )
-                app.logger.info("📤 Phase 2: Automated upload job scheduled successfully")
-            
-            # Ensure scheduler is running
-            if not scheduler.running:
-                scheduler.start()
-                app.logger.info("📤 Phase 2: Scheduler started successfully")
-            
-            # Clear the pending flag
-            app.lazy_scheduler_pending = False
-            app.logger.info("📤 Lazy scheduler setup completed for PRODUCTION environment")
-            
-        except Exception as e:
-            app.logger.error(f"Failed to complete lazy scheduler setup: {str(e)}")
-
-@app.before_request
-def maybe_finish_lazy_setup():
-    """Check and complete lazy scheduler setup on each request until done"""
-    if getattr(app, 'lazy_scheduler_pending', False):
-        setup_lazy_scheduled_jobs()
+# Phase 2 approach removed - lazy scheduler now completes in single phase for reliability
 
 # Scheduler and background services will be started lazily when first needed
 # This significantly reduces application startup time for deployment health checks
