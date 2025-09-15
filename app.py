@@ -4792,14 +4792,16 @@ def reference_number_refresh():
                                 except:
                                     pass
                             else:
-                                upload_result = {'success': False, 'error': 'SFTP credentials not configured'}
+                                upload_result = False
+                                upload_error_message = 'SFTP credentials not configured'
                                 app.logger.error("❌ SFTP credentials not configured in Global Settings")
                             
-                            if upload_result['success']:
+                            if upload_result:
                                 upload_success = True
-                                app.logger.info(f"✅ Upload successful: {upload_result.get('message', 'File uploaded')}")
+                                app.logger.info("✅ Upload successful: File uploaded to server")
                             else:
-                                upload_error_message = upload_result.get('error', 'Unknown upload error')
+                                if not upload_error_message:
+                                    upload_error_message = 'Upload failed'
                                 app.logger.error(f"❌ Upload failed: {upload_error_message}")
                         
                         finally:
