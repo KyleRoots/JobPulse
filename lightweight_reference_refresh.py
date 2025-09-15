@@ -190,7 +190,7 @@ def get_existing_references_from_published_file(published_xml_path='myticas-job-
         
         # Extract job_id to reference number mapping
         for job in root.findall('.//job'):
-            job_id_elem = job.find('id')
+            job_id_elem = job.find('bhatsid')  # Use bhatsid (Bullhorn ATS ID) as job identifier
             ref_elem = job.find('referencenumber')
             
             if job_id_elem is not None and ref_elem is not None:
@@ -236,7 +236,7 @@ def preserve_references_from_published_xml(new_xml_content, published_xml_path='
         
         # Apply existing reference numbers and generate new ones for jobs without them
         for job in root.findall('.//job'):
-            job_id_elem = job.find('id')
+            job_id_elem = job.find('bhatsid')  # Use bhatsid (Bullhorn ATS ID) as job identifier
             ref_elem = job.find('referencenumber')
             
             if job_id_elem is not None and ref_elem is not None:
