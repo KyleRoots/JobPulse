@@ -328,10 +328,14 @@ class MyticasFeedV2:
             import tempfile
             import paramiko
             
-            # Write XML to temporary file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as tmp_file:
+            # Write XML to temporary file - ensure UTF-8 encoding
+            tmp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
+            try:
                 tmp_file.write(xml_content)
+                tmp_file.flush()  # Ensure content is written to disk
                 tmp_path = tmp_file.name
+            finally:
+                tmp_file.close()  # Explicitly close file before upload
             
             try:
                 # Create SSH client

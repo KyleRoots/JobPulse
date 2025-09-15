@@ -1228,26 +1228,35 @@ def get_schedule_status(schedule_id):
 @app.route('/api/refresh-reference-numbers', methods=['POST'])
 @login_required
 def refresh_reference_numbers():
-    """Ad-hoc refresh of all reference numbers while preserving all other XML content"""
+    """Ad-hoc refresh of all reference numbers using fresh Bullhorn data"""
     try:
-        app.logger.info("🔄 AD-HOC REFERENCE NUMBER REFRESH: Starting manual refresh")
+        app.logger.info("🔄 AD-HOC REFERENCE NUMBER REFRESH: Starting manual refresh with fresh Bullhorn data")
         
-        # Target file - using local file that gets uploaded as v2
-        xml_file = "myticas-job-feed.xml"
+        # Generate fresh XML content using SimplifiedXMLGenerator (same as 120-hour refresh)
+        from simplified_xml_generator import SimplifiedXMLGenerator
         
-        if not os.path.exists(xml_file):
+        # Create generator instance with database access
+        generator = SimplifiedXMLGenerator(db=db)
+        
+        # Generate fresh XML content from all Bullhorn tearsheets
+        xml_content, stats = generator.generate_fresh_xml()
+        app.logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
+        
+        # Apply reference number refresh to the generated content
+        from lightweight_reference_refresh import lightweight_refresh_references_from_content
+        
+        # Refresh reference numbers in the generated XML content
+        result = lightweight_refresh_references_from_content(xml_content)
+        
+        if not result['success']:
             return jsonify({
-                'success': False, 
-                'error': f'XML file {xml_file} not found'
-            }), 404
+                'success': False,
+                'error': f"Failed to refresh reference numbers: {result.get('error', 'Unknown error')}"
+            }), 500
         
-        # Create backup first
-        backup_file = f"{xml_file}.backup_{int(time.time())}"
-        shutil.copy2(xml_file, backup_file)
-        app.logger.info(f"📄 Backup created: {backup_file}")
+        app.logger.info(f"✅ Reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
         
-        # Initialize services
-        processor = XMLProcessor()
+        # Initialize services for upload and notification
         email_service = EmailService()
         
         # Initialize FTP service with proper credentials from GlobalSettings
@@ -1257,115 +1266,110 @@ def refresh_reference_numbers():
         sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
         sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
         
-        ftp_service = None
-        if sftp_hostname and sftp_username and sftp_password:
-            ftp_service = FTPService(
-                hostname=sftp_hostname.setting_value,
-                username=sftp_username.setting_value,
-                password=sftp_password.setting_value,
-                target_directory=sftp_directory.setting_value if sftp_directory else "public_html",
-                port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                use_sftp=True
-            )
-        
-        # Count jobs before processing
-        initial_job_count = processor.count_jobs(xml_file)
-        app.logger.info(f"📊 Found {initial_job_count} jobs in XML file")
-        
-        # Process XML with reference number refresh only (preserve_reference_numbers=False)
-        temp_file = f"{xml_file}.temp_{int(time.time())}"
-        result = processor.process_xml(xml_file, temp_file, preserve_reference_numbers=False)
-        
-        if not result['success']:
-            os.remove(backup_file)  # Clean up backup
-            return jsonify({
-                'success': False,
-                'error': f"Failed to process XML: {result.get('error', 'Unknown error')}"
-            }), 500
-        
-        # Verify job count remains the same
-        final_job_count = processor.count_jobs(temp_file)
-        if final_job_count != initial_job_count:
-            os.remove(backup_file)
-            os.remove(temp_file)
-            return jsonify({
-                'success': False,
-                'error': f'Job count mismatch: expected {initial_job_count}, got {final_job_count}'
-            }), 500
-        
-        # Replace original file with processed file
-        shutil.move(temp_file, xml_file)
-        app.logger.info(f"✅ Reference numbers refreshed in {xml_file}")
-        
-        # Upload to SFTP server
         upload_success = False
-        if ftp_service:
-            if ftp_service.test_connection():
-                # Upload with new filename to avoid external system conflicts
+        upload_error_message = None
+        
+        # Upload the refreshed XML to server
+        if (sftp_hostname and sftp_hostname.setting_value and 
+            sftp_username and sftp_username.setting_value and 
+            sftp_password and sftp_password.setting_value):
+            
+            # Create temporary file with refreshed content - ensure UTF-8 encoding
+            import tempfile
+            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
+            try:
+                temp_file.write(result['xml_content'])
+                temp_file.flush()  # Ensure content is written to disk
+                temp_file_path = temp_file.name
+            finally:
+                temp_file.close()  # Explicitly close file before upload
+            
+            try:
+                from ftp_service import FTPService
+                ftp_service = FTPService(
+                    hostname=sftp_hostname.setting_value,
+                    username=sftp_username.setting_value,
+                    password=sftp_password.setting_value,
+                    target_directory=sftp_directory.setting_value if sftp_directory else "public_html",
+                    port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                    use_sftp=True
+                )
+                
+                # Upload with filename matching automated uploads
                 remote_filename = "myticas-job-feed-v2.xml"
-                upload_result = ftp_service.upload_file(xml_file, remote_filename)
-                # FTPService.upload_file returns a boolean, not a dict
+                upload_result = ftp_service.upload_file(temp_file_path, remote_filename)
+                
                 if upload_result:
                     upload_success = True
-                    app.logger.info(f"📤 Successfully uploaded {xml_file} as {remote_filename} to server")
+                    app.logger.info(f"📤 Successfully uploaded refreshed XML as {remote_filename} to server")
                 else:
-                    app.logger.error("Upload failed: FTP service returned False")
-            else:
-                app.logger.error("SFTP connection failed")
+                    upload_error_message = "Upload failed: FTP service returned False"
+                    app.logger.error(upload_error_message)
+                    
+            except Exception as upload_error:
+                upload_error_message = str(upload_error)
+                app.logger.error(f"Upload failed: {upload_error_message}")
+            finally:
+                # Clean up temporary file
+                try:
+                    os.remove(temp_file_path)
+                except:
+                    pass
         else:
+            upload_error_message = "SFTP credentials not configured"
             app.logger.warning("SFTP not configured - skipping upload")
         
         # Log this manual activity to application log and database
-        app.logger.info(f"🔄 MANUAL REFRESH COMPLETE: User {current_user.username} refreshed {result['jobs_processed']} reference numbers")
+        app.logger.info(f"🔄 MANUAL REFRESH COMPLETE: User {current_user.username} refreshed {result['jobs_updated']} reference numbers")
         
-        # Record the refresh in database to prevent monitoring from reverting
+        # Record the refresh in database (matching 120-hour refresh pattern)
         try:
+            from datetime import date
+            today = date.today()
             refresh_log = RefreshLog(
-                schedule_name="Manual Refresh",
-                jobs_refreshed=result['jobs_processed'],
-                status="success"
+                refresh_date=today,
+                refresh_time=datetime.utcnow(),
+                jobs_updated=result['jobs_updated'],
+                processing_time=result['time_seconds'],
+                email_sent=False
             )
             db.session.add(refresh_log)
             db.session.commit()
-            app.logger.info("📝 Recorded manual refresh in database to prevent monitoring reversion")
+            app.logger.info("📝 Manual refresh completion logged to database")
         except Exception as e:
             app.logger.error(f"Failed to record refresh log: {e}")
+            db.session.rollback()
         
-        # Send simplified notification email
+        # Send notification email (matching 120-hour refresh pattern)
         try:
             # Get notification email from global settings
-            notification_email_setting = GlobalSettings.query.filter_by(setting_key='notification_email').first()
+            notification_email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
             if notification_email_setting and notification_email_setting.setting_value:
-                # Use the correct EmailService method with simplified details
-                refresh_details = {
-                    'jobs_refreshed': result['jobs_processed'],
-                    'upload_status': 'Success' if upload_success else 'Failed',
-                    'processing_time': 0  # Simple implementation
-                }
-                
-                notification_result = email_service.send_reference_number_refresh_notification(
+                email_result = email_service.send_reference_number_refresh_notification(
                     to_email=notification_email_setting.setting_value,
                     schedule_name="Manual Refresh",
-                    total_jobs=result['jobs_processed'],
-                    refresh_details=refresh_details,
+                    total_jobs=result['jobs_updated'],
+                    refresh_details={
+                        'jobs_updated': result['jobs_updated'],
+                        'upload_status': 'Success' if upload_success else f'Failed: {upload_error_message}',
+                        'processing_time': result['time_seconds']
+                    },
                     status="success"
                 )
-                if notification_result:
-                    app.logger.info(f"📧 Notification sent to {notification_email_setting.setting_value}")
+                if email_result:
+                    app.logger.info(f"📧 Manual refresh notification sent to {notification_email_setting.setting_value}")
                 else:
                     app.logger.warning("Failed to send notification email")
         
         except Exception as email_error:
             app.logger.error(f"Email notification failed: {str(email_error)}")
         
-        # Clean up backup (keep for troubleshooting if needed)
-        os.remove(backup_file)
-        
         return jsonify({
             'success': True,
-            'jobs_processed': result['jobs_processed'],
+            'jobs_processed': result['jobs_updated'],
             'upload_success': upload_success,
-            'message': f'Successfully refreshed {result["jobs_processed"]} reference numbers'
+            'upload_error': upload_error_message if not upload_success else None,
+            'message': f'Successfully refreshed {result["jobs_updated"]} reference numbers using fresh Bullhorn data'
         })
         
     except Exception as e:
