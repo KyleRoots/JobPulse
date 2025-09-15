@@ -4960,6 +4960,35 @@ def automated_upload():
             
             app.logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
             
+            # CRITICAL: ALWAYS preserve existing reference numbers from published XML (unconditional)
+            # This ensures automated uploads never override existing reference numbers
+            app.logger.info("🔒 Preserving existing reference numbers from published XML (unconditional)...")
+            
+            try:
+                # Use published XML file as reliable source of truth for existing reference numbers
+                from lightweight_reference_refresh import preserve_references_from_published_xml
+                
+                # Always preserve existing reference numbers from the published XML file
+                preserved_result = preserve_references_from_published_xml(xml_content, 'myticas-job-feed-v2.xml')
+                
+                if preserved_result['success']:
+                    xml_content = preserved_result['xml_content']
+                    jobs_preserved = preserved_result.get('jobs_preserved', 0)
+                    new_refs = preserved_result.get('new_refs_generated', 0)
+                    source_file = preserved_result.get('source_file', 'unknown')
+                    
+                    app.logger.info(f"✅ Reference preservation complete:")
+                    app.logger.info(f"   - {jobs_preserved} existing references preserved from {source_file}")
+                    app.logger.info(f"   - {new_refs} new references generated for new jobs")
+                else:
+                    error_msg = preserved_result.get('error', 'Unknown error')
+                    app.logger.warning(f"⚠️ Reference preservation failed: {error_msg}")
+                    app.logger.warning("   - Proceeding with freshly generated reference numbers")
+                    
+            except Exception as preserve_error:
+                app.logger.warning(f"⚠️ Reference preservation failed with exception: {str(preserve_error)}")
+                app.logger.warning("   - Proceeding with freshly generated reference numbers")
+            
             # Use locking mechanism to prevent conflicts with monitoring cycle
             lock_file = 'monitoring.lock'
             upload_success = False
