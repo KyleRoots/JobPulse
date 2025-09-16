@@ -371,9 +371,9 @@
                                 <button type="submit" name="action" value="save" class="btn btn-primary">
                                     <i class="fas fa-save me-2"></i>Save Settings
                                 </button>
-                                <button type="submit" name="action" value="test" class="btn btn-outline-info">
+                                <a href="{{ url_for('bullhorn_oauth_start') }}" class="btn btn-outline-info">
                                     <i class="fas fa-vial me-2"></i>Test Connection
-                                </button>
+                                </a>
                             </div>
                         </form>
                     </div>
@@ -462,6 +462,82 @@
                             </a></li>
                             <li><strong>Bullhorn Support:</strong> Contact through your Bullhorn account portal</li>
                         </ul>
+                    </div>
+                </div>
+
+                <!-- Terms of Service & OAuth Setup Guide -->
+                <div class="card settings-card mt-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                            OAuth Setup & Terms of Service
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>One-Time Setup Required:</strong> The first OAuth authentication requires manual Terms of Service acceptance. This is a Bullhorn security requirement that cannot be automated.
+                        </div>
+
+                        <h6>Required First-Time Setup Steps</h6>
+                        <ol>
+                            <li><strong>Configure API credentials above</strong> (Client ID and Client Secret required for OAuth)</li>
+                            <li><strong>Click "Test Connection"</strong> to initiate secure OAuth flow</li>
+                            <li><strong>Log in with your Bullhorn credentials</strong> on the Bullhorn login page that opens</li>
+                            <li><strong>Accept Terms of Service manually</strong> when prompted by Bullhorn</li>
+                            <li><strong>Return to this page</strong> - the OAuth callback will complete authentication automatically</li>
+                        </ol>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Important Notes:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Terms of Service acceptance is required only <strong>once per credential set</strong></li>
+                                <li>After initial acceptance, all future authentications will be automatic</li>
+                                <li>If you see redirection issues, this usually means ToS hasn't been accepted yet</li>
+                                <li>OAuth authentication will work seamlessly once ToS is accepted</li>
+                            </ul>
+                        </div>
+
+                        <h6 class="mt-4">What Happens During OAuth Flow</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card bg-success bg-opacity-10 border-success">
+                                    <div class="card-body">
+                                        <h6 class="card-title text-success">
+                                            <i class="fas fa-check-circle me-2"></i>Expected Flow
+                                        </h6>
+                                        <ol class="small mb-0">
+                                            <li>Click "Test Connection"</li>
+                                            <li>Bullhorn login page opens</li>
+                                            <li>Accept Terms of Service (first time only)</li>
+                                            <li>Redirected back with success message</li>
+                                            <li>Authentication completed</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-warning bg-opacity-10 border-warning">
+                                    <div class="card-body">
+                                        <h6 class="card-title text-warning">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>Common Issues
+                                        </h6>
+                                        <ul class="small mb-0">
+                                            <li><strong>Redirect loops</strong> → ToS not accepted</li>
+                                            <li><strong>"Invalid redirect URI"</strong> → Contact Bullhorn Support</li>
+                                            <li><strong>No authorization code</strong> → Clear browser cache and retry</li>
+                                            <li><strong>Login page appears repeatedly</strong> → Accept ToS first</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-success mt-3">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            <strong>Ready to Begin Data Migration:</strong> Once OAuth authentication is successfully completed, your system will be ready to migrate data from PCR to Bullhorn and maintain automated job feed synchronization.
+                        </div>
                     </div>
                 </div>
             </div>

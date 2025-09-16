@@ -3491,25 +3491,220 @@ def bullhorn_settings():
 
 
 
+@app.route('/bullhorn/oauth/start')
+@login_required
+def bullhorn_oauth_start():
+    """Start OAuth flow with CSRF protection"""
+    try:
+        # Get current Bullhorn settings (only Client ID needed for OAuth)
+        client_id_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_client_id').first()
+        client_secret_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_client_secret').first()
+        
+        if not all([client_id_setting, client_secret_setting]):
+            flash('Bullhorn OAuth credentials not configured. Please configure Client ID and Client Secret first.', 'error')
+            return redirect(url_for('bullhorn_settings'))
+        
+        # Step 1: Get login info to determine correct data center
+        login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
+        login_info_params = {'username': 'oauth'}  # Use generic username for OAuth discovery
+        
+        response = requests.get(login_info_url, params=login_info_params, timeout=30)
+        if response.status_code != 200:
+            flash('Failed to get Bullhorn login info. Please try again.', 'error')
+            return redirect(url_for('bullhorn_settings'))
+        
+        login_data = response.json()
+        oauth_url = login_data.get('oauthUrl')
+        
+        if not oauth_url:
+            flash('Invalid login info response from Bullhorn', 'error')
+            return redirect(url_for('bullhorn_settings'))
+        
+        # Step 2: Generate secure state for CSRF protection
+        import secrets
+        state = secrets.token_urlsafe(32)
+        session['oauth_state'] = state  # Store in Flask session
+        session['oauth_timestamp'] = int(time.time())  # Add timestamp for expiry
+        
+        # Step 3: Build authorization URL
+        import os
+        base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://job-feed-refresh.replit.app")
+        redirect_uri = f"{base_url}/bullhorn/oauth/callback"
+        
+        auth_endpoint = f"{oauth_url}/authorize"
+        auth_params = {
+            'client_id': client_id_setting.setting_value,
+            'response_type': 'code',
+            'redirect_uri': redirect_uri,
+            'state': state
+        }
+        
+        # Build the full authorization URL
+        from urllib.parse import urlencode
+        auth_url = f"{auth_endpoint}?{urlencode(auth_params)}"
+        
+        logging.info(f"Starting OAuth with state: {state[:10]}...")
+        return redirect(auth_url)
+        
+    except Exception as e:
+        logging.error(f"OAuth start error: {str(e)}")
+        flash(f'Error starting OAuth flow: {str(e)}', 'error')
+        return redirect(url_for('bullhorn_settings'))
+
+
 @app.route('/bullhorn/oauth/callback')
 def bullhorn_oauth_callback():
-    """Handle Bullhorn OAuth callback"""
+    """Handle Bullhorn OAuth callback and exchange authorization code for tokens"""
     try:
-        # This endpoint is used as the redirect URI for Bullhorn OAuth
-        # In a production implementation, this would handle the authorization code
+        # Handle OAuth callback from Bullhorn after Terms of Service acceptance
         code = request.args.get('code')
         error = request.args.get('error')
+        state = request.args.get('state')
         
         if error:
-            flash(f'Bullhorn OAuth error: {error}', 'error')
-        elif code:
-            flash('OAuth authorization successful', 'success')
-        else:
-            flash('OAuth callback received with no code or error', 'info')
+            flash(f'Bullhorn OAuth authorization failed: {error}', 'error')
+            return redirect(url_for('bullhorn_settings'))
+        
+        if not code:
+            flash('OAuth callback received but no authorization code found', 'warning')
+            return redirect(url_for('bullhorn_settings'))
+        
+        # Validate state parameter for CSRF protection
+        stored_state = session.get('oauth_state')
+        stored_timestamp = session.get('oauth_timestamp', 0)
+        
+        # Clear state from session immediately (one-time use)
+        if 'oauth_state' in session:
+            del session['oauth_state']
+        if 'oauth_timestamp' in session:
+            del session['oauth_timestamp']
+        
+        # Validate state exists and matches
+        if not stored_state or not state:
+            flash('OAuth state validation failed - possible CSRF attack. Please try again.', 'error')
+            logging.error("OAuth CSRF validation failed - missing state")
+            return redirect(url_for('bullhorn_settings'))
+        
+        if stored_state != state:
+            flash('OAuth state validation failed - possible CSRF attack. Please try again.', 'error')
+            logging.error(f"OAuth CSRF validation failed - state mismatch: expected {stored_state[:10]}..., got {state[:10]}...")
+            return redirect(url_for('bullhorn_settings'))
+        
+        # Check if state is too old (5 minute expiry)
+        import time
+        if int(time.time()) - stored_timestamp > 300:
+            flash('OAuth session expired. Please try again.', 'warning')
+            logging.warning("OAuth state expired")
+            return redirect(url_for('bullhorn_settings'))
+        
+        logging.info(f"✅ OAuth callback received with valid state - code: {code[:10]}...")
+        
+        # Exchange authorization code for tokens directly (don't call authenticate())
+        try:
+            # Get current Bullhorn settings
+            client_id_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_client_id').first()
+            client_secret_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_client_secret').first()
+            
+            if not all([client_id_setting, client_secret_setting]):
+                flash('Bullhorn credentials not configured. Please update settings first.', 'error')
+                return redirect(url_for('bullhorn_settings'))
+            
+            # Step 1: Get login info to determine correct data center
+            login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
+            login_info_params = {'username': 'oauth'}  # Generic username for OAuth flow
+            
+            response = requests.get(login_info_url, params=login_info_params, timeout=30)
+            if response.status_code != 200:
+                flash('Failed to get Bullhorn login info. Please try again.', 'error')
+                return redirect(url_for('bullhorn_settings'))
+            
+            login_data = response.json()
+            oauth_url = login_data.get('oauthUrl')
+            rest_url = login_data.get('restUrl')
+            
+            if not oauth_url:
+                flash('Invalid login info response from Bullhorn', 'error')
+                return redirect(url_for('bullhorn_settings'))
+            
+            # Step 2: Exchange authorization code for access token
+            # CRITICAL: Do NOT include redirect_uri in token exchange (causes mismatch errors)
+            token_endpoint = f"{oauth_url}/token"
+            token_data = {
+                'grant_type': 'authorization_code',
+                'code': code,
+                'client_id': client_id_setting.setting_value,
+                'client_secret': client_secret_setting.setting_value
+                # redirect_uri intentionally omitted - causes "mismatch redirect uri" errors
+            }
+            
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            }
+            
+            token_response = requests.post(token_endpoint, data=token_data, headers=headers, timeout=30)
+            if token_response.status_code != 200:
+                logging.error(f"Token exchange failed: {token_response.status_code} - {token_response.text}")
+                flash(f'Failed to exchange authorization code for tokens: {token_response.text}', 'error')
+                return redirect(url_for('bullhorn_settings'))
+            
+            token_info = token_response.json()
+            access_token = token_info.get('access_token')
+            
+            if not access_token:
+                flash('No access token received from Bullhorn', 'error')
+                return redirect(url_for('bullhorn_settings'))
+            
+            # Step 3: Get REST token for API access
+            rest_login_endpoint = f"{rest_url}/login"
+            rest_params = {
+                'version': '2.0',
+                'access_token': access_token
+            }
+            
+            rest_response = requests.post(rest_login_endpoint, params=rest_params, timeout=30)
+            if rest_response.status_code != 200:
+                logging.error(f"REST login failed: {rest_response.status_code} - {rest_response.text}")
+                flash('Failed to get REST token for API access', 'error')
+                return redirect(url_for('bullhorn_settings'))
+            
+            rest_data = rest_response.json()
+            rest_token = rest_data.get('BhRestToken')
+            base_url = rest_data.get('restUrl', rest_url)
+            
+            if not rest_token:
+                flash('No REST token received from Bullhorn', 'error')
+                return redirect(url_for('bullhorn_settings'))
+            
+            # Success! OAuth flow completed
+            flash('✅ Bullhorn OAuth authentication completed successfully! Terms of Service accepted and connection established.', 'success')
+            logging.info(f"✅ Complete OAuth flow successful - REST Token: {rest_token[:20]}..., Base URL: {base_url}")
+            
+            # Test a simple API call to verify the connection works
+            try:
+                test_url = f"{base_url}/search/JobOrder?query=id>0&count=1&fields=id"
+                test_response = requests.get(test_url, params={'BhRestToken': rest_token}, timeout=15)
+                if test_response.status_code == 200:
+                    flash('✅ API connection test passed - ready for data migration!', 'success')
+                    logging.info("✅ API test call successful")
+                else:
+                    flash('⚠️ Authentication successful but API test failed. Connection may still work.', 'warning')
+                    logging.warning(f"API test failed: {test_response.status_code}")
+            except Exception as test_error:
+                logging.warning(f"API test error (not critical): {str(test_error)}")
+                flash('⚠️ Authentication successful but couldn\'t verify API access. Connection should still work.', 'warning')
+                
+        except requests.exceptions.RequestException as req_error:
+            logging.error(f"Network error during OAuth token exchange: {str(req_error)}")
+            flash(f'Network error during authentication: {str(req_error)}', 'error')
+        except Exception as auth_error:
+            logging.error(f"Error during OAuth token exchange: {str(auth_error)}")
+            flash(f'Error completing authentication: {str(auth_error)}', 'error')
             
         return redirect(url_for('bullhorn_settings'))
         
     except Exception as e:
+        logging.error(f"OAuth callback error: {str(e)}")
         flash(f'OAuth callback error: {str(e)}', 'error')
         return redirect(url_for('bullhorn_settings'))
 

@@ -170,15 +170,18 @@ class BullhornService:
             # Step 2: Get authorization code
             auth_endpoint = f"{oauth_url}/authorize"
             
-            # Use the whitelisted redirect URI based on environment
-            # Bullhorn has whitelisted these specific URLs:
-            # - https://job-feed-refresh.replit.app/bullhorn/oauth/callback (PRODUCTION)
-            # - https://workspace.kyleroots00.replit.app/bullhorn/oauth/callback
-            # - https://49cc4d39-c8af-4fa8-8edf-ea2819b0c88a-00-1b6n9tc9un0ln.janeway.replit.dev/bullhorn/oauth/callback
-            # - https://myticas.com/bullhorn_oauth_callback.php
+            # Get the current domain for redirect URI - this must match what's whitelisted with Bullhorn
+            # Note: Bullhorn Support must whitelist the exact redirect URI for your domain
+            from urllib.parse import urljoin
+            import os
             
-            # Use the production URL since it's been whitelisted
-            redirect_uri = "https://job-feed-refresh.replit.app/bullhorn/oauth/callback"
+            # Use environment variable or auto-detect current domain
+            base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL')
+            if not base_url:
+                # Auto-detect from current environment (fallback)
+                base_url = "https://job-feed-refresh.replit.app"  # Default for this deployment
+            
+            redirect_uri = f"{base_url}/bullhorn/oauth/callback"
             
             auth_params = {
                 'client_id': self.client_id,
@@ -236,13 +239,15 @@ class BullhornService:
                 return False
             
             # Step 3: Exchange authorization code for access token
+            # IMPORTANT: Do NOT include redirect_uri in token exchange to avoid mismatch errors
+            # This is a common Bullhorn OAuth issue documented in community forums
             token_endpoint = f"{oauth_url}/token"
             token_data = {
                 'grant_type': 'authorization_code',
                 'code': auth_code,
                 'client_id': self.client_id,
-                'client_secret': self.client_secret,
-                'redirect_uri': redirect_uri
+                'client_secret': self.client_secret
+                # redirect_uri intentionally omitted - causes "mismatch redirect uri" errors
             }
             
             # Set explicit headers for token exchange
