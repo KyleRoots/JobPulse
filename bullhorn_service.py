@@ -239,15 +239,14 @@ class BullhornService:
                 return False
             
             # Step 3: Exchange authorization code for access token
-            # IMPORTANT: Do NOT include redirect_uri in token exchange to avoid mismatch errors
-            # This is a common Bullhorn OAuth issue documented in community forums
+            # Include redirect_uri to match authorization request (required for this setup)
             token_endpoint = f"{oauth_url}/token"
             token_data = {
                 'grant_type': 'authorization_code',
                 'code': auth_code,
                 'client_id': self.client_id,
-                'client_secret': self.client_secret
-                # redirect_uri intentionally omitted - causes "mismatch redirect uri" errors
+                'client_secret': self.client_secret,
+                'redirect_uri': redirect_uri  # Must match the authorization request
             }
             
             # Set explicit headers for token exchange
