@@ -414,8 +414,12 @@ def scheduled_reference_refresh():
                 use_sftp=True
             )
             
-            # Upload with v2 filename to avoid external system conflicts (same as monitoring)
-            upload_result = ftp_service.upload_file('myticas-job-feed.xml', 'myticas-job-feed-v2.xml')
+            # Upload with environment-specific filename (v2 for production, v2-dev for development)
+            # Import the filename function
+            from app import get_xml_filename
+            remote_filename = get_xml_filename()
+            
+            upload_result = ftp_service.upload_file('myticas-job-feed.xml', remote_filename)
             
             if upload_result:
                 logger.info("📤 ✅ Reference refresh complete: Local XML updated AND uploaded to server")

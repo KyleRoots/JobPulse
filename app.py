@@ -101,8 +101,18 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-# Production domains for environment detection (support multiple hostnames)
+
+# Environment configuration - use explicit environment variables
 PRODUCTION_DOMAINS = {'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'}
+
+# Set app environment at startup - this will be used for background tasks
+# Priority: APP_ENV > ENVIRONMENT > development (for Replit dev environments)
+explicit_env = os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT')
+if explicit_env:
+    app.config['ENVIRONMENT'] = explicit_env.lower()
+else:
+    # Default to development only in Replit development environments
+    app.config['ENVIRONMENT'] = 'development'
 
 # Global scheduler state management
 scheduler_started = False
@@ -134,6 +144,32 @@ def is_production_request():
     except (RuntimeError, AttributeError) as e:
         app.logger.debug(f"🔍 Production detection failed: {str(e)}")
         return False
+
+def get_xml_filename():
+    """Generate environment-specific XML filename for uploads"""
+    base_filename = "myticas-job-feed-v2"
+    
+    # Try app config first (works for background tasks)
+    env = app.config.get('ENVIRONMENT')
+    if env == 'production':
+        app.logger.debug(f"Using production filename (source: app config)")
+        return f"{base_filename}.xml"
+    elif env == 'development':
+        app.logger.debug(f"Using development filename (source: app config)")
+        return f"{base_filename}-dev.xml"
+    
+    # Fall back to request detection (for manual requests when config not set)
+    try:
+        if is_production_request():
+            app.logger.debug(f"Using production filename (source: request host)")
+            return f"{base_filename}.xml"
+        else:
+            app.logger.debug(f"Using development filename (source: request host)")
+            return f"{base_filename}-dev.xml"
+    except:
+        # Final fallback - default to production to avoid publishing dev filename in production
+        app.logger.warning(f"Could not determine environment, defaulting to production filename for safety")
+        return f"{base_filename}.xml"
 
 # Simple automated upload scheduling - no complex environment detection needed
 
@@ -1295,8 +1331,8 @@ def refresh_reference_numbers():
                     use_sftp=True
                 )
                 
-                # Upload with filename matching automated uploads
-                remote_filename = "myticas-job-feed-v2.xml"
+                # Upload with environment-specific filename
+                remote_filename = get_xml_filename()
                 upload_result = ftp_service.upload_file(temp_file_path, remote_filename)
                 
                 if upload_result:
@@ -4982,7 +5018,7 @@ def reference_number_refresh():
                                 app.logger.info("📤 Uploading refreshed XML to server...")
                                 upload_result = ftp_service.upload_file(
                                     local_file_path=temp_file.name,
-                                    remote_filename='myticas-job-feed-v2.xml'
+                                    remote_filename=get_xml_filename()
                                 )
                                 
                                 # Clean up temporary file
@@ -5234,7 +5270,7 @@ def automated_upload():
                         
                         # Simple upload destination using configured settings
                         target_directory = sftp_directory.setting_value if sftp_directory else "/"
-                        remote_filename = 'myticas-job-feed-v2.xml'
+                        remote_filename = get_xml_filename()
                         app.logger.info(f"📤 Uploading to configured directory: '{target_directory}'")
                         
                         # Upload using SFTP
