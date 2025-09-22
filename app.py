@@ -106,13 +106,12 @@ app = Flask(__name__)
 PRODUCTION_DOMAINS = {'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'}
 
 # Set app environment at startup - this will be used for background tasks
-# Priority: APP_ENV > ENVIRONMENT > development (for Replit dev environments)
-explicit_env = os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT')
-if explicit_env:
-    app.config['ENVIRONMENT'] = explicit_env.lower()
-else:
-    # Default to development only in Replit development environments
-    app.config['ENVIRONMENT'] = 'development'
+# Priority: APP_ENV > ENVIRONMENT > production (default for safety)
+env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
+app.config['ENVIRONMENT'] = env
+
+# Log the chosen environment for debugging
+print(f"App environment set to: {env}")  # Use print for startup visibility
 
 # Global scheduler state management
 scheduler_started = False
