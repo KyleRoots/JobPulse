@@ -88,22 +88,21 @@ class ComprehensiveMonitoringService:
             if not self.bullhorn_service:
                 # Load credentials from database (like app.py does)
                 try:
-                    # Import database and models within app context to avoid conflicts
-                    with self.app.app_context():
-                        from models import GlobalSettings
-                        
-                        credentials = {}
-                        for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
-                            setting = GlobalSettings.query.filter_by(setting_key=key).first()
-                            if setting and setting.setting_value:
-                                credentials[key] = setting.setting_value.strip()
-                        
-                        self.bullhorn_service = BullhornService(
-                            client_id=credentials.get('bullhorn_client_id'),
-                            client_secret=credentials.get('bullhorn_client_secret'),
-                            username=credentials.get('bullhorn_username'),
-                            password=credentials.get('bullhorn_password')
-                        )
+                    from flask import current_app
+                    from models import GlobalSettings
+                    
+                    credentials = {}
+                    for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+                        setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                        if setting and setting.setting_value:
+                            credentials[key] = setting.setting_value.strip()
+                    
+                    self.bullhorn_service = BullhornService(
+                        client_id=credentials.get('bullhorn_client_id'),
+                        client_secret=credentials.get('bullhorn_client_secret'),
+                        username=credentials.get('bullhorn_username'),
+                        password=credentials.get('bullhorn_password')
+                    )
                 except Exception as e:
                     self.logger.error(f"Failed to load Bullhorn credentials from database: {e}")
                     # Fallback to environment variables
