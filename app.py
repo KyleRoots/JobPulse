@@ -5269,10 +5269,9 @@ def automated_upload():
                         
                         # Simple upload destination using configured settings
                         target_directory = sftp_directory.setting_value if sftp_directory else "/"
-                        remote_filename = get_xml_filename()
                         app.logger.info(f"📤 Uploading to configured directory: '{target_directory}'")
                         
-                        # Upload using SFTP
+                        # Upload BOTH development and production files for complete coverage
                         from ftp_service import FTPService
                         ftp_service = FTPService(
                             hostname=sftp_hostname.setting_value,
@@ -5283,11 +5282,24 @@ def automated_upload():
                             use_sftp=True
                         )
                         
-                        app.logger.info(f"📤 Uploading fresh XML as '{remote_filename}'...")
-                        upload_result = ftp_service.upload_file(
+                        # Upload production file
+                        production_filename = "myticas-job-feed-v2.xml"
+                        app.logger.info(f"📤 Uploading production XML as '{production_filename}'...")
+                        prod_upload_result = ftp_service.upload_file(
                             local_file_path=temp_file.name,
-                            remote_filename=remote_filename
+                            remote_filename=production_filename
                         )
+                        
+                        # Upload development file
+                        development_filename = "myticas-job-feed-v2-dev.xml"
+                        app.logger.info(f"📤 Uploading development XML as '{development_filename}'...")
+                        dev_upload_result = ftp_service.upload_file(
+                            local_file_path=temp_file.name,
+                            remote_filename=development_filename
+                        )
+                        
+                        # Determine overall upload success (both files must succeed)
+                        upload_result = prod_upload_result and dev_upload_result
                         
                         # Handle both dict and boolean return types from FTP service
                         if isinstance(upload_result, dict):
