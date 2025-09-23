@@ -248,9 +248,8 @@ MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
-# Import and initialize models
-from models import create_models
-User, ScheduleConfig, ProcessingLog, RefreshLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping, SchedulerLock = create_models(db)
+# Import models
+from models import User, ScheduleConfig, ProcessingLog, RefreshLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping, SchedulerLock
 
 # Activity Detail Formatter Function
 def format_activity_details(activity_type, details_json):
@@ -835,8 +834,9 @@ def process_bullhorn_monitors():
                 ]
                 app.logger.info(f"Using {len(monitors)} hardcoded tearsheet monitors (fallback)")
             
-            # Run incremental monitoring cycle
-            cycle_results = monitoring_service.run_monitoring_cycle()
+            # Run incremental monitoring cycle with Flask app context
+            with app.app_context():
+                cycle_results = monitoring_service.run_monitoring_cycle()
             
             # Update monitor timing in database
             if db_monitors:

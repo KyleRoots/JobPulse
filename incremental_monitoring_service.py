@@ -85,13 +85,9 @@ class IncrementalMonitoringService:
                     )
                 except Exception as e:
                     self.logger.error(f"Failed to load Bullhorn credentials from database: {e}")
-                    # Fallback to environment variables
-                    self.bullhorn_service = BullhornService(
-                        client_id=os.environ.get('BULLHORN_CLIENT_ID'),
-                        client_secret=os.environ.get('BULLHORN_CLIENT_SECRET'),
-                        username=os.environ.get('BULLHORN_USERNAME'),
-                        password=os.environ.get('BULLHORN_PASSWORD')
-                    )
+                    # NO FALLBACK - Force proper database credential usage
+                    self.logger.error("Database credential loading failed - authentication will fail")
+                    return cycle_results
             
             if not self.bullhorn_service.test_connection():
                 self.logger.error("Failed to connect to Bullhorn")
