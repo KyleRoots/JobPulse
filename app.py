@@ -5282,24 +5282,51 @@ def automated_upload():
                             use_sftp=True
                         )
                         
-                        # Upload production file
+                        # PRODUCTION FILE UPLOAD (PRIORITY)
                         production_filename = "myticas-job-feed-v2.xml"
                         app.logger.info(f"📤 Uploading production XML as '{production_filename}'...")
-                        prod_upload_result = ftp_service.upload_file(
-                            local_file_path=temp_file.name,
-                            remote_filename=production_filename
-                        )
+                        try:
+                            prod_upload_result = ftp_service.upload_file(
+                                local_file_path=temp_file.name,
+                                remote_filename=production_filename
+                            )
+                            if prod_upload_result:
+                                app.logger.info("✅ Production file uploaded successfully")
+                            else:
+                                app.logger.error("❌ Production file upload failed")
+                        except Exception as prod_error:
+                            app.logger.error(f"❌ Production file upload error: {str(prod_error)}")
+                            prod_upload_result = False
                         
-                        # Upload development file
+                        # DEVELOPMENT FILE UPLOAD 
                         development_filename = "myticas-job-feed-v2-dev.xml"
                         app.logger.info(f"📤 Uploading development XML as '{development_filename}'...")
-                        dev_upload_result = ftp_service.upload_file(
-                            local_file_path=temp_file.name,
-                            remote_filename=development_filename
-                        )
+                        try:
+                            dev_upload_result = ftp_service.upload_file(
+                                local_file_path=temp_file.name,
+                                remote_filename=development_filename
+                            )
+                            if dev_upload_result:
+                                app.logger.info("✅ Development file uploaded successfully")
+                            else:
+                                app.logger.error("❌ Development file upload failed")
+                        except Exception as dev_error:
+                            app.logger.error(f"❌ Development file upload error: {str(dev_error)}")
+                            dev_upload_result = False
                         
-                        # Determine overall upload success (both files must succeed)
-                        upload_result = prod_upload_result and dev_upload_result
+                        # Report results for each file separately - PRODUCTION IS PRIORITY
+                        if prod_upload_result and dev_upload_result:
+                            upload_result = True
+                            app.logger.info("✅ BOTH production and development files uploaded successfully")
+                        elif prod_upload_result:
+                            upload_result = True  # Production success is sufficient
+                            app.logger.warning("⚠️ Production uploaded successfully, development failed")
+                        elif dev_upload_result:
+                            upload_result = False  # Development alone is not sufficient
+                            app.logger.error("❌ Development uploaded, but PRODUCTION FAILED - this is critical!")
+                        else:
+                            upload_result = False
+                            app.logger.error("❌ BOTH production and development uploads failed")
                         
                         # Handle both dict and boolean return types from FTP service
                         if isinstance(upload_result, dict):
