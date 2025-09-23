@@ -5182,6 +5182,7 @@ def automated_upload():
                 return
             
             app.logger.info("🚀 Starting automated 30-minute upload cycle...")
+            app.logger.info("⚡ AUTOMATED UPLOAD FUNCTION EXECUTING - production priority enabled")
             
             # Generate fresh XML using SimplifiedXMLGenerator
             from simplified_xml_generator import SimplifiedXMLGenerator
@@ -5189,6 +5190,7 @@ def automated_upload():
             xml_content, stats = generator.generate_fresh_xml()
             
             app.logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
+            app.logger.info("📍 CHECKPOINT 1: XML generation completed successfully")
             
             # CRITICAL: ALWAYS preserve existing reference numbers from published XML (unconditional)
             # This ensures automated uploads never override existing reference numbers
@@ -5272,6 +5274,7 @@ def automated_upload():
                         app.logger.info(f"📤 Uploading to configured directory: '{target_directory}'")
                         
                         # Upload BOTH development and production files for complete coverage
+                        # FORCE SFTP for production reliability (thread-safe, no signal issues)
                         from ftp_service import FTPService
                         ftp_service = FTPService(
                             hostname=sftp_hostname.setting_value,
@@ -5279,17 +5282,24 @@ def automated_upload():
                             password=sftp_password.setting_value,
                             target_directory=target_directory,
                             port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                            use_sftp=True
+                            use_sftp=True  # ALWAYS use SFTP for automated uploads (thread-safe)
                         )
+                        app.logger.info(f"🔐 Using SFTP protocol for thread-safe uploads to {sftp_hostname.setting_value}:{ftp_service.port}")
+                        app.logger.info(f"📂 Target directory: {target_directory}")
                         
                         # PRODUCTION FILE UPLOAD (PRIORITY)
                         production_filename = "myticas-job-feed-v2.xml"
+                        app.logger.info("📍 CHECKPOINT 2: Starting production file upload process")
                         app.logger.info(f"📤 Uploading production XML as '{production_filename}'...")
+                        app.logger.info(f"🔍 Local file path: {temp_file.name}")
+                        app.logger.info(f"🎯 Remote filename: {production_filename}")
                         try:
+                            app.logger.info("⚡ Calling FTP service for PRODUCTION upload...")
                             prod_upload_result = ftp_service.upload_file(
                                 local_file_path=temp_file.name,
                                 remote_filename=production_filename
                             )
+                            app.logger.info(f"📊 Production upload result: {prod_upload_result}")
                             if prod_upload_result:
                                 app.logger.info("✅ Production file uploaded successfully")
                             else:
