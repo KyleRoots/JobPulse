@@ -1040,17 +1040,31 @@ def root():
     if current_user.is_authenticated:
         # Ensure scheduler is running for authenticated users
         ensure_background_services()
-        return redirect(url_for('bullhorn_dashboard'))
+        return redirect(url_for('dashboard_redirect'))
     else:
         return redirect(url_for('login'))
 
 @app.route('/dashboard')
 @login_required
 def dashboard_redirect():
-    """Redirect dashboard to the actual JobPulse interface (Bullhorn dashboard)"""
+    """Main dashboard home page"""
     # Ensure scheduler is running for authenticated users
     ensure_background_services()
-    return redirect(url_for('bullhorn_dashboard'))
+    
+    # Get latest activity and system status for dashboard overview
+    from datetime import datetime, timedelta
+    recent_activities = Activity.query.order_by(Activity.timestamp.desc()).limit(5).all()
+    
+    # Get automation status
+    automation_active = get_automation_status()
+    
+    # Get latest schedules
+    schedules = ScheduleConfig.query.filter_by(is_active=True).limit(3).all()
+    
+    return render_template('dashboard.html', 
+                         recent_activities=recent_activities,
+                         automation_active=automation_active,
+                         schedules=schedules)
 
 @app.route('/scheduler')
 @login_required
