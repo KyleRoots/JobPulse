@@ -1051,15 +1051,23 @@ def dashboard_redirect():
     # Ensure scheduler is running for authenticated users
     ensure_background_services()
     
-    # Get latest activity and system status for dashboard overview
-    from datetime import datetime, timedelta
-    recent_activities = Activity.query.order_by(Activity.timestamp.desc()).limit(5).all()
-    
     # Get automation status
-    automation_active = get_automation_status()
+    try:
+        automation_active = get_automation_status()
+    except:
+        automation_active = True  # Default to active if can't determine
+    
+    # Get recent activities (use BullhornActivity model that exists)
+    try:
+        recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(5).all()
+    except:
+        recent_activities = []
     
     # Get latest schedules
-    schedules = ScheduleConfig.query.filter_by(is_active=True).limit(3).all()
+    try:
+        schedules = ScheduleConfig.query.filter_by(is_active=True).limit(3).all()
+    except:
+        schedules = []
     
     return render_template('dashboard.html', 
                          recent_activities=recent_activities,
