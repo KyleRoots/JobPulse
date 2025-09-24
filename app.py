@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 import json
 import re
+import requests
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -1031,6 +1032,18 @@ def ping():
         'service': 'job-feed-refresh',
         'timestamp': datetime.utcnow().isoformat()
     }), 200
+
+def get_automation_status():
+    """Check if automation/scheduler is currently active"""
+    try:
+        # Check if scheduler is running
+        if hasattr(app, 'scheduler') and app.scheduler and app.scheduler.running:
+            return True
+        # Check if there are any active schedules
+        active_schedules = ScheduleConfig.query.filter_by(is_active=True).count()
+        return active_schedules > 0
+    except Exception:
+        return True  # Default to active if can't determine
 
 # Test route removed for production deployment
 
