@@ -7,6 +7,7 @@ Only updates reference numbers while preserving all other XML content
 import random
 import string
 import os
+import requests
 from lxml import etree
 import logging
 from datetime import datetime
@@ -170,17 +171,61 @@ def get_existing_references_from_published_file(published_xml_path='myticas-job-
     Extract existing reference numbers from the currently published XML file
     This serves as the reliable source of truth for reference preservation
     
+    CRITICAL FIX: Reads from live published URL first, falls back to local file
+    
     Args:
-        published_xml_path: Path to the currently published XML file
+        published_xml_path: Path/filename for fallback local file
         
     Returns:
         dict: Mapping of job_id to reference_number for all jobs with existing references
     """
     existing_references = {}
     
+    # First attempt: Fetch from live published URL (source of truth)
+    live_url = "https://myticas.com/myticas-job-feed-v2.xml"
+    try:
+        logger.info(f"🌐 Fetching existing references from live URL: {live_url}")
+        
+        # HTTP request with no-cache headers and timeout
+        headers = {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+        response = requests.get(live_url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        # Parse XML content preserving CDATA
+        parser = etree.XMLParser(strip_cdata=False)
+        root = etree.fromstring(response.content, parser)
+        
+        # Extract job_id to reference number mapping
+        for job in root.findall('.//job'):
+            job_id_elem = job.find('bhatsid')  # Use bhatsid (Bullhorn ATS ID) as job identifier
+            ref_elem = job.find('referencenumber')
+            
+            if job_id_elem is not None and ref_elem is not None:
+                job_id = job_id_elem.text.strip() if job_id_elem.text else ""
+                ref_text = ref_elem.text.strip() if ref_elem.text else ""
+                
+                if job_id and ref_text:
+                    existing_references[job_id] = ref_text
+        
+        logger.info(f"✅ Loaded {len(existing_references)} existing reference numbers from LIVE URL")
+        if len(existing_references) > 0:
+            # Log a few sample mappings for verification
+            sample_mappings = list(existing_references.items())[:3]
+            logger.info(f"📋 Sample mappings: {sample_mappings}")
+        return existing_references
+        
+    except Exception as e:
+        logger.warning(f"⚠️ Could not fetch from live URL {live_url}: {str(e)}")
+        logger.info(f"🔄 Falling back to local file: {published_xml_path}")
+    
+    # Fallback: Read from local file
     try:
         if not os.path.exists(published_xml_path):
-            logger.info(f"📝 No published XML file found at {published_xml_path} - no existing references to preserve")
+            logger.info(f"📝 No local XML file found at {published_xml_path} - no existing references to preserve")
             return existing_references
         
         # Parse existing XML file preserving CDATA
@@ -200,11 +245,11 @@ def get_existing_references_from_published_file(published_xml_path='myticas-job-
                 if job_id and ref_text:
                     existing_references[job_id] = ref_text
         
-        logger.info(f"✅ Loaded {len(existing_references)} existing reference numbers from {published_xml_path}")
+        logger.info(f"✅ Loaded {len(existing_references)} existing reference numbers from LOCAL FILE: {published_xml_path}")
         return existing_references
         
     except Exception as e:
-        logger.warning(f"⚠️ Could not load existing references from {published_xml_path}: {str(e)}")
+        logger.warning(f"⚠️ Could not load existing references from local file {published_xml_path}: {str(e)}")
         return existing_references
 
 def preserve_references_from_published_xml(new_xml_content, published_xml_path='myticas-job-feed-v2.xml'):
