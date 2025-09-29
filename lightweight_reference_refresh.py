@@ -166,12 +166,95 @@ def lightweight_refresh_references_from_content(xml_content):
             'error': str(e)
         }
 
+def save_references_to_database(xml_content):
+    """
+    Save reference numbers from XML content to database for preservation
+    Called during manual refresh and uploads to maintain reference state
+    """
+    try:
+        from app import db
+        from models import JobReferenceNumber
+        
+        # Parse XML content to extract job references
+        parser = etree.XMLParser(strip_cdata=False)
+        root = etree.fromstring(xml_content.encode('utf-8'), parser)
+        
+        saved_count = 0
+        updated_count = 0
+        
+        for job in root.findall('.//job'):
+            job_id_elem = job.find('bhatsid')
+            ref_elem = job.find('referencenumber')
+            title_elem = job.find('title')
+            
+            if job_id_elem is not None and ref_elem is not None:
+                job_id = job_id_elem.text.strip() if job_id_elem.text else ""
+                ref_text = ref_elem.text.strip() if ref_elem.text else ""
+                job_title = title_elem.text.strip() if title_elem and title_elem.text else ""
+                
+                if job_id and ref_text:
+                    # Check if this job reference already exists
+                    existing_ref = JobReferenceNumber.query.filter_by(bullhorn_job_id=job_id).first()
+                    
+                    if existing_ref:
+                        # Update existing reference if it changed
+                        if existing_ref.reference_number != ref_text:
+                            existing_ref.reference_number = ref_text
+                            existing_ref.job_title = job_title
+                            updated_count += 1
+                    else:
+                        # Create new reference entry
+                        new_ref = JobReferenceNumber(
+                            bullhorn_job_id=job_id,
+                            reference_number=ref_text,
+                            job_title=job_title
+                        )
+                        db.session.add(new_ref)
+                        saved_count += 1
+        
+        db.session.commit()
+        logger.info(f"💾 Database saved: {saved_count} new, {updated_count} updated reference numbers")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Error saving references to database: {str(e)}")
+        return False
+
+def get_existing_references_from_database():
+    """
+    Load existing reference numbers from database
+    This provides reliable persistence across automated uploads
+    
+    Returns:
+        dict: Mapping of job_id to reference_number for all stored references
+    """
+    existing_references = {}
+    
+    try:
+        from app import db
+        from models import JobReferenceNumber
+        
+        # Query all stored reference numbers
+        stored_refs = JobReferenceNumber.query.all()
+        
+        for ref_entry in stored_refs:
+            existing_references[ref_entry.bullhorn_job_id] = ref_entry.reference_number
+        
+        logger.info(f"💾 Loaded {len(existing_references)} existing reference numbers from DATABASE")
+        if len(existing_references) > 0:
+            # Log a few sample mappings for verification
+            sample_mappings = list(existing_references.items())[:3]
+            logger.info(f"📋 Sample mappings: {sample_mappings}")
+        
+        return existing_references
+        
+    except Exception as e:
+        logger.warning(f"⚠️ Could not load references from database: {str(e)}")
+        return existing_references
+
 def get_existing_references_from_published_file(published_xml_path='myticas-job-feed-v2.xml'):
     """
-    Extract existing reference numbers from the currently published XML file
-    This serves as the reliable source of truth for reference preservation
-    
-    CRITICAL FIX: Reads from live published URL first, falls back to local file
+    UPDATED: Now uses database as primary source, with local file fallback
     
     Args:
         published_xml_path: Path/filename for fallback local file
@@ -179,50 +262,16 @@ def get_existing_references_from_published_file(published_xml_path='myticas-job-
     Returns:
         dict: Mapping of job_id to reference_number for all jobs with existing references
     """
-    existing_references = {}
+    # Primary: Load from database (reliable persistence)
+    existing_references = get_existing_references_from_database()
     
-    # First attempt: Fetch from live published URL (source of truth)
-    live_url = "https://myticas.com/myticas-job-feed-v2.xml"
-    try:
-        logger.info(f"🌐 Fetching existing references from live URL: {live_url}")
-        
-        # HTTP request with no-cache headers and timeout
-        headers = {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-        }
-        response = requests.get(live_url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        # Parse XML content preserving CDATA
-        parser = etree.XMLParser(strip_cdata=False)
-        root = etree.fromstring(response.content, parser)
-        
-        # Extract job_id to reference number mapping
-        for job in root.findall('.//job'):
-            job_id_elem = job.find('bhatsid')  # Use bhatsid (Bullhorn ATS ID) as job identifier
-            ref_elem = job.find('referencenumber')
-            
-            if job_id_elem is not None and ref_elem is not None:
-                job_id = job_id_elem.text.strip() if job_id_elem.text else ""
-                ref_text = ref_elem.text.strip() if ref_elem.text else ""
-                
-                if job_id and ref_text:
-                    existing_references[job_id] = ref_text
-        
-        logger.info(f"✅ Loaded {len(existing_references)} existing reference numbers from LIVE URL")
-        if len(existing_references) > 0:
-            # Log a few sample mappings for verification
-            sample_mappings = list(existing_references.items())[:3]
-            logger.info(f"📋 Sample mappings: {sample_mappings}")
+    # If database has references, use them
+    if existing_references:
         return existing_references
-        
-    except Exception as e:
-        logger.warning(f"⚠️ Could not fetch from live URL {live_url}: {str(e)}")
-        logger.info(f"🔄 Falling back to local file: {published_xml_path}")
     
-    # Fallback: Read from local file
+    # Fallback: Read from local file if database is empty
+    logger.info(f"🔄 Database empty, falling back to local file: {published_xml_path}")
+    
     try:
         if not os.path.exists(published_xml_path):
             logger.info(f"📝 No local XML file found at {published_xml_path} - no existing references to preserve")

@@ -120,6 +120,18 @@ class ProcessingLog(db.Model):
     def __repr__(self):
         return f'<ProcessingLog {self.file_path} - {self.processing_type}>'
 
+class JobReferenceNumber(db.Model):
+    """Store job reference numbers for preservation across automated uploads"""
+    id = db.Column(db.Integer, primary_key=True)
+    bullhorn_job_id = db.Column(db.String(50), unique=True, nullable=False)  # bhatsid from XML
+    reference_number = db.Column(db.String(50), nullable=False)  # The reference number to preserve
+    job_title = db.Column(db.String(500), nullable=True)  # For identification purposes
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<JobReferenceNumber {self.bullhorn_job_id}: {self.reference_number}>'
+
 class RefreshLog(db.Model):
     """Track reference number refresh completions"""
     id = db.Column(db.Integer, primary_key=True)

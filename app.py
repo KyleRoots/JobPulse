@@ -1352,6 +1352,14 @@ def refresh_reference_numbers():
         
         app.logger.info(f"✅ Reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
         
+        # CRITICAL: Save reference numbers to database for preservation
+        from lightweight_reference_refresh import save_references_to_database
+        db_save_success = save_references_to_database(result['xml_content'])
+        if db_save_success:
+            app.logger.info("💾 Reference numbers saved to database for preservation")
+        else:
+            app.logger.warning("⚠️ Failed to save reference numbers to database")
+        
         # Initialize services for upload and notification
         email_service = EmailService()
         
@@ -5480,6 +5488,14 @@ def automated_upload():
                     app.logger.info(f"✅ Reference preservation complete:")
                     app.logger.info(f"   - {jobs_preserved} existing references preserved from {source_file}")
                     app.logger.info(f"   - {new_refs} new references generated for new jobs")
+                    
+                    # CRITICAL: Save reference numbers to database for persistence
+                    from lightweight_reference_refresh import save_references_to_database
+                    db_save_success = save_references_to_database(xml_content)
+                    if db_save_success:
+                        app.logger.info("💾 Reference numbers saved to database for preservation")
+                    else:
+                        app.logger.warning("⚠️ Failed to save reference numbers to database")
                 else:
                     error_msg = preserved_result.get('error', 'Unknown error')
                     app.logger.warning(f"⚠️ Reference preservation failed: {error_msg}")
