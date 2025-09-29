@@ -1036,13 +1036,30 @@ def ping():
 def get_automation_status():
     """Check if automation/scheduler is currently active"""
     try:
-        # Check if scheduler is running
-        if hasattr(app, 'scheduler') and app.scheduler and app.scheduler.running:
+        # Check if recent monitoring activities have occurred (sign of active automation)
+        recent_cutoff = datetime.utcnow() - timedelta(minutes=10)
+        recent_activity = BullhornActivity.query.filter(
+            BullhornActivity.created_at > recent_cutoff,
+            BullhornActivity.activity_type.in_(['check_completed', 'job_added', 'job_removed', 'job_modified'])
+        ).count()
+        
+        if recent_activity > 0:
             return True
-        # Check if there are any active schedules
-        active_schedules = ScheduleConfig.query.filter_by(is_active=True).count()
-        return active_schedules > 0
-    except Exception:
+            
+        # Check if monitors have been updated recently (indicates scheduler is running)
+        recent_monitors = BullhornMonitor.query.filter(
+            BullhornMonitor.last_check > recent_cutoff
+        ).count()
+        
+        if recent_monitors > 0:
+            return True
+            
+        # Fall back to checking if we have any active monitors at all
+        active_monitors = BullhornMonitor.query.filter_by(is_active=True).count()
+        return active_monitors > 0
+        
+    except Exception as e:
+        app.logger.debug(f"Automation status check error: {e}")
         return True  # Default to active if can't determine
 
 # Test route removed for production deployment
