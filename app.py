@@ -1082,10 +1082,19 @@ def dashboard_redirect():
     except:
         schedules = []
     
+    # Get environment status
+    environment_status = None
+    try:
+        from models import EnvironmentStatus
+        environment_status = EnvironmentStatus.query.filter_by(environment_name='production').first()
+    except:
+        environment_status = None
+    
     return render_template('dashboard.html', 
                          recent_activities=recent_activities,
                          automation_active=automation_active,
-                         schedules=schedules)
+                         schedules=schedules,
+                         environment_status=environment_status)
 
 @app.route('/scheduler')
 @login_required

@@ -214,11 +214,44 @@
                 <h6 class="mb-2">
                     <i class="fas fa-heartbeat me-2"></i>System Status
                 </h6>
-                <span class="status-indicator status-{{ 'active' if automation_active else 'inactive' }}"></span>
-                <strong>Automation:</strong> 
-                <span class="badge bg-{{ 'success' if automation_active else 'danger' }}">
-                    {{ 'Active' if automation_active else 'Inactive' }}
-                </span>
+                
+                <!-- Automation Status -->
+                <div class="mb-2">
+                    <span class="status-indicator status-{{ 'active' if automation_active else 'inactive' }}"></span>
+                    <strong>Automation:</strong> 
+                    <span class="badge bg-{{ 'success' if automation_active else 'danger' }}">
+                        {{ 'Active' if automation_active else 'Inactive' }}
+                    </span>
+                </div>
+                
+                <!-- Environment Monitoring Status -->
+                <div class="mb-2">
+                    {% if environment_status %}
+                        <span class="status-indicator status-{{ 'active' if environment_status.is_up else 'inactive' }}"></span>
+                        <strong>Production Environment:</strong> 
+                        <span class="badge bg-{{ 'success' if environment_status.is_up else 'danger' }}">
+                            {{ environment_status.current_status.title() }}
+                        </span>
+                        {% if environment_status.last_check_time %}
+                            <small class="text-muted d-block">
+                                Last checked: {{ environment_status.last_check_time.strftime('%H:%M UTC') }}
+                                {% if environment_status.consecutive_failures > 0 %}
+                                    | {{ environment_status.consecutive_failures }} consecutive failures
+                                {% endif %}
+                            </small>
+                        {% endif %}
+                        {% if environment_status.uptime_percentage is defined %}
+                            <small class="text-muted d-block">
+                                Uptime: {{ environment_status.uptime_percentage }}%
+                            </small>
+                        {% endif %}
+                    {% else %}
+                        <span class="status-indicator" style="background-color: #6c757d;"></span>
+                        <strong>Production Environment:</strong> 
+                        <span class="badge bg-secondary">Setting up...</span>
+                        <small class="text-muted d-block">Environment monitoring is initializing</small>
+                    {% endif %}
+                </div>
             </div>
             
             <!-- Quick Actions -->
