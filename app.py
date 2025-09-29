@@ -4780,6 +4780,202 @@ def check_monitor_health():
             import traceback
             app.logger.error(traceback.format_exc())
 
+def check_environment_status():
+    """Check production environment status and send alerts on status changes"""
+    with app.app_context():
+        try:
+            # Import models here to avoid circular imports
+            from models import EnvironmentStatus, EnvironmentAlert
+            
+            # Get or create environment status record
+            env_status = EnvironmentStatus.query.filter_by(environment_name='production').first()
+            if not env_status:
+                # Create initial environment status record with production URL
+                env_status = EnvironmentStatus(
+                    environment_name='production',
+                    environment_url='https://jobpulse.lyntrix.ai',  # Production URL
+                    current_status='unknown',
+                    alert_email='kroots@myticas.com'
+                )
+                db.session.add(env_status)
+                db.session.commit()
+                app.logger.info("Created initial environment status record for production monitoring")
+            
+            previous_status = env_status.current_status
+            current_time = datetime.utcnow()
+            
+            # Perform health check
+            try:
+                app.logger.info(f"Checking environment status for: {env_status.environment_url}")
+                response = requests.get(
+                    env_status.environment_url + '/health',  # Use health endpoint
+                    timeout=env_status.timeout_seconds,
+                    headers={'User-Agent': 'JobPulse-Environment-Monitor/1.0'}
+                )
+                
+                # Check if response is successful
+                if response.status_code == 200:
+                    new_status = 'up'
+                    env_status.consecutive_failures = 0
+                    app.logger.info(f"✅ Environment check successful: {response.status_code}")
+                else:
+                    new_status = 'down'
+                    env_status.consecutive_failures += 1
+                    app.logger.warning(f"❌ Environment check failed: HTTP {response.status_code}")
+                    
+            except requests.exceptions.Timeout:
+                new_status = 'down'
+                env_status.consecutive_failures += 1
+                error_msg = f"Request timeout after {env_status.timeout_seconds} seconds"
+                app.logger.error(f"❌ Environment check failed: {error_msg}")
+                
+            except requests.exceptions.ConnectionError:
+                new_status = 'down'
+                env_status.consecutive_failures += 1
+                error_msg = "Connection error - server may be down"
+                app.logger.error(f"❌ Environment check failed: {error_msg}")
+                
+            except Exception as e:
+                new_status = 'down'
+                env_status.consecutive_failures += 1
+                error_msg = f"Unexpected error: {str(e)}"
+                app.logger.error(f"❌ Environment check failed: {error_msg}")
+            
+            # Update status and timing
+            env_status.current_status = new_status
+            env_status.last_check_time = current_time
+            
+            # Check for status change and send alerts
+            status_changed = (previous_status != new_status and previous_status != 'unknown')
+            
+            if status_changed:
+                env_status.last_status_change = current_time
+                app.logger.info(f"🔄 Environment status changed: {previous_status} → {new_status}")
+                
+                # Calculate downtime for recovery alerts
+                downtime_minutes = None
+                if new_status == 'up' and previous_status == 'down':
+                    # Environment recovered
+                    if env_status.last_status_change:
+                        # Find the start of the downtime
+                        last_down_change = EnvironmentAlert.query.filter_by(
+                            environment_status_id=env_status.id,
+                            alert_type='down'
+                        ).order_by(EnvironmentAlert.sent_at.desc()).first()
+                        
+                        if last_down_change:
+                            downtime_delta = current_time - last_down_change.sent_at
+                            downtime_minutes = round(downtime_delta.total_seconds() / 60, 2)
+                            env_status.total_downtime_minutes += downtime_minutes
+                
+                # Send alert if notifications are enabled
+                alert_sent = False
+                if ((new_status == 'down' and env_status.alert_on_down) or 
+                    (new_status == 'up' and env_status.alert_on_recovery)):
+                    
+                    try:
+                        alert_sent = send_environment_alert(env_status, new_status, previous_status, downtime_minutes)
+                    except Exception as alert_error:
+                        app.logger.error(f"Failed to send environment alert: {str(alert_error)}")
+            
+            # Save changes to database
+            db.session.commit()
+            
+            # Log current status
+            if new_status == 'up':
+                app.logger.info(f"✅ Environment monitoring: {env_status.environment_name} is UP (consecutive failures: {env_status.consecutive_failures})")
+            else:
+                app.logger.warning(f"❌ Environment monitoring: {env_status.environment_name} is DOWN (consecutive failures: {env_status.consecutive_failures})")
+            
+        except Exception as e:
+            app.logger.error(f"Environment status check error: {str(e)}")
+            db.session.rollback()
+            import traceback
+            app.logger.error(traceback.format_exc())
+
+def send_environment_alert(env_status, new_status, previous_status, downtime_minutes=None):
+    """Send email alert for environment status change"""
+    try:
+        from models import EnvironmentAlert
+        
+        # Create alert message
+        if new_status == 'down':
+            subject = f"🚨 ALERT: {env_status.environment_name.title()} Environment is DOWN"
+            message = f"""
+Environment Monitoring Alert
+
+Environment: {env_status.environment_name.title()}
+URL: {env_status.environment_url}
+Status: DOWN ❌
+Previous Status: {previous_status.title()}
+Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+Consecutive Failures: {env_status.consecutive_failures}
+
+Troubleshooting Steps:
+1. Check if the production server is responding
+2. Verify DNS resolution for the domain
+3. Check for any recent deployments or changes
+4. Review server logs for errors
+5. Check SSL certificate validity
+6. Verify CDN/load balancer status
+
+You will receive another notification when the environment is back online.
+
+This is an automated message from JobPulse Environment Monitoring.
+"""
+        else:  # status == 'up'
+            subject = f"✅ RECOVERY: {env_status.environment_name.title()} Environment is UP"
+            downtime_text = f"Downtime: {downtime_minutes} minutes" if downtime_minutes else "Downtime: Unknown"
+            message = f"""
+Environment Recovery Notification
+
+Environment: {env_status.environment_name.title()}
+URL: {env_status.environment_url}
+Status: UP ✅
+Previous Status: {previous_status.title()}
+Recovery Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+{downtime_text}
+
+The environment is now accessible and functioning normally.
+Current uptime: {env_status.uptime_percentage}%
+
+This is an automated message from JobPulse Environment Monitoring.
+"""
+        
+        # Initialize email service
+        email_service = EmailService()
+        
+        # Send email notification
+        success = email_service.send_notification_email(
+            to_email=env_status.alert_email,
+            subject=subject,
+            message=message,
+            notification_type=f'environment_{new_status}'
+        )
+        
+        # Log the alert to database
+        alert = EnvironmentAlert(
+            environment_status_id=env_status.id,
+            alert_type=new_status,
+            alert_message=message,
+            recipient_email=env_status.alert_email,
+            delivery_status='sent' if success else 'failed',
+            downtime_duration=downtime_minutes,
+            error_details=None if success else "Email sending failed"
+        )
+        db.session.add(alert)
+        
+        if success:
+            app.logger.info(f"📧 Environment alert sent successfully: {new_status} notification to {env_status.alert_email}")
+        else:
+            app.logger.error(f"📧 Failed to send environment alert: {new_status} notification to {env_status.alert_email}")
+        
+        return success
+        
+    except Exception as e:
+        app.logger.error(f"Error sending environment alert: {str(e)}")
+        return False
+
 # Defer scheduler startup to reduce initialization time
 def lazy_start_scheduler():
     """Start scheduler only when needed to avoid startup delays"""
