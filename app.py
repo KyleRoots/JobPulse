@@ -5468,9 +5468,8 @@ def automated_upload():
                 from lightweight_reference_refresh import preserve_references_from_published_xml
                 
                 # Always preserve existing reference numbers from the published XML file
-                # Use environment-aware filename to match manual refresh uploads
-                published_filename = get_xml_filename()
-                preserved_result = preserve_references_from_published_xml(xml_content, published_filename)
+                # HARDCODED to production file - 30-minute cycle must always read from production
+                preserved_result = preserve_references_from_published_xml(xml_content, 'myticas-job-feed-v2.xml')
                 
                 if preserved_result['success']:
                     xml_content = preserved_result['xml_content']
