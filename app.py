@@ -5038,6 +5038,16 @@ if is_primary_worker:
     )
     app.logger.info("Monitor health check enabled - periodic check every 2 hours for manual workflow")
 
+    # Add environment monitoring job
+    scheduler.add_job(
+        func=check_environment_status,
+        trigger=IntervalTrigger(minutes=5),  # Check every 5 minutes
+        id='environment_monitoring',
+        name='Production Environment Monitoring',
+        replace_existing=True
+    )
+    app.logger.info("Environment monitoring enabled - checking production status every 5 minutes")
+
     # Schedule automatic file cleanup
     def schedule_file_cleanup():
         """Schedule automatic file cleanup"""
