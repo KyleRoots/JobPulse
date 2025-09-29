@@ -913,7 +913,7 @@ else:
 def login():
     """User login page"""
     if current_user.is_authenticated:
-        return redirect(url_for('bullhorn_dashboard'))
+        return redirect(url_for('dashboard_redirect'))
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -940,7 +940,7 @@ def login():
             if next_page:
                 return redirect(next_page)
             # Force scroll to top by adding fragment
-            return redirect(url_for('bullhorn_dashboard') + '#top')
+            return redirect(url_for('dashboard_redirect') + '#top')
         else:
             flash('Invalid username or password.', 'error')
     
