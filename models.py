@@ -380,3 +380,77 @@ class SchedulerLock(db.Model):
     
     def __repr__(self):
         return f'<SchedulerLock owner={self.owner_process_id} env={self.environment}>'
+
+class EnvironmentStatus(db.Model):
+    """Track production environment up/down status for monitoring and alerting"""
+    id = db.Column(db.Integer, primary_key=True)
+    environment_name = db.Column(db.String(100), nullable=False, default='production')  # Environment being monitored
+    environment_url = db.Column(db.String(500), nullable=False)  # URL to monitor
+    current_status = db.Column(db.String(20), nullable=False, default='unknown')  # 'up', 'down', 'unknown'
+    last_check_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_status_change = db.Column(db.DateTime, nullable=True)  # When status last changed
+    consecutive_failures = db.Column(db.Integer, default=0)  # Track consecutive failed checks
+    total_downtime_minutes = db.Column(db.Float, default=0.0)  # Track total downtime
+    
+    # Check configuration
+    check_interval_minutes = db.Column(db.Integer, default=5)  # How often to check
+    timeout_seconds = db.Column(db.Integer, default=30)  # Request timeout
+    alert_email = db.Column(db.String(255), nullable=False, default='kroots@myticas.com')
+    
+    # Alert settings
+    alert_on_down = db.Column(db.Boolean, default=True)
+    alert_on_recovery = db.Column(db.Boolean, default=True)
+    
+    # Tracking fields
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<EnvironmentStatus {self.environment_name}: {self.current_status}>'
+    
+    @property
+    def is_up(self):
+        """Check if environment is currently up"""
+        return self.current_status == 'up'
+    
+    @property
+    def is_down(self):
+        """Check if environment is currently down"""
+        return self.current_status == 'down'
+    
+    @property
+    def uptime_percentage(self):
+        """Calculate uptime percentage over the last 30 days"""
+        if not self.created_at:
+            return 100.0
+        
+        # Simple calculation based on total downtime vs time since creation
+        days_since_creation = (datetime.utcnow() - self.created_at).total_seconds() / 86400
+        if days_since_creation <= 0:
+            return 100.0
+        
+        downtime_days = self.total_downtime_minutes / 1440  # Convert minutes to days
+        uptime_percentage = max(0, 100 - (downtime_days / days_since_creation * 100))
+        return round(uptime_percentage, 2)
+
+class EnvironmentAlert(db.Model):
+    """Log of environment alerts sent for down/up notifications"""
+    id = db.Column(db.Integer, primary_key=True)
+    environment_status_id = db.Column(db.Integer, db.ForeignKey('environment_status.id'), nullable=False)
+    alert_type = db.Column(db.String(20), nullable=False)  # 'down', 'up', 'degraded'
+    alert_message = db.Column(db.Text, nullable=False)  # Full alert message content
+    recipient_email = db.Column(db.String(255), nullable=False)
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    delivery_status = db.Column(db.String(20), default='sent', nullable=False)  # 'sent', 'failed', 'pending'
+    sendgrid_message_id = db.Column(db.String(255), nullable=True)  # SendGrid tracking
+    error_message = db.Column(db.Text, nullable=True)  # Error details if delivery failed
+    
+    # Context fields
+    downtime_duration = db.Column(db.Float, nullable=True)  # Minutes of downtime (for recovery alerts)
+    error_details = db.Column(db.Text, nullable=True)  # Technical error details
+    
+    # Relationship
+    environment_status = db.relationship('EnvironmentStatus', backref='alerts')
+    
+    def __repr__(self):
+        return f'<EnvironmentAlert {self.alert_type} to {self.recipient_email}>'
