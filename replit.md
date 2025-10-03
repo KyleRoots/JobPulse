@@ -34,12 +34,16 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Proxy Support**: ProxyFix middleware
 
 ### Core Features
-- **Manual Workflow Architecture** (September 2025):
-    - **Enhanced 8-Step Comprehensive Monitoring**: Bullhorn-focused data integrity system that fetches, adds, removes, and re-maps all job fields from Bullhorn tearsheets every 5 minutes, ensuring 100% data accuracy for manual downloads. Properly formats STSI company name as "STSI (Staffing Technical Services Inc.)" for tearsheet 1556. **Enhanced with proper HTML parsing to fix unclosed tags and CDATA wrapping for all XML fields**.
-    - **Manual Download Notifications**: Change detection and email notifications are triggered ONLY during manual XML downloads, providing relevant change summaries when users actually download files.
-    - **SFTP Auto-Upload DISABLED**: All automatic uploads removed - system focuses on job counting transparency and manual download workflow.
+- **Toggle-Based Automation Architecture** (September 2025):
+    - **30-Minute Automated Upload Cycle**: APScheduler-backed automation that runs every 30 minutes when enabled via settings
+    - **Dual Toggle Control**: Requires BOTH `automated_uploads_enabled=true` AND `sftp_enabled=true` for automation to execute
+    - **Manual Workflow Support**: Can be fully disabled for manual-only operations by toggling settings OFF
+    - **Fresh XML Generation**: Pulls from Bullhorn tearsheets (1256, 1264, 1499, 1556) on-demand for each refresh/upload
+    - **STSI Company Formatting**: Properly formats company name as "STSI (Staffing Technical Services Inc.)" for tearsheet 1556
+    - **Enhanced XML Processing**: HTML parsing to fix unclosed tags and CDATA wrapping for all XML fields
 - **Orphan Prevention System**: Automated duplicate detection and removal to prevent job pollution.
-- **Ad-hoc Reference Number Refresh**: Manual "Refresh All" button for immediate reference number updates (no automatic uploads).
+- **Database-Backed Reference Number Preservation** (October 2025): JobReferenceNumber table stores all reference numbers persistently. Manual refresh and automated uploads save/load from database to prevent reversion when live XML URL is protected (403 Forbidden).
+- **Ad-hoc Reference Number Refresh**: Manual "Refresh All" button for immediate reference number updates with database persistence.
 - **Job Application Form**: Responsive, public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, and Bullhorn job ID integration. Supports unique branding.
 - **Internal Job Classification**: Keyword-based classification system providing instant, reliable categorization (jobfunction, jobindustries, senioritylevel) without external API dependencies.
 - **Intelligent File Management**: Automated file consolidation, duplicate detection, temporary file cleanup, and storage optimization.
