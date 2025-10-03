@@ -283,7 +283,7 @@ class IncrementalMonitoringService:
             MockMonitor('Sponsored - OTT', 1256),
             MockMonitor('Sponsored - VMS', 1264),
             MockMonitor('Sponsored - GR', 1499),
-            MockMonitor('Sponsored - CHI', 1239),
+            MockMonitor('Sponsored - CHI', 1523),
             MockMonitor('Sponsored - STSI', 1556)
         ]
         
