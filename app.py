@@ -830,7 +830,7 @@ def process_bullhorn_monitors():
                     MockMonitor('Sponsored - OTT', 1256),
                     MockMonitor('Sponsored - VMS', 1264),
                     MockMonitor('Sponsored - GR', 1499),
-                    MockMonitor('Sponsored - CHI', 1523),
+                    MockMonitor('Sponsored - CHI', 1257),
                     MockMonitor('Sponsored - STSI', 1556)
                 ]
                 app.logger.info(f"Using {len(monitors)} hardcoded tearsheet monitors (fallback)")

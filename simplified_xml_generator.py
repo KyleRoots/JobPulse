@@ -33,14 +33,14 @@ class SimplifiedXMLGenerator:
         self.xml_processor = XMLProcessor()
         
         # Tearsheet IDs to pull from with monitor name mapping
-        self.tearsheet_ids = [1256, 1264, 1499, 1523, 1556]
+        self.tearsheet_ids = [1256, 1264, 1499, 1257, 1556]
         
         # Tearsheet ID to monitor name mapping (from app.py monitors)
         self.tearsheet_monitor_mapping = {
             1256: 'Sponsored - OTT',
             1264: 'Sponsored - VMS', 
             1499: 'Sponsored - GR',
-            1523: 'Sponsored - CHI',
+            1257: 'Sponsored - CHI',
             1556: 'Sponsored - STSI'
         }
         
