@@ -1352,13 +1352,22 @@ def refresh_reference_numbers():
         
         app.logger.info(f"✅ Reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
         
-        # CRITICAL: Save reference numbers to database for preservation
+        # CRITICAL: Save reference numbers to database for preservation (database-first approach)
+        # Database save is REQUIRED - failure will prevent upload to ensure consistency
         from lightweight_reference_refresh import save_references_to_database
         db_save_success = save_references_to_database(result['xml_content'])
-        if db_save_success:
-            app.logger.info("💾 Reference numbers saved to database for preservation")
-        else:
-            app.logger.warning("⚠️ Failed to save reference numbers to database")
+        
+        if not db_save_success:
+            # Database save failure is CRITICAL - prevent upload to maintain database-first architecture
+            error_msg = "Database-first architecture requires successful DB save - manual refresh aborted"
+            app.logger.critical(f"❌ CRITICAL: {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'details': 'Reference numbers must be saved to database before upload. Please try again.'
+            }), 500
+        
+        app.logger.info("💾 DATABASE-FIRST: Reference numbers successfully saved to database")
         
         # Initialize services for upload and notification
         email_service = EmailService()
