@@ -67,8 +67,8 @@ class SimplifiedXMLGenerator:
             self._generation_lock = True
             self.logger.info("🚀 Starting fresh XML generation from Bullhorn tearsheets")
             
-            # Load existing reference number mappings
-            existing_references = self._load_reference_snapshot()
+            # Load existing reference number mappings from DATABASE (database-first approach)
+            existing_references = self._load_references_from_database()
             
             # Get BullhornService with credentials from database
             bullhorn_service = self._get_bullhorn_service()
@@ -86,7 +86,10 @@ class SimplifiedXMLGenerator:
             # Build XML from job data with tearsheet context
             xml_content, updated_references = self._build_clean_xml(all_jobs_with_context, existing_references)
             
-            # Save updated reference mappings
+            # Save updated reference mappings to DATABASE (database-first approach)
+            self._save_references_to_database(xml_content)
+            
+            # Also save to snapshot file for backward compatibility
             self._save_reference_snapshot(updated_references)
             
             # Generate stats
@@ -299,8 +302,30 @@ class SimplifiedXMLGenerator:
         
         return xml_string, updated_references
     
+    def _load_references_from_database(self) -> Dict:
+        """
+        Load existing reference number mappings from DATABASE (database-first approach)
+        This ensures reference numbers persist across all automated uploads and refreshes
+        """
+        try:
+            from lightweight_reference_refresh import get_existing_references_from_database
+            
+            # Load from database instead of file
+            existing_references = get_existing_references_from_database()
+            
+            self.logger.info(f"💾 Loaded {len(existing_references)} reference numbers from DATABASE")
+            return existing_references
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load references from database: {str(e)}")
+            self.logger.warning("⚠️ Falling back to empty reference set")
+            return {}
+    
     def _load_reference_snapshot(self) -> Dict:
-        """Load existing reference number mappings from snapshot file"""
+        """
+        DEPRECATED: Load existing reference number mappings from snapshot file
+        This method is kept for backward compatibility but is no longer used
+        """
         try:
             if os.path.exists(self.snapshot_file):
                 with open(self.snapshot_file, 'r') as f:
@@ -321,8 +346,30 @@ class SimplifiedXMLGenerator:
         
         return {}
     
+    def _save_references_to_database(self, xml_content: str):
+        """
+        Save reference numbers to DATABASE (database-first approach)
+        This ensures reference numbers persist across all automated uploads and refreshes
+        """
+        try:
+            from lightweight_reference_refresh import save_references_to_database
+            
+            # Save to database
+            success = save_references_to_database(xml_content)
+            
+            if success:
+                self.logger.info("💾 Reference numbers saved to DATABASE for preservation")
+            else:
+                self.logger.warning("⚠️ Failed to save reference numbers to DATABASE")
+                
+        except Exception as e:
+            self.logger.error(f"Error saving references to database: {str(e)}")
+    
     def _save_reference_snapshot(self, references: Dict):
-        """Save reference number mappings to snapshot file"""
+        """
+        DEPRECATED: Save reference number mappings to snapshot file
+        This method is kept for backward compatibility but database is now the primary storage
+        """
         try:
             # Use simple format for reference mappings only
             snapshot_data = {
@@ -334,7 +381,7 @@ class SimplifiedXMLGenerator:
             with open(self.snapshot_file, 'w') as f:
                 json.dump(snapshot_data, f, indent=2)
                 
-            self.logger.debug(f"Saved {len(references)} reference mappings to snapshot")
+            self.logger.debug(f"Saved {len(references)} reference mappings to snapshot (legacy)")
             
         except Exception as e:
             self.logger.error(f"Error saving reference snapshot: {str(e)}")
