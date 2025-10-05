@@ -38,11 +38,16 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
     - **30-Minute Automated Upload Cycle**: APScheduler-backed automation that runs every 30 minutes when enabled via settings
     - **Dual Toggle Control**: Requires BOTH `automated_uploads_enabled=true` AND `sftp_enabled=true` for automation to execute
     - **Manual Workflow Support**: Can be fully disabled for manual-only operations by toggling settings OFF
-    - **Fresh XML Generation**: Pulls from Bullhorn tearsheets (1256, 1264, 1499, 1556) on-demand for each refresh/upload
+    - **Fresh XML Generation**: Pulls from Bullhorn tearsheets (1256, 1264, 1499, 1556, 1257) on-demand for each refresh/upload
     - **STSI Company Formatting**: Properly formats company name as "STSI (Staffing Technical Services Inc.)" for tearsheet 1556
     - **Enhanced XML Processing**: HTML parsing to fix unclosed tags and CDATA wrapping for all XML fields
 - **Orphan Prevention System**: Automated duplicate detection and removal to prevent job pollution.
-- **Database-Backed Reference Number Preservation** (October 2025): JobReferenceNumber table stores all reference numbers persistently. Manual refresh and automated uploads save/load from database to prevent reversion when live XML URL is protected (403 Forbidden).
+- **Database-First Reference Number Architecture** (October 2025): 
+    - **Single Source of Truth**: JobReferenceNumber database table is the authoritative storage for all reference numbers
+    - **120-Hour Reference Refresh**: Updates reference numbers in database only (no SFTP upload) - eliminates upload conflicts
+    - **30-Minute Upload Cycle**: SimplifiedXMLGenerator ALWAYS loads reference numbers from database before generating XML
+    - **Conflict Resolution**: Prevents upload overwrites by making database the primary source, not SFTP or file snapshots
+    - **Automatic Persistence**: All reference number changes (manual refresh, automated refresh) save to database immediately
 - **Ad-hoc Reference Number Refresh**: Manual "Refresh All" button for immediate reference number updates with database persistence.
 - **Job Application Form**: Responsive, public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, and Bullhorn job ID integration. Supports unique branding.
 - **Internal Job Classification**: Keyword-based classification system providing instant, reliable categorization (jobfunction, jobindustries, senioritylevel) without external API dependencies.

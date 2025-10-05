@@ -5211,14 +5211,17 @@ def reference_number_refresh():
                     db.session.rollback()
                 
                 # CRITICAL: Save reference numbers to database (database-first approach)
-                # The 30-minute upload cycle will automatically load these updated reference numbers
+                # Database save is REQUIRED - failure will raise exception and alert via email
                 from lightweight_reference_refresh import save_references_to_database
                 db_save_success = save_references_to_database(result['xml_content'])
-                if db_save_success:
-                    app.logger.info("💾 Reference numbers saved to database for preservation")
-                else:
-                    app.logger.warning("⚠️ Failed to save reference numbers to database")
                 
+                if not db_save_success:
+                    # Database save failure is CRITICAL - raise exception to trigger error handling
+                    error_msg = "Database-first architecture requires successful DB save - 120-hour refresh FAILED"
+                    app.logger.critical(f"❌ CRITICAL: {error_msg}")
+                    raise Exception(error_msg)
+                
+                app.logger.info("💾 DATABASE-FIRST: Reference numbers successfully saved to database")
                 app.logger.info("✅ Reference refresh complete: Reference numbers updated in database (30-minute upload cycle will use these values)")
                 
                 # Send email notification confirming refresh execution
@@ -5332,51 +5335,19 @@ def automated_upload():
             app.logger.info("🚀 Starting automated 30-minute upload cycle...")
             app.logger.info("⚡ AUTOMATED UPLOAD FUNCTION EXECUTING - production priority enabled")
             
-            # Generate fresh XML using SimplifiedXMLGenerator
+            # Generate fresh XML using SimplifiedXMLGenerator (database-first approach)
+            # SimplifiedXMLGenerator ALWAYS loads reference numbers from database
             from simplified_xml_generator import SimplifiedXMLGenerator
             generator = SimplifiedXMLGenerator(db=db)
             xml_content, stats = generator.generate_fresh_xml()
             
             app.logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
             app.logger.info("📍 CHECKPOINT 1: XML generation completed successfully")
+            app.logger.info("💾 Reference numbers loaded from DATABASE (database-first approach)")
             
-            # CRITICAL: ALWAYS preserve existing reference numbers from published XML (unconditional)
-            # This ensures automated uploads never override existing reference numbers
-            app.logger.info("🔒 Preserving existing reference numbers from published XML (unconditional)...")
-            
-            try:
-                # Use published XML file as reliable source of truth for existing reference numbers
-                from lightweight_reference_refresh import preserve_references_from_published_xml
-                
-                # Always preserve existing reference numbers from the published XML file
-                # HARDCODED to production file - 30-minute cycle must always read from production
-                preserved_result = preserve_references_from_published_xml(xml_content, 'myticas-job-feed-v2.xml')
-                
-                if preserved_result['success']:
-                    xml_content = preserved_result['xml_content']
-                    jobs_preserved = preserved_result.get('jobs_preserved', 0)
-                    new_refs = preserved_result.get('new_refs_generated', 0)
-                    source_file = preserved_result.get('source_file', 'unknown')
-                    
-                    app.logger.info(f"✅ Reference preservation complete:")
-                    app.logger.info(f"   - {jobs_preserved} existing references preserved from {source_file}")
-                    app.logger.info(f"   - {new_refs} new references generated for new jobs")
-                    
-                    # CRITICAL: Save reference numbers to database for persistence
-                    from lightweight_reference_refresh import save_references_to_database
-                    db_save_success = save_references_to_database(xml_content)
-                    if db_save_success:
-                        app.logger.info("💾 Reference numbers saved to database for preservation")
-                    else:
-                        app.logger.warning("⚠️ Failed to save reference numbers to database")
-                else:
-                    error_msg = preserved_result.get('error', 'Unknown error')
-                    app.logger.warning(f"⚠️ Reference preservation failed: {error_msg}")
-                    app.logger.warning("   - Proceeding with freshly generated reference numbers")
-                    
-            except Exception as preserve_error:
-                app.logger.warning(f"⚠️ Reference preservation failed with exception: {str(preserve_error)}")
-                app.logger.warning("   - Proceeding with freshly generated reference numbers")
+            # NOTE: Database is now the single source of truth for reference numbers
+            # SimplifiedXMLGenerator already loaded references from database and saved them back
+            # No need to preserve from SFTP - that would overwrite database values!
             
             # Use locking mechanism to prevent conflicts with monitoring cycle
             lock_file = 'monitoring.lock'

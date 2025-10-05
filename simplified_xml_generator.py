@@ -87,10 +87,11 @@ class SimplifiedXMLGenerator:
             xml_content, updated_references = self._build_clean_xml(all_jobs_with_context, existing_references)
             
             # Save updated reference mappings to DATABASE (database-first approach)
+            # This is the ONLY source of truth - database is required
             self._save_references_to_database(xml_content)
             
-            # Also save to snapshot file for backward compatibility
-            self._save_reference_snapshot(updated_references)
+            # NOTE: Snapshot file save REMOVED - database is the single source of truth
+            # No fallback to file snapshots to ensure database-first architecture
             
             # Generate stats
             stats = {
@@ -306,20 +307,21 @@ class SimplifiedXMLGenerator:
         """
         Load existing reference number mappings from DATABASE (database-first approach)
         This ensures reference numbers persist across all automated uploads and refreshes
+        Database is the ONLY source of truth - no fallbacks
         """
         try:
             from lightweight_reference_refresh import get_existing_references_from_database
             
-            # Load from database instead of file
+            # Load from database - this is the ONLY source of truth
             existing_references = get_existing_references_from_database()
             
-            self.logger.info(f"💾 Loaded {len(existing_references)} reference numbers from DATABASE")
+            self.logger.info(f"💾 DATABASE-FIRST: Loaded {len(existing_references)} reference numbers from DATABASE")
             return existing_references
             
         except Exception as e:
-            self.logger.error(f"Failed to load references from database: {str(e)}")
-            self.logger.warning("⚠️ Falling back to empty reference set")
-            return {}
+            self.logger.critical(f"❌ CRITICAL: Failed to load references from database: {str(e)}")
+            # Database is required - raise exception instead of silent fallback
+            raise Exception(f"Database-first architecture requires DB access: {str(e)}")
     
     def _load_reference_snapshot(self) -> Dict:
         """
@@ -350,20 +352,25 @@ class SimplifiedXMLGenerator:
         """
         Save reference numbers to DATABASE (database-first approach)
         This ensures reference numbers persist across all automated uploads and refreshes
+        Database is the ONLY source of truth - failures are critical
         """
         try:
             from lightweight_reference_refresh import save_references_to_database
             
-            # Save to database
+            # Save to database - this is REQUIRED for database-first architecture
             success = save_references_to_database(xml_content)
             
             if success:
-                self.logger.info("💾 Reference numbers saved to DATABASE for preservation")
+                self.logger.info("💾 DATABASE-FIRST: Reference numbers saved to DATABASE successfully")
             else:
-                self.logger.warning("⚠️ Failed to save reference numbers to DATABASE")
+                # Database save failure is CRITICAL in database-first architecture
+                self.logger.critical("❌ CRITICAL: Failed to save reference numbers to DATABASE")
+                raise Exception("Database-first architecture requires successful DB save")
                 
         except Exception as e:
-            self.logger.error(f"Error saving references to database: {str(e)}")
+            self.logger.critical(f"❌ CRITICAL: Error saving references to database: {str(e)}")
+            # Re-raise to ensure failures are not silent
+            raise
     
     def _save_reference_snapshot(self, references: Dict):
         """
