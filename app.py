@@ -5210,142 +5210,16 @@ def reference_number_refresh():
                     app.logger.error(f"Failed to log refresh completion: {str(log_error)}")
                     db.session.rollback()
                 
-                # ENABLED: Direct SFTP upload with same locking mechanism as monitoring cycle
-                # This ensures 48-hour refresh uploads immediately while preventing conflicts
-                upload_success = False
-                upload_error_message = None
-                
-                # Use same lock mechanism as monitoring cycle for complete separation
-                lock_file = 'monitoring.lock'
-                
-                try:
-                    # Check if monitoring cycle is already running
-                    if os.path.exists(lock_file):
-                        try:
-                            with open(lock_file, 'r') as f:
-                                lock_data = f.read().strip()
-                                if lock_data:
-                                    lock_time = datetime.fromisoformat(lock_data)
-                                    lock_age = (datetime.utcnow() - lock_time).total_seconds()
-                                    
-                                    # If monitoring lock is fresh, wait for it to complete
-                                    if lock_age < 240:  # 4 minutes
-                                        app.logger.info(f"🔒 Monitoring cycle is running, waiting 30 seconds before upload...")
-                                        time.sleep(30)  # Brief wait for monitoring to complete
-                                        
-                                        # Check again after wait
-                                        if os.path.exists(lock_file):
-                                            with open(lock_file, 'r') as f2:
-                                                lock_data2 = f2.read().strip()
-                                                if lock_data2:
-                                                    lock_time2 = datetime.fromisoformat(lock_data2)
-                                                    lock_age2 = (datetime.utcnow() - lock_time2).total_seconds()
-                                                    if lock_age2 < 240:
-                                                        app.logger.warning("🔒 Monitoring cycle still running, skipping upload (will retry in next cycle)")
-                                                        upload_error_message = "Monitoring cycle was running, upload skipped"
-                                                    else:
-                                                        os.remove(lock_file)  # Remove stale lock
-                                    else:
-                                        app.logger.info("🔓 Removing stale monitoring lock")
-                                        os.remove(lock_file)
-                        except Exception as e:
-                            app.logger.warning(f"Error reading monitoring lock: {str(e)}. Proceeding with upload.")
-                            if os.path.exists(lock_file):
-                                os.remove(lock_file)
-                    
-                    # If no lock conflicts, proceed with upload
-                    if not upload_error_message:
-                        # Create temporary lock to prevent monitoring interference
-                        with open(lock_file, 'w') as f:
-                            f.write(datetime.utcnow().isoformat())
-                        app.logger.info("🔒 Lock acquired for reference refresh upload")
-                        
-                        try:
-                            # Save the refreshed XML to a temporary file for upload
-                            import tempfile
-                            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
-                            temp_file.write(result['xml_content'])
-                            temp_file.close()
-                            
-                            # Get SFTP settings from Global Settings
-                            sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                            sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                            sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                            sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                            sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
-                            
-                            if (sftp_hostname and sftp_hostname.setting_value and 
-                                sftp_username and sftp_username.setting_value and 
-                                sftp_password and sftp_password.setting_value):
-                                
-                                # Upload the refreshed XML using proper credentials
-                                from ftp_service import FTPService
-                                ftp_service = FTPService(
-                                    hostname=sftp_hostname.setting_value,
-                                    username=sftp_username.setting_value,
-                                    password=sftp_password.setting_value,
-                                    target_directory=sftp_directory.setting_value if sftp_directory else "/",
-                                    port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                                    use_sftp=True
-                                )
-                                
-                                app.logger.info("📤 Uploading refreshed XML to server...")
-                                upload_result = ftp_service.upload_file(
-                                    local_file_path=temp_file.name,
-                                    remote_filename=get_xml_filename()
-                                )
-                                
-                                # Clean up temporary file
-                                try:
-                                    os.remove(temp_file.name)
-                                except:
-                                    pass
-                            else:
-                                upload_result = False
-                                upload_error_message = 'SFTP credentials not configured'
-                                app.logger.error("❌ SFTP credentials not configured in Global Settings")
-                            
-                            if upload_result:
-                                upload_success = True
-                                app.logger.info("✅ Upload successful: File uploaded to server")
-                            else:
-                                if not upload_error_message:
-                                    upload_error_message = 'Upload failed'
-                                app.logger.error(f"❌ Upload failed: {upload_error_message}")
-                        
-                        finally:
-                            # Always remove lock when upload completes
-                            if os.path.exists(lock_file):
-                                try:
-                                    os.remove(lock_file)
-                                    app.logger.info("🔓 Lock released after reference refresh upload")
-                                except Exception as e:
-                                    app.logger.error(f"Error removing upload lock: {str(e)}")
-                                
-                except Exception as upload_exception:
-                    upload_error_message = str(upload_exception)
-                    app.logger.error(f"❌ Upload process failed: {upload_error_message}")
-                    # Ensure lock is removed even on exception
-                    if os.path.exists(lock_file):
-                        try:
-                            os.remove(lock_file)
-                        except:
-                            pass
-                
-                # Update status message based on upload result
-                if upload_success:
-                    app.logger.info("✅ Reference refresh complete: Local XML updated AND uploaded to server")
-                elif upload_error_message:
-                    app.logger.warning(f"⚠️ Reference refresh complete: Local XML updated, but upload failed: {upload_error_message}")
+                # CRITICAL: Save reference numbers to database (database-first approach)
+                # The 30-minute upload cycle will automatically load these updated reference numbers
+                from lightweight_reference_refresh import save_references_to_database
+                db_save_success = save_references_to_database(result['xml_content'])
+                if db_save_success:
+                    app.logger.info("💾 Reference numbers saved to database for preservation")
                 else:
-                    app.logger.info("✅ Reference refresh complete: Local XML updated (upload handled separately)")
-                    
-                # Store upload status for email notification
-                upload_status_for_email = {
-                    'upload_attempted': True,
-                    'upload_success': upload_success, 
-                    'upload_error': upload_error_message
-                }
+                    app.logger.warning("⚠️ Failed to save reference numbers to database")
+                
+                app.logger.info("✅ Reference refresh complete: Reference numbers updated in database (30-minute upload cycle will use these values)")
                 
                 # Send email notification confirming refresh execution
                 try:
@@ -5360,9 +5234,8 @@ def reference_number_refresh():
                             'execution_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                             'processing_time': result['time_seconds'],
                             'jobs_updated': result['jobs_updated'],
-                            'upload_attempted': upload_status_for_email['upload_attempted'],
-                            'upload_success': upload_status_for_email['upload_success'],
-                            'upload_error': upload_status_for_email['upload_error']
+                            'database_saved': db_save_success,
+                            'note': 'Reference numbers saved to database - 30-minute upload cycle will use these values'
                         }
                         
                         email_sent = email_service.send_reference_number_refresh_notification(
