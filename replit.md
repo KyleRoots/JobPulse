@@ -41,7 +41,12 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
     - **Fresh XML Generation**: Pulls from Bullhorn tearsheets (1256, 1264, 1499, 1556, 1257) on-demand for each refresh/upload
     - **STSI Company Formatting**: Properly formats company name as "STSI (Staffing Technical Services Inc.)" for tearsheet 1556
     - **Enhanced XML Processing**: HTML parsing to fix unclosed tags and CDATA wrapping for all XML fields
-- **Orphan Prevention System**: Automated duplicate detection and removal to prevent job pollution.
+- **Orphan Prevention System** (October 2025): Automated duplicate detection and removal to prevent job pollution.
+    - **Entity API Validation**: Uses Entity API as source of truth for tearsheet membership
+    - **Smart Orphan Detection**: When Entity API shows fewer jobs than Search API, identifies and removes orphaned jobs that were removed from tearsheets
+    - **Pagination Safeguard**: Association endpoint with proper start/count parameters ensures all Entity job IDs are collected
+    - **Data Loss Protection**: Aborts orphan filtering if Entity pagination is incomplete, preventing legitimate jobs from being removed
+    - **Robust Filtering**: Only removes jobs that Search API returns but Entity API doesn't recognize (true orphans)
 - **Database-First Reference Number Architecture** (October 2025): 
     - **Single Source of Truth**: JobReferenceNumber database table is the authoritative storage for all reference numbers
     - **120-Hour Reference Refresh**: Updates reference numbers in database only (no SFTP upload) - eliminates upload conflicts

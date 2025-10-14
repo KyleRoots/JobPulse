@@ -145,6 +145,11 @@ class BullhornService:
         Returns:
             bool: True if login successful, False otherwise
         """
+        # Initialize variables for error logging (before try block)
+        oauth_url = ""
+        auth_endpoint = ""
+        redirect_uri = ""
+        
         try:
             # Step 1: Get login info to determine correct data center
             login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
@@ -298,9 +303,9 @@ class BullhornService:
             traceback_str = traceback.format_exc()
             logging.error(f"Traceback: {traceback_str}")
             # Log more details about the failure
-            logging.error(f"OAuth URL: {oauth_url if 'oauth_url' in locals() else 'Not set'}")
-            logging.error(f"Auth endpoint: {auth_endpoint if 'auth_endpoint' in locals() else 'Not set'}")
-            logging.error(f"Redirect URI: {redirect_uri if 'redirect_uri' in locals() else 'Not set'}")
+            logging.error(f"OAuth URL: {oauth_url if oauth_url else 'Not set'}")
+            logging.error(f"Auth endpoint: {auth_endpoint if auth_endpoint else 'Not set'}")
+            logging.error(f"Redirect URI: {redirect_uri if redirect_uri else 'Not set'}")
             
             # Clear any partial authentication state
             self.rest_token = None
@@ -387,6 +392,7 @@ class BullhornService:
             
             entity_response = self.session.get(entity_url, params=entity_params)
             entity_total = 0
+            entity_job_ids = set()
             
             if entity_response.status_code == 200:
                 entity_data = entity_response.json()
@@ -395,10 +401,46 @@ class BullhornService:
                     entity_total = job_orders.get('total', 0)
                     logging.info(f"Tearsheet {tearsheet_id}: Entity API reports {entity_total} total jobs")
                     
+                    # Store Entity API job IDs from first page
+                    entity_jobs_data = job_orders.get('data', [])
+                    entity_job_ids = {job.get('id') for job in entity_jobs_data if job.get('id')}
+                    
                     # If there are 5 or fewer jobs, use the entity API data directly (no pagination needed)
                     if entity_total <= 5:
-                        entity_jobs = job_orders.get('data', [])
-                        return self._filter_excluded_jobs(entity_jobs)
+                        return self._filter_excluded_jobs(entity_jobs_data)
+                    
+                    # For larger tearsheets, fetch ALL Entity job IDs with pagination (for orphan detection)
+                    if entity_total > len(entity_job_ids):
+                        # Use association endpoint for proper pagination
+                        assoc_url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}/jobOrders"
+                        entity_start = len(entity_job_ids)
+                        page_size = 200
+                        
+                        while entity_start < entity_total:
+                            assoc_params = {
+                                'fields': 'id',
+                                'start': entity_start,
+                                'count': page_size,
+                                'BhRestToken': self.rest_token
+                            }
+                            paginated_response = self.session.get(assoc_url, params=assoc_params)
+                            if paginated_response.status_code == 200:
+                                paginated_data = paginated_response.json()
+                                paginated_jobs = paginated_data.get('data', [])
+                                if not paginated_jobs:
+                                    break
+                                entity_job_ids.update({job.get('id') for job in paginated_jobs if job.get('id')})
+                                entity_start += len(paginated_jobs)
+                                if len(paginated_jobs) < page_size:
+                                    break
+                            else:
+                                logging.warning(f"Failed to fetch Entity API page at start={entity_start}: {paginated_response.status_code}")
+                                break
+                        
+                        # Safeguard: Abort orphan filtering if we didn't collect all Entity IDs
+                        if len(entity_job_ids) < entity_total:
+                            logging.error(f"Tearsheet {tearsheet_id}: Entity pagination incomplete! Collected {len(entity_job_ids)} IDs but Entity API reports {entity_total}. Aborting orphan filtering to prevent data loss.")
+                            entity_job_ids = set()  # Clear IDs to disable orphan filtering
             
             # For larger tearsheets, use search API to get all jobs
             query = f"tearsheets.id:{tearsheet_id}"
@@ -455,9 +497,21 @@ class BullhornService:
             # Apply job exclusion filter
             filtered_jobs = self._filter_excluded_jobs(all_jobs)
             
-            # Log discrepancy but trust the search API results (more reliable for pagination)
+            # Handle discrepancies between Entity API and Search API
             if entity_total > 0 and len(all_jobs) != entity_total:
-                logging.info(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs while entity API indicates {entity_total}. Using search API results (more complete).")
+                if entity_total < len(all_jobs):
+                    # Entity API shows FEWER jobs → Jobs were removed from tearsheet
+                    # Trust Entity API (authoritative source) and filter out orphaned jobs
+                    if entity_job_ids:
+                        orphaned_jobs = [j for j in filtered_jobs if j.get('id') not in entity_job_ids]
+                        filtered_jobs = [j for j in filtered_jobs if j.get('id') in entity_job_ids]
+                        logging.info(f"Tearsheet {tearsheet_id}: Entity API shows {entity_total} jobs but Search API returned {len(all_jobs)}. Removed {len(orphaned_jobs)} orphaned jobs. Using Entity API as source of truth.")
+                    else:
+                        logging.warning(f"Tearsheet {tearsheet_id}: Entity API shows {entity_total} jobs but Search API returned {len(all_jobs)}. No Entity job IDs available for filtering.")
+                else:
+                    # Entity API shows MORE jobs → Search API pagination issue
+                    # Trust Search API results (more complete due to full field retrieval)
+                    logging.info(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs while Entity API indicates {entity_total}. Using Search API results (more complete field data).")
             
             return filtered_jobs
                 
@@ -712,7 +766,7 @@ class BullhornService:
             logging.error(f"Bullhorn connection test failed: {str(e)}")
             return False
     
-    def compare_job_lists(self, previous_jobs: List[Dict], current_jobs: List[Dict]) -> Dict[str, List[Dict]]:
+    def compare_job_lists(self, previous_jobs: List[Dict], current_jobs: List[Dict]) -> Dict:
         """
         Compare two job lists to find added, removed, and modified jobs
         
@@ -721,7 +775,7 @@ class BullhornService:
             current_jobs: List of jobs from current check
             
         Returns:
-            Dict with 'added', 'removed', 'modified', and 'summary' lists
+            Dict with 'added', 'removed', 'modified' (lists), and 'summary' (dict with stats)
         """
         # Create lookup dictionaries for efficient comparison
         previous_lookup = {job['id']: job for job in previous_jobs}
