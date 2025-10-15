@@ -5446,56 +5446,60 @@ def automated_upload():
                         app.logger.info(f"🔐 Using SFTP protocol for thread-safe uploads to {sftp_hostname.setting_value}:{ftp_service.port}")
                         app.logger.info(f"📂 Target directory: {target_directory}")
                         
-                        # PRODUCTION FILE UPLOAD (PRIORITY)
-                        production_filename = "myticas-job-feed-v2.xml"
-                        app.logger.info("📍 CHECKPOINT 2: Starting production file upload process")
-                        app.logger.info(f"📤 Uploading production XML as '{production_filename}'...")
-                        app.logger.info(f"🔍 Local file path: {temp_file.name}")
-                        app.logger.info(f"🎯 Remote filename: {production_filename}")
-                        try:
-                            app.logger.info("⚡ Calling FTP service for PRODUCTION upload...")
-                            prod_upload_result = ftp_service.upload_file(
-                                local_file_path=temp_file.name,
-                                remote_filename=production_filename
-                            )
-                            app.logger.info(f"📊 Production upload result: {prod_upload_result}")
-                            if prod_upload_result:
-                                app.logger.info("✅ Production file uploaded successfully")
-                            else:
-                                app.logger.error("❌ Production file upload failed")
-                        except Exception as prod_error:
-                            app.logger.error(f"❌ Production file upload error: {str(prod_error)}")
-                            prod_upload_result = False
+                        # ENVIRONMENT-AWARE UPLOAD: Dev uploads to -dev.xml, Production uploads to .xml
+                        # CRITICAL: Check both APP_ENV and ENVIRONMENT variables explicitly
+                        # Default to 'development' if neither is set (safer than defaulting to production)
+                        current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'development').lower()
+                        app.logger.info(f"🔍 Environment detection: APP_ENV={os.environ.get('APP_ENV')}, ENVIRONMENT={os.environ.get('ENVIRONMENT')}, using={current_env}")
                         
-                        # DEVELOPMENT FILE UPLOAD 
-                        development_filename = "myticas-job-feed-v2-dev.xml"
-                        app.logger.info(f"📤 Uploading development XML as '{development_filename}'...")
-                        try:
-                            dev_upload_result = ftp_service.upload_file(
-                                local_file_path=temp_file.name,
-                                remote_filename=development_filename
-                            )
-                            if dev_upload_result:
-                                app.logger.info("✅ Development file uploaded successfully")
-                            else:
-                                app.logger.error("❌ Development file upload failed")
-                        except Exception as dev_error:
-                            app.logger.error(f"❌ Development file upload error: {str(dev_error)}")
-                            dev_upload_result = False
+                        # Validate environment value
+                        if current_env not in ['production', 'development']:
+                            app.logger.error(f"❌ Invalid environment '{current_env}' - defaulting to development for safety")
+                            current_env = 'development'
                         
-                        # Report results for each file separately - PRODUCTION IS PRIORITY
-                        if prod_upload_result and dev_upload_result:
-                            upload_result = True
-                            app.logger.info("✅ BOTH production and development files uploaded successfully")
-                        elif prod_upload_result:
-                            upload_result = True  # Production success is sufficient
-                            app.logger.warning("⚠️ Production uploaded successfully, development failed")
-                        elif dev_upload_result:
-                            upload_result = False  # Development alone is not sufficient
-                            app.logger.error("❌ Development uploaded, but PRODUCTION FAILED - this is critical!")
+                        if current_env == 'production':
+                            # PRODUCTION ENVIRONMENT: Upload ONLY to production file
+                            production_filename = "myticas-job-feed-v2.xml"
+                            app.logger.info("🎯 PRODUCTION ENVIRONMENT: Uploading to production file ONLY")
+                            app.logger.info(f"📤 Uploading production XML as '{production_filename}'...")
+                            app.logger.info(f"🔍 Local file path: {temp_file.name}")
+                            app.logger.info(f"🎯 Remote filename: {production_filename}")
+                            try:
+                                app.logger.info("⚡ Calling FTP service for PRODUCTION upload...")
+                                upload_result = ftp_service.upload_file(
+                                    local_file_path=temp_file.name,
+                                    remote_filename=production_filename
+                                )
+                                app.logger.info(f"📊 Production upload result: {upload_result}")
+                                if upload_result:
+                                    app.logger.info("✅ Production file uploaded successfully")
+                                else:
+                                    app.logger.error("❌ Production file upload failed")
+                            except Exception as prod_error:
+                                app.logger.error(f"❌ Production file upload error: {str(prod_error)}")
+                                upload_result = False
                         else:
-                            upload_result = False
-                            app.logger.error("❌ BOTH production and development uploads failed")
+                            # DEVELOPMENT ENVIRONMENT: Upload ONLY to development file
+                            development_filename = "myticas-job-feed-v2-dev.xml"
+                            app.logger.info("🧪 DEVELOPMENT ENVIRONMENT: Uploading to development file ONLY")
+                            app.logger.info(f"📤 Uploading development XML as '{development_filename}'...")
+                            app.logger.info(f"🔍 Local file path: {temp_file.name}")
+                            app.logger.info(f"🎯 Remote filename: {development_filename}")
+                            try:
+                                upload_result = ftp_service.upload_file(
+                                    local_file_path=temp_file.name,
+                                    remote_filename=development_filename
+                                )
+                                if upload_result:
+                                    app.logger.info("✅ Development file uploaded successfully")
+                                else:
+                                    app.logger.error("❌ Development file upload failed")
+                            except Exception as dev_error:
+                                app.logger.error(f"❌ Development file upload error: {str(dev_error)}")
+                                upload_result = False
+                        
+                        # Log environment isolation status
+                        app.logger.info(f"🔒 ENVIRONMENT ISOLATION: {current_env} → uploads ONLY to its designated file")
                         
                         # Handle both dict and boolean return types from FTP service
                         if isinstance(upload_result, dict):

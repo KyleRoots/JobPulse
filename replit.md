@@ -41,6 +41,13 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
     - **Fresh XML Generation**: Pulls from Bullhorn tearsheets (1256, 1264, 1499, 1556, 1257) on-demand for each refresh/upload
     - **STSI Company Formatting**: Properly formats company name as "STSI (Staffing Technical Services Inc.)" for tearsheet 1556
     - **Enhanced XML Processing**: HTML parsing to fix unclosed tags and CDATA wrapping for all XML fields
+- **Environment Isolation & Safety** (October 2025):
+    - **Environment-Aware Uploads**: Development and production environments upload to separate XML files to prevent cross-contamination
+    - **Development Environment**: Uploads ONLY to `myticas-job-feed-v2-dev.xml`
+    - **Production Environment**: Uploads ONLY to `myticas-job-feed-v2.xml`
+    - **Separate Databases**: Development and production use completely isolated PostgreSQL databases
+    - **Independent Schedules**: Each environment maintains its own 120-hour reference refresh schedule
+    - **Zero Cross-Contamination**: Development workflows cannot affect production data or files
 - **Orphan Prevention System** (October 2025): Automated duplicate detection and removal to prevent job pollution.
     - **Entity API Validation**: Uses Entity API as source of truth for tearsheet membership
     - **Smart Orphan Detection**: When Entity API shows fewer jobs than Search API, identifies and removes orphaned jobs that were removed from tearsheets
