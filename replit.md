@@ -117,8 +117,16 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
    - Sponsored - VMS (1264)
    - Sponsored - GR (1499)
    - Sponsored - STSI (1556)
-5. ✅ **Automation Toggles** - `automated_uploads_enabled` and `sftp_enabled` set to `true`
+5. ✅ **Automation Toggles** - `automated_uploads_enabled` and `sftp_enabled` set to `true` on first run
 6. ✅ **Environment Monitoring** - Production health monitoring configured
+
+#### Toggle Persistence Behavior (October 2025)
+**Smart toggle management that respects user preferences:**
+- **First Run**: Toggles default to `'true'` in production, `'false'` in development
+- **Subsequent Runs**: User settings are PRESERVED - seeding never overwrites toggle values
+- **Credential Rotation**: SFTP and Bullhorn credentials still update from environment variables
+- **User Control**: Once created, toggles are controlled exclusively via Settings UI
+- **Logging**: Clear distinction between "Preserving user setting" and "Created automation toggle"
 
 **Production Deployment (Zero-Touch):**
 1. Add all required secrets to Replit App Secrets (one-time setup)
