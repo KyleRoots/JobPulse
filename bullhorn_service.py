@@ -183,8 +183,8 @@ class BullhornService:
             # Use environment variable or auto-detect current domain
             base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL')
             if not base_url:
-                # Auto-detect from current environment (fallback)
-                base_url = "https://job-feed-refresh.replit.app"  # Default for this deployment
+                # Auto-detect from current environment (fallback to production URL)
+                base_url = "https://jobpulse.lyntrix.ai"  # Production deployment URL
             
             redirect_uri = f"{base_url}/bullhorn/oauth/callback"
             
