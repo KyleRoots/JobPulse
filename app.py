@@ -5811,6 +5811,64 @@ def test_reference_refresh_notification():
             'error': str(e)
         }), 500
 
+@app.route('/api/diagnostic/automation-status')
+@login_required
+def diagnostic_automation_status():
+    """Diagnostic endpoint to check automation configuration and state"""
+    try:
+        # Get toggle states from database
+        automated_uploads = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+        sftp_enabled_setting = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+        
+        # Get SFTP credentials
+        sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+        sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+        sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+        
+        # Check environment detection
+        current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'development').lower()
+        
+        # Check if REPLIT_DEPLOYMENT exists (production indicator)
+        is_production = os.environ.get('REPLIT_DEPLOYMENT') is not None
+        
+        # Determine upload filename based on environment
+        upload_filename = "myticas-job-feed-v2.xml" if current_env == 'production' else "myticas-job-feed-v2-dev.xml"
+        
+        diagnostic_data = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'environment_detection': {
+                'APP_ENV': os.environ.get('APP_ENV'),
+                'ENVIRONMENT': os.environ.get('ENVIRONMENT'),
+                'REPLIT_DEPLOYMENT': 'present' if is_production else 'missing',
+                'detected_environment': current_env,
+                'is_production': is_production
+            },
+            'database_toggles': {
+                'automated_uploads_enabled': automated_uploads.setting_value if automated_uploads else 'NOT_FOUND',
+                'sftp_enabled': sftp_enabled_setting.setting_value if sftp_enabled_setting else 'NOT_FOUND'
+            },
+            'sftp_config': {
+                'hostname': sftp_hostname.setting_value if sftp_hostname else 'NOT_FOUND',
+                'username': sftp_username.setting_value if sftp_username else 'NOT_FOUND',
+                'port': sftp_port.setting_value if sftp_port else 'NOT_FOUND'
+            },
+            'upload_behavior': {
+                'target_filename': upload_filename,
+                'automation_will_run': (
+                    automated_uploads and automated_uploads.setting_value == 'true' and
+                    sftp_enabled_setting and sftp_enabled_setting.setting_value == 'true'
+                )
+            }
+        }
+        
+        return jsonify(diagnostic_data)
+        
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
 # Phase 2 approach removed - lazy scheduler now completes in single phase for reliability
 
 # Scheduler and background services will be started lazily when first needed
