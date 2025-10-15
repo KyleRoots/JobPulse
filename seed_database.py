@@ -2,8 +2,8 @@
 Database Seeding Script for JobPulse Application
 
 This script provides idempotent database seeding for production deployments.
-It creates admin users and initializes required data safely without duplicating
-existing records.
+It creates admin users, SFTP settings, and automation configuration automatically
+from environment variables.
 
 Usage:
     - Automatically runs on app initialization in production
@@ -11,9 +11,19 @@ Usage:
     - Safe to run multiple times (idempotent)
 
 Environment Variables:
+    Admin User:
     - ADMIN_USERNAME: Admin user username (default: admin)
     - ADMIN_EMAIL: Admin user email (default: kroots@myticas.com)
     - ADMIN_PASSWORD: Admin user password (REQUIRED for production)
+    
+    SFTP Configuration:
+    - SFTP_HOSTNAME: SFTP server hostname
+    - SFTP_USERNAME: SFTP username
+    - SFTP_PASSWORD: SFTP password
+    - SFTP_PORT: SFTP port (default: 22)
+    - SFTP_DIRECTORY: Upload directory (default: /)
+    
+    System:
     - REPLIT_DEPLOYMENT: Detected automatically (production indicator)
 """
 
@@ -150,6 +160,105 @@ def create_admin_user(db, User):
         raise
 
 
+def get_sftp_config():
+    """
+    Get SFTP configuration from environment variables
+    
+    Returns:
+        dict: SFTP configuration settings
+    """
+    return {
+        'sftp_hostname': os.environ.get('SFTP_HOSTNAME', ''),
+        'sftp_username': os.environ.get('SFTP_USERNAME', ''),
+        'sftp_password': os.environ.get('SFTP_PASSWORD', ''),
+        'sftp_port': os.environ.get('SFTP_PORT', '22'),
+        'sftp_directory': os.environ.get('SFTP_DIRECTORY', '/')
+    }
+
+
+def seed_global_settings(db, GlobalSettings):
+    """
+    Seed global settings including SFTP config and automation toggles
+    
+    Args:
+        db: SQLAlchemy database instance
+        GlobalSettings: GlobalSettings model class
+    """
+    try:
+        sftp_config = get_sftp_config()
+        
+        # Define settings to seed with their values
+        settings_to_seed = {
+            # SFTP Configuration
+            'sftp_hostname': sftp_config['sftp_hostname'],
+            'sftp_username': sftp_config['sftp_username'],
+            'sftp_password': sftp_config['sftp_password'],
+            'sftp_port': sftp_config['sftp_port'],
+            'sftp_directory': sftp_config['sftp_directory'],
+            
+            # Automation Toggles (enable by default in production)
+            'sftp_enabled': 'true' if is_production_environment() else 'false',
+            'automated_uploads_enabled': 'true' if is_production_environment() else 'false'
+        }
+        
+        settings_updated = []
+        settings_created = []
+        
+        for key, value in settings_to_seed.items():
+            # Find existing setting
+            existing = GlobalSettings.query.filter_by(setting_key=key).first()
+            
+            if existing:
+                # Update if value is different (and not empty for SFTP credentials)
+                if key in ['sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_port', 'sftp_directory']:
+                    # Only update SFTP settings if new value is not empty
+                    if value and existing.setting_value != value:
+                        existing.setting_value = value
+                        existing.updated_at = datetime.utcnow()
+                        settings_updated.append(key)
+                else:
+                    # Always update toggles
+                    if existing.setting_value != value:
+                        existing.setting_value = value
+                        existing.updated_at = datetime.utcnow()
+                        settings_updated.append(key)
+            else:
+                # Create new setting (skip SFTP if value is empty)
+                if key in ['sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_port', 'sftp_directory']:
+                    if value:  # Only create if value exists
+                        new_setting = GlobalSettings(
+                            setting_key=key,
+                            setting_value=value,
+                            created_at=datetime.utcnow()
+                        )
+                        db.session.add(new_setting)
+                        settings_created.append(key)
+                else:
+                    # Always create toggles
+                    new_setting = GlobalSettings(
+                        setting_key=key,
+                        setting_value=value,
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.add(new_setting)
+                    settings_created.append(key)
+        
+        if settings_updated or settings_created:
+            db.session.commit()
+            
+            if settings_created:
+                logger.info(f"✅ Created settings: {', '.join(settings_created)}")
+            if settings_updated:
+                logger.info(f"🔄 Updated settings: {', '.join(settings_updated)}")
+        else:
+            logger.info("✅ Global settings already up to date")
+            
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed global settings: {str(e)}")
+        raise
+
+
 def seed_environment_monitoring(db):
     """
     Initialize environment monitoring settings for production
@@ -206,6 +315,7 @@ def seed_database(db, User):
     results = {
         'environment': env_type,
         'admin_created': False,
+        'sftp_configured': False,
         'errors': []
     }
     
@@ -215,6 +325,16 @@ def seed_database(db, User):
         results['admin_created'] = created
         results['admin_username'] = admin_user.username
         results['admin_email'] = admin_user.email
+        
+        # Seed global settings including SFTP config
+        try:
+            from models import GlobalSettings
+            seed_global_settings(db, GlobalSettings)
+            results['sftp_configured'] = True
+        except ImportError:
+            logger.debug("ℹ️ GlobalSettings model not found - skipping SFTP seeding")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to seed global settings: {str(e)}")
         
         # Seed environment monitoring (production only)
         if is_production_environment():
@@ -249,6 +369,7 @@ def run_seeding():
         print(f"Admin Created: {'Yes' if results['admin_created'] else 'No (already exists)'}")
         print(f"Admin Username: {results.get('admin_username', 'N/A')}")
         print(f"Admin Email: {results.get('admin_email', 'N/A')}")
+        print(f"SFTP Configured: {'Yes' if results.get('sftp_configured', False) else 'No'}")
         
         if results['errors']:
             print(f"\nErrors: {len(results['errors'])}")

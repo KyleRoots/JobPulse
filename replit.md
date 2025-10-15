@@ -70,32 +70,42 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **HTML Formatting Consistency**: Ensures consistent HTML markup within CDATA sections.
 - **Resume Parsing**: Extracts contact information from Word and PDF formats.
 
-### Database Seeding & User Management (October 2025)
-**Production-safe database initialization system that automatically creates admin users and required data.**
+### Database Seeding & Auto-Configuration (October 2025)
+**Production-safe database initialization system that automatically creates admin users, SFTP settings, and automation configuration from environment secrets.**
 
 #### Environment-Aware Seeding
-- **Development Environment**: Auto-seeding with default credentials (safe for testing)
-- **Production Environment**: Requires `ADMIN_PASSWORD` secret (security best practice)
+- **Development Environment**: Auto-seeding with safe defaults for testing
+- **Production Environment**: Full auto-configuration from deployment secrets
 - **Idempotent Design**: Safe to run multiple times without creating duplicates
 - **Automatic Execution**: Runs on every app startup after `db.create_all()`
+- **Zero Manual Setup**: Production deploys 100% configured and ready to run
 
-#### Admin User Configuration
-**Environment Variables:**
+#### Required Environment Secrets
+**Admin User:**
 - `ADMIN_USERNAME` - Admin username (default: `admin`)
 - `ADMIN_EMAIL` - Admin email (default: `kroots@myticas.com`)
 - `ADMIN_PASSWORD` - **REQUIRED for production** (no default for security)
 
-**Production Setup:**
-1. Add `ADMIN_PASSWORD` to deployment secrets in Replit
-2. Deploy to Reserved VM - seeding runs automatically
-3. Admin user created on first startup
-4. Login credentials:
-   - Username: `admin` (or your custom `ADMIN_USERNAME`)
-   - Password: (value from `ADMIN_PASSWORD` secret)
+**SFTP Configuration:**
+- `SFTP_HOSTNAME` - SFTP server hostname (e.g., `yourdomain.sftp.wpengine.com`)
+- `SFTP_USERNAME` - SFTP username
+- `SFTP_PASSWORD` - SFTP password
+- `SFTP_PORT` - SFTP port (default: `22`)
+- `SFTP_DIRECTORY` - Upload directory (default: `/`)
+
+**Production Deployment:**
+1. Add all required secrets to Replit App Secrets (one-time setup)
+2. Click "Republish" to deploy to Reserved VM
+3. Seeding runs automatically and configures everything:
+   - ✅ Admin user created with password from secret
+   - ✅ SFTP settings populated from secrets
+   - ✅ Automation toggles enabled (production only)
+   - ✅ Ready to process jobs immediately
+4. Login and verify - zero manual configuration needed!
 
 **Credential Rotation:**
-- Password, username, and email are automatically updated from environment variables on every app restart
-- To rotate credentials: Update deployment secrets → Redeploy or restart app
+- All settings automatically update from environment variables on app restart
+- To rotate: Update deployment secrets → Republish or restart app
 - Changes are logged: `🔄 Updated admin user: password (rotated from env)`
 
 #### Development vs Production Databases
