@@ -480,6 +480,46 @@ def seed_environment_monitoring(db):
         logger.warning(f"⚠️ Failed to seed environment monitoring: {str(e)}")
 
 
+def seed_reference_refresh_log(db):
+    """
+    Initialize RefreshLog with baseline timestamp for correct 120-hour calculation
+    
+    Args:
+        db: SQLAlchemy database instance
+    """
+    try:
+        from models import RefreshLog
+        from datetime import date
+        
+        # Check if any refresh log exists
+        existing_log = RefreshLog.query.first()
+        
+        if not existing_log:
+            # Create initial refresh log entry with Oct 14, 2025 10:04 UTC
+            # This matches the production reference numbers that were last updated then
+            baseline_date = date(2025, 10, 14)
+            baseline_time = datetime(2025, 10, 14, 10, 4, 0)  # Oct 14, 2025 at 10:04 UTC
+            
+            initial_log = RefreshLog(
+                refresh_date=baseline_date,
+                refresh_time=baseline_time,
+                jobs_updated=0,  # Unknown count from previous system
+                success=True,
+                message='Baseline refresh log (migrated from previous system)'
+            )
+            db.session.add(initial_log)
+            db.session.commit()
+            logger.info(f"✅ Created baseline RefreshLog entry: {baseline_time} UTC")
+        else:
+            logger.info(f"✅ RefreshLog already exists with {RefreshLog.query.count()} entries")
+            
+    except ImportError:
+        logger.debug("ℹ️ RefreshLog model not found - skipping refresh log seeding")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed refresh log: {str(e)}")
+
+
 def seed_database(db, User):
     """
     Main seeding function - idempotent database initialization
@@ -540,6 +580,9 @@ def seed_database(db, User):
         # Seed environment monitoring (production only)
         if is_production_environment():
             seed_environment_monitoring(db)
+        
+        # Seed reference refresh log with baseline timestamp
+        seed_reference_refresh_log(db)
         
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
