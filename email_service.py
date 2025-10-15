@@ -1110,6 +1110,71 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
         
         return True  # Return True to prevent error handling in calling code
 
+    def send_notification_email(self, to_email: str, subject: str, message: str, 
+                                notification_type: str = 'generic') -> bool:
+        """
+        Send a generic notification email (for environment monitoring, alerts, etc.)
+        
+        Args:
+            to_email: Recipient email address
+            subject: Email subject line
+            message: Email message body (plain text)
+            notification_type: Type of notification for logging purposes
+            
+        Returns:
+            bool: True if sent successfully, False otherwise
+        """
+        try:
+            if not self.sendgrid_api_key:
+                logging.warning("SendGrid API key not configured - cannot send email")
+                return False
+
+            from_email = Email("noreply@jobpulse.lyntrix.ai")
+            to_email_obj = To(to_email)
+            content = Content("text/plain", message)
+            mail = Mail(from_email, to_email_obj, subject, content)
+
+            response = self.sg.client.mail.send.post(request_body=mail.get())
+            
+            # Extract SendGrid message ID from response headers
+            sendgrid_message_id = None
+            if hasattr(response, 'headers') and 'X-Message-Id' in response.headers:
+                sendgrid_message_id = response.headers['X-Message-Id']
+            
+            # Determine delivery status
+            delivery_status = 'sent' if response.status_code == 202 else 'failed'
+            error_msg = None if response.status_code == 202 else f"Status code: {response.status_code}"
+            
+            # Log email delivery
+            self._log_email_delivery(
+                notification_type=notification_type,
+                recipient_email=to_email,
+                delivery_status=delivery_status,
+                sendgrid_message_id=sendgrid_message_id,
+                error_message=error_msg,
+                subject=subject,
+                content=message[:500]  # Store first 500 chars of message
+            )
+
+            if response.status_code == 202:
+                logging.info(f"Generic notification sent successfully to {to_email}: {subject}")
+                return True
+            else:
+                logging.error(f"Failed to send generic notification: {response.status_code}")
+                return False
+
+        except Exception as e:
+            # Log failed email delivery
+            self._log_email_delivery(
+                notification_type=notification_type,
+                recipient_email=to_email,
+                delivery_status='failed',
+                error_message=str(e),
+                subject=subject
+            )
+            logging.error(f"Failed to send generic notification: {str(e)}")
+            return False
+
     def _log_email_delivery(self, notification_type: str, job_id: str = None, job_title: str = None,
                           recipient_email: str = "", delivery_status: str = "sent", 
                           sendgrid_message_id: str = None, error_message: str = None,
