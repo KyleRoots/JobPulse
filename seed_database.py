@@ -240,8 +240,8 @@ def seed_global_settings(db, GlobalSettings):
                 logger.error(f"❌ {error_msg}")
                 raise ValueError(error_msg)
         
-        # Define settings to seed with their values
-        settings_to_seed = {
+        # Define credential settings to seed (toggles handled separately to preserve user settings)
+        credential_settings = {
             # SFTP Configuration
             'sftp_hostname': sftp_config['sftp_hostname'],
             'sftp_username': sftp_config['sftp_username'],
@@ -253,53 +253,25 @@ def seed_global_settings(db, GlobalSettings):
             'bullhorn_client_id': bullhorn_config['bullhorn_client_id'],
             'bullhorn_client_secret': bullhorn_config['bullhorn_client_secret'],
             'bullhorn_username': bullhorn_config['bullhorn_username'],
-            'bullhorn_password': bullhorn_config['bullhorn_password'],
-            
-            # Automation Toggles (enable by default in production)
-            'sftp_enabled': 'true' if is_production_environment() else 'false',
-            'automated_uploads_enabled': 'true' if is_production_environment() else 'false'
+            'bullhorn_password': bullhorn_config['bullhorn_password']
         }
         
         settings_updated = []
         settings_created = []
         
-        # Define credential keys that should only be set if value is not empty
-        credential_keys = [
-            'sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_port', 'sftp_directory',
-            'bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password'
-        ]
-        
-        for key, value in settings_to_seed.items():
-            # Find existing setting
+        # Process credential settings
+        for key, value in credential_settings.items():
             existing = GlobalSettings.query.filter_by(setting_key=key).first()
             
             if existing:
-                # Update if value is different (and not empty for credentials)
-                if key in credential_keys:
-                    # Only update credentials if new value is not empty
-                    if value and existing.setting_value != value:
-                        existing.setting_value = value
-                        existing.updated_at = datetime.utcnow()
-                        settings_updated.append(key)
-                else:
-                    # Always update toggles
-                    if existing.setting_value != value:
-                        existing.setting_value = value
-                        existing.updated_at = datetime.utcnow()
-                        settings_updated.append(key)
+                # Only update credentials if new value is not empty
+                if value and existing.setting_value != value:
+                    existing.setting_value = value
+                    existing.updated_at = datetime.utcnow()
+                    settings_updated.append(key)
             else:
-                # Create new setting (skip credentials if value is empty)
-                if key in credential_keys:
-                    if value:  # Only create if value exists
-                        new_setting = GlobalSettings(
-                            setting_key=key,
-                            setting_value=value,
-                            created_at=datetime.utcnow()
-                        )
-                        db.session.add(new_setting)
-                        settings_created.append(key)
-                else:
-                    # Always create toggles
+                # Create new credential setting only if value exists
+                if value:
                     new_setting = GlobalSettings(
                         setting_key=key,
                         setting_value=value,
@@ -307,6 +279,32 @@ def seed_global_settings(db, GlobalSettings):
                     )
                     db.session.add(new_setting)
                     settings_created.append(key)
+        
+        # Process automation toggles separately - NEVER overwrite existing values
+        automation_toggles = {
+            'sftp_enabled': 'true' if is_production_environment() else 'false',
+            'automated_uploads_enabled': 'true' if is_production_environment() else 'false'
+        }
+        
+        for key, default_value in automation_toggles.items():
+            existing = GlobalSettings.query.filter_by(setting_key=key).first()
+            
+            if existing:
+                # PRESERVE user settings - NEVER overwrite existing toggle values
+                # User controls these via UI, we only set defaults on first creation
+                logger.info(f"ℹ️ Preserving user setting: {key}={existing.setting_value}")
+                continue
+            else:
+                # Create new toggle with production-aware default (first run only)
+                # Re-evaluate is_production_environment() at creation time for correctness
+                new_setting = GlobalSettings(
+                    setting_key=key,
+                    setting_value=default_value,
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(new_setting)
+                settings_created.append(key)
+                logger.info(f"✅ Created automation toggle: {key}={default_value} (production={is_production_environment()})")
         
         if settings_updated or settings_created:
             db.session.commit()
