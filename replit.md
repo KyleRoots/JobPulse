@@ -71,7 +71,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Resume Parsing**: Extracts contact information from Word and PDF formats.
 
 ### Database Seeding & Auto-Configuration (October 2025)
-**Production-safe database initialization system that automatically creates admin users, SFTP settings, and automation configuration from environment secrets.**
+**Zero-touch production deployment system that automatically configures admin users, SFTP settings, Bullhorn credentials, tearsheet monitors, and all automation from environment secrets.**
 
 #### Environment-Aware Seeding
 - **Development Environment**: Auto-seeding with safe defaults for testing
@@ -93,20 +93,43 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - `SFTP_PORT` - SFTP port (default: `22`)
 - `SFTP_DIRECTORY` - Upload directory (default: `/`)
 
-**Production Deployment:**
+**Bullhorn API Configuration:**
+- `BULLHORN_CLIENT_ID` - Bullhorn OAuth client ID
+- `BULLHORN_CLIENT_SECRET` - Bullhorn OAuth client secret
+- `BULLHORN_USERNAME` - Bullhorn API username
+- `BULLHORN_PASSWORD` - Bullhorn API password
+
+#### What Gets Auto-Configured
+**On every production deployment, the seeding system automatically creates:**
+1. ✅ **Admin User** - Created with credentials from `ADMIN_PASSWORD` secret
+2. ✅ **SFTP Settings** - All connection details populated from secrets
+3. ✅ **Bullhorn API Credentials** - OAuth and API credentials configured
+4. ✅ **5 Bullhorn Tearsheet Monitors** - Pre-configured and active:
+   - Sponsored - OTT (1256)
+   - Sponsored - CHI (1257)
+   - Sponsored - VMS (1264)
+   - Sponsored - GR (1499)
+   - Sponsored - STSI (1556)
+5. ✅ **Automation Toggles** - `automated_uploads_enabled` and `sftp_enabled` set to `true`
+6. ✅ **Environment Monitoring** - Production health monitoring configured
+
+**Production Deployment (Zero-Touch):**
 1. Add all required secrets to Replit App Secrets (one-time setup)
 2. Click "Republish" to deploy to Reserved VM
-3. Seeding runs automatically and configures everything:
-   - ✅ Admin user created with password from secret
-   - ✅ SFTP settings populated from secrets
-   - ✅ Automation toggles enabled (production only)
-   - ✅ Ready to process jobs immediately
-4. Login and verify - zero manual configuration needed!
+3. Seeding runs automatically on startup
+4. **Everything is configured and running** - login and verify!
+
+**No manual steps required:**
+- ❌ No settings page configuration
+- ❌ No toggle switching
+- ❌ No credential entry
+- ❌ No monitor setup
+- ✅ **Just login and it works!**
 
 **Credential Rotation:**
 - All settings automatically update from environment variables on app restart
 - To rotate: Update deployment secrets → Republish or restart app
-- Changes are logged: `🔄 Updated admin user: password (rotated from env)`
+- Changes are logged: `🔄 Updated settings: bullhorn_password, sftp_password`
 
 #### Development vs Production Databases
 **Two-Database Architecture:**

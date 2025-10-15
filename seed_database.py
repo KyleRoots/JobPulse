@@ -2,8 +2,8 @@
 Database Seeding Script for JobPulse Application
 
 This script provides idempotent database seeding for production deployments.
-It creates admin users, SFTP settings, and automation configuration automatically
-from environment variables.
+It creates admin users, SFTP settings, Bullhorn credentials, tearsheet monitors,
+and automation configuration automatically from environment variables.
 
 Usage:
     - Automatically runs on app initialization in production
@@ -23,8 +23,22 @@ Environment Variables:
     - SFTP_PORT: SFTP port (default: 22)
     - SFTP_DIRECTORY: Upload directory (default: /)
     
+    Bullhorn API Configuration:
+    - BULLHORN_CLIENT_ID: Bullhorn OAuth client ID
+    - BULLHORN_CLIENT_SECRET: Bullhorn OAuth client secret
+    - BULLHORN_USERNAME: Bullhorn API username
+    - BULLHORN_PASSWORD: Bullhorn API password
+    
     System:
     - REPLIT_DEPLOYMENT: Detected automatically (production indicator)
+
+What Gets Seeded:
+    ✅ Admin user with credentials from environment
+    ✅ SFTP settings for automated uploads
+    ✅ Bullhorn API credentials for job feed generation
+    ✅ 5 Bullhorn tearsheet monitors (1256, 1264, 1499, 1556, 1257)
+    ✅ Automation toggles (enabled in production, disabled in dev)
+    ✅ Environment monitoring (production only)
 """
 
 import os
@@ -176,9 +190,24 @@ def get_sftp_config():
     }
 
 
+def get_bullhorn_config():
+    """
+    Get Bullhorn API configuration from environment variables
+    
+    Returns:
+        dict: Bullhorn API configuration settings
+    """
+    return {
+        'bullhorn_client_id': os.environ.get('BULLHORN_CLIENT_ID', ''),
+        'bullhorn_client_secret': os.environ.get('BULLHORN_CLIENT_SECRET', ''),
+        'bullhorn_username': os.environ.get('BULLHORN_USERNAME', ''),
+        'bullhorn_password': os.environ.get('BULLHORN_PASSWORD', '')
+    }
+
+
 def seed_global_settings(db, GlobalSettings):
     """
-    Seed global settings including SFTP config and automation toggles
+    Seed global settings including SFTP config, Bullhorn credentials, and automation toggles
     
     Args:
         db: SQLAlchemy database instance
@@ -186,6 +215,30 @@ def seed_global_settings(db, GlobalSettings):
     """
     try:
         sftp_config = get_sftp_config()
+        bullhorn_config = get_bullhorn_config()
+        
+        # In production, validate that required Bullhorn credentials are present
+        if is_production_environment():
+            missing_bullhorn = []
+            for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+                if not bullhorn_config.get(key):
+                    missing_bullhorn.append(key.upper())
+            
+            if missing_bullhorn:
+                error_msg = f"PRODUCTION DEPLOYMENT ERROR: Missing required Bullhorn secrets: {', '.join(missing_bullhorn)}"
+                logger.error(f"❌ {error_msg}")
+                raise ValueError(error_msg)
+            
+            # Validate SFTP credentials for production automation
+            missing_sftp = []
+            for key in ['sftp_hostname', 'sftp_username', 'sftp_password']:
+                if not sftp_config.get(key):
+                    missing_sftp.append(key.upper())
+            
+            if missing_sftp:
+                error_msg = f"PRODUCTION DEPLOYMENT ERROR: Missing required SFTP secrets: {', '.join(missing_sftp)}"
+                logger.error(f"❌ {error_msg}")
+                raise ValueError(error_msg)
         
         # Define settings to seed with their values
         settings_to_seed = {
@@ -196,6 +249,12 @@ def seed_global_settings(db, GlobalSettings):
             'sftp_port': sftp_config['sftp_port'],
             'sftp_directory': sftp_config['sftp_directory'],
             
+            # Bullhorn API Configuration
+            'bullhorn_client_id': bullhorn_config['bullhorn_client_id'],
+            'bullhorn_client_secret': bullhorn_config['bullhorn_client_secret'],
+            'bullhorn_username': bullhorn_config['bullhorn_username'],
+            'bullhorn_password': bullhorn_config['bullhorn_password'],
+            
             # Automation Toggles (enable by default in production)
             'sftp_enabled': 'true' if is_production_environment() else 'false',
             'automated_uploads_enabled': 'true' if is_production_environment() else 'false'
@@ -204,14 +263,20 @@ def seed_global_settings(db, GlobalSettings):
         settings_updated = []
         settings_created = []
         
+        # Define credential keys that should only be set if value is not empty
+        credential_keys = [
+            'sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_port', 'sftp_directory',
+            'bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password'
+        ]
+        
         for key, value in settings_to_seed.items():
             # Find existing setting
             existing = GlobalSettings.query.filter_by(setting_key=key).first()
             
             if existing:
-                # Update if value is different (and not empty for SFTP credentials)
-                if key in ['sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_port', 'sftp_directory']:
-                    # Only update SFTP settings if new value is not empty
+                # Update if value is different (and not empty for credentials)
+                if key in credential_keys:
+                    # Only update credentials if new value is not empty
                     if value and existing.setting_value != value:
                         existing.setting_value = value
                         existing.updated_at = datetime.utcnow()
@@ -223,8 +288,8 @@ def seed_global_settings(db, GlobalSettings):
                         existing.updated_at = datetime.utcnow()
                         settings_updated.append(key)
             else:
-                # Create new setting (skip SFTP if value is empty)
-                if key in ['sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_port', 'sftp_directory']:
+                # Create new setting (skip credentials if value is empty)
+                if key in credential_keys:
                     if value:  # Only create if value exists
                         new_setting = GlobalSettings(
                             setting_key=key,
@@ -256,6 +321,123 @@ def seed_global_settings(db, GlobalSettings):
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Failed to seed global settings: {str(e)}")
+        raise
+
+
+def seed_bullhorn_monitors(db, BullhornMonitor):
+    """
+    Seed BullhornMonitor tearsheet configurations (upsert behavior)
+    
+    Args:
+        db: SQLAlchemy database instance
+        BullhornMonitor: BullhornMonitor model class
+    """
+    try:
+        # Define tearsheet configurations
+        tearsheet_configs = [
+            {
+                'name': 'Sponsored - OTT',
+                'tearsheet_id': 1256,
+                'tearsheet_name': 'Sponsored - OTT',
+                'notification_email': 'apply@myticas.com'
+            },
+            {
+                'name': 'Sponsored - CHI',
+                'tearsheet_id': 1257,
+                'tearsheet_name': 'Sponsored - CHI',
+                'notification_email': 'apply@myticas.com'
+            },
+            {
+                'name': 'Sponsored - VMS',
+                'tearsheet_id': 1264,
+                'tearsheet_name': 'Sponsored - VMS',
+                'notification_email': 'apply@myticas.com'
+            },
+            {
+                'name': 'Sponsored - GR',
+                'tearsheet_id': 1499,
+                'tearsheet_name': 'Sponsored - GR',
+                'notification_email': 'apply@myticas.com'
+            },
+            {
+                'name': 'Sponsored - STSI',
+                'tearsheet_id': 1556,
+                'tearsheet_name': 'Sponsored - STSI',
+                'notification_email': ''  # No email for STSI
+            }
+        ]
+        
+        monitors_created = []
+        monitors_updated = []
+        
+        for config in tearsheet_configs:
+            # Check if monitor already exists
+            existing = BullhornMonitor.query.filter_by(
+                tearsheet_id=config['tearsheet_id']
+            ).first()
+            
+            if existing:
+                # Update existing monitor to ensure correct configuration
+                updates_made = []
+                
+                if existing.name != config['name']:
+                    existing.name = config['name']
+                    updates_made.append('name')
+                    
+                if existing.tearsheet_name != config['tearsheet_name']:
+                    existing.tearsheet_name = config['tearsheet_name']
+                    updates_made.append('tearsheet_name')
+                
+                if not existing.is_active:
+                    existing.is_active = True
+                    updates_made.append('is_active')
+                
+                if existing.check_interval_minutes != 5:
+                    existing.check_interval_minutes = 5
+                    updates_made.append('check_interval_minutes')
+                
+                if not existing.send_notifications:
+                    existing.send_notifications = True
+                    updates_made.append('send_notifications')
+                
+                # Update notification email if different
+                if existing.notification_email != config['notification_email']:
+                    existing.notification_email = config['notification_email']
+                    updates_made.append('notification_email')
+                
+                if updates_made:
+                    existing.updated_at = datetime.utcnow()
+                    monitors_updated.append(f"{config['name']} ({', '.join(updates_made)})")
+            else:
+                # Create new monitor
+                new_monitor = BullhornMonitor(
+                    name=config['name'],
+                    tearsheet_id=config['tearsheet_id'],
+                    tearsheet_name=config['tearsheet_name'],
+                    is_active=True,
+                    check_interval_minutes=5,
+                    notification_email=config['notification_email'],
+                    send_notifications=True,
+                    next_check=datetime.utcnow(),
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(new_monitor)
+                monitors_created.append(config['name'])
+        
+        if monitors_created or monitors_updated:
+            db.session.commit()
+            
+            if monitors_created:
+                logger.info(f"✅ Created {len(monitors_created)} Bullhorn monitors: {', '.join(monitors_created)}")
+            
+            if monitors_updated:
+                logger.info(f"🔄 Updated {len(monitors_updated)} Bullhorn monitors to production defaults")
+        else:
+            logger.info(f"✅ All 5 Bullhorn monitors already configured correctly")
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed Bullhorn monitors: {str(e)}")
         raise
 
 
@@ -316,6 +498,8 @@ def seed_database(db, User):
         'environment': env_type,
         'admin_created': False,
         'sftp_configured': False,
+        'bullhorn_configured': False,
+        'monitors_configured': False,
         'errors': []
     }
     
@@ -326,15 +510,32 @@ def seed_database(db, User):
         results['admin_username'] = admin_user.username
         results['admin_email'] = admin_user.email
         
-        # Seed global settings including SFTP config
+        # Seed global settings including SFTP and Bullhorn config
         try:
             from models import GlobalSettings
             seed_global_settings(db, GlobalSettings)
             results['sftp_configured'] = True
+            results['bullhorn_configured'] = True
         except ImportError:
-            logger.debug("ℹ️ GlobalSettings model not found - skipping SFTP seeding")
+            logger.debug("ℹ️ GlobalSettings model not found - skipping settings seeding")
+        except ValueError as e:
+            # Re-raise validation errors (missing secrets in production)
+            logger.error(f"❌ Production validation failed: {str(e)}")
+            raise
         except Exception as e:
             logger.warning(f"⚠️ Failed to seed global settings: {str(e)}")
+            raise
+        
+        # Seed Bullhorn monitors
+        try:
+            from models import BullhornMonitor
+            seed_bullhorn_monitors(db, BullhornMonitor)
+            results['monitors_configured'] = True
+        except ImportError:
+            logger.debug("ℹ️ BullhornMonitor model not found - skipping monitor seeding")
+        except Exception as e:
+            logger.error(f"❌ Failed to seed Bullhorn monitors: {str(e)}")
+            raise
         
         # Seed environment monitoring (production only)
         if is_production_environment():
@@ -362,14 +563,16 @@ def run_seeding():
         results = seed_database(db, User)
         
         # Print summary
-        print("\n" + "="*60)
+        print("\n" + "="*70)
         print("DATABASE SEEDING SUMMARY")
-        print("="*60)
+        print("="*70)
         print(f"Environment: {results['environment']}")
         print(f"Admin Created: {'Yes' if results['admin_created'] else 'No (already exists)'}")
         print(f"Admin Username: {results.get('admin_username', 'N/A')}")
         print(f"Admin Email: {results.get('admin_email', 'N/A')}")
         print(f"SFTP Configured: {'Yes' if results.get('sftp_configured', False) else 'No'}")
+        print(f"Bullhorn Configured: {'Yes' if results.get('bullhorn_configured', False) else 'No'}")
+        print(f"Monitors Configured: {'Yes' if results.get('monitors_configured', False) else 'No'}")
         
         if results['errors']:
             print(f"\nErrors: {len(results['errors'])}")
@@ -378,7 +581,7 @@ def run_seeding():
         else:
             print("\nStatus: SUCCESS ✅")
         
-        print("="*60 + "\n")
+        print("="*70 + "\n")
 
 
 if __name__ == '__main__':
