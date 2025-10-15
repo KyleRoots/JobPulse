@@ -3663,7 +3663,7 @@ def bullhorn_oauth_start():
         
         # Step 3: Build authorization URL
         import os
-        base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://job-feed-refresh.replit.app")
+        base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://jobpulse.lyntrix.ai")
         redirect_uri = f"{base_url}/bullhorn/oauth/callback"
         
         auth_endpoint = f"{oauth_url}/authorize"
