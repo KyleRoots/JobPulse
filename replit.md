@@ -70,6 +70,71 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **HTML Formatting Consistency**: Ensures consistent HTML markup within CDATA sections.
 - **Resume Parsing**: Extracts contact information from Word and PDF formats.
 
+### Database Seeding & User Management (October 2025)
+**Production-safe database initialization system that automatically creates admin users and required data.**
+
+#### Environment-Aware Seeding
+- **Development Environment**: Auto-seeding with default credentials (safe for testing)
+- **Production Environment**: Requires `ADMIN_PASSWORD` secret (security best practice)
+- **Idempotent Design**: Safe to run multiple times without creating duplicates
+- **Automatic Execution**: Runs on every app startup after `db.create_all()`
+
+#### Admin User Configuration
+**Environment Variables:**
+- `ADMIN_USERNAME` - Admin username (default: `admin`)
+- `ADMIN_EMAIL` - Admin email (default: `kroots@myticas.com`)
+- `ADMIN_PASSWORD` - **REQUIRED for production** (no default for security)
+
+**Production Setup:**
+1. Add `ADMIN_PASSWORD` to deployment secrets in Replit
+2. Deploy to Reserved VM - seeding runs automatically
+3. Admin user created on first startup
+4. Login credentials:
+   - Username: `admin` (or your custom `ADMIN_USERNAME`)
+   - Password: (value from `ADMIN_PASSWORD` secret)
+
+**Credential Rotation:**
+- Password, username, and email are automatically updated from environment variables on every app restart
+- To rotate credentials: Update deployment secrets → Redeploy or restart app
+- Changes are logged: `🔄 Updated admin user: password (rotated from env)`
+
+#### Development vs Production Databases
+**Two-Database Architecture:**
+- **Development Database** (workspace): For testing, contains dev user accounts
+- **Production Database** (Reserved VM): Starts fresh, populated via seeding
+
+**Why Separate:**
+- Development data (test accounts, sample jobs) stays isolated
+- Production database starts clean with only necessary baseline data
+- No test data pollution in production environment
+
+#### Adding More Users
+**Method 1: Update Seeding Script (Recommended)**
+```python
+# Edit seed_database.py
+# Add users to create_admin_user() or create new seeding function
+```
+
+**Method 2: Manual SQL (Quick)**
+```sql
+-- Via Database tool in Replit
+INSERT INTO "user" (username, email, password_hash, is_admin, created_at)
+VALUES ('newuser', 'user@example.com', '<hashed_password>', false, NOW());
+```
+
+**Method 3: Admin Interface**
+- Future enhancement: Web UI for user management
+- Currently: Use SQL or seeding script
+
+#### Troubleshooting Production Login
+**Issue**: Cannot log into `jobpulse.lyntrix.ai`
+**Cause**: Production database is empty (no users from dev database)
+**Solution**: 
+1. Verify `ADMIN_PASSWORD` secret is set in deployment
+2. Check logs for seeding success: `🌱 Database seeding: Created admin user`
+3. If seeding failed, check for errors in startup logs
+4. Restart deployment to re-trigger seeding
+
 ## External Dependencies
 
 ### Python Libraries

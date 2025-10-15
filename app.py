@@ -423,6 +423,28 @@ def format_activity_filter(activity):
 # Initialize database tables
 with app.app_context():
     db.create_all()
+    
+    # Seed database with initial data (production-safe, idempotent)
+    try:
+        from seed_database import seed_database
+        from models import User
+        
+        seeding_results = seed_database(db, User)
+        
+        # Log seeding results
+        if seeding_results.get('admin_created'):
+            app.logger.info(f"🌱 Database seeding: Created admin user {seeding_results.get('admin_username')}")
+        else:
+            app.logger.info(f"🌱 Database seeding: Admin user already exists ({seeding_results.get('admin_username')})")
+        
+        if seeding_results.get('errors'):
+            for error in seeding_results['errors']:
+                app.logger.error(f"🌱 Seeding error: {error}")
+    
+    except Exception as e:
+        # Log seeding errors but don't crash the app
+        app.logger.error(f"❌ Database seeding failed: {str(e)}")
+        app.logger.debug(f"Seeding error details: {traceback.format_exc()}")
 
 # Initialize scheduler with optimized settings and delayed start
 scheduler = BackgroundScheduler(
