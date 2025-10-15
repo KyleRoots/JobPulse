@@ -5259,9 +5259,12 @@ def reference_number_refresh():
                 try:
                     from email_service import EmailService
                     
-                    # Get notification email from global settings
+                    # Check if email notifications are enabled
+                    email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
                     email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                    if email_setting and email_setting.setting_value:
+                    
+                    if (email_enabled and email_enabled.setting_value == 'true' and 
+                        email_setting and email_setting.setting_value):
                         email_service = EmailService()
                         
                         refresh_details = {
@@ -5316,9 +5319,12 @@ def reference_number_refresh():
                 try:
                     from email_service import EmailService
                     
-                    # Get notification email from global settings
+                    # Check if email notifications are enabled
+                    email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
                     email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                    if email_setting and email_setting.setting_value:
+                    
+                    if (email_enabled and email_enabled.setting_value == 'true' and 
+                        email_setting and email_setting.setting_value):
                         email_service = EmailService()
                         
                         refresh_details = {
@@ -5537,8 +5543,12 @@ def automated_upload():
                             app.logger.error(f"Error removing upload lock: {str(e)}")
                 
                 # Send email notification
+                # Check if email notifications are enabled
+                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
                 email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                if email_setting and email_setting.setting_value:
+                
+                if (email_enabled and email_enabled.setting_value == 'true' and 
+                    email_setting and email_setting.setting_value):
                     try:
                         from email_service import EmailService
                         email_service = EmailService()
