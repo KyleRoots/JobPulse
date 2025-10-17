@@ -529,6 +529,84 @@ def seed_reference_refresh_log(db):
         logger.warning(f"⚠️ Failed to seed refresh log: {str(e)}")
 
 
+def seed_recruiter_mappings(db, RecruiterMapping):
+    """
+    Seed recruiter to LinkedIn tag mappings (idempotent)
+    
+    Args:
+        db: SQLAlchemy database instance
+        RecruiterMapping: RecruiterMapping model class
+    """
+    # Master list of recruiter name to LinkedIn tag mappings
+    recruiter_mappings = [
+        ('Adam Gebara', '#LI-AG1'),
+        ('Amanda Messina', '#LI-AM1'),
+        ('Amanda Messina (Smith)', '#LI-AM1'),
+        ('Austin Zachrich', '#LI-AZ1'),
+        ('Bryan Chinzorig', '#LI-BC1'),
+        ('Chris Carter', '#LI-CC1'),
+        ('Christine Carter', '#LI-CC1'),
+        ('Dan Sifer', '#LI-DS1'),
+        ('Daniel Sifer', '#LI-DS1'),
+        ('Dawn Geistert-Dixon', '#LI-DG1'),
+        ('Dominic Scaletta', '#LI-DS2'),
+        ('Jayne Kritschgau', '#LI-JK1'),
+        ('Julie Johnson', '#LI-JJ1'),
+        ('Kaniz Abedin', '#LI-KA1'),
+        ('Kyle Roots', '#LI-KR1'),
+        ('Lisa Mattis-Keirsted', '#LI-LM1'),
+        ('Maddie Lewis', '#LI-ML1'),
+        ('Madhu Sinha', '#LI-MS1'),
+        ('Matheo Theodossiou', '#LI-MT1'),
+        ('Michael Billiu', '#LI-MB1'),
+        ('Michael Theodossiou', '#LI-MT2'),
+        ('Michelle Corino', '#LI-MC1'),
+        ('Mike Gebara', '#LI-MG1'),
+        ('Mike Scalzitti', '#LI-MS2'),
+        ('Myticas Recruiter', '#LI-RS1'),
+        ('Nick Theodossiou', '#LI-NT1'),
+        ('Rachel Mann', '#LI-RM1'),
+        ('Rachelle Fite', '#LI-RF1'),
+        ('Reena Setya', '#LI-RS2'),
+        ('Runa Parmar', '#LI-RP1'),
+        ('Ryan Green', '#LI-RG1'),
+        ('Ryan Oliver', '#LI-RO1'),
+        ('Sarah Ferris', '#LI-SF1'),
+        ('Sarah Ferris CSP', '#LI-SF1'),
+        ('Shikha Gurung', '#LI-SG1'),
+        ('Tarra Dziurman', '#LI-TD1'),
+    ]
+    
+    mappings_created = 0
+    mappings_updated = 0
+    
+    for recruiter_name, linkedin_tag in recruiter_mappings:
+        existing_mapping = RecruiterMapping.query.filter_by(recruiter_name=recruiter_name).first()
+        
+        if existing_mapping:
+            # Update if tag changed
+            if existing_mapping.linkedin_tag != linkedin_tag:
+                existing_mapping.linkedin_tag = linkedin_tag
+                mappings_updated += 1
+        else:
+            # Create new mapping
+            new_mapping = RecruiterMapping(
+                recruiter_name=recruiter_name,
+                linkedin_tag=linkedin_tag
+            )
+            db.session.add(new_mapping)
+            mappings_created += 1
+    
+    db.session.commit()
+    
+    if mappings_created > 0:
+        logger.info(f"✅ Created {mappings_created} new recruiter mappings")
+    if mappings_updated > 0:
+        logger.info(f"🔄 Updated {mappings_updated} recruiter mappings")
+    if mappings_created == 0 and mappings_updated == 0:
+        logger.info(f"✅ All {len(recruiter_mappings)} recruiter mappings already up to date")
+
+
 def seed_database(db, User):
     """
     Main seeding function - idempotent database initialization
@@ -592,6 +670,16 @@ def seed_database(db, User):
         
         # Seed reference refresh log with baseline timestamp
         seed_reference_refresh_log(db)
+        
+        # Seed recruiter mappings (LinkedIn tags)
+        try:
+            from models import RecruiterMapping
+            seed_recruiter_mappings(db, RecruiterMapping)
+            results['recruiter_mappings_configured'] = True
+        except ImportError:
+            logger.debug("ℹ️ RecruiterMapping model not found - skipping recruiter mapping seeding")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to seed recruiter mappings: {str(e)}")
         
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
