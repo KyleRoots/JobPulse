@@ -653,7 +653,7 @@ class XMLIntegrationService:
                     recruiter_name = f"{first_name} {last_name}".strip()
                     self.logger.debug(f"RECRUITER DEBUG - Found from owner: {recruiter_name}")
             
-            # Apply recruiter name to LinkedIn-style tag mapping with full name
+            # Apply recruiter name to LinkedIn tag mapping (returns tag only, e.g., #LI-AG1)
             if recruiter_name:
                 linkedin_tag = self._map_recruiter_to_linkedin_tag(recruiter_name)
                 self.logger.debug(f"RECRUITER DEBUG - Final LinkedIn tag: {linkedin_tag}")
@@ -668,7 +668,18 @@ class XMLIntegrationService:
             return ''
     
     def _map_recruiter_to_linkedin_tag(self, recruiter_name: str) -> str:
-        """Map recruiter names to LinkedIn-style tags for XML using database mappings"""
+        """
+        Map recruiter names to LinkedIn tags for XML using database mappings.
+        
+        Returns only the LinkedIn tag code (e.g., "#LI-AG1") without the recruiter name.
+        Falls back to returning the original recruiter name if no mapping is found.
+        
+        Args:
+            recruiter_name: Full name of the recruiter (e.g., "Adam Gebara")
+            
+        Returns:
+            str: LinkedIn tag code (e.g., "#LI-AG1") or original name if no mapping exists
+        """
         try:
             # Import RecruiterMapping here to avoid circular imports
             from app import RecruiterMapping, db, app
