@@ -420,6 +420,24 @@ def format_activity_filter(activity):
     """Template filter to format activity details for display"""
     return format_activity_details(activity.activity_type, activity.details)
 
+# Register timezone conversion filters for templates
+from timezone_utils import jinja_eastern_time, jinja_eastern_short, jinja_eastern_datetime
+
+@app.template_filter('eastern_time')
+def eastern_time_filter(utc_dt, format_string='%b %d, %Y at %I:%M %p %Z'):
+    """Convert UTC datetime to Eastern Time with custom format"""
+    return jinja_eastern_time(utc_dt, format_string)
+
+@app.template_filter('eastern_short')
+def eastern_short_filter(utc_dt):
+    """Convert UTC datetime to short Eastern Time format (Oct 19, 2025 9:44 PM EDT)"""
+    return jinja_eastern_short(utc_dt)
+
+@app.template_filter('eastern_datetime')
+def eastern_datetime_filter(utc_dt):
+    """Convert UTC datetime to datetime Eastern Time format (2025-10-19 09:44 PM EDT)"""
+    return jinja_eastern_datetime(utc_dt)
+
 # Initialize database tables
 with app.app_context():
     db.create_all()
@@ -4962,6 +4980,10 @@ def send_environment_alert(env_status, new_status, previous_status, downtime_min
     """Send email alert for environment status change"""
     try:
         from models import EnvironmentAlert
+        from timezone_utils import format_eastern_time
+        
+        # Get current time in Eastern timezone
+        current_time_eastern = format_eastern_time(datetime.utcnow())
         
         # Create alert message
         if new_status == 'down':
@@ -4973,7 +4995,7 @@ Environment: {env_status.environment_name.title()}
 URL: {env_status.environment_url}
 Status: DOWN ❌
 Previous Status: {previous_status.title()}
-Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+Time: {current_time_eastern}
 Consecutive Failures: {env_status.consecutive_failures}
 
 Troubleshooting Steps:
@@ -4998,7 +5020,7 @@ Environment: {env_status.environment_name.title()}
 URL: {env_status.environment_url}
 Status: UP ✅
 Previous Status: {previous_status.title()}
-Recovery Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+Recovery Time: {current_time_eastern}
 {downtime_text}
 
 The environment is now accessible and functioning normally.
@@ -5551,17 +5573,21 @@ def automated_upload():
                     email_setting and email_setting.setting_value):
                     try:
                         from email_service import EmailService
+                        from timezone_utils import format_eastern_time
                         email_service = EmailService()
                         
-                        # Prepare notification details
+                        # Prepare notification details with Eastern Time
+                        current_time = datetime.utcnow()
+                        next_upload_time = current_time + timedelta(minutes=30)
+                        
                         notification_details = {
-                            'execution_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'),
+                            'execution_time': format_eastern_time(current_time),
                             'jobs_count': stats['job_count'],
                             'xml_size': f"{stats['xml_size_bytes']:,} bytes",
                             'upload_attempted': True,
                             'upload_success': upload_success,
                             'upload_error': upload_error_message,
-                            'next_upload': (datetime.utcnow() + timedelta(minutes=30)).strftime('%Y-%m-%d %H:%M:%S UTC')
+                            'next_upload': format_eastern_time(next_upload_time)
                         }
                         
                         status = "success" if upload_success else "error"

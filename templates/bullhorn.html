@@ -834,11 +834,11 @@
                                             </td>
                                             <td>
                                                 <small class="text-muted">
-                                                    {{ activity.created_at.strftime('%H:%M:%S') }} UTC
+                                                    {{ activity.created_at | eastern_time('%I:%M:%S %p %Z') }}
                                                 </small>
                                                 <br>
                                                 <span class="badge bg-light text-dark" style="font-size: 0.7em;">
-                                                    {{ activity.created_at.strftime('%m/%d') }}
+                                                    {{ activity.created_at | eastern_time('%m/%d') }}
                                                 </span>
                                             </td>
                                             <td>

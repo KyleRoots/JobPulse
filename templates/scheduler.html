@@ -450,11 +450,11 @@
                                         <div class="mb-2">
                                             <small class="text-muted d-block">Next Refresh</small>
                                             <strong class="text-success" style="font-size: 1rem;">
-                                                {{ next_refresh_info.next_run.strftime('%b %d, %Y') }}
+                                                {{ next_refresh_info.next_run | eastern_time('%b %d, %Y') }}
                                             </strong>
                                             <br>
                                             <small class="text-success" style="font-weight: 500;">
-                                                {{ next_refresh_info.next_run.strftime('%H:%M UTC') }}
+                                                {{ next_refresh_info.next_run | eastern_time('%I:%M %p %Z') }}
                                             </small>
                                         </div>
                                         {% if next_refresh_info.hours_until_next > 0 %}
@@ -483,7 +483,7 @@
                                     <small class="text-muted">
                                         <i class="fas fa-check-circle me-2"></i>
                                         Last refresh completed: 
-                                        <strong>{{ next_refresh_info.last_run.strftime('%b %d, %Y at %H:%M UTC') }}</strong>
+                                        <strong>{{ next_refresh_info.last_run | eastern_time }}</strong>
                                     </small>
                                 </div>
                             </div>
@@ -511,7 +511,7 @@
                                                 <small class="text-muted d-block">Last Run</small>
                                                 <strong>
                                                     {% if schedule.last_run %}
-                                                        {{ schedule.last_run.strftime('%b %d, %Y') }}
+                                                        {{ schedule.last_run | eastern_time('%b %d, %Y') }}
                                                     {% else %}
                                                         Never
                                                     {% endif %}
@@ -520,19 +520,19 @@
                                             <div class="col-6 col-sm-2">
                                                 <small class="text-muted d-block">Next Run</small>
                                                 <strong class="text-success">
-                                                    {{ schedule.next_run.strftime('%b %d, %Y') }}
-                                                    <br><small class="text-muted">{{ schedule.next_run.strftime('%H:%M UTC') }}</small>
+                                                    {{ schedule.next_run | eastern_time('%b %d, %Y') }}
+                                                    <br><small class="text-muted">{{ schedule.next_run | eastern_time('%I:%M %p %Z') }}</small>
                                                 </strong>
                                             </div>
                                             <div class="col-4 col-sm-2">
                                                 <small class="text-muted d-block">Last Upload</small>
                                                 <strong class="text-info">
                                                     {% if schedule.actual_last_modified %}
-                                                        {{ schedule.actual_last_modified.strftime('%b %d, %Y') }}
-                                                        <br><small class="text-muted">{{ schedule.actual_last_modified.strftime('%H:%M UTC') }}</small>
+                                                        {{ schedule.actual_last_modified | eastern_time('%b %d, %Y') }}
+                                                        <br><small class="text-muted">{{ schedule.actual_last_modified | eastern_time('%I:%M %p %Z') }}</small>
                                                     {% elif schedule.last_file_upload %}
-                                                        {{ schedule.last_file_upload.strftime('%b %d, %Y') }}
-                                                        <br><small class="text-muted">{{ schedule.last_file_upload.strftime('%H:%M UTC') }}</small>
+                                                        {{ schedule.last_file_upload | eastern_time('%b %d, %Y') }}
+                                                        <br><small class="text-muted">{{ schedule.last_file_upload | eastern_time('%I:%M %p %Z') }}</small>
                                                     {% else %}
                                                         Never
                                                     {% endif %}

@@ -99,7 +99,7 @@
                             <div class="col-md-6">
                                 <p><strong>Search Query:</strong> <code>{{ monitor.tearsheet_name }}</code></p>
                                 <p><strong>Check Interval:</strong> Every {{ monitor.check_interval_minutes }} minutes</p>
-                                <p><strong>Created:</strong> {{ monitor.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                                <p><strong>Created:</strong> {{ monitor.created_at | eastern_time('%Y-%m-%d %I:%M %p %Z') }}</p>
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Current Job Count:</strong> 
@@ -109,12 +109,12 @@
                                 </p>
                                 <p><strong>Last Check:</strong> 
                                     {% if monitor.last_check %}
-                                        {{ monitor.last_check.strftime('%Y-%m-%d %H:%M') }}
+                                        {{ monitor.last_check | eastern_time('%Y-%m-%d %I:%M %p %Z') }}
                                     {% else %}
                                         Never
                                     {% endif %}
                                 </p>
-                                <p><strong>Next Check:</strong> {{ monitor.next_check.strftime('%Y-%m-%d %H:%M') }}</p>
+                                <p><strong>Next Check:</strong> {{ monitor.next_check | eastern_time('%Y-%m-%d %I:%M %p %Z') }}</p>
                                 <p><strong>Email Notifications:</strong> 
                                     {% if monitor.send_notifications %}
                                         <span class="badge bg-success">

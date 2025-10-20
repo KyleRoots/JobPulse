@@ -149,7 +149,7 @@
                                         {% for log in logs.items %}
                                         <tr>
                                             <td>
-                                                <small>{{ log.sent_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                                                <small>{{ log.sent_at | eastern_time('%Y-%m-%d %I:%M:%S %p %Z') }}</small>
                                             </td>
                                             <td>
                                                 {% if log.notification_type == 'job_added' %}
