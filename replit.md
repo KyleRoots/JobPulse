@@ -76,6 +76,12 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Error Handling**: Comprehensive XML syntax error catching, user-friendly messages, server-side logging, client-side validation.
 - **HTML Formatting Consistency**: Ensures consistent HTML markup within CDATA sections.
 - **Resume Parsing**: Extracts contact information from Word and PDF formats.
+- **Timezone Handling** (October 2025): All timestamps displayed in Eastern Time (EDT/EST) while stored in UTC.
+    - **Storage**: Database timestamps stored in UTC for consistency and accuracy
+    - **Display**: UI and email notifications show Eastern Time with proper EDT/EST designation
+    - **Implementation**: timezone_utils.py module with Jinja2 template filters (eastern_time, eastern_short, eastern_datetime)
+    - **Email Notifications**: Environment alerts and upload notifications include Eastern Time timestamps
+    - **User Experience**: Primary user timezone (Eastern) displayed throughout application interface
 
 ### Database Seeding & Auto-Configuration (October 2025)
 **Zero-touch production deployment system that automatically configures admin users, SFTP settings, Bullhorn credentials, tearsheet monitors, and all automation from environment secrets.**
