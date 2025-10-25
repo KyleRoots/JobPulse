@@ -505,8 +505,6 @@ def seed_reference_refresh_log(db):
                 most_recent.refresh_date = baseline_date
                 most_recent.refresh_time = baseline_time
                 most_recent.jobs_updated = 65
-                most_recent.success = True
-                most_recent.message = 'Baseline refresh (Oct 14, 2025 10:04 UTC)'
                 db.session.commit()
                 logger.info(f"🔄 FORCED RefreshLog baseline update: {baseline_time} UTC (was: {most_recent.refresh_time})")
         else:
@@ -514,9 +512,7 @@ def seed_reference_refresh_log(db):
             initial_log = RefreshLog(
                 refresh_date=baseline_date,
                 refresh_time=baseline_time,
-                jobs_updated=65,
-                success=True,
-                message='Baseline refresh log (Oct 14, 2025 10:04 UTC)'
+                jobs_updated=65
             )
             db.session.add(initial_log)
             db.session.commit()
