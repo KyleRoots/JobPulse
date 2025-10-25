@@ -135,7 +135,7 @@ class JobReferenceNumber(db.Model):
 class RefreshLog(db.Model):
     """Track reference number refresh completions"""
     id = db.Column(db.Integer, primary_key=True)
-    refresh_date = db.Column(db.Date, nullable=False, unique=True)
+    refresh_date = db.Column(db.Date, nullable=False)
     refresh_time = db.Column(db.DateTime, nullable=False)
     jobs_updated = db.Column(db.Integer, nullable=False, default=0)
     processing_time = db.Column(db.Float, nullable=False, default=0.0)
