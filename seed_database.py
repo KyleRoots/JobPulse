@@ -480,8 +480,8 @@ def seed_environment_monitoring(db):
 
 def seed_reference_refresh_log(db):
     """
-    Initialize RefreshLog with baseline timestamp for correct 120-hour calculation
-    FORCE UPDATE: Always ensures the most recent entry is the Oct 14 baseline
+    Initialize RefreshLog with baseline timestamp ONLY if table is empty
+    NEVER overwrites existing refresh history - preserves real refresh data
     
     Args:
         db: SQLAlchemy database instance
@@ -493,22 +493,15 @@ def seed_reference_refresh_log(db):
         baseline_date = date(2025, 10, 14)
         baseline_time = datetime(2025, 10, 14, 10, 4, 0)  # Oct 14, 2025 at 10:04 UTC
         
-        # Get the most recent refresh log entry
-        most_recent = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
+        # Check if any refresh log entries exist
+        existing_count = RefreshLog.query.count()
         
-        if most_recent:
-            # Check if it already matches the baseline
-            if most_recent.refresh_time == baseline_time:
-                logger.info(f"✅ RefreshLog baseline already correct (most recent: {baseline_time} UTC)")
-            else:
-                # FORCE UPDATE the most recent entry to the baseline
-                most_recent.refresh_date = baseline_date
-                most_recent.refresh_time = baseline_time
-                most_recent.jobs_updated = 65
-                db.session.commit()
-                logger.info(f"🔄 FORCED RefreshLog baseline update: {baseline_time} UTC (was: {most_recent.refresh_time})")
+        if existing_count > 0:
+            # Preserve existing refresh history - NEVER overwrite
+            most_recent = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
+            logger.info(f"✅ RefreshLog has {existing_count} entries (most recent: {most_recent.refresh_time} UTC) - preserving history")
         else:
-            # No entries exist - create baseline
+            # No entries exist - create baseline for new deployments only
             initial_log = RefreshLog(
                 refresh_date=baseline_date,
                 refresh_time=baseline_time,
@@ -516,7 +509,7 @@ def seed_reference_refresh_log(db):
             )
             db.session.add(initial_log)
             db.session.commit()
-            logger.info(f"✅ Created baseline RefreshLog entry: {baseline_time} UTC")
+            logger.info(f"✅ Created baseline RefreshLog entry: {baseline_time} UTC (new deployment)")
             
     except ImportError:
         logger.debug("ℹ️ RefreshLog model not found - skipping refresh log seeding")
