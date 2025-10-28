@@ -108,6 +108,8 @@ Important:
 - For construction/substation jobs, use "Construction" or "Oil, Gas, and Mining" industry"""
 
             # Call OpenAI API
+            # Note: gpt-5 uses reasoning tokens internally, so we need higher max_completion_tokens
+            # to allow for both reasoning (500 tokens) and actual output (500 tokens)
             response = self.client.chat.completions.create(
                 model="gpt-5",
                 messages=[
@@ -115,11 +117,26 @@ Important:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                max_completion_tokens=500
+                max_completion_tokens=1500  # Increased to allow for reasoning + output
             )
             
-            # Parse response
-            result_text = response.choices[0].message.content
+            # Parse response with defensive checks
+            if not response.choices or len(response.choices) == 0:
+                self.logger.error(f"OpenAI returned no choices for job: {title}")
+                raise ValueError("No choices in OpenAI API response")
+            
+            message = response.choices[0].message
+            if not message:
+                self.logger.error(f"OpenAI returned no message for job: {title}")
+                raise ValueError("No message in OpenAI API response")
+            
+            result_text = message.content
+            if not result_text or not result_text.strip():
+                self.logger.error(f"OpenAI returned empty content for job: {title}")
+                self.logger.error(f"Full response object: {response}")
+                raise ValueError("Empty content from OpenAI API")
+            
+            self.logger.debug(f"OpenAI response: {result_text[:200]}")
             result = json.loads(result_text)
             
             # Validate and extract

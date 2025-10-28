@@ -62,7 +62,14 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
     - **Automatic Persistence**: All reference number changes (manual refresh, automated refresh) save to database immediately
 - **Ad-hoc Reference Number Refresh**: Manual "Refresh All" button for immediate reference number updates with database persistence.
 - **Job Application Form**: Responsive, public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, and Bullhorn job ID integration. Supports unique branding.
-- **Internal Job Classification**: Keyword-based classification system providing instant, reliable categorization (jobfunction, jobindustries, senioritylevel) without external API dependencies.
+- **AI-Powered Job Classification** (October 2025): Advanced job categorization using OpenAI GPT-5 with LinkedIn's official taxonomy.
+    - **LinkedIn Categories**: Uses official LinkedIn job functions (28), industries (20), and seniority levels (5) from linkedin_categories.md
+    - **Primary Method**: OpenAI GPT-5 with intelligent context analysis for accurate job categorization
+    - **Fallback System**: Keyword-based classifier ensures reliability if AI fails or times out
+    - **Batch Processing**: Processes multiple jobs efficiently with timeout protection (25s max)
+    - **Token Optimization**: 1500 max_completion_tokens to accommodate GPT-5 reasoning tokens plus output
+    - **Use Cases**: Correctly categorizes specialized roles (e.g., Estimator → Administrative/Operations, Substation → Construction/Oil & Gas)
+    - **Improvement**: Eliminates incorrect "Information Technology"/"Computer Software" defaults for non-tech roles
 - **Intelligent File Management**: Automated file consolidation, duplicate detection, temporary file cleanup, and storage optimization.
 - **Dual-Domain Architecture**: Configured for `jobpulse.lyntrix.ai` (main app) and `apply.myticas.com` (job application forms) with environment-aware URL generation.
 - **Optimized Monitoring System**: Health checks every 2 hours (reduced from 15 minutes) for manual workflow efficiency, with timeout protection and scheduler auto-restarts.
