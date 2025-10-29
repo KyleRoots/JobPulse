@@ -18,7 +18,7 @@ try:
 except ImportError:
     import xml.etree.ElementTree as etree
 from xml_processor import XMLProcessor
-from job_classification_service import JobClassificationService
+from job_classification_service import JobClassificationService, InternalJobClassifier
 from xml_safeguards import XMLSafeguards
 from tearsheet_config import TearsheetConfig
 
@@ -170,7 +170,6 @@ class XMLIntegrationService:
                         future.cancel()  # Attempt to cancel the running task
                         
                         # Use keyword fallback for all jobs instead of blank fields
-                        from job_classification_service import InternalJobClassifier
                         fallback_classifier = InternalJobClassifier()
                         self.logger.info(f"🔄 Applying keyword fallback classification to all {len(jobs_for_ai)} jobs")
                         
@@ -187,7 +186,6 @@ class XMLIntegrationService:
                 self.logger.info("Using keyword fallback classification to prevent blank fields")
                 
                 # Use keyword fallback for all jobs instead of blank fields
-                from job_classification_service import InternalJobClassifier
                 fallback_classifier = InternalJobClassifier()
                 self.logger.info(f"🔄 Applying keyword fallback classification to all {len(jobs_for_ai)} jobs")
                 
