@@ -1175,6 +1175,139 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             logging.error(f"Failed to send generic notification: {str(e)}")
             return False
 
+    def send_new_job_notification(self, to_email: str, job_id: str, job_title: str, 
+                                  monitor_name: str = None) -> bool:
+        """
+        Send email notification when a new job is added to tearsheet monitoring
+        
+        Args:
+            to_email: Recipient email address
+            job_id: Bullhorn job ID
+            job_title: Job title
+            monitor_name: Name of the tearsheet monitor (optional)
+        
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        try:
+            if not self.api_key:
+                logging.warning("SendGrid API key not configured - cannot send email")
+                return False
+            
+            # Create subject line with job ID
+            subject = f"🆕 New Job Added - ID: {job_id}"
+            
+            # Create HTML content
+            timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+            monitor_display = f" ({monitor_name})" if monitor_name else ""
+            
+            html_content = f"""
+            <html>
+                <head>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; color: #333; }}
+                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                        .header {{ background-color: #28a745; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                        .content {{ background-color: #f8f9fa; padding: 20px; border-radius: 0 0 8px 8px; }}
+                        .job-details {{ background-color: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #28a745; }}
+                        .job-id {{ font-size: 18px; font-weight: bold; color: #28a745; margin-bottom: 10px; }}
+                        .job-title {{ font-size: 16px; color: #333; margin-bottom: 10px; }}
+                        .info {{ color: #666; font-size: 14px; margin: 5px 0; }}
+                        .footer {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h2 style="margin: 0;">🆕 New Job Added to Tearsheet</h2>
+                        </div>
+                        <div class="content">
+                            <p>A new job has been added to your tearsheet monitoring{monitor_display}.</p>
+                            
+                            <div class="job-details">
+                                <div class="job-id">Job ID: {job_id}</div>
+                                <div class="job-title">{job_title}</div>
+                                <div class="info">⏰ Detected: {timestamp}</div>
+                                {f'<div class="info">📋 Monitor: {monitor_name}</div>' if monitor_name else ''}
+                            </div>
+                            
+                            <p style="margin-top: 20px;">
+                                <strong>Search in Bullhorn:</strong> Use Job ID <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">{job_id}</code> to find this job in your Bullhorn system.
+                            </p>
+                            
+                            <div class="footer">
+                                <p>This is an automated notification from your XML Job Feed monitoring system.</p>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """
+            
+            # Create plain text version
+            text_content = f"""
+New Job Added to Tearsheet{monitor_display}
+
+Job ID: {job_id}
+Title: {job_title}
+Detected: {timestamp}
+{f'Monitor: {monitor_name}' if monitor_name else ''}
+
+Search in Bullhorn using Job ID: {job_id}
+
+---
+This is an automated notification from your XML Job Feed monitoring system.
+            """
+            
+            # Send email via SendGrid
+            message = Mail(
+                from_email=Email(self.from_email),
+                to_emails=To(to_email),
+                subject=subject,
+                html_content=Content("text/html", html_content),
+                plain_text_content=Content("text/plain", text_content)
+            )
+            
+            response = self.sg.send(message)
+            
+            # Extract SendGrid message ID
+            sendgrid_message_id = None
+            if hasattr(response, 'headers'):
+                sendgrid_message_id = response.headers.get('X-Message-Id')
+            
+            # Log successful delivery
+            self._log_email_delivery(
+                notification_type='new_job_notification',
+                job_id=job_id,
+                job_title=job_title,
+                recipient_email=to_email,
+                delivery_status='sent' if response.status_code == 202 else 'failed',
+                sendgrid_message_id=sendgrid_message_id,
+                error_message=None if response.status_code == 202 else f"SendGrid returned status code: {response.status_code}",
+                changes_summary=f"New job added{monitor_display}: {job_title} (ID: {job_id})"
+            )
+            
+            if response.status_code == 202:
+                logging.info(f"✅ New job notification sent to {to_email} for job {job_id}")
+                return True
+            else:
+                logging.error(f"❌ Failed to send new job notification: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            # Log failed email delivery
+            self._log_email_delivery(
+                notification_type='new_job_notification',
+                job_id=job_id,
+                job_title=job_title,
+                recipient_email=to_email,
+                delivery_status='failed',
+                error_message=str(e),
+                changes_summary=f"New job added: {job_title} (ID: {job_id})"
+            )
+            logging.error(f"❌ Failed to send new job notification: {str(e)}")
+            return False
+
     def _log_email_delivery(self, notification_type: str, job_id: str = None, job_title: str = None,
                           recipient_email: str = "", delivery_status: str = "sent", 
                           sendgrid_message_id: str = None, error_message: str = None,
