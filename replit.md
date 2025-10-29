@@ -34,15 +34,18 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Proxy Support**: ProxyFix middleware
 
 ### Feature Specifications
-- **Automated Uploads**: 30-minute automated upload cycle, controlled by dual toggles (`automated_uploads_enabled` and `sftp_enabled`). Supports manual-only operations.
+- **Dual-Cycle Monitoring System**: 
+  - 5-minute tearsheet monitoring for real-time UI visibility and job change detection
+  - 30-minute automated upload cycle for SFTP synchronization
+  - Both cycles controlled by dual toggles (`automated_uploads_enabled` and `sftp_enabled`)
+- **Real-Time Email Notifications**: Instant email alerts sent to kroots@myticas.com when new jobs are added to any monitored tearsheet. Notifications include job ID, title, timestamp, and monitor name for easy Bullhorn search and tracking.
 - **Environment Isolation**: Separate development and production environments, including distinct XML upload targets (`-dev.xml` vs. `.xml`), isolated PostgreSQL databases, and independent schedules to prevent cross-contamination.
 - **Orphan Prevention**: Automated duplicate detection and removal using Bullhorn Entity API for validation against Search API results, preventing job pollution and ensuring data integrity.
 - **Database-First Reference Numbers**: `JobReferenceNumber` table is the single source of truth for all reference numbers, updated every 120 hours without SFTP uploads. SimplifiedXMLGenerator loads reference numbers from the database.
 - **Ad-hoc Reference Number Refresh**: Manual "Refresh All" option for immediate database updates.
 - **Job Application Form**: Public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, Bullhorn job ID integration, and unique branding.
-- **AI-Powered Job Classification**: Uses OpenAI GPT-5 with LinkedIn's official taxonomy for job functions, industries, and seniority levels. Includes a keyword-based fallback system and optimized for batch processing.
+- **Keyword-Based Job Classification**: Lightning-fast (<1 second) job categorization using comprehensive keyword dictionaries for LinkedIn's official taxonomy (28 job functions, 20 industries, 5 seniority levels). Weighted scoring system prioritizes title matches (3x) over description. Guaranteed defaults ensure all taxonomy fields are always populated. Eliminates AI timeout risks and API costs.
 - **Intelligent File Management**: Automated consolidation, duplicate detection, and temporary file cleanup.
-- **Streamlined Automation**: A single 30-minute cycle for pulling fresh jobs, applying AI classification, and SFTP upload. Includes 2-hour health checks.
 - **Health Endpoints**: Optimized `/health`, `/ready`, `/alive`, `/ping` endpoints.
 - **XML Generation Enhancements**: All XML fields wrapped in CDATA, HTML descriptions parsed with `lxml` for tag closure.
 - **Zero-Touch Production Deployment**: Environment-aware database seeding and auto-configuration for admin users, SFTP, Bullhorn credentials, tearsheet monitors, and automation toggles from environment secrets. Idempotent design preserves user settings post-initial deployment.
@@ -55,8 +58,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **SQLAlchemy**: ORM for database interactions
 - **APScheduler**: Background task scheduling
 - **Flask-Login**: User session management
-- **SendGrid**: Email notifications
-- **OpenAI**: AI-powered job classification
+- **SendGrid**: Email notifications and delivery tracking
 
 ### Frontend Libraries
 - **Bootstrap 5**: UI framework
