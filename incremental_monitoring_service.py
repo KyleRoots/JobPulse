@@ -21,6 +21,7 @@ import re
 from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
 from tearsheet_config import TearsheetConfig
+from email_service import EmailService
 
 class IncrementalMonitoringService:
     """Simplified incremental monitoring service"""
@@ -31,6 +32,8 @@ class IncrementalMonitoringService:
         self.xml_integration = XMLIntegrationService()
         self.parser = etree.XMLParser(strip_cdata=False, recover=True)
         self.lock_file = '/tmp/myticas_feed.lock'
+        self.email_service = None
+        self.alert_email = None
         
     def run_monitoring_cycle(self) -> Dict:
         """
@@ -64,18 +67,26 @@ class IncrementalMonitoringService:
             self.logger.info(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             self.logger.info("=" * 60)
             
-            # Initialize Bullhorn connection
+            # Initialize Bullhorn connection and email service
             if not self.bullhorn_service:
                 # Load credentials from database (like app.py does)
                 try:
                     from flask import current_app
-                    from models import GlobalSettings
+                    from models import GlobalSettings, EmailDeliveryLog
+                    from app import db
                     
                     credentials = {}
                     for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
                         setting = GlobalSettings.query.filter_by(setting_key=key).first()
                         if setting and setting.setting_value:
                             credentials[key] = setting.setting_value.strip()
+                    
+                    # Get alert email from global settings
+                    alert_setting = GlobalSettings.query.filter_by(setting_key='alert_email').first()
+                    self.alert_email = alert_setting.setting_value if alert_setting else 'kroots@myticas.com'
+                    
+                    # Initialize email service
+                    self.email_service = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
                     
                     self.bullhorn_service = BullhornService(
                         client_id=credentials.get('bullhorn_client_id'),
@@ -127,7 +138,27 @@ class IncrementalMonitoringService:
                     xml_job = self._map_to_xml_format(job_data)
                     if self._add_job_to_xml(xml_file, xml_job):
                         cycle_results['jobs_added'] += 1
-                        self.logger.info(f"  ✅ Added job {job_id}: {job_data.get('title', '')}")
+                        job_title = job_data.get('title', 'Untitled Position')
+                        self.logger.info(f"  ✅ Added job {job_id}: {job_title}")
+                        
+                        # Send email notification for new job
+                        if self.email_service and self.alert_email:
+                            try:
+                                # Determine monitor name from job data if available
+                                monitor_name = None
+                                if hasattr(self, 'current_monitor_name'):
+                                    monitor_name = self.current_monitor_name
+                                
+                                self.email_service.send_new_job_notification(
+                                    to_email=self.alert_email,
+                                    job_id=str(job_id),
+                                    job_title=job_title,
+                                    monitor_name=monitor_name
+                                )
+                                self.logger.info(f"  📧 Email notification sent for new job {job_id}")
+                            except Exception as email_error:
+                                self.logger.warning(f"  ⚠️ Failed to send email for job {job_id}: {str(email_error)}")
+                                # Don't fail the whole cycle if email fails
                 except Exception as e:
                     self.logger.error(f"  ❌ Failed to add job {job_id}: {str(e)}")
                     cycle_results['errors'].append(f"Add job {job_id}: {str(e)}")
