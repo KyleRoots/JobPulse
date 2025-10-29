@@ -77,7 +77,7 @@ class XMLIntegrationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.xml_processor = XMLProcessor()
-        self.job_classifier = JobClassificationService()
+        self.job_classifier = JobClassificationService(use_ai=False)  # Keyword-only classification
         self.safeguards = XMLSafeguards()
         self._parser = etree.XMLParser(strip_cdata=False, recover=True)
         # Store field changes for notifications
@@ -87,14 +87,14 @@ class XMLIntegrationService:
         # Thread lock for preventing concurrent XML modifications
         self._xml_lock = threading.Lock()
     
-    def map_bullhorn_jobs_to_xml_batch(self, jobs_data: List[Dict], existing_references: Dict = None, enable_ai_classification: bool = True, monitor_names: Dict = None) -> List[Dict]:
+    def map_bullhorn_jobs_to_xml_batch(self, jobs_data: List[Dict], existing_references: Dict = None, enable_ai_classification: bool = False, monitor_names: Dict = None) -> List[Dict]:
         """
-        Map multiple Bullhorn jobs to XML format with batch AI classification to prevent timeouts
+        Map multiple Bullhorn jobs to XML format with fast keyword-based classification
         
         Args:
             jobs_data: List of Bullhorn job dictionaries
             existing_references: Dict mapping job_id to existing reference numbers
-            enable_ai_classification: Whether to perform AI classification in batch mode
+            enable_ai_classification: Deprecated - kept for backward compatibility (ignored)
             monitor_names: Dict mapping job_id to monitor names for proper branding
             
         Returns:
@@ -107,140 +107,74 @@ class XMLIntegrationService:
         monitor_names = monitor_names or {}
         xml_jobs = []
         
-        # Perform batch AI classification if enabled with timeout protection
-        ai_results = {}
-        if enable_ai_classification:
-            import time
-            start_time = time.time()
-            MAX_AI_PROCESSING_TIME = 300  # Max 5 minutes (300 seconds) for AI classification
-            
-            self.logger.info(f"Starting batch AI classification for {len(jobs_data)} jobs (max {MAX_AI_PROCESSING_TIME}s)...")
-            
-            # Prepare jobs for batch AI classification
-            jobs_for_ai = []
-            for job_data in jobs_data:
-                job_id = str(job_data.get('id', ''))
-                title = job_data.get('title', 'Untitled Position')
-                
-                # Clean title same way as individual mapping
-                title = html.unescape(title).replace('/', ' ')
-                clean_title = re.sub(r'\s*\([A-Z]+-?\d+\)\s*', '', title)
-                clean_title = re.sub(r'^Local to [A-Z]{2}[^,]*,\s*', '', clean_title)
-                clean_title = re.sub(r'\s*\([^)]+\)\s*', ' ', clean_title).strip()
-                
-                # Extract description
-                description = job_data.get('publicDescription', '') or job_data.get('description', '')
-                
-                jobs_for_ai.append({
-                    'id': job_id,
-                    'title': clean_title,
-                    'description': description
-                })
-            
-            try:
-                # 🛡️ HARD TIMEOUT WRAPPER - Guarantees completion within worker timeout limit
-                import concurrent.futures
-                import threading
-                
-                def run_ai_classification():
-                    return self.job_classifier.classify_jobs_batch(
-                        jobs_for_ai, 
-                        batch_size=12,  # Increased from 4 to 12 for faster processing
-                        max_processing_time=MAX_AI_PROCESSING_TIME
-                    )
-                
-                # Execute with hard timeout enforcement
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(run_ai_classification)
-                    try:
-                        ai_classifications = future.result(timeout=MAX_AI_PROCESSING_TIME)
-                        
-                        # Map results by job ID for easy lookup
-                        for i, job_data in enumerate(jobs_data):
-                            job_id = str(job_data.get('id', ''))
-                            if i < len(ai_classifications):
-                                ai_results[job_id] = ai_classifications[i]
-                        
-                        elapsed_time = time.time() - start_time
-                        self.logger.info(f"🎉 Batch AI classification completed for {len(ai_results)} jobs in {elapsed_time:.1f}s")
-                        
-                    except concurrent.futures.TimeoutError:
-                        elapsed_time = time.time() - start_time
-                        self.logger.warning(f"⏰ AI classification hard timeout reached after {elapsed_time:.1f}s - using keyword fallback to prevent blank fields")
-                        future.cancel()  # Attempt to cancel the running task
-                        
-                        # Use keyword fallback for all jobs instead of blank fields
-                        fallback_classifier = InternalJobClassifier()
-                        self.logger.info(f"🔄 Applying keyword fallback classification to all {len(jobs_for_ai)} jobs")
-                        
-                        for job_ai in jobs_for_ai:
-                            fallback_result = fallback_classifier.classify_job(
-                                job_ai['title'],
-                                job_ai['description']
-                            )
-                            ai_results[job_ai['id']] = fallback_result
-                
-            except Exception as ai_error:
-                elapsed_time = time.time() - start_time
-                self.logger.warning(f"AI classification failed after {elapsed_time:.1f}s: {str(ai_error)}")
-                self.logger.info("Using keyword fallback classification to prevent blank fields")
-                
-                # Use keyword fallback for all jobs instead of blank fields
-                fallback_classifier = InternalJobClassifier()
-                self.logger.info(f"🔄 Applying keyword fallback classification to all {len(jobs_for_ai)} jobs")
-                
-                for job_ai in jobs_for_ai:
-                    fallback_result = fallback_classifier.classify_job(
-                        job_ai['title'],
-                        job_ai['description']
-                    )
-                    ai_results[job_ai['id']] = fallback_result
+        self.logger.info(f"🚀 Classifying {len(jobs_data)} jobs using enhanced keyword classifier...")
+        start_time = time.time()
         
-        # Process each job with its AI classification result
+        # Perform fast keyword classification for all jobs
+        classification_results = {}
+        for job_data in jobs_data:
+            job_id = str(job_data.get('id', ''))
+            title = job_data.get('title', 'Untitled Position')
+            
+            # Clean title same way as individual mapping
+            title = html.unescape(title).replace('/', ' ')
+            clean_title = re.sub(r'\s*\([A-Z]+-?\d+\)\s*', '', title)
+            clean_title = re.sub(r'^Local to [A-Z]{2}[^,]*,\s*', '', clean_title)
+            clean_title = re.sub(r'\s*\([^)]+\)\s*', ' ', clean_title).strip()
+            
+            # Extract description
+            description = job_data.get('publicDescription', '') or job_data.get('description', '')
+            
+            # Classify using keyword classifier (instant, no timeouts)
+            result = self.job_classifier.classify_job(clean_title, description)
+            classification_results[job_id] = result
+        
+        elapsed = time.time() - start_time
+        self.logger.info(f"✅ Keyword classification completed for {len(classification_results)} jobs in {elapsed:.2f}s")
+        
+        # Process each job with its classification result
         for job_data in jobs_data:
             job_id = str(job_data.get('id', ''))
             monitor_name = monitor_names.get(job_id, '')
             existing_ref = existing_references.get(job_id, '')
-            ai_result = ai_results.get(job_id, None)
+            classification = classification_results.get(job_id, None)
             
-            # Map individual job with pre-computed AI classification
-            xml_job = self._map_single_job_with_ai_result(
+            # Map individual job with pre-computed classification
+            xml_job = self._map_single_job_with_classification_result(
                 job_data,
                 existing_reference_number=existing_ref,
                 monitor_name=monitor_name,
-                ai_classification_result=ai_result
+                classification_result=classification
             )
             
             if xml_job:
                 xml_jobs.append(xml_job)
         
-        self.logger.info(f"Mapped {len(xml_jobs)} jobs to XML format with batch AI classification")
+        self.logger.info(f"Mapped {len(xml_jobs)} jobs to XML format with keyword classification")
         return xml_jobs
     
-    def _map_single_job_with_ai_result(self, bullhorn_job: Dict, existing_reference_number: str = '', monitor_name: str = '', ai_classification_result: Dict = None) -> Dict:
+    def _map_single_job_with_classification_result(self, bullhorn_job: Dict, existing_reference_number: str = '', monitor_name: str = '', classification_result: Dict = None) -> Dict:
         """
-        Map a single job with a pre-computed AI classification result
-        This is used by the batch processing method to avoid individual AI calls
+        Map a single job with a pre-computed keyword classification result
+        This is used by the batch processing method to avoid individual classification calls
         """
-        # Use existing AI fields logic but with pre-computed result
-        if ai_classification_result and ai_classification_result.get('success'):
-            existing_ai_fields = {
-                'jobfunction': ai_classification_result.get('job_function', ''),
-                'jobindustries': ai_classification_result.get('industries', ''),
-                'senioritylevel': ai_classification_result.get('seniority_level', '')
+        # Use pre-computed classification fields
+        if classification_result and classification_result.get('success'):
+            existing_classification_fields = {
+                'jobfunction': classification_result.get('job_function', ''),
+                'jobindustries': classification_result.get('industries', ''),
+                'senioritylevel': classification_result.get('seniority_level', '')
             }
-            skip_ai = False  # We have AI data
         else:
-            existing_ai_fields = None
-            skip_ai = True  # CRITICAL: Force skip AI to prevent fallback individual calls
+            existing_classification_fields = None
         
-        # Call the existing method with AI results provided as existing fields
+        # Call the existing method with classification results provided as existing fields
         return self.map_bullhorn_job_to_xml(
             bullhorn_job,
             existing_reference_number=existing_reference_number,
             monitor_name=monitor_name,
-            skip_ai_classification=skip_ai,  # CRITICAL: Skip AI when batch failed
-            existing_ai_fields=existing_ai_fields
+            skip_ai_classification=True,  # Always skip AI (we use keywords only)
+            existing_ai_fields=existing_classification_fields
         )
     
     def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False, existing_ai_fields: Optional[Dict] = None) -> Dict:
