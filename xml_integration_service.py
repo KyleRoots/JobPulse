@@ -112,7 +112,7 @@ class XMLIntegrationService:
         if enable_ai_classification:
             import time
             start_time = time.time()
-            MAX_AI_PROCESSING_TIME = 25  # Max 25 seconds to leave buffer for XML generation
+            MAX_AI_PROCESSING_TIME = 300  # Max 5 minutes (300 seconds) for AI classification
             
             self.logger.info(f"Starting batch AI classification for {len(jobs_data)} jobs (max {MAX_AI_PROCESSING_TIME}s)...")
             
@@ -145,7 +145,7 @@ class XMLIntegrationService:
                 def run_ai_classification():
                     return self.job_classifier.classify_jobs_batch(
                         jobs_for_ai, 
-                        batch_size=4,
+                        batch_size=12,  # Increased from 4 to 12 for faster processing
                         max_processing_time=MAX_AI_PROCESSING_TIME
                     )
                 
