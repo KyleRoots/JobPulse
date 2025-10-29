@@ -937,22 +937,19 @@ except (IOError, OSError) as e:
         scheduler_lock_fd = None
 
 if is_primary_worker:
-    # DISABLED: 5-Minute Incremental Monitoring (October 2025)
-    # Reason: Streamlined to single 30-minute cycle with keyword classification
-    # Solution: 30-minute automated upload (line ~5616) handles all updates with keyword classification + SFTP
-    # This provides:
-    #   - Fast keyword-based job categorization (LinkedIn taxonomy)
-    #   - SFTP upload synchronization
-    #   - Database-first reference number architecture
-    #   - Simplified, reliable workflow with no timeouts
-    # scheduler.add_job(
-    #     func=process_bullhorn_monitors,
-    #     trigger=IntervalTrigger(minutes=5),
-    #     id='process_bullhorn_monitors',
-    #     name='Enhanced 8-Step Monitor with Complete Remapping',
-    #     replace_existing=True
-    # )
-    app.logger.info("📌 5-minute incremental monitoring DISABLED - 30-minute automated upload handles all updates with keyword classification")
+    # RE-ENABLED: 5-Minute Incremental Monitoring (October 2025)
+    # Provides real-time visibility into job changes before 30-minute upload cycle
+    # Now safe with fast keyword classification (<1 second, no timeouts)
+    # This monitors Bullhorn and updates local database every 5 minutes
+    # SFTP uploads still happen on 30-minute cycle separately
+    scheduler.add_job(
+        func=process_bullhorn_monitors,
+        trigger=IntervalTrigger(minutes=5),
+        id='process_bullhorn_monitors',
+        name='5-Minute Tearsheet Monitor with Keyword Classification',
+        replace_existing=True
+    )
+    app.logger.info("✅ 5-minute tearsheet monitoring ENABLED - provides UI visibility before 30-minute upload cycle")
 else:
     app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 
