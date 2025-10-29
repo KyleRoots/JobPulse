@@ -208,8 +208,7 @@ class SimplifiedXMLGenerator:
         
         updated_references = existing_references.copy()
         
-        # 🎉 BATCH AI CLASSIFICATION ENABLED! 
-        # Prepare data for batch processing to prevent timeouts
+        # Prepare data for batch processing with enhanced keyword classifier
         existing_ref_map = {}
         monitor_name_map = {}
         
@@ -219,15 +218,15 @@ class SimplifiedXMLGenerator:
             tearsheet_context = job_data.get('tearsheet_context', {})
             monitor_name_map[job_id] = tearsheet_context.get('monitor_name', 'default')
         
-        # Use batch processing with AI classification enabled
-        self.logger.info(f"🤖 Processing {len(jobs)} jobs with batch AI classification...")
+        # Use batch processing with keyword classification (fast, no timeouts)
+        self.logger.info(f"🔧 Processing {len(jobs)} jobs with enhanced keyword classifier...")
         
         try:
-            # Process all jobs with AI classification in batches
+            # Process all jobs with keyword classification in batches
             xml_jobs = self.xml_integration.map_bullhorn_jobs_to_xml_batch(
                 jobs_data=jobs,
                 existing_references=existing_ref_map,
-                enable_ai_classification=True,  # 🎉 AI CLASSIFICATION RE-ENABLED!
+                enable_ai_classification=False,  # Keyword-only classification
                 monitor_names=monitor_name_map
             )
             
@@ -249,11 +248,11 @@ class SimplifiedXMLGenerator:
                     # Wrap all fields in CDATA for proper XML handling
                     field_elem.text = etree.CDATA(f" {field_value} ")
             
-            self.logger.info(f"✅ Successfully processed {len(xml_jobs)} jobs with AI classification")
+            self.logger.info(f"✅ Successfully processed {len(xml_jobs)} jobs with keyword classification")
             
         except Exception as batch_error:
-            self.logger.error(f"Batch AI processing failed: {str(batch_error)}")
-            self.logger.warning("⚠️ Falling back to individual processing without AI classification")
+            self.logger.error(f"Batch processing failed: {str(batch_error)}")
+            self.logger.warning("⚠️ Falling back to individual processing")
             
             # Fallback to individual processing without AI as safety measure
             for job_data in jobs:
