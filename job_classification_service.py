@@ -333,15 +333,14 @@ class JobClassificationService:
                 elapsed = time.time() - start_time
                 if elapsed > max_processing_time:
                     self.logger.warning(f"⏰ Batch classification timeout after {elapsed:.1f}s at job {i+1}/{len(jobs)}")
-                    # Fill remaining with empty results
-                    for _ in range(len(jobs) - i):
-                        results.append({
-                            'success': False,
-                            'job_function': '',
-                            'industries': '',
-                            'seniority_level': '',
-                            'error': 'Timeout'
-                        })
+                    self.logger.info(f"🔄 Using keyword fallback for remaining {len(jobs) - i} jobs to prevent blank fields")
+                    # Fill remaining with keyword fallback results instead of empty results
+                    for remaining_job in jobs[i:]:
+                        fallback_result = self.fallback_classifier.classify_job(
+                            remaining_job['title'], 
+                            remaining_job['description']
+                        )
+                        results.append(fallback_result)
                     break
             
             # Classify individual job with retry logic

@@ -166,15 +166,37 @@ class XMLIntegrationService:
                         
                     except concurrent.futures.TimeoutError:
                         elapsed_time = time.time() - start_time
-                        self.logger.warning(f"⏰ AI classification hard timeout reached after {elapsed_time:.1f}s - ensuring XML generation completes")
+                        self.logger.warning(f"⏰ AI classification hard timeout reached after {elapsed_time:.1f}s - using keyword fallback to prevent blank fields")
                         future.cancel()  # Attempt to cancel the running task
-                        ai_results = {}  # Empty results = no AI classification
+                        
+                        # Use keyword fallback for all jobs instead of blank fields
+                        from job_classification_service import InternalJobClassifier
+                        fallback_classifier = InternalJobClassifier()
+                        self.logger.info(f"🔄 Applying keyword fallback classification to all {len(jobs_for_ai)} jobs")
+                        
+                        for job_ai in jobs_for_ai:
+                            fallback_result = fallback_classifier.classify_job(
+                                job_ai['title'],
+                                job_ai['description']
+                            )
+                            ai_results[job_ai['id']] = fallback_result
                 
             except Exception as ai_error:
                 elapsed_time = time.time() - start_time
                 self.logger.warning(f"AI classification failed after {elapsed_time:.1f}s: {str(ai_error)}")
-                self.logger.info("Proceeding without AI classification to ensure XML generation completes")
-                ai_results = {}  # Empty results = no AI classification
+                self.logger.info("Using keyword fallback classification to prevent blank fields")
+                
+                # Use keyword fallback for all jobs instead of blank fields
+                from job_classification_service import InternalJobClassifier
+                fallback_classifier = InternalJobClassifier()
+                self.logger.info(f"🔄 Applying keyword fallback classification to all {len(jobs_for_ai)} jobs")
+                
+                for job_ai in jobs_for_ai:
+                    fallback_result = fallback_classifier.classify_job(
+                        job_ai['title'],
+                        job_ai['description']
+                    )
+                    ai_results[job_ai['id']] = fallback_result
         
         # Process each job with its AI classification result
         for job_data in jobs_data:
