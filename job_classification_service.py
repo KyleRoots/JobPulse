@@ -84,13 +84,13 @@ Job Description: {clean_desc}
 
 You must select exactly ONE category from each list below:
 
-JOB FUNCTIONS:
+JOB FUNCTIONS (28 official LinkedIn categories):
 {', '.join(self.job_functions)}
 
-INDUSTRIES:
+INDUSTRIES (20 official LinkedIn categories):
 {', '.join(self.industries)}
 
-SENIORITY LEVELS:
+SENIORITY LEVELS (5 official LinkedIn categories):
 {', '.join(self.seniority_levels)}
 
 Respond with JSON in this exact format:
@@ -100,12 +100,20 @@ Respond with JSON in this exact format:
   "seniority_level": "one of the seniority levels above"
 }}
 
-Important:
-- Use ONLY the exact category names from the lists above
-- Choose the SINGLE BEST match for each category
-- Consider the job title, responsibilities, and industry context
-- For estimator roles in construction/energy, use "Administrative" or "Operations" function
-- For construction/substation jobs, use "Construction" or "Oil, Gas, and Mining" industry"""
+CRITICAL REQUIREMENTS - READ CAREFULLY:
+1. You MUST use ONLY the EXACT category names from the lists above
+2. Do NOT create ANY new categories or variations
+3. Do NOT modify the category names in any way
+4. Do NOT combine categories or use multiple categories
+5. Choose the SINGLE BEST match from each list
+6. If uncertain, pick the CLOSEST match from the provided lists
+7. Copy the category name EXACTLY as shown (including capitalization)
+
+Context-specific guidance:
+- For estimator roles in construction/energy: use "Operations" or "Administrative" function
+- For construction/substation jobs: use "Construction" or "Oil, Gas, and Mining" industry
+- For software/IT roles: use "Information Technology" function
+- For consulting roles: use "Consulting" function"""
 
             # Call OpenAI API
             # Note: gpt-5 uses reasoning tokens internally, so we need higher max_completion_tokens
