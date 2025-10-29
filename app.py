@@ -937,15 +937,22 @@ except (IOError, OSError) as e:
         scheduler_lock_fd = None
 
 if is_primary_worker:
-    # Add monitoring to scheduler (extended to 5 minutes for complete field remapping)
-    scheduler.add_job(
-        func=process_bullhorn_monitors,
-        trigger=IntervalTrigger(minutes=5),  # Extended from 3 to 5 minutes for complete remapping
-        id='process_bullhorn_monitors',
-        name='Enhanced 8-Step Monitor with Complete Remapping',
-        replace_existing=True
-    )
-    app.logger.info("⏱️ TIMING ADJUSTMENT: Monitoring interval extended to 5 minutes for complete field remapping from Bullhorn")
+    # DISABLED: 5-Minute Incremental Monitoring (October 2025)
+    # Reason: Conflicts with AI classification - incremental monitoring bypasses AI and creates blank fields
+    # Solution: 30-minute automated upload (line ~5616) handles all updates with full AI classification + SFTP
+    # This provides:
+    #   - AI-powered job categorization (LinkedIn taxonomy)
+    #   - SFTP upload synchronization
+    #   - Database-first reference number architecture
+    #   - Simplified, reliable workflow
+    # scheduler.add_job(
+    #     func=process_bullhorn_monitors,
+    #     trigger=IntervalTrigger(minutes=5),
+    #     id='process_bullhorn_monitors',
+    #     name='Enhanced 8-Step Monitor with Complete Remapping',
+    #     replace_existing=True
+    # )
+    app.logger.info("📌 5-minute incremental monitoring DISABLED - 30-minute automated upload handles all updates with AI classification")
 else:
     app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 

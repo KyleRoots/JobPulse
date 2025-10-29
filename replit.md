@@ -1,7 +1,7 @@
 # XML Job Feed Reference Number Updater
 
 ## Overview
-This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. Its primary purpose is to maintain accurate job listings, ensure real-time synchronization, and streamline application workflows, thereby enhancing job visibility and efficiency. The system handles XML file updates, manages SFTP uploads, and provides a user-friendly interface for file operations and validation.
+This Flask-based web application automates the processing of XML job feed files to update reference numbers and synchronize job listings with Bullhorn ATS/CRM. Its core purpose is to maintain accurate, real-time job listings, streamline application workflows, and enhance job visibility and efficiency. The system manages XML updates, integrates with SFTP, and provides a user-friendly interface for file operations and validation. The project aims to improve recruitment processes by ensuring data integrity and automating repetitive tasks.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -14,187 +14,38 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 
 ## System Architecture
 
-### Frontend
+### UI/UX Decisions
 - **Template Engine**: Jinja2 with Bootstrap 5 (dark theme)
-- **Client-side**: Vanilla JavaScript for interactive elements with improved download tracking
+- **Client-side**: Vanilla JavaScript for interactive elements
 - **UI Framework**: Bootstrap 5 with custom CSS for responsive design
 - **Icons**: Font Awesome 6.0
+- **Dual-Domain Architecture**: Configured for `jobpulse.lyntrix.ai` (main app) and `apply.myticas.com` (job application forms)
 
-### Backend
+### Technical Implementations
 - **Web Framework**: Flask (Python)
-- **Database**: PostgreSQL with SQLAlchemy for schedules and logs
+- **Database**: PostgreSQL with SQLAlchemy for schedules and logs (timezone handling for Eastern Time display)
 - **Authentication**: Flask-Login for secure user management
-- **Background Processing**: APScheduler for automated tasks and Bullhorn monitoring (optimized for manual workflow)
-- **XML Processing**: Custom processor utilizing `lxml` for managing job data with proper CDATA formatting, reference number generation, HTML consistency, and LinkedIn recruiter tags.
-- **Email Service**: SendGrid for notifications and comprehensive email delivery logging.
-- **SFTP Service**: Built-in SFTP client (disabled for manual workflow).
-- **ATS Integration**: Real-time Bullhorn ATS/CRM monitoring for job changes, data mapping, and reference number generation.
-- **Session Management**: Flask sessions with secure key
-- **File Handling**: Secure temporary file storage with improved cleanup
+- **Background Processing**: APScheduler for automated tasks and Bullhorn monitoring
+- **XML Processing**: Custom `lxml` processor for job data, CDATA formatting, reference number generation, HTML consistency, and LinkedIn recruiter tags.
+- **Email Service**: SendGrid for notifications and delivery logging.
+- **Session Management**: Flask sessions with secure keys
+- **File Handling**: Secure temporary file storage with cleanup, supporting XML files only (max 50MB).
+- **Error Handling**: Comprehensive XML syntax error catching, user-friendly messages, server-side logging, client-side validation.
 - **Proxy Support**: ProxyFix middleware
 
-### Core Features
-- **Toggle-Based Automation Architecture** (September 2025):
-    - **30-Minute Automated Upload Cycle**: APScheduler-backed automation that runs every 30 minutes when enabled via settings
-    - **Dual Toggle Control**: Requires BOTH `automated_uploads_enabled=true` AND `sftp_enabled=true` for automation to execute
-    - **Manual Workflow Support**: Can be fully disabled for manual-only operations by toggling settings OFF
-    - **Fresh XML Generation**: Pulls from Bullhorn tearsheets (1256, 1264, 1499, 1556, 1257) on-demand for each refresh/upload
-    - **STSI Company Formatting**: Properly formats company name as "STSI (Staffing Technical Services Inc.)" for tearsheet 1556
-    - **Enhanced XML Processing**: HTML parsing to fix unclosed tags and CDATA wrapping for all XML fields
-- **Environment Isolation & Safety** (October 2025):
-    - **Environment-Aware Uploads**: Development and production environments upload to separate XML files to prevent cross-contamination
-    - **Development Environment**: Uploads ONLY to `myticas-job-feed-v2-dev.xml`
-    - **Production Environment**: Uploads ONLY to `myticas-job-feed-v2.xml`
-    - **Separate Databases**: Development and production use completely isolated PostgreSQL databases
-    - **Independent Schedules**: Each environment maintains its own 120-hour reference refresh schedule
-    - **Zero Cross-Contamination**: Development workflows cannot affect production data or files
-- **Orphan Prevention System** (October 2025): Automated duplicate detection and removal to prevent job pollution.
-    - **Entity API Validation**: Uses Entity API as source of truth for tearsheet membership
-    - **Smart Orphan Detection**: When Entity API shows fewer jobs than Search API, identifies and removes orphaned jobs that were removed from tearsheets
-    - **Pagination Safeguard**: Association endpoint with proper start/count parameters ensures all Entity job IDs are collected
-    - **Data Loss Protection**: Aborts orphan filtering if Entity pagination is incomplete, preventing legitimate jobs from being removed
-    - **Robust Filtering**: Only removes jobs that Search API returns but Entity API doesn't recognize (true orphans)
-- **Database-First Reference Number Architecture** (October 2025): 
-    - **Single Source of Truth**: JobReferenceNumber database table is the authoritative storage for all reference numbers
-    - **120-Hour Reference Refresh**: Updates reference numbers in database only (no SFTP upload) - eliminates upload conflicts
-    - **30-Minute Upload Cycle**: SimplifiedXMLGenerator ALWAYS loads reference numbers from database before generating XML
-    - **Conflict Resolution**: Prevents upload overwrites by making database the primary source, not SFTP or file snapshots
-    - **Automatic Persistence**: All reference number changes (manual refresh, automated refresh) save to database immediately
-- **Ad-hoc Reference Number Refresh**: Manual "Refresh All" button for immediate reference number updates with database persistence.
-- **Job Application Form**: Responsive, public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, and Bullhorn job ID integration. Supports unique branding.
-- **AI-Powered Job Classification** (October 2025): Advanced job categorization using OpenAI GPT-5 with LinkedIn's official taxonomy.
-    - **LinkedIn Categories**: Uses official LinkedIn job functions (28), industries (20), and seniority levels (5) from linkedin_categories.md
-    - **Primary Method**: OpenAI GPT-5 with intelligent context analysis for accurate job categorization
-    - **Fallback System**: Keyword-based classifier ensures reliability if AI fails or times out
-    - **Batch Processing**: Processes multiple jobs efficiently with timeout protection (25s max)
-    - **Token Optimization**: 1500 max_completion_tokens to accommodate GPT-5 reasoning tokens plus output
-    - **Use Cases**: Correctly categorizes specialized roles (e.g., Estimator → Administrative/Operations, Substation → Construction/Oil & Gas)
-    - **Improvement**: Eliminates incorrect "Information Technology"/"Computer Software" defaults for non-tech roles
-- **Intelligent File Management**: Automated file consolidation, duplicate detection, temporary file cleanup, and storage optimization.
-- **Dual-Domain Architecture**: Configured for `jobpulse.lyntrix.ai` (main app) and `apply.myticas.com` (job application forms) with environment-aware URL generation.
-- **Optimized Monitoring System**: Health checks every 2 hours (reduced from 15 minutes) for manual workflow efficiency, with timeout protection and scheduler auto-restarts.
-- **Health Endpoints**: Optimized, ultra-fast dedicated health endpoints (`/health`, `/ready`, `/alive`, `/ping`).
-- **XML Generation Enhancements** (September 2025): All XML fields now wrapped in CDATA sections for proper data handling, HTML descriptions parsed with lxml for proper tag closure.
-- **Simplified XML Generator** (September 2025): Direct Bullhorn integration that pulls from all tearsheets (1256, 1264, 1499, 1556) and generates clean XML on-demand with improved download completion tracking.
-
-### Technical Implementation Details
-- **XML Processing**: Requires root element 'source' and specific required elements (title, company, date, referencenumber). Preserves existing reference numbers during ad-hoc changes.
-- **File Upload Constraints**: XML files only, max 50MB, temporary storage, secure filename handling.
-- **Error Handling**: Comprehensive XML syntax error catching, user-friendly messages, server-side logging, client-side validation.
-- **HTML Formatting Consistency**: Ensures consistent HTML markup within CDATA sections.
-- **Resume Parsing**: Extracts contact information from Word and PDF formats.
-- **Timezone Handling** (October 2025): All timestamps displayed in Eastern Time (EDT/EST) while stored in UTC.
-    - **Storage**: Database timestamps stored in UTC for consistency and accuracy
-    - **Display**: UI and email notifications show Eastern Time with proper EDT/EST designation
-    - **Implementation**: timezone_utils.py module with Jinja2 template filters (eastern_time, eastern_short, eastern_datetime)
-    - **Email Notifications**: Environment alerts and upload notifications include Eastern Time timestamps
-    - **User Experience**: Primary user timezone (Eastern) displayed throughout application interface
-
-### Database Seeding & Auto-Configuration (October 2025)
-**Zero-touch production deployment system that automatically configures admin users, SFTP settings, Bullhorn credentials, tearsheet monitors, and all automation from environment secrets.**
-
-#### Environment-Aware Seeding
-- **Development Environment**: Auto-seeding with safe defaults for testing
-- **Production Environment**: Full auto-configuration from deployment secrets
-- **Idempotent Design**: Safe to run multiple times without creating duplicates
-- **Automatic Execution**: Runs on every app startup after `db.create_all()`
-- **Zero Manual Setup**: Production deploys 100% configured and ready to run
-
-#### Required Environment Secrets
-**Admin User:**
-- `ADMIN_USERNAME` - Admin username (default: `admin`)
-- `ADMIN_EMAIL` - Admin email (default: `kroots@myticas.com`)
-- `ADMIN_PASSWORD` - **REQUIRED for production** (no default for security)
-
-**SFTP Configuration:**
-- `SFTP_HOSTNAME` - SFTP server hostname (e.g., `yourdomain.sftp.wpengine.com`)
-- `SFTP_USERNAME` - SFTP username
-- `SFTP_PASSWORD` - SFTP password
-- `SFTP_PORT` - SFTP port (default: `22`)
-- `SFTP_DIRECTORY` - Upload directory (default: `/`)
-
-**Bullhorn API Configuration:**
-- `BULLHORN_CLIENT_ID` - Bullhorn OAuth client ID
-- `BULLHORN_CLIENT_SECRET` - Bullhorn OAuth client secret
-- `BULLHORN_USERNAME` - Bullhorn API username
-- `BULLHORN_PASSWORD` - Bullhorn API password
-
-#### What Gets Auto-Configured
-**On every production deployment, the seeding system automatically creates:**
-1. ✅ **Admin User** - Created with credentials from `ADMIN_PASSWORD` secret
-2. ✅ **SFTP Settings** - All connection details populated from secrets
-3. ✅ **Bullhorn API Credentials** - OAuth and API credentials configured
-4. ✅ **5 Bullhorn Tearsheet Monitors** - Pre-configured and active:
-   - Sponsored - OTT (1256)
-   - Sponsored - CHI (1257)
-   - Sponsored - VMS (1264)
-   - Sponsored - GR (1499)
-   - Sponsored - STSI (1556)
-5. ✅ **Automation Toggles** - `automated_uploads_enabled` and `sftp_enabled` set to `true` on first run
-6. ✅ **Environment Monitoring** - Production health monitoring configured
-
-#### Toggle Persistence Behavior (October 2025)
-**Smart toggle management that respects user preferences:**
-- **First Run**: Toggles default to `'true'` in production, `'false'` in development
-- **Subsequent Runs**: User settings are PRESERVED - seeding never overwrites toggle values
-- **Credential Rotation**: SFTP and Bullhorn credentials still update from environment variables
-- **User Control**: Once created, toggles are controlled exclusively via Settings UI
-- **Logging**: Clear distinction between "Preserving user setting" and "Created automation toggle"
-
-**Production Deployment (Zero-Touch):**
-1. Add all required secrets to Replit App Secrets (one-time setup)
-2. Click "Republish" to deploy to Reserved VM
-3. Seeding runs automatically on startup
-4. **Everything is configured and running** - login and verify!
-
-**No manual steps required:**
-- ❌ No settings page configuration
-- ❌ No toggle switching
-- ❌ No credential entry
-- ❌ No monitor setup
-- ✅ **Just login and it works!**
-
-**Credential Rotation:**
-- All settings automatically update from environment variables on app restart
-- To rotate: Update deployment secrets → Republish or restart app
-- Changes are logged: `🔄 Updated settings: bullhorn_password, sftp_password`
-
-#### Development vs Production Databases
-**Two-Database Architecture:**
-- **Development Database** (workspace): For testing, contains dev user accounts
-- **Production Database** (Reserved VM): Starts fresh, populated via seeding
-
-**Why Separate:**
-- Development data (test accounts, sample jobs) stays isolated
-- Production database starts clean with only necessary baseline data
-- No test data pollution in production environment
-
-#### Adding More Users
-**Method 1: Update Seeding Script (Recommended)**
-```python
-# Edit seed_database.py
-# Add users to create_admin_user() or create new seeding function
-```
-
-**Method 2: Manual SQL (Quick)**
-```sql
--- Via Database tool in Replit
-INSERT INTO "user" (username, email, password_hash, is_admin, created_at)
-VALUES ('newuser', 'user@example.com', '<hashed_password>', false, NOW());
-```
-
-**Method 3: Admin Interface**
-- Future enhancement: Web UI for user management
-- Currently: Use SQL or seeding script
-
-#### Troubleshooting Production Login
-**Issue**: Cannot log into `jobpulse.lyntrix.ai`
-**Cause**: Production database is empty (no users from dev database)
-**Solution**: 
-1. Verify `ADMIN_PASSWORD` secret is set in deployment
-2. Check logs for seeding success: `🌱 Database seeding: Created admin user`
-3. If seeding failed, check for errors in startup logs
-4. Restart deployment to re-trigger seeding
+### Feature Specifications
+- **Automated Uploads**: 30-minute automated upload cycle, controlled by dual toggles (`automated_uploads_enabled` and `sftp_enabled`). Supports manual-only operations.
+- **Environment Isolation**: Separate development and production environments, including distinct XML upload targets (`-dev.xml` vs. `.xml`), isolated PostgreSQL databases, and independent schedules to prevent cross-contamination.
+- **Orphan Prevention**: Automated duplicate detection and removal using Bullhorn Entity API for validation against Search API results, preventing job pollution and ensuring data integrity.
+- **Database-First Reference Numbers**: `JobReferenceNumber` table is the single source of truth for all reference numbers, updated every 120 hours without SFTP uploads. SimplifiedXMLGenerator loads reference numbers from the database.
+- **Ad-hoc Reference Number Refresh**: Manual "Refresh All" option for immediate database updates.
+- **Job Application Form**: Public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, Bullhorn job ID integration, and unique branding.
+- **AI-Powered Job Classification**: Uses OpenAI GPT-5 with LinkedIn's official taxonomy for job functions, industries, and seniority levels. Includes a keyword-based fallback system and optimized for batch processing.
+- **Intelligent File Management**: Automated consolidation, duplicate detection, and temporary file cleanup.
+- **Streamlined Automation**: A single 30-minute cycle for pulling fresh jobs, applying AI classification, and SFTP upload. Includes 2-hour health checks.
+- **Health Endpoints**: Optimized `/health`, `/ready`, `/alive`, `/ping` endpoints.
+- **XML Generation Enhancements**: All XML fields wrapped in CDATA, HTML descriptions parsed with `lxml` for tag closure.
+- **Zero-Touch Production Deployment**: Environment-aware database seeding and auto-configuration for admin users, SFTP, Bullhorn credentials, tearsheet monitors, and automation toggles from environment secrets. Idempotent design preserves user settings post-initial deployment.
 
 ## External Dependencies
 
