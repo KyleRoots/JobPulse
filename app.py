@@ -938,13 +938,13 @@ except (IOError, OSError) as e:
 
 if is_primary_worker:
     # DISABLED: 5-Minute Incremental Monitoring (October 2025)
-    # Reason: Conflicts with AI classification - incremental monitoring bypasses AI and creates blank fields
-    # Solution: 30-minute automated upload (line ~5616) handles all updates with full AI classification + SFTP
+    # Reason: Streamlined to single 30-minute cycle with keyword classification
+    # Solution: 30-minute automated upload (line ~5616) handles all updates with keyword classification + SFTP
     # This provides:
-    #   - AI-powered job categorization (LinkedIn taxonomy)
+    #   - Fast keyword-based job categorization (LinkedIn taxonomy)
     #   - SFTP upload synchronization
     #   - Database-first reference number architecture
-    #   - Simplified, reliable workflow
+    #   - Simplified, reliable workflow with no timeouts
     # scheduler.add_job(
     #     func=process_bullhorn_monitors,
     #     trigger=IntervalTrigger(minutes=5),
@@ -952,7 +952,7 @@ if is_primary_worker:
     #     name='Enhanced 8-Step Monitor with Complete Remapping',
     #     replace_existing=True
     # )
-    app.logger.info("📌 5-minute incremental monitoring DISABLED - 30-minute automated upload handles all updates with AI classification")
+    app.logger.info("📌 5-minute incremental monitoring DISABLED - 30-minute automated upload handles all updates with keyword classification")
 else:
     app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 

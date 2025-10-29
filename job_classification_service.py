@@ -248,161 +248,90 @@ class InternalJobClassifier:
         self.logger.info("🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)")
     
     def classify_job(self, title: str, description: str) -> Dict[str, Any]:
-        """Sophisticated keyword-based classification with scoring algorithm"""
-        title_lower = title.lower().strip()
-        desc_lower = description.lower().strip() if description else ""
-        combined = f"{title_lower} {desc_lower}"
-        
-        # Find best function (title keywords weighted 3x higher than description)
-        job_function = "Operations"  # Neutral default
-        best_score = 0
-        for func, keywords in self.function_keywords.items():
-            score = sum(3 if kw in title_lower else (1 if kw in desc_lower else 0) for kw in keywords)
-            if score > best_score:
-                best_score = score
-                job_function = func
-        
-        # Find best industry (title keywords weighted 3x higher than description)
-        industry = "Professional Services"  # Neutral default
-        best_score = 0
-        for ind, keywords in self.industry_keywords.items():
-            score = sum(3 if kw in title_lower else (1 if kw in desc_lower else 0) for kw in keywords)
-            if score > best_score:
-                best_score = score
-                industry = ind
-        
-        # Determine seniority with comprehensive keyword matching
-        seniority = "Mid-Senior level"  # Default for most positions
-        if any(kw in title_lower for kw in ['ceo', 'cto', 'cfo', 'chief', 'president', 'vp', 'vice president', 'executive']):
-            seniority = "Executive"
-        elif any(kw in title_lower for kw in ['director', 'head of', 'managing']):
-            seniority = "Director"
-        elif any(kw in title_lower for kw in ['senior', 'sr.', 'sr ', 'lead', 'principal', 'staff']):
-            seniority = "Mid-Senior level"
-        elif any(kw in title_lower for kw in ['junior', 'jr.', 'jr ', 'entry', 'associate', 'assistant']):
-            seniority = "Entry level"
-        elif any(kw in title_lower for kw in ['intern', 'internship', 'co-op']):
-            seniority = "Internship"
-        
-        return {
-            'success': True,
-            'job_function': job_function,
-            'industries': industry,
-            'seniority_level': seniority
-        }
+        """
+        Sophisticated keyword-based classification with scoring algorithm
+        ALWAYS returns success=True with populated fields (guaranteed fallback to defaults)
+        """
+        try:
+            title_lower = (title or "").lower().strip()
+            desc_lower = (description or "").lower().strip()
+            
+            # Find best function (title keywords weighted 3x higher than description)
+            job_function = "Operations"  # Neutral default
+            best_score = 0
+            for func, keywords in self.function_keywords.items():
+                score = sum(3 if kw in title_lower else (1 if kw in desc_lower else 0) for kw in keywords)
+                if score > best_score:
+                    best_score = score
+                    job_function = func
+            
+            # Find best industry (title keywords weighted 3x higher than description)
+            industry = "Professional Services"  # Neutral default
+            best_score = 0
+            for ind, keywords in self.industry_keywords.items():
+                score = sum(3 if kw in title_lower else (1 if kw in desc_lower else 0) for kw in keywords)
+                if score > best_score:
+                    best_score = score
+                    industry = ind
+            
+            # Determine seniority with comprehensive keyword matching
+            seniority = "Mid-Senior level"  # Default for most positions
+            if any(kw in title_lower for kw in ['ceo', 'cto', 'cfo', 'chief', 'president', 'vp', 'vice president', 'executive']):
+                seniority = "Executive"
+            elif any(kw in title_lower for kw in ['director', 'head of', 'managing']):
+                seniority = "Director"
+            elif any(kw in title_lower for kw in ['senior', 'sr.', 'sr ', 'lead', 'principal', 'staff']):
+                seniority = "Mid-Senior level"
+            elif any(kw in title_lower for kw in ['junior', 'jr.', 'jr ', 'entry', 'associate', 'assistant']):
+                seniority = "Entry level"
+            elif any(kw in title_lower for kw in ['intern', 'internship', 'co-op']):
+                seniority = "Internship"
+            
+            # ALWAYS return success with populated fields
+            return {
+                'success': True,
+                'job_function': job_function,
+                'industries': industry,
+                'seniority_level': seniority
+            }
+            
+        except Exception as e:
+            # Even on error, return defaults to ensure fields are never blank
+            self.logger.error(f"Keyword classification error (returning defaults): {str(e)}")
+            return {
+                'success': True,
+                'job_function': 'Operations',
+                'industries': 'Professional Services',
+                'seniority_level': 'Mid-Senior level'
+            }
 
 
 class JobClassificationService:
-    """Service for classifying jobs using AI-first approach with keyword fallback"""
+    """Simplified keyword-only classification service (AI permanently disabled)"""
     
-    def __init__(self, use_ai: bool = True):
+    def __init__(self, use_ai: bool = False):
         """
-        Initialize job classification service
+        Initialize job classification service with keyword-only classifier
         
         Args:
-            use_ai: If True, use AI classification (default). If False, use keyword fallback.
+            use_ai: DEPRECATED - ignored, always uses keyword classification
         """
         self.logger = logging.getLogger(__name__)
-        self.use_ai = use_ai
         
-        # Initialize classifiers
-        try:
-            if use_ai:
-                self.ai_classifier = AIJobClassifier()
-                self.logger.info("🤖 AI-based classifier active (primary)")
-            else:
-                self.ai_classifier = None
-                self.logger.info("⚡ AI classification disabled, using keywords only")
-        except Exception as e:
-            self.logger.warning(f"Failed to initialize AI classifier: {e}")
-            self.ai_classifier = None
-            self.use_ai = False
-        
-        # Always have fallback classifier
-        self.fallback_classifier = InternalJobClassifier()
-        self.logger.info("🔧 Keyword fallback classifier ready")
+        # Keyword-only classifier (AI permanently disabled to prevent worker timeouts)
+        self.classifier = InternalJobClassifier()
+        self.logger.info("⚡ Keyword-only classifier initialized (AI permanently disabled)")
     
     def classify_job(self, job_title: str, job_description: str) -> Dict[str, str]:
         """
-        Classify a single job using AI (with fallback to keywords)
+        Classify a single job using keyword-based classification
+        ALWAYS returns populated fields (no failures possible)
         
         Args:
             job_title: The job title
             job_description: The job description (can include HTML)
             
         Returns:
-            Dict with 'job_function', 'industries', and 'seniority_level'
+            Dict with 'job_function', 'industries', and 'seniority_level' (always populated)
         """
-        # Try AI first if enabled
-        if self.use_ai and self.ai_classifier:
-            result = self.ai_classifier.classify_job(job_title, job_description)
-            if result.get('success'):
-                return result
-            else:
-                self.logger.warning(f"AI classification failed, using fallback for: {job_title}")
-        
-        # Fallback to keyword classification
-        return self.fallback_classifier.classify_job(job_title, job_description)
-    
-    def classify_jobs_batch(self, jobs: List[Dict[str, str]], batch_size: int = 4, 
-                          max_retries: int = 2, max_processing_time: Optional[int] = None) -> List[Dict[str, str]]:
-        """
-        Classify multiple jobs in batches with timeout protection
-        
-        Args:
-            jobs: List of dicts with 'title' and 'description' keys
-            batch_size: Number of jobs to process in parallel (default: 4 for AI)
-            max_retries: Number of retries for failed classifications
-            max_processing_time: Maximum time in seconds (optional timeout)
-            
-        Returns:
-            List of classification results in same order as input
-        """
-        start_time = time.time()
-        results = []
-        
-        self.logger.info(f"🚀 Classifying {len(jobs)} jobs (AI={'enabled' if self.use_ai else 'disabled'}, batch_size={batch_size})")
-        
-        for i, job in enumerate(jobs):
-            # Check timeout if specified
-            if max_processing_time:
-                elapsed = time.time() - start_time
-                if elapsed > max_processing_time:
-                    self.logger.warning(f"⏰ Batch classification timeout after {elapsed:.1f}s at job {i+1}/{len(jobs)}")
-                    self.logger.info(f"🔄 Using keyword fallback for remaining {len(jobs) - i} jobs to prevent blank fields")
-                    # Fill remaining with keyword fallback results instead of empty results
-                    for remaining_job in jobs[i:]:
-                        fallback_result = self.fallback_classifier.classify_job(
-                            remaining_job['title'], 
-                            remaining_job['description']
-                        )
-                        results.append(fallback_result)
-                    break
-            
-            # Classify individual job with retry logic
-            retry_count = 0
-            while retry_count <= max_retries:
-                try:
-                    result = self.classify_job(job['title'], job['description'])
-                    results.append(result)
-                    break
-                except Exception as e:
-                    retry_count += 1
-                    if retry_count > max_retries:
-                        self.logger.error(f"Classification failed after {max_retries} retries for '{job['title']}': {e}")
-                        results.append({
-                            'success': False,
-                            'job_function': '',
-                            'industries': '',
-                            'seniority_level': '',
-                            'error': str(e)
-                        })
-                    else:
-                        self.logger.warning(f"Retry {retry_count}/{max_retries} for '{job['title']}'")
-                        time.sleep(1)  # Brief delay before retry
-        
-        elapsed_total = time.time() - start_time
-        success_count = sum(1 for r in results if r.get('success'))
-        self.logger.info(f"✅ Batch classification completed: {success_count}/{len(jobs)} successful in {elapsed_total:.1f}s")
-        
-        return results
+        return self.classifier.classify_job(job_title, job_description)

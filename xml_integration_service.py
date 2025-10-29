@@ -280,26 +280,21 @@ class XMLIntegrationService:
             # Generate unique job application URL with proper domain based on company
             job_url = self._generate_job_application_url(bhatsid, clean_title, company_name)
             
-            # Handle AI classification - preserve existing values if provided
+            # Handle keyword classification - preserve existing values if provided, otherwise classify
             if existing_ai_fields and existing_ai_fields.get('jobfunction') and existing_ai_fields.get('jobindustries') and existing_ai_fields.get('senioritylevel'):
-                # Use existing AI-classified values to maintain consistency (like reference numbers)
+                # Use existing pre-computed classification values to avoid re-classification
                 job_function = existing_ai_fields.get('jobfunction', '')
                 job_industry = existing_ai_fields.get('jobindustries', '')
                 seniority_level = existing_ai_fields.get('senioritylevel', '')
-                self.logger.info(f"✅ PRESERVING existing AI classification for job {job_id}: Function={job_function}, Industry={job_industry}, Seniority={seniority_level}")
-            elif skip_ai_classification:
-                # For real-time monitoring, use empty values to prevent timeouts
-                job_function = ''
-                job_industry = ''
-                seniority_level = ''
-                self.logger.debug(f"Skipped AI classification for job {job_id} during real-time sync")
+                self.logger.debug(f"Using pre-computed classification for job {job_id}: Function={job_function}, Industry={job_industry}, Seniority={seniority_level}")
             else:
-                # Full AI classification for new jobs or jobs missing these fields
+                # ALWAYS classify with keyword classifier (fast, no timeouts, guaranteed success)
+                # This ensures taxonomy fields are NEVER blank, even in real-time paths
                 classification = self.job_classifier.classify_job(clean_title, description)
-                job_function = classification.get('job_function', '')
-                job_industry = classification.get('industries', '')  # Fixed: using 'industries' not 'job_industry'
-                seniority_level = classification.get('seniority_level', '')
-                self.logger.info(f"Generated new AI classification for job {job_id}: Function={job_function}, Industry={job_industry}, Seniority={seniority_level}")
+                job_function = classification.get('job_function', 'Operations')  # Guaranteed default
+                job_industry = classification.get('industries', 'Professional Services')  # Guaranteed default
+                seniority_level = classification.get('seniority_level', 'Mid-Senior level')  # Guaranteed default
+                self.logger.debug(f"Keyword classification for job {job_id}: Function={job_function}, Industry={job_industry}, Seniority={seniority_level}")
             
             # Helper function to clean field values
             def clean_field_value(value):
