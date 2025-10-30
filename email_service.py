@@ -1125,7 +1125,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             bool: True if sent successfully, False otherwise
         """
         try:
-            if not self.sendgrid_api_key:
+            if not self.api_key:
                 logging.warning("SendGrid API key not configured - cannot send email")
                 return False
 
