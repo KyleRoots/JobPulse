@@ -5627,18 +5627,8 @@ if is_primary_worker:
     )
     app.logger.info("📤 Scheduled automated uploads every 30 minutes")
     
-    # Schedule reference refresh every 120 hours
-    scheduler.add_job(
-        func=reference_number_refresh,
-        trigger='interval',
-        hours=120,
-        id='reference_number_refresh',
-        name='120-Hour Reference Number Refresh',
-        replace_existing=True
-    )
-    app.logger.info("📅 Scheduled reference number refresh every 120 hours")
-    
-    # Check if catch-up refresh is needed on startup
+    # Schedule reference refresh every 120 hours - with proper next_run_time calculation
+    # This ensures the schedule doesn't reset on application restart
     try:
         with app.app_context():
             from datetime import date, timedelta
@@ -5647,18 +5637,46 @@ if is_primary_worker:
             last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
             
             if last_refresh:
-                # Check if 120 hours have passed since last refresh
+                # Calculate when the NEXT refresh should be (120 hours after last refresh)
+                calculated_next_run = last_refresh.refresh_time + timedelta(hours=120)
                 time_since_refresh = datetime.utcnow() - last_refresh.refresh_time
+                
+                # Check if we're already overdue
                 if time_since_refresh > timedelta(hours=120):
                     app.logger.info(f"⏰ Last refresh was {time_since_refresh.total_seconds() / 3600:.1f} hours ago, running catch-up refresh...")
                     reference_number_refresh()
+                    # After catch-up, schedule next run 120 hours from now
+                    calculated_next_run = datetime.utcnow() + timedelta(hours=120)
                 else:
                     hours_until_next = 120 - (time_since_refresh.total_seconds() / 3600)
                     app.logger.info(f"📝 Last refresh was {time_since_refresh.total_seconds() / 3600:.1f} hours ago, next refresh in {hours_until_next:.1f} hours")
+                
+                # Add job with calculated next_run_time to prevent restart-based schedule drift
+                scheduler.add_job(
+                    func=reference_number_refresh,
+                    trigger=IntervalTrigger(hours=120, start_date=calculated_next_run),
+                    id='reference_number_refresh',
+                    name='120-Hour Reference Number Refresh',
+                    replace_existing=True,
+                    next_run_time=calculated_next_run
+                )
+                app.logger.info(f"📅 Scheduled reference number refresh - next run: {calculated_next_run.strftime('%Y-%m-%d %H:%M:%S UTC')}")
             else:
-                # No previous refresh found, run one now
+                # No previous refresh found, run one now and schedule next
                 app.logger.info("🆕 No previous refresh found, running initial refresh...")
                 reference_number_refresh()
+                
+                # Schedule next run 120 hours from now
+                next_run = datetime.utcnow() + timedelta(hours=120)
+                scheduler.add_job(
+                    func=reference_number_refresh,
+                    trigger=IntervalTrigger(hours=120, start_date=next_run),
+                    id='reference_number_refresh',
+                    name='120-Hour Reference Number Refresh',
+                    replace_existing=True,
+                    next_run_time=next_run
+                )
+                app.logger.info(f"📅 Scheduled reference number refresh - next run: {next_run.strftime('%Y-%m-%d %H:%M:%S UTC')}")
     except Exception as startup_error:
         app.logger.error(f"Failed to check/run startup refresh: {str(startup_error)}")
 
