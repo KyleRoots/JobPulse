@@ -1,0 +1,56 @@
+<job>
+<title>
+<![CDATA[ EDW Sr. Data Analyst (34523) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ November 01, 2025 ]]>
+</date>
+<referencenumber>
+<![CDATA[ CKIPPNY46G ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34523 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.myticas.com/34523/EDW%20Sr.%20Data%20Analyst/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <p><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">EDW Sr. Data Analyst (Federal Reporting)</span></span></strong></span></span><br> <br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">Job Title: EDW Sr. Data Analyst (Federal Reporting)</span></span></strong></span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">Contract: </span></span></strong><span style="font-size: 11.0pt;"><span style="">W2– Candidates must be authorized to work in the U.S. on a W2 basis. We cannot accept candidates requiring sponsorship or those from C2C vendors.</span></span></span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">Duration: </span></span></strong><span style="font-size: 11.0pt;"><span style="">12 months with possible multi-year extension/s</span></span></span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">Pay:</span></span></strong><span style="font-size: 11.0pt;"><span style=""> $47 to $53 per hour USD. </span></span></span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">Location:</span></span></strong><span style="font-size: 11.0pt;"><span style=""> Remote – Local Springfield, IL candidates strongly preferred.</span></span></span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><em><span style="font-size: 11.0pt;"><span style="">This is a telecommute position with some (&lt;15%) required travel to Springfield, IL for onsite customer meetings.</span></span></em></span></span><br> <br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">Job Summary: </span></span></strong></span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">We are seeking a highly experienced Data Analyst to join our Enterprise Data Warehouse (EDW) federal reporting team. This role is responsible for analyzing healthcare-related data, developing reports, and ensuring data integrity. The ideal candidate will have a deep understanding of the Medicaid program, data analysis, SQL, CMS federal reporting (CMS 64/21) and data warehousing best practices, with a focus on supporting healthcare-related data systems. </span></span></span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">Key Responsibilities: </span></span></strong></span></span></p> <ul> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Analyze healthcare-related data to support business decision-making and CMS federal reporting including but not limited to CMS 64/21 reports. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Develop and maintain reports and dashboards using SQL and other BI tools. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Collaborate with stakeholders to gather requirements and recommend technical solutions. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Ensure data integrity and accuracy in all reports and analyses. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Perform data profiling and validation to identify data anomalies. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Document data processes and maintain technical documentation. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Provide regular project updates to customers and maintain strong communication. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Mentor junior team members and provide technical training as needed. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Stay current with emerging technologies and industry best practices. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 8.0pt 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Perform additional duties as required to support project and organizational goals. <br>  </span></span></span></span> </ul> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style=""> <strong>Required Qualifications: </strong></span></span></span></span> <ul> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">5+ years of healthcare business analysis experience supporting business initiatives through data analysis, writing business requirements and user acceptance testing of various systems </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">5+ years of SQL development, including performance tuning. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">3+ years of experience working with State Medicaid and CHIP agencies on CMS federal reporting or demonstrated ability to quickly acquire business domain knowledge. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Strong communication skills and ability to work directly with clients. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Bachelor’s or advanced degree in IT, Computer Science, Mathematics, Statistics, or a related STEM field. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Excellent organizational skills and ability to manage multiple priorities. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 8.0pt 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Strong team collaboration and adaptability. </span></span></span></span> </ul> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"> </span></span><br> <span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><strong><span style="font-size: 11.0pt;"><span style="">Preferred Qualifications: </span></span></strong></span></span> <ul> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Experience in developing Adult/Child Core Measures, HEDIS, CHIPRA or similar quality metrics </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Experience with healthcare-related data systems. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 0.0in 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Experience with BI tools such as Tableau or Power BI. <br> Familiarity with data warehousing best practices. </span></span></span></span> <li style="margin-bottom: 0.0in;margin: 0.0in 0.0in 8.0pt 0.5in;"><span style="font-size: 12.0pt;"><span style="font-family: Aptos , sans-serif;"><span style="font-size: 11.0pt;"><span style="">Experience working in Agile environments. </span></span></span></span> </ul> <p> </p> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Springfield ]]>
+</city>
+<state>
+<![CDATA[ Illinois ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Remote ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Information Technology ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Government Administration ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Mid-Senior level ]]>
+</senioritylevel>
+</job>
