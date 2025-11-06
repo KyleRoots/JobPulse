@@ -386,7 +386,7 @@ class BullhornService:
             # First get the entity API count for validation
             entity_url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
             entity_params = {
-                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription,address(city,state,countryName),employmentType,onSite,assignments[10](assignedTo(firstName,lastName)),assignedUsers(firstName,lastName),responseUser(firstName,lastName),owner(firstName,lastName))',
+                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription,address(city,state,countryName),employmentType,onSite,assignedUsers(firstName,lastName),responseUser(firstName,lastName),owner(firstName,lastName))',
                 'BhRestToken': self.rest_token
             }
             
@@ -455,7 +455,6 @@ class BullhornService:
                 "salary", "salaryUnit", "isDeleted",
                 "categories(id,name)", "onSite", "benefits", "bonusPackage",
                 "degreeList", "skillList", "certificationList",
-                "assignments[10](assignedTo(firstName,lastName))",
                 "owner(firstName,lastName)",
                 "assignedUsers(firstName,lastName)",
                 "responseUser(firstName,lastName)"
