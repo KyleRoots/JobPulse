@@ -228,14 +228,6 @@ class ComprehensiveMonitoringService:
                 xml_job = current_xml_jobs[job_id]
                 jobs_checked_count += 1
                 
-                # Debug log for job 32444 (Legal Invoice Analyst)
-                if job_id == '32444':
-                    self.logger.info(f"    🔍 DEBUG: Checking job 32444 title...")
-                    self.logger.info(f"        Bullhorn title: {bullhorn_job.get('title', 'N/A')}")
-                    xml_title_match = re.search(r'<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>', xml_job.get('_xml_content', ''))
-                    if xml_title_match:
-                        self.logger.info(f"        XML title: {xml_title_match.group(1).strip()}")
-                
                 modifications = self._check_field_modifications(bullhorn_job, xml_job)
                 if modifications:
                     # CRITICAL: Mark jobs in Step 4 as NOT requiring new reference numbers

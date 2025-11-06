@@ -63,3 +63,14 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 ### Frontend Libraries
 - **Bootstrap 5**: UI framework
 - **Font Awesome 6**: Icon library
+
+## Technical Learnings & Known Limitations
+
+### Bullhorn REST API Field Constraints
+- **Assignments Field Not Supported**: The `assignments` field (containing "Recruiter" data visible in Bullhorn UI) is NOT accessible via Bullhorn's REST API
+- **To-Many Association Limitation**: To-many associations like `assignments[N]` with nested fields don't work in Entity API or Search API queries
+- **Working Recruiter Extraction**: System successfully extracts recruiter data using fallback hierarchy:
+  1. `assignedUsers(firstName,lastName)` - primary source
+  2. `responseUser(firstName,lastName)` - fallback
+  3. `owner(firstName,lastName)` - final fallback
+- **Success Rate**: Current configuration achieves 95.6% recruiter tag population (65 of 68 jobs in production)

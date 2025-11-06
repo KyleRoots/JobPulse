@@ -554,12 +554,6 @@ class XMLIntegrationService:
         try:
             recruiter_name = ''
             
-            # Debug logging to see what data we're actually getting
-            self.logger.debug(f"RECRUITER DEBUG - assignments: {assignments}")
-            self.logger.debug(f"RECRUITER DEBUG - assigned_users: {assigned_users}")
-            self.logger.debug(f"RECRUITER DEBUG - response_user: {response_user}")
-            self.logger.debug(f"RECRUITER DEBUG - owner: {owner}")
-            
             # Check assignments first (per user mapping requirements)
             if assignments and isinstance(assignments, dict):
                 assignments_data = assignments.get('data', [])
@@ -572,7 +566,6 @@ class XMLIntegrationService:
                             last_name = assigned_to.get('lastName', '')
                             if first_name or last_name:
                                 recruiter_name = f"{first_name} {last_name}".strip()
-                                self.logger.debug(f"RECRUITER DEBUG - Found from assignments: {recruiter_name}")
             
             # Check assignedUsers if no assignments found (array of users)
             if not recruiter_name and assigned_users and isinstance(assigned_users, dict):
@@ -584,7 +577,6 @@ class XMLIntegrationService:
                         last_name = first_user.get('lastName', '')
                         if first_name or last_name:
                             recruiter_name = f"{first_name} {last_name}".strip()
-                            self.logger.debug(f"RECRUITER DEBUG - Found from assignedUsers: {recruiter_name}")
             
             # Check responseUser next (single user)
             if not recruiter_name and response_user and isinstance(response_user, dict):
@@ -592,7 +584,6 @@ class XMLIntegrationService:
                 last_name = response_user.get('lastName', '')
                 if first_name or last_name:
                     recruiter_name = f"{first_name} {last_name}".strip()
-                    self.logger.debug(f"RECRUITER DEBUG - Found from responseUser: {recruiter_name}")
             
             # Finally check owner (single user)
             if not recruiter_name and owner and isinstance(owner, dict):
@@ -600,15 +591,11 @@ class XMLIntegrationService:
                 last_name = owner.get('lastName', '')
                 if first_name or last_name:
                     recruiter_name = f"{first_name} {last_name}".strip()
-                    self.logger.debug(f"RECRUITER DEBUG - Found from owner: {recruiter_name}")
             
             # Apply recruiter name to LinkedIn tag mapping (returns tag only, e.g., #LI-AG1)
             if recruiter_name:
                 linkedin_tag = self._map_recruiter_to_linkedin_tag(recruiter_name)
-                self.logger.debug(f"RECRUITER DEBUG - Final LinkedIn tag: {linkedin_tag}")
                 return linkedin_tag
-            else:
-                self.logger.debug(f"RECRUITER DEBUG - No recruiter name found, returning empty")
             
             return ''
             
