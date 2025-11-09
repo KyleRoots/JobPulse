@@ -542,7 +542,6 @@ class BullhornService:
                 "publicDescription", "numOpenings", "isPublic",
                 "address(city,state,countryName)",
                 "employmentType", "onSite",
-                "assignments(assignedTo(firstName,lastName))",
                 "assignedUsers(firstName,lastName)",
                 "responseUser(firstName,lastName)",
                 "owner(firstName,lastName)"

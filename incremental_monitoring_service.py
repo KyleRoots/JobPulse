@@ -117,6 +117,26 @@ class IncrementalMonitoringService:
             self.logger.info(f"  ✅ XML LOAD COMPLETED: {len(current_xml_jobs)} jobs")
             self.logger.info(f"  Current XML has {len(current_xml_jobs)} jobs")
             
+            # ZERO-JOB SAFEGUARD: Prevent XML emptying due to API errors
+            if len(bullhorn_jobs) == 0 and len(current_xml_jobs) >= 5:
+                self.logger.error("🚨 CRITICAL: Zero-job corruption detected!")
+                self.logger.error(f"   Bullhorn API returned 0 jobs, but XML has {len(current_xml_jobs)} jobs")
+                self.logger.error("   This indicates a Bullhorn API error - BLOCKING UPDATE to prevent data loss")
+                
+                # Create backup of current XML before alerting
+                self._create_xml_backup(xml_file)
+                
+                # Send alert email
+                if self.email_service and self.alert_email:
+                    try:
+                        self._send_corruption_alert(len(current_xml_jobs))
+                    except Exception as email_error:
+                        self.logger.error(f"   Failed to send corruption alert email: {str(email_error)}")
+                
+                # Return without processing to preserve XML
+                cycle_results['errors'].append("Zero-job corruption detected - update blocked")
+                return cycle_results
+            
             # Determine changes
             bullhorn_ids = set(bullhorn_jobs.keys())
             xml_ids = set(current_xml_jobs.keys())
@@ -276,6 +296,78 @@ class IncrementalMonitoringService:
             
         except Exception as e:
             self.logger.error(f"❌ Failed to log monitoring activity: {str(e)}")
+    
+    def _create_xml_backup(self, xml_file: str):
+        """Create timestamped backup of XML file when corruption is detected"""
+        try:
+            import shutil
+            from datetime import datetime
+            
+            if not os.path.exists(xml_file):
+                self.logger.warning("Cannot backup - XML file does not exist")
+                return
+            
+            # Ensure xml_backups directory exists
+            backup_dir = 'xml_backups'
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            # Create backup filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_filename = f"myticas-job-feed-v2_corruption_backup_{timestamp}.xml"
+            backup_path = os.path.join(backup_dir, backup_filename)
+            
+            # Copy file to backup
+            shutil.copy2(xml_file, backup_path)
+            self.logger.info(f"✅ Created backup: {backup_path}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to create XML backup: {str(e)}")
+    
+    def _send_corruption_alert(self, xml_job_count: int):
+        """Send alert email when zero-job corruption is detected"""
+        try:
+            from datetime import datetime
+            
+            subject = "🚨 ALERT: Bullhorn API Zero-Job Error Detected"
+            
+            message = f"""CRITICAL: Zero-Job Corruption Detected
+
+Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S EST')}
+
+WHAT HAPPENED:
+- Bullhorn API returned: 0 jobs
+- Current XML contains: {xml_job_count} jobs
+- Action taken: UPDATE BLOCKED to prevent data loss
+
+ROOT CAUSE:
+This indicates a temporary Bullhorn API error. The system has automatically 
+blocked this update to prevent emptying the XML file (preventing a repeat of 
+the November 6, 2025 incident).
+
+WHAT HAPPENS NEXT:
+✅ Your XML file is safe - no jobs were removed
+✅ A backup was created in xml_backups/ directory
+✅ The next monitoring cycle (in 5 minutes) will retry
+✅ When the Bullhorn API recovers, normal operations will resume
+
+No action required - this is an automated safeguard working correctly.
+
+---
+This alert was triggered by the zero-job detection safeguard.
+"""
+            
+            # Send via email service using send_notification_email (plain text)
+            self.email_service.send_notification_email(
+                to_email=self.alert_email,
+                subject=subject,
+                message=message,
+                notification_type='system_alert'
+            )
+            
+            self.logger.info(f"✅ Corruption alert email sent to {self.alert_email}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to send corruption alert: {str(e)}")
     
     def _acquire_lock(self, timeout: int = 30) -> bool:
         """Acquire file lock to prevent concurrent modifications"""

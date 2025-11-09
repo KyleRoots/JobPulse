@@ -48,6 +48,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Intelligent File Management**: Automated consolidation, duplicate detection, and temporary file cleanup.
 - **Health Endpoints**: Optimized `/health`, `/ready`, `/alive`, `/ping` endpoints.
 - **XML Generation Enhancements**: All XML fields wrapped in CDATA, HTML descriptions parsed with `lxml` for tag closure.
+- **Zero-Job Detection Safeguard**: Prevents XML file corruption when Bullhorn API returns 0 jobs due to temporary errors. System automatically blocks updates, creates timestamped backups in `xml_backups/`, and sends single alert email (preventing the November 6, 2025 email flood incident from recurring).
 - **Zero-Touch Production Deployment**: Environment-aware database seeding and auto-configuration for admin users, SFTP, Bullhorn credentials, tearsheet monitors, and automation toggles from environment secrets. Idempotent design preserves user settings post-initial deployment.
 
 ## External Dependencies
@@ -67,10 +68,15 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 ## Technical Learnings & Known Limitations
 
 ### Bullhorn REST API Field Constraints
-- **Assignments Field Not Supported**: The `assignments` field (containing "Recruiter" data visible in Bullhorn UI) is NOT accessible via Bullhorn's REST API
+- **Assignments Field Not Supported**: The `assignments` field (containing "Recruiter" data visible in Bullhorn UI) is NOT accessible via Bullhorn's REST API. This field was removed from all API queries as of November 9, 2025 (previously caused intermittent 400 errors).
 - **To-Many Association Limitation**: To-many associations like `assignments[N]` with nested fields don't work in Entity API or Search API queries
 - **Working Recruiter Extraction**: System successfully extracts recruiter data using fallback hierarchy:
   1. `assignedUsers(firstName,lastName)` - primary source
   2. `responseUser(firstName,lastName)` - fallback
   3. `owner(firstName,lastName)` - final fallback
 - **Success Rate**: Current configuration achieves 95.6% recruiter tag population (65 of 68 jobs in production)
+
+### November 6, 2025 Incident Analysis
+- **What Happened**: Invalid `assignments` API field caused Bullhorn to return 0 jobs. Monitoring service interpreted this as "all jobs deleted" and removed all 68 jobs from XML, triggering 68 false "new job" emails when API recovered.
+- **Root Cause**: Missing safeguard to detect empty API responses as errors vs. legitimate data.
+- **Fix Implemented**: Zero-job detection safeguard now blocks updates when API returns 0 jobs but XML contains ≥5 jobs. System creates backup and sends single alert instead of processing the corrupt data.
