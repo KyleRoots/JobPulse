@@ -112,16 +112,26 @@ class JobApplicationService:
                     message.add_attachment(cover_letter_attachment)
             
             # Send email
+            logger.info(f"📧 Attempting to send job application email via SendGrid...")
+            logger.info(f"   From: {self.from_email}")
+            logger.info(f"   To: {self.to_email}")
+            logger.info(f"   Subject: {subject}")
+            logger.info(f"   SendGrid API key present: {bool(self.sendgrid_api_key)}")
+            
             response = self.sg.send(message)
             
+            logger.info(f"📧 SendGrid response status code: {response.status_code}")
+            logger.info(f"📧 SendGrid response headers: {dict(response.headers) if response.headers else 'None'}")
+            
             if response.status_code == 202:
-                logger.info(f"Job application submitted successfully for {application_data['firstName']} {application_data['lastName']}")
+                logger.info(f"✅ Job application submitted successfully for {application_data['firstName']} {application_data['lastName']}")
                 return {
                     'success': True,
                     'message': 'Application submitted successfully'
                 }
             else:
-                logger.error(f"Failed to send application email: {response.status_code}")
+                logger.error(f"❌ Failed to send application email: {response.status_code}")
+                logger.error(f"   Response body: {response.body}")
                 return {
                     'success': False,
                     'error': f'Failed to send application: HTTP {response.status_code}'
