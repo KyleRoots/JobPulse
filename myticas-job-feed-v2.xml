@@ -3325,4 +3325,94 @@ Pay Range: $18.98 /hr. - $20.98 /hr.<br>
 </li></ul>
 <span style="font-size: 14.0px;"><span style="font-family: Calibri , Verdana , Geneva , sans-serif;"><br>
 <br>
-<em>We are an Equal Opportunity Employer and do not discriminate on the basis of race, color, religion, sex, national origin, age, disability, veteran status, genetic information, sexual orientation, gender identity, or any other legally protected status. All qualified applicants will receive consideration for employment without regard to any of these characteristics.</em></span></span><br> ]]></description><jobtype><![CDATA[ Contract ]]></jobtype><city><![CDATA[ Rio Rancho ]]></city><state><![CDATA[ NM ]]></state><country><![CDATA[ United States ]]></country><category><![CDATA[  ]]></category><apply_email><![CDATA[ apply@myticas.com ]]></apply_email><remotetype><![CDATA[ On-site ]]></remotetype><assignedrecruiter><![CDATA[ #LI-MS2 ]]></assignedrecruiter><jobfunction><![CDATA[  ]]></jobfunction><jobindustries><![CDATA[  ]]></jobindustries><senioritylevel><![CDATA[  ]]></senioritylevel></job></source>
+<em>We are an Equal Opportunity Employer and do not discriminate on the basis of race, color, religion, sex, national origin, age, disability, veteran status, genetic information, sexual orientation, gender identity, or any other legally protected status. All qualified applicants will receive consideration for employment without regard to any of these characteristics.</em></span></span><br> ]]></description><jobtype><![CDATA[ Contract ]]></jobtype><city><![CDATA[ Rio Rancho ]]></city><state><![CDATA[ NM ]]></state><country><![CDATA[ United States ]]></country><category><![CDATA[  ]]></category><apply_email><![CDATA[ apply@myticas.com ]]></apply_email><remotetype><![CDATA[ On-site ]]></remotetype><assignedrecruiter><![CDATA[ #LI-MS2 ]]></assignedrecruiter><jobfunction><![CDATA[  ]]></jobfunction><jobindustries><![CDATA[  ]]></jobindustries><senioritylevel><![CDATA[  ]]></senioritylevel></job><job><title><![CDATA[ 100% Remote - Senior Endpoint Security Engineer (34819) ]]></title><company><![CDATA[ Myticas Consulting ]]></company><date><![CDATA[ January 22, 2026 ]]></date><referencenumber><![CDATA[ V3ORIPEHQX ]]></referencenumber><bhatsid><![CDATA[ 34819 ]]></bhatsid><url><![CDATA[ https://apply.myticas.com/34819/100%25%20Remote%20-%20Senior%20Endpoint%20Security%20Engineer/?source=LinkedIn ]]></url><description><![CDATA[ Myticas direct client is seeking Senior Endpoint Security Engineer for 12 Months Contract, 100% Remote.opportunity.<br>
+<br>
+<strong>Location: 100% REMOTE</strong> <br>
+<strong>Duration:</strong> <strong>12 Months+ Contract</strong> (Further possible extension)<br>
+<br>
+<strong>*W2 Contract Only</strong><br>
+<br>
+<strong><u>TOP Skills/Experience:</u></strong><br>
+The ideal candidate will bring endpoint engineering expertise, strong cyber security skills, and modern, secure coding practices with 3–5 years of experience in complex large enterprise environments.
+<ol>
+	<li>Hands-on expertise with SCCM, Jamf Pro, and/or Microsoft Intune for Windows and macOS endpoints.
+	</li><li>Experience packaging and deploying applications, security updates, and scripts across enterprise platforms.
+	</li><li>Familiarity with Group Policy and Intune for configuration management.
+	</li><li>Proficiency in automation scripting (PowerShell, Bash, Python) with emphasis on modular, reusable, and secure code.
+	</li><li>Experience with version control systems (Git) and collaborative development workflows (branching, pull requests, peer review).
+	</li><li>Knowledge of CVE program, NIST Vulnerability Database, CISA Known Exploited Vulnerability Database, and overall vulnerability management processes.
+	</li><li>Experience implementing NIST 800-53 Rev 5, CIS Benchmarks, DISA STIGs, Microsoft Security Baselines, and macOS Security Compliance Project.
+</li></ol>
+ 
+
+<p><strong><u>Job Description</u>:</strong><br>
+Our direct client is Endpoint Security Engineer who will be embedded within the endpoint engineering team (3 Windows engineers, 2 macOS engineers) to enhance security operations and strengthen the security posture of client workstations. You will work closely with endpoint engineering and cybersecurity teams to identify vulnerabilities, automate remediation, and strengthen endpoint security baselines in a large enterprise environment.<br>
+Will assist in improving our endpoint cyber hygiene and vulnerability management program in collaboration with the CSPO.</p>
+<br>
+Typical responsibilities include:
+<ul>
+	<li>Vulnerability Management &amp; Analysis:
+	<ul>
+		<li>Identify, analyze, and prioritize endpoint vulnerabilities using tools such as Tenable, Axonius, Jamf Pro, SCCM, Intune, Active Directory, and Entra.
+		</li><li>Assess environmental and operational factors that may impact remediation feasibility and timelines.
+		</li><li>Provide risk-based recommendations to improve the vulnerability management program.
+	</li></ul>
+	
+	</li><li>Endpoint Remediation, Automation &amp; Documentation:
+	<ul>
+		<li>Develop, test, and deploy remediation scripts and configurations for Windows and macOS endpoints using tools such as Jamf, ConfigMgr/SCCM, Intune, and Group Policy.
+		</li><li>Write clear, maintainable scripts and automation (e.g., modular logic, meaningful naming, basic error handling and logging) that can be reused by the team.
+		</li><li>Document scripts and configurations with purpose, parameters, usage instructions, and any security considerations to support troubleshooting and cross-team adoption.
+		</li><li>Maintain an organized library of remediation artifacts; if applicable, help establish and use a version-controlled repository (e.g., Git) to track changes and support basic peer review.
+	</li></ul>
+	
+	</li><li>Baseline Configuration &amp; Compliance:
+	<ul>
+		<li>Contribute to secure baseline configurations aligned with Argonne CSPP, NIST 800-53 Rev 5, CIS Benchmarks, Microsoft Security Baselines, DISA STIGs, and/or macOS Security Compliance Project.
+		</li><li>Assist in development, testing, implementation, documentation of baseline configurations.
+		</li><li>Monitor baseline implementation for coverage, effectiveness, unapproved deviations, and required changes.
+	</li></ul>
+	
+	</li><li>Collaboration &amp; Reporting:
+	<ul>
+		<li>Participate in regular team meetings to provide status updates, propose improvements, and discuss implementation strategies.
+		</li><li>Monitor endpoint compliance and provide reports on remediation effectiveness and baseline configurations to leadership and stakeholders.
+	</li></ul>
+	
+</li></ul>
+<br>
+<strong>Required Knowledge, Skills, and Abilities:</strong>
+
+<ul>
+	<li>The ideal candidate will bring endpoint engineering expertise, strong cyber security skills, and modern, secure coding practices with 3–5 years of experience in complex large enterprise environments.
+	</li><li><strong>Endpoint Management:</strong>
+	<ul>
+		<li>Hands-on expertise with SCCM, Jamf Pro, and/or Microsoft Intune for Windows and macOS endpoints.
+		</li><li>Experience packaging and deploying applications, security updates, and scripts across enterprise platforms.
+		</li><li>Familiarity with Group Policy and Intune for configuration management.
+	</li></ul>
+	
+	</li><li><strong>Secure Coding &amp; SDLC Practices:</strong>
+	<ul>
+		<li>Proficiency in automation scripting (PowerShell, Bash, Python) with emphasis on modular, reusable, and secure code.
+		</li><li>Strong grasp of SDLC principles: requirements gathering, design, implementation, testing, deployment, and maintenance.
+		</li><li>Experience with version control systems (Git) and collaborative development workflows (branching, pull requests, peer review).
+		</li><li>Ability to document code and remediations clearly for cross-team adoption and knowledge transfer.
+	</li></ul>
+	
+	</li><li><strong>Security Frameworks &amp; Compliance:</strong>
+	<ul>
+		<li>Knowledge of CVE program, NIST Vulnerability Database, CISA Known Exploited Vulnerability Database, and overall vulnerability management processes.
+		</li><li>Experience implementing NIST 800-53 Rev 5, CIS Benchmarks, DISA STIGs, Microsoft Security Baselines, and macOS Security Compliance Project.
+		</li><li>Ability to translate technical fixes into measurable improvements in endpoint security posture.
+		</li><li>Experience using Tenable.SC or Tenable.VM as part of vulnerability management.
+	</li></ul>
+	
+	</li><li><strong>Soft Skills:</strong>
+	<ul>
+		<li>Strong problem-solving skills with a focus on reducing organizational risk.
+		</li><li>Effective communication skills to convey technical concepts to both technical and non-technical stakeholders.
+		</li><li>Collaborative mindset for working within a mixed Windows/macOS engineering team.
+	</li></ul>
+	
+</li></ul> ]]></description><jobtype><![CDATA[ Contract ]]></jobtype><city><![CDATA[ Lemont ]]></city><state><![CDATA[ Illinois ]]></state><country><![CDATA[ United States ]]></country><category><![CDATA[  ]]></category><apply_email><![CDATA[ apply@myticas.com ]]></apply_email><remotetype><![CDATA[ Remote ]]></remotetype><assignedrecruiter><![CDATA[ #LI-RS1 ]]></assignedrecruiter><jobfunction><![CDATA[  ]]></jobfunction><jobindustries><![CDATA[  ]]></jobindustries><senioritylevel><![CDATA[  ]]></senioritylevel></job></source>
