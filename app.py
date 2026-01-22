@@ -4824,6 +4824,55 @@ def api_email_logs():
         }
     })
 
+@app.route('/docs')
+@login_required
+def documentation_page():
+    """Display available documentation downloads"""
+    docs = [
+        {
+            'title': 'JobPulse Solution Design Document',
+            'description': 'Comprehensive technical documentation covering system architecture, capabilities, and implementation details.',
+            'filename': 'JobPulse_Solution_Design_Document.md',
+            'type': 'Technical Documentation',
+            'size': '28 KB'
+        },
+        {
+            'title': 'JobPulse Executive Summary',
+            'description': 'High-level overview for investors and stakeholders highlighting business value and key capabilities.',
+            'filename': 'JobPulse_Executive_Summary.md',
+            'type': 'Executive Summary',
+            'size': '6 KB'
+        }
+    ]
+    return render_template('documentation.html', docs=docs)
+
+@app.route('/docs/download/<filename>')
+@login_required
+def download_document(filename):
+    """Download documentation files"""
+    import os
+    allowed_files = [
+        'JobPulse_Solution_Design_Document.md',
+        'JobPulse_Executive_Summary.md'
+    ]
+    
+    if filename not in allowed_files:
+        flash('Document not found', 'error')
+        return redirect(url_for('documentation_page'))
+    
+    docs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'docs')
+    file_path = os.path.join(docs_path, filename)
+    
+    if os.path.exists(file_path):
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename
+        )
+    else:
+        flash('Document file not found', 'error')
+        return redirect(url_for('documentation_page'))
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)
 
