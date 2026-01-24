@@ -157,7 +157,7 @@ For an agency managing 68 positions, this translates to:
 
 | Metric | Value |
 |--------|-------|
-| **Production URL** | jobpulse.lyntrix.ai |
+| **Production URL** | jobpulse.[entityname].ai |
 | **Application Portals** | apply.myticas.com, apply.stsigroup.com |
 | **Active Job Postings** | 68+ managed positions |
 | **Refresh Frequency** | Every 30 minutes |
@@ -208,13 +208,13 @@ The technology is **live, proven, and ready for scale**.
 **Contact Information**
 
 **Kyle Roots**  
-Director of Operations  
-Myticas Consulting  
-Email: kroots@myticas.com
+CTO
+Entity Name  
+Email: kroots@[entityname].com
 
 **Platform Access**  
-Main Application: jobpulse.lyntrix.ai  
-Application Portal: apply.myticas.com
+Main Application: jobpulse.[entityname].ai  
+Application Portal: apply.[companyname].com
 
 ---
 

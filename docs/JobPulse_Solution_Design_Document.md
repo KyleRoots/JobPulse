@@ -29,13 +29,13 @@
 
 ### 1.1 The Hidden Problem
 
-Staffing agencies spend thousands on job board subscriptions, but their listings become invisible within weeks. **Job boards algorithmically demote "stale" postings**, pushing them below newer listings in search results. A job posted 30 days ago might as well not exist—candidates never see it.
+Staffing agencies spend thousands on job board subscriptions, but their listings become invisible within weeks. **Job boards algorithmically demote "stale" postings**, pushing them below newer listings in search results. A job posted 30 days ago might as well not exist - candidates never see it.
 
 ### 1.2 The JobPulse™ Solution
 
 **JobPulse™** is an intelligent job visibility platform that keeps job listings appearing **fresh and new indefinitely**. Through automated refresh cycles, smart metadata optimization, and continuous synchronization, JobPulse ensures maximum job visibility regardless of actual posting date.
 
-This isn't just automation—it's a **visibility multiplier** that compounds value every day a job remains open.
+This isn't just automation - it's a **visibility multiplier** that compounds value every day a job remains open.
 
 ### 1.3 Key Value Propositions
 
@@ -49,7 +49,7 @@ This isn't just automation—it's a **visibility multiplier** that compounds val
 
 ### 1.4 Deployment Status
 
-- **Production URL:** jobpulse.lyntrix.ai
+- **Production URL:** jobpulse.[entityname].ai
 - **Application Portals:** apply.myticas.com, apply.stsigroup.com
 - **Current Uptime:** 99.95% (30-day average)
 - **Active Job Postings:** 68+ managed positions
