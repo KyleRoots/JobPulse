@@ -80,3 +80,39 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **What Happened**: Invalid `assignments` API field caused Bullhorn to return 0 jobs. Monitoring service interpreted this as "all jobs deleted" and removed all 68 jobs from XML, triggering 68 false "new job" emails when API recovered.
 - **Root Cause**: Missing safeguard to detect empty API responses as errors vs. legitimate data.
 - **Fix Implemented**: Zero-job detection safeguard now blocks updates when API returns 0 jobs but XML contains ≥5 jobs. System creates backup and sends single alert instead of processing the corrupt data.
+
+## Bullhorn One Migration (January 26, 2026)
+
+### Overview
+The system supports both legacy Bullhorn and Bullhorn One (new) API endpoints via an environment variable toggle. This allows seamless switching between environments without code changes.
+
+### Environment Variable Toggle
+- **Variable**: `BULLHORN_USE_NEW_API`
+- **Default**: `false` (uses legacy Bullhorn endpoints)
+- **To enable Bullhorn One**: Set `BULLHORN_USE_NEW_API=true`
+
+### Bullhorn One Endpoints (New - January 2026)
+When `BULLHORN_USE_NEW_API=true`:
+- **Auth URL**: `https://auth-east.bullhornstaffing.com/oauth/authorize`
+- **Token URL**: `https://auth-east.bullhornstaffing.com/oauth/token`
+- **REST Login URL**: `https://rest-east.bullhornstaffing.com/rest-services/login`
+- **REST URL**: `https://rest45.bullhornstaffing.com/rest-services/dcc900/`
+
+### Legacy Endpoints (Current)
+When `BULLHORN_USE_NEW_API=false` or not set:
+- Uses `https://rest.bullhornstaffing.com/rest-services/loginInfo` to dynamically discover OAuth and REST URLs
+
+### Migration Steps
+1. **Before January 26**: Keep `BULLHORN_USE_NEW_API=false` or unset (uses legacy)
+2. **On January 26**: 
+   - Add new Bullhorn One credentials to Secrets panel (if different from legacy)
+   - Set `BULLHORN_USE_NEW_API=true` in environment variables
+3. **Test Connection**: Use `/api/bullhorn/connection-test` endpoint or the Bullhorn Settings page
+4. **Monitor**: Check application logs for successful authentication with new endpoints
+
+### API Endpoints for Testing
+- `GET /api/bullhorn/api-status` - View current API mode and endpoints (no connection test)
+- `POST /api/bullhorn/connection-test` - Test Bullhorn connection with current configuration
+
+### Rollback
+If issues arise, set `BULLHORN_USE_NEW_API=false` to revert to legacy endpoints immediately.

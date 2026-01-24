@@ -3648,6 +3648,111 @@ def bullhorn_settings():
 
 
 
+@app.route('/api/bullhorn/connection-test', methods=['POST'])
+@login_required
+def api_bullhorn_connection_test():
+    """API endpoint to test Bullhorn connection and show current API mode
+    
+    Returns JSON with:
+    - connection_status: 'success' or 'failed'
+    - api_mode: 'bullhorn_one' or 'legacy'
+    - endpoints: Currently configured endpoints
+    - message: Human-readable status message
+    """
+    try:
+        bullhorn_service = get_bullhorn_service()
+        
+        if not bullhorn_service:
+            return jsonify({
+                'connection_status': 'failed',
+                'api_mode': 'unknown',
+                'message': 'Bullhorn credentials not configured',
+                'endpoints': {}
+            }), 400
+        
+        # Determine which API mode is active
+        use_new_api = os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true'
+        api_mode = 'bullhorn_one' if use_new_api else 'legacy'
+        
+        # Get the endpoints being used
+        if use_new_api:
+            endpoints = {
+                'auth_url': BullhornService.BULLHORN_ONE_AUTH_URL,
+                'token_url': BullhornService.BULLHORN_ONE_TOKEN_URL,
+                'rest_login_url': BullhornService.BULLHORN_ONE_REST_LOGIN_URL,
+                'rest_url': BullhornService.BULLHORN_ONE_REST_URL
+            }
+        else:
+            endpoints = {
+                'login_info_url': BullhornService.LEGACY_LOGIN_INFO_URL,
+                'note': 'OAuth and REST URLs discovered dynamically from loginInfo endpoint'
+            }
+        
+        # Test the connection
+        connection_result = bullhorn_service.test_connection()
+        
+        if connection_result:
+            return jsonify({
+                'connection_status': 'success',
+                'api_mode': api_mode,
+                'message': f'Successfully connected to Bullhorn using {api_mode.replace("_", " ").title()} API',
+                'endpoints': endpoints,
+                'base_url': bullhorn_service.base_url if bullhorn_service.base_url else 'Not set yet'
+            })
+        else:
+            return jsonify({
+                'connection_status': 'failed',
+                'api_mode': api_mode,
+                'message': f'Failed to connect to Bullhorn using {api_mode.replace("_", " ").title()} API. Check credentials and endpoint configuration.',
+                'endpoints': endpoints
+            }), 400
+            
+    except Exception as e:
+        app.logger.error(f"Bullhorn connection test failed: {str(e)}")
+        return jsonify({
+            'connection_status': 'error',
+            'api_mode': os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true' and 'bullhorn_one' or 'legacy',
+            'message': f'Connection test error: {str(e)}',
+            'endpoints': {}
+        }), 500
+
+
+@app.route('/api/bullhorn/api-status', methods=['GET'])
+@login_required
+def api_bullhorn_api_status():
+    """Get current Bullhorn API configuration status (no connection test)
+    
+    Returns the current API mode and configured endpoints without actually testing the connection.
+    """
+    use_new_api = os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true'
+    api_mode = 'bullhorn_one' if use_new_api else 'legacy'
+    
+    if use_new_api:
+        endpoints = {
+            'auth_url': BullhornService.BULLHORN_ONE_AUTH_URL,
+            'token_url': BullhornService.BULLHORN_ONE_TOKEN_URL,
+            'rest_login_url': BullhornService.BULLHORN_ONE_REST_LOGIN_URL,
+            'rest_url': BullhornService.BULLHORN_ONE_REST_URL
+        }
+    else:
+        endpoints = {
+            'login_info_url': BullhornService.LEGACY_LOGIN_INFO_URL,
+            'note': 'OAuth and REST URLs discovered dynamically from loginInfo endpoint'
+        }
+    
+    return jsonify({
+        'api_mode': api_mode,
+        'api_mode_display': 'Bullhorn One' if use_new_api else 'Legacy Bullhorn',
+        'endpoints': endpoints,
+        'toggle_env_var': 'BULLHORN_USE_NEW_API',
+        'toggle_current_value': os.environ.get('BULLHORN_USE_NEW_API', 'false'),
+        'migration_instructions': {
+            'to_enable_bullhorn_one': 'Set BULLHORN_USE_NEW_API=true in environment variables',
+            'to_revert_to_legacy': 'Set BULLHORN_USE_NEW_API=false or remove the variable'
+        }
+    })
+
+
 @app.route('/bullhorn/oauth/start')
 @login_required
 def bullhorn_oauth_start():

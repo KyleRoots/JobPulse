@@ -37,7 +37,11 @@ class BullhornService:
         # Check if we should use Bullhorn One (new) API
         self.use_bullhorn_one = os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true'
         if self.use_bullhorn_one:
-            logging.info("🔄 Bullhorn One API mode ENABLED - using new endpoints")
+            logging.info("🔄 Bullhorn One API mode ENABLED - using new fixed endpoints")
+            logging.info(f"   Auth URL: {self.BULLHORN_ONE_AUTH_URL}")
+            logging.info(f"   Token URL: {self.BULLHORN_ONE_TOKEN_URL}")
+            logging.info(f"   REST Login URL: {self.BULLHORN_ONE_REST_LOGIN_URL}")
+            logging.info(f"   REST URL: {self.BULLHORN_ONE_REST_URL}")
         
         # Job exclusion configuration - specific job IDs to filter out
         self.excluded_job_ids = {31939, 34287}  # Set for O(1) lookup
@@ -137,7 +141,13 @@ class BullhornService:
                 return False
         
         if not all([self.client_id, self.client_secret, self.username, self.password]):
-            logging.error("Missing Bullhorn credentials")
+            missing = []
+            if not self.client_id: missing.append('client_id')
+            if not self.client_secret: missing.append('client_secret')
+            if not self.username: missing.append('username')
+            if not self.password: missing.append('password')
+            api_mode = 'Bullhorn One' if self.use_bullhorn_one else 'Legacy Bullhorn'
+            logging.error(f"Missing {api_mode} credentials: {', '.join(missing)}")
             return False
             
         try:
