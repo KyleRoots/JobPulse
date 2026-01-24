@@ -9,6 +9,15 @@ from urllib.parse import urlencode
 class BullhornService:
     """Service for interacting with Bullhorn ATS/CRM API"""
     
+    # Bullhorn One (new) API endpoints - used when BULLHORN_USE_NEW_API=true
+    BULLHORN_ONE_AUTH_URL = "https://auth-east.bullhornstaffing.com/oauth/authorize"
+    BULLHORN_ONE_TOKEN_URL = "https://auth-east.bullhornstaffing.com/oauth/token"
+    BULLHORN_ONE_REST_LOGIN_URL = "https://rest-east.bullhornstaffing.com/rest-services/login"
+    BULLHORN_ONE_REST_URL = "https://rest45.bullhornstaffing.com/rest-services/dcc900/"
+    
+    # Legacy Bullhorn API endpoint (for loginInfo discovery)
+    LEGACY_LOGIN_INFO_URL = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
+    
     def __init__(self, client_id=None, client_secret=None, username=None, password=None):
         self.base_url = None
         self.rest_token = None
@@ -24,6 +33,11 @@ class BullhornService:
         })
         self._auth_in_progress = False
         self._last_auth_attempt = None
+        
+        # Check if we should use Bullhorn One (new) API
+        self.use_bullhorn_one = os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true'
+        if self.use_bullhorn_one:
+            logging.info("🔄 Bullhorn One API mode ENABLED - using new endpoints")
         
         # Job exclusion configuration - specific job IDs to filter out
         self.excluded_job_ids = {31939, 34287}  # Set for O(1) lookup
@@ -142,38 +156,56 @@ class BullhornService:
         """
         Complete Bullhorn OAuth 2.0 authentication flow
         
+        Supports both legacy Bullhorn and Bullhorn One APIs:
+        - Legacy: Uses loginInfo endpoint to discover OAuth/REST URLs dynamically
+        - Bullhorn One: Uses fixed endpoints provided by Bullhorn support
+        
         Returns:
             bool: True if login successful, False otherwise
         """
         # Initialize variables for error logging (before try block)
         oauth_url = ""
         auth_endpoint = ""
+        token_endpoint = ""
+        rest_login_url = ""
+        rest_url = ""
         redirect_uri = ""
         
         try:
-            # Step 1: Get login info to determine correct data center
-            login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
-            login_info_params = {'username': self.username}
-            
-            response = self.session.get(login_info_url, params=login_info_params, timeout=30)
-            logging.info(f"Login info request to {login_info_url} with username: {self.username}")
-            if response.status_code != 200:
-                logging.error(f"Failed to get login info: {response.status_code} - {response.text}")
-                return False
-            
-            login_data = self._safe_json_parse(response)
-            logging.info(f"Login info response: {login_data}")
-            
-            # Extract the authorization URL and REST URL
-            if 'oauthUrl' not in login_data or 'restUrl' not in login_data:
-                logging.error("Missing oauthUrl or restUrl in login info response")
-                return False
-            
-            oauth_url = login_data['oauthUrl']
-            rest_url = login_data['restUrl']
+            if self.use_bullhorn_one:
+                # Bullhorn One: Use fixed endpoints (no loginInfo discovery needed)
+                logging.info("🔄 Using Bullhorn One fixed endpoints for authentication")
+                auth_endpoint = self.BULLHORN_ONE_AUTH_URL
+                token_endpoint = self.BULLHORN_ONE_TOKEN_URL
+                rest_login_url = self.BULLHORN_ONE_REST_LOGIN_URL
+                rest_url = self.BULLHORN_ONE_REST_URL
+                oauth_url = "https://auth-east.bullhornstaffing.com/oauth"  # Base for logging
+            else:
+                # Legacy: Get login info to determine correct data center
+                login_info_url = self.LEGACY_LOGIN_INFO_URL
+                login_info_params = {'username': self.username}
+                
+                response = self.session.get(login_info_url, params=login_info_params, timeout=30)
+                logging.info(f"Login info request to {login_info_url} with username: {self.username}")
+                if response.status_code != 200:
+                    logging.error(f"Failed to get login info: {response.status_code} - {response.text}")
+                    return False
+                
+                login_data = self._safe_json_parse(response)
+                logging.info(f"Login info response: {login_data}")
+                
+                # Extract the authorization URL and REST URL
+                if 'oauthUrl' not in login_data or 'restUrl' not in login_data:
+                    logging.error("Missing oauthUrl or restUrl in login info response")
+                    return False
+                
+                oauth_url = login_data['oauthUrl']
+                rest_url = login_data['restUrl']
+                auth_endpoint = f"{oauth_url}/authorize"
+                token_endpoint = f"{oauth_url}/token"
+                rest_login_url = f"{rest_url}/login"
             
             # Step 2: Get authorization code
-            auth_endpoint = f"{oauth_url}/authorize"
             
             # Get the current domain for redirect URI - this must match what's whitelisted with Bullhorn
             # Note: Bullhorn Support must whitelist the exact redirect URI for your domain
@@ -245,7 +277,7 @@ class BullhornService:
             
             # Step 3: Exchange authorization code for access token
             # Include redirect_uri to match authorization request (required for this setup)
-            token_endpoint = f"{oauth_url}/token"
+            # token_endpoint was set above based on Bullhorn One vs Legacy mode
             token_data = {
                 'grant_type': 'authorization_code',
                 'code': auth_code,
@@ -260,6 +292,7 @@ class BullhornService:
                 'Accept': 'application/json'
             }
             
+            logging.info(f"Exchanging auth code at token endpoint: {token_endpoint}")
             token_response = self.session.post(token_endpoint, data=token_data, headers=headers, timeout=30)
             if token_response.status_code != 200:
                 logging.error(f"Failed to get access token: {token_response.status_code} - {token_response.text}")
@@ -273,20 +306,21 @@ class BullhornService:
                 return False
             
             # Step 4: Get REST token for API access
-            rest_login_endpoint = f"{rest_url}/login"
+            # rest_login_url was set above based on Bullhorn One vs Legacy mode
             rest_params = {
                 'version': '2.0',
                 'access_token': access_token
             }
             
-            rest_response = self.session.post(rest_login_endpoint, params=rest_params, timeout=30)
+            logging.info(f"Getting REST token from: {rest_login_url}")
+            rest_response = self.session.post(rest_login_url, params=rest_params, timeout=30)
             if rest_response.status_code != 200:
                 logging.error(f"Failed to get REST token: {rest_response.status_code} - {rest_response.text}")
                 return False
             
             rest_data = self._safe_json_parse(rest_response)
             self.rest_token = rest_data.get('BhRestToken')
-            # Extract the actual REST URL from the response
+            # Extract the actual REST URL from the response, or use the fixed URL for Bullhorn One
             self.base_url = rest_data.get('restUrl', rest_url)
             
             if not self.rest_token:
