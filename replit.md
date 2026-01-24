@@ -102,12 +102,18 @@ When `BULLHORN_USE_NEW_API=true`:
 When `BULLHORN_USE_NEW_API=false` or not set:
 - Uses `https://rest.bullhornstaffing.com/rest-services/loginInfo` to dynamically discover OAuth and REST URLs
 
+### Bullhorn One Credentials (January 2026)
+- **Username**: `myticasbh1.api`
+- **Client ID**: `676f3cfc-c611-4d23-a8bc-9b595a01d4ab`
+- **Password & Client Secret**: Stored securely in Bullhorn Settings page
+
 ### Migration Steps
 1. **Before January 26**: Keep `BULLHORN_USE_NEW_API=false` or unset (uses legacy)
 2. **On January 26**: 
-   - Add new Bullhorn One credentials to Secrets panel (if different from legacy)
+   - Go to **Bullhorn Settings** page in the app
+   - Update credentials with Bullhorn One username, password, client ID, and client secret
    - Set `BULLHORN_USE_NEW_API=true` in environment variables
-3. **Test Connection**: Use `/api/bullhorn/connection-test` endpoint or the Bullhorn Settings page
+3. **Test Connection**: Use "Test Connection" button on Bullhorn Settings page or `/api/bullhorn/connection-test` endpoint
 4. **Monitor**: Check application logs for successful authentication with new endpoints
 
 ### API Endpoints for Testing
