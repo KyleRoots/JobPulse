@@ -120,5 +120,18 @@ When `BULLHORN_USE_NEW_API=false` or not set:
 - `GET /api/bullhorn/api-status` - View current API mode and endpoints (no connection test)
 - `POST /api/bullhorn/connection-test` - Test Bullhorn connection with current configuration
 
+### Bullhorn One Tearsheet IDs (January 2026)
+The following tearsheet IDs are configured in the new Bullhorn One environment:
+| Tearsheet Name | ID |
+|----------------|------|
+| Sponsored - STSI | 1531 |
+| Sponsored - GR | 1474 |
+| Sponsored - VMS | 1239 |
+| Sponsored - CLE | 1233 |
+| Sponsored - CHI | 1232 |
+| Sponsored - OTT | 1231 |
+
+**Note**: These IDs may differ from the legacy environment. After migration, verify tearsheet monitors are pointing to the correct IDs in the Tearsheet Monitors page.
+
 ### Rollback
 If issues arise, set `BULLHORN_USE_NEW_API=false` to revert to legacy endpoints immediately.
