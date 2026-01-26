@@ -643,6 +643,28 @@ Consider: name spelling variations, nicknames, contact info matches.
             parsed_email.bullhorn_candidate_id = candidate_id
             result['candidate_id'] = candidate_id
             
+            # Only create work history and education for NEW candidates
+            # to avoid duplicate records when updating existing candidates
+            is_new_candidate = not result.get('is_duplicate')
+            
+            if is_new_candidate and candidate_id and resume_data.get('work_history'):
+                work_history = resume_data.get('work_history', [])
+                if work_history:
+                    self.logger.info(f"Creating {len(work_history)} work history records for NEW candidate {candidate_id}")
+                    work_ids = bullhorn.create_candidate_work_history(candidate_id, work_history)
+                    self.logger.info(f"Created work history records: {work_ids}")
+            elif not is_new_candidate:
+                self.logger.info(f"Skipping work history creation for existing candidate {candidate_id} to avoid duplicates")
+            
+            if is_new_candidate and candidate_id and resume_data.get('education'):
+                education = resume_data.get('education', [])
+                if education:
+                    self.logger.info(f"Creating {len(education)} education records for NEW candidate {candidate_id}")
+                    edu_ids = bullhorn.create_candidate_education(candidate_id, education)
+                    self.logger.info(f"Created education records: {edu_ids}")
+            elif not is_new_candidate:
+                self.logger.info(f"Skipping education creation for existing candidate {candidate_id} to avoid duplicates")
+            
             # Upload resume if available
             if resume_file and candidate_id:
                 self.logger.info(f"Uploading resume '{resume_file['filename']}' to candidate {candidate_id}")

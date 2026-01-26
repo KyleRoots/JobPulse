@@ -1108,7 +1108,7 @@ class BullhornService:
     def upload_candidate_file(self, candidate_id: int, file_content: bytes, 
                                filename: str, file_type: str = "Resume") -> Optional[int]:
         """
-        Upload a file (resume) to a candidate record
+        Upload a file (resume) to a candidate record using Bullhorn Files API
         
         Args:
             candidate_id: Bullhorn candidate ID
@@ -1120,18 +1120,19 @@ class BullhornService:
             File ID on success or None on failure
         """
         if not self.base_url or not self.rest_token:
+            logging.info(f"Authenticating before file upload for candidate {candidate_id}")
             if not self.authenticate():
+                logging.error("Failed to authenticate for file upload")
                 return None
         
         try:
+            # Bullhorn file upload endpoint - PUT /file/Candidate/{candidateId}
             url = f"{self.base_url}file/Candidate/{candidate_id}"
-            params = {
-                'BhRestToken': self.rest_token,
-                'externalID': 'Resume',
-                'fileType': file_type
-            }
             
-            # Determine content type
+            logging.info(f"Uploading file to URL: {url}")
+            logging.info(f"File: {filename}, Size: {len(file_content)} bytes")
+            
+            # Determine content type based on file extension
             content_type = 'application/octet-stream'
             if filename.lower().endswith('.pdf'):
                 content_type = 'application/pdf'
@@ -1139,27 +1140,82 @@ class BullhornService:
                 content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             elif filename.lower().endswith('.doc'):
                 content_type = 'application/msword'
+            elif filename.lower().endswith('.txt'):
+                content_type = 'text/plain'
+            elif filename.lower().endswith('.rtf'):
+                content_type = 'application/rtf'
             
+            # Bullhorn file upload requires multipart form-data with specific structure
             files = {
                 'file': (filename, file_content, content_type)
             }
             
-            # Remove content-type header for multipart upload
-            headers = {'Accept': 'application/json'}
+            # Query parameters for file metadata
+            params = {
+                'BhRestToken': self.rest_token,
+                'externalID': 'Resume',
+                'fileType': file_type,
+                'name': filename
+            }
             
-            response = requests.put(url, params=params, files=files, headers=headers, timeout=60)
+            # Use self.session but temporarily remove Content-Type header
+            # so requests can set multipart/form-data with proper boundary
+            original_content_type = self.session.headers.pop('Content-Type', None)
+            
+            try:
+                # Make PUT request - requests library handles multipart encoding automatically
+                response = self.session.put(
+                    url, 
+                    params=params, 
+                    files=files, 
+                    timeout=120  # Longer timeout for file uploads
+                )
+            finally:
+                # Restore Content-Type header
+                if original_content_type:
+                    self.session.headers['Content-Type'] = original_content_type
+            
+            logging.info(f"File upload response status: {response.status_code}")
+            logging.info(f"File upload response: {response.text[:500] if response.text else 'No response body'}")
             
             if response.status_code in [200, 201]:
                 data = response.json()
                 file_id = data.get('fileId')
-                logging.info(f"Uploaded file {filename} to candidate {candidate_id}, file ID: {file_id}")
-                return file_id
+                if file_id:
+                    logging.info(f"✅ Successfully uploaded file '{filename}' to candidate {candidate_id}, file ID: {file_id}")
+                    return file_id
+                else:
+                    logging.warning(f"Upload returned success but no fileId in response: {data}")
+                    # Some Bullhorn versions return changedEntityId instead
+                    return data.get('changedEntityId')
             else:
-                logging.error(f"Failed to upload candidate file: {response.status_code} - {response.text}")
+                logging.error(f"❌ Failed to upload file to candidate {candidate_id}: {response.status_code}")
+                logging.error(f"Response: {response.text}")
+                
+                # If authentication expired, try once more
+                if response.status_code == 401:
+                    logging.info("Token expired, re-authenticating and retrying file upload...")
+                    if self.authenticate():
+                        params['BhRestToken'] = self.rest_token
+                        # Recreate files dict since the file content may have been consumed
+                        retry_files = {'file': (filename, file_content, content_type)}
+                        original_ct = self.session.headers.pop('Content-Type', None)
+                        try:
+                            retry_response = self.session.put(url, params=params, files=retry_files, timeout=120)
+                        finally:
+                            if original_ct:
+                                self.session.headers['Content-Type'] = original_ct
+                        
+                        if retry_response.status_code in [200, 201]:
+                            data = retry_response.json()
+                            file_id = data.get('fileId') or data.get('changedEntityId')
+                            logging.info(f"✅ Retry successful, file ID: {file_id}")
+                            return file_id
+                
                 return None
                 
         except Exception as e:
-            logging.error(f"Error uploading candidate file: {str(e)}")
+            logging.error(f"❌ Error uploading candidate file: {str(e)}", exc_info=True)
             return None
     
     def get_job_order(self, job_id: int) -> Optional[Dict]:
@@ -1286,3 +1342,124 @@ class BullhornService:
         except Exception as e:
             logging.error(f"Error getting candidate: {str(e)}")
             return None
+    
+    def create_candidate_work_history(self, candidate_id: int, work_history: List[Dict]) -> List[int]:
+        """
+        Create work history records for a candidate
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            work_history: List of work history records from resume parsing
+                Each record: {title, company, start_year, end_year, current}
+                
+        Returns:
+            List of created work history IDs
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+        
+        created_ids = []
+        
+        for work in work_history:
+            try:
+                url = f"{self.base_url}entity/CandidateWorkHistory"
+                params = {'BhRestToken': self.rest_token}
+                
+                # Build work history data
+                work_data = {
+                    'candidate': {'id': int(candidate_id)},
+                    'title': work.get('title', ''),
+                    'companyName': work.get('company', ''),
+                    'isLastJob': work.get('current', False)
+                }
+                
+                # Add start date if available
+                if work.get('start_year'):
+                    try:
+                        # Bullhorn expects epoch milliseconds
+                        from datetime import datetime
+                        start_date = datetime(int(work['start_year']), 1, 1)
+                        work_data['startDate'] = int(start_date.timestamp() * 1000)
+                    except:
+                        pass
+                
+                # Add end date if available (and not current job)
+                if work.get('end_year') and not work.get('current'):
+                    try:
+                        end_date = datetime(int(work['end_year']), 12, 31)
+                        work_data['endDate'] = int(end_date.timestamp() * 1000)
+                    except:
+                        pass
+                
+                response = self.session.put(url, params=params, json=work_data, timeout=30)
+                
+                if response.status_code in [200, 201]:
+                    data = self._safe_json_parse(response)
+                    work_id = data.get('changedEntityId')
+                    if work_id:
+                        created_ids.append(work_id)
+                        logging.info(f"Created work history {work_id}: {work.get('title')} at {work.get('company')}")
+                else:
+                    logging.warning(f"Failed to create work history: {response.status_code} - {response.text}")
+                    
+            except Exception as e:
+                logging.error(f"Error creating work history record: {str(e)}")
+        
+        return created_ids
+    
+    def create_candidate_education(self, candidate_id: int, education: List[Dict]) -> List[int]:
+        """
+        Create education records for a candidate
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            education: List of education records from resume parsing
+                Each record: {degree, field, institution, year}
+                
+        Returns:
+            List of created education IDs
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+        
+        created_ids = []
+        
+        for edu in education:
+            try:
+                url = f"{self.base_url}entity/CandidateEducation"
+                params = {'BhRestToken': self.rest_token}
+                
+                # Build education data
+                edu_data = {
+                    'candidate': {'id': int(candidate_id)},
+                    'degree': edu.get('degree', ''),
+                    'major': edu.get('field', ''),
+                    'school': edu.get('institution', '')
+                }
+                
+                # Add graduation date if available
+                if edu.get('year'):
+                    try:
+                        from datetime import datetime
+                        grad_date = datetime(int(edu['year']), 6, 1)  # Assume June graduation
+                        edu_data['graduationDate'] = int(grad_date.timestamp() * 1000)
+                    except:
+                        pass
+                
+                response = self.session.put(url, params=params, json=edu_data, timeout=30)
+                
+                if response.status_code in [200, 201]:
+                    data = self._safe_json_parse(response)
+                    edu_id = data.get('changedEntityId')
+                    if edu_id:
+                        created_ids.append(edu_id)
+                        logging.info(f"Created education {edu_id}: {edu.get('degree')} from {edu.get('institution')}")
+                else:
+                    logging.warning(f"Failed to create education: {response.status_code} - {response.text}")
+                    
+            except Exception as e:
+                logging.error(f"Error creating education record: {str(e)}")
+        
+        return created_ids
