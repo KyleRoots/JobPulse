@@ -516,7 +516,17 @@ Consider: name spelling variations, nicknames, contact info matches.
             # Join skills for text field
             candidate['skillSet'] = ', '.join(resume_data['skills'][:20])  # Limit to 20 skills
         
-        if resume_data.get('summary'):
+        # Resume pane - use full resume text if available, otherwise use AI summary
+        # The 'description' field maps to the "Resume" pane in Bullhorn UI
+        if resume_data.get('raw_text'):
+            # Use full resume text for the Resume pane (truncate if too long)
+            raw_text = resume_data['raw_text']
+            # Bullhorn description field has a limit, truncate if needed
+            max_length = 50000  # Bullhorn typically allows up to 50K characters
+            if len(raw_text) > max_length:
+                raw_text = raw_text[:max_length] + '\n\n[Resume truncated due to length...]'
+            candidate['description'] = raw_text
+        elif resume_data.get('summary'):
             candidate['description'] = resume_data['summary']
         
         # LinkedIn URL if available
@@ -590,6 +600,7 @@ Consider: name spelling variations, nicknames, contact info matches.
             
             # Process resume attachment if present
             resume_data = {}
+            resume_text = ''  # Store raw resume text for description field
             attachments = self._extract_attachments(sendgrid_payload)
             resume_file = None
             
@@ -602,6 +613,8 @@ Consider: name spelling variations, nicknames, contact info matches.
                     resume_text = self._extract_resume_text(attachment)
                     if resume_text:
                         resume_data = self.parse_resume_with_ai(resume_text)
+                        # Store raw text for the Resume pane (description field)
+                        resume_data['raw_text'] = resume_text
                     break
             
             db.session.commit()
