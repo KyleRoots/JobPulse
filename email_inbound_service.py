@@ -516,6 +516,16 @@ Consider: name spelling variations, nicknames, contact info matches.
             # Join skills for text field
             candidate['skillSet'] = ', '.join(resume_data['skills'][:20])  # Limit to 20 skills
         
+        # Years of experience - maps to employmentPreference or customInt field
+        if resume_data.get('years_experience'):
+            try:
+                years = int(resume_data['years_experience'])
+                candidate['employmentPreference'] = f"{years}+ years experience"
+                # Also set numCategories as a numeric experience indicator if available
+                candidate['customInt1'] = years  # Common field for years experience
+            except (ValueError, TypeError):
+                pass
+        
         # Resume pane - use full resume text if available, otherwise use AI summary
         # The 'description' field maps to the "Resume" pane in Bullhorn UI
         if resume_data.get('raw_text'):
