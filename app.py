@@ -3797,7 +3797,6 @@ def bullhorn_oauth_start():
         session['oauth_timestamp'] = int(time.time())  # Add timestamp for expiry
         
         # Step 3: Build authorization URL
-        import os
         base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://jobpulse.lyntrix.ai")
         redirect_uri = f"{base_url}/bullhorn/oauth/callback"
         
