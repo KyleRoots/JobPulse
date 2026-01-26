@@ -123,37 +123,47 @@ class EmailInboundService:
         self.logger.warning("Could not detect source, defaulting to 'Other'")
         return 'Other'
     
-    def extract_bullhorn_job_id(self, subject: str, body: str) -> Optional[int]:
+    def extract_bullhorn_job_id(self, subject: str, body: str, source: str = None) -> Optional[int]:
         """
         Extract Bullhorn Job ID from email subject or body
         
         Patterns:
         - Subject: "Job Title (34613) - Candidate Name"
         - Subject: "Job Title - Azure (34707) - Candidate Name"
+        - Dice subject: "Job ID - 33633 | UX Designer - Moises Frausto has applied"
         - Body: "Bullhorn ID: 34613"
         """
-        # Pattern 1: ID in parentheses in subject
+        self.logger.info(f"Extracting job ID from subject: {subject[:100]}...")
+        
+        # Pattern 1: Dice format "Job ID - XXXXX" in subject
+        dice_match = re.search(r'Job\s*ID\s*[-–]\s*(\d{4,6})', subject, re.IGNORECASE)
+        if dice_match:
+            job_id = int(dice_match.group(1))
+            self.logger.info(f"Extracted job ID from Dice 'Job ID -' format: {job_id}")
+            return job_id
+        
+        # Pattern 2: ID in parentheses in subject
         match = re.search(r'\((\d{4,6})\)', subject)
         if match:
             job_id = int(match.group(1))
             self.logger.info(f"Extracted job ID from subject parentheses: {job_id}")
             return job_id
         
-        # Pattern 2: "Bullhorn ID:" in body
+        # Pattern 3: "Bullhorn ID:" in body
         match = re.search(r'Bullhorn\s*ID[:\s]+(\d{4,6})', body, re.IGNORECASE)
         if match:
             job_id = int(match.group(1))
             self.logger.info(f"Extracted job ID from body 'Bullhorn ID': {job_id}")
             return job_id
         
-        # Pattern 3: Just a 5-digit number in subject (common job ID format)
+        # Pattern 4: Just a 5-digit number in subject (common job ID format)
         matches = re.findall(r'\b(\d{5})\b', subject)
         if matches:
             job_id = int(matches[0])
             self.logger.info(f"Extracted job ID from subject (5-digit): {job_id}")
             return job_id
         
-        self.logger.warning("Could not extract Bullhorn job ID from email")
+        self.logger.warning(f"Could not extract Bullhorn job ID from email. Subject: {subject}")
         return None
     
     def extract_candidate_from_email(self, subject: str, body: str, source: str) -> Dict[str, Any]:
