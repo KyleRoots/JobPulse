@@ -1152,14 +1152,15 @@ class BullhornService:
             file_base64 = base64.b64encode(file_content).decode('utf-8')
             
             # Build JSON payload for base64 upload (more reliable than multipart)
+            # fileType: 'Resume' maps to Bullhorn's File Type dropdown
             payload = {
                 'externalID': 'portfolio',
                 'fileContent': file_base64,
-                'fileType': 'SAMPLE',
+                'fileType': 'Resume',
                 'name': filename,
                 'contentType': content_type,
                 'description': f'{file_type} - {filename}',
-                'type': 'resume'
+                'type': 'Resume'
             }
             
             # Log file size for debugging

@@ -70,7 +70,7 @@ class ResumeParser:
             return {
                 'success': True,
                 'parsed_data': parsed_data,
-                'raw_text': text[:500]  # First 500 chars for debugging
+                'raw_text': text  # Full resume text for Bullhorn description/Resume pane
             }
             
         except Exception as e:
