@@ -3766,21 +3766,29 @@ def bullhorn_oauth_start():
             flash('Bullhorn OAuth credentials not configured. Please configure Client ID and Client Secret first.', 'error')
             return redirect(url_for('bullhorn_settings'))
         
-        # Step 1: Get login info to determine correct data center
-        login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
-        login_info_params = {'username': 'oauth'}  # Use generic username for OAuth discovery
+        # Check if using Bullhorn One (new API) or Legacy
+        use_new_api = os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true'
         
-        response = requests.get(login_info_url, params=login_info_params, timeout=30)
-        if response.status_code != 200:
-            flash('Failed to get Bullhorn login info. Please try again.', 'error')
-            return redirect(url_for('bullhorn_settings'))
-        
-        login_data = response.json()
-        oauth_url = login_data.get('oauthUrl')
-        
-        if not oauth_url:
-            flash('Invalid login info response from Bullhorn', 'error')
-            return redirect(url_for('bullhorn_settings'))
+        if use_new_api:
+            # Bullhorn One: Use fixed auth endpoint directly
+            oauth_url = BullhornService.BULLHORN_ONE_AUTH_URL
+            logging.info(f"Using Bullhorn One auth endpoint: {oauth_url}")
+        else:
+            # Legacy: Get login info to determine correct data center
+            login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
+            login_info_params = {'username': 'oauth'}  # Use generic username for OAuth discovery
+            
+            response = requests.get(login_info_url, params=login_info_params, timeout=30)
+            if response.status_code != 200:
+                flash('Failed to get Bullhorn login info. Please try again.', 'error')
+                return redirect(url_for('bullhorn_settings'))
+            
+            login_data = response.json()
+            oauth_url = login_data.get('oauthUrl')
+            
+            if not oauth_url:
+                flash('Invalid login info response from Bullhorn', 'error')
+                return redirect(url_for('bullhorn_settings'))
         
         # Step 2: Generate secure state for CSRF protection
         import secrets
