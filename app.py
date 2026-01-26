@@ -3770,9 +3770,9 @@ def bullhorn_oauth_start():
         use_new_api = os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true'
         
         if use_new_api:
-            # Bullhorn One: Use fixed auth endpoint directly
-            oauth_url = BullhornService.BULLHORN_ONE_AUTH_URL
-            logging.info(f"Using Bullhorn One auth endpoint: {oauth_url}")
+            # Bullhorn One: Use fixed auth endpoint directly (already includes /oauth/authorize)
+            auth_endpoint = BullhornService.BULLHORN_ONE_AUTH_URL
+            logging.info(f"Using Bullhorn One auth endpoint: {auth_endpoint}")
         else:
             # Legacy: Get login info to determine correct data center
             login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
@@ -3789,6 +3789,9 @@ def bullhorn_oauth_start():
             if not oauth_url:
                 flash('Invalid login info response from Bullhorn', 'error')
                 return redirect(url_for('bullhorn_settings'))
+            
+            # Legacy uses base oauthUrl, need to add /authorize
+            auth_endpoint = f"{oauth_url}/authorize"
         
         # Step 2: Generate secure state for CSRF protection
         import secrets
@@ -3799,8 +3802,6 @@ def bullhorn_oauth_start():
         # Step 3: Build authorization URL
         base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://jobpulse.lyntrix.ai")
         redirect_uri = f"{base_url}/bullhorn/oauth/callback"
-        
-        auth_endpoint = f"{oauth_url}/authorize"
         auth_params = {
             'client_id': client_id_setting.setting_value,
             'response_type': 'code',
