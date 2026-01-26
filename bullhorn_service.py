@@ -973,3 +973,316 @@ class BullhornService:
         except Exception as e:
             logging.error(f"Error getting jobs batch: {str(e)}")
             return []
+    
+    # ==================== Candidate Methods ====================
+    
+    def search_candidates(self, email: str = None, phone: str = None, 
+                          first_name: str = None, last_name: str = None) -> List[Dict]:
+        """
+        Search for candidates by email, phone, or name
+        
+        Args:
+            email: Candidate email address
+            phone: Candidate phone number (digits only)
+            first_name: First name
+            last_name: Last name
+            
+        Returns:
+            List of matching candidate records
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+        
+        try:
+            # Build search query
+            query_parts = []
+            
+            if email:
+                query_parts.append(f'email:"{email}"')
+            if phone:
+                # Search with normalized phone
+                phone_digits = ''.join(filter(str.isdigit, phone))
+                if len(phone_digits) >= 10:
+                    query_parts.append(f'phone:"{phone_digits}"')
+            if first_name and last_name:
+                query_parts.append(f'firstName:"{first_name}" AND lastName:"{last_name}"')
+            elif first_name:
+                query_parts.append(f'firstName:"{first_name}"')
+            elif last_name:
+                query_parts.append(f'lastName:"{last_name}"')
+            
+            if not query_parts:
+                return []
+            
+            query = " OR ".join(query_parts)
+            
+            url = f"{self.base_url}search/Candidate"
+            params = {
+                'query': query,
+                'fields': 'id,firstName,lastName,email,phone,mobile,address,status,source,occupation',
+                'count': 10,
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                results = data.get('data', [])
+                logging.info(f"Candidate search returned {len(results)} results")
+                return results
+            else:
+                logging.error(f"Candidate search failed: {response.status_code} - {response.text}")
+                return []
+                
+        except Exception as e:
+            logging.error(f"Error searching candidates: {str(e)}")
+            return []
+    
+    def create_candidate(self, candidate_data: Dict) -> Optional[int]:
+        """
+        Create a new candidate in Bullhorn
+        
+        Args:
+            candidate_data: Dictionary with candidate fields
+            
+        Returns:
+            New candidate ID or None on failure
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+        
+        try:
+            url = f"{self.base_url}entity/Candidate"
+            params = {'BhRestToken': self.rest_token}
+            
+            response = self.session.put(url, params=params, json=candidate_data, timeout=30)
+            
+            if response.status_code in [200, 201]:
+                data = self._safe_json_parse(response)
+                candidate_id = data.get('changedEntityId')
+                logging.info(f"Created candidate {candidate_id}: {candidate_data.get('firstName')} {candidate_data.get('lastName')}")
+                return candidate_id
+            else:
+                logging.error(f"Failed to create candidate: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error creating candidate: {str(e)}")
+            return None
+    
+    def update_candidate(self, candidate_id: int, candidate_data: Dict) -> Optional[int]:
+        """
+        Update an existing candidate in Bullhorn
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            candidate_data: Dictionary with fields to update
+            
+        Returns:
+            Candidate ID on success or None on failure
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+        
+        try:
+            url = f"{self.base_url}entity/Candidate/{candidate_id}"
+            params = {'BhRestToken': self.rest_token}
+            
+            response = self.session.post(url, params=params, json=candidate_data, timeout=30)
+            
+            if response.status_code == 200:
+                logging.info(f"Updated candidate {candidate_id}")
+                return candidate_id
+            else:
+                logging.error(f"Failed to update candidate: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error updating candidate: {str(e)}")
+            return None
+    
+    def upload_candidate_file(self, candidate_id: int, file_content: bytes, 
+                               filename: str, file_type: str = "Resume") -> Optional[int]:
+        """
+        Upload a file (resume) to a candidate record
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            file_content: File content as bytes
+            filename: Original filename
+            file_type: File type classification (default: "Resume")
+            
+        Returns:
+            File ID on success or None on failure
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+        
+        try:
+            url = f"{self.base_url}file/Candidate/{candidate_id}"
+            params = {
+                'BhRestToken': self.rest_token,
+                'externalID': 'Resume',
+                'fileType': file_type
+            }
+            
+            # Determine content type
+            content_type = 'application/octet-stream'
+            if filename.lower().endswith('.pdf'):
+                content_type = 'application/pdf'
+            elif filename.lower().endswith('.docx'):
+                content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            elif filename.lower().endswith('.doc'):
+                content_type = 'application/msword'
+            
+            files = {
+                'file': (filename, file_content, content_type)
+            }
+            
+            # Remove content-type header for multipart upload
+            headers = {'Accept': 'application/json'}
+            
+            response = requests.put(url, params=params, files=files, headers=headers, timeout=60)
+            
+            if response.status_code in [200, 201]:
+                data = response.json()
+                file_id = data.get('fileId')
+                logging.info(f"Uploaded file {filename} to candidate {candidate_id}, file ID: {file_id}")
+                return file_id
+            else:
+                logging.error(f"Failed to upload candidate file: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error uploading candidate file: {str(e)}")
+            return None
+    
+    def get_job_order(self, job_id: int) -> Optional[Dict]:
+        """
+        Get a job order by ID to verify it exists
+        
+        Args:
+            job_id: Bullhorn job order ID
+            
+        Returns:
+            Job order data dictionary or None if not found
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+        
+        try:
+            url = f"{self.base_url}entity/JobOrder/{job_id}"
+            params = {
+                'fields': 'id,title,status,isOpen,isDeleted',
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                job_data = data.get('data', {})
+                if job_data and job_data.get('id'):
+                    logging.info(f"Found job order {job_id}: {job_data.get('title', 'Unknown')}")
+                    return job_data
+            
+            logging.warning(f"Job order {job_id} not found in Bullhorn")
+            return None
+            
+        except Exception as e:
+            logging.error(f"Error getting job order: {str(e)}")
+            return None
+    
+    def create_job_submission(self, candidate_id: int, job_id: int, 
+                               source: str = None) -> Optional[int]:
+        """
+        Create a job submission (response) linking a candidate to a job
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            job_id: Bullhorn job order ID
+            source: Application source (for tracking)
+            
+        Returns:
+            Submission ID on success or None on failure
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+        
+        try:
+            # Verify job exists before creating submission
+            job = self.get_job_order(job_id)
+            if not job:
+                logging.warning(f"Cannot create submission: job order {job_id} not found in Bullhorn")
+                return None
+            
+            if job.get('isDeleted'):
+                logging.warning(f"Cannot create submission: job order {job_id} is deleted")
+                return None
+            
+            url = f"{self.base_url}entity/JobSubmission"
+            params = {'BhRestToken': self.rest_token}
+            
+            submission_data = {
+                'candidate': {'id': int(candidate_id)},
+                'jobOrder': {'id': int(job_id)},
+                'status': 'New Lead',
+                'dateWebResponse': int(datetime.now().timestamp() * 1000),
+                'source': source or 'Web Response'
+            }
+            
+            response = self.session.put(url, params=params, json=submission_data, timeout=30)
+            
+            if response.status_code in [200, 201]:
+                data = self._safe_json_parse(response)
+                submission_id = data.get('changedEntityId')
+                logging.info(f"Created job submission {submission_id}: candidate {candidate_id} -> job {job_id}")
+                return submission_id
+            else:
+                logging.error(f"Failed to create job submission: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error creating job submission: {str(e)}")
+            return None
+    
+    def get_candidate(self, candidate_id: int) -> Optional[Dict]:
+        """
+        Get a candidate by ID
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            
+        Returns:
+            Candidate data dictionary or None
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+        
+        try:
+            url = f"{self.base_url}entity/Candidate/{candidate_id}"
+            params = {
+                'fields': 'id,firstName,lastName,email,phone,mobile,address,status,source,occupation,companyName,skillSet,description',
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('data', {})
+            else:
+                logging.error(f"Failed to get candidate: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error getting candidate: {str(e)}")
+            return None

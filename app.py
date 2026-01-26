@@ -4942,6 +4942,220 @@ def api_email_logs():
         }
     })
 
+# ==================== Email Inbound Parsing Routes ====================
+
+@app.route('/api/email/inbound', methods=['POST'])
+def email_inbound_webhook():
+    """
+    SendGrid Inbound Parse webhook endpoint
+    
+    Receives forwarded emails from job boards (LinkedIn, Dice, etc.)
+    and processes them to create/update candidates in Bullhorn.
+    
+    This endpoint is public (no auth) because SendGrid needs to POST to it.
+    Security is via SendGrid's signature verification.
+    """
+    try:
+        from email_inbound_service import EmailInboundService
+        
+        app.logger.info("📧 Received inbound email webhook")
+        
+        # SendGrid sends form data, not JSON
+        payload = request.form.to_dict()
+        
+        # Add any file attachments
+        if request.files:
+            for key, file in request.files.items():
+                payload[key] = file.read()
+                payload[f'{key}_info'] = {
+                    'filename': file.filename,
+                    'content_type': file.content_type
+                }
+        
+        # Process the email
+        service = EmailInboundService()
+        result = service.process_email(payload)
+        
+        if result['success']:
+            app.logger.info(f"✅ Email processed successfully: candidate {result.get('candidate_id')}")
+            return jsonify(result), 200
+        else:
+            app.logger.warning(f"⚠️ Email processing failed: {result.get('message')}")
+            return jsonify(result), 200  # Return 200 to prevent SendGrid retries
+            
+    except Exception as e:
+        app.logger.error(f"❌ Email inbound webhook error: {str(e)}")
+        import traceback
+        app.logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'message': str(e)}), 200
+
+
+@app.route('/email-parsing')
+@login_required
+def email_parsing_dashboard():
+    """Dashboard for email parsing monitoring"""
+    from models import ParsedEmail
+    
+    # Get recent parsed emails
+    recent_emails = ParsedEmail.query.order_by(
+        ParsedEmail.received_at.desc()
+    ).limit(100).all()
+    
+    # Get stats
+    total_emails = ParsedEmail.query.count()
+    completed_emails = ParsedEmail.query.filter_by(status='completed').count()
+    failed_emails = ParsedEmail.query.filter_by(status='failed').count()
+    duplicate_candidates = ParsedEmail.query.filter_by(is_duplicate_candidate=True).count()
+    
+    stats = {
+        'total': total_emails,
+        'completed': completed_emails,
+        'failed': failed_emails,
+        'duplicates': duplicate_candidates,
+        'success_rate': round((completed_emails / total_emails * 100) if total_emails > 0 else 0, 1)
+    }
+    
+    return render_template('email_parsing.html', emails=recent_emails, stats=stats)
+
+
+@app.route('/api/email/parsed')
+@login_required
+def api_parsed_emails():
+    """API endpoint for getting parsed emails with pagination"""
+    from models import ParsedEmail
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    status_filter = request.args.get('status')
+    source_filter = request.args.get('source')
+    
+    query = ParsedEmail.query
+    
+    if status_filter:
+        query = query.filter(ParsedEmail.status == status_filter)
+    if source_filter:
+        query = query.filter(ParsedEmail.source_platform == source_filter)
+    
+    emails = query.order_by(ParsedEmail.received_at.desc()).paginate(
+        page=page, 
+        per_page=per_page, 
+        error_out=False
+    )
+    
+    return jsonify({
+        'emails': [{
+            'id': email.id,
+            'sender_email': email.sender_email,
+            'subject': email.subject[:100] if email.subject else None,
+            'source_platform': email.source_platform,
+            'bullhorn_job_id': email.bullhorn_job_id,
+            'candidate_name': email.candidate_name,
+            'candidate_email': email.candidate_email,
+            'status': email.status,
+            'bullhorn_candidate_id': email.bullhorn_candidate_id,
+            'bullhorn_submission_id': email.bullhorn_submission_id,
+            'is_duplicate': email.is_duplicate_candidate,
+            'duplicate_confidence': email.duplicate_confidence,
+            'resume_filename': email.resume_filename,
+            'received_at': email.received_at.strftime('%Y-%m-%d %H:%M:%S') if email.received_at else None,
+            'processed_at': email.processed_at.strftime('%Y-%m-%d %H:%M:%S') if email.processed_at else None,
+            'processing_notes': email.processing_notes
+        } for email in emails.items],
+        'pagination': {
+            'page': emails.page,
+            'pages': emails.pages,
+            'total': emails.total,
+            'has_next': emails.has_next,
+            'has_prev': emails.has_prev
+        }
+    })
+
+
+@app.route('/api/email/stats')
+@login_required
+def api_email_parsing_stats():
+    """Get email parsing statistics"""
+    from models import ParsedEmail
+    from sqlalchemy import func
+    
+    # Overall stats
+    total = ParsedEmail.query.count()
+    completed = ParsedEmail.query.filter_by(status='completed').count()
+    failed = ParsedEmail.query.filter_by(status='failed').count()
+    processing = ParsedEmail.query.filter_by(status='processing').count()
+    
+    # Stats by source
+    source_stats = db.session.query(
+        ParsedEmail.source_platform,
+        func.count(ParsedEmail.id)
+    ).group_by(ParsedEmail.source_platform).all()
+    
+    # Stats by date (last 7 days)
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    daily_stats = db.session.query(
+        func.date(ParsedEmail.received_at),
+        func.count(ParsedEmail.id)
+    ).filter(
+        ParsedEmail.received_at >= seven_days_ago
+    ).group_by(
+        func.date(ParsedEmail.received_at)
+    ).all()
+    
+    return jsonify({
+        'overview': {
+            'total': total,
+            'completed': completed,
+            'failed': failed,
+            'processing': processing,
+            'success_rate': round((completed / total * 100) if total > 0 else 0, 1)
+        },
+        'by_source': {source or 'Unknown': count for source, count in source_stats},
+        'daily': {str(date): count for date, count in daily_stats}
+    })
+
+
+@app.route('/api/email/test-parse', methods=['POST'])
+@login_required 
+def api_test_email_parse():
+    """Test endpoint to simulate email parsing (for development)"""
+    try:
+        from email_inbound_service import EmailInboundService
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        service = EmailInboundService()
+        
+        # Test source detection
+        source = service.detect_source(
+            data.get('from', ''),
+            data.get('subject', ''),
+            data.get('body', '')
+        )
+        
+        # Test job ID extraction
+        job_id = service.extract_bullhorn_job_id(
+            data.get('subject', ''),
+            data.get('body', '')
+        )
+        
+        # Test candidate extraction
+        candidate = service.extract_candidate_from_email(
+            data.get('subject', ''),
+            data.get('body', ''),
+            source
+        )
+        
+        return jsonify({
+            'source_detected': source,
+            'job_id': job_id,
+            'candidate': candidate
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)
 

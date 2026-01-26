@@ -466,3 +466,53 @@ class EnvironmentAlert(db.Model):
     
     def __repr__(self):
         return f'<EnvironmentAlert {self.alert_type} to {self.recipient_email}>'
+
+
+class ParsedEmail(db.Model):
+    """Track emails received and parsed by the inbound email parsing system"""
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.String(255), unique=True, nullable=True)
+    sender_email = db.Column(db.String(255), nullable=False)
+    recipient_email = db.Column(db.String(255), nullable=False)
+    subject = db.Column(db.String(500), nullable=True)
+    source_platform = db.Column(db.String(50), nullable=True)  # 'Dice', 'LinkedIn Job Board', etc.
+    bullhorn_job_id = db.Column(db.Integer, nullable=True)
+    
+    # Candidate info extracted from email
+    candidate_name = db.Column(db.String(255), nullable=True)
+    candidate_email = db.Column(db.String(255), nullable=True)
+    candidate_phone = db.Column(db.String(50), nullable=True)
+    
+    # Processing status
+    status = db.Column(db.String(50), default='received')  # 'received', 'processing', 'completed', 'failed', 'duplicate'
+    processing_notes = db.Column(db.Text, nullable=True)
+    
+    # Bullhorn integration results
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=True)
+    bullhorn_submission_id = db.Column(db.Integer, nullable=True)
+    is_duplicate_candidate = db.Column(db.Boolean, default=False)
+    duplicate_confidence = db.Column(db.Float, nullable=True)  # 0.0 to 1.0
+    
+    # Resume file info
+    resume_filename = db.Column(db.String(255), nullable=True)
+    resume_file_id = db.Column(db.Integer, nullable=True)  # Bullhorn file ID after upload
+    
+    # Timestamps
+    received_at = db.Column(db.DateTime, default=datetime.utcnow)
+    processed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<ParsedEmail {self.id} from {self.source_platform} - {self.status}>'
+
+
+class EmailParsingConfig(db.Model):
+    """Configuration for email parsing service"""
+    id = db.Column(db.Integer, primary_key=True)
+    setting_key = db.Column(db.String(100), unique=True, nullable=False)
+    setting_value = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<EmailParsingConfig {self.setting_key}>'
