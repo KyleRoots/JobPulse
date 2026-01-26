@@ -1463,3 +1463,47 @@ class BullhornService:
                 logging.error(f"Error creating education record: {str(e)}")
         
         return created_ids
+    
+    def create_candidate_note(self, candidate_id: int, note_text: str, 
+                               action: str = "AI Resume Summary") -> Optional[int]:
+        """
+        Create a note on a candidate record
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            note_text: The note content
+            action: The action/title for the note
+            
+        Returns:
+            Note ID on success or None on failure
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+        
+        try:
+            url = f"{self.base_url}entity/Note"
+            params = {'BhRestToken': self.rest_token}
+            
+            # Build note data - link to candidate via personReference
+            note_data = {
+                'personReference': {'id': int(candidate_id)},
+                'action': action,
+                'comments': note_text,
+                'isDeleted': False
+            }
+            
+            response = self.session.put(url, params=params, json=note_data, timeout=30)
+            
+            if response.status_code in [200, 201]:
+                data = self._safe_json_parse(response)
+                note_id = data.get('changedEntityId')
+                logging.info(f"Created note {note_id} on candidate {candidate_id}: {action}")
+                return note_id
+            else:
+                logging.warning(f"Failed to create note: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error creating candidate note: {str(e)}")
+            return None

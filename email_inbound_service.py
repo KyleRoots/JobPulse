@@ -678,6 +678,23 @@ Consider: name spelling variations, nicknames, contact info matches.
             elif not is_new_candidate:
                 self.logger.info(f"Skipping education creation for existing candidate {candidate_id} to avoid duplicates")
             
+            # Add AI summary as a note on the candidate record
+            if candidate_id and resume_data.get('summary'):
+                summary = resume_data.get('summary')
+                # Create a nicely formatted note with the AI summary
+                note_text = f"📋 AI-Generated Resume Summary:\n\n{summary}"
+                if resume_data.get('skills'):
+                    skills_preview = ', '.join(resume_data['skills'][:10])
+                    note_text += f"\n\n🔧 Key Skills: {skills_preview}"
+                if resume_data.get('years_experience'):
+                    note_text += f"\n\n📅 Experience: {resume_data['years_experience']} years"
+                
+                note_id = bullhorn.create_candidate_note(candidate_id, note_text, "AI Resume Summary")
+                if note_id:
+                    self.logger.info(f"Created AI summary note {note_id} for candidate {candidate_id}")
+                else:
+                    self.logger.warning(f"Failed to create AI summary note for candidate {candidate_id}")
+            
             # Upload resume if available
             if resume_file and candidate_id:
                 self.logger.info(f"Uploading resume '{resume_file['filename']}' to candidate {candidate_id}")
