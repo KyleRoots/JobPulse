@@ -1109,6 +1109,7 @@ class BullhornService:
                                filename: str, file_type: str = "Resume") -> Optional[int]:
         """
         Upload a file (resume) to a candidate record using Bullhorn Files API
+        Uses base64 JSON format which is more reliable than multipart form-data
         
         Args:
             candidate_id: Bullhorn candidate ID
@@ -1119,6 +1120,8 @@ class BullhornService:
         Returns:
             File ID on success or None on failure
         """
+        import base64
+        
         if not self.base_url or not self.rest_token:
             logging.info(f"Authenticating before file upload for candidate {candidate_id}")
             if not self.authenticate():
@@ -1145,33 +1148,41 @@ class BullhornService:
             elif filename.lower().endswith('.rtf'):
                 content_type = 'application/rtf'
             
-            # Bullhorn file upload requires multipart form-data with specific structure
-            files = {
-                'file': (filename, file_content, content_type)
+            # Encode file content as base64 (Bullhorn preferred format)
+            file_base64 = base64.b64encode(file_content).decode('utf-8')
+            
+            # Build JSON payload for base64 upload (more reliable than multipart)
+            payload = {
+                'externalID': 'portfolio',
+                'fileContent': file_base64,
+                'fileType': 'SAMPLE',
+                'name': filename,
+                'contentType': content_type,
+                'description': f'{file_type} - {filename}',
+                'type': 'resume'
             }
             
-            # Query parameters for file metadata
-            params = {
-                'BhRestToken': self.rest_token,
-                'externalID': 'Resume',
-                'fileType': file_type,
-                'name': filename
-            }
+            # Log file size for debugging
+            file_size_kb = len(file_content) / 1024
+            logging.info(f"Uploading file using base64 JSON method to candidate {candidate_id} ({file_size_kb:.1f} KB)")
             
-            # Use self.session but temporarily remove Content-Type header
-            # so requests can set multipart/form-data with proper boundary
-            original_content_type = self.session.headers.pop('Content-Type', None)
+            # Temporarily set JSON content type for this request
+            original_content_type = self.session.headers.get('Content-Type')
+            self.session.headers['Content-Type'] = 'application/json'
+            self.session.headers['Accept'] = 'application/json'
+            
+            params = {'BhRestToken': self.rest_token}
             
             try:
-                # Make PUT request - requests library handles multipart encoding automatically
+                # Make PUT request with JSON payload using authenticated session
                 response = self.session.put(
                     url, 
-                    params=params, 
-                    files=files, 
+                    params=params,
+                    json=payload,
                     timeout=120  # Longer timeout for file uploads
                 )
             finally:
-                # Restore Content-Type header
+                # Restore original content type
                 if original_content_type:
                     self.session.headers['Content-Type'] = original_content_type
             
@@ -1185,26 +1196,36 @@ class BullhornService:
                     logging.info(f"✅ Successfully uploaded file '{filename}' to candidate {candidate_id}, file ID: {file_id}")
                     return file_id
                 else:
-                    logging.warning(f"Upload returned success but no fileId in response: {data}")
                     # Some Bullhorn versions return changedEntityId instead
-                    return data.get('changedEntityId')
+                    file_id = data.get('changedEntityId')
+                    if file_id:
+                        logging.info(f"✅ Successfully uploaded file '{filename}' to candidate {candidate_id}, entity ID: {file_id}")
+                        return file_id
+                    logging.warning(f"Upload returned success but no fileId in response: {data}")
+                    return None
             else:
                 logging.error(f"❌ Failed to upload file to candidate {candidate_id}: {response.status_code}")
                 logging.error(f"Response: {response.text}")
+                logging.error(f"File details: name={filename}, size={file_size_kb:.1f}KB, type={content_type}")
+                
+                # Common error diagnostics
+                if response.status_code == 400:
+                    logging.error("400 Bad Request - Check required fields: externalID, fileType, name, contentType")
+                elif response.status_code == 500:
+                    logging.error("500 Internal Server Error - File may be too large or corrupted")
                 
                 # If authentication expired, try once more
                 if response.status_code == 401:
                     logging.info("Token expired, re-authenticating and retrying file upload...")
                     if self.authenticate():
                         params['BhRestToken'] = self.rest_token
-                        # Recreate files dict since the file content may have been consumed
-                        retry_files = {'file': (filename, file_content, content_type)}
-                        original_ct = self.session.headers.pop('Content-Type', None)
+                        self.session.headers['Content-Type'] = 'application/json'
+                        self.session.headers['Accept'] = 'application/json'
                         try:
-                            retry_response = self.session.put(url, params=params, files=retry_files, timeout=120)
+                            retry_response = self.session.put(url, params=params, json=payload, timeout=120)
                         finally:
-                            if original_ct:
-                                self.session.headers['Content-Type'] = original_ct
+                            if original_content_type:
+                                self.session.headers['Content-Type'] = original_content_type
                         
                         if retry_response.status_code in [200, 201]:
                             data = retry_response.json()

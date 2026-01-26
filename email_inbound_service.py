@@ -625,6 +625,21 @@ Consider: name spelling variations, nicknames, contact info matches.
                         resume_data = self.parse_resume_with_ai(resume_text)
                         # Store raw text for the Resume pane (description field)
                         resume_data['raw_text'] = resume_text
+                        
+                        # Enhanced logging for debugging AI extraction
+                        self.logger.info(f"📊 AI Resume Extraction Results:")
+                        self.logger.info(f"  - Name: {resume_data.get('first_name')} {resume_data.get('last_name')}")
+                        self.logger.info(f"  - Current Title: {resume_data.get('current_title')}")
+                        self.logger.info(f"  - Current Company: {resume_data.get('current_company')}")
+                        self.logger.info(f"  - Years Experience: {resume_data.get('years_experience')}")
+                        self.logger.info(f"  - Skills Count: {len(resume_data.get('skills', []))}")
+                        if resume_data.get('skills'):
+                            self.logger.info(f"  - Skills (first 10): {resume_data.get('skills', [])[:10]}")
+                        self.logger.info(f"  - Education Count: {len(resume_data.get('education', []))}")
+                        if resume_data.get('education'):
+                            for edu in resume_data.get('education', []):
+                                self.logger.info(f"    - {edu.get('degree')} from {edu.get('institution')} ({edu.get('year')})")
+                        self.logger.info(f"  - Work History Count: {len(resume_data.get('work_history', []))}")
                     break
             
             db.session.commit()
@@ -651,6 +666,13 @@ Consider: name spelling variations, nicknames, contact info matches.
                 email_candidate, resume_data, source,
                 email_candidate.get('work_authorization')
             )
+            
+            # Log key fields being sent to Bullhorn
+            self.logger.info(f"📤 Bullhorn candidate data:")
+            self.logger.info(f"  - occupation (title): {bullhorn_data.get('occupation')}")
+            self.logger.info(f"  - companyName: {bullhorn_data.get('companyName')}")
+            self.logger.info(f"  - skillSet: {bullhorn_data.get('skillSet', '')[:100]}...")
+            self.logger.info(f"  - employmentPreference: {bullhorn_data.get('employmentPreference')}")
             
             # Create or update candidate in Bullhorn
             if duplicate_id and confidence >= 0.85:
