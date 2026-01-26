@@ -526,13 +526,12 @@ Consider: name spelling variations, nicknames, contact info matches.
             # Join skills for text field
             candidate['skillSet'] = ', '.join(resume_data['skills'][:20])  # Limit to 20 skills
         
-        # Years of experience - maps to employmentPreference or customInt field
+        # Years of experience - store in customInt1 only
+        # Note: employmentPreference is for employment TYPE (Direct Hire, Contract, etc.) - NOT years of experience
         if resume_data.get('years_experience'):
             try:
                 years = int(resume_data['years_experience'])
-                candidate['employmentPreference'] = f"{years}+ years experience"
-                # Also set numCategories as a numeric experience indicator if available
-                candidate['customInt1'] = years  # Common field for years experience
+                candidate['customInt1'] = years  # Years of experience stored here
             except (ValueError, TypeError):
                 pass
         
@@ -622,36 +621,35 @@ Consider: name spelling variations, nicknames, contact info matches.
             resume_data = {}
             resume_text = ''  # Store raw resume text for description field
             attachments = self._extract_attachments(sendgrid_payload)
-            resume_file = None
             
-            for attachment in attachments:
-                if self._is_resume_file(attachment['filename']):
-                    resume_file = attachment
-                    parsed_email.resume_filename = attachment['filename']
+            # Use smart resume selection to pick the best file (not cover letters)
+            resume_file = self._select_best_resume(attachments)
+            
+            if resume_file:
+                parsed_email.resume_filename = resume_file['filename']
+                
+                # Extract and parse resume text
+                resume_text = self._extract_resume_text(resume_file)
+                if resume_text:
+                    resume_data = self.parse_resume_with_ai(resume_text)
+                    # Store raw text for the Resume pane (description field)
+                    resume_data['raw_text'] = resume_text
                     
-                    # Extract and parse resume text
-                    resume_text = self._extract_resume_text(attachment)
-                    if resume_text:
-                        resume_data = self.parse_resume_with_ai(resume_text)
-                        # Store raw text for the Resume pane (description field)
-                        resume_data['raw_text'] = resume_text
-                        
-                        # Enhanced logging for debugging AI extraction
-                        self.logger.info(f"📊 AI Resume Extraction Results:")
-                        self.logger.info(f"  - Name: {resume_data.get('first_name')} {resume_data.get('last_name')}")
-                        self.logger.info(f"  - Current Title: {resume_data.get('current_title')}")
-                        self.logger.info(f"  - Current Company: {resume_data.get('current_company')}")
-                        self.logger.info(f"  - Years Experience: {resume_data.get('years_experience')}")
-                        self.logger.info(f"  - Skills Count: {len(resume_data.get('skills', []))}")
-                        if resume_data.get('skills'):
-                            self.logger.info(f"  - Skills (first 10): {resume_data.get('skills', [])[:10]}")
-                        self.logger.info(f"  - Education Count: {len(resume_data.get('education', []))}")
-                        if resume_data.get('education'):
-                            for edu in resume_data.get('education', []):
-                                self.logger.info(f"    - {edu.get('degree')} from {edu.get('institution')} ({edu.get('year')})")
-                        self.logger.info(f"  - Work History Count: {len(resume_data.get('work_history', []))}")
-                        self.logger.info(f"  - Raw Resume Text Length: {len(resume_data.get('raw_text', ''))} chars")
-                    break
+                    # Enhanced logging for debugging AI extraction
+                    self.logger.info(f"📊 AI Resume Extraction Results:")
+                    self.logger.info(f"  - Name: {resume_data.get('first_name')} {resume_data.get('last_name')}")
+                    self.logger.info(f"  - Current Title: {resume_data.get('current_title')}")
+                    self.logger.info(f"  - Current Company: {resume_data.get('current_company')}")
+                    self.logger.info(f"  - Years Experience: {resume_data.get('years_experience')}")
+                    self.logger.info(f"  - Skills Count: {len(resume_data.get('skills', []))}")
+                    if resume_data.get('skills'):
+                        self.logger.info(f"  - Skills (first 10): {resume_data.get('skills', [])[:10]}")
+                    self.logger.info(f"  - Education Count: {len(resume_data.get('education', []))}")
+                    if resume_data.get('education'):
+                        for edu in resume_data.get('education', []):
+                            self.logger.info(f"    - {edu.get('degree')} from {edu.get('institution')} ({edu.get('year')})")
+                    self.logger.info(f"  - Work History Count: {len(resume_data.get('work_history', []))}")
+                    self.logger.info(f"  - Raw Resume Text Length: {len(resume_data.get('raw_text', ''))} chars")
             
             db.session.commit()
             
@@ -754,11 +752,20 @@ Consider: name spelling variations, nicknames, contact info matches.
                 parsed_email.resume_file_id = file_id
             
             # Create job submission if we have job ID
+            self.logger.info(f"🔗 Job submission check: job_id={job_id}, candidate_id={candidate_id}")
             if job_id and candidate_id:
+                self.logger.info(f"📤 Attempting to create job submission: candidate {candidate_id} -> job {job_id}")
                 submission_id = bullhorn.create_job_submission(candidate_id, job_id, source)
-                parsed_email.bullhorn_submission_id = submission_id
-                result['submission_id'] = submission_id
-                self.logger.info(f"Created job submission {submission_id} for job {job_id}")
+                if submission_id:
+                    parsed_email.bullhorn_submission_id = submission_id
+                    result['submission_id'] = submission_id
+                    self.logger.info(f"✅ Created job submission {submission_id} for candidate {candidate_id} -> job {job_id}")
+                else:
+                    self.logger.warning(f"⚠️ Failed to create job submission for candidate {candidate_id} -> job {job_id}")
+            elif not job_id:
+                self.logger.warning(f"⚠️ No job ID extracted - cannot create job submission")
+            elif not candidate_id:
+                self.logger.warning(f"⚠️ No candidate ID - cannot create job submission")
             
             # Mark as completed
             parsed_email.status = 'completed'
@@ -839,6 +846,63 @@ Consider: name spelling variations, nicknames, contact info matches.
         """Check if file is a resume based on extension"""
         resume_extensions = ['.pdf', '.doc', '.docx', '.rtf', '.txt']
         return any(filename.lower().endswith(ext) for ext in resume_extensions)
+    
+    def _get_resume_score(self, filename: str) -> int:
+        """
+        Score a file based on how likely it is to be a resume.
+        Higher score = more likely to be a resume.
+        
+        This helps prioritize actual resumes over cover letters when multiple files are attached.
+        """
+        filename_lower = filename.lower()
+        score = 0
+        
+        # Positive indicators (likely resume)
+        resume_keywords = ['resume', 'cv', 'curriculum']
+        for keyword in resume_keywords:
+            if keyword in filename_lower:
+                score += 10
+        
+        # Negative indicators (likely NOT resume)
+        non_resume_keywords = ['cover', 'letter', 'reference', 'portfolio', 'logo', 'photo', 'image']
+        for keyword in non_resume_keywords:
+            if keyword in filename_lower:
+                score -= 10
+        
+        # Extension preference (PDFs are commonly resumes)
+        if filename_lower.endswith('.pdf'):
+            score += 2
+        elif filename_lower.endswith('.docx'):
+            score += 1
+        
+        return score
+    
+    def _select_best_resume(self, attachments: List[Dict]) -> Optional[Dict]:
+        """
+        Select the best resume file from multiple attachments.
+        Prioritizes files with 'resume' or 'cv' in the name.
+        Deprioritizes files with 'cover', 'letter', etc.
+        """
+        resume_candidates = []
+        
+        for attachment in attachments:
+            if self._is_resume_file(attachment['filename']):
+                score = self._get_resume_score(attachment['filename'])
+                resume_candidates.append((attachment, score))
+        
+        if not resume_candidates:
+            return None
+        
+        # Sort by score (highest first), then return the best match
+        resume_candidates.sort(key=lambda x: x[1], reverse=True)
+        best_resume = resume_candidates[0][0]
+        
+        self.logger.info(f"📄 Selected resume: {best_resume['filename']} (score: {resume_candidates[0][1]})")
+        if len(resume_candidates) > 1:
+            other_files = [f"{att['filename']} (score: {s})" for att, s in resume_candidates[1:]]
+            self.logger.info(f"   Other candidates: {other_files}")
+        
+        return best_resume
     
     def _extract_resume_text(self, attachment: Dict) -> str:
         """
