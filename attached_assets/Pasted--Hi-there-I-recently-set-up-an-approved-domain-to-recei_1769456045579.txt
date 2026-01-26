@@ -1,0 +1,34 @@
+
+Hi there,
+
+I recently set up an approved domain to receive inbound emails. It's been at least three or four hours now with successful DNS configuration and it still seems like there's no activity being received on that new domain. That domain specifically is lyntrix.ai.
+
+Happy to provide more information if needed of course
+
+SendGrid Help Center Assistant
+Thank you for providing the details and for your patience. Since your domain (lyntrix.ai) was set up and DNS changes were made several hours ago, but you're still not seeing inbound email activity, let's walk through some key troubleshooting steps:
+
+1. DNS Propagation Time
+DNS changes, especially MX records, can sometimes take up to 48 hours to fully propagate worldwide, even if some tools show them as updated. If it's only been a few hours, there may still be some propagation delay.
+2. MX Record Configuration
+Ensure that the MX record for lyntrix.ai (or the specific subdomain you set up for inbound parse) points only to mx.sendgrid.net and that there are no other MX records with higher priority.
+If you set up a subdomain (e.g., parse.lyntrix.ai), make sure emails are being sent to addresses at that subdomain (e.g., anything@parse.lyntrix.ai
+), and that the MX record for that subdomain points to mx.sendgrid.net.
+3. Email Routing
+If you want to receive emails at the root domain (e.g., anything@lyntrix.ai
+), the MX record for lyntrix.ai itself must point to mx.sendgrid.net.
+If you want to receive at a subdomain, the MX record for that subdomain must point to mx.sendgrid.net, and emails must be sent to addresses at that subdomain.
+4. Reserved Words
+Avoid using reserved words like unsubscribe, postmaster, abuse, admin, or administrator as the local part of the email address (e.g., unsubscribe@lyntrix.ai
+), as these will not be processed by SendGrid's Inbound Parse.
+5. Webhook Endpoint
+Make sure the endpoint URL you configured in SendGrid for inbound parse is correct and publicly accessible. The endpoint must return a 2xx HTTP status code to acknowledge receipt.
+6. Testing
+Try sending a test email from an external domain (not from lyntrix.ai itself) to your inbound parse address to see if it is received.
+You can also temporarily set your webhook to a testing service (like webhook.site) to confirm if SendGrid is posting the parsed email.
+If you've checked all of the above and are still not seeing activity, please let me know:
+
+The exact email address you are sending to (including subdomain, if any)
+Whether you are using the root domain or a subdomain for inbound parse
+If you have any error logs or bounce messages
+I'm here to help you get this working! If you'd like, I can also offer to connect you with a Twilio Support agent for further investigation. Just let me know how you'd like to proceed.

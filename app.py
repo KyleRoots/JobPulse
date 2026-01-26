@@ -4944,7 +4944,7 @@ def api_email_logs():
 
 # ==================== Email Inbound Parsing Routes ====================
 
-@app.route('/api/email/inbound', methods=['POST'])
+@app.route('/api/email/inbound', methods=['GET', 'POST'])
 def email_inbound_webhook():
     """
     SendGrid Inbound Parse webhook endpoint
@@ -4954,7 +4954,19 @@ def email_inbound_webhook():
     
     This endpoint is public (no auth) because SendGrid needs to POST to it.
     Security is via SendGrid's signature verification.
+    
+    GET: Returns 200 OK for health checks / endpoint verification
+    POST: Processes inbound email data from SendGrid
     """
+    # Handle GET requests for health checks
+    if request.method == 'GET':
+        return jsonify({
+            'status': 'ok',
+            'endpoint': 'SendGrid Inbound Parse webhook',
+            'methods': ['POST'],
+            'message': 'Ready to receive emails'
+        }), 200
+    
     try:
         from email_inbound_service import EmailInboundService
         
