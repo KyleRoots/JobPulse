@@ -32,16 +32,17 @@ class SimplifiedXMLGenerator:
         self.xml_integration = XMLIntegrationService()
         self.xml_processor = XMLProcessor()
         
-        # Tearsheet IDs to pull from with monitor name mapping
-        self.tearsheet_ids = [1256, 1264, 1499, 1257, 1556]
+        # Tearsheet IDs to pull from with monitor name mapping (Bullhorn One - January 2026)
+        self.tearsheet_ids = [1231, 1232, 1233, 1239, 1474, 1531]
         
-        # Tearsheet ID to monitor name mapping (from app.py monitors)
+        # Tearsheet ID to monitor name mapping (Bullhorn One IDs)
         self.tearsheet_monitor_mapping = {
-            1256: 'Sponsored - OTT',
-            1264: 'Sponsored - VMS', 
-            1499: 'Sponsored - GR',
-            1257: 'Sponsored - CHI',
-            1556: 'Sponsored - STSI'
+            1231: 'Sponsored - OTT',
+            1232: 'Sponsored - CHI',
+            1233: 'Sponsored - CLE',
+            1239: 'Sponsored - VMS', 
+            1474: 'Sponsored - GR',
+            1531: 'Sponsored - STSI'
         }
         
         # File to persist reference number mappings

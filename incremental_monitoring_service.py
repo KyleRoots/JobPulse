@@ -395,7 +395,7 @@ This alert was triggered by the zero-job detection safeguard.
         """Fetch all jobs from monitored tearsheets with proper pagination"""
         all_jobs = {}
         
-        # Get active monitors - hardcoded for now since TearsheetConfig method doesn't exist
+        # Get active monitors - Bullhorn One tearsheet IDs (January 2026 migration)
         class MockMonitor:
             def __init__(self, name, tearsheet_id):
                 self.name = name
@@ -403,11 +403,12 @@ This alert was triggered by the zero-job detection safeguard.
                 self.is_active = True
         
         monitors = [
-            MockMonitor('Sponsored - OTT', 1256),
-            MockMonitor('Sponsored - VMS', 1264),
-            MockMonitor('Sponsored - GR', 1499),
-            MockMonitor('Sponsored - CHI', 1257),
-            MockMonitor('Sponsored - STSI', 1556)
+            MockMonitor('Sponsored - OTT', 1231),
+            MockMonitor('Sponsored - CHI', 1232),
+            MockMonitor('Sponsored - CLE', 1233),
+            MockMonitor('Sponsored - VMS', 1239),
+            MockMonitor('Sponsored - GR', 1474),
+            MockMonitor('Sponsored - STSI', 1531)
         ]
         
         for monitor in monitors:
