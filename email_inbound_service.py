@@ -640,6 +640,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                             for edu in resume_data.get('education', []):
                                 self.logger.info(f"    - {edu.get('degree')} from {edu.get('institution')} ({edu.get('year')})")
                         self.logger.info(f"  - Work History Count: {len(resume_data.get('work_history', []))}")
+                        self.logger.info(f"  - Raw Resume Text Length: {len(resume_data.get('raw_text', ''))} chars")
                     break
             
             db.session.commit()
@@ -673,6 +674,7 @@ Consider: name spelling variations, nicknames, contact info matches.
             self.logger.info(f"  - companyName: {bullhorn_data.get('companyName')}")
             self.logger.info(f"  - skillSet: {bullhorn_data.get('skillSet', '')[:100]}...")
             self.logger.info(f"  - employmentPreference: {bullhorn_data.get('employmentPreference')}")
+            self.logger.info(f"  - description (Resume pane) length: {len(bullhorn_data.get('description', ''))} chars")
             
             # Create or update candidate in Bullhorn
             if duplicate_id and confidence >= 0.85:
