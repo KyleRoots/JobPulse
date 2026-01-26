@@ -3802,6 +3802,10 @@ def bullhorn_oauth_start():
         # Step 3: Build authorization URL
         base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://jobpulse.lyntrix.ai")
         redirect_uri = f"{base_url}/bullhorn/oauth/callback"
+        
+        logging.info(f"OAuth redirect_uri: {redirect_uri}")
+        logging.info(f"OAuth client_id: {client_id_setting.setting_value}")
+        
         auth_params = {
             'client_id': client_id_setting.setting_value,
             'response_type': 'code',
@@ -3813,6 +3817,7 @@ def bullhorn_oauth_start():
         from urllib.parse import urlencode
         auth_url = f"{auth_endpoint}?{urlencode(auth_params)}"
         
+        logging.info(f"OAuth full auth_url: {auth_url}")
         logging.info(f"Starting OAuth with state: {state[:10]}...")
         return redirect(auth_url)
         
