@@ -331,35 +331,41 @@ def seed_bullhorn_monitors(db, BullhornMonitor):
         BullhornMonitor: BullhornMonitor model class
     """
     try:
-        # Define tearsheet configurations
+        # Define tearsheet configurations (Bullhorn One IDs - January 2026 migration)
         tearsheet_configs = [
             {
                 'name': 'Sponsored - OTT',
-                'tearsheet_id': 1256,
+                'tearsheet_id': 1231,
                 'tearsheet_name': 'Sponsored - OTT',
                 'notification_email': 'apply@myticas.com'
             },
             {
                 'name': 'Sponsored - CHI',
-                'tearsheet_id': 1257,
+                'tearsheet_id': 1232,
                 'tearsheet_name': 'Sponsored - CHI',
                 'notification_email': 'apply@myticas.com'
             },
             {
+                'name': 'Sponsored - CLE',
+                'tearsheet_id': 1233,
+                'tearsheet_name': 'Sponsored - CLE',
+                'notification_email': 'apply@myticas.com'
+            },
+            {
                 'name': 'Sponsored - VMS',
-                'tearsheet_id': 1264,
+                'tearsheet_id': 1239,
                 'tearsheet_name': 'Sponsored - VMS',
                 'notification_email': 'apply@myticas.com'
             },
             {
                 'name': 'Sponsored - GR',
-                'tearsheet_id': 1499,
+                'tearsheet_id': 1474,
                 'tearsheet_name': 'Sponsored - GR',
                 'notification_email': 'apply@myticas.com'
             },
             {
                 'name': 'Sponsored - STSI',
-                'tearsheet_id': 1556,
+                'tearsheet_id': 1531,
                 'tearsheet_name': 'Sponsored - STSI',
                 'notification_email': ''  # No email for STSI
             }
