@@ -472,8 +472,14 @@ Consider: name spelling variations, nicknames, contact info matches.
         candidate = {}
         
         # Basic fields - email data takes priority
-        candidate['firstName'] = email_data.get('first_name') or resume_data.get('first_name')
-        candidate['lastName'] = email_data.get('last_name') or resume_data.get('last_name')
+        first_name = email_data.get('first_name') or resume_data.get('first_name') or ''
+        last_name = email_data.get('last_name') or resume_data.get('last_name') or ''
+        
+        candidate['firstName'] = first_name
+        candidate['lastName'] = last_name
+        # IMPORTANT: 'name' field is required for Bullhorn list view display
+        candidate['name'] = f"{first_name} {last_name}".strip()
+        
         candidate['email'] = email_data.get('email') or resume_data.get('email')
         candidate['phone'] = email_data.get('phone') or resume_data.get('phone')
         
@@ -639,11 +645,16 @@ Consider: name spelling variations, nicknames, contact info matches.
             
             # Upload resume if available
             if resume_file and candidate_id:
+                self.logger.info(f"Uploading resume '{resume_file['filename']}' to candidate {candidate_id}")
                 file_id = bullhorn.upload_candidate_file(
                     candidate_id, 
                     resume_file['content'], 
                     resume_file['filename']
                 )
+                if file_id:
+                    self.logger.info(f"Successfully uploaded resume to Bullhorn, file ID: {file_id}")
+                else:
+                    self.logger.warning(f"Failed to upload resume to Bullhorn for candidate {candidate_id}")
                 parsed_email.resume_file_id = file_id
             
             # Create job submission if we have job ID
