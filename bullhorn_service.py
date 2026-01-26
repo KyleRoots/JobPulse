@@ -227,6 +227,8 @@ class BullhornService:
             if not base_url:
                 # Auto-detect from current environment (fallback to production URL)
                 base_url = "https://jobpulse.lyntrix.ai"  # Production deployment URL
+            else:
+                base_url = base_url.strip()  # Remove any whitespace from env var
             
             redirect_uri = f"{base_url}/bullhorn/oauth/callback"
             
