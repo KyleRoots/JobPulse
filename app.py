@@ -5024,7 +5024,8 @@ def email_parsing_dashboard():
         'completed': completed_emails,
         'failed': failed_emails,
         'duplicates': duplicate_candidates,
-        'success_rate': round((completed_emails / total_emails * 100) if total_emails > 0 else 0, 1)
+        'success_rate': round((completed_emails / total_emails * 100) if total_emails > 0 else 0, 1),
+        'duplicate_rate': round((duplicate_candidates / completed_emails * 100) if completed_emails > 0 else 0, 1)
     }
     
     return render_template('email_parsing.html', emails=recent_emails, stats=stats)
@@ -5095,6 +5096,7 @@ def api_email_parsing_stats():
     completed = ParsedEmail.query.filter_by(status='completed').count()
     failed = ParsedEmail.query.filter_by(status='failed').count()
     processing = ParsedEmail.query.filter_by(status='processing').count()
+    duplicates = ParsedEmail.query.filter_by(is_duplicate_candidate=True).count()
     
     # Stats by source
     source_stats = db.session.query(
@@ -5119,7 +5121,9 @@ def api_email_parsing_stats():
             'completed': completed,
             'failed': failed,
             'processing': processing,
-            'success_rate': round((completed / total * 100) if total > 0 else 0, 1)
+            'duplicates': duplicates,
+            'success_rate': round((completed / total * 100) if total > 0 else 0, 1),
+            'duplicate_rate': round((duplicates / completed * 100) if completed > 0 else 0, 1)
         },
         'by_source': {source or 'Unknown': count for source, count in source_stats},
         'daily': {str(date): count for date, count in daily_stats}
