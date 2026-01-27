@@ -81,11 +81,14 @@ class EmailInboundService:
         self._init_openai()
     
     def _init_openai(self):
-        """Initialize OpenAI client"""
+        """Initialize OpenAI client with 60-second timeout"""
         api_key = os.environ.get('OPENAI_API_KEY')
         if api_key:
-            self.openai_client = OpenAI(api_key=api_key)
-            self.logger.info("OpenAI client initialized for resume parsing")
+            self.openai_client = OpenAI(
+                api_key=api_key,
+                timeout=60.0  # 60-second timeout to prevent hanging
+            )
+            self.logger.info("OpenAI client initialized for resume parsing (60s timeout)")
         else:
             self.logger.warning("OPENAI_API_KEY not set - AI resume parsing disabled")
     
@@ -365,9 +368,16 @@ Resume text:
         except json.JSONDecodeError as e:
             self.logger.error(f"Failed to parse AI response as JSON: {e}")
             return {}
+        except TimeoutError as e:
+            self.logger.error(f"⏰ OpenAI API timeout (60s) during resume parsing: {e}")
+            return {'_timeout_error': 'OpenAI API timeout - resume parsing took too long'}
         except Exception as e:
-            self.logger.error(f"AI resume parsing error: {e}")
-            return {}
+            error_type = type(e).__name__
+            if 'timeout' in str(e).lower() or 'timed out' in str(e).lower():
+                self.logger.error(f"⏰ OpenAI API timeout during resume parsing: {e}")
+                return {'_timeout_error': 'OpenAI API timeout - resume parsing took too long'}
+            self.logger.error(f"AI resume parsing error ({error_type}): {e}")
+            return {}  # Return empty dict for non-timeout errors - allow fallback to email data
     
     def find_duplicate_candidate(self, email: str, phone: str, first_name: str, last_name: str, 
                                   bullhorn_service) -> Tuple[Optional[int], float]:
@@ -653,15 +663,69 @@ Consider: name spelling variations, nicknames, contact info matches.
             
             db.session.commit()
             
-            # Import bullhorn service helper that loads credentials from database
-            from app import get_bullhorn_service
-            bullhorn = get_bullhorn_service()
+            # ============================================================
+            # EARLY VALIDATION - Fail fast with descriptive error messages
+            # ============================================================
             
-            # Check for duplicate candidate
+            # Combine candidate info from both email body and resume
             candidate_email = email_candidate.get('email') or resume_data.get('email')
             candidate_phone = email_candidate.get('phone') or resume_data.get('phone')
             first_name = email_candidate.get('first_name') or resume_data.get('first_name')
             last_name = email_candidate.get('last_name') or resume_data.get('last_name')
+            
+            has_name = bool(first_name or last_name)
+            has_contact = bool(candidate_email or candidate_phone)
+            has_email_data = bool(email_candidate.get('first_name') or email_candidate.get('email'))
+            
+            # Check if AI had a TIMEOUT error - this is more serious
+            timeout_error = resume_data.get('_timeout_error')
+            if timeout_error:
+                self.logger.warning(f"⚠️ Resume parsing timed out: {timeout_error}")
+                # Only fail if we don't have email-extracted candidate info to fall back on
+                if not has_email_data:
+                    parsed_email.status = 'failed'
+                    parsed_email.processed_at = datetime.utcnow()
+                    parsed_email.processing_notes = f"Resume parsing timed out and no candidate info in email body"
+                    db.session.commit()
+                    result['success'] = False
+                    result['message'] = timeout_error
+                    return result
+                else:
+                    # Log the timeout but continue with email data
+                    self.logger.info(f"⚠️ AI timed out but using email-extracted candidate info: {first_name} {last_name}")
+            
+            # Check if we have ANY usable candidate information
+            if not has_name and not has_contact:
+                # Check for specific failure reasons to provide helpful messages
+                if not attachments:
+                    error_msg = "No resume attachment found in email and could not extract candidate info from email body"
+                elif not resume_file:
+                    error_msg = f"No supported resume file found (received: {[a['filename'] for a in attachments]}) and no candidate info in email body"
+                elif not resume_text:
+                    error_msg = f"Could not extract text from resume '{resume_file['filename']}' - may be password-protected, scanned image, or corrupted"
+                elif not resume_data or len(resume_data) == 0:
+                    error_msg = "AI could not extract any information from resume and no candidate info in email body"
+                else:
+                    error_msg = "Could not extract candidate name or contact information from email or resume"
+                
+                self.logger.warning(f"⚠️ Early validation failed: {error_msg}")
+                parsed_email.status = 'failed'
+                parsed_email.processed_at = datetime.utcnow()
+                parsed_email.processing_notes = error_msg
+                db.session.commit()
+                result['success'] = False
+                result['message'] = error_msg
+                return result
+            
+            self.logger.info(f"✅ Validation passed: name={first_name} {last_name}, email={candidate_email}, phone={candidate_phone}")
+            
+            # ============================================================
+            # END EARLY VALIDATION
+            # ============================================================
+            
+            # Import bullhorn service helper that loads credentials from database
+            from app import get_bullhorn_service
+            bullhorn = get_bullhorn_service()
             
             duplicate_id, confidence = self.find_duplicate_candidate(
                 candidate_email, candidate_phone, first_name, last_name, bullhorn

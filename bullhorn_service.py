@@ -436,7 +436,7 @@ class BullhornService:
                 'BhRestToken': self.rest_token
             }
             
-            entity_response = self.session.get(entity_url, params=entity_params)
+            entity_response = self.session.get(entity_url, params=entity_params, timeout=60)
             entity_total = 0
             entity_job_ids = set()
             
@@ -469,7 +469,7 @@ class BullhornService:
                                 'count': page_size,
                                 'BhRestToken': self.rest_token
                             }
-                            paginated_response = self.session.get(assoc_url, params=assoc_params)
+                            paginated_response = self.session.get(assoc_url, params=assoc_params, timeout=60)
                             if paginated_response.status_code == 200:
                                 paginated_data = paginated_response.json()
                                 paginated_jobs = paginated_data.get('data', [])
