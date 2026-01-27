@@ -5126,6 +5126,49 @@ def api_email_parsing_stats():
     })
 
 
+@app.route('/api/email/clear-stuck', methods=['POST'])
+@login_required
+def api_clear_stuck_emails():
+    """Manually clear stuck email parsing records (mark as failed after timeout)"""
+    try:
+        from models import ParsedEmail
+        
+        # Records stuck in 'processing' for more than 10 minutes
+        timeout_threshold = datetime.utcnow() - timedelta(minutes=10)
+        
+        stuck_records = ParsedEmail.query.filter(
+            ParsedEmail.status == 'processing',
+            ParsedEmail.created_at < timeout_threshold
+        ).all()
+        
+        if stuck_records:
+            cleared_ids = []
+            for record in stuck_records:
+                record.status = 'failed'
+                record.processing_notes = f"Manually cleared: Processing timeout (started at {record.created_at})"
+                record.processed_at = datetime.utcnow()
+                cleared_ids.append(record.id)
+                app.logger.info(f"⏰ Manually cleared stuck email parsing record ID {record.id} (candidate: {record.candidate_name or 'Unknown'})")
+            
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': f'Cleared {len(cleared_ids)} stuck records',
+                'cleared_ids': cleared_ids
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'message': 'No stuck records found (records must be processing for >10 minutes)',
+                'cleared_ids': []
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Error clearing stuck email records: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/email/test-parse', methods=['POST'])
 @login_required 
 def api_test_email_parse():
@@ -5559,6 +5602,47 @@ if is_primary_worker:
         replace_existing=True
     )
     app.logger.info("📋 Scheduled activity retention cleanup (15 days)")
+
+# Email Parsing Stuck Record Cleanup
+def email_parsing_timeout_cleanup():
+    """Auto-fail stuck email parsing records after 10 minutes"""
+    with app.app_context():
+        try:
+            from models import ParsedEmail
+            
+            # Records stuck in 'processing' for more than 10 minutes
+            timeout_threshold = datetime.utcnow() - timedelta(minutes=10)
+            
+            stuck_records = ParsedEmail.query.filter(
+                ParsedEmail.status == 'processing',
+                ParsedEmail.created_at < timeout_threshold
+            ).all()
+            
+            if stuck_records:
+                for record in stuck_records:
+                    record.status = 'failed'
+                    record.processing_notes = f"Auto-failed: Processing timeout after 10 minutes (started at {record.created_at})"
+                    record.processed_at = datetime.utcnow()
+                    app.logger.warning(f"⏰ Auto-failed stuck email parsing record ID {record.id} (candidate: {record.candidate_name or 'Unknown'})")
+                
+                db.session.commit()
+                app.logger.info(f"⏰ Email parsing cleanup: Auto-failed {len(stuck_records)} stuck records")
+            
+        except Exception as e:
+            app.logger.error(f"Email parsing timeout cleanup error: {str(e)}")
+            db.session.rollback()
+
+if is_primary_worker:
+    # Add email parsing stuck record cleanup - runs every 5 minutes
+    scheduler.add_job(
+        func=email_parsing_timeout_cleanup,
+        trigger='interval',
+        minutes=5,
+        id='email_parsing_timeout_cleanup',
+        name='Email Parsing Timeout Cleanup (10 min)',
+        replace_existing=True
+    )
+    app.logger.info("📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)")
 
 # Reference Number Refresh (120-hour cycle)
 def reference_number_refresh():
