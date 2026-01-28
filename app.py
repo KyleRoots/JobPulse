@@ -173,7 +173,7 @@ def get_xml_filename():
 
 # Simple automated upload scheduling - no complex environment detection needed
 
-app.secret_key = os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
+app.secret_key = os.environ.get("SESSION_SECRET")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Production session optimization - Extended for better user experience
