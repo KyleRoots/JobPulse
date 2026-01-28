@@ -784,22 +784,71 @@ Consider: name spelling variations, nicknames, contact info matches.
             elif not is_new_candidate:
                 self.logger.info(f"Skipping education creation for existing candidate {candidate_id} to avoid duplicates")
             
-            # Add AI summary as a note on the candidate record
-            if candidate_id and resume_data.get('summary'):
-                summary = resume_data.get('summary')
-                # Create a nicely formatted note with the AI summary
-                note_text = f"📋 AI-Generated Resume Summary:\n\n{summary}"
-                if resume_data.get('skills'):
-                    skills_preview = ', '.join(resume_data['skills'][:10])
-                    note_text += f"\n\n🔧 Key Skills: {skills_preview}"
-                if resume_data.get('years_experience'):
-                    note_text += f"\n\n📅 Experience: {resume_data['years_experience']} years"
+            # Add note to candidate record - always create at least a basic application note
+            note_status = "not_attempted"
+            note_id_created = None
+            
+            if candidate_id:
+                note_created = False
                 
-                note_id = bullhorn.create_candidate_note(candidate_id, note_text, "AI Resume Summary")
-                if note_id:
-                    self.logger.info(f"Created AI summary note {note_id} for candidate {candidate_id}")
-                else:
-                    self.logger.warning(f"Failed to create AI summary note for candidate {candidate_id}")
+                # First try: AI-generated summary note (preferred)
+                if resume_data.get('summary'):
+                    summary = resume_data.get('summary')
+                    note_text = f"📋 AI-Generated Resume Summary:\n\n{summary}"
+                    if resume_data.get('skills'):
+                        skills_preview = ', '.join(resume_data['skills'][:10])
+                        note_text += f"\n\n🔧 Key Skills: {skills_preview}"
+                    if resume_data.get('years_experience'):
+                        note_text += f"\n\n📅 Experience: {resume_data['years_experience']} years"
+                    
+                    note_id = bullhorn.create_candidate_note(candidate_id, note_text, "AI Resume Summary")
+                    if note_id:
+                        self.logger.info(f"✅ Created AI summary note {note_id} for candidate {candidate_id}")
+                        note_created = True
+                        note_status = "ai_summary_created"
+                        note_id_created = note_id
+                    else:
+                        self.logger.warning(f"⚠️ Failed to create AI summary note for candidate {candidate_id}")
+                        note_status = "ai_summary_failed"
+                
+                # Fallback: Create basic application note if AI summary wasn't available or failed
+                if not note_created:
+                    self.logger.info(f"📝 Creating fallback application note for candidate {candidate_id}")
+                    
+                    # Build a basic note with whatever info we have
+                    note_parts = [f"📨 Job Application Received via {source}"]
+                    note_parts.append(f"\n📅 Date: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+                    
+                    if job_id:
+                        note_parts.append(f"\n💼 Applied to Job ID: {job_id}")
+                    
+                    # Add any available info from resume_data
+                    if resume_data.get('current_title'):
+                        note_parts.append(f"\n👤 Current Title: {resume_data.get('current_title')}")
+                    if resume_data.get('current_company'):
+                        note_parts.append(f"\n🏢 Current Company: {resume_data.get('current_company')}")
+                    if resume_data.get('skills'):
+                        skills_preview = ', '.join(resume_data['skills'][:8])
+                        note_parts.append(f"\n🔧 Skills: {skills_preview}")
+                    if resume_data.get('years_experience'):
+                        note_parts.append(f"\n📅 Experience: {resume_data['years_experience']} years")
+                    
+                    # Add email-extracted info if no resume data
+                    if not resume_data.get('current_title') and email_candidate.get('first_name'):
+                        note_parts.append(f"\n👤 Candidate: {email_candidate.get('first_name', '')} {email_candidate.get('last_name', '')}")
+                    
+                    if result.get('is_duplicate'):
+                        note_parts.append("\n\n⚠️ Note: Candidate was identified as existing in database (duplicate)")
+                    
+                    fallback_note = ''.join(note_parts)
+                    fallback_note_id = bullhorn.create_candidate_note(candidate_id, fallback_note, "Application Received")
+                    if fallback_note_id:
+                        self.logger.info(f"✅ Created fallback application note {fallback_note_id} for candidate {candidate_id}")
+                        note_status = "fallback_created"
+                        note_id_created = fallback_note_id
+                    else:
+                        self.logger.error(f"❌ Failed to create any note for candidate {candidate_id}")
+                        note_status = "all_notes_failed"
             
             # Upload resume if available
             if resume_file and candidate_id:
@@ -831,10 +880,13 @@ Consider: name spelling variations, nicknames, contact info matches.
             elif not candidate_id:
                 self.logger.warning(f"⚠️ No candidate ID - cannot create job submission")
             
-            # Mark as completed
+            # Mark as completed with note creation status
             parsed_email.status = 'completed'
             parsed_email.processed_at = datetime.utcnow()
-            parsed_email.processing_notes = f"Processed successfully. Candidate ID: {candidate_id}"
+            note_info = f", Note: {note_status}"
+            if note_id_created:
+                note_info += f" (ID: {note_id_created})"
+            parsed_email.processing_notes = f"Processed successfully. Candidate ID: {candidate_id}{note_info}"
             
             db.session.commit()
             

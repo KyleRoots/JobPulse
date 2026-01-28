@@ -81,6 +81,16 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Root Cause**: Missing safeguard to detect empty API responses as errors vs. legitimate data.
 - **Fix Implemented**: Zero-job detection safeguard now blocks updates when API returns 0 jobs but XML contains ≥5 jobs. System creates backup and sends single alert instead of processing the corrupt data.
 
+### January 28, 2026 - Note Creation Fix for Email Parsing
+- **Issue**: Candidate notes were not being created for email-parsed applications despite successful candidate creation
+- **Root Cause**: Bullhorn One API requires `commentingPerson` field to identify who created the note
+- **Fix Implemented**: 
+  1. Store `userId` from REST login response in `BullhornService.user_id`
+  2. Add `commentingPerson` with authenticated user ID to all note creation requests
+  3. Track note creation status (`ai_summary_created`, `fallback_created`, `all_notes_failed`) in `parsed_email.processing_notes`
+  4. Include note ID in processing notes for verification
+- **Fallback Behavior**: If AI summary note fails, system creates a basic application note with available data
+
 ## Bullhorn One Migration (January 26, 2026)
 
 ### Overview

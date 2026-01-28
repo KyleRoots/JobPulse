@@ -21,6 +21,7 @@ class BullhornService:
     def __init__(self, client_id=None, client_secret=None, username=None, password=None):
         self.base_url = None
         self.rest_token = None
+        self.user_id = None  # Corporate user ID for note creation
         self.client_id = client_id
         self.client_secret = client_secret
         self.username = username
@@ -334,6 +335,8 @@ class BullhornService:
             self.rest_token = rest_data.get('BhRestToken')
             # Extract the actual REST URL from the response, or use the fixed URL for Bullhorn One
             self.base_url = rest_data.get('restUrl', rest_url)
+            # Store user ID for note creation (commentingPerson field)
+            self.user_id = rest_data.get('userId')
             
             if not self.rest_token:
                 logging.error("No REST token in response")
@@ -341,6 +344,8 @@ class BullhornService:
             
             logging.info(f"Bullhorn authentication successful. Base URL: {self.base_url}")
             logging.info(f"REST Token (first 20 chars): {self.rest_token[:20]}...")
+            if self.user_id:
+                logging.info(f"User ID for note creation: {self.user_id}")
             return True
             
         except Exception as e:
@@ -1501,31 +1506,77 @@ class BullhornService:
         """
         if not self.base_url or not self.rest_token:
             if not self.authenticate():
+                logging.error(f"Note creation failed: Could not authenticate with Bullhorn")
                 return None
         
-        try:
-            url = f"{self.base_url}entity/Note"
-            params = {'BhRestToken': self.rest_token}
-            
-            # Build note data - link to candidate via personReference
-            note_data = {
-                'personReference': {'id': int(candidate_id)},
-                'action': action,
-                'comments': note_text,
-                'isDeleted': False
-            }
-            
-            response = self.session.put(url, params=params, json=note_data, timeout=30)
-            
-            if response.status_code in [200, 201]:
-                data = self._safe_json_parse(response)
-                note_id = data.get('changedEntityId')
-                logging.info(f"Created note {note_id} on candidate {candidate_id}: {action}")
-                return note_id
-            else:
-                logging.warning(f"Failed to create note: {response.status_code} - {response.text}")
-                return None
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                url = f"{self.base_url}entity/Note"
+                params = {'BhRestToken': self.rest_token}
                 
-        except Exception as e:
-            logging.error(f"Error creating candidate note: {str(e)}")
-            return None
+                # Build note data with all required fields for Bullhorn One compatibility
+                # personReference: Links note to the candidate (who the note is about)
+                # commentingPerson: User who created the note (required in some instances)
+                # candidates: Explicit to-many association for linking
+                note_data = {
+                    'personReference': {'id': int(candidate_id)},
+                    'action': action,
+                    'comments': note_text,
+                    'isDeleted': False
+                }
+                
+                # Add commentingPerson if we have user ID from authentication
+                if self.user_id:
+                    note_data['commentingPerson'] = {'id': int(self.user_id)}
+                
+                # Also try candidates array for explicit linking
+                note_data['candidates'] = [{'id': int(candidate_id)}]
+                
+                logging.info(f"📝 Creating note for candidate {candidate_id}: action='{action}', length={len(note_text)} chars")
+                
+                response = self.session.put(url, params=params, json=note_data, timeout=60)
+                
+                if response.status_code in [200, 201]:
+                    data = self._safe_json_parse(response)
+                    note_id = data.get('changedEntityId')
+                    logging.info(f"✅ Created note {note_id} on candidate {candidate_id}: {action}")
+                    return note_id
+                elif response.status_code == 401 and attempt < max_retries - 1:
+                    # Token might be expired, try re-authenticating
+                    logging.warning(f"Note creation got 401, re-authenticating...")
+                    self.rest_token = None
+                    if self.authenticate():
+                        continue  # Retry with new token
+                    else:
+                        logging.error(f"Failed to re-authenticate for note creation")
+                        return None
+                else:
+                    error_text = response.text[:500] if response.text else "No error details"
+                    logging.error(f"❌ Failed to create note for candidate {candidate_id}: HTTP {response.status_code} - {error_text}")
+                    
+                    # Try alternative approach without candidates array if we get an error
+                    if attempt == 0 and 'candidates' in str(response.text):
+                        logging.info("Retrying note creation without candidates array...")
+                        note_data_simple = {
+                            'personReference': {'id': int(candidate_id)},
+                            'action': action,
+                            'comments': note_text,
+                            'isDeleted': False
+                        }
+                        response2 = self.session.put(url, params=params, json=note_data_simple, timeout=60)
+                        if response2.status_code in [200, 201]:
+                            data = self._safe_json_parse(response2)
+                            note_id = data.get('changedEntityId')
+                            logging.info(f"✅ Created note {note_id} on candidate {candidate_id} (simple approach)")
+                            return note_id
+                    
+                    return None
+                    
+            except Exception as e:
+                logging.error(f"❌ Exception creating candidate note (attempt {attempt+1}): {str(e)}")
+                if attempt < max_retries - 1:
+                    continue
+                return None
+        
+        return None
