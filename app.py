@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import re
 import requests
@@ -176,11 +176,14 @@ def get_xml_filename():
 app.secret_key = os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Production session optimization
+# Production session optimization - Extended for better user experience
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # 30 days instead of 1 hour
+app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)  # Remember me lasts 30 days
+app.config['REMEMBER_COOKIE_SECURE'] = True
+app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 
 # Database configuration with fallback
 database_url = os.environ.get("DATABASE_URL")
@@ -973,7 +976,8 @@ def login():
             user.last_login = datetime.utcnow()
             db.session.commit()
             
-            login_user(user)
+            login_user(user, remember=True)  # Remember user for extended session
+            session.permanent = True  # Enable 30-day session persistence
             # Removed welcome message for cleaner login experience
             
             # Start scheduler on successful login

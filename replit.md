@@ -28,7 +28,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Background Processing**: APScheduler for automated tasks and Bullhorn monitoring
 - **XML Processing**: Custom `lxml` processor for job data, CDATA formatting, reference number generation, HTML consistency, and LinkedIn recruiter tags.
 - **Email Service**: SendGrid for notifications and delivery logging.
-- **Session Management**: Flask sessions with secure keys
+- **Session Management**: Flask sessions with 30-day persistence (remember me enabled by default)
 - **File Handling**: Secure temporary file storage with cleanup, supporting XML files only (max 50MB).
 - **Error Handling**: Comprehensive XML syntax error catching, user-friendly messages, server-side logging, client-side validation.
 - **Proxy Support**: ProxyFix middleware
