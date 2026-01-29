@@ -3762,7 +3762,7 @@ def api_bullhorn_api_status():
 @login_required
 def vetting_settings():
     """AI Candidate Vetting settings and activity page"""
-    from models import VettingConfig, CandidateVettingLog
+    from models import VettingConfig, CandidateVettingLog, JobVettingRequirements
     
     # Get settings
     settings = {
@@ -3798,10 +3798,16 @@ def vetting_settings():
         CandidateVettingLog.created_at.desc()
     ).limit(20).all()
     
+    # Get job requirements for editing
+    job_requirements = JobVettingRequirements.query.order_by(
+        JobVettingRequirements.updated_at.desc()
+    ).limit(50).all()
+    
     return render_template('vetting_settings.html', 
                           settings=settings, 
                           stats=stats, 
-                          recent_activity=recent_activity)
+                          recent_activity=recent_activity,
+                          job_requirements=job_requirements)
 
 
 @app.route('/vetting/save', methods=['POST'])
@@ -3875,6 +3881,40 @@ def run_vetting_now():
     except Exception as e:
         app.logger.error(f"Error running vetting cycle: {str(e)}")
         flash(f'Error running vetting cycle: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
+@app.route('/vetting/job/<int:job_id>/requirements', methods=['POST'])
+@login_required
+def save_job_requirements(job_id):
+    """Save custom requirements for a job"""
+    from models import JobVettingRequirements
+    
+    try:
+        custom_requirements = request.form.get('custom_requirements', '').strip()
+        
+        job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+        if job_req:
+            job_req.custom_requirements = custom_requirements if custom_requirements else None
+            job_req.updated_at = datetime.utcnow()
+        else:
+            job_req = JobVettingRequirements(
+                bullhorn_job_id=job_id,
+                custom_requirements=custom_requirements if custom_requirements else None
+            )
+            db.session.add(job_req)
+        
+        db.session.commit()
+        
+        if custom_requirements:
+            flash(f'Custom requirements saved for Job #{job_id}', 'success')
+        else:
+            flash(f'Custom requirements cleared - using AI interpretation for Job #{job_id}', 'info')
+        
+    except Exception as e:
+        app.logger.error(f"Error saving job requirements: {str(e)}")
+        flash(f'Error saving requirements: {str(e)}', 'error')
     
     return redirect(url_for('vetting_settings'))
 

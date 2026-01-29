@@ -18,7 +18,7 @@ from openai import OpenAI
 from app import db
 from models import (
     CandidateVettingLog, CandidateJobMatch, VettingConfig,
-    BullhornMonitor, GlobalSettings
+    BullhornMonitor, GlobalSettings, JobVettingRequirements
 )
 from bullhorn_service import BullhornService
 from email_service import EmailService
@@ -92,6 +92,38 @@ class CandidateVettingService:
             return float(self.get_config_value('match_threshold', '80'))
         except (ValueError, TypeError):
             return 80.0
+    
+    def _get_job_custom_requirements(self, job_id: int) -> Optional[str]:
+        """Get custom requirements for a job if user has specified any"""
+        try:
+            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            if job_req:
+                return job_req.get_active_requirements()
+            return None
+        except Exception as e:
+            logging.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
+            return None
+    
+    def _save_ai_interpreted_requirements(self, job_id: int, job_title: str, requirements: str):
+        """Save the AI-interpreted requirements for a job for user review"""
+        try:
+            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            if job_req:
+                job_req.ai_interpreted_requirements = requirements
+                job_req.last_ai_interpretation = datetime.utcnow()
+                if job_title:
+                    job_req.job_title = job_title
+            else:
+                job_req = JobVettingRequirements(
+                    bullhorn_job_id=job_id,
+                    job_title=job_title,
+                    ai_interpreted_requirements=requirements,
+                    last_ai_interpretation=datetime.utcnow()
+                )
+                db.session.add(job_req)
+            db.session.commit()
+        except Exception as e:
+            logging.error(f"Error saving AI requirements for job {job_id}: {str(e)}")
     
     def _get_last_run_timestamp(self) -> Optional[datetime]:
         """Get the last successful vetting run timestamp from config"""
@@ -460,13 +492,18 @@ class CandidateVettingService:
                 'match_summary': 'AI analysis unavailable',
                 'skills_match': '',
                 'experience_match': '',
-                'gaps_identified': ''
+                'gaps_identified': '',
+                'key_requirements': ''
             }
         
         job_title = job.get('title', 'Unknown Position')
-        job_description = job.get('publicDescription', '') or job.get('description', '')
+        # Use internal description field first (contains full details), fall back to publicDescription
+        job_description = job.get('description', '') or job.get('publicDescription', '')
         job_location = job.get('address', {}).get('city', '') if isinstance(job.get('address'), dict) else ''
         job_id = job.get('id', 'N/A')
+        
+        # Check for custom requirements override
+        custom_requirements = self._get_job_custom_requirements(job_id)
         
         # Clean up job description (remove HTML tags if present)
         import re
@@ -478,8 +515,28 @@ class CandidateVettingService:
         resume_text = resume_text[:max_resume_len] if resume_text else ''
         job_description = job_description[:max_desc_len] if job_description else ''
         
-        prompt = f"""Analyze how well this candidate's resume matches the job requirements. 
+        # Build the requirements section - use custom if available, otherwise let AI extract
+        requirements_instruction = ""
+        if custom_requirements:
+            requirements_instruction = f"""
+IMPORTANT: Use these specific requirements for evaluation (manually specified):
+{custom_requirements}
+
+Focus ONLY on these requirements when scoring. Ignore nice-to-haves in the job description."""
+        else:
+            requirements_instruction = """
+IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job description:
+- Required skills (often marked as "required", "must have", "essential")
+- Minimum years of experience specified
+- Required certifications or licenses
+- Required education level
+
+DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
+Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
+        
+        prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements. 
 Provide an objective assessment with a percentage match score (0-100).
+{requirements_instruction}
 
 JOB DETAILS:
 - Job ID: {job_id}
@@ -496,11 +553,12 @@ Respond in JSON format with these exact fields:
     "match_summary": "<2-3 sentence summary of overall fit>",
     "skills_match": "<key skills that align with job requirements>",
     "experience_match": "<relevant experience that qualifies candidate>",
-    "gaps_identified": "<any requirements the candidate may not meet>"
+    "gaps_identified": "<any MANDATORY requirements the candidate may not meet>",
+    "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements you identified from the job>"
 }}
 
-Be thorough but concise. Focus on factual alignment between resume and job requirements.
-Score above 80 only if there's strong alignment in skills, experience, and qualifications."""
+Be thorough but concise. Focus on MANDATORY requirements only.
+Score above 80 if the candidate meets most mandatory requirements - be reasonable, not overly strict."""
 
         try:
             response = self.openai_client.chat.completions.create(
@@ -519,6 +577,11 @@ Score above 80 only if there's strong alignment in skills, experience, and quali
             # Ensure match_score is an integer
             result['match_score'] = int(result.get('match_score', 0))
             
+            # Save AI-interpreted requirements for future reference/editing
+            key_requirements = result.get('key_requirements', '')
+            if key_requirements and not custom_requirements:
+                self._save_ai_interpreted_requirements(job_id, job_title, key_requirements)
+            
             return result
             
         except Exception as e:
@@ -528,7 +591,8 @@ Score above 80 only if there's strong alignment in skills, experience, and quali
                 'match_summary': f'Analysis failed: {str(e)}',
                 'skills_match': '',
                 'experience_match': '',
-                'gaps_identified': ''
+                'gaps_identified': '',
+                'key_requirements': ''
             }
     
     def get_candidate_job_submission(self, candidate_id: int) -> Optional[Dict]:

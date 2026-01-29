@@ -602,6 +602,25 @@ class CandidateJobMatch(db.Model):
         return f'<CandidateJobMatch {self.bullhorn_job_id} - {self.match_score}%>'
 
 
+class JobVettingRequirements(db.Model):
+    """Custom requirements override for job vetting - allows users to specify key requirements if AI interpretation is inaccurate"""
+    id = db.Column(db.Integer, primary_key=True)
+    bullhorn_job_id = db.Column(db.Integer, unique=True, nullable=False, index=True)
+    job_title = db.Column(db.String(255), nullable=True)
+    custom_requirements = db.Column(db.Text, nullable=True)  # User-editable requirements text
+    ai_interpreted_requirements = db.Column(db.Text, nullable=True)  # What AI extracted from job
+    last_ai_interpretation = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<JobVettingRequirements job_id={self.bullhorn_job_id}>'
+    
+    def get_active_requirements(self):
+        """Return custom requirements if set, otherwise AI interpreted"""
+        return self.custom_requirements or self.ai_interpreted_requirements
+
+
 class VettingConfig(db.Model):
     """Configuration settings for the candidate vetting system"""
     id = db.Column(db.Integer, primary_key=True)
