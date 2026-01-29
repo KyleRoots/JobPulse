@@ -53,12 +53,19 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **AI Candidate Vetting (Premium Add-on)**: Automated candidate-job matching system using GPT-4o:
   - **Detection**: Monitors for new "Online Applicant" candidates in Bullhorn every 5 minutes
   - **Resume Analysis**: Extracts resume files (PDF/DOCX/DOC) from candidate profiles in Bullhorn
-  - **AI Matching**: Compares each candidate's resume against all active jobs in monitored tearsheets using GPT-4o
+  - **AI Matching**: Compares each candidate's resume against all active jobs in monitored tearsheets using GPT-4o, focusing on mandatory requirements only (ignores nice-to-haves)
   - **Scoring**: Generates match scores (0-100%), detailed fit explanations, and key qualifications
   - **Note Creation**: Creates Bullhorn notes on ALL candidates with vetting results (qualified and non-qualified) for complete audit trail
   - **Recruiter Notifications**: Sends email alerts to job-assigned recruiters when candidates score ≥80% (configurable threshold)
+  - **Audit Dashboard**: Tabbed interface showing All Candidates, Recommended (80%+), and Not Recommended with:
+    - Expandable candidate cards showing match details, scores, skills, and gaps
+    - Direct Bullhorn hyperlinks to candidate and job profiles for quick sanity checks
+    - Filter by recommended vs not recommended for quality auditing
+  - **Job Requirements Interpretation**: AI extracts mandatory requirements from job descriptions, with admin override capability for custom requirements per job
   - **Admin UI**: Settings page at `/vetting` with enable/disable toggle, threshold configuration, and activity dashboard
-  - **Tables**: `vetting_config` (settings), `candidate_vetting_log` (processing history), `job_match_result` (score details)
+  - **Sample Notes**: Preview page at `/vetting/sample-notes` showing exact note formats for qualified and non-qualified candidates
+  - **Production Default**: Vetting is enabled by default in production deployments, disabled in development
+  - **Tables**: `vetting_config` (settings), `candidate_vetting_log` (processing history), `candidate_job_match` (score details), `job_vetting_requirements` (custom/AI requirements)
 
 ## External Dependencies
 
