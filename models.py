@@ -516,3 +516,121 @@ class EmailParsingConfig(db.Model):
     
     def __repr__(self):
         return f'<EmailParsingConfig {self.setting_key}>'
+
+
+class CandidateVettingLog(db.Model):
+    """Tracks candidates that have been analyzed by the AI vetting system"""
+    id = db.Column(db.Integer, primary_key=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, unique=True, index=True)
+    candidate_name = db.Column(db.String(255), nullable=True)
+    candidate_email = db.Column(db.String(255), nullable=True)
+    applied_job_id = db.Column(db.Integer, nullable=True)  # Job they originally applied to
+    applied_job_title = db.Column(db.String(500), nullable=True)
+    
+    # Resume data
+    resume_text = db.Column(db.Text, nullable=True)  # Extracted resume content
+    resume_file_id = db.Column(db.Integer, nullable=True)  # Bullhorn file ID
+    
+    # Analysis status
+    status = db.Column(db.String(50), default='pending')  # pending, processing, completed, failed
+    is_qualified = db.Column(db.Boolean, default=False)  # True if matched 80%+ on any job
+    highest_match_score = db.Column(db.Float, default=0.0)  # Best match score across all jobs
+    total_jobs_matched = db.Column(db.Integer, default=0)  # Count of jobs with 80%+ match
+    
+    # Note tracking
+    note_created = db.Column(db.Boolean, default=False)
+    bullhorn_note_id = db.Column(db.Integer, nullable=True)
+    
+    # Notification tracking
+    notifications_sent = db.Column(db.Boolean, default=False)
+    notification_count = db.Column(db.Integer, default=0)  # Number of recruiters notified
+    
+    # Error handling
+    error_message = db.Column(db.Text, nullable=True)
+    retry_count = db.Column(db.Integer, default=0)
+    
+    # Timestamps
+    detected_at = db.Column(db.DateTime, default=datetime.utcnow)  # When candidate was detected
+    analyzed_at = db.Column(db.DateTime, nullable=True)  # When AI analysis completed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship to match results
+    job_matches = db.relationship('CandidateJobMatch', backref='vetting_log', lazy='dynamic',
+                                   cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<CandidateVettingLog {self.bullhorn_candidate_id} - {self.candidate_name}>'
+
+
+class CandidateJobMatch(db.Model):
+    """Stores individual job match scores for each candidate"""
+    id = db.Column(db.Integer, primary_key=True)
+    vetting_log_id = db.Column(db.Integer, db.ForeignKey('candidate_vetting_log.id'), nullable=False, index=True)
+    
+    # Job details
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    job_location = db.Column(db.String(255), nullable=True)
+    tearsheet_id = db.Column(db.Integer, nullable=True)
+    tearsheet_name = db.Column(db.String(255), nullable=True)
+    
+    # Recruiter info for notifications
+    recruiter_name = db.Column(db.String(255), nullable=True)
+    recruiter_email = db.Column(db.String(255), nullable=True)
+    recruiter_bullhorn_id = db.Column(db.Integer, nullable=True)
+    
+    # Match analysis
+    match_score = db.Column(db.Float, nullable=False, default=0.0)  # 0-100 percentage
+    is_qualified = db.Column(db.Boolean, default=False)  # True if score >= threshold
+    is_applied_job = db.Column(db.Boolean, default=False)  # True if this is the job they applied to
+    
+    # AI-generated explanations
+    match_summary = db.Column(db.Text, nullable=True)  # Brief summary of why they match
+    skills_match = db.Column(db.Text, nullable=True)  # Skills alignment details
+    experience_match = db.Column(db.Text, nullable=True)  # Experience alignment details
+    gaps_identified = db.Column(db.Text, nullable=True)  # What's missing
+    
+    # Notification tracking
+    notification_sent = db.Column(db.Boolean, default=False)
+    notification_sent_at = db.Column(db.DateTime, nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<CandidateJobMatch {self.bullhorn_job_id} - {self.match_score}%>'
+
+
+class VettingConfig(db.Model):
+    """Configuration settings for the candidate vetting system"""
+    id = db.Column(db.Integer, primary_key=True)
+    setting_key = db.Column(db.String(100), unique=True, nullable=False)
+    setting_value = db.Column(db.Text, nullable=True)
+    description = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<VettingConfig {self.setting_key}>'
+    
+    @classmethod
+    def get_value(cls, key, default=None):
+        """Get a config value by key"""
+        config = cls.query.filter_by(setting_key=key).first()
+        return config.setting_value if config else default
+    
+    @classmethod
+    def set_value(cls, key, value, description=None):
+        """Set a config value, creating if it doesn't exist"""
+        from app import db
+        config = cls.query.filter_by(setting_key=key).first()
+        if config:
+            config.setting_value = str(value)
+            if description:
+                config.description = description
+        else:
+            config = cls(setting_key=key, setting_value=str(value), description=description)
+            db.session.add(config)
+        db.session.commit()
+        return config
