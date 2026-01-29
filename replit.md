@@ -38,6 +38,11 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
   - 5-minute tearsheet monitoring for real-time UI visibility and job change detection
   - 30-minute automated upload cycle for SFTP synchronization
   - Both cycles controlled by dual toggles (`automated_uploads_enabled` and `sftp_enabled`)
+- **Smart Tearsheet Auto-Cleanup**: Automatically removes ineligible jobs from tearsheets during monitoring cycles:
+  - Jobs with `isOpen=Closed` are auto-removed
+  - Jobs with blocked statuses (Qualifying, Hold - Covered, Hold - Client Hold, Offer Out, Filled, Lost - Competition, Lost - Filled Internally, Lost - Funding, Canceled, Placeholder/MPC, Archive) are auto-removed
+  - All removals logged to activity dashboard with reason for audit trail
+  - Failsafe to prevent wasted resources on closed/filled jobs that users forgot to remove
 - **Real-Time Email Notifications**: Instant email alerts sent to kroots@myticas.com when new jobs are added to any monitored tearsheet. Notifications include job ID, title, timestamp, and monitor name for easy Bullhorn search and tracking.
 - **Environment Isolation**: Separate development and production environments, including distinct XML upload targets (`-dev.xml` vs. `.xml`), isolated PostgreSQL databases, and independent schedules to prevent cross-contamination.
 - **Orphan Prevention**: Automated duplicate detection and removal using Bullhorn Entity API for validation against Search API results, preventing job pollution and ensuring data integrity.

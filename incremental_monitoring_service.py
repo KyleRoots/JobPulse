@@ -26,6 +26,22 @@ from email_service import EmailService
 class IncrementalMonitoringService:
     """Simplified incremental monitoring service"""
     
+    # Statuses that indicate a job should be removed from tearsheet
+    # Jobs with these statuses are not eligible for sponsored job feeds
+    INELIGIBLE_STATUSES = [
+        'Qualifying',
+        'Hold - Covered',
+        'Hold - Client Hold',
+        'Offer Out',
+        'Filled',
+        'Lost - Competition',
+        'Lost - Filled Internally',
+        'Lost - Funding',
+        'Canceled',
+        'Placeholder/ MPC',
+        'Archive'
+    ]
+    
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.bullhorn_service = None
@@ -34,6 +50,7 @@ class IncrementalMonitoringService:
         self.lock_file = '/tmp/myticas_feed.lock'
         self.email_service = None
         self.alert_email = None
+        self.auto_removed_jobs = []  # Track jobs auto-removed during cycle
         
     def run_monitoring_cycle(self) -> Dict:
         """
@@ -45,6 +62,7 @@ class IncrementalMonitoringService:
             'jobs_added': 0,
             'jobs_removed': 0,
             'jobs_updated': 0,
+            'jobs_auto_removed': 0,  # Jobs auto-removed from tearsheets
             'total_jobs': 0,
             'upload_success': False,
             'cycle_time': 0,
@@ -105,10 +123,17 @@ class IncrementalMonitoringService:
                 cycle_results['errors'].append("Bullhorn connection failed")
                 return cycle_results
             
-            # Step 1: Fetch all jobs from monitored tearsheets (with proper pagination)
+            # Step 1: Fetch all jobs from monitored tearsheets (with proper pagination and auto-removal)
             self.logger.info("\n📋 Step 1: Fetching jobs from tearsheets...")
             bullhorn_jobs = self._fetch_all_tearsheet_jobs()
-            self.logger.info(f"  ✅ TEARSHEET FETCH COMPLETED: {len(bullhorn_jobs)} jobs")
+            
+            # Track auto-removed jobs count (stored by _fetch_all_tearsheet_jobs after logging clears the list)
+            cycle_results['jobs_auto_removed'] = getattr(self, 'last_auto_removed_count', 0)
+            
+            if cycle_results['jobs_auto_removed'] > 0:
+                self.logger.info(f"  ✅ TEARSHEET FETCH COMPLETED: {len(bullhorn_jobs)} eligible jobs, {cycle_results['jobs_auto_removed']} auto-removed")
+            else:
+                self.logger.info(f"  ✅ TEARSHEET FETCH COMPLETED: {len(bullhorn_jobs)} jobs")
             
             # Step 2: Load current XML and compare
             self.logger.info("\n📄 Step 2: Loading current XML and comparing...")
@@ -227,10 +252,11 @@ class IncrementalMonitoringService:
             excluded_count = getattr(self.bullhorn_service, 'excluded_count', 0) if self.bullhorn_service else 0
             cycle_results['excluded_jobs'] = excluded_count
             
-            if excluded_count > 0:
-                self.logger.info("  📋 Job counts: Add +{}, Remove -{}, Update ~{}, Excluded {}".format(
+            auto_removed = cycle_results.get('jobs_auto_removed', 0)
+            if excluded_count > 0 or auto_removed > 0:
+                self.logger.info("  📋 Job counts: Add +{}, Remove -{}, Update ~{}, Excluded {}, Auto-Removed {}".format(
                     cycle_results['jobs_added'], cycle_results['jobs_removed'], 
-                    cycle_results['jobs_updated'], excluded_count))
+                    cycle_results['jobs_updated'], excluded_count, auto_removed))
             else:
                 self.logger.info("  📋 Job counts: Add +{}, Remove -{}, Update ~{}".format(
                     cycle_results['jobs_added'], cycle_results['jobs_removed'], cycle_results['jobs_updated']))
@@ -248,7 +274,11 @@ class IncrementalMonitoringService:
             
             self.logger.info("\n" + "=" * 60)
             self.logger.info(f"CYCLE COMPLETED in {cycle_results['cycle_time']:.1f}s")
-            self.logger.info(f"Results: +{cycle_results['jobs_added']} -{cycle_results['jobs_removed']} ~{cycle_results['jobs_updated']}")
+            auto_removed_final = cycle_results.get('jobs_auto_removed', 0)
+            if auto_removed_final > 0:
+                self.logger.info(f"Results: +{cycle_results['jobs_added']} -{cycle_results['jobs_removed']} ~{cycle_results['jobs_updated']} 🗑️{auto_removed_final} auto-removed")
+            else:
+                self.logger.info(f"Results: +{cycle_results['jobs_added']} -{cycle_results['jobs_removed']} ~{cycle_results['jobs_updated']}")
             self.logger.info(f"Total jobs: {cycle_results['total_jobs']}")
             if cycle_results['errors']:
                 self.logger.warning(f"Errors: {len(cycle_results['errors'])}")
@@ -267,6 +297,7 @@ class IncrementalMonitoringService:
                 'jobs_added': cycle_results['jobs_added'],
                 'jobs_removed': cycle_results['jobs_removed'],
                 'jobs_updated': cycle_results['jobs_updated'],
+                'jobs_auto_removed': cycle_results.get('jobs_auto_removed', 0),
                 'excluded_jobs': excluded_count,
                 'total_jobs': cycle_results['total_jobs'],
                 'cycle_time': round(cycle_results.get('cycle_time', 0), 1),
@@ -391,9 +422,112 @@ This alert was triggered by the zero-job detection safeguard.
         except:
             pass
     
+    def _is_job_eligible(self, job: Dict) -> tuple:
+        """
+        Check if a job is eligible for the sponsored job feed
+        
+        Returns:
+            tuple: (is_eligible: bool, reason: str or None)
+        """
+        is_open = job.get('isOpen')
+        status = job.get('status', '').strip()
+        
+        # Check if job is closed
+        if is_open == False or str(is_open).lower() == 'closed' or str(is_open).lower() == 'false':
+            return (False, 'isOpen=Closed')
+        
+        # Check if status is in blocked list (case-insensitive, whitespace-normalized)
+        status_lower = status.lower()
+        for blocked_status in self.INELIGIBLE_STATUSES:
+            if status_lower == blocked_status.lower():
+                return (False, f'status={status}')
+        
+        return (True, None)
+    
+    def _auto_remove_ineligible_job(self, job: Dict, tearsheet_id: int, reason: str) -> bool:
+        """
+        Auto-remove an ineligible job from tearsheet and log the action
+        
+        Returns:
+            bool: True if successfully removed
+        """
+        job_id = job.get('id')
+        job_title = job.get('title', 'Unknown')
+        
+        try:
+            # Remove from tearsheet via Bullhorn API
+            success = self.bullhorn_service.remove_job_from_tearsheet(tearsheet_id, job_id)
+            
+            if success:
+                self.logger.info(f"    🗑️ AUTO-REMOVED job {job_id} from tearsheet {tearsheet_id}: {reason}")
+                
+                # Track for activity logging
+                self.auto_removed_jobs.append({
+                    'job_id': str(job_id),
+                    'job_title': job_title,
+                    'tearsheet_id': tearsheet_id,
+                    'reason': reason,
+                    'timestamp': datetime.now().isoformat()
+                })
+                return True
+            else:
+                self.logger.warning(f"    ⚠️ Failed to auto-remove job {job_id} from tearsheet {tearsheet_id}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"    ❌ Error auto-removing job {job_id}: {str(e)}")
+            return False
+    
+    def _log_auto_removal_activity(self) -> int:
+        """Log all auto-removed jobs to the activity dashboard
+        
+        Returns:
+            int: Number of jobs that were logged (for cycle reporting)
+        """
+        if not self.auto_removed_jobs:
+            return 0
+        
+        count = len(self.auto_removed_jobs)
+        
+        try:
+            from app import app, db, BullhornActivity
+            
+            with app.app_context():
+                for removal in self.auto_removed_jobs:
+                    try:
+                        activity = BullhornActivity(
+                            monitor_id=None,
+                            activity_type='job_auto_removed_from_tearsheet',
+                            job_id=removal['job_id'],
+                            job_title=removal['job_title'],
+                            details=json.dumps({
+                                'tearsheet_id': removal['tearsheet_id'],
+                                'reason': removal['reason'],
+                                'action': 'auto_removed',
+                                'message': f"Job auto-removed from tearsheet: {removal['reason']}"
+                            }),
+                            notification_sent=False
+                        )
+                        db.session.add(activity)
+                    except Exception as e:
+                        self.logger.error(f"Failed to log activity for job {removal['job_id']}: {e}")
+                
+                db.session.commit()
+                self.logger.info(f"✅ Logged {count} auto-removal activities")
+                
+        except Exception as e:
+            self.logger.error(f"❌ Failed to log auto-removal activities: {str(e)}")
+        
+        # Clear the list after logging
+        self.auto_removed_jobs = []
+        return count
+    
     def _fetch_all_tearsheet_jobs(self) -> Dict[str, Dict]:
-        """Fetch all jobs from monitored tearsheets with proper pagination"""
+        """Fetch all jobs from monitored tearsheets with proper pagination and auto-removal of ineligible jobs"""
         all_jobs = {}
+        
+        # Reset auto-removed jobs tracking for this cycle
+        self.auto_removed_jobs = []
         
         # Get active monitors - Bullhorn One tearsheet IDs (January 2026 migration)
         class MockMonitor:
@@ -426,17 +560,39 @@ This alert was triggered by the zero-job detection safeguard.
                     # Use tearsheet ID (already has pagination)
                     jobs = self.bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
                 
-                # Process and add jobs
+                eligible_count = 0
+                ineligible_count = 0
+                
+                # Process and add jobs (checking eligibility)
                 for job in jobs:
                     job_id = str(job.get('id'))
-                    # Store monitor info for company mapping
-                    job['_monitor_name'] = monitor.name
-                    all_jobs[job_id] = job
+                    
+                    # Check job eligibility
+                    is_eligible, reason = self._is_job_eligible(job)
+                    
+                    if is_eligible:
+                        # Store monitor info for company mapping
+                        job['_monitor_name'] = monitor.name
+                        job['_tearsheet_id'] = monitor.tearsheet_id
+                        all_jobs[job_id] = job
+                        eligible_count += 1
+                    else:
+                        # Auto-remove ineligible job from tearsheet
+                        self._auto_remove_ineligible_job(job, monitor.tearsheet_id, reason)
+                        ineligible_count += 1
                 
-                self.logger.info(f"    Found {len(jobs)} jobs")
+                if ineligible_count > 0:
+                    self.logger.info(f"    Found {eligible_count} eligible jobs, auto-removed {ineligible_count} ineligible jobs")
+                else:
+                    self.logger.info(f"    Found {len(jobs)} jobs")
                 
             except Exception as e:
                 self.logger.error(f"    Error fetching from {monitor.name}: {str(e)}")
+        
+        # Log all auto-removals to activity dashboard and store count
+        self.last_auto_removed_count = 0
+        if self.auto_removed_jobs:
+            self.last_auto_removed_count = self._log_auto_removal_activity()
         
         return all_jobs
     

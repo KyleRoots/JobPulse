@@ -990,6 +990,41 @@ class BullhornService:
             logging.error(f"Error getting tearsheet members: {str(e)}")
             return []
     
+    def remove_job_from_tearsheet(self, tearsheet_id: int, job_id: int) -> bool:
+        """
+        Remove a job from a tearsheet using Bullhorn's entity dissociation API
+        
+        Args:
+            tearsheet_id: ID of the tearsheet
+            job_id: ID of the job to remove
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return False
+        
+        try:
+            # Bullhorn uses DELETE to dissociate entities from a to-many relationship
+            url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}/jobOrders/{job_id}"
+            params = {
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.delete(url, params=params, timeout=30)
+            
+            if response.status_code in [200, 204]:
+                logging.info(f"Successfully removed job {job_id} from tearsheet {tearsheet_id}")
+                return True
+            else:
+                logging.error(f"Failed to remove job from tearsheet: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            logging.error(f"Error removing job from tearsheet: {str(e)}")
+            return False
+    
     def get_jobs_batch(self, job_ids: List[int]) -> List[Dict]:
         """
         Get multiple jobs by their IDs using search query
