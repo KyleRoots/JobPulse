@@ -295,14 +295,30 @@
                         <h6 class="mb-3"><i class="fas fa-envelope-open-text me-2"></i>Test Email Preview</h6>
                         <form action="{{ url_for('send_test_vetting_email') }}" method="POST">
                             <div class="mb-3">
+                                <label class="form-label">Test Scenario</label>
+                                <select class="form-select" name="scenario">
+                                    <option value="1">1 Match: Applied job only (85% match)</option>
+                                    <option value="2" selected>2 Matches: Applied + 1 cross-reference</option>
+                                    <option value="3">3+ Matches: Applied + 2 cross-references</option>
+                                    <option value="cross_only">Cross-reference only (applied job below threshold)</option>
+                                </select>
+                                <small class="text-muted">Test different notification scenarios</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Recipient Email</label>
                                 <input type="email" class="form-control" name="test_email" 
                                        value="kyleroots00@gmail.com" 
                                        placeholder="Enter email to receive test">
                                 <small class="text-muted">See what notification emails look like</small>
                             </div>
-                            <button type="submit" class="btn btn-outline-info w-100">
-                                <i class="fas fa-paper-plane me-2"></i>Send Test Email
-                            </button>
+                            <div class="d-flex gap-2">
+                                <button type="submit" name="action" value="send" class="btn btn-outline-info flex-grow-1">
+                                    <i class="fas fa-paper-plane me-2"></i>Send Test
+                                </button>
+                                <button type="submit" name="action" value="preview" class="btn btn-outline-secondary flex-grow-1">
+                                    <i class="fas fa-eye me-2"></i>Preview
+                                </button>
+                            </div>
                         </form>
                         
                         <div class="mt-3">

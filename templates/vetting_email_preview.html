@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Preview - JobPulse™</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
+            min-height: 100vh;
+        }
+        
+        .preview-container {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 12px;
+            padding: 30px;
+        }
+        
+        .email-preview-frame {
+            background: white;
+            border-radius: 8px;
+            padding: 0;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 650px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-0">
+                    <i class="fas fa-envelope-open me-2" style="color: #667eea;"></i>
+                    Email Preview
+                </h1>
+                <p class="text-muted mb-0">{{ scenario_desc }}</p>
+            </div>
+            <a href="{{ url_for('vetting_settings') }}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Vetting Settings
+            </a>
+        </div>
+        
+        <div class="preview-container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <span class="badge bg-info me-2">Preview Mode</span>
+                    <span class="text-muted">This is how the email will appear to recruiters</span>
+                </div>
+                <form action="{{ url_for('send_test_vetting_email') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="test_email" value="{{ test_email }}">
+                    <input type="hidden" name="scenario" value="{{ scenario }}">
+                    <input type="hidden" name="action" value="send">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Send This Email to {{ test_email }}
+                    </button>
+                </form>
+            </div>
+            
+            <div class="email-preview-frame">
+                {{ html_content|safe }}
+            </div>
+            
+            <div class="mt-4 text-center">
+                <p class="text-muted small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Email recipient: <strong>{{ test_email }}</strong>
+                </p>
+                <div class="btn-group">
+                    <a href="{{ url_for('vetting_settings') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </a>
+                    <form action="{{ url_for('send_test_vetting_email') }}" method="POST" class="d-inline">
+                        <input type="hidden" name="test_email" value="{{ test_email }}">
+                        <input type="hidden" name="scenario" value="{{ scenario }}">
+                        <input type="hidden" name="action" value="send">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check me-2"></i>Confirm & Send
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

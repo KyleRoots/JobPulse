@@ -3903,93 +3903,159 @@ def send_test_vetting_email():
     from email_service import EmailService
     
     test_email = request.form.get('test_email', 'kyleroots00@gmail.com')
+    scenario = request.form.get('scenario', '2')
+    action = request.form.get('action', 'send')
     
-    try:
-        email_service = EmailService()
+    # Sample candidate and job data
+    candidate_id = 4583692
+    candidate_name = "John Smith"
+    candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
+    
+    # Job definitions for different scenarios
+    jobs = [
+        {
+            'id': 34517,
+            'title': 'Azure Integration Developer',
+            'score': 85,
+            'is_applied': True,
+            'summary': 'Strong candidate with 5+ years of Azure experience including Logic Apps, Functions, and API Management. Background in healthcare and enterprise integration aligns well with position requirements.',
+            'skills': 'Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server'
+        },
+        {
+            'id': 34520,
+            'title': 'Senior Software Developer',
+            'score': 82,
+            'is_applied': False,
+            'summary': 'Solid technical background with full-stack development experience. Python and cloud deployment skills meet core requirements though less emphasis on healthcare domain.',
+            'skills': 'Python, JavaScript, React, AWS, Docker, PostgreSQL'
+        },
+        {
+            'id': 34523,
+            'title': 'Cloud Solutions Architect',
+            'score': 80,
+            'is_applied': False,
+            'summary': 'Extensive cloud architecture experience with multi-platform expertise. Strong in Azure and AWS with demonstrated leadership in enterprise transformation projects.',
+            'skills': 'Azure, AWS, Kubernetes, Terraform, CI/CD, Solution Design'
+        }
+    ]
+    
+    # Cross-reference only scenario - applied job below threshold
+    cross_only_jobs = [
+        {
+            'id': 34517,
+            'title': 'Azure Integration Developer',
+            'score': 65,
+            'is_applied': True,
+            'summary': 'Candidate lacks required Azure Logic Apps experience. Good general technical background but missing key integration skills.',
+            'skills': 'Python, JavaScript, Basic Azure knowledge',
+            'below_threshold': True  # This one won't be included in notification
+        },
+        {
+            'id': 34520,
+            'title': 'Senior Software Developer',
+            'score': 88,
+            'is_applied': False,
+            'summary': 'Excellent match for this role! Strong Python and full-stack development experience matches all core requirements. Previous work in similar domains.',
+            'skills': 'Python, JavaScript, React, AWS, Docker, PostgreSQL'
+        }
+    ]
+    
+    # Build matches based on scenario
+    if scenario == '1':
+        matches = [jobs[0]]  # Just the applied job
+        scenario_desc = "1 Match (Applied Job Only)"
+    elif scenario == '2':
+        matches = jobs[:2]  # Applied + 1 cross-ref
+        scenario_desc = "2 Matches (Applied + 1 Cross-Reference)"
+    elif scenario == '3':
+        matches = jobs  # All 3 jobs
+        scenario_desc = "3+ Matches (Applied + 2 Cross-References)"
+    else:  # cross_only
+        # Only include the non-applied job that's above threshold
+        matches = [j for j in cross_only_jobs if not j.get('below_threshold', False)]
+        scenario_desc = "Cross-Reference Only (Applied Job Below Threshold)"
+    
+    # Build email HTML
+    subject = f"🎯 [TEST] Qualified Candidate Alert: {candidate_name}"
+    
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #dc3545; color: white; padding: 10px 20px; text-align: center; font-weight: bold;">
+            ⚠️ TEST EMAIL - {scenario_desc} ⚠️
+        </div>
         
-        # Build Bullhorn candidate URL (sample)
-        candidate_id = 4583692
-        candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
-        job1_id = 34517
-        job1_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={job1_id}"
-        job2_id = 34520
-        job2_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={job2_id}"
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 0;">
+            <h1 style="margin: 0; font-size: 24px;">🎯 Qualified Candidate Match</h1>
+        </div>
         
-        subject = "🎯 [TEST] Qualified Candidate Alert: John Smith"
-        
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: #dc3545; color: white; padding: 10px 20px; text-align: center; font-weight: bold;">
-                ⚠️ THIS IS A TEST EMAIL - SAMPLE DATA ONLY ⚠️
+        <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
+            <p style="margin: 0 0 15px 0;">Hi there,</p>
+            
+            <p style="margin: 0 0 15px 0;">
+                A new candidate has been analyzed by JobPulse AI and matches 
+                <strong>{len(matches)} position(s)</strong> you're recruiting for.
+            </p>
+            
+            <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin: 20px 0;">
+                <h2 style="margin: 0 0 10px 0; color: #495057; font-size: 18px;">
+                    👤 {candidate_name}
+                </h2>
+                <a href="{candidate_url}" 
+                   style="display: inline-block; background: #667eea; color: white; 
+                          padding: 10px 20px; border-radius: 5px; text-decoration: none;
+                          margin-top: 10px;">
+                    View Candidate Profile →
+                </a>
             </div>
             
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 0;">
-                <h1 style="margin: 0; font-size: 24px;">🎯 Qualified Candidate Match</h1>
+            <h3 style="color: #495057; margin: 20px 0 10px 0;">Matched Positions:</h3>
+    """
+    
+    for job in matches:
+        job_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={job['id']}"
+        applied_badge = '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>' if job['is_applied'] else ''
+        
+        html_content += f"""
+            <div style="background: white; padding: 15px; border-radius: 8px; 
+                        border-left: 4px solid #28a745; margin: 10px 0;">
+                <h4 style="margin: 0 0 8px 0; color: #28a745;">
+                    <a href="{job_url}" style="color: #28a745; text-decoration: none;">{job['title']} (Job ID: {job['id']})</a>{applied_badge}
+                </h4>
+                <div style="color: #6c757d; margin-bottom: 8px;">
+                    <strong>Match Score:</strong> {job['score']}%
+                </div>
+                <p style="margin: 0; color: #495057;">{job['summary']}</p>
+                <p style="margin: 10px 0 0 0; color: #495057;"><strong>Key Skills:</strong> {job['skills']}</p>
             </div>
-            
-            <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
-                <p style="margin: 0 0 15px 0;">Hi there,</p>
-                
-                <p style="margin: 0 0 15px 0;">
-                    A new candidate has been analyzed by JobPulse AI and matches 
-                    <strong>2 position(s)</strong> you're recruiting for.
+        """
+    
+    html_content += f"""
+            <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                <p style="color: #6c757d; font-size: 14px; margin: 0;">
+                    <strong>Recommended Action:</strong> Review the candidate's profile and 
+                    reach out if they're a good fit for your open position(s).
                 </p>
-                
-                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin: 20px 0;">
-                    <h2 style="margin: 0 0 10px 0; color: #495057; font-size: 18px;">
-                        👤 John Smith
-                    </h2>
-                    <a href="{candidate_url}" 
-                       style="display: inline-block; background: #667eea; color: white; 
-                              padding: 10px 20px; border-radius: 5px; text-decoration: none;
-                              margin-top: 10px;">
-                        View Candidate Profile →
-                    </a>
-                </div>
-                
-                <h3 style="color: #495057; margin: 20px 0 10px 0;">Matched Positions:</h3>
-                
-                <div style="background: white; padding: 15px; border-radius: 8px; 
-                            border-left: 4px solid #28a745; margin: 10px 0;">
-                    <h4 style="margin: 0 0 8px 0; color: #28a745;">
-                        <a href="{job1_url}" style="color: #28a745; text-decoration: none;">Azure Integration Developer (Job ID: {job1_id})</a><span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>
-                    </h4>
-                    <div style="color: #6c757d; margin-bottom: 8px;">
-                        <strong>Match Score:</strong> 85%
-                    </div>
-                    <p style="margin: 0; color: #495057;">Strong candidate with 5+ years of Azure experience including Logic Apps, Functions, and API Management. Background in healthcare and enterprise integration aligns well with position requirements.</p>
-                    
-                    <p style="margin: 10px 0 0 0; color: #495057;"><strong>Key Skills:</strong> Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server</p>
-                </div>
-                
-                <div style="background: white; padding: 15px; border-radius: 8px; 
-                            border-left: 4px solid #28a745; margin: 10px 0;">
-                    <h4 style="margin: 0 0 8px 0; color: #28a745;">
-                        <a href="{job2_url}" style="color: #28a745; text-decoration: none;">Senior Software Developer (Job ID: {job2_id})</a>
-                    </h4>
-                    <div style="color: #6c757d; margin-bottom: 8px;">
-                        <strong>Match Score:</strong> 82%
-                    </div>
-                    <p style="margin: 0; color: #495057;">Solid technical background with full-stack development experience. Python and cloud deployment skills meet core requirements though less emphasis on healthcare domain.</p>
-                    
-                    <p style="margin: 10px 0 0 0; color: #495057;"><strong>Key Skills:</strong> Python, JavaScript, React, AWS, Docker, PostgreSQL</p>
-                </div>
-                
-                <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #dee2e6;">
-                    <p style="color: #6c757d; font-size: 14px; margin: 0;">
-                        <strong>Recommended Action:</strong> Review the candidate's profile and 
-                        reach out if they're a good fit for your open position(s).
-                    </p>
-                </div>
-            </div>
-            
-            <div style="background: #343a40; color: #adb5bd; padding: 15px; 
-                        border-radius: 0 0 8px 8px; font-size: 12px; text-align: center;">
-                Powered by JobPulse™ AI Vetting • Myticas Consulting
             </div>
         </div>
-        """
         
+        <div style="background: #343a40; color: #adb5bd; padding: 15px; 
+                    border-radius: 0 0 8px 8px; font-size: 12px; text-align: center;">
+            Powered by JobPulse™ AI Vetting • Myticas Consulting
+        </div>
+    </div>
+    """
+    
+    # Handle preview vs send
+    if action == 'preview':
+        return render_template('vetting_email_preview.html', 
+                             html_content=html_content, 
+                             scenario_desc=scenario_desc,
+                             test_email=test_email,
+                             scenario=scenario)
+    
+    # Send the email
+    try:
+        email_service = EmailService()
         success = email_service.send_html_email(
             to_email=test_email,
             subject=subject,
@@ -3998,7 +4064,7 @@ def send_test_vetting_email():
         )
         
         if success:
-            flash(f'Test email sent successfully to {test_email}!', 'success')
+            flash(f'Test email ({scenario_desc}) sent successfully to {test_email}!', 'success')
         else:
             flash(f'Failed to send test email to {test_email}', 'error')
             
