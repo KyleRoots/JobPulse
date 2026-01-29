@@ -3897,8 +3897,12 @@ def send_test_vetting_email():
         email_service = EmailService()
         
         # Build Bullhorn candidate URL (sample)
-        candidate_id = 12345
-        candidate_url = f"https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
+        candidate_id = 4583692
+        candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
+        job1_id = 34517
+        job1_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={job1_id}"
+        job2_id = 34520
+        job2_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={job2_id}"
         
         subject = "🎯 [TEST] Qualified Candidate Alert: John Smith"
         
@@ -3937,7 +3941,7 @@ def send_test_vetting_email():
                 <div style="background: white; padding: 15px; border-radius: 8px; 
                             border-left: 4px solid #28a745; margin: 10px 0;">
                     <h4 style="margin: 0 0 8px 0; color: #28a745;">
-                        Azure Integration Developer (Job ID: 34517)<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>
+                        <a href="{job1_url}" style="color: #28a745; text-decoration: none;">Azure Integration Developer (Job ID: {job1_id})</a><span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>
                     </h4>
                     <div style="color: #6c757d; margin-bottom: 8px;">
                         <strong>Match Score:</strong> 85%
@@ -3950,7 +3954,7 @@ def send_test_vetting_email():
                 <div style="background: white; padding: 15px; border-radius: 8px; 
                             border-left: 4px solid #28a745; margin: 10px 0;">
                     <h4 style="margin: 0 0 8px 0; color: #28a745;">
-                        Senior Software Developer (Job ID: 34520)
+                        <a href="{job2_url}" style="color: #28a745; text-decoration: none;">Senior Software Developer (Job ID: {job2_id})</a>
                     </h4>
                     <div style="color: #6c757d; margin-bottom: 8px;">
                         <strong>Match Score:</strong> 82%

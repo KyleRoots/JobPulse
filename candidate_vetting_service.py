@@ -950,8 +950,8 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         """
         Send notification email to a recruiter about a qualified candidate.
         """
-        # Build Bullhorn candidate URL
-        candidate_url = f"https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
+        # Build Bullhorn candidate URL (using cls45 subdomain for Bullhorn One)
+        candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
         
         # Build email content
         subject = f"🎯 Qualified Candidate Alert: {candidate_name}"
@@ -987,12 +987,13 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         
         for match in matches:
             applied_badge = '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>' if match.is_applied_job else ''
+            job_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={match.bullhorn_job_id}"
             
             html_content += f"""
                 <div style="background: white; padding: 15px; border-radius: 8px; 
                             border-left: 4px solid #28a745; margin: 10px 0;">
                     <h4 style="margin: 0 0 8px 0; color: #28a745;">
-                        {match.job_title} (Job ID: {match.bullhorn_job_id}){applied_badge}
+                        <a href="{job_url}" style="color: #28a745; text-decoration: none;">{match.job_title} (Job ID: {match.bullhorn_job_id})</a>{applied_badge}
                     </h4>
                     <div style="color: #6c757d; margin-bottom: 8px;">
                         <strong>Match Score:</strong> {match.match_score:.0f}%
@@ -1021,10 +1022,11 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         
         # Send the email
         try:
-            success = self.email_service.send_email(
+            success = self.email_service.send_html_email(
                 to_email=recruiter_email,
                 subject=subject,
-                html_content=html_content
+                html_content=html_content,
+                notification_type='vetting_recruiter_notification'
             )
             return success
         except Exception as e:
