@@ -902,7 +902,7 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
             
             db.session.commit()
             
-            logging.info(f"✅ Completed analysis for {candidate_name}: {len(qualified_matches)} qualified matches out of {len(all_match_results)} jobs")
+            logging.info(f"✅ Completed analysis for {candidate_name} (ID: {candidate_id}): {len(qualified_matches)} qualified matches out of {len(all_match_results)} jobs")
             
             return vetting_log
             
@@ -1087,10 +1087,10 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
                 db.session.commit()
                 
                 cc_info = f" (CC: {', '.join(cc_recruiter_emails)})" if cc_recruiter_emails else ""
-                logging.info(f"Sent notification to {primary_recruiter_email}{cc_info} for {vetting_log.candidate_name} ({len(matches)} positions)")
+                logging.info(f"Sent notification to {primary_recruiter_email}{cc_info} for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id}, {len(matches)} positions)")
                 return 1
             else:
-                logging.error(f"Failed to send notification for {vetting_log.candidate_name}")
+                logging.error(f"Failed to send notification for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id})")
                 return 0
                 
         except Exception as e:
@@ -1201,14 +1201,18 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         </div>
         """
         
-        # Send the email with CC recipients
+        # Send the email with CC recipients and BCC admin for transparency
         try:
+            # Always BCC admin for monitoring/troubleshooting
+            admin_bcc_email = 'kroots@myticas.com'
+            
             success = self.email_service.send_html_email(
                 to_email=recruiter_email,
                 subject=subject,
                 html_content=html_content,
                 notification_type='vetting_recruiter_notification',
-                cc_emails=cc_emails  # CC all other recruiters on same thread
+                cc_emails=cc_emails,  # CC all other recruiters on same thread
+                bcc_emails=[admin_bcc_email]  # BCC admin for transparency
             )
             return success
         except Exception as e:

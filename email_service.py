@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Cc, Content, Attachment
+from sendgrid.helpers.mail import Mail, Email, To, Cc, Bcc, Content, Attachment
 import base64
 import logging
 
@@ -1177,7 +1177,8 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
 
     def send_html_email(self, to_email: str, subject: str, html_content: str,
                         notification_type: str = 'html_email',
-                        cc_emails: list = None) -> bool:
+                        cc_emails: list = None,
+                        bcc_emails: list = None) -> bool:
         """
         Send an HTML email (for test emails, custom notifications, etc.)
         
@@ -1187,6 +1188,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             html_content: HTML content for the email body
             notification_type: Type of notification for logging purposes
             cc_emails: Optional list of email addresses to CC on the email
+            bcc_emails: Optional list of email addresses to BCC on the email
             
         Returns:
             bool: True if sent successfully, False otherwise
@@ -1209,6 +1211,13 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                     if cc_email and cc_email != to_email:  # Don't CC the primary recipient
                         message.add_cc(Cc(cc_email))
                 logging.info(f"Adding CC recipients: {cc_emails}")
+            
+            # Add BCC recipients if provided
+            if bcc_emails:
+                for bcc_email in bcc_emails:
+                    if bcc_email and bcc_email != to_email:  # Don't BCC the primary recipient
+                        message.add_bcc(Bcc(bcc_email))
+                logging.info(f"Adding BCC recipients: {bcc_emails}")
 
             response = self.sg.client.mail.send.post(request_body=message.get())
             
