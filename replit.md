@@ -50,6 +50,15 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **XML Generation Enhancements**: All XML fields wrapped in CDATA, HTML descriptions parsed with `lxml` for tag closure.
 - **Zero-Job Detection Safeguard**: Prevents XML file corruption when Bullhorn API returns 0 jobs due to temporary errors. System automatically blocks updates, creates timestamped backups in `xml_backups/`, and sends single alert email (preventing the November 6, 2025 email flood incident from recurring).
 - **Zero-Touch Production Deployment**: Environment-aware database seeding and auto-configuration for admin users, SFTP, Bullhorn credentials, tearsheet monitors, and automation toggles from environment secrets. Idempotent design preserves user settings post-initial deployment.
+- **AI Candidate Vetting (Premium Add-on)**: Automated candidate-job matching system using GPT-4o:
+  - **Detection**: Monitors for new "Online Applicant" candidates in Bullhorn every 5 minutes
+  - **Resume Analysis**: Extracts resume files (PDF/DOCX/DOC) from candidate profiles in Bullhorn
+  - **AI Matching**: Compares each candidate's resume against all active jobs in monitored tearsheets using GPT-4o
+  - **Scoring**: Generates match scores (0-100%), detailed fit explanations, and key qualifications
+  - **Note Creation**: Creates Bullhorn notes on ALL candidates with vetting results (qualified and non-qualified) for complete audit trail
+  - **Recruiter Notifications**: Sends email alerts to job-assigned recruiters when candidates score ≥80% (configurable threshold)
+  - **Admin UI**: Settings page at `/vetting` with enable/disable toggle, threshold configuration, and activity dashboard
+  - **Tables**: `vetting_config` (settings), `candidate_vetting_log` (processing history), `job_match_result` (score details)
 
 ## External Dependencies
 

@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Candidate Vetting - JobPulse™</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        .geometric-bg {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
+            animation: drift 30s linear infinite;
+            z-index: -1;
+        }
+        
+        @keyframes drift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-60px, -60px) rotate(360deg); }
+        }
+        
+        .settings-card {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .settings-card:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+        }
+        
+        .activity-table {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        
+        .activity-table th {
+            background: rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+        
+        .activity-table td {
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #6c757d;
+            transition: .4s;
+            border-radius: 30px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .badge-qualified {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        
+        .badge-not-qualified {
+            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+        }
+        
+        .badge-processing {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="geometric-bg"></div>
+    
+    <div class="container-fluid py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-0">
+                    <i class="fas fa-brain me-2" style="color: #667eea;"></i>
+                    AI Candidate Vetting
+                </h1>
+                <p class="text-muted mb-0">Automated resume-to-job matching for inbound applicants</p>
+            </div>
+            <a href="{{ url_for('dashboard_redirect') }}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value">{{ stats.total_processed }}</div>
+                    <div class="text-muted">Total Processed</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="-webkit-text-fill-color: #28a745;">{{ stats.qualified }}</div>
+                    <div class="text-muted">Qualified Matches</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="-webkit-text-fill-color: #17a2b8;">{{ stats.notifications_sent }}</div>
+                    <div class="text-muted">Notifications Sent</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="-webkit-text-fill-color: #ffc107;">{{ stats.pending }}</div>
+                    <div class="text-muted">Pending</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card settings-card h-100">
+                    <div class="card-header bg-transparent border-bottom border-secondary">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cog me-2"></i>Vetting Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('save_vetting_settings') }}" method="POST">
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">Enable AI Vetting</h6>
+                                        <small class="text-muted">Automatically analyze new job applicants</small>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" name="vetting_enabled" 
+                                               {% if settings.vetting_enabled %}checked{% endif %}>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label">Match Threshold (%)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" name="match_threshold" 
+                                           value="{{ settings.match_threshold }}" min="50" max="100" step="5">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="text-muted">Candidates scoring above this threshold will trigger notifications</small>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label">Notification Email (Admin Copy)</label>
+                                <input type="email" class="form-control" name="admin_notification_email" 
+                                       value="{{ settings.admin_notification_email }}" 
+                                       placeholder="Optional: Receive a copy of all notifications">
+                                <small class="text-muted">Leave blank to only notify assigned recruiters</small>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-save me-2"></i>Save Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card settings-card h-100">
+                    <div class="card-header bg-transparent border-bottom border-secondary">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>How It Works
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="d-flex align-items-start mb-2">
+                                <span class="badge bg-primary me-3" style="min-width: 30px;">1</span>
+                                <div>
+                                    <strong>Detection</strong>
+                                    <p class="text-muted mb-0 small">Every 5 minutes, the system checks for new candidates with "Online Applicant" status</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex align-items-start mb-2">
+                                <span class="badge bg-primary me-3" style="min-width: 30px;">2</span>
+                                <div>
+                                    <strong>Resume Analysis</strong>
+                                    <p class="text-muted mb-0 small">GPT-4o extracts and analyzes the candidate's resume against all open positions in monitored tearsheets</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex align-items-start mb-2">
+                                <span class="badge bg-primary me-3" style="min-width: 30px;">3</span>
+                                <div>
+                                    <strong>Match Scoring</strong>
+                                    <p class="text-muted mb-0 small">Each candidate-job pair receives a compatibility score based on skills, experience, and qualifications</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex align-items-start mb-2">
+                                <span class="badge bg-success me-3" style="min-width: 30px;">4</span>
+                                <div>
+                                    <strong>Note Creation</strong>
+                                    <p class="text-muted mb-0 small">A detailed note is added to every candidate record with the analysis results</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="d-flex align-items-start">
+                                <span class="badge bg-info me-3" style="min-width: 30px;">5</span>
+                                <div>
+                                    <strong>Recruiter Alerts</strong>
+                                    <p class="text-muted mb-0 small">For candidates scoring {{ settings.match_threshold }}%+, the assigned recruiter receives an email notification</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card settings-card mt-4">
+            <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Vetting Activity
+                </h5>
+                <form action="{{ url_for('run_vetting_now') }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-outline-primary btn-sm" 
+                            {% if not settings.vetting_enabled %}disabled{% endif %}>
+                        <i class="fas fa-play me-1"></i>Run Now
+                    </button>
+                </form>
+            </div>
+            <div class="card-body">
+                {% if recent_activity %}
+                <div class="table-responsive">
+                    <table class="table table-dark activity-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Candidate</th>
+                                <th>Applied To</th>
+                                <th>Status</th>
+                                <th>Best Match</th>
+                                <th>Matches</th>
+                                <th>Note</th>
+                                <th>Notified</th>
+                                <th>Analyzed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_activity %}
+                            <tr>
+                                <td>
+                                    <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
+                                       target="_blank" class="text-decoration-none">
+                                        {{ log.candidate_name or 'Unknown' }}
+                                        <i class="fas fa-external-link-alt ms-1 small"></i>
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if log.applied_job_id %}
+                                        <small>Job #{{ log.applied_job_id }}</small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.status == 'completed' %}
+                                        {% if log.is_qualified %}
+                                            <span class="badge badge-qualified">Qualified</span>
+                                        {% else %}
+                                            <span class="badge badge-not-qualified">Not Qualified</span>
+                                        {% endif %}
+                                    {% elif log.status == 'processing' %}
+                                        <span class="badge badge-processing">Processing</span>
+                                    {% elif log.status == 'failed' %}
+                                        <span class="badge bg-danger">Failed</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ log.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ "%.0f"|format(log.highest_match_score) }}%</strong>
+                                </td>
+                                <td>
+                                    {{ log.total_jobs_matched }} of {{ log.job_matches.count() }}
+                                </td>
+                                <td>
+                                    {% if log.note_created %}
+                                        <i class="fas fa-check text-success"></i>
+                                    {% else %}
+                                        <i class="fas fa-times text-muted"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.notifications_sent %}
+                                        <span class="text-success">{{ log.notification_count }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ log.analyzed_at.strftime('%m/%d %H:%M') if log.analyzed_at else '-' }}
+                                    </small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>No vetting activity yet. Enable AI vetting and new applicants will appear here.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -3757,6 +3757,128 @@ def api_bullhorn_api_status():
     })
 
 
+# AI Candidate Vetting Routes
+@app.route('/vetting')
+@login_required
+def vetting_settings():
+    """AI Candidate Vetting settings and activity page"""
+    from models import VettingConfig, CandidateVettingLog
+    
+    # Get settings
+    settings = {
+        'vetting_enabled': False,
+        'match_threshold': 80,
+        'admin_notification_email': ''
+    }
+    
+    for key in settings.keys():
+        config = VettingConfig.query.filter_by(setting_key=key).first()
+        if config:
+            if key == 'vetting_enabled':
+                settings[key] = config.setting_value.lower() == 'true'
+            elif key == 'match_threshold':
+                try:
+                    settings[key] = int(config.setting_value)
+                except (ValueError, TypeError):
+                    settings[key] = 80
+            else:
+                settings[key] = config.setting_value or ''
+    
+    # Get stats
+    from sqlalchemy import func
+    stats = {
+        'total_processed': CandidateVettingLog.query.filter_by(status='completed').count(),
+        'qualified': CandidateVettingLog.query.filter_by(status='completed', is_qualified=True).count(),
+        'notifications_sent': db.session.query(func.sum(CandidateVettingLog.notification_count)).scalar() or 0,
+        'pending': CandidateVettingLog.query.filter(CandidateVettingLog.status.in_(['pending', 'processing'])).count()
+    }
+    
+    # Get recent activity
+    recent_activity = CandidateVettingLog.query.order_by(
+        CandidateVettingLog.created_at.desc()
+    ).limit(20).all()
+    
+    return render_template('vetting_settings.html', 
+                          settings=settings, 
+                          stats=stats, 
+                          recent_activity=recent_activity)
+
+
+@app.route('/vetting/save', methods=['POST'])
+@login_required
+def save_vetting_settings():
+    """Save AI vetting settings"""
+    from models import VettingConfig
+    
+    try:
+        # Get form values
+        vetting_enabled = 'vetting_enabled' in request.form
+        match_threshold = request.form.get('match_threshold', '80')
+        admin_email = request.form.get('admin_notification_email', '')
+        
+        # Validate threshold
+        try:
+            threshold = int(match_threshold)
+            if threshold < 50 or threshold > 100:
+                threshold = 80
+        except ValueError:
+            threshold = 80
+        
+        # Update settings
+        settings_to_save = [
+            ('vetting_enabled', 'true' if vetting_enabled else 'false'),
+            ('match_threshold', str(threshold)),
+            ('admin_notification_email', admin_email)
+        ]
+        
+        for key, value in settings_to_save:
+            config = VettingConfig.query.filter_by(setting_key=key).first()
+            if config:
+                config.setting_value = value
+            else:
+                config = VettingConfig(setting_key=key, setting_value=value)
+                db.session.add(config)
+        
+        db.session.commit()
+        flash('Vetting settings saved successfully!', 'success')
+        
+    except Exception as e:
+        app.logger.error(f"Error saving vetting settings: {str(e)}")
+        flash(f'Error saving settings: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
+@app.route('/vetting/run', methods=['POST'])
+@login_required
+def run_vetting_now():
+    """Manually trigger a vetting cycle"""
+    try:
+        from candidate_vetting_service import CandidateVettingService
+        
+        vetting_service = CandidateVettingService()
+        summary = vetting_service.run_vetting_cycle()
+        
+        if summary.get('status') == 'disabled':
+            flash('Vetting is disabled. Enable it first to run a cycle.', 'warning')
+        else:
+            processed = summary.get('candidates_processed', 0)
+            qualified = summary.get('candidates_qualified', 0)
+            notified = summary.get('notifications_sent', 0)
+            
+            if processed > 0:
+                flash(f'Vetting cycle complete: {processed} candidates processed, '
+                      f'{qualified} qualified, {notified} notifications sent.', 'success')
+            else:
+                flash('Vetting cycle complete: No new candidates to process.', 'info')
+                
+    except Exception as e:
+        app.logger.error(f"Error running vetting cycle: {str(e)}")
+        flash(f'Error running vetting cycle: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
 @app.route('/bullhorn/oauth/start')
 @login_required
 def bullhorn_oauth_start():
@@ -5651,6 +5773,41 @@ if is_primary_worker:
         replace_existing=True
     )
     app.logger.info("📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)")
+
+# Candidate Vetting Cycle (AI-powered applicant matching)
+def run_candidate_vetting_cycle():
+    """Run the AI-powered candidate vetting cycle to analyze new applicants"""
+    with app.app_context():
+        try:
+            from candidate_vetting_service import CandidateVettingService
+            from models import VettingConfig
+            
+            # Check if vetting is enabled
+            config = VettingConfig.query.filter_by(setting_key='vetting_enabled').first()
+            if not config or config.setting_value.lower() != 'true':
+                return  # Silently skip if disabled
+            
+            vetting_service = CandidateVettingService()
+            summary = vetting_service.run_vetting_cycle()
+            
+            if summary.get('status') != 'disabled':
+                app.logger.info(f"🎯 Candidate vetting cycle completed: {summary.get('candidates_processed', 0)} processed, "
+                              f"{summary.get('candidates_qualified', 0)} qualified, {summary.get('notifications_sent', 0)} notifications")
+                
+        except Exception as e:
+            app.logger.error(f"Candidate vetting cycle error: {str(e)}")
+
+if is_primary_worker:
+    # Add candidate vetting cycle - runs every 5 minutes
+    scheduler.add_job(
+        func=run_candidate_vetting_cycle,
+        trigger='interval',
+        minutes=5,
+        id='candidate_vetting_cycle',
+        name='AI Candidate Vetting Cycle',
+        replace_existing=True
+    )
+    app.logger.info("🎯 Scheduled AI candidate vetting cycle (every 5 minutes)")
 
 # Reference Number Refresh (120-hour cycle)
 def reference_number_refresh():
