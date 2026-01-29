@@ -18,7 +18,7 @@ from openai import OpenAI
 from app import db
 from models import (
     CandidateVettingLog, CandidateJobMatch, VettingConfig,
-    BullhornMonitor, GlobalSettings, JobVettingRequirements
+    BullhornMonitor, GlobalSettings, JobVettingRequirements, ParsedEmail
 )
 from bullhorn_service import BullhornService
 from email_service import EmailService
@@ -270,6 +270,119 @@ class CandidateVettingService:
         except Exception as e:
             logging.error(f"Error detecting new applicants: {str(e)}")
             return []
+    
+    def detect_unvetted_applications(self, limit: int = 25) -> List[Dict]:
+        """
+        Find candidates from ParsedEmail records that have been successfully processed
+        but not yet vetted. This captures ALL inbound applicants (both new and existing
+        candidates) since email parsing is the entry point for all applications.
+        
+        Args:
+            limit: Maximum number of candidates to return (configurable batch size)
+            
+        Returns:
+            List of candidate dictionaries ready for vetting
+        """
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            return []
+        
+        if not bullhorn.authenticate():
+            logging.error("Failed to authenticate with Bullhorn for candidate detection")
+            return []
+        
+        try:
+            # Query ParsedEmail for completed applications that haven't been vetted
+            unvetted_emails = ParsedEmail.query.filter(
+                ParsedEmail.status == 'completed',
+                ParsedEmail.vetted_at.is_(None),
+                ParsedEmail.bullhorn_candidate_id.isnot(None)
+            ).order_by(
+                ParsedEmail.processed_at.asc()  # Process oldest first (FIFO)
+            ).limit(limit).all()
+            
+            if not unvetted_emails:
+                logging.info("No unvetted applications found in ParsedEmail records")
+                return []
+            
+            logging.info(f"Found {len(unvetted_emails)} unvetted applications from email parsing")
+            
+            # Build candidate list from ParsedEmail records
+            candidates_to_vet = []
+            for parsed_email in unvetted_emails:
+                candidate_id = parsed_email.bullhorn_candidate_id
+                
+                # Skip if already in vetting log (shouldn't happen but defensive check)
+                existing_log = CandidateVettingLog.query.filter_by(
+                    bullhorn_candidate_id=candidate_id
+                ).first()
+                
+                if existing_log:
+                    # Mark as vetted to prevent re-processing
+                    parsed_email.vetted_at = datetime.utcnow()
+                    db.session.commit()
+                    logging.info(f"Candidate {candidate_id} already vetted, skipping")
+                    continue
+                
+                # Fetch full candidate data from Bullhorn
+                candidate_data = self._fetch_candidate_details(bullhorn, candidate_id)
+                
+                if candidate_data:
+                    # Attach the ParsedEmail ID for tracking
+                    candidate_data['_parsed_email_id'] = parsed_email.id
+                    candidate_data['_applied_job_id'] = parsed_email.bullhorn_job_id
+                    candidate_data['_is_duplicate'] = parsed_email.is_duplicate_candidate
+                    candidates_to_vet.append(candidate_data)
+                    logging.info(f"Queued for vetting: {candidate_data.get('firstName')} {candidate_data.get('lastName')} (ID: {candidate_id}, Applied to Job: {parsed_email.bullhorn_job_id})")
+            
+            logging.info(f"Prepared {len(candidates_to_vet)} candidates for vetting from email parsing")
+            return candidates_to_vet
+            
+        except Exception as e:
+            logging.error(f"Error detecting unvetted applications: {str(e)}")
+            return []
+    
+    def _fetch_candidate_details(self, bullhorn: BullhornService, candidate_id: int) -> Optional[Dict]:
+        """
+        Fetch full candidate details from Bullhorn by ID.
+        
+        Args:
+            bullhorn: Authenticated Bullhorn service
+            candidate_id: Bullhorn candidate ID
+            
+        Returns:
+            Candidate data dictionary or None
+        """
+        try:
+            url = f"{bullhorn.base_url}entity/Candidate/{candidate_id}"
+            params = {
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation',
+                'BhRestToken': bullhorn.rest_token
+            }
+            
+            response = bullhorn.session.get(url, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('data', {})
+            else:
+                logging.warning(f"Failed to fetch candidate {candidate_id}: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error fetching candidate {candidate_id}: {str(e)}")
+            return None
+    
+    def _mark_application_vetted(self, parsed_email_id: int):
+        """Mark a ParsedEmail record as vetted"""
+        try:
+            parsed_email = ParsedEmail.query.get(parsed_email_id)
+            if parsed_email:
+                parsed_email.vetted_at = datetime.utcnow()
+                db.session.commit()
+                logging.debug(f"Marked ParsedEmail {parsed_email_id} as vetted")
+        except Exception as e:
+            logging.error(f"Error marking application vetted: {str(e)}")
     
     def get_candidate_resume(self, candidate_id: int) -> Tuple[Optional[bytes], Optional[str]]:
         """
@@ -1033,16 +1146,28 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
             logging.error(f"Email send error: {str(e)}")
             return False
     
+    def _get_batch_size(self) -> int:
+        """Get configured batch size from database, default 25"""
+        try:
+            config = VettingConfig.query.filter_by(setting_key='batch_size').first()
+            if config and config.setting_value:
+                batch = int(config.setting_value)
+                return max(1, min(batch, 100))  # Clamp to 1-100
+        except (ValueError, TypeError):
+            pass
+        return 25  # Default batch size
+    
     def run_vetting_cycle(self) -> Dict:
         """
         Run a complete vetting cycle with concurrency protection:
         1. Acquire lock (skip if already running)
-        2. Detect new applicants
+        2. Detect unvetted applications from ParsedEmail (captures ALL inbound applicants)
         3. Process each candidate
         4. Create notes for all
         5. Send notifications for qualified
-        6. Update last run timestamp
-        7. Release lock
+        6. Mark applications as vetted
+        7. Update last run timestamp
+        8. Release lock
         
         Returns:
             Summary dictionary with counts
@@ -1059,18 +1184,35 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         logging.info("🚀 Starting candidate vetting cycle")
         cycle_start = datetime.utcnow()
         
+        # Get configurable batch size
+        batch_size = self._get_batch_size()
+        logging.info(f"Using batch size: {batch_size}")
+        
         summary = {
             'candidates_detected': 0,
             'candidates_processed': 0,
             'candidates_qualified': 0,
             'notes_created': 0,
             'notifications_sent': 0,
+            'detection_method': 'parsed_email',
+            'batch_size': batch_size,
             'errors': []
         }
         
         try:
-            # Detect new applicants (uses last run timestamp or 10 minutes for first run)
-            candidates = self.detect_new_applicants(since_minutes=10)
+            # Primary detection: Use ParsedEmail-based detection for 100% coverage
+            # This captures ALL inbound applicants (both new and existing candidates)
+            candidates = self.detect_unvetted_applications(limit=batch_size)
+            
+            # Fallback to legacy detection if no ParsedEmail records found
+            # (for candidates entering through other channels)
+            if not candidates:
+                logging.info("No ParsedEmail records to vet, falling back to legacy detection")
+                candidates = self.detect_new_applicants(since_minutes=10)
+                if candidates and len(candidates) > batch_size:
+                    candidates = candidates[:batch_size]
+                summary['detection_method'] = 'bullhorn_search'
+            
             summary['candidates_detected'] = len(candidates)
             
             if not candidates:
@@ -1078,11 +1220,6 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
                 # Still update timestamp to move forward
                 self._set_last_run_timestamp(cycle_start)
                 return summary
-            
-            # Limit candidates per cycle to prevent runaway costs (max 5 per cycle)
-            if len(candidates) > 5:
-                logging.warning(f"Limiting to 5 candidates (found {len(candidates)}) to control API costs")
-                candidates = candidates[:5]
             
             # Process each candidate
             for candidate in candidates:
@@ -1103,6 +1240,11 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
                         if vetting_log.is_qualified:
                             notif_count = self.send_recruiter_notifications(vetting_log)
                             summary['notifications_sent'] += notif_count
+                    
+                    # Mark the ParsedEmail record as vetted (if applicable)
+                    parsed_email_id = candidate.get('_parsed_email_id')
+                    if parsed_email_id:
+                        self._mark_application_vetted(parsed_email_id)
                             
                 except Exception as e:
                     error_msg = f"Error processing candidate {candidate.get('id')}: {str(e)}"
