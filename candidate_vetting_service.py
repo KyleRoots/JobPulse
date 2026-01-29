@@ -1046,17 +1046,20 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
                 primary_recruiter_name = match.recruiter_name
                 break
         
-        # Second pass: collect all other unique recruiter emails for CC
+        # Second pass: collect all unique recruiter emails
+        # If no applied job recruiter found, first recruiter becomes primary
         seen_emails = set()
         for match in matches:
             if match.recruiter_email and match.recruiter_email not in seen_emails:
                 seen_emails.add(match.recruiter_email)
-                if match.recruiter_email != primary_recruiter_email:
-                    cc_recruiter_emails.append(match.recruiter_email)
-                elif not primary_recruiter_email:
-                    # If no applied job match, first recruiter becomes primary
+                
+                if not primary_recruiter_email:
+                    # No applied job match - first recruiter becomes primary
                     primary_recruiter_email = match.recruiter_email
                     primary_recruiter_name = match.recruiter_name
+                elif match.recruiter_email != primary_recruiter_email:
+                    # Different from primary - add to CC list
+                    cc_recruiter_emails.append(match.recruiter_email)
         
         if not primary_recruiter_email:
             logging.warning(f"No recruiter emails found for candidate {vetting_log.candidate_name}")
