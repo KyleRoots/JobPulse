@@ -549,6 +549,7 @@ def seed_recruiter_mappings(db, RecruiterMapping):
         ('Julie Johnson', '#LI-JJ1'),
         ('Kaniz Abedin', '#LI-KA1'),
         ('Kyle Roots', '#LI-KR1'),
+        ('Kellie Miller', '#LI-KM1'),
         ('Lisa Keirsted', '#LI-DS1'),
         ('Lisa Mattis-Keirsted', '#LI-LM1'),
         ('Maddie Lewis', '#LI-ML1'),
