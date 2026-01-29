@@ -51,21 +51,23 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Zero-Job Detection Safeguard**: Prevents XML file corruption when Bullhorn API returns 0 jobs due to temporary errors. System automatically blocks updates, creates timestamped backups in `xml_backups/`, and sends single alert email (preventing the November 6, 2025 email flood incident from recurring).
 - **Zero-Touch Production Deployment**: Environment-aware database seeding and auto-configuration for admin users, SFTP, Bullhorn credentials, tearsheet monitors, and automation toggles from environment secrets. Idempotent design preserves user settings post-initial deployment.
 - **AI Candidate Vetting (Premium Add-on)**: Automated candidate-job matching system using GPT-4o:
-  - **Detection**: Monitors for new "Online Applicant" candidates in Bullhorn every 5 minutes
+  - **Detection (100% Coverage)**: Uses ParsedEmail-based detection to capture ALL inbound applicants (both new and existing candidates with updated resumes). Fallback to Bullhorn "Online Applicant" search for candidates entering through other channels.
+  - **Configurable Batch Size**: Admin-configurable batch size (1-100, default 25) per 5-minute cycle for handling variable applicant volumes
   - **Resume Analysis**: Extracts resume files (PDF/DOCX/DOC) from candidate profiles in Bullhorn
   - **AI Matching**: Compares each candidate's resume against all active jobs in monitored tearsheets using GPT-4o, focusing on mandatory requirements only (ignores nice-to-haves)
   - **Scoring**: Generates match scores (0-100%), detailed fit explanations, and key qualifications
   - **Note Creation**: Creates Bullhorn notes on ALL candidates with vetting results (qualified and non-qualified) for complete audit trail
-  - **Recruiter Notifications**: Sends email alerts to job-assigned recruiters when candidates score ≥80% (configurable threshold)
+  - **Recruiter Notifications**: Sends email alerts to job-assigned recruiters when candidates score ≥80% (configurable threshold) with clickable Bullhorn links
   - **Audit Dashboard**: Tabbed interface showing All Candidates, Recommended (80%+), and Not Recommended with:
     - Expandable candidate cards showing match details, scores, skills, and gaps
-    - Direct Bullhorn hyperlinks to candidate and job profiles for quick sanity checks
+    - Direct Bullhorn hyperlinks to candidate and job profiles for quick sanity checks (cls45.bullhornstaffing.com)
     - Filter by recommended vs not recommended for quality auditing
   - **Job Requirements Interpretation**: AI extracts mandatory requirements from job descriptions, with admin override capability for custom requirements per job
-  - **Admin UI**: Settings page at `/vetting` with enable/disable toggle, threshold configuration, and activity dashboard
+  - **Admin UI**: Settings page at `/vetting` with enable/disable toggle, threshold configuration, batch size setting, and activity dashboard
   - **Sample Notes**: Preview page at `/vetting/sample-notes` showing exact note formats for qualified and non-qualified candidates
   - **Production Default**: Vetting is enabled by default in production deployments, disabled in development
   - **Tables**: `vetting_config` (settings), `candidate_vetting_log` (processing history), `candidate_job_match` (score details), `job_vetting_requirements` (custom/AI requirements)
+  - **ParsedEmail Tracking**: `vetted_at` column tracks when applications have been processed by AI vetting
 
 ## External Dependencies
 

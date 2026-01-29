@@ -309,6 +309,8 @@ class CandidateVettingService:
             
             # Build candidate list from ParsedEmail records
             candidates_to_vet = []
+            already_vetted_ids = []
+            
             for parsed_email in unvetted_emails:
                 candidate_id = parsed_email.bullhorn_candidate_id
                 
@@ -318,10 +320,9 @@ class CandidateVettingService:
                 ).first()
                 
                 if existing_log:
-                    # Mark as vetted to prevent re-processing
-                    parsed_email.vetted_at = datetime.utcnow()
-                    db.session.commit()
-                    logging.info(f"Candidate {candidate_id} already vetted, skipping")
+                    # Queue for batch update instead of individual commits
+                    already_vetted_ids.append(parsed_email.id)
+                    logging.info(f"Candidate {candidate_id} already vetted, marking for skip")
                     continue
                 
                 # Fetch full candidate data from Bullhorn
@@ -335,11 +336,25 @@ class CandidateVettingService:
                     candidates_to_vet.append(candidate_data)
                     logging.info(f"Queued for vetting: {candidate_data.get('firstName')} {candidate_data.get('lastName')} (ID: {candidate_id}, Applied to Job: {parsed_email.bullhorn_job_id})")
             
+            # Batch update already-vetted records in single transaction
+            if already_vetted_ids:
+                try:
+                    ParsedEmail.query.filter(ParsedEmail.id.in_(already_vetted_ids)).update(
+                        {'vetted_at': datetime.utcnow()},
+                        synchronize_session=False
+                    )
+                    db.session.commit()
+                    logging.info(f"Marked {len(already_vetted_ids)} already-vetted applications")
+                except Exception as e:
+                    db.session.rollback()
+                    logging.error(f"Error updating already-vetted applications: {str(e)}")
+            
             logging.info(f"Prepared {len(candidates_to_vet)} candidates for vetting from email parsing")
             return candidates_to_vet
             
         except Exception as e:
             logging.error(f"Error detecting unvetted applications: {str(e)}")
+            db.session.rollback()
             return []
     
     def _fetch_candidate_details(self, bullhorn: BullhornService, candidate_id: int) -> Optional[Dict]:

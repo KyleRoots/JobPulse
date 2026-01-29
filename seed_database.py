@@ -463,6 +463,7 @@ def seed_vetting_config(db, VettingConfig):
         vetting_settings = {
             'vetting_enabled': 'true' if is_production_environment() else 'false',
             'match_threshold': '80',
+            'batch_size': '25',  # Default batch size per 5-minute cycle
             'admin_notification_email': 'kroots@myticas.com'
         }
         
