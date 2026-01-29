@@ -4198,6 +4198,85 @@ TOP ANALYSIS RESULTS:
                           not_qualified_note=not_qualified_note)
 
 
+@app.route('/vetting/create-test-note/<int:candidate_id>', methods=['POST'])
+@login_required
+def create_test_vetting_note(candidate_id):
+    """Create a test vetting note on an actual Bullhorn candidate record"""
+    from bullhorn_service import BullhornService
+    
+    note_type = request.form.get('note_type', 'qualified')  # 'qualified' or 'not_qualified'
+    
+    try:
+        bullhorn = BullhornService()
+        if not bullhorn.authenticate():
+            flash('Failed to authenticate with Bullhorn', 'error')
+            return redirect(url_for('show_sample_notes'))
+        
+        now = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+        
+        if note_type == 'qualified':
+            note_text = f"""🎯 AI VETTING SUMMARY - QUALIFIED CANDIDATE
+
+Analysis Date: {now}
+Threshold: 80%
+Qualified Matches: 2 of 5 jobs
+Highest Match Score: 85%
+
+QUALIFIED POSITIONS:
+
+• Job ID: 34517 - Azure Integration Developer
+  Match Score: 85%
+  ⭐ APPLIED TO THIS POSITION
+  Summary: Strong candidate with 5+ years of Azure experience including Logic Apps, Functions, and API Management. Background in healthcare and enterprise integration aligns well with position requirements.
+  Skills: Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server
+
+• Job ID: 34520 - Senior Software Developer
+  Match Score: 82%
+  Summary: Solid technical background with full-stack development experience. Python and cloud deployment skills meet core requirements.
+  Skills: Python, JavaScript, React, AWS, Docker, PostgreSQL"""
+            action = "AI Vetting - Qualified"
+            
+        else:
+            note_text = f"""📋 AI VETTING SUMMARY - NOT RECOMMENDED
+
+Analysis Date: {now}
+Threshold: 80%
+Highest Match Score: 62%
+Jobs Analyzed: 5
+
+This candidate did not meet the 80% match threshold for any current open positions.
+
+TOP ANALYSIS RESULTS:
+
+• Job ID: 34517 - Azure Integration Developer
+  Match Score: 62%
+  ⭐ APPLIED TO THIS POSITION
+  Gaps: No direct Azure experience. Background is primarily in frontend development. Missing required integration/middleware skills.
+
+• Job ID: 34520 - Senior Software Developer
+  Match Score: 58%
+  Gaps: Entry-level experience (2 years vs 5+ required). No team lead experience. Limited backend exposure.
+
+• Job ID: 34525 - Cloud Solutions Architect
+  Match Score: 45%
+  Gaps: No cloud certifications. Limited enterprise architecture experience. Missing AWS or Azure expertise."""
+            action = "AI Vetting - Not Recommended"
+        
+        note_id = bullhorn.create_candidate_note(candidate_id, note_text, action=action)
+        
+        if note_id:
+            flash(f'Successfully created {note_type.replace("_", " ")} test note on candidate {candidate_id}. Note ID: {note_id}', 'success')
+            app.logger.info(f"Created test vetting note on candidate {candidate_id}: type={note_type}, note_id={note_id}")
+        else:
+            flash(f'Failed to create test note on candidate {candidate_id}. Check logs for details.', 'error')
+            
+    except Exception as e:
+        app.logger.error(f"Error creating test vetting note: {str(e)}")
+        flash(f'Error creating test note: {str(e)}', 'error')
+    
+    return redirect(url_for('show_sample_notes'))
+
+
 @app.route('/vetting/job/<int:job_id>/requirements', methods=['POST'])
 @login_required
 def save_job_requirements(job_id):
