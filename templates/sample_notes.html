@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample Vetting Notes - JobPulse™</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
+            min-height: 100vh;
+        }
+        
+        .note-preview {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 12px;
+        }
+        
+        .note-content {
+            background: #1a1a2e;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        
+        .qualified-badge {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        
+        .not-qualified-badge {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <nav class="d-flex justify-content-between align-items-center mb-4">
+            <a href="{{ url_for('vetting_settings') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Vetting Settings
+            </a>
+            <h1 class="mb-0 h4">
+                <i class="fas fa-sticky-note me-2 text-primary"></i>Sample Candidate Notes
+            </h1>
+            <div></div>
+        </nav>
+        
+        <div class="alert alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            These are examples of the notes that will be automatically created on candidate records in Bullhorn. 
+            The format and content adapts based on whether the candidate meets the match threshold.
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="note-preview h-100">
+                    <div class="card-header bg-transparent p-3 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-check-circle text-success me-2"></i>Qualified Candidate Note
+                        </h5>
+                        <span class="qualified-badge">
+                            <i class="fas fa-star me-1"></i>QUALIFIED
+                        </span>
+                    </div>
+                    <div class="p-3">
+                        <p class="text-muted small mb-3">
+                            This note is created when a candidate scores at or above the match threshold (default 80%) 
+                            for at least one position. It highlights the positions they qualify for.
+                        </p>
+                        <div class="note-content p-3">{{ qualified_note }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="note-preview h-100">
+                    <div class="card-header bg-transparent p-3 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-times-circle text-secondary me-2"></i>Not Qualified Candidate Note
+                        </h5>
+                        <span class="not-qualified-badge">
+                            <i class="fas fa-file-alt me-1"></i>NOT RECOMMENDED
+                        </span>
+                    </div>
+                    <div class="p-3">
+                        <p class="text-muted small mb-3">
+                            This note is created when a candidate does not meet the threshold for any position. 
+                            It shows the top 3 closest matches with identified gaps for reference.
+                        </p>
+                        <div class="note-content p-3">{{ not_qualified_note }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 p-4 note-preview">
+            <h5 class="mb-3"><i class="fas fa-cogs me-2 text-primary"></i>How Notes Are Used</h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="d-flex align-items-start">
+                        <span class="badge bg-primary me-3" style="min-width: 30px;">1</span>
+                        <div>
+                            <strong>Created Automatically</strong>
+                            <p class="text-muted small mb-0">Notes are added to every analyzed candidate record in Bullhorn</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-start">
+                        <span class="badge bg-primary me-3" style="min-width: 30px;">2</span>
+                        <div>
+                            <strong>Complete Audit Trail</strong>
+                            <p class="text-muted small mb-0">All candidates get notes, not just qualified ones - for full documentation</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-start">
+                        <span class="badge bg-primary me-3" style="min-width: 30px;">3</span>
+                        <div>
+                            <strong>Quick Reference</strong>
+                            <p class="text-muted small mb-0">Recruiters can see match analysis directly in the candidate profile</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

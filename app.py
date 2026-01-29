@@ -3885,6 +3885,168 @@ def run_vetting_now():
     return redirect(url_for('vetting_settings'))
 
 
+@app.route('/vetting/test-email', methods=['POST'])
+@login_required
+def send_test_vetting_email():
+    """Send a test notification email with sample data to demonstrate the format"""
+    from email_service import EmailService
+    
+    test_email = request.form.get('test_email', 'kyleroots00@gmail.com')
+    
+    try:
+        email_service = EmailService()
+        
+        # Build Bullhorn candidate URL (sample)
+        candidate_id = 12345
+        candidate_url = f"https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
+        
+        subject = "🎯 [TEST] Qualified Candidate Alert: John Smith"
+        
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #dc3545; color: white; padding: 10px 20px; text-align: center; font-weight: bold;">
+                ⚠️ THIS IS A TEST EMAIL - SAMPLE DATA ONLY ⚠️
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 0;">
+                <h1 style="margin: 0; font-size: 24px;">🎯 Qualified Candidate Match</h1>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
+                <p style="margin: 0 0 15px 0;">Hi there,</p>
+                
+                <p style="margin: 0 0 15px 0;">
+                    A new candidate has been analyzed by JobPulse AI and matches 
+                    <strong>2 position(s)</strong> you're recruiting for.
+                </p>
+                
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin: 20px 0;">
+                    <h2 style="margin: 0 0 10px 0; color: #495057; font-size: 18px;">
+                        👤 John Smith
+                    </h2>
+                    <a href="{candidate_url}" 
+                       style="display: inline-block; background: #667eea; color: white; 
+                              padding: 10px 20px; border-radius: 5px; text-decoration: none;
+                              margin-top: 10px;">
+                        View Candidate Profile →
+                    </a>
+                </div>
+                
+                <h3 style="color: #495057; margin: 20px 0 10px 0;">Matched Positions:</h3>
+                
+                <div style="background: white; padding: 15px; border-radius: 8px; 
+                            border-left: 4px solid #28a745; margin: 10px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: #28a745;">
+                        Azure Integration Developer (Job ID: 34517)<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>
+                    </h4>
+                    <div style="color: #6c757d; margin-bottom: 8px;">
+                        <strong>Match Score:</strong> 85%
+                    </div>
+                    <p style="margin: 0; color: #495057;">Strong candidate with 5+ years of Azure experience including Logic Apps, Functions, and API Management. Background in healthcare and enterprise integration aligns well with position requirements.</p>
+                    
+                    <p style="margin: 10px 0 0 0; color: #495057;"><strong>Key Skills:</strong> Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server</p>
+                </div>
+                
+                <div style="background: white; padding: 15px; border-radius: 8px; 
+                            border-left: 4px solid #28a745; margin: 10px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: #28a745;">
+                        Senior Software Developer (Job ID: 34520)
+                    </h4>
+                    <div style="color: #6c757d; margin-bottom: 8px;">
+                        <strong>Match Score:</strong> 82%
+                    </div>
+                    <p style="margin: 0; color: #495057;">Solid technical background with full-stack development experience. Python and cloud deployment skills meet core requirements though less emphasis on healthcare domain.</p>
+                    
+                    <p style="margin: 10px 0 0 0; color: #495057;"><strong>Key Skills:</strong> Python, JavaScript, React, AWS, Docker, PostgreSQL</p>
+                </div>
+                
+                <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <p style="color: #6c757d; font-size: 14px; margin: 0;">
+                        <strong>Recommended Action:</strong> Review the candidate's profile and 
+                        reach out if they're a good fit for your open position(s).
+                    </p>
+                </div>
+            </div>
+            
+            <div style="background: #343a40; color: #adb5bd; padding: 15px; 
+                        border-radius: 0 0 8px 8px; font-size: 12px; text-align: center;">
+                Powered by JobPulse™ AI Vetting • Myticas Consulting
+            </div>
+        </div>
+        """
+        
+        success = email_service.send_email(
+            to_email=test_email,
+            subject=subject,
+            html_content=html_content
+        )
+        
+        if success:
+            flash(f'Test email sent successfully to {test_email}!', 'success')
+        else:
+            flash(f'Failed to send test email to {test_email}', 'error')
+            
+    except Exception as e:
+        app.logger.error(f"Error sending test vetting email: {str(e)}")
+        flash(f'Error sending test email: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
+@app.route('/vetting/sample-notes')
+@login_required
+def show_sample_notes():
+    """Show sample note formats for qualified and non-qualified candidates"""
+    
+    qualified_note = """🎯 AI VETTING SUMMARY - QUALIFIED CANDIDATE
+
+Analysis Date: 2026-01-29 12:45 UTC
+Threshold: 80%
+Qualified Matches: 2 of 5 jobs
+Highest Match Score: 85%
+
+QUALIFIED POSITIONS:
+
+• Job ID: 34517 - Azure Integration Developer
+  Match Score: 85%
+  ⭐ APPLIED TO THIS POSITION
+  Summary: Strong candidate with 5+ years of Azure experience including Logic Apps, Functions, and API Management. Background in healthcare and enterprise integration aligns well with position requirements.
+  Skills: Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server
+
+• Job ID: 34520 - Senior Software Developer
+  Match Score: 82%
+  Summary: Solid technical background with full-stack development experience. Python and cloud deployment skills meet core requirements.
+  Skills: Python, JavaScript, React, AWS, Docker, PostgreSQL"""
+    
+    not_qualified_note = """📋 AI VETTING SUMMARY - NOT RECOMMENDED
+
+Analysis Date: 2026-01-29 12:45 UTC
+Threshold: 80%
+Highest Match Score: 62%
+Jobs Analyzed: 5
+
+This candidate did not meet the 80% match threshold for any current open positions.
+
+TOP ANALYSIS RESULTS:
+
+• Job ID: 34517 - Azure Integration Developer
+  Match Score: 62%
+  ⭐ APPLIED TO THIS POSITION
+  Gaps: No direct Azure experience. Background is primarily in frontend development. Missing required integration/middleware skills.
+
+• Job ID: 34520 - Senior Software Developer
+  Match Score: 58%
+  Gaps: Entry-level experience (2 years vs 5+ required). No team lead experience. Limited backend exposure.
+
+• Job ID: 34525 - Cloud Solutions Architect
+  Match Score: 45%
+  Gaps: No cloud certifications. Limited enterprise architecture experience. Missing AWS or Azure expertise."""
+    
+    return render_template('sample_notes.html', 
+                          qualified_note=qualified_note, 
+                          not_qualified_note=not_qualified_note)
+
+
 @app.route('/vetting/job/<int:job_id>/requirements', methods=['POST'])
 @login_required
 def save_job_requirements(job_id):
