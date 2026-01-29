@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content, Attachment
+from sendgrid.helpers.mail import Mail, Email, To, Cc, Content, Attachment
 import base64
 import logging
 
@@ -1176,15 +1176,17 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             return False
 
     def send_html_email(self, to_email: str, subject: str, html_content: str,
-                        notification_type: str = 'html_email') -> bool:
+                        notification_type: str = 'html_email',
+                        cc_emails: list = None) -> bool:
         """
         Send an HTML email (for test emails, custom notifications, etc.)
         
         Args:
-            to_email: Recipient email address
+            to_email: Primary recipient email address
             subject: Email subject line
             html_content: HTML content for the email body
             notification_type: Type of notification for logging purposes
+            cc_emails: Optional list of email addresses to CC on the email
             
         Returns:
             bool: True if sent successfully, False otherwise
@@ -1200,6 +1202,13 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 subject=subject,
                 html_content=Content("text/html", html_content)
             )
+            
+            # Add CC recipients if provided
+            if cc_emails:
+                for cc_email in cc_emails:
+                    if cc_email and cc_email != to_email:  # Don't CC the primary recipient
+                        message.add_cc(Cc(cc_email))
+                logging.info(f"Adding CC recipients: {cc_emails}")
 
             response = self.sg.client.mail.send.post(request_body=message.get())
             

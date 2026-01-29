@@ -1008,18 +1008,18 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
     
     def send_recruiter_notifications(self, vetting_log: CandidateVettingLog) -> int:
         """
-        Send email notifications to ALL recruiters for qualified matches.
+        Send ONE email notification with all recruiters CC'd.
         
         TRANSPARENCY MODEL: When a candidate matches multiple positions with different
-        recruiters, ALL recruiters receive the SAME comprehensive email showing ALL
-        matched positions. This ensures no overlap between internal recruiters - everyone
-        is aware the candidate is a fit for multiple roles.
+        recruiters, ALL recruiters are CC'd on the SAME email thread. The primary
+        recipient is the recruiter of the job the candidate applied to. This ensures
+        complete visibility and enables direct collaboration on the same thread.
         
         Args:
             vetting_log: The vetting log with qualified matches
             
         Returns:
-            Number of notifications sent
+            Number of notifications sent (1 for success, 0 for failure/no matches)
         """
         if not vetting_log.is_qualified:
             return 0
@@ -1034,76 +1034,88 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         if not matches:
             return 0
         
-        # Collect unique recruiter emails from ALL matches
-        recruiter_emails = set()
-        recruiter_names = {}
-        for match in matches:
-            if match.recruiter_email:
-                recruiter_emails.add(match.recruiter_email)
-                # Store name for personalization
-                if match.recruiter_email not in recruiter_names:
-                    recruiter_names[match.recruiter_email] = match.recruiter_name
+        # Determine primary recruiter (from applied job) and CC list
+        primary_recruiter_email = None
+        primary_recruiter_name = None
+        cc_recruiter_emails = []
         
-        if not recruiter_emails:
+        # First pass: find the applied job recruiter (primary recipient)
+        for match in matches:
+            if match.is_applied_job and match.recruiter_email:
+                primary_recruiter_email = match.recruiter_email
+                primary_recruiter_name = match.recruiter_name
+                break
+        
+        # Second pass: collect all other unique recruiter emails for CC
+        seen_emails = set()
+        for match in matches:
+            if match.recruiter_email and match.recruiter_email not in seen_emails:
+                seen_emails.add(match.recruiter_email)
+                if match.recruiter_email != primary_recruiter_email:
+                    cc_recruiter_emails.append(match.recruiter_email)
+                elif not primary_recruiter_email:
+                    # If no applied job match, first recruiter becomes primary
+                    primary_recruiter_email = match.recruiter_email
+                    primary_recruiter_name = match.recruiter_name
+        
+        if not primary_recruiter_email:
             logging.warning(f"No recruiter emails found for candidate {vetting_log.candidate_name}")
             return 0
         
-        notifications_sent = 0
-        
-        # Send the SAME comprehensive email to ALL recruiters
-        for recruiter_email in recruiter_emails:
-            try:
-                success = self._send_recruiter_email(
-                    recruiter_email=recruiter_email,
-                    recruiter_name=recruiter_names.get(recruiter_email, ''),
-                    candidate_name=vetting_log.candidate_name,
-                    candidate_id=vetting_log.bullhorn_candidate_id,
-                    matches=matches,  # ALL matches, not just theirs
-                    all_recruiter_emails=recruiter_emails  # For transparency header
-                )
-                
-                if success:
-                    notifications_sent += 1
-                    logging.info(f"Sent comprehensive notification to {recruiter_email} for {vetting_log.candidate_name}")
-                    
-            except Exception as e:
-                logging.error(f"Failed to send notification to {recruiter_email}: {str(e)}")
-        
-        # Mark ALL matches as notified after sending to all recruiters
-        if notifications_sent > 0:
-            for match in matches:
-                match.notification_sent = True
-                match.notification_sent_at = datetime.utcnow()
+        # Send ONE email with primary as To: and others as CC:
+        try:
+            success = self._send_recruiter_email(
+                recruiter_email=primary_recruiter_email,
+                recruiter_name=primary_recruiter_name or '',
+                candidate_name=vetting_log.candidate_name,
+                candidate_id=vetting_log.bullhorn_candidate_id,
+                matches=matches,
+                cc_emails=cc_recruiter_emails  # All other recruiters CC'd
+            )
             
-            vetting_log.notifications_sent = True
-            vetting_log.notification_count = notifications_sent
-            db.session.commit()
-        
-        logging.info(f"Sent {notifications_sent} recruiter notifications for candidate {vetting_log.candidate_name} ({len(matches)} positions)")
-        return notifications_sent
+            if success:
+                # Mark ALL matches as notified
+                for match in matches:
+                    match.notification_sent = True
+                    match.notification_sent_at = datetime.utcnow()
+                
+                vetting_log.notifications_sent = True
+                vetting_log.notification_count = 1  # One email sent to all
+                db.session.commit()
+                
+                cc_info = f" (CC: {', '.join(cc_recruiter_emails)})" if cc_recruiter_emails else ""
+                logging.info(f"Sent notification to {primary_recruiter_email}{cc_info} for {vetting_log.candidate_name} ({len(matches)} positions)")
+                return 1
+            else:
+                logging.error(f"Failed to send notification for {vetting_log.candidate_name}")
+                return 0
+                
+        except Exception as e:
+            logging.error(f"Failed to send notification: {str(e)}")
+            return 0
     
     def _send_recruiter_email(self, recruiter_email: str, recruiter_name: str,
                                candidate_name: str, candidate_id: int,
                                matches: List[CandidateJobMatch],
-                               all_recruiter_emails: set = None) -> bool:
+                               cc_emails: list = None) -> bool:
         """
         Send notification email to a recruiter about a qualified candidate.
         
-        TRANSPARENCY MODEL: Each job card shows which recruiter owns it, and
-        the email lists all recruiters being notified for complete visibility.
+        TRANSPARENCY MODEL: ONE email is sent with the primary recruiter as To:
+        and all other recruiters CC'd on the same thread. Each job card shows
+        which recruiter owns it for complete visibility.
         """
         # Build Bullhorn candidate URL (using cls45 subdomain for Bullhorn One)
         candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
         
-        # Build transparency header if multiple recruiters
+        # Build transparency header if there are CC'd recruiters
         transparency_note = ""
-        if all_recruiter_emails and len(all_recruiter_emails) > 1:
-            other_recruiters = [e for e in all_recruiter_emails if e != recruiter_email]
+        if cc_emails and len(cc_emails) > 0:
             transparency_note = f"""
                 <div style="background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
                     <p style="margin: 0; color: #1565c0; font-size: 13px;">
-                        <strong>📢 Team Visibility:</strong> This candidate matches multiple positions.
-                        This same notification has also been sent to: <em>{', '.join(other_recruiters)}</em>
+                        <strong>📢 Team Thread:</strong> This candidate matches multiple positions.
+                        CC'd on this email: <em>{', '.join(cc_emails)}</em>
                     </p>
                 </div>
             """
@@ -1186,13 +1198,14 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         </div>
         """
         
-        # Send the email
+        # Send the email with CC recipients
         try:
             success = self.email_service.send_html_email(
                 to_email=recruiter_email,
                 subject=subject,
                 html_content=html_content,
-                notification_type='vetting_recruiter_notification'
+                notification_type='vetting_recruiter_notification',
+                cc_emails=cc_emails  # CC all other recruiters on same thread
             )
             return success
         except Exception as e:

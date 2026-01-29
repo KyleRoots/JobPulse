@@ -4016,16 +4016,19 @@ def send_test_vetting_email():
         matches = [j for j in cross_only_jobs if not j.get('below_threshold', False)]
         scenario_desc = "Cross-Reference Only (Applied Job Below Threshold)"
     
-    # Build transparency note for multi-recruiter scenario
+    # Build transparency note for multi-recruiter scenario (CC model)
     transparency_note = ""
+    cc_emails_for_display = []
     if is_multi_recruiter and all_recruiter_emails:
-        other_recruiters = [e for e in all_recruiter_emails if e != test_email]
-        if other_recruiters:
+        # In multi-recruiter scenario, primary is applied job recruiter, others are CC'd
+        primary_email = 'sjohnson@myticas.com'  # Applied job recruiter
+        cc_emails_for_display = [e for e in all_recruiter_emails if e != primary_email]
+        if cc_emails_for_display:
             transparency_note = f"""
             <div style="background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
                 <p style="margin: 0; color: #1565c0; font-size: 13px;">
-                    <strong>📢 Team Visibility:</strong> This candidate matches multiple positions.
-                    This same notification has also been sent to: <em>{', '.join(other_recruiters)}</em>
+                    <strong>📢 Team Thread:</strong> This candidate matches multiple positions.
+                    CC'd on this email: <em>{', '.join(cc_emails_for_display)}</em>
                 </p>
             </div>
             """
