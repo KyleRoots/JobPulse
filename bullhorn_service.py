@@ -89,10 +89,27 @@ class BullhornService:
             raise Exception("API response parsing error. Please refresh and try again.")
     
     def _load_credentials(self):
-        """Load Bullhorn credentials - now handled by passing credentials directly"""
-        # This method is now a no-op since credentials are passed directly to __init__
-        # Keeping it for backward compatibility
-        pass
+        """Load Bullhorn credentials from database GlobalSettings"""
+        try:
+            from app import app
+            from models import GlobalSettings
+            
+            with app.app_context():
+                client_id_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_client_id').first()
+                client_secret_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_client_secret').first()
+                username_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_username').first()
+                password_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_password').first()
+                
+                if client_id_setting:
+                    self.client_id = client_id_setting.setting_value
+                if client_secret_setting:
+                    self.client_secret = client_secret_setting.setting_value
+                if username_setting:
+                    self.username = username_setting.setting_value
+                if password_setting:
+                    self.password = password_setting.setting_value
+        except Exception as e:
+            logging.warning(f"Could not load Bullhorn credentials from database: {str(e)}")
     
     def _filter_excluded_jobs(self, jobs: List[Dict]) -> List[Dict]:
         """
