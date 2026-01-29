@@ -3975,10 +3975,11 @@ def send_test_vetting_email():
         </div>
         """
         
-        success = email_service.send_email(
+        success = email_service.send_html_email(
             to_email=test_email,
             subject=subject,
-            html_content=html_content
+            html_content=html_content,
+            notification_type='vetting_test_email'
         )
         
         if success:

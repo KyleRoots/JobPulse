@@ -1175,6 +1175,70 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             logging.error(f"Failed to send generic notification: {str(e)}")
             return False
 
+    def send_html_email(self, to_email: str, subject: str, html_content: str,
+                        notification_type: str = 'html_email') -> bool:
+        """
+        Send an HTML email (for test emails, custom notifications, etc.)
+        
+        Args:
+            to_email: Recipient email address
+            subject: Email subject line
+            html_content: HTML content for the email body
+            notification_type: Type of notification for logging purposes
+            
+        Returns:
+            bool: True if sent successfully, False otherwise
+        """
+        try:
+            if not self.api_key:
+                logging.warning("SendGrid API key not configured - cannot send email")
+                return False
+
+            from_email = Email("noreply@jobpulse.lyntrix.ai")
+            to_email_obj = To(to_email)
+            content = Content("text/html", html_content)
+            mail = Mail(from_email, to_email_obj, subject, content)
+
+            response = self.sg.client.mail.send.post(request_body=mail.get())
+            
+            # Extract SendGrid message ID from response headers
+            sendgrid_message_id = None
+            if hasattr(response, 'headers') and 'X-Message-Id' in response.headers:
+                sendgrid_message_id = response.headers['X-Message-Id']
+            
+            # Determine delivery status
+            delivery_status = 'sent' if response.status_code == 202 else 'failed'
+            error_msg = None if response.status_code == 202 else f"Status code: {response.status_code}"
+            
+            # Log email delivery
+            self._log_email_delivery(
+                email_type=notification_type,
+                recipient_email=to_email,
+                delivery_status=delivery_status,
+                error_message=error_msg,
+                subject=subject,
+                sendgrid_message_id=sendgrid_message_id
+            )
+            
+            if response.status_code == 202:
+                logging.info(f"HTML email sent successfully to {to_email}")
+                return True
+            else:
+                logging.error(f"Failed to send HTML email: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            # Log failed delivery
+            self._log_email_delivery(
+                email_type=notification_type,
+                recipient_email=to_email,
+                delivery_status='failed',
+                error_message=str(e),
+                subject=subject
+            )
+            logging.error(f"Failed to send HTML email: {str(e)}")
+            return False
+
     def send_new_job_notification(self, to_email: str, job_id: str, job_title: str, 
                                   monitor_name: str = None) -> bool:
         """
