@@ -1212,7 +1212,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             
             # Log email delivery
             self._log_email_delivery(
-                email_type=notification_type,
+                notification_type=notification_type,
                 recipient_email=to_email,
                 delivery_status=delivery_status,
                 error_message=error_msg,
@@ -1230,7 +1230,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
         except Exception as e:
             # Log failed delivery
             self._log_email_delivery(
-                email_type=notification_type,
+                notification_type=notification_type,
                 recipient_email=to_email,
                 delivery_status='failed',
                 error_message=str(e),
