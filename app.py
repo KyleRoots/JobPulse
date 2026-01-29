@@ -3911,7 +3911,7 @@ def send_test_vetting_email():
     candidate_name = "John Smith"
     candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
     
-    # Job definitions for different scenarios
+    # Job definitions for different scenarios (with recruiter info for transparency)
     jobs = [
         {
             'id': 34517,
@@ -3919,7 +3919,9 @@ def send_test_vetting_email():
             'score': 85,
             'is_applied': True,
             'summary': 'Strong candidate with 5+ years of Azure experience including Logic Apps, Functions, and API Management. Background in healthcare and enterprise integration aligns well with position requirements.',
-            'skills': 'Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server'
+            'skills': 'Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server',
+            'recruiter_name': 'Sarah Johnson',
+            'recruiter_email': 'sjohnson@myticas.com'
         },
         {
             'id': 34520,
@@ -3927,7 +3929,9 @@ def send_test_vetting_email():
             'score': 82,
             'is_applied': False,
             'summary': 'Solid technical background with full-stack development experience. Python and cloud deployment skills meet core requirements though less emphasis on healthcare domain.',
-            'skills': 'Python, JavaScript, React, AWS, Docker, PostgreSQL'
+            'skills': 'Python, JavaScript, React, AWS, Docker, PostgreSQL',
+            'recruiter_name': 'Mike Chen',
+            'recruiter_email': 'mchen@myticas.com'
         },
         {
             'id': 34523,
@@ -3935,7 +3939,9 @@ def send_test_vetting_email():
             'score': 80,
             'is_applied': False,
             'summary': 'Extensive cloud architecture experience with multi-platform expertise. Strong in Azure and AWS with demonstrated leadership in enterprise transformation projects.',
-            'skills': 'Azure, AWS, Kubernetes, Terraform, CI/CD, Solution Design'
+            'skills': 'Azure, AWS, Kubernetes, Terraform, CI/CD, Solution Design',
+            'recruiter_name': 'Emily Rodriguez',
+            'recruiter_email': 'erodriguez@myticas.com'
         }
     ]
     
@@ -3948,7 +3954,9 @@ def send_test_vetting_email():
             'is_applied': True,
             'summary': 'Candidate lacks required Azure Logic Apps experience. Good general technical background but missing key integration skills.',
             'skills': 'Python, JavaScript, Basic Azure knowledge',
-            'below_threshold': True  # This one won't be included in notification
+            'below_threshold': True,
+            'recruiter_name': 'Sarah Johnson',
+            'recruiter_email': 'sjohnson@myticas.com'
         },
         {
             'id': 34520,
@@ -3956,9 +3964,39 @@ def send_test_vetting_email():
             'score': 88,
             'is_applied': False,
             'summary': 'Excellent match for this role! Strong Python and full-stack development experience matches all core requirements. Previous work in similar domains.',
-            'skills': 'Python, JavaScript, React, AWS, Docker, PostgreSQL'
+            'skills': 'Python, JavaScript, React, AWS, Docker, PostgreSQL',
+            'recruiter_name': 'Mike Chen',
+            'recruiter_email': 'mchen@myticas.com'
         }
     ]
+    
+    # Multi-recruiter scenario - same candidate matches jobs from 2 different recruiters
+    multi_recruiter_jobs = [
+        {
+            'id': 34517,
+            'title': 'Azure Integration Developer',
+            'score': 85,
+            'is_applied': True,
+            'summary': 'Strong candidate with 5+ years of Azure experience including Logic Apps, Functions, and API Management.',
+            'skills': 'Azure Functions, Logic Apps, API Management, C#, .NET Core',
+            'recruiter_name': 'Sarah Johnson',
+            'recruiter_email': 'sjohnson@myticas.com'
+        },
+        {
+            'id': 34520,
+            'title': 'Senior Software Developer',
+            'score': 88,
+            'is_applied': False,
+            'summary': 'Excellent Python and full-stack skills match this role perfectly. Previous healthcare experience is a bonus.',
+            'skills': 'Python, JavaScript, React, AWS, Docker',
+            'recruiter_name': 'Mike Chen',
+            'recruiter_email': 'mchen@myticas.com'
+        }
+    ]
+    
+    # Determine if this is multi-recruiter mode
+    is_multi_recruiter = scenario == 'multi'
+    all_recruiter_emails = None
     
     # Build matches based on scenario
     if scenario == '1':
@@ -3970,10 +4008,27 @@ def send_test_vetting_email():
     elif scenario == '3':
         matches = jobs  # All 3 jobs
         scenario_desc = "3+ Matches (Applied + 2 Cross-References)"
+    elif scenario == 'multi':
+        matches = multi_recruiter_jobs
+        all_recruiter_emails = {'sjohnson@myticas.com', 'mchen@myticas.com'}
+        scenario_desc = "Multi-Recruiter (Same Email to All Recruiters)"
     else:  # cross_only
-        # Only include the non-applied job that's above threshold
         matches = [j for j in cross_only_jobs if not j.get('below_threshold', False)]
         scenario_desc = "Cross-Reference Only (Applied Job Below Threshold)"
+    
+    # Build transparency note for multi-recruiter scenario
+    transparency_note = ""
+    if is_multi_recruiter and all_recruiter_emails:
+        other_recruiters = [e for e in all_recruiter_emails if e != test_email]
+        if other_recruiters:
+            transparency_note = f"""
+            <div style="background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+                <p style="margin: 0; color: #1565c0; font-size: 13px;">
+                    <strong>📢 Team Visibility:</strong> This candidate matches multiple positions.
+                    This same notification has also been sent to: <em>{', '.join(other_recruiters)}</em>
+                </p>
+            </div>
+            """
     
     # Build email HTML
     subject = f"🎯 [TEST] Qualified Candidate Alert: {candidate_name}"
@@ -3991,9 +4046,11 @@ def send_test_vetting_email():
         <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
             <p style="margin: 0 0 15px 0;">Hi there,</p>
             
+            {transparency_note}
+            
             <p style="margin: 0 0 15px 0;">
                 A new candidate has been analyzed by JobPulse AI and matches 
-                <strong>{len(matches)} position(s)</strong> you're recruiting for.
+                <strong>{len(matches)} position(s)</strong>.
             </p>
             
             <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin: 20px 0;">
@@ -4015,11 +4072,20 @@ def send_test_vetting_email():
         job_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={job['id']}"
         applied_badge = '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>' if job['is_applied'] else ''
         
+        # Add recruiter ownership tag for multi-recruiter scenario
+        recruiter_tag = ""
+        if is_multi_recruiter and job.get('recruiter_name'):
+            is_your_job = job.get('recruiter_email') == test_email
+            if is_your_job:
+                recruiter_tag = '<span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">YOUR JOB</span>'
+            else:
+                recruiter_tag = f'<span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">{job["recruiter_name"]}\'s Job</span>'
+        
         html_content += f"""
             <div style="background: white; padding: 15px; border-radius: 8px; 
                         border-left: 4px solid #28a745; margin: 10px 0;">
                 <h4 style="margin: 0 0 8px 0; color: #28a745;">
-                    <a href="{job_url}" style="color: #28a745; text-decoration: none;">{job['title']} (Job ID: {job['id']})</a>{applied_badge}
+                    <a href="{job_url}" style="color: #28a745; text-decoration: none;">{job['title']} (Job ID: {job['id']})</a>{applied_badge}{recruiter_tag}
                 </h4>
                 <div style="color: #6c757d; margin-bottom: 8px;">
                     <strong>Match Score:</strong> {job['score']}%
