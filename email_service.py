@@ -1194,12 +1194,14 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 logging.warning("SendGrid API key not configured - cannot send email")
                 return False
 
-            from_email = Email("noreply@jobpulse.lyntrix.ai")
-            to_email_obj = To(to_email)
-            content = Content("text/html", html_content)
-            mail = Mail(from_email, to_email_obj, subject, content)
+            message = Mail(
+                from_email=Email(self.from_email),
+                to_emails=To(to_email),
+                subject=subject,
+                html_content=Content("text/html", html_content)
+            )
 
-            response = self.sg.client.mail.send.post(request_body=mail.get())
+            response = self.sg.client.mail.send.post(request_body=message.get())
             
             # Extract SendGrid message ID from response headers
             sendgrid_message_id = None
