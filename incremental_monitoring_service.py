@@ -422,6 +422,11 @@ This alert was triggered by the zero-job detection safeguard.
         except:
             pass
     
+    def _normalize_status(self, status: str) -> str:
+        """Normalize status string for comparison (lowercase, collapse multiple spaces, strip)"""
+        import re
+        return re.sub(r'\s+', ' ', status.strip().lower())
+    
     def _is_job_eligible(self, job: Dict) -> tuple:
         """
         Check if a job is eligible for the sponsored job feed
@@ -436,10 +441,10 @@ This alert was triggered by the zero-job detection safeguard.
         if is_open == False or str(is_open).lower() == 'closed' or str(is_open).lower() == 'false':
             return (False, 'isOpen=Closed')
         
-        # Check if status is in blocked list (case-insensitive, whitespace-normalized)
-        status_lower = status.lower()
+        # Check if status is in blocked list (case-insensitive, space-normalized)
+        normalized_status = self._normalize_status(status)
         for blocked_status in self.INELIGIBLE_STATUSES:
-            if status_lower == blocked_status.lower():
+            if normalized_status == self._normalize_status(blocked_status):
                 return (False, f'status={status}')
         
         return (True, None)
