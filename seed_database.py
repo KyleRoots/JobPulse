@@ -445,6 +445,58 @@ def seed_bullhorn_monitors(db, BullhornMonitor):
         raise
 
 
+def seed_vetting_config(db, VettingConfig):
+    """
+    Seed AI Vetting configuration settings
+    
+    In production, vetting is ENABLED by default (vetting_enabled=true)
+    In development, vetting is DISABLED by default (vetting_enabled=false)
+    
+    Like automation toggles, user settings are preserved - we only set defaults on first creation.
+    
+    Args:
+        db: SQLAlchemy database instance
+        VettingConfig: VettingConfig model class
+    """
+    try:
+        # Define vetting settings with production-aware defaults
+        vetting_settings = {
+            'vetting_enabled': 'true' if is_production_environment() else 'false',
+            'match_threshold': '80',
+            'admin_notification_email': 'kroots@myticas.com'
+        }
+        
+        settings_created = []
+        
+        for key, default_value in vetting_settings.items():
+            existing = VettingConfig.query.filter_by(setting_key=key).first()
+            
+            if existing:
+                # PRESERVE user settings - NEVER overwrite existing values
+                logger.info(f"ℹ️ Preserving vetting setting: {key}={existing.setting_value}")
+                continue
+            else:
+                # Create new setting with production-aware default (first run only)
+                new_setting = VettingConfig(
+                    setting_key=key,
+                    setting_value=default_value
+                )
+                db.session.add(new_setting)
+                settings_created.append(key)
+                logger.info(f"✅ Created vetting setting: {key}={default_value} (production={is_production_environment()})")
+        
+        if settings_created:
+            db.session.commit()
+            logger.info(f"✅ Created vetting settings: {', '.join(settings_created)}")
+        else:
+            logger.info("✅ Vetting settings already up to date")
+            
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed vetting config: {str(e)}")
+        raise
+
+
 def seed_environment_monitoring(db):
     """
     Initialize environment monitoring settings for production
@@ -677,6 +729,16 @@ def seed_database(db, User):
             logger.debug("ℹ️ RecruiterMapping model not found - skipping recruiter mapping seeding")
         except Exception as e:
             logger.warning(f"⚠️ Failed to seed recruiter mappings: {str(e)}")
+        
+        # Seed AI Vetting settings (enabled by default in production)
+        try:
+            from models import VettingConfig
+            seed_vetting_config(db, VettingConfig)
+            results['vetting_configured'] = True
+        except ImportError:
+            logger.debug("ℹ️ VettingConfig model not found - skipping vetting config seeding")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to seed vetting config: {str(e)}")
         
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
