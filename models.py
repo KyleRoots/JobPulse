@@ -501,6 +501,7 @@ class ParsedEmail(db.Model):
     received_at = db.Column(db.DateTime, default=datetime.utcnow)
     processed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    vetted_at = db.Column(db.DateTime, nullable=True)  # Tracks when AI vetting was completed
     
     def __repr__(self):
         return f'<ParsedEmail {self.id} from {self.source_platform} - {self.status}>'

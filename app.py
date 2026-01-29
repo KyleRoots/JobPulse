@@ -3768,6 +3768,7 @@ def vetting_settings():
     settings = {
         'vetting_enabled': False,
         'match_threshold': 80,
+        'batch_size': 25,
         'admin_notification_email': ''
     }
     
@@ -3776,11 +3777,11 @@ def vetting_settings():
         if config:
             if key == 'vetting_enabled':
                 settings[key] = config.setting_value.lower() == 'true'
-            elif key == 'match_threshold':
+            elif key in ('match_threshold', 'batch_size'):
                 try:
                     settings[key] = int(config.setting_value)
                 except (ValueError, TypeError):
-                    settings[key] = 80
+                    settings[key] = 80 if key == 'match_threshold' else 25
             else:
                 settings[key] = config.setting_value or ''
     
@@ -3820,6 +3821,7 @@ def save_vetting_settings():
         # Get form values
         vetting_enabled = 'vetting_enabled' in request.form
         match_threshold = request.form.get('match_threshold', '80')
+        batch_size = request.form.get('batch_size', '25')
         admin_email = request.form.get('admin_notification_email', '')
         
         # Validate threshold
@@ -3830,10 +3832,19 @@ def save_vetting_settings():
         except ValueError:
             threshold = 80
         
+        # Validate batch size
+        try:
+            batch = int(batch_size)
+            if batch < 1 or batch > 100:
+                batch = 25
+        except ValueError:
+            batch = 25
+        
         # Update settings
         settings_to_save = [
             ('vetting_enabled', 'true' if vetting_enabled else 'false'),
             ('match_threshold', str(threshold)),
+            ('batch_size', str(batch)),
             ('admin_notification_email', admin_email)
         ]
         
