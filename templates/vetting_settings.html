@@ -669,10 +669,9 @@
                     </div>
                     
                     <div class="tab-pane fade" id="recommended-candidates" role="tabpanel">
-                        {% set recommended = recent_activity|selectattr('is_qualified')|list if recent_activity else [] %}
-                        {% if recommended %}
+                        {% if recommended_candidates %}
                         <div class="accordion" id="recommendedAccordion">
-                            {% for log in recommended %}
+                            {% for log in recommended_candidates %}
                             <div class="accordion-item bg-transparent border-success">
                                 <h2 class="accordion-header">
                                     <button class="accordion-button collapsed bg-transparent text-white" type="button" 
@@ -740,10 +739,9 @@
                     </div>
                     
                     <div class="tab-pane fade" id="not-recommended-candidates" role="tabpanel">
-                        {% set not_recommended = recent_activity|rejectattr('is_qualified')|selectattr('status', 'equalto', 'completed')|list if recent_activity else [] %}
-                        {% if not_recommended %}
+                        {% if not_recommended_candidates %}
                         <div class="accordion" id="notRecommendedAccordion">
-                            {% for log in not_recommended %}
+                            {% for log in not_recommended_candidates %}
                             <div class="accordion-item bg-transparent border-secondary">
                                 <h2 class="accordion-header">
                                     <button class="accordion-button collapsed bg-transparent text-white" type="button" 

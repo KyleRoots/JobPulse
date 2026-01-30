@@ -3795,10 +3795,22 @@ def vetting_settings():
         'pending': CandidateVettingLog.query.filter(CandidateVettingLog.status.in_(['pending', 'processing'])).count()
     }
     
-    # Get recent activity
+    # Get recent activity (all candidates for "All Candidates" tab)
     recent_activity = CandidateVettingLog.query.order_by(
         CandidateVettingLog.created_at.desc()
-    ).limit(20).all()
+    ).limit(50).all()
+    
+    # Get recommended candidates (is_qualified=True) - separate query for full list
+    recommended_candidates = CandidateVettingLog.query.filter_by(
+        status='completed', 
+        is_qualified=True
+    ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
+    
+    # Get not recommended candidates (is_qualified=False, completed)
+    not_recommended_candidates = CandidateVettingLog.query.filter_by(
+        status='completed',
+        is_qualified=False
+    ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
     
     # Get job requirements for editing
     job_requirements = JobVettingRequirements.query.order_by(
@@ -3809,6 +3821,8 @@ def vetting_settings():
                           settings=settings, 
                           stats=stats, 
                           recent_activity=recent_activity,
+                          recommended_candidates=recommended_candidates,
+                          not_recommended_candidates=not_recommended_candidates,
                           job_requirements=job_requirements)
 
 
