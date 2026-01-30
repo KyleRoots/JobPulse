@@ -289,6 +289,29 @@ class IncrementalMonitoringService:
                 self.logger.info("  📋 Job counts: Add +{}, Remove -{}, Update ~{}".format(
                     cycle_results['jobs_added'], cycle_results['jobs_removed'], cycle_results['jobs_updated']))
             
+            # Step 5: Check for modified jobs and refresh AI requirements
+            self.logger.info("\n🔄 Step 5: Checking for job changes (AI requirements refresh)...")
+            try:
+                # Convert bullhorn_jobs dict to list for the vetting service
+                jobs_list = list(bullhorn_jobs.values())
+                
+                # Local import to avoid circular dependency
+                from candidate_vetting_service import CandidateVettingService
+                
+                # Initialize vetting service and check for job changes
+                vetting_service = CandidateVettingService()
+                refresh_results = vetting_service.check_and_refresh_changed_jobs(jobs_list)
+                
+                cycle_results['jobs_requirements_refreshed'] = refresh_results.get('jobs_refreshed', 0)
+                
+                if refresh_results['jobs_refreshed'] > 0:
+                    self.logger.info(f"  ✅ Refreshed AI requirements for {refresh_results['jobs_refreshed']} modified jobs")
+                else:
+                    self.logger.info("  ✅ No job modifications detected requiring AI refresh")
+            except Exception as e:
+                self.logger.error(f"  ⚠️ Job change detection failed: {str(e)}")
+                cycle_results['errors'].append(f"Job change detection: {str(e)}")
+            
         except Exception as e:
             self.logger.error(f"Monitoring cycle error: {str(e)}")
             cycle_results['errors'].append(f"Cycle error: {str(e)}")

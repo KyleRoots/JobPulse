@@ -244,6 +244,118 @@ Format as a bullet-point list. Be specific and concise."""
             
         return results
     
+    def check_and_refresh_changed_jobs(self, jobs: list = None) -> dict:
+        """
+        Check for jobs that have been modified in Bullhorn since last AI interpretation.
+        Triggers re-extraction for changed jobs while preserving custom overrides.
+        
+        Args:
+            jobs: Optional list of job dicts from tearsheets. If None, fetches from tearsheets.
+            
+        Returns:
+            Summary dict with refresh counts
+        """
+        results = {
+            'jobs_checked': 0,
+            'jobs_refreshed': 0,
+            'jobs_skipped': 0,
+            'errors': []
+        }
+        
+        try:
+            # Get jobs if not provided
+            if jobs is None:
+                jobs = self.get_active_jobs_from_tearsheets()
+            
+            results['jobs_checked'] = len(jobs)
+            logging.info(f"🔄 Checking {len(jobs)} jobs for modifications...")
+            
+            for job in jobs:
+                job_id = job.get('id')
+                if not job_id:
+                    continue
+                    
+                try:
+                    # Get existing requirements record
+                    existing = JobVettingRequirements.query.filter_by(bullhorn_job_id=int(job_id)).first()
+                    
+                    if not existing or not existing.last_ai_interpretation:
+                        # No existing interpretation - will be extracted when needed
+                        continue
+                    
+                    # Get job's dateLastModified from Bullhorn
+                    date_last_modified = job.get('dateLastModified')
+                    if not date_last_modified:
+                        continue
+                    
+                    # Convert Bullhorn timestamp (milliseconds) to datetime
+                    if isinstance(date_last_modified, (int, float)):
+                        job_modified_at = datetime.utcfromtimestamp(date_last_modified / 1000)
+                    else:
+                        # Try parsing as ISO string
+                        try:
+                            job_modified_at = datetime.fromisoformat(str(date_last_modified).replace('Z', '+00:00'))
+                        except:
+                            continue
+                    
+                    # Compare with our last interpretation timestamp
+                    if job_modified_at > existing.last_ai_interpretation:
+                        # Job was modified - refresh the interpretation
+                        job_title = job.get('title', '')
+                        job_description = job.get('description', '') or job.get('publicDescription', '')
+                        
+                        # Extract location data
+                        job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+                        job_city = job_address.get('city', '')
+                        job_state = job_address.get('state', '')
+                        job_country = job_address.get('countryName', '') or job_address.get('country', '')
+                        job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
+                        
+                        on_site_value = job.get('onSite', 1)
+                        work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+                        job_work_type = work_type_map.get(on_site_value, 'On-site')
+                        
+                        logging.info(f"📝 Job {job_id} modified (Bullhorn: {job_modified_at}, Last AI: {existing.last_ai_interpretation}) - refreshing...")
+                        
+                        # Update title and location (always)
+                        existing.job_title = job_title
+                        existing.job_location = job_location
+                        existing.job_work_type = job_work_type
+                        
+                        # Only re-extract AI interpretation if no custom override
+                        if not existing.custom_requirements:
+                            # Re-extract requirements
+                            extracted = self.extract_job_requirements(
+                                int(job_id), job_title, job_description,
+                                job_location, job_work_type
+                            )
+                            if extracted:
+                                logging.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
+                            else:
+                                logging.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
+                        else:
+                            # Has custom override - just update metadata, not AI interpretation
+                            existing.updated_at = datetime.utcnow()
+                            db.session.commit()
+                            logging.info(f"  ℹ️ Job {job_id} has custom requirements - updated metadata only")
+                        
+                        results['jobs_refreshed'] += 1
+                    else:
+                        results['jobs_skipped'] += 1
+                        
+                except Exception as e:
+                    logging.error(f"Error checking job {job_id} for changes: {str(e)}")
+                    results['errors'].append(f"Job {job_id}: {str(e)}")
+            
+            if results['jobs_refreshed'] > 0:
+                logging.info(f"🔄 Job change detection complete: {results['jobs_refreshed']} refreshed, {results['jobs_skipped']} unchanged")
+            
+        except Exception as e:
+            logging.error(f"Error in job change detection: {str(e)}")
+            results['errors'].append(str(e))
+            
+        return results
+    
     def get_active_job_ids(self) -> set:
         """Get set of active job IDs from tearsheets (for filtering)"""
         try:
