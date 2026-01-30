@@ -15,7 +15,15 @@ The AI Candidate Vetting Module is an advanced feature of JobPulse™ that autom
 
 ### 2. Intelligent Resume Analysis
 - **Resume Extraction**: Downloads resume files (PDF, DOCX, DOC, TXT) from candidate profiles in Bullhorn
-- **Text Extraction**: Parses resume content for AI analysis using multiple extraction methods (PyMuPDF, pdfminer, python-docx)
+- **Three-Layer PDF Processing** (implemented 2026-01-30):
+  1. **PyMuPDF Extraction**: Primary text extraction with block-level spacing preservation (superior to PyPDF2)
+  2. **Deterministic Text Normalization**: Fixes concatenated words caused by missing whitespace in PDFs using:
+     - Unicode whitespace normalization (zero-width chars, tabs, vertical tabs)
+     - Non-breaking space replacement
+     - CamelCase boundary detection for word separation
+     - Pattern-based fixes for common merges (e.g., "PROFESSIONALSUMMARYAnIT" → "PROFESSIONAL SUMMARY An IT")
+  3. **GPT-4o AI Formatting**: Structures normalized text into semantic HTML with explicit spacing instructions
+- **HTML Output for Bullhorn**: Formatted resumes display with proper headings, paragraphs, and bullet lists in Bullhorn's "Parsed" Resume pane
 - **AI Matching**: Uses GPT-4o to compare each resume against all active jobs in monitored tearsheets
 
 ### 3. Smart Requirement Matching
@@ -313,6 +321,7 @@ Each entry includes:
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-01-30 | 1.1 | Enhanced resume formatting with three-layer PDF processing (PyMuPDF + deterministic text normalization + GPT-4o AI formatting) for proper HTML display in Bullhorn |
 | 2026-01-30 | 1.0 | Initial release with ParsedEmail detection, GPT-4o matching, CC-based notifications |
 | 2026-01-28 | 0.9 | Fixed note creation with commentingPerson ID |
 | 2026-01-26 | 0.8 | Added BCC admin for transparency |

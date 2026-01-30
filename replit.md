@@ -39,7 +39,10 @@ Development Approval Process: Before executing any development task, always prov
 - **Orphan Prevention**: Automated duplicate job detection using Bullhorn Entity API to ensure data integrity.
 - **Database-First Reference Numbers**: `JobReferenceNumber` table is the single source of truth, updated periodically, with an ad-hoc refresh option.
 - **Job Application Form**: Public-facing form with resume parsing (Word/PDF), Bullhorn integration, and unique branding.
-- **Resume HTML Formatting**: Converts resume content to HTML for cleaner display in Bullhorn, utilizing a multi-layered PDF processing approach with PyMuPDF, PyPDF2, and GPT-4o for robust extraction and formatting.
+- **Resume HTML Formatting**: Converts resume content to HTML for cleaner display in Bullhorn's "Parsed" Resume pane, utilizing a three-layer PDF processing approach:
+  1. **PyMuPDF Extraction**: Primary text extraction preserving block spacing
+  2. **Deterministic Text Normalization**: Fixes concatenated words (e.g., "PROFESSIONALSUMMARYAnIT" → "PROFESSIONAL SUMMARY An IT") using Unicode whitespace cleanup, non-breaking space normalization, and camelCase boundary detection
+  3. **GPT-4o AI Formatting**: Structures content into semantic HTML (headings, paragraphs, bullet lists) with explicit spacing instructions for clean display
 - **Keyword-Based Job Classification**: Rapidly categorizes jobs using keyword dictionaries for LinkedIn's taxonomy, with weighted scoring and guaranteed defaults.
 - **Intelligent File Management**: Automated consolidation, duplicate detection, and temporary file cleanup.
 - **Zero-Job Detection Safeguard**: Prevents XML corruption from empty Bullhorn API responses by blocking updates, creating backups, and sending alerts.
