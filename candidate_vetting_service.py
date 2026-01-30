@@ -344,6 +344,8 @@ Format as a bullet-point list. Be specific and concise."""
                         results['jobs_skipped'] += 1
                         
                 except Exception as e:
+                    # Rollback to recover from failed transaction state
+                    db.session.rollback()
                     logging.error(f"Error checking job {job_id} for changes: {str(e)}")
                     results['errors'].append(f"Job {job_id}: {str(e)}")
             
