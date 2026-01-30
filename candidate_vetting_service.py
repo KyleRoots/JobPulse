@@ -968,11 +968,44 @@ Format as a bullet-point list. Be specific and concise."""
         # Use internal description field first (contains full details), fall back to publicDescription
         job_description = job.get('description', '') or job.get('publicDescription', '')
         
+        # Country normalization mapping for consistent comparison
+        def normalize_country(country_value: str) -> str:
+            """Normalize country names/codes to consistent format for comparison."""
+            if not country_value:
+                return ''
+            country_upper = country_value.strip().upper()
+            country_map = {
+                # United States variations
+                'US': 'United States', 'USA': 'United States', 'U.S.': 'United States',
+                'U.S.A.': 'United States', 'UNITED STATES': 'United States',
+                'UNITED STATES OF AMERICA': 'United States',
+                # Canada variations
+                'CA': 'Canada', 'CAN': 'Canada', 'CANADA': 'Canada',
+                # United Kingdom variations
+                'UK': 'United Kingdom', 'GB': 'United Kingdom', 'GBR': 'United Kingdom',
+                'UNITED KINGDOM': 'United Kingdom', 'GREAT BRITAIN': 'United Kingdom',
+                'ENGLAND': 'United Kingdom',
+                # India variations
+                'IN': 'India', 'IND': 'India', 'INDIA': 'India',
+                # Australia variations
+                'AU': 'Australia', 'AUS': 'Australia', 'AUSTRALIA': 'Australia',
+                # Germany variations
+                'DE': 'Germany', 'DEU': 'Germany', 'GERMANY': 'Germany',
+                # Mexico variations
+                'MX': 'Mexico', 'MEX': 'Mexico', 'MEXICO': 'Mexico',
+                # Brazil variations
+                'BR': 'Brazil', 'BRA': 'Brazil', 'BRAZIL': 'Brazil',
+                # Philippines variations
+                'PH': 'Philippines', 'PHL': 'Philippines', 'PHILIPPINES': 'Philippines',
+            }
+            return country_map.get(country_upper, country_value.strip())
+        
         # Extract full job location details
         job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
         job_city = job_address.get('city', '')
         job_state = job_address.get('state', '')
-        job_country = job_address.get('countryName', '') or job_address.get('country', '')
+        job_country_raw = job_address.get('countryName', '') or job_address.get('country', '')
+        job_country = normalize_country(job_country_raw)
         job_location_full = ', '.join(filter(None, [job_city, job_state, job_country]))
         
         # Get work type: 1=onsite, 2=hybrid, 3=remote (Bullhorn's onSite field)
@@ -980,14 +1013,15 @@ Format as a bullet-point list. Be specific and concise."""
         work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
         work_type = work_type_map.get(on_site_value, 'On-site')
         
-        # Extract candidate location
+        # Extract candidate location with normalized country
         candidate_city = ''
         candidate_state = ''
         candidate_country = ''
         if candidate_location and isinstance(candidate_location, dict):
             candidate_city = candidate_location.get('city', '')
             candidate_state = candidate_location.get('state', '')
-            candidate_country = candidate_location.get('countryName', '') or candidate_location.get('country', '')
+            candidate_country_raw = candidate_location.get('countryName', '') or candidate_location.get('country', '')
+            candidate_country = normalize_country(candidate_country_raw)
         candidate_location_full = ', '.join(filter(None, [candidate_city, candidate_state, candidate_country]))
         
         job_id = job.get('id', 'N/A')
