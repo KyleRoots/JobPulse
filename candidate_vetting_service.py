@@ -107,17 +107,29 @@ class CandidateVettingService:
     def _save_ai_interpreted_requirements(self, job_id, job_title: str, requirements: str):
         """Save the AI-interpreted requirements for a job for user review"""
         try:
-            # Ensure job_id is a valid integer
-            if job_id is None or job_id == 'N/A':
+            # Normalize job_id - handle strings, whitespace, and invalid values
+            if job_id is None or str(job_id).strip() in ('', 'N/A', 'None'):
                 logging.warning(f"⚠️ Cannot save requirements - invalid job_id: {job_id}")
                 return
             
-            job_id_int = int(job_id)
+            # Strip whitespace and convert to int
+            job_id_str = str(job_id).strip()
+            try:
+                job_id_int = int(job_id_str)
+            except ValueError:
+                logging.error(f"⚠️ Cannot convert job_id to integer: '{job_id}' (stripped: '{job_id_str}')")
+                return
+            
+            # Validate requirements content
+            if not requirements or not requirements.strip():
+                logging.warning(f"⚠️ Empty requirements string for job {job_id_int}, skipping save")
+                return
+                
             logging.info(f"💾 Saving AI requirements for job {job_id_int}: {job_title[:50] if job_title else 'No title'}")
             
             job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id_int).first()
             if job_req:
-                job_req.ai_interpreted_requirements = requirements
+                job_req.ai_interpreted_requirements = requirements.strip()
                 job_req.last_ai_interpretation = datetime.utcnow()
                 if job_title:
                     job_req.job_title = job_title
@@ -126,17 +138,17 @@ class CandidateVettingService:
                 job_req = JobVettingRequirements(
                     bullhorn_job_id=job_id_int,
                     job_title=job_title,
-                    ai_interpreted_requirements=requirements,
+                    ai_interpreted_requirements=requirements.strip(),
                     last_ai_interpretation=datetime.utcnow()
                 )
                 db.session.add(job_req)
                 logging.info(f"✅ Created new requirements record for job {job_id_int}")
             db.session.commit()
             logging.info(f"✅ Successfully saved AI requirements for job {job_id_int}")
-        except ValueError as ve:
-            logging.error(f"Invalid job_id type for requirements save - job_id={job_id}, error: {str(ve)}")
         except Exception as e:
             logging.error(f"Error saving AI requirements for job {job_id}: {str(e)}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
             db.session.rollback()
     
     def _get_last_run_timestamp(self) -> Optional[datetime]:
