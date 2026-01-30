@@ -4371,21 +4371,29 @@ def save_job_requirements(job_id):
 @login_required
 def refresh_job_requirements(job_id):
     """Re-fetch job description from Bullhorn and re-interpret with AI"""
-    from models import JobVettingRequirements
+    from models import JobVettingRequirements, GlobalSettings
     from bullhorn_service import BullhornService
     from candidate_vetting_service import CandidateVettingService
     
     try:
-        # Get Bullhorn credentials
-        bullhorn_username = os.environ.get('BULLHORN_USERNAME')
-        bullhorn_password = os.environ.get('BULLHORN_PASSWORD')
+        # Get Bullhorn credentials from GlobalSettings (same as vetting service)
+        credentials = {}
+        for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+            setting = GlobalSettings.query.filter_by(setting_key=key).first()
+            if setting and setting.setting_value:
+                credentials[key.replace('bullhorn_', '')] = setting.setting_value
         
-        if not bullhorn_username or not bullhorn_password:
-            flash('Bullhorn credentials not configured', 'error')
+        if not credentials.get('username') or not credentials.get('password'):
+            flash('Bullhorn credentials not configured in settings', 'error')
             return redirect(url_for('vetting_settings'))
         
         # Authenticate and fetch fresh job data
-        bullhorn = BullhornService(bullhorn_username, bullhorn_password)
+        bullhorn = BullhornService(
+            credentials.get('username'),
+            credentials.get('password'),
+            credentials.get('client_id'),
+            credentials.get('client_secret')
+        )
         if not bullhorn.authenticate():
             flash('Failed to authenticate with Bullhorn', 'error')
             return redirect(url_for('vetting_settings'))
