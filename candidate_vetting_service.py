@@ -1115,6 +1115,7 @@ Format as a bullet-point list. Be specific and concise."""
                 'UNITED STATES OF AMERICA': 'United States',
                 # Canada variations
                 'CA': 'Canada', 'CAN': 'Canada', 'CANADA': 'Canada',
+                'CDN': 'Canada', 'CANADIAN': 'Canada',
                 # United Kingdom variations
                 'UK': 'United Kingdom', 'GB': 'United Kingdom', 'GBR': 'United Kingdom',
                 'UNITED KINGDOM': 'United Kingdom', 'GREAT BRITAIN': 'United Kingdom',
