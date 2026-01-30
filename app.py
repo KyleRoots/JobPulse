@@ -4574,10 +4574,27 @@ def extract_all_job_requirements():
                     if existing and existing.ai_interpreted_requirements:
                         continue
                     
+                    # Extract location data
+                    job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+                    job_city = job_address.get('city', '')
+                    job_state = job_address.get('state', '')
+                    job_country = job_address.get('countryName', '') or job_address.get('country', '')
+                    job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
+                    
+                    # Get work type
+                    on_site_value = job.get('onSite', 1)
+                    # Handle case where onSite could be a list
+                    if isinstance(on_site_value, list):
+                        on_site_value = on_site_value[0] if on_site_value else 1
+                    work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+                    job_work_type = work_type_map.get(on_site_value, 'On-site')
+                    
                     all_jobs.append({
                         'id': job.get('id'),
                         'title': job.get('title', ''),
-                        'description': job.get('publicDescription', '') or job.get('description', '')
+                        'description': job.get('publicDescription', '') or job.get('description', ''),
+                        'location': job_location,
+                        'work_type': job_work_type
                     })
             except Exception as e:
                 app.logger.warning(f"Error fetching jobs from {monitor.name}: {str(e)}")

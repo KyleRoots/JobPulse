@@ -312,6 +312,9 @@ Format as a bullet-point list. Be specific and concise."""
                         job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
                         
                         on_site_value = job.get('onSite', 1)
+                        # Handle case where onSite could be a list
+                        if isinstance(on_site_value, list):
+                            on_site_value = on_site_value[0] if on_site_value else 1
                         work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
                         job_work_type = work_type_map.get(on_site_value, 'On-site')
                         
@@ -390,17 +393,26 @@ Format as a bullet-point list. Be specific and concise."""
             job_title = job.get('title', '')
             job_description = job.get('description', '') or job.get('publicDescription', '')
             
-            # Extract job location and work type
-            job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
-            job_city = job_address.get('city', '')
-            job_state = job_address.get('state', '')
-            job_country = job_address.get('countryName', '') or job_address.get('country', '')
-            job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
+            # Use pre-processed location/work_type if available, otherwise extract from raw data
+            if 'location' in job:
+                job_location = job.get('location', '')
+            else:
+                job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+                job_city = job_address.get('city', '')
+                job_state = job_address.get('state', '')
+                job_country = job_address.get('countryName', '') or job_address.get('country', '')
+                job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
             
-            # Get work type: 1=onsite, 2=hybrid, 3=remote
-            on_site_value = job.get('onSite', 1)
-            work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
-            job_work_type = work_type_map.get(on_site_value, 'On-site')
+            if 'work_type' in job:
+                job_work_type = job.get('work_type', 'On-site')
+            else:
+                # Get work type: 1=onsite, 2=hybrid, 3=remote
+                on_site_value = job.get('onSite', 1)
+                # Handle case where onSite could be a list
+                if isinstance(on_site_value, list):
+                    on_site_value = on_site_value[0] if on_site_value else 1
+                work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+                job_work_type = work_type_map.get(on_site_value, 'On-site')
             
             if not job_id:
                 results['skipped'] += 1
