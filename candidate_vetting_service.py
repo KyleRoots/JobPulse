@@ -104,7 +104,8 @@ class CandidateVettingService:
             logging.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
             return None
     
-    def extract_job_requirements(self, job_id: int, job_title: str, job_description: str) -> Optional[str]:
+    def extract_job_requirements(self, job_id: int, job_title: str, job_description: str,
+                                  job_location: str = None, job_work_type: str = None) -> Optional[str]:
         """
         Extract mandatory requirements from a job description using AI.
         Called during monitoring when new jobs are indexed so requirements
@@ -114,6 +115,8 @@ class CandidateVettingService:
             job_id: Bullhorn job ID
             job_title: Job title
             job_description: Full job description text
+            job_location: Optional location string (city, state, country)
+            job_work_type: Optional work type (On-site, Hybrid, Remote)
             
         Returns:
             Extracted requirements string or None if extraction fails
@@ -173,9 +176,9 @@ Format as a bullet-point list. Be specific and concise."""
             
             requirements = response.choices[0].message.content.strip()
             
-            # Save the extracted requirements
+            # Save the extracted requirements with location data
             if requirements:
-                self._save_ai_interpreted_requirements(job_id, job_title, requirements)
+                self._save_ai_interpreted_requirements(job_id, job_title, requirements, job_location, job_work_type)
                 logging.info(f"✅ Extracted requirements for job {job_id}: {job_title[:50]}")
                 return requirements
             
@@ -273,6 +276,18 @@ Format as a bullet-point list. Be specific and concise."""
             job_title = job.get('title', '')
             job_description = job.get('description', '') or job.get('publicDescription', '')
             
+            # Extract job location and work type
+            job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+            job_city = job_address.get('city', '')
+            job_state = job_address.get('state', '')
+            job_country = job_address.get('countryName', '') or job_address.get('country', '')
+            job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
+            
+            # Get work type: 1=onsite, 2=hybrid, 3=remote
+            on_site_value = job.get('onSite', 1)
+            work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+            job_work_type = work_type_map.get(on_site_value, 'On-site')
+            
             if not job_id:
                 results['skipped'] += 1
                 continue
@@ -283,9 +298,9 @@ Format as a bullet-point list. Be specific and concise."""
                 results['skipped'] += 1
                 continue
             
-            # Extract requirements
+            # Extract requirements with location data
             try:
-                extracted = self.extract_job_requirements(int(job_id), job_title, job_description)
+                extracted = self.extract_job_requirements(int(job_id), job_title, job_description, job_location, job_work_type)
                 if extracted:
                     results['extracted'] += 1
                 else:
@@ -297,7 +312,8 @@ Format as a bullet-point list. Be specific and concise."""
         logging.info(f"📋 Job requirements extraction: {results['extracted']} extracted, {results['skipped']} skipped, {results['failed']} failed")
         return results
     
-    def _save_ai_interpreted_requirements(self, job_id, job_title: str, requirements: str):
+    def _save_ai_interpreted_requirements(self, job_id, job_title: str, requirements: str, 
+                                          job_location: str = None, job_work_type: str = None):
         """Save the AI-interpreted requirements for a job for user review"""
         try:
             # Normalize job_id - handle strings, whitespace, and invalid values
@@ -332,11 +348,17 @@ Format as a bullet-point list. Be specific and concise."""
                 job_req.last_ai_interpretation = datetime.utcnow()
                 if job_title:
                     job_req.job_title = job_title
+                if job_location:
+                    job_req.job_location = job_location
+                if job_work_type:
+                    job_req.job_work_type = job_work_type
                 logging.info(f"✅ Updated existing requirements for job {job_id_int}")
             else:
                 job_req = JobVettingRequirements(
                     bullhorn_job_id=job_id_int,
                     job_title=job_title,
+                    job_location=job_location,
+                    job_work_type=job_work_type,
                     ai_interpreted_requirements=requirements.strip(),
                     last_ai_interpretation=datetime.utcnow()
                 )
@@ -1163,8 +1185,8 @@ CRITICAL RULES:
             elif custom_requirements:
                 logging.info(f"📝 Job {job_id} has custom requirements - skipping AI interpretation save (expected behavior)")
             else:
-                # Save the AI-interpreted requirements
-                self._save_ai_interpreted_requirements(job_id, job_title, key_requirements)
+                # Save the AI-interpreted requirements with location data
+                self._save_ai_interpreted_requirements(job_id, job_title, key_requirements, job_location_full, work_type)
             
             return result
             

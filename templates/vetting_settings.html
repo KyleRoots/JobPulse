@@ -464,6 +464,7 @@
                             <thead>
                                 <tr>
                                     <th>Job</th>
+                                    <th>Location</th>
                                     <th>AI Interpreted Requirements</th>
                                     <th>Custom Override</th>
                                     <th>Actions</th>
@@ -478,6 +479,18 @@
                                             {{ req.job_title or 'Job #' ~ req.bullhorn_job_id }}
                                             <i class="fas fa-external-link-alt ms-1 small"></i>
                                         </a>
+                                    </td>
+                                    <td>
+                                        {% if req.job_location or req.job_work_type %}
+                                            <small>
+                                                {% if req.job_location %}{{ req.job_location }}{% endif %}
+                                                {% if req.job_work_type %}
+                                                    <span class="badge {% if req.job_work_type == 'Remote' %}bg-success{% elif req.job_work_type == 'Hybrid' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-1">{{ req.job_work_type }}</span>
+                                                {% endif %}
+                                            </small>
+                                        {% else %}
+                                            <small class="text-muted">Not set</small>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         <small class="text-muted" style="white-space: pre-wrap;">{{ req.ai_interpreted_requirements or 'Not yet analyzed' }}</small>

@@ -608,6 +608,8 @@ class JobVettingRequirements(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bullhorn_job_id = db.Column(db.Integer, unique=True, nullable=False, index=True)
     job_title = db.Column(db.String(255), nullable=True)
+    job_location = db.Column(db.String(255), nullable=True)  # City, State, Country
+    job_work_type = db.Column(db.String(50), nullable=True)  # On-site, Hybrid, Remote
     custom_requirements = db.Column(db.Text, nullable=True)  # User-editable requirements text
     ai_interpreted_requirements = db.Column(db.Text, nullable=True)  # What AI extracted from job
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
