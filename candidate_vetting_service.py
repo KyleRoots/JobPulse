@@ -104,26 +104,40 @@ class CandidateVettingService:
             logging.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
             return None
     
-    def _save_ai_interpreted_requirements(self, job_id: int, job_title: str, requirements: str):
+    def _save_ai_interpreted_requirements(self, job_id, job_title: str, requirements: str):
         """Save the AI-interpreted requirements for a job for user review"""
         try:
-            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            # Ensure job_id is a valid integer
+            if job_id is None or job_id == 'N/A':
+                logging.warning(f"⚠️ Cannot save requirements - invalid job_id: {job_id}")
+                return
+            
+            job_id_int = int(job_id)
+            logging.info(f"💾 Saving AI requirements for job {job_id_int}: {job_title[:50] if job_title else 'No title'}")
+            
+            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id_int).first()
             if job_req:
                 job_req.ai_interpreted_requirements = requirements
                 job_req.last_ai_interpretation = datetime.utcnow()
                 if job_title:
                     job_req.job_title = job_title
+                logging.info(f"✅ Updated existing requirements for job {job_id_int}")
             else:
                 job_req = JobVettingRequirements(
-                    bullhorn_job_id=job_id,
+                    bullhorn_job_id=job_id_int,
                     job_title=job_title,
                     ai_interpreted_requirements=requirements,
                     last_ai_interpretation=datetime.utcnow()
                 )
                 db.session.add(job_req)
+                logging.info(f"✅ Created new requirements record for job {job_id_int}")
             db.session.commit()
+            logging.info(f"✅ Successfully saved AI requirements for job {job_id_int}")
+        except ValueError as ve:
+            logging.error(f"Invalid job_id type for requirements save - job_id={job_id}, error: {str(ve)}")
         except Exception as e:
             logging.error(f"Error saving AI requirements for job {job_id}: {str(e)}")
+            db.session.rollback()
     
     def _get_last_run_timestamp(self) -> Optional[datetime]:
         """Get the last successful vetting run timestamp from config"""
@@ -727,8 +741,11 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
             
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
+            logging.info(f"📋 AI returned key_requirements for job {job_id}: has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}")
             if key_requirements and not custom_requirements:
                 self._save_ai_interpreted_requirements(job_id, job_title, key_requirements)
+            elif not key_requirements:
+                logging.warning(f"⚠️ AI did not return key_requirements for job {job_id}")
             
             return result
             
