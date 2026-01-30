@@ -248,10 +248,16 @@ Format as a bullet-point list. Be specific and concise."""
                 logging.error(f"⚠️ Cannot convert job_id to integer: '{job_id}' (stripped: '{job_id_str}')")
                 return
             
+            # Handle case where AI returns a list instead of string
+            if isinstance(requirements, list):
+                requirements = '\n'.join(str(r) for r in requirements)
+            
             # Validate requirements content
-            if not requirements or not requirements.strip():
+            if not requirements or not str(requirements).strip():
                 logging.warning(f"⚠️ Empty requirements string for job {job_id_int}, skipping save")
                 return
+            
+            requirements = str(requirements).strip()
                 
             logging.info(f"💾 Saving AI requirements for job {job_id_int}: {job_title[:50] if job_title else 'No title'}")
             
@@ -1138,6 +1144,10 @@ CRITICAL RULES:
                 db.session.commit()
                 return vetting_log
             
+            # CRITICAL: Cache resume text in local variable to prevent session expiration issues
+            # SQLAlchemy expires object attributes after commits, so we need a stable copy
+            cached_resume_text = vetting_log.resume_text
+            
             # Analyze against each job
             threshold = self.get_threshold()
             qualified_matches = []
@@ -1156,13 +1166,13 @@ CRITICAL RULES:
                     continue
                 
                 # Analyze the match - verify resume text exists and has content
-                if not vetting_log.resume_text or len(vetting_log.resume_text.strip()) < 50:
+                if not cached_resume_text or len(cached_resume_text.strip()) < 50:
                     logging.error(f"❌ CRITICAL: Resume text missing or too short for candidate {candidate_id}")
-                    logging.error(f"   Resume text length: {len(vetting_log.resume_text) if vetting_log.resume_text else 0}")
-                    continue
+                    logging.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
+                    break  # No point continuing if resume is missing
                 
-                logging.info(f"📄 Analyzing match - Resume: {len(vetting_log.resume_text)} chars, First 200: {vetting_log.resume_text[:200]}")
-                analysis = self.analyze_candidate_job_match(vetting_log.resume_text, job)
+                logging.info(f"📄 Analyzing match - Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
+                analysis = self.analyze_candidate_job_match(cached_resume_text, job)
                 
                 # Get recruiter info from job's assignedUsers (assignments field in Bullhorn)
                 recruiter_name = ''
