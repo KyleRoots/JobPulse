@@ -1050,7 +1050,13 @@ CRITICAL RULES:
                 if existing_match:
                     continue
                 
-                # Analyze the match
+                # Analyze the match - verify resume text exists and has content
+                if not vetting_log.resume_text or len(vetting_log.resume_text.strip()) < 50:
+                    logging.error(f"❌ CRITICAL: Resume text missing or too short for candidate {candidate_id}")
+                    logging.error(f"   Resume text length: {len(vetting_log.resume_text) if vetting_log.resume_text else 0}")
+                    continue
+                
+                logging.info(f"📄 Analyzing match - Resume: {len(vetting_log.resume_text)} chars, First 200: {vetting_log.resume_text[:200]}")
                 analysis = self.analyze_candidate_job_match(vetting_log.resume_text, job)
                 
                 # Get recruiter info from job
