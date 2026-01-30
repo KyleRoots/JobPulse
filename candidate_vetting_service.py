@@ -541,21 +541,25 @@ Format as a bullet-point list. Be specific and concise."""
             config = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
             if config:
                 if config.setting_value == 'true':
-                    # Check if lock is stale (older than 30 minutes)
+                    # Check if lock is stale (older than 60 minutes - batch of 50 can take up to 50 min)
                     lock_time_config = VettingConfig.query.filter_by(setting_key='vetting_lock_time').first()
                     if lock_time_config and lock_time_config.setting_value:
                         try:
                             lock_time = datetime.fromisoformat(lock_time_config.setting_value)
-                            if datetime.utcnow() - lock_time > timedelta(minutes=30):
-                                logging.warning("Stale vetting lock detected (>30 min), releasing")
+                            lock_age_minutes = (datetime.utcnow() - lock_time).total_seconds() / 60
+                            if lock_age_minutes > 60:
+                                # Stale lock detected - auto-release and continue
+                                logging.warning(f"⚠️ Stale vetting lock detected ({lock_age_minutes:.1f} min old), auto-releasing")
+                                # Fall through to acquire the lock
                             else:
                                 logging.info("Vetting cycle already in progress, skipping")
                                 return False
-                        except (ValueError, TypeError):
-                            pass
+                        except (ValueError, TypeError) as e:
+                            # Invalid timestamp - treat as stale and acquire
+                            logging.warning(f"⚠️ Invalid lock timestamp, auto-releasing: {e}")
                     else:
-                        logging.info("Vetting cycle already in progress (no timestamp), skipping")
-                        return False
+                        # No lock timestamp means it's likely stale from a crash
+                        logging.warning("⚠️ Vetting lock exists without timestamp, auto-releasing")
                 config.setting_value = 'true'
             else:
                 config = VettingConfig(setting_key='vetting_in_progress', setting_value='true')
