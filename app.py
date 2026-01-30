@@ -3919,14 +3919,14 @@ def reset_recent_vetting():
     """Reset vetted_at for recent applications to allow re-vetting
     
     This is useful when the clean slate accidentally marked new applications as vetted.
-    Clears vetted_at for all records received in the last 24 hours.
+    Clears vetted_at for all records received in the last 6 hours.
     """
     try:
         from models import ParsedEmail
         from datetime import datetime, timedelta
         
-        # Reset vetted_at for records from the last 24 hours
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        # Reset vetted_at for records from the last 6 hours
+        cutoff = datetime.utcnow() - timedelta(hours=6)
         
         # Find and reset recent records
         reset_count = ParsedEmail.query.filter(
