@@ -466,6 +466,13 @@ Format as a bullet-point list. Be specific and concise."""
                         f"with_candidate_id={with_candidate_id}, already_vetted={already_vetted}, "
                         f"pending_vetting={with_candidate_id - already_vetted}")
             
+            # DEBUG: Show most recent 5 ParsedEmail records for troubleshooting
+            recent_emails = ParsedEmail.query.order_by(ParsedEmail.received_at.desc()).limit(5).all()
+            for pe in recent_emails:
+                logging.info(f"  📧 Recent ParsedEmail id={pe.id}: candidate='{pe.candidate_name}', "
+                            f"status={pe.status}, bh_id={pe.bullhorn_candidate_id}, "
+                            f"vetted_at={'SET' if pe.vetted_at else 'NULL'}, received={pe.received_at}")
+            
             # Query ParsedEmail for completed applications that haven't been vetted
             unvetted_emails = ParsedEmail.query.filter(
                 ParsedEmail.status == 'completed',
