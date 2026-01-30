@@ -1221,12 +1221,47 @@ CRITICAL RULES:
             vetting_log_id=vetting_log.id
         ).order_by(CandidateJobMatch.match_score.desc()).all()
         
-        if not matches:
-            return False
-        
         # Build note content
         threshold = self.get_threshold()
-        qualified_matches = [m for m in matches if m.is_qualified]
+        qualified_matches = [m for m in matches if m.is_qualified] if matches else []
+        
+        # Handle case where no jobs were analyzed (no matches recorded)
+        if not matches:
+            # Create a note explaining why no analysis was done
+            error_reason = vetting_log.error_message or "No job matches could be performed"
+            note_lines = [
+                f"📋 AI VETTING SUMMARY - INCOMPLETE ANALYSIS",
+                f"",
+                f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
+                f"Status: {vetting_log.status}",
+                f"",
+                f"Reason: {error_reason}",
+                f"",
+                f"This candidate could not be fully analyzed. Possible causes:",
+                f"• No active jobs found in monitored tearsheets",
+                f"• Resume could not be extracted or parsed",
+                f"• Technical issue during processing",
+                f"",
+                f"Please review manually if needed."
+            ]
+            note_text = "\n".join(note_lines)
+            action = "AI Vetting - Incomplete"
+            
+            note_id = bullhorn.create_candidate_note(
+                vetting_log.bullhorn_candidate_id,
+                note_text,
+                action=action
+            )
+            
+            if note_id:
+                vetting_log.note_created = True
+                vetting_log.bullhorn_note_id = note_id
+                db.session.commit()
+                logging.info(f"Created incomplete vetting note for candidate {vetting_log.bullhorn_candidate_id}")
+                return True
+            else:
+                logging.error(f"Failed to create incomplete vetting note for candidate {vetting_log.bullhorn_candidate_id}")
+                return False
         
         if vetting_log.is_qualified:
             # Qualified candidate note
