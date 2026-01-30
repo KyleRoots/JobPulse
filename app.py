@@ -4559,6 +4559,7 @@ def extract_all_job_requirements():
         monitors = BullhornMonitor.query.filter_by(is_active=True).all()
         
         all_jobs = []
+        location_updates = 0
         for monitor in monitors:
             try:
                 if monitor.tearsheet_id == 0:
@@ -4567,12 +4568,7 @@ def extract_all_job_requirements():
                     jobs = bullhorn.get_tearsheet_jobs(monitor.tearsheet_id)
                 
                 for job in jobs:
-                    # Skip if already has requirements
-                    existing = JobVettingRequirements.query.filter_by(
-                        bullhorn_job_id=int(job.get('id', 0))
-                    ).first()
-                    if existing and existing.ai_interpreted_requirements:
-                        continue
+                    job_id = int(job.get('id', 0))
                     
                     # Extract location data
                     job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
@@ -4589,6 +4585,20 @@ def extract_all_job_requirements():
                     work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
                     job_work_type = work_type_map.get(on_site_value, 'On-site')
                     
+                    # Check if already has requirements
+                    existing = JobVettingRequirements.query.filter_by(
+                        bullhorn_job_id=job_id
+                    ).first()
+                    
+                    if existing and existing.ai_interpreted_requirements:
+                        # Update location/work_type for existing records if missing
+                        if not existing.job_location or not existing.job_work_type:
+                            existing.job_location = job_location
+                            existing.job_work_type = job_work_type
+                            db.session.commit()
+                            location_updates += 1
+                        continue
+                    
                     all_jobs.append({
                         'id': job.get('id'),
                         'title': job.get('title', ''),
@@ -4600,14 +4610,20 @@ def extract_all_job_requirements():
                 app.logger.warning(f"Error fetching jobs from {monitor.name}: {str(e)}")
         
         if not all_jobs:
-            flash('All jobs already have requirements extracted', 'info')
+            if location_updates > 0:
+                flash(f'Updated location data for {location_updates} existing jobs', 'success')
+            else:
+                flash('All jobs already have requirements extracted', 'info')
             return redirect(url_for('vetting_settings'))
         
         # Extract requirements for all jobs
         results = vetting_service.extract_requirements_for_jobs(all_jobs)
         
-        flash(f"Extracted requirements for {results.get('extracted', 0)} jobs. "
-              f"Skipped {results.get('skipped', 0)}, Failed {results.get('failed', 0)}", 'success')
+        msg = f"Extracted requirements for {results.get('extracted', 0)} jobs. "
+        msg += f"Skipped {results.get('skipped', 0)}, Failed {results.get('failed', 0)}"
+        if location_updates > 0:
+            msg += f", Updated location for {location_updates} existing jobs"
+        flash(msg, 'success')
         
     except Exception as e:
         app.logger.error(f"Error extracting all requirements: {str(e)}")
