@@ -1159,6 +1159,9 @@ Format as a bullet-point list. Be specific and concise."""
         
         # Get work type: 1=onsite, 2=hybrid, 3=remote (Bullhorn's onSite field)
         on_site_value = job.get('onSite', 1)  # Default to onsite if not specified
+        # Handle case where onSite could be a list
+        if isinstance(on_site_value, list):
+            on_site_value = on_site_value[0] if on_site_value else 1
         work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
         work_type = work_type_map.get(on_site_value, 'On-site')
         
