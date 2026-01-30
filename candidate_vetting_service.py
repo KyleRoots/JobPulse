@@ -415,12 +415,17 @@ Format as a bullet-point list. Be specific and concise."""
                 if not candidate_id:
                     continue
                     
-                # Check if already in our vetting log
-                existing = CandidateVettingLog.query.filter_by(
-                    bullhorn_candidate_id=candidate_id
+                # Check if RECENTLY vetted (within last hour) to prevent duplicate processing
+                # But allow re-vetting for candidates who apply again days/weeks later
+                from datetime import timedelta
+                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
+                
+                recent_vetting = CandidateVettingLog.query.filter(
+                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                    CandidateVettingLog.created_at >= recent_cutoff
                 ).first()
                 
-                if not existing:
+                if not recent_vetting:
                     new_candidates.append(candidate)
                     logging.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
             
@@ -501,16 +506,22 @@ Format as a bullet-point list. Be specific and concise."""
             for parsed_email in unvetted_emails:
                 candidate_id = parsed_email.bullhorn_candidate_id
                 
-                # Check if already in vetting log
-                existing_log = CandidateVettingLog.query.filter_by(
-                    bullhorn_candidate_id=candidate_id
+                # Check if there's a RECENT vetting log for this candidate (within last hour)
+                # This prevents duplicate processing of the same application cycle
+                # But allows re-vetting for new applications (days/weeks later)
+                from datetime import timedelta
+                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
+                
+                existing_log = CandidateVettingLog.query.filter(
+                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                    CandidateVettingLog.created_at >= recent_cutoff
                 ).first()
                 
                 if existing_log:
-                    # Only skip if actually completed or failed
+                    # Only skip if recently completed or failed (within the hour)
                     if existing_log.status in ('completed', 'failed'):
                         already_vetted_ids.append(parsed_email.id)
-                        logging.info(f"Candidate {candidate_id} already vetted (status={existing_log.status}), marking for skip")
+                        logging.info(f"Candidate {candidate_id} recently vetted (status={existing_log.status}), marking for skip")
                         continue
                     
                     # Reset stuck 'processing' candidates (older than 10 minutes)
