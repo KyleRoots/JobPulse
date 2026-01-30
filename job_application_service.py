@@ -30,18 +30,19 @@ class JobApplicationService:
             self.sg = None
             logger.warning("No SendGrid API key found - email sending disabled")
     
-    def parse_resume(self, resume_file: FileStorage) -> Dict[str, any]:
+    def parse_resume(self, resume_file: FileStorage, quick_mode: bool = True) -> Dict[str, any]:
         """
         Parse resume file and extract candidate information
         
         Args:
             resume_file: Uploaded resume file
+            quick_mode: If True (default), skip AI formatting for faster contact extraction
             
         Returns:
             Dict with parsing results
         """
         try:
-            parsed_data = self.resume_parser.parse_resume(resume_file)
+            parsed_data = self.resume_parser.parse_resume(resume_file, quick_mode=quick_mode)
             return {
                 'success': True,
                 'parsed_info': parsed_data

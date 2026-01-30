@@ -218,9 +218,13 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
             logger.error(f"AI formatting failed: {str(e)}")
             return None
     
-    def parse_resume(self, file: Union[FileStorage, str]) -> Dict[str, any]:
+    def parse_resume(self, file: Union[FileStorage, str], quick_mode: bool = False) -> Dict[str, any]:
         """
         Parse resume file and extract information with HTML formatting
+        
+        Args:
+            file: Resume file (FileStorage or path)
+            quick_mode: If True, skip AI formatting for faster contact extraction (used for form auto-fill)
         
         Returns:
             Dict with parsed_data, raw_text (plain text), and formatted_html
@@ -239,7 +243,7 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
             
             try:
                 if filename.lower().endswith('.pdf'):
-                    raw_text, formatted_html = self._extract_pdf_with_formatting(file_path)
+                    raw_text, formatted_html = self._extract_pdf_with_formatting(file_path, skip_ai=quick_mode)
                 elif filename.lower().endswith('.docx'):
                     raw_text, formatted_html = self._extract_docx_with_formatting(file_path)
                 elif filename.lower().endswith('.doc'):
@@ -387,12 +391,16 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
         except Exception:
             return escaped_text
     
-    def _extract_pdf_with_formatting(self, file_path: str) -> tuple:
+    def _extract_pdf_with_formatting(self, file_path: str, skip_ai: bool = False) -> tuple:
         """Extract text from PDF with AI-assisted HTML formatting
         
         Uses PyMuPDF (fitz) for better text extraction with proper spacing,
         then GPT-4o to intelligently format the raw PDF text into clean HTML,
         falling back to regex-based heuristics if AI is unavailable.
+        
+        Args:
+            file_path: Path to PDF file
+            skip_ai: If True, skip AI formatting for faster extraction (used for form auto-fill)
         """
         if not PDF_AVAILABLE:
             logger.warning("PDF parsing not available")
@@ -444,13 +452,16 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
             raw_text = self._normalize_pdf_text(raw_text)
             logger.info(f"Normalized PDF text ({len(raw_text)} chars after normalization)")
             
-            # Use AI formatting which can help with spacing issues too
-            ai_formatted = self._format_pdf_with_ai(raw_text)
-            if ai_formatted:
-                logger.info("Using AI-formatted HTML for PDF resume")
-                return raw_text, ai_formatted
+            # Use AI formatting for full parsing (skip for quick form auto-fill)
+            if not skip_ai:
+                ai_formatted = self._format_pdf_with_ai(raw_text)
+                if ai_formatted:
+                    logger.info("Using AI-formatted HTML for PDF resume")
+                    return raw_text, ai_formatted
+            else:
+                logger.info("Quick mode: skipping AI formatting for faster contact extraction")
             
-            logger.info("Falling back to regex-based PDF formatting")
+            logger.info("Using regex-based PDF formatting")
             raw_lines = raw_text.split('\n')
             formatted_html = self._convert_pdf_lines_to_html(raw_lines)
             
