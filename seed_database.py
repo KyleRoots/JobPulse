@@ -688,15 +688,18 @@ def run_vetting_clean_slate(db):
         log_count = CandidateVettingLog.query.delete()
         logger.info(f"  Deleted {log_count} CandidateVettingLog records")
         
-        # Step 3: Mark all existing ParsedEmail records as vetted
-        # This ensures only NEW applications (after this point) get processed
-        from datetime import datetime
+        # Step 3: Mark existing ParsedEmail records as vetted
+        # IMPORTANT: Only mark records OLDER than 1 hour to avoid accidentally
+        # marking new applications that arrive during deployment
+        from datetime import datetime, timedelta
+        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
         vetted_count = ParsedEmail.query.filter(
             ParsedEmail.vetted_at.is_(None),
             ParsedEmail.bullhorn_candidate_id.isnot(None),
-            ParsedEmail.status == 'completed'
+            ParsedEmail.status == 'completed',
+            ParsedEmail.received_at < one_hour_ago  # Only mark old records
         ).update({'vetted_at': datetime.utcnow()}, synchronize_session=False)
-        logger.info(f"  Marked {vetted_count} existing ParsedEmail records as vetted")
+        logger.info(f"  Marked {vetted_count} existing ParsedEmail records (older than 1 hour) as vetted")
         
         # Step 4: Set the clean slate flag so this never runs again
         if clean_slate_flag:

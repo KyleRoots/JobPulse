@@ -3913,6 +3913,45 @@ def run_vetting_now():
     return redirect(url_for('vetting_settings'))
 
 
+@app.route('/vetting/reset-recent', methods=['POST'])
+@login_required
+def reset_recent_vetting():
+    """Reset vetted_at for recent applications to allow re-vetting
+    
+    This is useful when the clean slate accidentally marked new applications as vetted.
+    Clears vetted_at for all records received in the last 24 hours.
+    """
+    try:
+        from models import ParsedEmail
+        from datetime import datetime, timedelta
+        
+        # Reset vetted_at for records from the last 24 hours
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        
+        # Find and reset recent records
+        reset_count = ParsedEmail.query.filter(
+            ParsedEmail.received_at >= cutoff,
+            ParsedEmail.vetted_at.isnot(None),
+            ParsedEmail.status == 'completed',
+            ParsedEmail.bullhorn_candidate_id.isnot(None)
+        ).update({'vetted_at': None}, synchronize_session=False)
+        
+        db.session.commit()
+        
+        if reset_count > 0:
+            flash(f'Reset vetting status for {reset_count} recent applications. They will be processed in the next vetting cycle.', 'success')
+            app.logger.info(f"Reset vetted_at for {reset_count} ParsedEmail records from last 24 hours")
+        else:
+            flash('No recent applications found to reset.', 'info')
+            
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error resetting recent vetting: {str(e)}")
+        flash(f'Error resetting vetting: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
 @app.route('/vetting/test-email', methods=['POST'])
 @login_required
 def send_test_vetting_email():
