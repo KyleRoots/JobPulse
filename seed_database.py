@@ -722,6 +722,38 @@ def run_vetting_clean_slate(db):
         raise
 
 
+def run_schema_migrations(db):
+    """
+    Run any necessary schema migrations that db.create_all() won't handle.
+    Adds missing columns to existing tables.
+    """
+    from sqlalchemy import text
+    
+    migrations = [
+        # Add location columns to job_vetting_requirements (added Jan 2026)
+        ("job_vetting_requirements", "job_location", "VARCHAR(255)"),
+        ("job_vetting_requirements", "job_work_type", "VARCHAR(50)"),
+    ]
+    
+    for table, column, col_type in migrations:
+        try:
+            # Check if column exists
+            check_sql = text(f"""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = :table AND column_name = :column
+            """)
+            result = db.session.execute(check_sql, {'table': table, 'column': column})
+            if result.fetchone() is None:
+                # Column doesn't exist, add it
+                alter_sql = text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}')
+                db.session.execute(alter_sql)
+                db.session.commit()
+                logger.info(f"✅ Added column {column} to {table}")
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")
+
+
 def seed_database(db, User):
     """
     Main seeding function - idempotent database initialization
@@ -733,6 +765,12 @@ def seed_database(db, User):
     Returns:
         dict: Summary of seeding results
     """
+    # Run schema migrations first
+    try:
+        run_schema_migrations(db)
+    except Exception as e:
+        logger.warning(f"⚠️ Schema migrations failed: {str(e)}")
+    
     env_type = "production" if is_production_environment() else "development"
     logger.info(f"🌱 Starting database seeding for {env_type} environment...")
     
