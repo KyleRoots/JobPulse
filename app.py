@@ -4367,6 +4367,77 @@ def save_job_requirements(job_id):
     return redirect(url_for('vetting_settings'))
 
 
+@app.route('/vetting/job/<int:job_id>/refresh-requirements', methods=['POST'])
+@login_required
+def refresh_job_requirements(job_id):
+    """Re-fetch job description from Bullhorn and re-interpret with AI"""
+    from models import JobVettingRequirements
+    from bullhorn_service import BullhornService
+    from candidate_vetting_service import CandidateVettingService
+    
+    try:
+        # Get Bullhorn credentials
+        bullhorn_username = os.environ.get('BULLHORN_USERNAME')
+        bullhorn_password = os.environ.get('BULLHORN_PASSWORD')
+        
+        if not bullhorn_username or not bullhorn_password:
+            flash('Bullhorn credentials not configured', 'error')
+            return redirect(url_for('vetting_settings'))
+        
+        # Authenticate and fetch fresh job data
+        bullhorn = BullhornService(bullhorn_username, bullhorn_password)
+        if not bullhorn.authenticate():
+            flash('Failed to authenticate with Bullhorn', 'error')
+            return redirect(url_for('vetting_settings'))
+        
+        # Fetch the specific job
+        job_data = bullhorn.get_job_by_id(job_id)
+        if not job_data:
+            flash(f'Could not find Job #{job_id} in Bullhorn', 'error')
+            return redirect(url_for('vetting_settings'))
+        
+        job_title = job_data.get('title', 'Unknown')
+        job_description = job_data.get('description', '') or job_data.get('publicDescription', '')
+        
+        if not job_description:
+            flash(f'Job #{job_id} has no description in Bullhorn', 'warning')
+            return redirect(url_for('vetting_settings'))
+        
+        # Use AI to extract requirements
+        vetting_service = CandidateVettingService()
+        extracted_requirements = vetting_service.extract_job_requirements(job_id, job_title, job_description)
+        
+        if extracted_requirements:
+            # Save to database
+            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            if job_req:
+                job_req.ai_interpreted_requirements = extracted_requirements
+                job_req.job_title = job_title
+                job_req.last_ai_interpretation = datetime.utcnow()
+                job_req.updated_at = datetime.utcnow()
+            else:
+                job_req = JobVettingRequirements(
+                    bullhorn_job_id=job_id,
+                    job_title=job_title,
+                    ai_interpreted_requirements=extracted_requirements,
+                    last_ai_interpretation=datetime.utcnow()
+                )
+                db.session.add(job_req)
+            
+            db.session.commit()
+            flash(f'Successfully refreshed AI requirements for "{job_title}"', 'success')
+            app.logger.info(f"Refreshed AI requirements for job #{job_id}: {job_title}")
+        else:
+            flash(f'AI could not extract requirements from Job #{job_id} description', 'warning')
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error refreshing job requirements: {str(e)}")
+        flash(f'Error refreshing requirements: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
 @app.route('/vetting/extract-all-requirements', methods=['POST'])
 @login_required
 def extract_all_job_requirements():

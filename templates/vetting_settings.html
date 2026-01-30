@@ -486,11 +486,19 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <button class="btn btn-outline-primary btn-sm" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#editReqModal{{ req.bullhorn_job_id }}">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
+                                        <div class="btn-group btn-group-sm">
+                                            <form action="{{ url_for('refresh_job_requirements', job_id=req.bullhorn_job_id) }}" method="POST" class="d-inline">
+                                                <button type="submit" class="btn btn-outline-info" title="Re-fetch from Bullhorn and re-interpret with AI">
+                                                    <i class="fas fa-sync-alt"></i>
+                                                </button>
+                                            </form>
+                                            <button class="btn btn-outline-primary" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#editReqModal{{ req.bullhorn_job_id }}"
+                                                    title="Edit custom requirements override">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
