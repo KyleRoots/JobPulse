@@ -292,6 +292,26 @@ class CandidateVettingService:
             return []
         
         try:
+            # Diagnostic: Log ParsedEmail table stats for debugging
+            from sqlalchemy import func
+            total_emails = db.session.query(func.count(ParsedEmail.id)).scalar() or 0
+            completed_emails = db.session.query(func.count(ParsedEmail.id)).filter(
+                ParsedEmail.status == 'completed'
+            ).scalar() or 0
+            with_candidate_id = db.session.query(func.count(ParsedEmail.id)).filter(
+                ParsedEmail.status == 'completed',
+                ParsedEmail.bullhorn_candidate_id.isnot(None)
+            ).scalar() or 0
+            already_vetted = db.session.query(func.count(ParsedEmail.id)).filter(
+                ParsedEmail.status == 'completed',
+                ParsedEmail.bullhorn_candidate_id.isnot(None),
+                ParsedEmail.vetted_at.isnot(None)
+            ).scalar() or 0
+            
+            logging.info(f"📊 ParsedEmail stats: total={total_emails}, completed={completed_emails}, "
+                        f"with_candidate_id={with_candidate_id}, already_vetted={already_vetted}, "
+                        f"pending_vetting={with_candidate_id - already_vetted}")
+            
             # Query ParsedEmail for completed applications that haven't been vetted
             unvetted_emails = ParsedEmail.query.filter(
                 ParsedEmail.status == 'completed',

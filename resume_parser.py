@@ -21,11 +21,22 @@ except ImportError:
     logging.warning("OpenAI not available - AI-assisted PDF formatting disabled")
 
 try:
-    import PyPDF2
-    PDF_AVAILABLE = True
+    import fitz  # PyMuPDF - better at preserving spaces in text extraction
+    PYMUPDF_AVAILABLE = True
 except ImportError:
-    PDF_AVAILABLE = False
-    logging.warning("PyPDF2 not available - PDF parsing disabled")
+    PYMUPDF_AVAILABLE = False
+    logging.warning("PyMuPDF not available - falling back to PyPDF2")
+
+try:
+    import PyPDF2
+    PYPDF2_AVAILABLE = True
+except ImportError:
+    PYPDF2_AVAILABLE = False
+    logging.warning("PyPDF2 not available")
+
+PDF_AVAILABLE = PYMUPDF_AVAILABLE or PYPDF2_AVAILABLE
+if not PDF_AVAILABLE:
+    logging.warning("No PDF parsing library available - PDF parsing disabled")
 
 try:
     from docx import Document
@@ -73,6 +84,69 @@ class ResumeParser:
         else:
             logger.warning("OPENAI_API_KEY not set - AI-assisted PDF formatting disabled")
     
+    def _normalize_pdf_text(self, text: str) -> str:
+        """
+        Normalize PDF text to fix common extraction issues:
+        - Normalize Unicode whitespace characters
+        - Fix non-breaking spaces
+        - Clean up ligatures
+        - Add spaces around common word boundaries (camelCase transitions)
+        
+        This is a deterministic pre-processing step before AI or regex formatting.
+        """
+        if not text:
+            return text
+        
+        # Normalize various Unicode whitespace to regular space
+        import unicodedata
+        normalized = unicodedata.normalize('NFKC', text)
+        
+        # Replace non-breaking spaces and other whitespace variants
+        whitespace_chars = [
+            '\u00A0',  # Non-breaking space
+            '\u2002',  # En space
+            '\u2003',  # Em space
+            '\u2009',  # Thin space
+            '\u200A',  # Hair space
+            '\u200B',  # Zero-width space
+            '\u3000',  # Ideographic space
+        ]
+        for ws in whitespace_chars:
+            normalized = normalized.replace(ws, ' ')
+        
+        # Detect if text has obvious concatenation issues
+        # (very few spaces relative to text length)
+        space_ratio = normalized.count(' ') / max(len(normalized), 1)
+        
+        if space_ratio < 0.08:  # Less than 8% spaces is very suspicious
+            logger.warning(f"Detected concatenated text (space ratio: {space_ratio:.1%}), attempting repair")
+            
+            # Add spaces at common word boundaries:
+            # - Lowercase to uppercase transitions (camelCase)
+            # - Before common section keywords in all caps
+            
+            # Add space before uppercase after lowercase: "experienceEducation" -> "experience Education"
+            normalized = re.sub(r'([a-z])([A-Z])', r'\1 \2', normalized)
+            
+            # Add space before common resume section words
+            section_words = [
+                'SUMMARY', 'EXPERIENCE', 'EDUCATION', 'SKILLS', 'OBJECTIVE',
+                'QUALIFICATIONS', 'CERTIFICATIONS', 'PROJECTS', 'ACHIEVEMENTS',
+                'REFERENCES', 'AWARDS', 'LANGUAGES', 'Summary', 'Experience',
+                'Education', 'Skills', 'Objective'
+            ]
+            for word in section_words:
+                # Add space before section word if preceded by lowercase letter
+                normalized = re.sub(rf'([a-z])({word})', rf'\1 \2', normalized)
+            
+            # Add space after period followed by uppercase: "company.SKILLS" -> "company. SKILLS"
+            normalized = re.sub(r'\.([A-Z])', r'. \1', normalized)
+        
+        # Clean up multiple consecutive spaces
+        normalized = re.sub(r' +', ' ', normalized)
+        
+        return normalized
+    
     def _format_pdf_with_ai(self, raw_text: str) -> Optional[str]:
         """
         Use GPT-4o to intelligently format raw PDF text into clean HTML.
@@ -100,14 +174,15 @@ class ResumeParser:
 
 IMPORTANT RULES:
 1. Preserve ALL information from the original text - don't summarize or omit details
-2. Identify and wrap section headings (like "Experience", "Education", "Skills") in <h4><strong>...</strong></h4> tags
-3. Convert bullet points (including symbols like •, ▢, -, *) into proper <ul><li>...</li></ul> lists
-4. Wrap job entries with company names and dates in <p><strong>...</strong></p>
-5. Group related text into proper <p>...</p> paragraphs
-6. Add spacing between sections for readability
-7. Handle contact info at the top cleanly (name, email, phone, location, links)
-8. Don't add any content that isn't in the original - only format what's there
-9. Use semantic HTML only - no inline styles or classes
+2. If words are concatenated together (like "PROFESSIONALSUMMARYAnITprofessional"), ADD SPACES between words to make the text readable (becomes "PROFESSIONAL SUMMARY An IT professional")
+3. Identify and wrap section headings (like "Experience", "Education", "Skills") in <h4><strong>...</strong></h4> tags
+4. Convert bullet points (including symbols like •, ▢, -, *) into proper <ul><li>...</li></ul> lists
+5. Wrap job entries with company names and dates in <p><strong>...</strong></p>
+6. Group related text into proper <p>...</p> paragraphs
+7. Add spacing between sections for readability
+8. Handle contact info at the top cleanly (name, email, phone, location, links)
+9. Don't add any content that isn't in the original - only format what's there
+10. Use semantic HTML only - no inline styles or classes
 
 RAW RESUME TEXT:
 {truncated_text}
@@ -315,7 +390,8 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
     def _extract_pdf_with_formatting(self, file_path: str) -> tuple:
         """Extract text from PDF with AI-assisted HTML formatting
         
-        Uses GPT-4o to intelligently format the raw PDF text into clean HTML,
+        Uses PyMuPDF (fitz) for better text extraction with proper spacing,
+        then GPT-4o to intelligently format the raw PDF text into clean HTML,
         falling back to regex-based heuristics if AI is unavailable.
         """
         if not PDF_AVAILABLE:
@@ -323,26 +399,59 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
             return "", ""
         
         try:
-            raw_lines = []
-            with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                for page in pdf_reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        lines = page_text.split('\n')
-                        raw_lines.extend(lines)
+            raw_text = ""
             
-            if not raw_lines:
+            # Try PyMuPDF first (better at preserving spaces)
+            if PYMUPDF_AVAILABLE:
+                try:
+                    doc = fitz.open(file_path)
+                    text_parts = []
+                    for page in doc:
+                        # Use get_text with "text" option for best spacing
+                        page_text = page.get_text("text")
+                        if page_text:
+                            text_parts.append(page_text)
+                    doc.close()
+                    raw_text = '\n'.join(text_parts)
+                    logger.info(f"Extracted PDF with PyMuPDF ({len(raw_text)} chars)")
+                except Exception as e:
+                    logger.warning(f"PyMuPDF extraction failed: {str(e)}, falling back to PyPDF2")
+                    raw_text = ""
+            
+            # Fall back to PyPDF2 if PyMuPDF failed
+            if not raw_text and PYPDF2_AVAILABLE:
+                try:
+                    raw_lines = []
+                    with open(file_path, 'rb') as file:
+                        pdf_reader = PyPDF2.PdfReader(file)
+                        for page in pdf_reader.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                lines = page_text.split('\n')
+                                raw_lines.extend(lines)
+                    raw_text = '\n'.join(raw_lines)
+                    logger.info(f"Extracted PDF with PyPDF2 ({len(raw_text)} chars)")
+                except Exception as e:
+                    logger.warning(f"PyPDF2 extraction failed: {str(e)}")
+                    raw_text = ""
+            
+            if not raw_text:
                 return "", ""
             
-            raw_text = '\n'.join(raw_lines)
+            # Apply deterministic text normalization to fix common PDF extraction issues
+            # This handles Unicode whitespace, non-breaking spaces, and attempts to repair
+            # concatenated text by detecting camelCase transitions
+            raw_text = self._normalize_pdf_text(raw_text)
+            logger.info(f"Normalized PDF text ({len(raw_text)} chars after normalization)")
             
+            # Use AI formatting which can help with spacing issues too
             ai_formatted = self._format_pdf_with_ai(raw_text)
             if ai_formatted:
                 logger.info("Using AI-formatted HTML for PDF resume")
                 return raw_text, ai_formatted
             
             logger.info("Falling back to regex-based PDF formatting")
+            raw_lines = raw_text.split('\n')
             formatted_html = self._convert_pdf_lines_to_html(raw_lines)
             
             return raw_text, formatted_html
