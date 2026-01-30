@@ -220,7 +220,7 @@
                                         </td>
                                         <td>
                                             {% if email.bullhorn_job_id %}
-                                            <a href="https://app.bullhornstaffing.com/job/{{ email.bullhorn_job_id }}" target="_blank" class="text-info">
+                                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ email.bullhorn_job_id }}" target="_blank" class="text-info">
                                                 {{ email.bullhorn_job_id }}
                                             </a>
                                             {% else %}
@@ -246,7 +246,7 @@
                                         </td>
                                         <td>
                                             {% if email.bullhorn_candidate_id %}
-                                            <a href="https://app.bullhornstaffing.com/candidate/{{ email.bullhorn_candidate_id }}" target="_blank" class="text-success">
+                                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ email.bullhorn_candidate_id }}" target="_blank" class="text-success">
                                                 {{ email.bullhorn_candidate_id }}
                                             </a>
                                             {% if email.bullhorn_submission_id %}
@@ -345,7 +345,7 @@
                     </td>
                     <td>
                         ${email.bullhorn_job_id 
-                            ? `<a href="https://app.bullhornstaffing.com/job/${email.bullhorn_job_id}" target="_blank" class="text-info">${email.bullhorn_job_id}</a>` 
+                            ? `<a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id=${email.bullhorn_job_id}" target="_blank" class="text-info">${email.bullhorn_job_id}</a>` 
                             : '<span class="text-muted">N/A</span>'}
                     </td>
                     <td>
@@ -356,7 +356,7 @@
                     </td>
                     <td>
                         ${email.bullhorn_candidate_id 
-                            ? `<a href="https://app.bullhornstaffing.com/candidate/${email.bullhorn_candidate_id}" target="_blank" class="text-success">${email.bullhorn_candidate_id}</a>
+                            ? `<a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=${email.bullhorn_candidate_id}" target="_blank" class="text-success">${email.bullhorn_candidate_id}</a>
                                ${email.bullhorn_submission_id ? `<br><small class="text-muted">Sub: ${email.bullhorn_submission_id}</small>` : ''}`
                             : '<span class="text-muted">-</span>'}
                     </td>

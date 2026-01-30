@@ -131,6 +131,25 @@
             background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
         }
         
+        /* Fix modal z-index issues with backdrop-filter */
+        .modal {
+            z-index: 1055;
+        }
+        
+        .modal-backdrop {
+            z-index: 1050;
+        }
+        
+        .modal-content {
+            z-index: 1;
+        }
+        
+        /* Ensure modals render above backdrop-filter elements */
+        .modal-dialog {
+            position: relative;
+            z-index: 1056;
+        }
+        
         .badge-processing {
             background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
             color: #000;
@@ -449,7 +468,7 @@
                                 {% for req in job_requirements %}
                                 <tr>
                                     <td>
-                                        <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={{ req.bullhorn_job_id }}" 
+                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ req.bullhorn_job_id }}" 
                                            target="_blank" class="text-decoration-none">
                                             {{ req.job_title or 'Job #' ~ req.bullhorn_job_id }}
                                             <i class="fas fa-external-link-alt ms-1 small"></i>
@@ -535,6 +554,54 @@
                         </button>
                     </form>
                 </div>
+                <!-- Pipeline Overview -->
+                <div class="row mb-4 g-3">
+                    <div class="col-md-3">
+                        <div class="p-3 rounded" style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
+                                <div>
+                                    <div class="h4 mb-0 text-info">{{ stats.pending }}</div>
+                                    <small class="text-muted">Awaiting Vetting</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 rounded" style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
+                                <div>
+                                    <div class="h4 mb-0 text-success">{{ stats.qualified }}</div>
+                                    <small class="text-muted">Recommended (75%+)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 rounded" style="background: rgba(108, 117, 125, 0.1); border: 1px solid rgba(108, 117, 125, 0.3);">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-times-circle fa-2x text-secondary me-3 opacity-75"></i>
+                                <div>
+                                    <div class="h4 mb-0 text-secondary">{{ stats.total_processed - stats.qualified }}</div>
+                                    <small class="text-muted">Not Recommended</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 rounded" style="background: rgba(111, 66, 193, 0.1); border: 1px solid rgba(111, 66, 193, 0.3);">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-envelope fa-2x me-3 opacity-75" style="color: #6f42c1;"></i>
+                                <div>
+                                    <div class="h4 mb-0" style="color: #6f42c1;">{{ stats.notifications_sent }}</div>
+                                    <small class="text-muted">Emails Sent</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <ul class="nav nav-tabs card-header-tabs" id="auditTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-candidates" 
@@ -570,19 +637,41 @@
                                     <button class="accordion-button collapsed bg-transparent text-white" type="button" 
                                             data-bs-toggle="collapse" data-bs-target="#candidateAll{{ log.id }}">
                                         <div class="d-flex w-100 justify-content-between align-items-center pe-3">
-                                            <div class="d-flex align-items-center">
-                                                {% if log.is_qualified %}
-                                                <span class="badge bg-success me-2">Recommended</span>
-                                                {% else %}
-                                                <span class="badge bg-secondary me-2">Not Recommended</span>
+                                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                                {% if log.status == 'pending' %}
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-clock me-1"></i>Pending
+                                                </span>
+                                                {% elif log.status == 'processing' %}
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-spinner fa-spin me-1"></i>Processing
+                                                </span>
+                                                {% elif log.status == 'completed' %}
+                                                    {% if log.is_qualified %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-star me-1"></i>Recommended
+                                                    </span>
+                                                    {% else %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-times me-1"></i>Not Recommended
+                                                    </span>
+                                                    {% endif %}
+                                                {% elif log.status == 'failed' %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>Failed
+                                                </span>
                                                 {% endif %}
                                                 <strong>{{ log.candidate_name or 'Unknown Candidate' }}</strong>
                                             </div>
                                             <div class="d-flex align-items-center gap-3">
-                                                <span class="badge {% if log.highest_match_score >= settings.match_threshold %}bg-success{% elif log.highest_match_score >= 60 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                                <span class="badge {% if log.highest_match_score >= settings.match_threshold %}bg-success{% elif log.highest_match_score >= 60 %}bg-warning text-dark{% elif log.highest_match_score > 0 %}bg-secondary{% else %}bg-dark text-muted{% endif %}">
+                                                    {% if log.highest_match_score > 0 %}
                                                     {{ "%.0f"|format(log.highest_match_score) }}% Best Match
+                                                    {% else %}
+                                                    <i class="fas fa-hourglass-half me-1"></i>Awaiting Analysis
+                                                    {% endif %}
                                                 </span>
-                                                <small class="text-muted">{{ log.analyzed_at.strftime('%m/%d %H:%M') if log.analyzed_at else 'Pending' }}</small>
+                                                <small class="text-muted">{{ log.analyzed_at.strftime('%m/%d %H:%M') if log.analyzed_at else log.created_at.strftime('%m/%d %H:%M') }}</small>
                                             </div>
                                         </div>
                                     </button>
@@ -591,14 +680,14 @@
                                     <div class="accordion-body">
                                         <div class="row mb-3">
                                             <div class="col-md-6">
-                                                <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
                                                    target="_blank" class="btn btn-outline-info btn-sm mb-2">
                                                     <i class="fas fa-external-link-alt me-1"></i>Open in Bullhorn ATS
                                                 </a>
                                                 <p class="mb-1"><strong>Email:</strong> {{ log.candidate_email or 'Not available' }}</p>
                                                 <p class="mb-1"><strong>Applied To:</strong> 
                                                     {% if log.applied_job_id %}
-                                                    <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={{ log.applied_job_id }}" 
+                                                    <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}" 
                                                        target="_blank" class="text-info">
                                                         {{ log.applied_job_title or 'Job #' ~ log.applied_job_id }}
                                                         <i class="fas fa-external-link-alt ms-1 small"></i>
@@ -628,7 +717,7 @@
                                             <div class="card-body py-2 px-3">
                                                 <div class="d-flex justify-content-between align-items-start">
                                                     <div>
-                                                        <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={{ match.bullhorn_job_id }}" 
+                                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ match.bullhorn_job_id }}" 
                                                            target="_blank" class="text-decoration-none">
                                                             <strong>{{ match.job_title or 'Job #' ~ match.bullhorn_job_id }}</strong>
                                                             <i class="fas fa-external-link-alt ms-1 small"></i>
@@ -693,7 +782,7 @@
                                     <div class="accordion-body">
                                         <div class="row mb-3">
                                             <div class="col-md-6">
-                                                <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
                                                    target="_blank" class="btn btn-success btn-sm mb-2">
                                                     <i class="fas fa-external-link-alt me-1"></i>Review Candidate in Bullhorn
                                                 </a>
@@ -711,7 +800,7 @@
                                             <div class="card-body py-2 px-3">
                                                 <div class="d-flex justify-content-between align-items-start">
                                                     <div>
-                                                        <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={{ match.bullhorn_job_id }}" 
+                                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ match.bullhorn_job_id }}" 
                                                            target="_blank" class="text-decoration-none text-success">
                                                             <strong>{{ match.job_title or 'Job #' ~ match.bullhorn_job_id }}</strong>
                                                             <i class="fas fa-external-link-alt ms-1 small"></i>
@@ -762,7 +851,7 @@
                                     <div class="accordion-body">
                                         <div class="row mb-3">
                                             <div class="col-md-6">
-                                                <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
                                                    target="_blank" class="btn btn-outline-secondary btn-sm mb-2">
                                                     <i class="fas fa-external-link-alt me-1"></i>View Candidate in Bullhorn
                                                 </a>
@@ -781,7 +870,7 @@
                                             <div class="card-body py-2 px-3">
                                                 <div class="d-flex justify-content-between align-items-start">
                                                     <div>
-                                                        <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={{ match.bullhorn_job_id }}" 
+                                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ match.bullhorn_job_id }}" 
                                                            target="_blank" class="text-decoration-none">
                                                             <strong>{{ match.job_title or 'Job #' ~ match.bullhorn_job_id }}</strong>
                                                             <i class="fas fa-external-link-alt ms-1 small"></i>
@@ -815,5 +904,26 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Fix modal backdrop cleanup - only clean up if no other modals are visible
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.modal').forEach(function(modal) {
+                modal.addEventListener('hidden.bs.modal', function() {
+                    // Only clean up if no other modals are visible
+                    var visibleModals = document.querySelectorAll('.modal.show');
+                    if (visibleModals.length === 0) {
+                        // Clean up any leftover backdrops
+                        document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                            backdrop.remove();
+                        });
+                        // Restore body scrolling
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
