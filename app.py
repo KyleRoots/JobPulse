@@ -3957,7 +3957,7 @@ def reset_recent_vetting():
 def full_clean_slate():
     """Complete reset of all vetting data - dashboard shows all zeros"""
     try:
-        from models import CandidateVettingLog, CandidateJobMatch, VettingSettings, ParsedEmail
+        from models import CandidateVettingLog, CandidateJobMatch, VettingConfig, ParsedEmail
         
         # Delete all job matches
         match_count = CandidateJobMatch.query.delete()
@@ -3971,7 +3971,7 @@ def full_clean_slate():
         ).update({'vetted_at': None}, synchronize_session=False)
         
         # Reset the last check timestamp to now (so we only process future candidates)
-        settings = VettingSettings.query.first()
+        settings = VettingConfig.query.first()
         if settings:
             settings.last_check_timestamp = datetime.utcnow()
         
