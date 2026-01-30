@@ -558,6 +558,12 @@
                         <i class="fas fa-chart-bar me-2"></i>Vetting Audit Dashboard
                     </h5>
                     <div class="d-flex gap-2">
+                        <form action="{{ url_for('full_clean_slate') }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-danger btn-sm" 
+                                    onclick="return confirm('⚠️ FULL CLEAN SLATE ⚠️\n\nThis will DELETE ALL vetting data:\n- All vetting logs\n- All job matches\n- Reset timestamp to now\n\nDashboard will show all zeros.\n\nThis cannot be undone. Continue?')">
+                                <i class="fas fa-trash-alt me-1"></i>Full Clean Slate
+                            </button>
+                        </form>
                         <form action="{{ url_for('reset_recent_vetting') }}" method="POST" class="d-inline">
                             <button type="submit" class="btn btn-warning btn-sm" 
                                     onclick="return confirm('This will reset vetting status for all applications from the last 6 hours. They will be re-processed in the next cycle. Continue?')">

@@ -3952,6 +3952,42 @@ def reset_recent_vetting():
     return redirect(url_for('vetting_settings'))
 
 
+@app.route('/vetting/full-clean-slate', methods=['POST'])
+@login_required
+def full_clean_slate():
+    """Complete reset of all vetting data - dashboard shows all zeros"""
+    try:
+        from models import CandidateVettingLog, CandidateJobMatch, VettingSettings, ParsedEmail
+        
+        # Delete all job matches
+        match_count = CandidateJobMatch.query.delete()
+        
+        # Delete all vetting logs
+        log_count = CandidateVettingLog.query.delete()
+        
+        # Reset vetted_at on all ParsedEmail records
+        reset_count = ParsedEmail.query.filter(
+            ParsedEmail.vetted_at.isnot(None)
+        ).update({'vetted_at': None}, synchronize_session=False)
+        
+        # Reset the last check timestamp to now (so we only process future candidates)
+        settings = VettingSettings.query.first()
+        if settings:
+            settings.last_check_timestamp = datetime.utcnow()
+        
+        db.session.commit()
+        
+        flash(f'Full Clean Slate complete! Deleted {log_count} vetting logs, {match_count} job matches, reset {reset_count} applications. Dashboard now shows all zeros.', 'success')
+        app.logger.info(f"Full Clean Slate: Deleted {log_count} logs, {match_count} matches, reset {reset_count} vetted_at timestamps")
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error during full clean slate: {str(e)}")
+        flash(f'Error during clean slate: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
 @app.route('/vetting/test-email', methods=['POST'])
 @login_required
 def send_test_vetting_email():
