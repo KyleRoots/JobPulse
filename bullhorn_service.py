@@ -753,6 +753,57 @@ class BullhornService:
             logging.error(f"Error getting job {job_id}: {str(e)}")
             return None
     
+    def get_user_emails(self, user_ids: List[int]) -> Dict[int, Dict]:
+        """
+        Get email addresses for a list of CorporateUser IDs.
+        
+        The Bullhorn API doesn't return email in nested field syntax (e.g., assignedUsers(email)),
+        so we need to query CorporateUser entities directly.
+        
+        Args:
+            user_ids: List of CorporateUser IDs to look up
+            
+        Returns:
+            Dict mapping user_id to {firstName, lastName, email}
+        """
+        if not user_ids:
+            return {}
+        
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return {}
+        
+        user_map = {}
+        unique_ids = list(set(user_ids))
+        
+        # Fetch users individually via entity endpoint (most reliable)
+        for user_id in unique_ids:
+            try:
+                url = f"{self.base_url}entity/CorporateUser/{user_id}"
+                params = {
+                    'fields': 'id,firstName,lastName,email',
+                    'BhRestToken': self.rest_token
+                }
+                
+                response = self.session.get(url, params=params, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json().get('data', {})
+                    if data:
+                        user_map[user_id] = {
+                            'firstName': data.get('firstName', ''),
+                            'lastName': data.get('lastName', ''),
+                            'email': data.get('email', '')
+                        }
+                else:
+                    logging.debug(f"Failed to fetch user {user_id}: {response.status_code}")
+                    
+            except Exception as e:
+                logging.debug(f"Error fetching user {user_id}: {str(e)}")
+        
+        logging.info(f"📧 Fetched emails for {len(user_map)}/{len(unique_ids)} users")
+        return user_map
+    
     def get_tearsheets(self) -> List[Dict]:
         """
         Get available tearsheets from Bullhorn by testing common IDs

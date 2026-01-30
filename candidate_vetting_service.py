@@ -749,7 +749,7 @@ Format as a bullet-point list. Be specific and concise."""
         Get all active jobs from monitored tearsheets.
         
         Returns:
-            List of job dictionaries with recruiter info
+            List of job dictionaries with recruiter info (including emails)
         """
         bullhorn = self._get_bullhorn_service()
         if not bullhorn:
@@ -762,6 +762,7 @@ Format as a bullet-point list. Be specific and concise."""
             return []
         
         all_jobs = []
+        all_user_ids = set()
         
         for monitor in monitors:
             try:
@@ -771,10 +772,45 @@ Format as a bullet-point list. Be specific and concise."""
                     job['tearsheet_name'] = monitor.name
                     all_jobs.append(job)
                     
+                    # Collect user IDs from assignedUsers for email lookup
+                    assigned_users = job.get('assignedUsers', {})
+                    if isinstance(assigned_users, dict):
+                        users_list = assigned_users.get('data', [])
+                    elif isinstance(assigned_users, list):
+                        users_list = assigned_users
+                    else:
+                        users_list = []
+                    
+                    for user in users_list:
+                        if isinstance(user, dict) and user.get('id'):
+                            all_user_ids.add(user['id'])
+                    
             except Exception as e:
                 logging.error(f"Error getting jobs from tearsheet {monitor.name}: {str(e)}")
         
-        logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets")
+        # Fetch emails for all unique users (Bullhorn API doesn't return email in nested syntax)
+        user_email_map = {}
+        if all_user_ids:
+            user_email_map = bullhorn.get_user_emails(list(all_user_ids))
+        
+        # Enrich jobs with user emails
+        for job in all_jobs:
+            assigned_users = job.get('assignedUsers', {})
+            if isinstance(assigned_users, dict):
+                users_list = assigned_users.get('data', [])
+            elif isinstance(assigned_users, list):
+                users_list = assigned_users
+            else:
+                users_list = []
+            
+            # Add email to each user from our lookup
+            for user in users_list:
+                if isinstance(user, dict) and user.get('id'):
+                    user_id = user['id']
+                    if user_id in user_email_map:
+                        user['email'] = user_email_map[user_id].get('email', '')
+        
+        logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
         return all_jobs
     
     def analyze_candidate_job_match(self, resume_text: str, job: Dict) -> Dict:
