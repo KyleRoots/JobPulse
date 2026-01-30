@@ -488,16 +488,36 @@ Format as a bullet-point list. Be specific and concise."""
             for parsed_email in unvetted_emails:
                 candidate_id = parsed_email.bullhorn_candidate_id
                 
-                # Skip if already in vetting log (shouldn't happen but defensive check)
+                # Check if already in vetting log
                 existing_log = CandidateVettingLog.query.filter_by(
                     bullhorn_candidate_id=candidate_id
                 ).first()
                 
                 if existing_log:
-                    # Queue for batch update instead of individual commits
-                    already_vetted_ids.append(parsed_email.id)
-                    logging.info(f"Candidate {candidate_id} already vetted, marking for skip")
-                    continue
+                    # Only skip if actually completed or failed
+                    if existing_log.status in ('completed', 'failed'):
+                        already_vetted_ids.append(parsed_email.id)
+                        logging.info(f"Candidate {candidate_id} already vetted (status={existing_log.status}), marking for skip")
+                        continue
+                    
+                    # Reset stuck 'processing' candidates (older than 10 minutes)
+                    if existing_log.status == 'processing':
+                        processing_age = (datetime.utcnow() - existing_log.created_at).total_seconds()
+                        if processing_age > 600:  # 10 minutes
+                            logging.warning(f"Resetting stuck candidate {candidate_id} (processing for {processing_age:.0f}s)")
+                            existing_log.status = 'pending'
+                            existing_log.error_message = f"Reset from stuck processing state after {processing_age:.0f}s"
+                            db.session.commit()
+                        else:
+                            # Still processing recently, skip
+                            logging.info(f"Candidate {candidate_id} still processing (started {processing_age:.0f}s ago), skipping")
+                            continue
+                    
+                    # Pending status - delete old log and reprocess
+                    if existing_log.status == 'pending':
+                        logging.info(f"Candidate {candidate_id} has pending log, will reprocess")
+                        db.session.delete(existing_log)
+                        db.session.commit()
                 
                 # Fetch full candidate data from Bullhorn
                 candidate_data = self._fetch_candidate_details(bullhorn, candidate_id)
