@@ -1,15 +1,15 @@
 """
 Resume Parsing Service
-Simple resume text extraction and parsing for basic candidate information
+Resume text extraction with HTML formatting preservation for Bullhorn description field
 """
 import logging
 import re
 import tempfile
 import os
+import html
 from typing import Dict, Optional, Union
 from werkzeug.datastructures import FileStorage
 
-# PDF parsing
 try:
     import PyPDF2
     PDF_AVAILABLE = True
@@ -17,9 +17,9 @@ except ImportError:
     PDF_AVAILABLE = False
     logging.warning("PyPDF2 not available - PDF parsing disabled")
 
-# DOC/DOCX parsing
 try:
     from docx import Document
+    from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
@@ -28,32 +28,64 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class ResumeParser:
-    """Simple resume parser for extracting basic candidate information"""
+    """Resume parser with HTML formatting preservation for Bullhorn"""
+    
+    HEADING_KEYWORDS = [
+        'experience', 'education', 'skills', 'summary', 'objective',
+        'professional summary', 'work history', 'employment', 'qualifications',
+        'certifications', 'projects', 'achievements', 'accomplishments',
+        'technical skills', 'core competencies', 'professional experience',
+        'work experience', 'career summary', 'profile', 'about me',
+        'languages', 'references', 'awards', 'publications', 'training',
+        'licenses', 'affiliations', 'volunteer', 'interests', 'hobbies'
+    ]
     
     def __init__(self):
         self.patterns = {
             'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
             'phone': r'(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})',
-            'name': r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',  # Names at start of lines
+            'name': r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
         }
     
     def parse_resume(self, file: Union[FileStorage, str]) -> Dict[str, any]:
         """
-        Parse resume file and extract basic information
+        Parse resume file and extract information with HTML formatting
         
-        Args:
-            file: FileStorage object or file path
-            
         Returns:
-            Dict with parsed information and success status
+            Dict with parsed_data, raw_text (plain text), and formatted_html
         """
         try:
-            # Extract text from file
-            text = self._extract_text_from_file(file)
+            if isinstance(file, str):
+                file_path = file
+                filename = os.path.basename(file_path)
+                temp_created = False
+            else:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as temp_file:
+                    file.save(temp_file.name)
+                    file_path = temp_file.name
+                    filename = file.filename
+                    temp_created = True
             
-            if not text:
-                # Return success with empty data to allow manual entry
+            try:
+                if filename.lower().endswith('.pdf'):
+                    raw_text, formatted_html = self._extract_pdf_with_formatting(file_path)
+                elif filename.lower().endswith('.docx'):
+                    raw_text, formatted_html = self._extract_docx_with_formatting(file_path)
+                elif filename.lower().endswith('.doc'):
+                    raw_text = ""
+                    formatted_html = ""
+                    logger.info("Legacy DOC format not supported - allowing manual entry")
+                else:
+                    raw_text = ""
+                    formatted_html = ""
+                    logger.warning(f"Unsupported file type: {filename}")
+            finally:
+                if temp_created and os.path.exists(file_path):
+                    os.unlink(file_path)
+            
+            if not raw_text:
                 return {
                     'success': True,
                     'parsed_data': {
@@ -61,16 +93,18 @@ class ResumeParser:
                         'last_name': None,
                         'email': None,
                         'phone': None
-                    }
+                    },
+                    'raw_text': '',
+                    'formatted_html': ''
                 }
             
-            # Parse extracted text
-            parsed_data = self._parse_text(text)
+            parsed_data = self._parse_text(raw_text)
             
             return {
                 'success': True,
                 'parsed_data': parsed_data,
-                'raw_text': text  # Full resume text for Bullhorn description/Resume pane
+                'raw_text': raw_text,
+                'formatted_html': formatted_html
             }
             
         except Exception as e:
@@ -78,89 +112,234 @@ class ResumeParser:
             return {
                 'success': False,
                 'error': f'Error parsing resume: {str(e)}',
-                'parsed_data': {}
+                'parsed_data': {},
+                'raw_text': '',
+                'formatted_html': ''
             }
     
-    def _extract_text_from_file(self, file: Union[FileStorage, str]) -> str:
-        """Extract text content from uploaded file"""
-        
-        if isinstance(file, str):
-            # File path provided
-            file_path = file
-            filename = os.path.basename(file_path)
-        else:
-            # FileStorage object - save to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as temp_file:
-                file.save(temp_file.name)
-                file_path = temp_file.name
-                filename = file.filename
+    def _extract_docx_with_formatting(self, file_path: str) -> tuple:
+        """Extract text from DOCX with HTML formatting preserved"""
+        if not DOCX_AVAILABLE:
+            logger.warning("DOCX parsing not available")
+            return "", ""
         
         try:
-            # Determine file type and extract text
-            if filename.lower().endswith('.pdf'):
-                return self._extract_pdf_text(file_path)
-            elif filename.lower().endswith('.docx'):
-                return self._extract_docx_text(file_path)
-            elif filename.lower().endswith('.doc'):
-                return self._extract_doc_text(file_path)
-            else:
-                logger.warning(f"Unsupported file type: {filename} - allowing manual entry")
-                return ""  # Return empty string for unsupported files
+            doc = Document(file_path)
+            raw_lines = []
+            html_parts = []
+            in_list = False
+            
+            for para in doc.paragraphs:
+                text = para.text.strip()
+                if not text:
+                    if in_list:
+                        html_parts.append('</ul>')
+                        in_list = False
+                    continue
                 
-        finally:
-            # Clean up temporary file if created
-            if not isinstance(file, str) and os.path.exists(file_path):
-                os.unlink(file_path)
+                raw_lines.append(text)
+                escaped_text = html.escape(text)
+                
+                style_name = para.style.name.lower() if para.style else ''
+                is_heading = (
+                    'heading' in style_name or
+                    'title' in style_name or
+                    self._is_likely_heading(text)
+                )
+                
+                is_bullet = (
+                    text.startswith('•') or
+                    text.startswith('-') or
+                    text.startswith('*') or
+                    'list' in style_name
+                )
+                
+                if is_heading:
+                    if in_list:
+                        html_parts.append('</ul>')
+                        in_list = False
+                    
+                    if 'heading 1' in style_name or 'title' in style_name:
+                        html_parts.append(f'<h2>{escaped_text}</h2>')
+                    elif 'heading 2' in style_name:
+                        html_parts.append(f'<h3>{escaped_text}</h3>')
+                    else:
+                        html_parts.append(f'<h4><strong>{escaped_text}</strong></h4>')
+                
+                elif is_bullet:
+                    clean_text = re.sub(r'^[•\-\*]\s*', '', escaped_text)
+                    if not in_list:
+                        html_parts.append('<ul>')
+                        in_list = True
+                    html_parts.append(f'<li>{clean_text}</li>')
+                
+                else:
+                    if in_list:
+                        html_parts.append('</ul>')
+                        in_list = False
+                    
+                    formatted_text = self._apply_inline_formatting(para, escaped_text)
+                    html_parts.append(f'<p>{formatted_text}</p>')
+            
+            if in_list:
+                html_parts.append('</ul>')
+            
+            raw_text = '\n'.join(raw_lines)
+            formatted_html = '\n'.join(html_parts)
+            
+            return raw_text, formatted_html
+            
+        except Exception as e:
+            logger.warning(f"Could not extract DOCX with formatting: {str(e)}")
+            return "", ""
     
-    def _extract_pdf_text(self, file_path: str) -> str:
-        """Extract text from PDF file"""
-        if not PDF_AVAILABLE:
-            logger.warning("PDF parsing not available - PyPDF2 not installed")
-            return ""  # Return empty string instead of raising error
-        
-        text = ""
+    def _apply_inline_formatting(self, para, escaped_text: str) -> str:
+        """Apply bold/italic formatting from paragraph runs"""
         try:
+            if not para.runs:
+                return escaped_text
+            
+            formatted_parts = []
+            for run in para.runs:
+                run_text = html.escape(run.text) if run.text else ''
+                if not run_text:
+                    continue
+                
+                if run.bold and run.italic:
+                    formatted_parts.append(f'<strong><em>{run_text}</em></strong>')
+                elif run.bold:
+                    formatted_parts.append(f'<strong>{run_text}</strong>')
+                elif run.italic:
+                    formatted_parts.append(f'<em>{run_text}</em>')
+                else:
+                    formatted_parts.append(run_text)
+            
+            return ''.join(formatted_parts) if formatted_parts else escaped_text
+        except Exception:
+            return escaped_text
+    
+    def _extract_pdf_with_formatting(self, file_path: str) -> tuple:
+        """Extract text from PDF with best-effort HTML formatting"""
+        if not PDF_AVAILABLE:
+            logger.warning("PDF parsing not available")
+            return "", ""
+        
+        try:
+            raw_lines = []
             with open(file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
                     page_text = page.extract_text()
                     if page_text:
-                        text += page_text + "\n"
+                        lines = page_text.split('\n')
+                        raw_lines.extend(lines)
+            
+            if not raw_lines:
+                return "", ""
+            
+            raw_text = '\n'.join(raw_lines)
+            formatted_html = self._convert_pdf_lines_to_html(raw_lines)
+            
+            return raw_text, formatted_html
+            
         except Exception as e:
-            logger.warning(f"Could not extract text from PDF: {str(e)} - allowing manual entry")
-            return ""  # Return empty string instead of raising error
-        
-        return text.strip()
+            logger.warning(f"Could not extract PDF with formatting: {str(e)}")
+            return "", ""
     
-    def _extract_docx_text(self, file_path: str) -> str:
-        """Extract text from DOCX file"""
-        if not DOCX_AVAILABLE:
-            logger.warning("DOCX parsing not available - python-docx not installed")
-            return ""  # Return empty string instead of raising error
+    def _convert_pdf_lines_to_html(self, lines: list) -> str:
+        """Convert PDF text lines to HTML with detected formatting"""
+        html_parts = []
+        in_list = False
+        paragraph_buffer = []
         
-        try:
-            doc = Document(file_path)
-            text = ""
-            for paragraph in doc.paragraphs:
-                text += paragraph.text + "\n"
-            return text.strip()
-        except Exception as e:
-            logger.warning(f"Could not extract text from DOCX: {str(e)} - allowing manual entry")
-            return ""  # Return empty string instead of raising error
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if paragraph_buffer:
+                    html_parts.append(f'<p>{" ".join(paragraph_buffer)}</p>')
+                    paragraph_buffer = []
+                if in_list:
+                    html_parts.append('</ul>')
+                    in_list = False
+                continue
+            
+            escaped_line = html.escape(line)
+            
+            if self._is_likely_heading(line):
+                if paragraph_buffer:
+                    html_parts.append(f'<p>{" ".join(paragraph_buffer)}</p>')
+                    paragraph_buffer = []
+                if in_list:
+                    html_parts.append('</ul>')
+                    in_list = False
+                html_parts.append(f'<h4><strong>{escaped_line}</strong></h4>')
+                continue
+            
+            is_bullet = (
+                line.startswith('•') or
+                line.startswith('-') or
+                line.startswith('*') or
+                re.match(r'^\d+[\.\)]\s', line)
+            )
+            
+            if is_bullet:
+                if paragraph_buffer:
+                    html_parts.append(f'<p>{" ".join(paragraph_buffer)}</p>')
+                    paragraph_buffer = []
+                
+                clean_text = re.sub(r'^[•\-\*]\s*', '', escaped_line)
+                clean_text = re.sub(r'^\d+[\.\)]\s*', '', clean_text)
+                
+                if not in_list:
+                    html_parts.append('<ul>')
+                    in_list = True
+                html_parts.append(f'<li>{clean_text}</li>')
+                continue
+            
+            if in_list:
+                html_parts.append('</ul>')
+                in_list = False
+            
+            if len(line) < 60 and not line.endswith(('.', ',', ';', ':')):
+                if paragraph_buffer:
+                    html_parts.append(f'<p>{" ".join(paragraph_buffer)}</p>')
+                    paragraph_buffer = []
+                html_parts.append(f'<p>{escaped_line}</p>')
+            else:
+                paragraph_buffer.append(escaped_line)
+        
+        if paragraph_buffer:
+            html_parts.append(f'<p>{" ".join(paragraph_buffer)}</p>')
+        if in_list:
+            html_parts.append('</ul>')
+        
+        return '\n'.join(html_parts)
     
-    def _extract_doc_text(self, file_path: str) -> str:
-        """Extract text from DOC file (legacy format)"""
-        # Legacy DOC format not supported - return empty string for manual entry
-        logger.info("Legacy DOC format not supported - allowing manual entry")
-        return ""
+    def _is_likely_heading(self, text: str) -> bool:
+        """Detect if text is likely a section heading"""
+        text_lower = text.lower().strip()
+        
+        if len(text) > 50:
+            return False
+        
+        if text.isupper() and len(text) > 3 and len(text) < 40:
+            return True
+        
+        for keyword in self.HEADING_KEYWORDS:
+            if text_lower == keyword or text_lower.startswith(keyword + ':'):
+                return True
+            if text_lower.endswith(keyword) and len(text_lower) < 30:
+                return True
+        
+        if text.endswith(':') and len(text) < 30:
+            return True
+        
+        return False
     
     def _parse_text(self, text: str) -> Dict[str, Optional[str]]:
         """Parse extracted text to find candidate information"""
-        
-        # Clean up text but keep line breaks for name detection
         original_text = text
-        text = text.replace('\r', ' ')  # Remove carriage returns but keep line breaks
-        text = ' '.join(text.split())  # Normalize whitespace for main processing
+        normalized_text = ' '.join(text.split())
         
         parsed_data = {
             'first_name': None,
@@ -169,32 +348,27 @@ class ResumeParser:
             'phone': None
         }
         
-        # Extract email
-        email_match = re.search(self.patterns['email'], text, re.IGNORECASE)
+        email_match = re.search(self.patterns['email'], normalized_text, re.IGNORECASE)
         if email_match:
             parsed_data['email'] = email_match.group().lower()
         
-        # Extract phone number with multiple patterns
         phone_patterns = [
-            r'(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})',  # Standard US format
-            r'(\d{3})[-.\s](\d{3})[-.\s](\d{4})',  # Simple format
-            r'\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})'  # Flexible format
+            r'(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})',
+            r'(\d{3})[-.\s](\d{3})[-.\s](\d{4})',
+            r'\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})'
         ]
         
         for pattern in phone_patterns:
-            phone_match = re.search(pattern, text)
+            phone_match = re.search(pattern, normalized_text)
             if phone_match:
-                # Format phone number consistently
                 phone = f"({phone_match.group(1)}) {phone_match.group(2)}-{phone_match.group(3)}"
                 parsed_data['phone'] = phone
                 break
         
-        # Extract name using multiple strategies
         name_found = False
         
-        # Strategy 1: Look for "FirstName LastName (email | phone)" pattern
-        name_with_contact_pattern = r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*\([^)]*(?:@|phone|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})[^)]*\)'
-        name_match = re.search(name_with_contact_pattern, original_text, re.IGNORECASE | re.MULTILINE)
+        name_with_contact = r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*\([^)]*(?:@|phone|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})[^)]*\)'
+        name_match = re.search(name_with_contact, original_text, re.IGNORECASE | re.MULTILINE)
         if name_match:
             name_text = name_match.group(1).strip()
             name_parts = name_text.split()
@@ -203,35 +377,27 @@ class ResumeParser:
                 parsed_data['last_name'] = name_parts[-1]
                 name_found = True
         
-        # Strategy 2: Look at first few lines for name patterns (if strategy 1 didn't work)
         if not name_found:
             lines = original_text.split('\n')
-            for line in lines[:5]:  # Check first 5 lines
+            for line in lines[:5]:
                 line = line.strip()
-                
-                # Skip lines that are too long (likely not just a name)
                 if len(line) > 50 or len(line) < 3:
                     continue
                 
-                # Skip lines with common header words
                 skip_words = ['resume', 'cv', 'curriculum', 'vitae', 'profile', 'contact', 'phone', 'email', 'address']
                 if any(skip_word in line.lower() for skip_word in skip_words):
                     continue
                 
-                # Look for 2-3 capitalized words (potential name)
                 words = line.split()
                 if 2 <= len(words) <= 3:
-                    # Check if all words start with capital and are alphabetic
                     if all(word[0].isupper() and word.replace('-', '').replace("'", "").isalpha() for word in words):
                         parsed_data['first_name'] = words[0]
                         parsed_data['last_name'] = words[-1]
                         name_found = True
                         break
         
-        # Strategy 3: Extract from email if name still not found
         if not name_found and parsed_data.get('email'):
             email_part = parsed_data['email'].split('@')[0]
-            # Common email patterns like firstname.lastname or firstnamelastname
             if '.' in email_part:
                 email_parts = email_part.split('.')
                 if len(email_parts) == 2 and all(part.isalpha() for part in email_parts):
@@ -239,29 +405,18 @@ class ResumeParser:
                     parsed_data['last_name'] = email_parts[1].capitalize()
                     name_found = True
             elif len(email_part) > 3 and email_part.isalpha():
-                # Try to split camelCase or combined names
                 camel_split = re.findall(r'[A-Z][a-z]*', email_part.capitalize())
                 if len(camel_split) >= 2:
                     parsed_data['first_name'] = camel_split[0]
                     parsed_data['last_name'] = camel_split[-1]
                     name_found = True
         
-# Name extraction strategies are now handled above
-        
-        # Log what was found
         found_items = [k for k, v in parsed_data.items() if v]
         logger.info(f"Resume parsing found: {', '.join(found_items)}")
         
-        # Log the actual values for debugging (first few chars only for privacy)
-        debug_info = {}
-        for key, value in parsed_data.items():
-            if value:
-                if key == 'email':
-                    debug_info[key] = f"{value[:3]}***@{value.split('@')[1] if '@' in value else '***'}"
-                elif key == 'phone':
-                    debug_info[key] = f"{value[:6]}***"
-                else:
-                    debug_info[key] = f"{value[:3]}***" if len(value) > 3 else value
-        logger.info(f"Resume parsing values: {debug_info}")
-        
         return parsed_data
+    
+    def _extract_text_from_file(self, file: Union[FileStorage, str]) -> str:
+        """Legacy method for backwards compatibility - returns plain text only"""
+        result = self.parse_resume(file)
+        return result.get('raw_text', '')

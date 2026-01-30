@@ -545,13 +545,20 @@ Consider: name spelling variations, nicknames, contact info matches.
             except (ValueError, TypeError):
                 pass
         
-        # Resume pane - use full resume text if available, otherwise use AI summary
-        # The 'description' field maps to the "Resume" pane in Bullhorn UI
-        if resume_data.get('raw_text'):
-            # Use full resume text for the Resume pane (truncate if too long)
-            raw_text = resume_data['raw_text']
+        # Resume pane - use formatted HTML for better display, fallback to raw text
+        # The 'description' field maps to the "Resume" pane in Bullhorn UI (supports HTML)
+        if resume_data.get('formatted_html'):
+            # Use HTML-formatted resume for cleaner display in Bullhorn
+            formatted_html = resume_data['formatted_html']
             # Bullhorn description field has a limit, truncate if needed
             max_length = 50000  # Bullhorn typically allows up to 50K characters
+            if len(formatted_html) > max_length:
+                formatted_html = formatted_html[:max_length] + '<p><em>[Resume truncated due to length...]</em></p>'
+            candidate['description'] = formatted_html
+        elif resume_data.get('raw_text'):
+            # Fallback to raw text if HTML not available
+            raw_text = resume_data['raw_text']
+            max_length = 50000
             if len(raw_text) > max_length:
                 raw_text = raw_text[:max_length] + '\n\n[Resume truncated due to length...]'
             candidate['description'] = raw_text

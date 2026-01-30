@@ -49,6 +49,10 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Database-First Reference Numbers**: `JobReferenceNumber` table is the single source of truth for all reference numbers, updated every 120 hours without SFTP uploads. SimplifiedXMLGenerator loads reference numbers from the database.
 - **Ad-hoc Reference Number Refresh**: Manual "Refresh All" option for immediate database updates.
 - **Job Application Form**: Public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, Bullhorn job ID integration, and unique branding.
+- **Resume HTML Formatting**: Resume parser outputs HTML-formatted content for cleaner display in Bullhorn's "Parsed" view:
+  - DOCX: Preserves headings, paragraphs, bullet points, bold/italic formatting
+  - PDF: Best-effort formatting with line break preservation, heading detection (ALL CAPS, section keywords), and bullet point recognition
+  - Fallback chain: formatted_html → raw_text → summary
 - **Keyword-Based Job Classification**: Lightning-fast (<1 second) job categorization using comprehensive keyword dictionaries for LinkedIn's official taxonomy (28 job functions, 20 industries, 5 seniority levels). Weighted scoring system prioritizes title matches (3x) over description. Guaranteed defaults ensure all taxonomy fields are always populated. Eliminates AI timeout risks and API costs.
 - **Intelligent File Management**: Automated consolidation, duplicate detection, and temporary file cleanup.
 - **Health Endpoints**: Optimized `/health`, `/ready`, `/alive`, `/ping` endpoints.
