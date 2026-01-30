@@ -1508,7 +1508,7 @@ class BullhornService:
         try:
             url = f"{self.base_url}entity/Candidate/{candidate_id}"
             params = {
-                'fields': 'id,firstName,lastName,email,phone,mobile,address,status,source,occupation,companyName,skillSet,description',
+                'fields': 'id,firstName,lastName,email,phone,mobile,address(city,state,countryName),status,source,occupation,companyName,skillSet,description',
                 'BhRestToken': self.rest_token
             }
             

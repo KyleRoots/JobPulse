@@ -456,7 +456,7 @@ Format as a bullet-point list. Be specific and concise."""
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
                 'query': f'status:"Online Applicant" AND dateAdded:[{since_timestamp} TO *]',
-                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(city,state,countryName)',
                 'count': 50,  # Limit batch size for performance
                 'sort': '-dateAdded',  # Most recent first
                 'BhRestToken': bullhorn.rest_token
@@ -942,13 +942,14 @@ Format as a bullet-point list. Be specific and concise."""
         logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
         return all_jobs
     
-    def analyze_candidate_job_match(self, resume_text: str, job: Dict) -> Dict:
+    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None) -> Dict:
         """
         Use GPT-4o to analyze how well a candidate matches a job.
         
         Args:
             resume_text: Extracted text from candidate's resume
             job: Job dictionary from Bullhorn
+            candidate_location: Optional dict with candidate's address info (city, state, countryName)
             
         Returns:
             Dictionary with match_score, match_summary, skills_match, experience_match, gaps_identified
@@ -966,7 +967,29 @@ Format as a bullet-point list. Be specific and concise."""
         job_title = job.get('title', 'Unknown Position')
         # Use internal description field first (contains full details), fall back to publicDescription
         job_description = job.get('description', '') or job.get('publicDescription', '')
-        job_location = job.get('address', {}).get('city', '') if isinstance(job.get('address'), dict) else ''
+        
+        # Extract full job location details
+        job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+        job_city = job_address.get('city', '')
+        job_state = job_address.get('state', '')
+        job_country = job_address.get('countryName', '') or job_address.get('country', '')
+        job_location_full = ', '.join(filter(None, [job_city, job_state, job_country]))
+        
+        # Get work type: 1=onsite, 2=hybrid, 3=remote (Bullhorn's onSite field)
+        on_site_value = job.get('onSite', 1)  # Default to onsite if not specified
+        work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+        work_type = work_type_map.get(on_site_value, 'On-site')
+        
+        # Extract candidate location
+        candidate_city = ''
+        candidate_state = ''
+        candidate_country = ''
+        if candidate_location and isinstance(candidate_location, dict):
+            candidate_city = candidate_location.get('city', '')
+            candidate_state = candidate_location.get('state', '')
+            candidate_country = candidate_location.get('countryName', '') or candidate_location.get('country', '')
+        candidate_location_full = ', '.join(filter(None, [candidate_city, candidate_state, candidate_country]))
+        
         job_id = job.get('id', 'N/A')
         
         # Check for custom requirements override
@@ -1001,15 +1024,39 @@ IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job descri
 DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
 Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
         
+        # Build location matching instructions based on work type
+        location_instruction = ""
+        if job_location_full:
+            if work_type == 'Remote':
+                location_instruction = f"""
+LOCATION REQUIREMENT (Remote Position):
+- Job Location: {job_location_full} (Work Type: {work_type})
+- Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown - check resume for location clues'}
+- For REMOTE positions: Candidate MUST be in the same COUNTRY as the job location for tax/legal compliance.
+- City and state do NOT need to match for remote roles - only the country matters.
+- If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 15-20 points."""
+            else:  # On-site or Hybrid
+                location_instruction = f"""
+LOCATION REQUIREMENT ({work_type} Position):
+- Job Location: {job_location_full} (Work Type: {work_type})
+- Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown - check resume for location clues'}
+- For ON-SITE/HYBRID positions: Candidate should be in or near the job's city/metro area, or willing to relocate.
+- If candidate is in a completely different region (different state/province) or country, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified and reduce score by 10-15 points.
+- If candidate location is unknown, check their resume for recent work locations or stated location."""
+        
         prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements.
 Provide an objective assessment with a percentage match score (0-100).
 {requirements_instruction}
+{location_instruction}
 
 JOB DETAILS:
 - Job ID: {job_id}
 - Title: {job_title}
-- Location: {job_location}
+- Location: {job_location_full} (Work Type: {work_type})
 - Description: {job_description}
+
+CANDIDATE INFORMATION:
+- Known Location: {candidate_location_full if candidate_location_full else 'Not specified in system - infer from resume if possible'}
 
 CANDIDATE RESUME:
 {resume_text}
@@ -1021,25 +1068,26 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
 4. For skills_match and experience_match, ONLY quote or paraphrase content that actually exists in the resume.
 5. If the job requires specific technologies (e.g., FPGA, Verilog, AWS, Python) and the resume does NOT mention them, the candidate does NOT qualify.
 6. A candidate whose background is completely different from the job (e.g., DBA applying to FPGA role) should score BELOW 30.
+7. LOCATION CHECK: If the job has a location requirement, verify candidate location matches. For remote jobs, same country is required. For on-site/hybrid, proximity to job location matters.
 
 Respond in JSON format with these exact fields:
 {{
     "match_score": <integer 0-100>,
-    "match_summary": "<2-3 sentence summary of overall fit - be honest about mismatches>",
+    "match_summary": "<2-3 sentence summary of overall fit - be honest about mismatches including location issues>",
     "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
     "experience_match": "<ONLY list experience from the resume that is relevant to the job - be specific>",
-    "gaps_identified": "<List ALL mandatory requirements NOT found in the resume - this is critical>",
+    "gaps_identified": "<List ALL mandatory requirements NOT found in the resume INCLUDING location mismatches - this is critical>",
     "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>"
 }}
 
 SCORING GUIDELINES:
-- 85-100: Candidate meets nearly ALL mandatory requirements with explicit evidence in resume
-- 70-84: Candidate meets MOST mandatory requirements but has 1-2 minor gaps
-- 50-69: Candidate meets SOME requirements but is missing key qualifications
-- 30-49: Candidate has tangential experience but significant gaps
-- 0-29: Candidate's background does not align with the role (wrong field/specialty)
+- 85-100: Candidate meets nearly ALL mandatory requirements with explicit evidence in resume AND location matches
+- 70-84: Candidate meets MOST mandatory requirements but has 1-2 minor gaps (may include minor location concerns)
+- 50-69: Candidate meets SOME requirements but is missing key qualifications or has location issues
+- 30-49: Candidate has tangential experience, significant gaps, or major location mismatch
+- 0-29: Candidate's background does not align with the role (wrong field/specialty or completely wrong location)
 
-BE HONEST. If the resume does not show the required skills, the candidate should NOT score high."""
+BE HONEST. If the resume does not show the required skills OR the candidate location doesn't match, the candidate should NOT score high."""
 
         try:
             system_message = """You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
@@ -1050,7 +1098,11 @@ CRITICAL RULES:
 3. If a job requires FPGA and the resume shows SQL/database experience, they DO NOT match.
 4. If a job requires Python and the resume only mentions Java, that is a GAP.
 5. Be honest - a mismatched candidate should score LOW even if they have impressive but irrelevant skills.
-6. Your assessment will be used for recruiter decisions - accuracy is critical."""
+6. Your assessment will be used for recruiter decisions - accuracy is critical.
+7. LOCATION MATTERS: Check if the candidate's location is compatible with the job's work type (remote/onsite/hybrid).
+   - Remote jobs: Candidate must be in the same COUNTRY for tax/legal compliance.
+   - On-site/Hybrid jobs: Candidate should be in or near the job's city/metro area.
+   - If candidate location doesn't match, this is a GAP that should reduce their score."""
 
             response = self.openai_client.chat.completions.create(
                 model=self.model,
@@ -1224,6 +1276,22 @@ CRITICAL RULES:
             # SQLAlchemy expires object attributes after commits, so we need a stable copy
             cached_resume_text = vetting_log.resume_text
             
+            # Extract candidate location from Bullhorn record
+            # Primary: Use candidate's address field from Bullhorn
+            # Fallback: AI will try to extract from resume text
+            candidate_location = None
+            if candidate and isinstance(candidate.get('address'), dict):
+                candidate_location = candidate.get('address')
+                loc_parts = [candidate_location.get('city', ''), candidate_location.get('state', ''), 
+                            candidate_location.get('countryName', '') or candidate_location.get('country', '')]
+                loc_str = ', '.join(filter(None, loc_parts))
+                if loc_str:
+                    logging.info(f"📍 Candidate location from Bullhorn: {loc_str}")
+                else:
+                    logging.info("📍 Candidate has address field but no city/state/country - AI will infer from resume")
+            else:
+                logging.info("📍 No address in Bullhorn record - AI will infer location from resume")
+            
             # Analyze against each job
             threshold = self.get_threshold()
             qualified_matches = []
@@ -1248,7 +1316,7 @@ CRITICAL RULES:
                     break  # No point continuing if resume is missing
                 
                 logging.info(f"📄 Analyzing match - Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
-                analysis = self.analyze_candidate_job_match(cached_resume_text, job)
+                analysis = self.analyze_candidate_job_match(cached_resume_text, job, candidate_location)
                 
                 # Get recruiter info from job's assignedUsers (assignments field in Bullhorn)
                 recruiter_name = ''
