@@ -4311,6 +4311,84 @@ def save_job_requirements(job_id):
     return redirect(url_for('vetting_settings'))
 
 
+@app.route('/vetting/extract-all-requirements', methods=['POST'])
+@login_required
+def extract_all_job_requirements():
+    """Extract AI requirements for all monitored jobs at once"""
+    try:
+        from candidate_vetting_service import CandidateVettingService
+        from bullhorn_service import BullhornService
+        from models import BullhornMonitor, JobVettingRequirements
+        
+        # Get Bullhorn credentials
+        credentials = {}
+        for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+            setting = GlobalSettings.query.filter_by(setting_key=key).first()
+            if setting and setting.setting_value:
+                credentials[key.replace('bullhorn_', '')] = setting.setting_value.strip()
+        
+        if len(credentials) < 4:
+            flash('Bullhorn credentials not fully configured', 'error')
+            return redirect(url_for('vetting_settings'))
+        
+        # Initialize services
+        bullhorn = BullhornService(
+            client_id=credentials['client_id'],
+            client_secret=credentials['client_secret'],
+            username=credentials['username'],
+            password=credentials['password']
+        )
+        
+        if not bullhorn.test_connection():
+            flash('Failed to connect to Bullhorn', 'error')
+            return redirect(url_for('vetting_settings'))
+        
+        vetting_service = CandidateVettingService()
+        
+        # Get all active monitors
+        monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+        
+        all_jobs = []
+        for monitor in monitors:
+            try:
+                if monitor.tearsheet_id == 0:
+                    jobs = bullhorn.get_jobs_by_query(monitor.tearsheet_name)
+                else:
+                    jobs = bullhorn.get_tearsheet_jobs(monitor.tearsheet_id)
+                
+                for job in jobs:
+                    # Skip if already has requirements
+                    existing = JobVettingRequirements.query.filter_by(
+                        bullhorn_job_id=int(job.get('id', 0))
+                    ).first()
+                    if existing and existing.ai_interpreted_requirements:
+                        continue
+                    
+                    all_jobs.append({
+                        'id': job.get('id'),
+                        'title': job.get('title', ''),
+                        'description': job.get('publicDescription', '') or job.get('description', '')
+                    })
+            except Exception as e:
+                app.logger.warning(f"Error fetching jobs from {monitor.name}: {str(e)}")
+        
+        if not all_jobs:
+            flash('All jobs already have requirements extracted', 'info')
+            return redirect(url_for('vetting_settings'))
+        
+        # Extract requirements for all jobs
+        results = vetting_service.extract_requirements_for_jobs(all_jobs)
+        
+        flash(f"Extracted requirements for {results.get('extracted', 0)} jobs. "
+              f"Skipped {results.get('skipped', 0)}, Failed {results.get('failed', 0)}", 'success')
+        
+    except Exception as e:
+        app.logger.error(f"Error extracting all requirements: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
 @app.route('/bullhorn/oauth/start')
 @login_required
 def bullhorn_oauth_start():

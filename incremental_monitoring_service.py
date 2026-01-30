@@ -176,6 +176,8 @@ class IncrementalMonitoringService:
             self.logger.info("\n🔄 Step 3: Applying incremental changes...")
             
             # Add new jobs (preserve any existing reference numbers if they somehow exist)
+            jobs_needing_requirements = []  # Collect jobs for batch requirements extraction
+            
             for job_id in jobs_to_add:
                 try:
                     job_data = bullhorn_jobs[job_id]
@@ -185,6 +187,13 @@ class IncrementalMonitoringService:
                         cycle_results['jobs_added'] += 1
                         job_title = job_data.get('title', 'Untitled Position')
                         self.logger.info(f"  ✅ Added job {job_id}: {job_title}")
+                        
+                        # Queue for requirements extraction
+                        jobs_needing_requirements.append({
+                            'id': job_id,
+                            'title': job_title,
+                            'description': job_data.get('publicDescription', '') or job_data.get('description', '')
+                        })
                         
                         # Send email notification for new job
                         if self.email_service and self.alert_email:
@@ -207,6 +216,25 @@ class IncrementalMonitoringService:
                 except Exception as e:
                     self.logger.error(f"  ❌ Failed to add job {job_id}: {str(e)}")
                     cycle_results['errors'].append(f"Add job {job_id}: {str(e)}")
+            
+            # Extract requirements for new jobs (so they're available for review before vetting)
+            if jobs_needing_requirements:
+                try:
+                    from flask import current_app
+                    from app import app as flask_app
+                    from candidate_vetting_service import CandidateVettingService
+                    
+                    # Ensure we have app context for database operations
+                    with flask_app.app_context():
+                        vetting_service = CandidateVettingService()
+                        req_results = vetting_service.extract_requirements_for_jobs(jobs_needing_requirements)
+                        self.logger.info(f"  📋 Extracted requirements for {req_results.get('extracted', 0)} new jobs")
+                        cycle_results['requirements_extracted'] = req_results.get('extracted', 0)
+                except RuntimeError as ctx_error:
+                    # Handle case where app context isn't available
+                    self.logger.warning(f"  ⚠️ App context not available for requirements extraction: {str(ctx_error)}")
+                except Exception as req_error:
+                    self.logger.warning(f"  ⚠️ Failed to extract job requirements: {str(req_error)}")
             
             # Remove jobs no longer in Bullhorn
             for job_id in jobs_to_remove:

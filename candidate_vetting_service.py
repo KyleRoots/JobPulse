@@ -104,6 +104,134 @@ class CandidateVettingService:
             logging.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
             return None
     
+    def extract_job_requirements(self, job_id: int, job_title: str, job_description: str) -> Optional[str]:
+        """
+        Extract mandatory requirements from a job description using AI.
+        Called during monitoring when new jobs are indexed so requirements
+        are available for review BEFORE any candidates are vetted.
+        
+        Args:
+            job_id: Bullhorn job ID
+            job_title: Job title
+            job_description: Full job description text
+            
+        Returns:
+            Extracted requirements string or None if extraction fails
+        """
+        if not self.openai_client:
+            logging.warning("OpenAI client not initialized - cannot extract requirements")
+            return None
+            
+        # Check if requirements already exist
+        existing = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+        if existing and existing.ai_interpreted_requirements:
+            logging.debug(f"Job {job_id} already has requirements extracted")
+            return existing.ai_interpreted_requirements
+        
+        # Clean job description (remove HTML)
+        import re
+        clean_description = re.sub(r'<[^>]+>', '', job_description) if job_description else ''
+        
+        if len(clean_description) < 50:
+            logging.warning(f"Job {job_id} has insufficient description for requirements extraction")
+            return None
+        
+        # Truncate if too long
+        clean_description = clean_description[:6000]
+        
+        prompt = f"""Analyze this job posting and extract ONLY the MANDATORY requirements.
+
+JOB TITLE: {job_title}
+
+JOB DESCRIPTION:
+{clean_description}
+
+Extract and list the TOP 5-7 MANDATORY requirements from this job. Focus on:
+1. Required technical skills (programming languages, tools, technologies)
+2. Required years of experience
+3. Required certifications or licenses
+4. Required education level
+5. Required industry-specific knowledge
+
+DO NOT include:
+- "Nice to have" or "preferred" qualifications
+- Soft skills (communication, teamwork, etc.)
+- Generic requirements that apply to any job
+
+Format as a bullet-point list. Be specific and concise."""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",  # Use cheaper model for requirements extraction
+                messages=[
+                    {"role": "system", "content": "You are a technical recruiter extracting key mandatory requirements from job descriptions. Be concise and specific."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=500
+            )
+            
+            requirements = response.choices[0].message.content.strip()
+            
+            # Save the extracted requirements
+            if requirements:
+                self._save_ai_interpreted_requirements(job_id, job_title, requirements)
+                logging.info(f"✅ Extracted requirements for job {job_id}: {job_title[:50]}")
+                return requirements
+            
+            return None
+            
+        except Exception as e:
+            logging.error(f"Error extracting requirements for job {job_id}: {str(e)}")
+            return None
+    
+    def extract_requirements_for_jobs(self, jobs: list) -> dict:
+        """
+        Batch extract requirements for multiple jobs.
+        Called during monitoring cycle to pre-populate requirements.
+        
+        Args:
+            jobs: List of job dictionaries with id, title, description keys
+            
+        Returns:
+            Summary dict with success/failure counts
+        """
+        results = {
+            'total': len(jobs),
+            'extracted': 0,
+            'skipped': 0,
+            'failed': 0
+        }
+        
+        for job in jobs:
+            job_id = job.get('id')
+            job_title = job.get('title', '')
+            job_description = job.get('description', '') or job.get('publicDescription', '')
+            
+            if not job_id:
+                results['skipped'] += 1
+                continue
+                
+            # Check if already exists
+            existing = JobVettingRequirements.query.filter_by(bullhorn_job_id=int(job_id)).first()
+            if existing and existing.ai_interpreted_requirements:
+                results['skipped'] += 1
+                continue
+            
+            # Extract requirements
+            try:
+                extracted = self.extract_job_requirements(int(job_id), job_title, job_description)
+                if extracted:
+                    results['extracted'] += 1
+                else:
+                    results['failed'] += 1
+            except Exception as e:
+                logging.error(f"Error in batch extraction for job {job_id}: {str(e)}")
+                results['failed'] += 1
+        
+        logging.info(f"📋 Job requirements extraction: {results['extracted']} extracted, {results['skipped']} skipped, {results['failed']} failed")
+        return results
+    
     def _save_ai_interpreted_requirements(self, job_id, job_title: str, requirements: str):
         """Save the AI-interpreted requirements for a job for user review"""
         try:
@@ -708,7 +836,7 @@ IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job descri
 DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
 Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
         
-        prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements. 
+        prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements.
 Provide an objective assessment with a percentage match score (0-100).
 {requirements_instruction}
 
@@ -721,28 +849,52 @@ JOB DETAILS:
 CANDIDATE RESUME:
 {resume_text}
 
+CRITICAL INSTRUCTIONS - READ CAREFULLY:
+1. ONLY reference skills, technologies, and experience that are EXPLICITLY STATED in the resume text above.
+2. DO NOT infer, assume, or hallucinate any skills not directly mentioned in the resume.
+3. If a MANDATORY job requirement skill is NOT mentioned in the resume, you MUST list it in gaps_identified.
+4. For skills_match and experience_match, ONLY quote or paraphrase content that actually exists in the resume.
+5. If the job requires specific technologies (e.g., FPGA, Verilog, AWS, Python) and the resume does NOT mention them, the candidate does NOT qualify.
+6. A candidate whose background is completely different from the job (e.g., DBA applying to FPGA role) should score BELOW 30.
+
 Respond in JSON format with these exact fields:
 {{
     "match_score": <integer 0-100>,
-    "match_summary": "<2-3 sentence summary of overall fit>",
-    "skills_match": "<key skills that align with job requirements>",
-    "experience_match": "<relevant experience that qualifies candidate>",
-    "gaps_identified": "<any MANDATORY requirements the candidate may not meet>",
-    "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements you identified from the job>"
+    "match_summary": "<2-3 sentence summary of overall fit - be honest about mismatches>",
+    "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
+    "experience_match": "<ONLY list experience from the resume that is relevant to the job - be specific>",
+    "gaps_identified": "<List ALL mandatory requirements NOT found in the resume - this is critical>",
+    "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>"
 }}
 
-Be thorough but concise. Focus on MANDATORY requirements only.
-Score above 80 if the candidate meets most mandatory requirements - be reasonable, not overly strict."""
+SCORING GUIDELINES:
+- 85-100: Candidate meets nearly ALL mandatory requirements with explicit evidence in resume
+- 70-84: Candidate meets MOST mandatory requirements but has 1-2 minor gaps
+- 50-69: Candidate meets SOME requirements but is missing key qualifications
+- 30-49: Candidate has tangential experience but significant gaps
+- 0-29: Candidate's background does not align with the role (wrong field/specialty)
+
+BE HONEST. If the resume does not show the required skills, the candidate should NOT score high."""
 
         try:
+            system_message = """You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
+
+CRITICAL RULES:
+1. You MUST only cite skills and experience that are EXPLICITLY written in the candidate's resume.
+2. You MUST NOT infer or hallucinate skills that are not directly stated.
+3. If a job requires FPGA and the resume shows SQL/database experience, they DO NOT match.
+4. If a job requires Python and the resume only mentions Java, that is a GAP.
+5. Be honest - a mismatched candidate should score LOW even if they have impressive but irrelevant skills.
+6. Your assessment will be used for recruiter decisions - accuracy is critical."""
+
             response = self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are an expert technical recruiter analyzing candidate-job fit. Provide objective, data-driven assessments."},
+                    {"role": "system", "content": system_message},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.3,
+                temperature=0.1,  # Lower temperature for more deterministic/accurate responses
                 max_tokens=1000
             )
             
@@ -1074,7 +1226,10 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         Returns:
             Number of notifications sent (1 for success, 0 for failure/no matches)
         """
+        logging.info(f"📧 Notification check for {vetting_log.candidate_name} (ID: {vetting_log.bullhorn_candidate_id})")
+        
         if not vetting_log.is_qualified:
+            logging.info(f"  ⏭️ Skipping - not qualified (is_qualified={vetting_log.is_qualified})")
             return 0
         
         # Get ALL qualified matches for this candidate
@@ -1085,7 +1240,10 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
         ).all()
         
         if not matches:
+            logging.info(f"  ⏭️ Skipping - no unsent qualified matches (all already notified)")
             return 0
+        
+        logging.info(f"  📨 Found {len(matches)} unsent qualified matches")
         
         # Determine primary recruiter (from applied job) and CC list
         primary_recruiter_email = None
