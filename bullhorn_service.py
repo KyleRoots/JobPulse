@@ -142,19 +142,20 @@ class BullhornService:
         Returns:
             bool: True if authentication successful, False otherwise
         """
-        # Force fresh authentication by clearing any cached tokens
-        self.rest_token = None
-        self.base_url = None
+        # Check if we already have a valid session - skip re-authentication
+        if self.rest_token and self.base_url:
+            logging.debug("Already authenticated, reusing existing session")
+            return True
         
         # Prevent concurrent authentication attempts
         if self._auth_in_progress:
             logging.warning("Authentication already in progress, skipping duplicate attempt")
             return False
             
-        # Check if we just tried to authenticate (within last 30 seconds - extended to handle server issues)
+        # Check if we just tried to authenticate (within last 5 seconds - reduced from 30 to allow faster recovery)
         if self._last_auth_attempt:
             time_since_last = datetime.now() - self._last_auth_attempt
-            if time_since_last.total_seconds() < 30:
+            if time_since_last.total_seconds() < 5:
                 logging.warning(f"Recent authentication attempt detected ({time_since_last.total_seconds():.1f}s ago), skipping to prevent overload")
                 return False
         

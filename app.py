@@ -4389,10 +4389,10 @@ def refresh_job_requirements(job_id):
         
         # Authenticate and fetch fresh job data
         bullhorn = BullhornService(
-            credentials.get('username'),
-            credentials.get('password'),
-            credentials.get('client_id'),
-            credentials.get('client_secret')
+            client_id=credentials.get('client_id'),
+            client_secret=credentials.get('client_secret'),
+            username=credentials.get('username'),
+            password=credentials.get('password')
         )
         if not bullhorn.authenticate():
             flash('Failed to authenticate with Bullhorn', 'error')
@@ -6447,12 +6447,12 @@ if is_primary_worker:
     scheduler.add_job(
         func=run_candidate_vetting_cycle,
         trigger='interval',
-        minutes=2,
+        minutes=1,
         id='candidate_vetting_cycle',
         name='AI Candidate Vetting Cycle',
         replace_existing=True
     )
-    app.logger.info("🎯 Scheduled AI candidate vetting cycle (every 2 minutes)")
+    app.logger.info("🎯 Scheduled AI candidate vetting cycle (every 1 minute)")
 
 # Reference Number Refresh (120-hour cycle)
 def reference_number_refresh():
