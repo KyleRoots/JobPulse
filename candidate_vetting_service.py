@@ -385,7 +385,7 @@ Format as a bullet-point list. Be specific and concise."""
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
                 'query': f'status:"Online Applicant" AND dateAdded:[{since_timestamp} TO *]',
-                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description',
                 'count': 50,  # Limit batch size for performance
                 'sort': '-dateAdded',  # Most recent first
                 'BhRestToken': bullhorn.rest_token
@@ -572,7 +572,7 @@ Format as a bullet-point list. Be specific and concise."""
         try:
             url = f"{bullhorn.base_url}entity/Candidate/{candidate_id}"
             params = {
-                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description',
                 'BhRestToken': bullhorn.rest_token
             }
             
@@ -658,8 +658,13 @@ Format as a bullet-point list. Be specific and concise."""
             download_response = bullhorn.session.get(download_url, params=params, timeout=60)
             
             if download_response.status_code == 200:
+                content = download_response.content
+                content_type = download_response.headers.get('Content-Type', 'unknown')
+                content_length = len(content) if content else 0
+                first_bytes = content[:50] if content else b''
                 logging.info(f"Downloaded resume for candidate {candidate_id}: {filename}")
-                return download_response.content, filename
+                logging.info(f"  Content-Type: {content_type}, Size: {content_length} bytes, First bytes: {first_bytes[:30]}")
+                return content, filename
             else:
                 logging.warning(f"Failed to download file {file_id}: {download_response.status_code}")
                 return None, None
@@ -705,6 +710,16 @@ Format as a bullet-point list. Be specific and concise."""
         try:
             import fitz  # PyMuPDF
             
+            # Debug: Check content size and first bytes
+            content_size = len(file_content) if file_content else 0
+            first_bytes = file_content[:50] if file_content and len(file_content) >= 50 else file_content
+            logging.info(f"PDF extraction: size={content_size} bytes, starts with: {first_bytes[:20] if first_bytes else 'empty'}")
+            
+            # Check if content starts with %PDF (valid PDF header)
+            if not file_content or not file_content.startswith(b'%PDF'):
+                logging.error(f"Invalid PDF content - doesn't start with %PDF header. First 100 bytes: {file_content[:100] if file_content else 'empty'}")
+                return None
+            
             doc = fitz.open(stream=file_content, filetype="pdf")
             text_parts = []
             
@@ -712,7 +727,9 @@ Format as a bullet-point list. Be specific and concise."""
                 text_parts.append(page.get_text())
             
             doc.close()
-            return "\n".join(text_parts)
+            extracted_text = "\n".join(text_parts)
+            logging.info(f"PDF extraction successful: {len(extracted_text)} chars extracted")
+            return extracted_text
         except ImportError:
             logging.warning("PyMuPDF not installed - trying pdfminer")
             try:
@@ -723,6 +740,9 @@ Format as a bullet-point list. Be specific and concise."""
                 return None
         except Exception as e:
             logging.error(f"PDF extraction error: {str(e)}")
+            # Additional debug for the specific error
+            if file_content:
+                logging.error(f"PDF content size: {len(file_content)} bytes, first 50 bytes: {file_content[:50]}")
             return None
     
     def _extract_text_from_docx(self, file_content: bytes) -> Optional[str]:
@@ -1069,17 +1089,39 @@ CRITICAL RULES:
                 vetting_log.applied_job_id = job_order.get('id')
                 vetting_log.applied_job_title = job_order.get('title')
             
-            # Get and extract resume
-            file_content, filename = self.get_candidate_resume(candidate_id)
-            if file_content and filename:
-                resume_text = self.extract_resume_text(file_content, filename)
-                if resume_text:
-                    vetting_log.resume_text = resume_text[:50000]  # Limit storage size
-                    logging.info(f"Extracted {len(resume_text)} characters from resume")
+            # Get resume text - PRIORITY: Use candidate's description field (parsed resume)
+            # This is faster and more reliable than downloading/parsing files
+            resume_text = None
+            
+            # First try: Get description field directly from candidate data
+            if candidate and candidate.get('description'):
+                description = candidate.get('description', '').strip()
+                # Clean HTML tags if present
+                import re
+                description = re.sub(r'<[^>]+>', ' ', description)
+                description = re.sub(r'\s+', ' ', description).strip()
+                
+                if len(description) >= 100:  # Minimum viable resume length
+                    resume_text = description
+                    logging.info(f"📄 Using candidate description field: {len(resume_text)} chars")
                 else:
-                    logging.warning(f"Could not extract text from resume: {filename}")
-            else:
-                logging.warning(f"No resume file found for candidate {candidate_id}")
+                    logging.info(f"Description too short ({len(description)} chars), will try file download")
+            
+            # Second try: Fall back to file download if description not available
+            if not resume_text:
+                logging.info("Falling back to resume file download...")
+                file_content, filename = self.get_candidate_resume(candidate_id)
+                if file_content and filename:
+                    resume_text = self.extract_resume_text(file_content, filename)
+                    if resume_text:
+                        logging.info(f"Extracted {len(resume_text)} characters from resume file")
+                    else:
+                        logging.warning(f"Could not extract text from resume: {filename}")
+                else:
+                    logging.warning(f"No resume file found for candidate {candidate_id}")
+            
+            if resume_text:
+                vetting_log.resume_text = resume_text[:50000]  # Limit storage size
             
             # Get all active jobs from tearsheets
             jobs = self.get_active_jobs_from_tearsheets()
