@@ -657,6 +657,68 @@ def seed_recruiter_mappings(db, RecruiterMapping):
         logger.info(f"✅ All {len(recruiter_mappings)} recruiter mappings already up to date")
 
 
+def run_vetting_clean_slate(db):
+    """
+    ONE-TIME clean slate reset for AI vetting system.
+    
+    This function:
+    1. Checks if clean slate has already been run (via flag in VettingConfig)
+    2. If not run yet, clears all vetting history and marks existing emails as vetted
+    3. Sets the flag so it never runs again
+    
+    This allows a fresh start where only NEW applications are vetted.
+    """
+    from models import VettingConfig, CandidateVettingLog, CandidateJobMatch, ParsedEmail
+    
+    # Check if clean slate has already been performed
+    clean_slate_flag = VettingConfig.query.filter_by(setting_key='clean_slate_completed').first()
+    
+    if clean_slate_flag and clean_slate_flag.setting_value == 'true':
+        logger.info("ℹ️ Vetting clean slate already completed - skipping")
+        return
+    
+    logger.info("🧹 Running ONE-TIME vetting clean slate reset...")
+    
+    try:
+        # Step 1: Delete all CandidateJobMatch records (child records first)
+        match_count = CandidateJobMatch.query.delete()
+        logger.info(f"  Deleted {match_count} CandidateJobMatch records")
+        
+        # Step 2: Delete all CandidateVettingLog records
+        log_count = CandidateVettingLog.query.delete()
+        logger.info(f"  Deleted {log_count} CandidateVettingLog records")
+        
+        # Step 3: Mark all existing ParsedEmail records as vetted
+        # This ensures only NEW applications (after this point) get processed
+        from datetime import datetime
+        vetted_count = ParsedEmail.query.filter(
+            ParsedEmail.vetted_at.is_(None),
+            ParsedEmail.bullhorn_candidate_id.isnot(None),
+            ParsedEmail.status == 'completed'
+        ).update({'vetted_at': datetime.utcnow()}, synchronize_session=False)
+        logger.info(f"  Marked {vetted_count} existing ParsedEmail records as vetted")
+        
+        # Step 4: Set the clean slate flag so this never runs again
+        if clean_slate_flag:
+            clean_slate_flag.setting_value = 'true'
+            clean_slate_flag.updated_at = datetime.utcnow()
+        else:
+            new_flag = VettingConfig(
+                setting_key='clean_slate_completed',
+                setting_value='true',
+                description='One-time clean slate reset completed on first deployment'
+            )
+            db.session.add(new_flag)
+        
+        db.session.commit()
+        logger.info("✅ Vetting clean slate completed - only new applications will be vetted going forward")
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Clean slate failed: {str(e)}")
+        raise
+
+
 def seed_database(db, User):
     """
     Main seeding function - idempotent database initialization
@@ -740,6 +802,13 @@ def seed_database(db, User):
             logger.debug("ℹ️ VettingConfig model not found - skipping vetting config seeding")
         except Exception as e:
             logger.warning(f"⚠️ Failed to seed vetting config: {str(e)}")
+        
+        # ONE-TIME CLEAN SLATE: Reset vetting data for fresh start
+        # This runs once and sets a flag to prevent re-running
+        try:
+            run_vetting_clean_slate(db)
+        except Exception as e:
+            logger.warning(f"⚠️ Vetting clean slate check failed: {str(e)}")
         
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
