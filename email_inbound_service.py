@@ -645,12 +645,15 @@ Consider: name spelling variations, nicknames, contact info matches.
             if resume_file:
                 parsed_email.resume_filename = resume_file['filename']
                 
-                # Extract and parse resume text
-                resume_text = self._extract_resume_text(resume_file)
+                # Extract and parse resume text (returns both raw_text and formatted_html)
+                resume_text, formatted_html = self._extract_resume_text(resume_file)
                 if resume_text:
                     resume_data = self.parse_resume_with_ai(resume_text)
-                    # Store raw text for the Resume pane (description field)
+                    # Store raw text and formatted HTML for the Resume pane (description field)
+                    # The formatted_html contains proper HTML structure (headings, paragraphs, lists)
+                    # which displays nicely in Bullhorn's Resume pane
                     resume_data['raw_text'] = resume_text
+                    resume_data['formatted_html'] = formatted_html
                     
                     # Enhanced logging for debugging AI extraction
                     self.logger.info(f"📊 AI Resume Extraction Results:")
@@ -667,6 +670,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                             self.logger.info(f"    - {edu.get('degree')} from {edu.get('institution')} ({edu.get('year')})")
                     self.logger.info(f"  - Work History Count: {len(resume_data.get('work_history', []))}")
                     self.logger.info(f"  - Raw Resume Text Length: {len(resume_data.get('raw_text', ''))} chars")
+                    self.logger.info(f"  - Formatted HTML Length: {len(resume_data.get('formatted_html', ''))} chars")
             
             db.session.commit()
             
@@ -1027,11 +1031,15 @@ Consider: name spelling variations, nicknames, contact info matches.
         
         return best_resume
     
-    def _extract_resume_text(self, attachment: Dict) -> str:
+    def _extract_resume_text(self, attachment: Dict) -> tuple:
         """
         Extract text content from resume file
         
         Uses existing resume_parser.py functionality
+        
+        Returns:
+            tuple: (raw_text, formatted_html) - formatted_html contains proper HTML structure
+                   for display in Bullhorn's Resume pane
         """
         from resume_parser import ResumeParser
         
@@ -1049,12 +1057,15 @@ Consider: name spelling variations, nicknames, contact info matches.
                 result = parser.parse_resume(temp_path)
                 
                 if result.get('success'):
-                    return result.get('raw_text', '')
-                return ''
+                    raw_text = result.get('raw_text', '')
+                    formatted_html = result.get('formatted_html', '')
+                    self.logger.info(f"📄 Resume parsed: {len(raw_text)} chars raw, {len(formatted_html)} chars HTML")
+                    return raw_text, formatted_html
+                return '', ''
             finally:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
                     
         except Exception as e:
             self.logger.error(f"Error extracting resume text: {e}")
-            return ''
+            return '', ''
