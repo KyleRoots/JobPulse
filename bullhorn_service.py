@@ -505,7 +505,7 @@ class BullhornService:
             # First get the entity API count for validation
             entity_url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
             entity_params = {
-                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription,address(city,state,countryName),employmentType,onSite,assignedUsers(firstName,lastName),responseUser(firstName,lastName),owner(firstName,lastName))',
+                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),publicDescription,address(city,state,countryName),employmentType,onSite,assignedUsers(id,firstName,lastName,email),responseUser(firstName,lastName),owner(firstName,lastName))',
                 'BhRestToken': self.rest_token
             }
             
@@ -730,7 +730,7 @@ class BullhornService:
             # Use the entity endpoint to get a specific job
             url = f"{self.base_url}entity/JobOrder/{job_id}"
             params = {
-                'fields': 'id,title,publicDescription,employmentType,onSite,address(city,state,countryName),assignedUsers(firstName,lastName),responseUser(firstName,lastName),owner(firstName,lastName),dateLastModified,customText1,customText2,customText3',
+                'fields': 'id,title,publicDescription,employmentType,onSite,address(city,state,countryName),assignedUsers(id,firstName,lastName,email),responseUser(firstName,lastName),owner(firstName,lastName),dateLastModified,customText1,customText2,customText3',
                 'BhRestToken': self.rest_token
             }
             

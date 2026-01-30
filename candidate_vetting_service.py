@@ -1059,16 +1059,30 @@ CRITICAL RULES:
                 logging.info(f"📄 Analyzing match - Resume: {len(vetting_log.resume_text)} chars, First 200: {vetting_log.resume_text[:200]}")
                 analysis = self.analyze_candidate_job_match(vetting_log.resume_text, job)
                 
-                # Get recruiter info from job
+                # Get recruiter info from job's assignedUsers (assignments field in Bullhorn)
                 recruiter_name = ''
                 recruiter_email = ''
                 recruiter_id = None
                 
-                owner = job.get('owner', {})
-                if isinstance(owner, dict):
-                    recruiter_name = f"{owner.get('firstName', '')} {owner.get('lastName', '')}".strip()
-                    recruiter_email = owner.get('email', '')
-                    recruiter_id = owner.get('id')
+                assigned_users = job.get('assignedUsers', {})
+                # Handle both dict with 'data' key and direct list formats
+                if isinstance(assigned_users, dict):
+                    assigned_users_list = assigned_users.get('data', [])
+                elif isinstance(assigned_users, list):
+                    assigned_users_list = assigned_users
+                else:
+                    assigned_users_list = []
+                
+                # Use first assigned user as primary recruiter
+                if assigned_users_list and len(assigned_users_list) > 0:
+                    first_user = assigned_users_list[0]
+                    if isinstance(first_user, dict):
+                        recruiter_name = f"{first_user.get('firstName', '')} {first_user.get('lastName', '')}".strip()
+                        recruiter_email = first_user.get('email', '')
+                        recruiter_id = first_user.get('id')
+                        logging.info(f"  📧 Job {job_id} assigned to: {recruiter_name} ({recruiter_email})")
+                else:
+                    logging.warning(f"  ⚠️ Job {job_id} has no assigned users")
                 
                 # Determine if this is the job they applied to
                 is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
@@ -1278,9 +1292,39 @@ CRITICAL RULES:
                     # Different from primary - add to CC list
                     cc_recruiter_emails.append(match.recruiter_email)
         
-        if not primary_recruiter_email:
-            logging.warning(f"No recruiter emails found for candidate {vetting_log.candidate_name}")
-            return 0
+        # Check email notification kill switch setting
+        from models import VettingConfig
+        send_to_recruiters = False
+        admin_email = ''
+        
+        send_setting = VettingConfig.query.filter_by(setting_key='send_recruiter_emails').first()
+        if send_setting:
+            send_to_recruiters = send_setting.setting_value.lower() == 'true'
+        
+        admin_setting = VettingConfig.query.filter_by(setting_key='admin_notification_email').first()
+        if admin_setting and admin_setting.setting_value:
+            admin_email = admin_setting.setting_value
+        
+        # If kill switch is OFF, send only to admin email
+        if not send_to_recruiters:
+            if not admin_email:
+                logging.warning(f"❌ Recruiter emails disabled but no admin email configured - cannot send notification for {vetting_log.candidate_name}")
+                return 0
+            
+            logging.info(f"  🔒 Recruiter emails DISABLED - sending to admin only: {admin_email}")
+            primary_recruiter_email = admin_email
+            primary_recruiter_name = 'Admin'
+            cc_recruiter_emails = []  # No CC when in testing mode
+        elif not primary_recruiter_email:
+            # Kill switch is ON but no recruiter emails found - try to fall back to admin
+            if admin_email:
+                logging.warning(f"⚠️ No recruiter emails found for candidate {vetting_log.candidate_name} - falling back to admin email: {admin_email}")
+                primary_recruiter_email = admin_email
+                primary_recruiter_name = 'Admin'
+                cc_recruiter_emails = []
+            else:
+                logging.warning(f"❌ No recruiter emails found and no admin email configured - cannot send notification for {vetting_log.candidate_name}")
+                return 0
         
         # Send ONE email with primary as To: and others as CC:
         try:

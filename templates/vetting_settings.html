@@ -258,6 +258,23 @@
                             </div>
                             
                             <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">Send Recruiter Emails</h6>
+                                        <small class="text-muted">
+                                            <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i></span>
+                                            ON: Recruiters receive notifications | OFF: Admin email only (testing mode)
+                                        </small>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" name="send_recruiter_emails" 
+                                               {% if settings.send_recruiter_emails %}checked{% endif %}>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
                                 <label class="form-label">Match Threshold (%)</label>
                                 <div class="input-group">
                                     <input type="number" class="form-control" name="match_threshold" 

@@ -3767,6 +3767,7 @@ def vetting_settings():
     # Get settings
     settings = {
         'vetting_enabled': False,
+        'send_recruiter_emails': False,  # Email notification kill switch - OFF = admin only
         'match_threshold': 80,
         'batch_size': 25,
         'admin_notification_email': ''
@@ -3775,7 +3776,7 @@ def vetting_settings():
     for key in settings.keys():
         config = VettingConfig.query.filter_by(setting_key=key).first()
         if config:
-            if key == 'vetting_enabled':
+            if key in ('vetting_enabled', 'send_recruiter_emails'):
                 settings[key] = config.setting_value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size'):
                 try:
@@ -3820,6 +3821,7 @@ def save_vetting_settings():
     try:
         # Get form values
         vetting_enabled = 'vetting_enabled' in request.form
+        send_recruiter_emails = 'send_recruiter_emails' in request.form
         match_threshold = request.form.get('match_threshold', '80')
         batch_size = request.form.get('batch_size', '25')
         admin_email = request.form.get('admin_notification_email', '')
@@ -3843,6 +3845,7 @@ def save_vetting_settings():
         # Update settings
         settings_to_save = [
             ('vetting_enabled', 'true' if vetting_enabled else 'false'),
+            ('send_recruiter_emails', 'true' if send_recruiter_emails else 'false'),
             ('match_threshold', str(threshold)),
             ('batch_size', str(batch)),
             ('admin_notification_email', admin_email)
