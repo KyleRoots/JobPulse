@@ -753,11 +753,15 @@ Score above 80 if the candidate meets most mandatory requirements - be reasonabl
             
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
-            logging.info(f"📋 AI returned key_requirements for job {job_id}: has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}")
-            if key_requirements and not custom_requirements:
+            logging.info(f"📋 AI response for job {job_id}: has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}")
+            
+            if not key_requirements:
+                logging.warning(f"⚠️ AI did not return key_requirements for job {job_id} - requirements will not be saved")
+            elif custom_requirements:
+                logging.info(f"📝 Job {job_id} has custom requirements - skipping AI interpretation save (expected behavior)")
+            else:
+                # Save the AI-interpreted requirements
                 self._save_ai_interpreted_requirements(job_id, job_title, key_requirements)
-            elif not key_requirements:
-                logging.warning(f"⚠️ AI did not return key_requirements for job {job_id}")
             
             return result
             
