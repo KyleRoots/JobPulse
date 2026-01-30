@@ -1,14 +1,24 @@
 """
 Resume Parsing Service
 Resume text extraction with HTML formatting preservation for Bullhorn description field
+Uses GPT-4o for intelligent PDF formatting when regex-based detection fails
 """
 import logging
 import re
 import tempfile
 import os
 import html
+import json
 from typing import Dict, Optional, Union
 from werkzeug.datastructures import FileStorage
+
+# OpenAI for AI-assisted formatting
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    logging.warning("OpenAI not available - AI-assisted PDF formatting disabled")
 
 try:
     import PyPDF2
@@ -48,6 +58,90 @@ class ResumeParser:
             'phone': r'(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})',
             'name': r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
         }
+        self.openai_client = None
+        self._init_openai()
+    
+    def _init_openai(self):
+        """Initialize OpenAI client for AI-assisted formatting"""
+        if not OPENAI_AVAILABLE:
+            return
+        
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if api_key:
+            self.openai_client = OpenAI(api_key=api_key)
+            logger.info("OpenAI client initialized for AI resume formatting")
+        else:
+            logger.warning("OPENAI_API_KEY not set - AI-assisted PDF formatting disabled")
+    
+    def _format_pdf_with_ai(self, raw_text: str) -> Optional[str]:
+        """
+        Use GPT-4o to intelligently format raw PDF text into clean HTML.
+        
+        This handles the structural ambiguity of PDFs where text extraction
+        loses all formatting information (headings, bullets, paragraphs).
+        
+        Args:
+            raw_text: Raw extracted text from PDF
+            
+        Returns:
+            Clean HTML-formatted version or None if AI unavailable
+        """
+        if not self.openai_client:
+            logger.info("OpenAI not available, falling back to regex-based formatting")
+            return None
+        
+        if not raw_text or len(raw_text.strip()) < 50:
+            return None
+        
+        max_text_len = 8000
+        truncated_text = raw_text[:max_text_len] if len(raw_text) > max_text_len else raw_text
+        
+        prompt = f"""Convert this raw resume text into clean, well-structured HTML for display in a web interface.
+
+IMPORTANT RULES:
+1. Preserve ALL information from the original text - don't summarize or omit details
+2. Identify and wrap section headings (like "Experience", "Education", "Skills") in <h4><strong>...</strong></h4> tags
+3. Convert bullet points (including symbols like •, ▢, -, *) into proper <ul><li>...</li></ul> lists
+4. Wrap job entries with company names and dates in <p><strong>...</strong></p>
+5. Group related text into proper <p>...</p> paragraphs
+6. Add spacing between sections for readability
+7. Handle contact info at the top cleanly (name, email, phone, location, links)
+8. Don't add any content that isn't in the original - only format what's there
+9. Use semantic HTML only - no inline styles or classes
+
+RAW RESUME TEXT:
+{truncated_text}
+
+OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdown code blocks."""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a resume formatting expert. Your job is to convert raw, unstructured resume text into clean, readable HTML while preserving all original content exactly."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=4000,
+                timeout=30.0
+            )
+            
+            formatted_html = response.choices[0].message.content.strip()
+            
+            if formatted_html.startswith('```html'):
+                formatted_html = formatted_html[7:]
+            if formatted_html.startswith('```'):
+                formatted_html = formatted_html[3:]
+            if formatted_html.endswith('```'):
+                formatted_html = formatted_html[:-3]
+            formatted_html = formatted_html.strip()
+            
+            logger.info(f"AI-formatted PDF resume ({len(raw_text)} chars -> {len(formatted_html)} chars HTML)")
+            return formatted_html
+            
+        except Exception as e:
+            logger.error(f"AI formatting failed: {str(e)}")
+            return None
     
     def parse_resume(self, file: Union[FileStorage, str]) -> Dict[str, any]:
         """
@@ -219,7 +313,11 @@ class ResumeParser:
             return escaped_text
     
     def _extract_pdf_with_formatting(self, file_path: str) -> tuple:
-        """Extract text from PDF with best-effort HTML formatting"""
+        """Extract text from PDF with AI-assisted HTML formatting
+        
+        Uses GPT-4o to intelligently format the raw PDF text into clean HTML,
+        falling back to regex-based heuristics if AI is unavailable.
+        """
         if not PDF_AVAILABLE:
             logger.warning("PDF parsing not available")
             return "", ""
@@ -238,6 +336,13 @@ class ResumeParser:
                 return "", ""
             
             raw_text = '\n'.join(raw_lines)
+            
+            ai_formatted = self._format_pdf_with_ai(raw_text)
+            if ai_formatted:
+                logger.info("Using AI-formatted HTML for PDF resume")
+                return raw_text, ai_formatted
+            
+            logger.info("Falling back to regex-based PDF formatting")
             formatted_html = self._convert_pdf_lines_to_html(raw_lines)
             
             return raw_text, formatted_html

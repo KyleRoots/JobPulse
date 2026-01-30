@@ -51,8 +51,8 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 - **Job Application Form**: Public-facing form with resume parsing (Word/PDF), auto-population of candidate fields, Bullhorn job ID integration, and unique branding.
 - **Resume HTML Formatting**: Resume parser outputs HTML-formatted content for cleaner display in Bullhorn's "Parsed" view:
   - DOCX: Preserves headings, paragraphs, bullet points, bold/italic formatting
-  - PDF: Best-effort formatting with line break preservation, heading detection (ALL CAPS, section keywords), and bullet point recognition
-  - Fallback chain: formatted_html → raw_text → summary
+  - PDF (AI-Assisted): Uses GPT-4o to intelligently format raw PDF text into clean HTML with proper section headings, bullet lists, and paragraph structure. Handles Unicode bullet characters (▢, •, etc.) and detects job entries with dates. Falls back to regex-based formatting if AI unavailable.
+  - Fallback chain: AI formatting → regex formatting → raw_text
 - **Keyword-Based Job Classification**: Lightning-fast (<1 second) job categorization using comprehensive keyword dictionaries for LinkedIn's official taxonomy (28 job functions, 20 industries, 5 seniority levels). Weighted scoring system prioritizes title matches (3x) over description. Guaranteed defaults ensure all taxonomy fields are always populated. Eliminates AI timeout risks and API costs.
 - **Intelligent File Management**: Automated consolidation, duplicate detection, and temporary file cleanup.
 - **Health Endpoints**: Optimized `/health`, `/ready`, `/alive`, `/ping` endpoints.
