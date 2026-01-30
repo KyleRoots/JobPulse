@@ -3812,10 +3812,21 @@ def vetting_settings():
         is_qualified=False
     ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
     
-    # Get job requirements for editing
-    job_requirements = JobVettingRequirements.query.order_by(
-        JobVettingRequirements.updated_at.desc()
-    ).limit(50).all()
+    # Get job requirements - filtered to only show active tearsheet jobs
+    from candidate_vetting_service import CandidateVettingService
+    vetting_svc = CandidateVettingService()
+    active_job_ids = vetting_svc.get_active_job_ids()
+    
+    if active_job_ids:
+        # Only show requirements for jobs currently in active tearsheets
+        job_requirements = JobVettingRequirements.query.filter(
+            JobVettingRequirements.bullhorn_job_id.in_(active_job_ids)
+        ).order_by(JobVettingRequirements.updated_at.desc()).all()
+    else:
+        # Fallback: show all if we can't fetch tearsheet jobs (auth issues, etc.)
+        job_requirements = JobVettingRequirements.query.order_by(
+            JobVettingRequirements.updated_at.desc()
+        ).limit(50).all()
     
     return render_template('vetting_settings.html', 
                           settings=settings, 
@@ -4482,6 +4493,30 @@ def refresh_job_requirements(job_id):
     return redirect(url_for('vetting_settings'))
 
 
+@app.route('/vetting/sync-requirements', methods=['POST'])
+@login_required
+def sync_job_requirements():
+    """Sync AI requirements with active tearsheet jobs - removes orphaned entries"""
+    try:
+        from candidate_vetting_service import CandidateVettingService
+        
+        vetting_service = CandidateVettingService()
+        results = vetting_service.sync_requirements_with_active_jobs()
+        
+        if results.get('error'):
+            flash(f"Sync aborted: {results['error']}", 'warning')
+        elif results['removed'] > 0:
+            flash(f"Synced: removed {results['removed']} orphaned requirements (not in active tearsheets). {results['active_jobs']} active jobs remain.", 'success')
+        else:
+            flash(f"Already in sync! {results['active_jobs']} active jobs in tearsheets.", 'info')
+            
+    except Exception as e:
+        app.logger.error(f"Error syncing requirements: {str(e)}")
+        flash(f'Error syncing requirements: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
 @app.route('/vetting/extract-all-requirements', methods=['POST'])
 @login_required
 def extract_all_job_requirements():
@@ -4490,6 +4525,10 @@ def extract_all_job_requirements():
         from candidate_vetting_service import CandidateVettingService
         from bullhorn_service import BullhornService
         from models import BullhornMonitor, JobVettingRequirements
+        
+        # First, sync to remove orphaned requirements
+        vetting_service = CandidateVettingService()
+        vetting_service.sync_requirements_with_active_jobs()
         
         # Get Bullhorn credentials
         credentials = {}

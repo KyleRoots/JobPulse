@@ -447,7 +447,12 @@
                             The AI extracts and interprets mandatory requirements from each job. If the interpretation is inaccurate, 
                             you can override it with custom requirements that the AI will use for matching instead.
                         </p>
-                        <form action="{{ url_for('extract_all_job_requirements') }}" method="POST" class="ms-3">
+                        <form action="{{ url_for('sync_job_requirements') }}" method="POST" class="ms-3">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Syncing...'; this.form.submit();" title="Remove requirements for jobs no longer in active tearsheets">
+                                <i class="fas fa-sync me-1"></i>Sync with Tearsheets
+                            </button>
+                        </form>
+                        <form action="{{ url_for('extract_all_job_requirements') }}" method="POST" class="ms-2">
                             <button type="submit" class="btn btn-primary btn-sm" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Extracting...'; this.form.submit();">
                                 <i class="fas fa-magic me-1"></i>Extract All Requirements
                             </button>

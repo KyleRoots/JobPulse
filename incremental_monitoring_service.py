@@ -512,7 +512,7 @@ This alert was triggered by the zero-job detection safeguard.
             return False
     
     def _log_auto_removal_activity(self) -> int:
-        """Log all auto-removed jobs to the activity dashboard
+        """Log all auto-removed jobs to the activity dashboard and cleanup AI requirements
         
         Returns:
             int: Number of jobs that were logged (for cycle reporting)
@@ -524,8 +524,11 @@ This alert was triggered by the zero-job detection safeguard.
         
         try:
             from app import app, db, BullhornActivity
+            from models import JobVettingRequirements
             
             with app.app_context():
+                removed_job_ids = []
+                
                 for removal in self.auto_removed_jobs:
                     try:
                         activity = BullhornActivity(
@@ -542,8 +545,25 @@ This alert was triggered by the zero-job detection safeguard.
                             notification_sent=False
                         )
                         db.session.add(activity)
+                        removed_job_ids.append(int(removal['job_id']))
                     except Exception as e:
                         self.logger.error(f"Failed to log activity for job {removal['job_id']}: {e}")
+                
+                # Also remove AI requirements for these jobs to keep in sync
+                # Filter to valid integer job IDs only to prevent exceptions
+                valid_job_ids = []
+                for jid in removed_job_ids:
+                    try:
+                        valid_job_ids.append(int(jid))
+                    except (ValueError, TypeError):
+                        self.logger.warning(f"Skipping invalid job_id during cleanup: {jid}")
+                        
+                if valid_job_ids:
+                    removed_reqs = JobVettingRequirements.query.filter(
+                        JobVettingRequirements.bullhorn_job_id.in_(valid_job_ids)
+                    ).delete(synchronize_session=False)
+                    if removed_reqs > 0:
+                        self.logger.info(f"🧹 Cleaned up {removed_reqs} AI requirements for removed jobs")
                 
                 db.session.commit()
                 self.logger.info(f"✅ Logged {count} auto-removal activities")

@@ -185,6 +185,71 @@ Format as a bullet-point list. Be specific and concise."""
             logging.error(f"Error extracting requirements for job {job_id}: {str(e)}")
             return None
     
+    def sync_requirements_with_active_jobs(self) -> dict:
+        """
+        Sync AI requirements with active tearsheet jobs.
+        Removes requirements for jobs no longer in active tearsheets.
+        
+        SAFETY: Will NOT delete if active jobs cannot be fetched (prevents data loss on API failure)
+        
+        Returns:
+            Summary dict with cleanup counts and status
+        """
+        results = {
+            'active_jobs': 0,
+            'requirements_before': 0,
+            'removed': 0,
+            'success': False,
+            'error': None
+        }
+        
+        try:
+            # Get all requirements first
+            all_requirements = JobVettingRequirements.query.all()
+            results['requirements_before'] = len(all_requirements)
+            
+            # Get active job IDs from tearsheets
+            active_jobs = self.get_active_jobs_from_tearsheets()
+            active_job_ids = set(int(job.get('id')) for job in active_jobs if job.get('id'))
+            results['active_jobs'] = len(active_job_ids)
+            
+            # SAFETY CHECK: If no active jobs were fetched but we have requirements,
+            # this likely means an API failure - do NOT delete anything
+            if len(active_job_ids) == 0 and results['requirements_before'] > 0:
+                results['error'] = 'Could not fetch active jobs from tearsheets (API issue?) - sync aborted to prevent data loss'
+                logging.warning(f"⚠️ Sync aborted: {results['error']}")
+                return results
+            
+            # Find and remove orphaned requirements
+            for req in all_requirements:
+                if req.bullhorn_job_id not in active_job_ids:
+                    db.session.delete(req)
+                    results['removed'] += 1
+            
+            if results['removed'] > 0:
+                db.session.commit()
+                logging.info(f"🧹 Synced AI requirements: removed {results['removed']} orphaned entries (not in active tearsheets)")
+            else:
+                logging.info(f"✅ AI requirements in sync with {results['active_jobs']} active tearsheet jobs")
+            
+            results['success'] = True
+                
+        except Exception as e:
+            db.session.rollback()
+            results['error'] = str(e)
+            logging.error(f"Error syncing AI requirements: {str(e)}")
+            
+        return results
+    
+    def get_active_job_ids(self) -> set:
+        """Get set of active job IDs from tearsheets (for filtering)"""
+        try:
+            active_jobs = self.get_active_jobs_from_tearsheets()
+            return set(int(job.get('id')) for job in active_jobs if job.get('id'))
+        except Exception as e:
+            logging.error(f"Error getting active job IDs: {str(e)}")
+            return set()
+    
     def extract_requirements_for_jobs(self, jobs: list) -> dict:
         """
         Batch extract requirements for multiple jobs.
