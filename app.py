@@ -4577,13 +4577,24 @@ def extract_all_job_requirements():
                     job_country = job_address.get('countryName', '') or job_address.get('country', '')
                     job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
                     
-                    # Get work type
+                    # Get work type - handle both numeric and string values from Bullhorn
                     on_site_value = job.get('onSite', 1)
-                    # Handle case where onSite could be a list
+                    # Handle list format
                     if isinstance(on_site_value, list):
                         on_site_value = on_site_value[0] if on_site_value else 1
-                    work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
-                    job_work_type = work_type_map.get(on_site_value, 'On-site')
+                    # Handle numeric values
+                    if isinstance(on_site_value, (int, float)):
+                        work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+                        job_work_type = work_type_map.get(int(on_site_value), 'On-site')
+                    else:
+                        # Handle string values like 'Remote', 'Hybrid', 'On-Site'
+                        onsite_str = str(on_site_value).lower().strip() if on_site_value else ''
+                        if 'remote' in onsite_str or onsite_str == 'offsite':
+                            job_work_type = 'Remote'
+                        elif 'hybrid' in onsite_str:
+                            job_work_type = 'Hybrid'
+                        else:
+                            job_work_type = 'On-site'
                     
                     # Check if already has requirements
                     existing = JobVettingRequirements.query.filter_by(
@@ -4591,10 +4602,15 @@ def extract_all_job_requirements():
                     ).first()
                     
                     if existing and existing.ai_interpreted_requirements:
-                        # Update location/work_type for existing records if missing
-                        if not existing.job_location or not existing.job_work_type:
+                        # Update location/work_type for existing records if missing or different
+                        needs_update = False
+                        if not existing.job_location or existing.job_location != job_location:
                             existing.job_location = job_location
+                            needs_update = True
+                        if not existing.job_work_type or existing.job_work_type != job_work_type:
                             existing.job_work_type = job_work_type
+                            needs_update = True
+                        if needs_update:
                             db.session.commit()
                             location_updates += 1
                         continue

@@ -24,6 +24,34 @@ from bullhorn_service import BullhornService
 from email_service import EmailService
 
 
+def map_work_type(onsite_value) -> str:
+    """
+    Map Bullhorn onSite value to work type string.
+    Handles both numeric (1, 2, 3) and string ('Remote', 'On-Site', 'Hybrid') values.
+    """
+    # Handle list format
+    if isinstance(onsite_value, list):
+        onsite_value = onsite_value[0] if onsite_value else 1
+    
+    # Handle numeric values
+    if isinstance(onsite_value, (int, float)):
+        work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+        return work_type_map.get(int(onsite_value), 'On-site')
+    
+    # Handle string values
+    if onsite_value:
+        onsite_str = str(onsite_value).lower().strip()
+        if 'remote' in onsite_str or onsite_str == 'offsite':
+            return 'Remote'
+        elif 'hybrid' in onsite_str:
+            return 'Hybrid'
+        elif 'on-site' in onsite_str or 'onsite' in onsite_str or onsite_str == 'on site':
+            return 'On-site'
+    
+    # Default to On-site
+    return 'On-site'
+
+
 class CandidateVettingService:
     """
     AI-powered candidate vetting system that:
@@ -311,12 +339,7 @@ Format as a bullet-point list. Be specific and concise."""
                         job_country = job_address.get('countryName', '') or job_address.get('country', '')
                         job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
                         
-                        on_site_value = job.get('onSite', 1)
-                        # Handle case where onSite could be a list
-                        if isinstance(on_site_value, list):
-                            on_site_value = on_site_value[0] if on_site_value else 1
-                        work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
-                        job_work_type = work_type_map.get(on_site_value, 'On-site')
+                        job_work_type = map_work_type(job.get('onSite', 1))
                         
                         logging.info(f"📝 Job {job_id} modified (Bullhorn: {job_modified_at}, Last AI: {existing.last_ai_interpretation}) - refreshing...")
                         
@@ -406,13 +429,7 @@ Format as a bullet-point list. Be specific and concise."""
             if 'work_type' in job:
                 job_work_type = job.get('work_type', 'On-site')
             else:
-                # Get work type: 1=onsite, 2=hybrid, 3=remote
-                on_site_value = job.get('onSite', 1)
-                # Handle case where onSite could be a list
-                if isinstance(on_site_value, list):
-                    on_site_value = on_site_value[0] if on_site_value else 1
-                work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
-                job_work_type = work_type_map.get(on_site_value, 'On-site')
+                job_work_type = map_work_type(job.get('onSite', 1))
             
             if not job_id:
                 results['skipped'] += 1
@@ -1157,13 +1174,8 @@ Format as a bullet-point list. Be specific and concise."""
         job_country = normalize_country(job_country_raw)
         job_location_full = ', '.join(filter(None, [job_city, job_state, job_country]))
         
-        # Get work type: 1=onsite, 2=hybrid, 3=remote (Bullhorn's onSite field)
-        on_site_value = job.get('onSite', 1)  # Default to onsite if not specified
-        # Handle case where onSite could be a list
-        if isinstance(on_site_value, list):
-            on_site_value = on_site_value[0] if on_site_value else 1
-        work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
-        work_type = work_type_map.get(on_site_value, 'On-site')
+        # Get work type using helper that handles both numeric and string values
+        work_type = map_work_type(job.get('onSite', 1))
         
         # Extract candidate location with normalized country
         candidate_city = ''
