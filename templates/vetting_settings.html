@@ -262,7 +262,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <form action="{{ url_for('save_vetting_settings') }}" method="POST">
+                        <form action="{{ url_for('save_vetting_settings') }}" method="POST" id="settingsForm" onsubmit="showSavingIndicator()">
                             <div class="mb-4">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
@@ -322,8 +322,12 @@
                                 <small class="text-muted">Leave blank to only notify assigned recruiters</small>
                             </div>
                             
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-save me-2"></i>Save Settings
+                            <button type="submit" class="btn btn-primary w-100" id="saveBtn">
+                                <span id="saveBtnText"><i class="fas fa-save me-2"></i>Save Settings</span>
+                                <span id="saveBtnLoading" style="display: none;">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    Saving...
+                                </span>
                             </button>
                         </form>
                         
@@ -970,6 +974,17 @@
             });
             
         });
+        
+        // Show loading indicator when saving settings
+        function showSavingIndicator() {
+            var saveBtn = document.getElementById('saveBtn');
+            var saveBtnText = document.getElementById('saveBtnText');
+            var saveBtnLoading = document.getElementById('saveBtnLoading');
+            
+            saveBtn.disabled = true;
+            saveBtnText.style.display = 'none';
+            saveBtnLoading.style.display = 'inline';
+        }
     </script>
 </body>
 </html>
