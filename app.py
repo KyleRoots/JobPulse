@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import json
 import re
 import requests
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context, session
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context, session, abort
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_sqlalchemy import SQLAlchemy
@@ -5060,6 +5060,11 @@ job_app_service = JobApplicationService()
 def job_application_form(job_id, job_title):
     """Display job application form with client-specific branding"""
     try:
+        # Validate job_id looks like a Bullhorn job ID (numeric)
+        # This prevents catching routes like /vetting/settings/
+        if not job_id.isdigit():
+            abort(404)
+        
         # Get source from query parameters
         source = request.args.get('source', '')
         
