@@ -656,3 +656,37 @@ class VettingConfig(db.Model):
             db.session.add(config)
         db.session.commit()
         return config
+
+
+class VettingHealthCheck(db.Model):
+    """Health check results for the vetting system"""
+    id = db.Column(db.Integer, primary_key=True)
+    check_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Component status (True = healthy, False = error)
+    bullhorn_status = db.Column(db.Boolean, default=True)
+    openai_status = db.Column(db.Boolean, default=True)
+    database_status = db.Column(db.Boolean, default=True)
+    scheduler_status = db.Column(db.Boolean, default=True)
+    
+    # Error details (null if healthy)
+    bullhorn_error = db.Column(db.Text, nullable=True)
+    openai_error = db.Column(db.Text, nullable=True)
+    database_error = db.Column(db.Text, nullable=True)
+    scheduler_error = db.Column(db.Text, nullable=True)
+    
+    # Overall status
+    is_healthy = db.Column(db.Boolean, default=True)
+    
+    # Stats
+    candidates_processed_today = db.Column(db.Integer, default=0)
+    candidates_pending = db.Column(db.Integer, default=0)
+    emails_sent_today = db.Column(db.Integer, default=0)
+    last_successful_cycle = db.Column(db.DateTime, nullable=True)
+    
+    # Alert tracking
+    alert_sent = db.Column(db.Boolean, default=False)
+    alert_sent_at = db.Column(db.DateTime, nullable=True)
+    
+    def __repr__(self):
+        return f'<VettingHealthCheck {self.check_time} healthy={self.is_healthy}>'

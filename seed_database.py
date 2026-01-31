@@ -464,7 +464,9 @@ def seed_vetting_config(db, VettingConfig):
             'vetting_enabled': 'true' if is_production_environment() else 'false',
             'match_threshold': '80',
             'batch_size': '25',  # Default batch size per 5-minute cycle
-            'admin_notification_email': 'kroots@myticas.com'
+            'admin_notification_email': 'kroots@myticas.com',
+            'health_alert_email': 'kroots@myticas.com',  # Email for system health alerts
+            'send_recruiter_emails': 'false'  # Kill switch for recruiter notifications
         }
         
         settings_created = []
