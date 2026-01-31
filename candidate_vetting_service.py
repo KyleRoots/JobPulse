@@ -1744,6 +1744,8 @@ CRITICAL RULES:
         """
         # SAFETY CHECK: Re-verify vetting is still enabled before sending emails
         # This prevents emails if vetting was disabled mid-cycle
+        # Force fresh database read to bypass SQLAlchemy session cache
+        db.session.expire_all()
         if not self.is_enabled():
             logging.info(f"📧 Notification blocked - vetting disabled mid-cycle for {vetting_log.candidate_name}")
             return 0
@@ -2008,6 +2010,11 @@ CRITICAL RULES:
         Returns:
             Summary dictionary with counts
         """
+        # CRITICAL: Force fresh database read to prevent SQLAlchemy session cache
+        # from returning stale vetting_enabled value. This ensures toggles take
+        # effect immediately across all environments (dev/production).
+        db.session.expire_all()
+        
         if not self.is_enabled():
             logging.info("Candidate vetting is disabled")
             return {'status': 'disabled'}
