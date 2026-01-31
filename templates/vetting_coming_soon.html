@@ -1,83 +1,148 @@
-{% extends "base.html" %}
-
-{% block title %}AI Candidate Vetting - Coming Soon{% endblock %}
-
-{% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-8 text-center">
-            <div class="card bg-dark border-secondary">
-                <div class="card-body py-5">
-                    <div class="mb-4">
-                        <i class="fas fa-brain fa-4x text-primary"></i>
-                    </div>
-                    <h1 class="display-5 text-white mb-3">AI Candidate Vetting</h1>
-                    <p class="lead text-secondary mb-4">
-                        Automated resume-to-job matching for inbound applicants
-                    </p>
-                    
-                    <div class="alert alert-info bg-opacity-10 border-info mb-4">
-                        <i class="fas fa-cogs me-2"></i>
-                        <strong>System Active</strong> - AI vetting is running automatically in the background
-                    </div>
-                    
-                    <div class="row g-4 mb-5">
-                        <div class="col-md-4">
-                            <div class="p-3 bg-dark-subtle rounded">
-                                <i class="fas fa-robot fa-2x text-success mb-2"></i>
-                                <h5 class="text-white">Automated Analysis</h5>
-                                <p class="text-secondary small mb-0">GPT-4o analyzes every new applicant</p>
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Candidate Vetting - JobPulse™</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        .geometric-bg {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
+            animation: drift 30s linear infinite;
+            z-index: -1;
+        }
+        
+        @keyframes drift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-60px, -60px) rotate(360deg); }
+        }
+        
+        .settings-card {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .settings-card:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+        }
+        
+        .stat-box {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="geometric-bg"></div>
+    
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <div class="card settings-card">
+                    <div class="card-body py-5">
+                        <div class="mb-4">
+                            <i class="fas fa-brain fa-4x text-primary"></i>
+                        </div>
+                        <h1 class="display-5 text-white mb-3">AI Candidate Vetting</h1>
+                        <p class="lead text-secondary mb-4">
+                            Automated resume-to-job matching for inbound applicants
+                        </p>
+                        
+                        <div class="alert alert-info bg-opacity-10 border-info mb-4">
+                            <i class="fas fa-cogs me-2"></i>
+                            <strong>System Active</strong> - AI vetting is running automatically in the background
+                        </div>
+                        
+                        <div class="row g-4 mb-5">
+                            <div class="col-md-4">
+                                <div class="p-3 bg-dark-subtle rounded">
+                                    <i class="fas fa-robot fa-2x text-success mb-2"></i>
+                                    <h5 class="text-white">Automated Analysis</h5>
+                                    <p class="text-secondary small mb-0">GPT-4o analyzes every new applicant</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-dark-subtle rounded">
+                                    <i class="fas fa-envelope fa-2x text-info mb-2"></i>
+                                    <h5 class="text-white">Email Alerts</h5>
+                                    <p class="text-secondary small mb-0">Recruiters notified for qualified matches</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-dark-subtle rounded">
+                                    <i class="fas fa-clipboard-check fa-2x text-warning mb-2"></i>
+                                    <h5 class="text-white">Bullhorn Notes</h5>
+                                    <p class="text-secondary small mb-0">Detailed match notes added automatically</p>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="p-3 bg-dark-subtle rounded">
-                                <i class="fas fa-envelope fa-2x text-info mb-2"></i>
-                                <h5 class="text-white">Email Alerts</h5>
-                                <p class="text-secondary small mb-0">Recruiters notified for qualified matches</p>
+                        
+                        <div class="bg-dark-subtle rounded p-4 mb-4">
+                            <h5 class="text-white mb-3"><i class="fas fa-chart-line me-2"></i>Current Status</h5>
+                            <div class="row text-center">
+                                <div class="col-3">
+                                    <div class="stat-value text-primary">{{ stats.total_processed }}</div>
+                                    <small class="text-secondary">Processed</small>
+                                </div>
+                                <div class="col-3">
+                                    <div class="stat-value text-success">{{ stats.qualified }}</div>
+                                    <small class="text-secondary">Qualified</small>
+                                </div>
+                                <div class="col-3">
+                                    <div class="stat-value text-info">{{ stats.notifications_sent }}</div>
+                                    <small class="text-secondary">Emails Sent</small>
+                                </div>
+                                <div class="col-3">
+                                    <div class="stat-value text-warning">{{ stats.pending }}</div>
+                                    <small class="text-secondary">Pending</small>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="p-3 bg-dark-subtle rounded">
-                                <i class="fas fa-clipboard-check fa-2x text-warning mb-2"></i>
-                                <h5 class="text-white">Bullhorn Notes</h5>
-                                <p class="text-secondary small mb-0">Detailed match notes added automatically</p>
-                            </div>
-                        </div>
+                        
+                        <p class="text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Full management dashboard available in the development environment
+                        </p>
+                        
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light mt-3">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                        </a>
                     </div>
-                    
-                    <div class="bg-dark-subtle rounded p-4 mb-4">
-                        <h5 class="text-white mb-3"><i class="fas fa-chart-line me-2"></i>Current Status</h5>
-                        <div class="row text-center">
-                            <div class="col-3">
-                                <div class="display-6 text-primary">{{ stats.total_processed }}</div>
-                                <small class="text-secondary">Processed</small>
-                            </div>
-                            <div class="col-3">
-                                <div class="display-6 text-success">{{ stats.qualified }}</div>
-                                <small class="text-secondary">Qualified</small>
-                            </div>
-                            <div class="col-3">
-                                <div class="display-6 text-info">{{ stats.notifications_sent }}</div>
-                                <small class="text-secondary">Emails Sent</small>
-                            </div>
-                            <div class="col-3">
-                                <div class="display-6 text-warning">{{ stats.pending }}</div>
-                                <small class="text-secondary">Pending</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <p class="text-muted small">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Full management dashboard available in the development environment
-                    </p>
-                    
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light mt-3">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                    </a>
                 </div>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
