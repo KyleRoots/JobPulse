@@ -50,6 +50,7 @@ Development Approval Process: Before executing any development task, always prov
 - **AI Candidate Vetting (Premium Add-on)**: An automated candidate-job matching system using GPT-4o, featuring comprehensive detection of inbound applicants, configurable batch processing, resume analysis, AI matching with scoring and detailed explanations, Bullhorn note creation, recruiter notifications, and an audit dashboard.
 - **Location-Aware Matching**: AI vetting applies different location rules based on work type - Remote jobs require same country, while On-site/Hybrid prefer same metro area with appropriate score penalties for mismatches.
 - **Automatic Job Change Detection**: During each 5-minute monitoring cycle, compares Bullhorn's `dateLastModified` against stored AI interpretation timestamps. When jobs are modified, automatically re-extracts AI requirements while preserving any custom requirement overrides.
+- **Vetting System Health Monitoring**: Automated health checks every 10 minutes monitoring Bullhorn connectivity, OpenAI API availability, database status, and scheduler state. Features a dashboard panel showing real-time status, email alerts for critical failures (with 1-hour throttling), and configurable health alert email address.
 
 ## External Dependencies
 

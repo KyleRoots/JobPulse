@@ -3781,7 +3781,8 @@ def vetting_settings():
         'send_recruiter_emails': False,  # Email notification kill switch - OFF = admin only
         'match_threshold': 80,
         'batch_size': 25,
-        'admin_notification_email': ''
+        'admin_notification_email': '',
+        'health_alert_email': ''
     }
     
     for key in settings.keys():
@@ -3839,13 +3840,29 @@ def vetting_settings():
             JobVettingRequirements.updated_at.desc()
         ).limit(50).all()
     
+    # Get latest health check
+    from models import VettingHealthCheck
+    latest_health = VettingHealthCheck.query.order_by(
+        VettingHealthCheck.check_time.desc()
+    ).first()
+    
+    # Get recent health issues (last 24 hours)
+    from datetime import timedelta
+    day_ago = datetime.utcnow() - timedelta(hours=24)
+    recent_issues = VettingHealthCheck.query.filter(
+        VettingHealthCheck.is_healthy == False,
+        VettingHealthCheck.check_time >= day_ago
+    ).order_by(VettingHealthCheck.check_time.desc()).limit(10).all()
+    
     return render_template('vetting_settings.html', 
                           settings=settings, 
                           stats=stats, 
                           recent_activity=recent_activity,
                           recommended_candidates=recommended_candidates,
                           not_recommended_candidates=not_recommended_candidates,
-                          job_requirements=job_requirements)
+                          job_requirements=job_requirements,
+                          latest_health=latest_health,
+                          recent_issues=recent_issues)
 
 
 @app.route('/vetting/save', methods=['POST'])
@@ -3865,6 +3882,7 @@ def save_vetting_settings():
         match_threshold = request.form.get('match_threshold', '80')
         batch_size = request.form.get('batch_size', '25')
         admin_email = request.form.get('admin_notification_email', '')
+        health_alert_email = request.form.get('health_alert_email', '')
         
         # Validate threshold
         try:
@@ -3888,7 +3906,8 @@ def save_vetting_settings():
             ('send_recruiter_emails', 'true' if send_recruiter_emails else 'false'),
             ('match_threshold', str(threshold)),
             ('batch_size', str(batch)),
-            ('admin_notification_email', admin_email)
+            ('admin_notification_email', admin_email),
+            ('health_alert_email', health_alert_email)
         ]
         
         for key, value in settings_to_save:
@@ -3905,6 +3924,24 @@ def save_vetting_settings():
     except Exception as e:
         app.logger.error(f"Error saving vetting settings: {str(e)}")
         flash(f'Error saving settings: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting_settings'))
+
+
+@app.route('/vetting/health-check', methods=['POST'])
+@login_required
+def run_health_check_now():
+    """Manually trigger a health check"""
+    if is_production_request():
+        flash('Actions not available from production. Please use the development dashboard.', 'warning')
+        return redirect(url_for('vetting_settings'))
+    
+    try:
+        run_vetting_health_check()
+        flash('Health check completed successfully!', 'success')
+    except Exception as e:
+        app.logger.error(f"Manual health check error: {str(e)}")
+        flash(f'Health check error: {str(e)}', 'error')
     
     return redirect(url_for('vetting_settings'))
 
@@ -6593,6 +6630,223 @@ if is_primary_worker:
         replace_existing=True
     )
     app.logger.info("📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)")
+
+# Vetting System Health Check
+def run_vetting_health_check():
+    """Run health checks on the vetting system components"""
+    with app.app_context():
+        try:
+            from models import VettingHealthCheck, VettingConfig, CandidateVettingLog
+            from sqlalchemy import func
+            from datetime import datetime, timedelta
+            
+            bullhorn_status = True
+            bullhorn_error = None
+            openai_status = True
+            openai_error = None
+            database_status = True
+            database_error = None
+            scheduler_status = True
+            scheduler_error = None
+            
+            # Check Bullhorn connectivity
+            try:
+                from bullhorn_service import BullhornService
+                bh = BullhornService()
+                if not bh.access_token:
+                    bullhorn_status = False
+                    bullhorn_error = "Failed to obtain Bullhorn access token"
+            except Exception as e:
+                bullhorn_status = False
+                bullhorn_error = str(e)[:500]
+            
+            # Check OpenAI API (lightweight check)
+            try:
+                import openai
+                import os
+                client = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+                # Just verify client can be created and key exists
+                if not os.environ.get('OPENAI_API_KEY'):
+                    openai_status = False
+                    openai_error = "OPENAI_API_KEY not configured"
+            except Exception as e:
+                openai_status = False
+                openai_error = str(e)[:500]
+            
+            # Check database connectivity
+            try:
+                db.session.execute(db.text("SELECT 1"))
+            except Exception as e:
+                database_status = False
+                database_error = str(e)[:500]
+            
+            # Check scheduler status
+            try:
+                if not scheduler.running:
+                    scheduler_status = False
+                    scheduler_error = "Scheduler is not running"
+            except Exception as e:
+                scheduler_status = False
+                scheduler_error = str(e)[:500]
+            
+            # Gather stats
+            today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            candidates_processed_today = CandidateVettingLog.query.filter(
+                CandidateVettingLog.status == 'completed',
+                CandidateVettingLog.created_at >= today_start
+            ).count()
+            
+            candidates_pending = CandidateVettingLog.query.filter(
+                CandidateVettingLog.status.in_(['pending', 'processing'])
+            ).count()
+            
+            emails_sent_today = db.session.query(func.sum(CandidateVettingLog.notification_count)).filter(
+                CandidateVettingLog.created_at >= today_start
+            ).scalar() or 0
+            
+            # Get last successful cycle
+            last_success = CandidateVettingLog.query.filter_by(status='completed').order_by(
+                CandidateVettingLog.processed_at.desc()
+            ).first()
+            last_successful_cycle = last_success.processed_at if last_success else None
+            
+            # Determine overall health
+            is_healthy = bullhorn_status and openai_status and database_status and scheduler_status
+            
+            # Create health check record
+            health_check = VettingHealthCheck(
+                check_time=datetime.utcnow(),
+                bullhorn_status=bullhorn_status,
+                openai_status=openai_status,
+                database_status=database_status,
+                scheduler_status=scheduler_status,
+                bullhorn_error=bullhorn_error,
+                openai_error=openai_error,
+                database_error=database_error,
+                scheduler_error=scheduler_error,
+                is_healthy=is_healthy,
+                candidates_processed_today=candidates_processed_today,
+                candidates_pending=candidates_pending,
+                emails_sent_today=emails_sent_today,
+                last_successful_cycle=last_successful_cycle,
+                alert_sent=False
+            )
+            db.session.add(health_check)
+            db.session.commit()
+            
+            # Send alert email if unhealthy
+            if not is_healthy:
+                send_vetting_health_alert(health_check)
+            
+            # Cleanup old health checks (keep last 7 days)
+            cleanup_threshold = datetime.utcnow() - timedelta(days=7)
+            VettingHealthCheck.query.filter(VettingHealthCheck.check_time < cleanup_threshold).delete()
+            db.session.commit()
+            
+            app.logger.info(f"🩺 Vetting health check: {'✅ Healthy' if is_healthy else '❌ Issues detected'}")
+            
+        except Exception as e:
+            app.logger.error(f"Vetting health check error: {str(e)}")
+
+
+def send_vetting_health_alert(health_check):
+    """Send email alert for vetting system health issues"""
+    try:
+        from models import VettingConfig, VettingHealthCheck
+        from datetime import datetime, timedelta
+        import sendgrid
+        from sendgrid.helpers.mail import Mail
+        import os
+        
+        # Check if we already sent an alert in the last hour
+        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        recent_alert = VettingHealthCheck.query.filter(
+            VettingHealthCheck.alert_sent == True,
+            VettingHealthCheck.alert_sent_at >= one_hour_ago
+        ).first()
+        
+        if recent_alert:
+            app.logger.info("🩺 Skipping alert - already sent within last hour")
+            return
+        
+        # Get health alert email - skip if not configured
+        health_alert_email = VettingConfig.get_value('health_alert_email', '')
+        if not health_alert_email:
+            app.logger.info("🩺 Health alert email not configured - skipping alert")
+            return
+        
+        # Build error message
+        errors = []
+        if not health_check.bullhorn_status:
+            errors.append(f"Bullhorn: {health_check.bullhorn_error or 'Connection failed'}")
+        if not health_check.openai_status:
+            errors.append(f"OpenAI: {health_check.openai_error or 'API unavailable'}")
+        if not health_check.database_status:
+            errors.append(f"Database: {health_check.database_error or 'Connection failed'}")
+        if not health_check.scheduler_status:
+            errors.append(f"Scheduler: {health_check.scheduler_error or 'Not running'}")
+        
+        error_list = "\\n".join([f"• {e}" for e in errors])
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <h2 style="color: #dc3545;">⚠️ JobPulse Vetting System Alert</h2>
+            <p>The AI Candidate Vetting system has detected issues that require attention:</p>
+            
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
+                <strong>Issues Detected:</strong><br>
+                {"<br>".join([f"• {e}" for e in errors])}
+            </div>
+            
+            <p><strong>System Stats:</strong></p>
+            <ul>
+                <li>Candidates Processed Today: {health_check.candidates_processed_today}</li>
+                <li>Candidates Pending: {health_check.candidates_pending}</li>
+                <li>Emails Sent Today: {health_check.emails_sent_today}</li>
+            </ul>
+            
+            <p style="color: #666; font-size: 12px;">
+                This is an automated alert from JobPulse. Check the <a href="https://jobpulse.lyntrix.ai/vetting/settings">Vetting Dashboard</a> for more details.
+            </p>
+        </body>
+        </html>
+        """
+        
+        message = Mail(
+            from_email='noreply@myticas.com',
+            to_emails=health_alert_email,
+            subject='⚠️ JobPulse Vetting System Alert - Issues Detected',
+            html_content=html_content
+        )
+        
+        sg = sendgrid.SendGridAPIClient(api_key=os.environ.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        
+        if response.status_code in [200, 202]:
+            health_check.alert_sent = True
+            health_check.alert_sent_at = datetime.utcnow()
+            db.session.commit()
+            app.logger.info(f"🩺 Health alert sent to {health_alert_email}")
+        else:
+            app.logger.warning(f"🩺 Health alert failed: {response.status_code}")
+            
+    except Exception as e:
+        app.logger.error(f"Failed to send health alert: {str(e)}")
+
+
+if is_primary_worker:
+    # Add vetting system health check - runs every 10 minutes
+    scheduler.add_job(
+        func=run_vetting_health_check,
+        trigger='interval',
+        minutes=10,
+        id='vetting_health_check',
+        name='Vetting System Health Check',
+        replace_existing=True
+    )
+    app.logger.info("🩺 Scheduled vetting system health check (every 10 minutes)")
 
 # Candidate Vetting Cycle (AI-powered applicant matching)
 def run_candidate_vetting_cycle():
