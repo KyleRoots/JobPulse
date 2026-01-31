@@ -1742,6 +1742,12 @@ CRITICAL RULES:
         Returns:
             Number of notifications sent (1 for success, 0 for failure/no matches)
         """
+        # SAFETY CHECK: Re-verify vetting is still enabled before sending emails
+        # This prevents emails if vetting was disabled mid-cycle
+        if not self.is_enabled():
+            logging.info(f"📧 Notification blocked - vetting disabled mid-cycle for {vetting_log.candidate_name}")
+            return 0
+        
         logging.info(f"📧 Notification check for {vetting_log.candidate_name} (ID: {vetting_log.bullhorn_candidate_id})")
         
         if not vetting_log.is_qualified:
