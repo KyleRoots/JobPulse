@@ -65,3 +65,15 @@ Development Approval Process: Before executing any development task, always prov
 ### Frontend Libraries
 - **Bootstrap 5**: CSS framework for developing responsive and mobile-first websites.
 - **Font Awesome 6**: Icon library for scalable vector graphics.
+
+## Strategic Planning
+
+### Multi-Tenant SaaS Roadmap
+A comprehensive strategic planning document exists at `JOBPULSE_MULTI_TENANT_ROADMAP.md` covering:
+- Current single-tenant architecture analysis
+- Target multi-tenant SaaS vision for 50+ customers
+- Multi-ATS adapter framework (Bullhorn, Greenhouse, Workday)
+- Role-based access control (Super Admin, Customer Admin, Recruiter)
+- 4-phase implementation roadmap (18-26 weeks total)
+- Infrastructure scaling recommendations
+- Database schema evolution plan
