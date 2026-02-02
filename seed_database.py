@@ -54,10 +54,19 @@ def is_production_environment():
     """
     Detect if running in production environment
     
+    Detection priority:
+    1. APP_ENV=production (preferred for custom deployments)
+    2. ENVIRONMENT=production (alternative)
+    3. REPLIT_DEPLOYMENT exists (Replit-specific)
+    
     Returns:
-        bool: True if in production (REPLIT_DEPLOYMENT exists), False otherwise
+        bool: True if in production, False otherwise
     """
-    return os.environ.get('REPLIT_DEPLOYMENT') is not None
+    app_env = os.environ.get('APP_ENV', '').lower()
+    environment = os.environ.get('ENVIRONMENT', '').lower()
+    replit_deployment = os.environ.get('REPLIT_DEPLOYMENT')
+    
+    return app_env == 'production' or environment == 'production' or replit_deployment is not None
 
 
 def get_admin_config():

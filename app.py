@@ -4872,33 +4872,50 @@ def bullhorn_oauth_callback():
                 flash('Bullhorn credentials not configured. Please update settings first.', 'error')
                 return redirect(url_for('bullhorn_settings'))
             
-            # Step 1: Get login info to determine correct data center
-            login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
-            login_info_params = {'username': 'oauth'}  # Generic username for OAuth flow
+            # Check if using Bullhorn One (new API) or Legacy
+            use_new_api = os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true'
             
-            response = requests.get(login_info_url, params=login_info_params, timeout=30)
-            if response.status_code != 200:
-                flash('Failed to get Bullhorn login info. Please try again.', 'error')
-                return redirect(url_for('bullhorn_settings'))
+            if use_new_api:
+                # Bullhorn One: Use fixed endpoints
+                token_endpoint = BullhornService.BULLHORN_ONE_TOKEN_URL
+                rest_login_url = BullhornService.BULLHORN_ONE_REST_LOGIN_URL  # For login step
+                rest_api_url = BullhornService.BULLHORN_ONE_REST_URL  # For API calls
+                logging.info(f"OAuth callback using Bullhorn One endpoints: token={token_endpoint}, login={rest_login_url}")
+            else:
+                # Legacy: Get login info to determine correct data center
+                login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
+                login_info_params = {'username': 'oauth'}  # Generic username for OAuth flow
+                
+                response = requests.get(login_info_url, params=login_info_params, timeout=30)
+                if response.status_code != 200:
+                    flash('Failed to get Bullhorn login info. Please try again.', 'error')
+                    return redirect(url_for('bullhorn_settings'))
+                
+                login_data = response.json()
+                oauth_url = login_data.get('oauthUrl')
+                rest_url = login_data.get('restUrl')
+                
+                if not oauth_url:
+                    flash('Invalid login info response from Bullhorn', 'error')
+                    return redirect(url_for('bullhorn_settings'))
+                
+                token_endpoint = f"{oauth_url}/token"
             
-            login_data = response.json()
-            oauth_url = login_data.get('oauthUrl')
-            rest_url = login_data.get('restUrl')
-            
-            if not oauth_url:
-                flash('Invalid login info response from Bullhorn', 'error')
-                return redirect(url_for('bullhorn_settings'))
+            # Build redirect_uri (must match what was used in authorization request)
+            base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://jobpulse.lyntrix.ai").strip()
+            redirect_uri = f"{base_url}/bullhorn/oauth/callback"
             
             # Step 2: Exchange authorization code for access token
-            # CRITICAL: Do NOT include redirect_uri in token exchange (causes mismatch errors)
-            token_endpoint = f"{oauth_url}/token"
+            # For Bullhorn One, redirect_uri MUST be included and match authorization request
             token_data = {
                 'grant_type': 'authorization_code',
                 'code': code,
                 'client_id': client_id_setting.setting_value,
-                'client_secret': client_secret_setting.setting_value
-                # redirect_uri intentionally omitted - causes "mismatch redirect uri" errors
+                'client_secret': client_secret_setting.setting_value,
+                'redirect_uri': redirect_uri  # Required for Bullhorn One
             }
+            
+            logging.info(f"Token exchange with redirect_uri: {redirect_uri}")
             
             headers = {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -4919,12 +4936,18 @@ def bullhorn_oauth_callback():
                 return redirect(url_for('bullhorn_settings'))
             
             # Step 3: Get REST token for API access
-            rest_login_endpoint = f"{rest_url}/login"
+            # For Bullhorn One, use the fixed login URL; for legacy, append /login to rest_url
+            if use_new_api:
+                rest_login_endpoint = rest_login_url
+            else:
+                rest_login_endpoint = f"{rest_url}/login"
+            
             rest_params = {
                 'version': '2.0',
                 'access_token': access_token
             }
             
+            logging.info(f"REST login request to: {rest_login_endpoint}")
             rest_response = requests.post(rest_login_endpoint, params=rest_params, timeout=30)
             if rest_response.status_code != 200:
                 logging.error(f"REST login failed: {rest_response.status_code} - {rest_response.text}")
@@ -4933,7 +4956,11 @@ def bullhorn_oauth_callback():
             
             rest_data = rest_response.json()
             rest_token = rest_data.get('BhRestToken')
-            base_url = rest_data.get('restUrl', rest_url)
+            # Use the appropriate fallback URL based on API mode
+            if use_new_api:
+                base_url = rest_data.get('restUrl', rest_api_url)
+            else:
+                base_url = rest_data.get('restUrl', rest_url)
             
             if not rest_token:
                 flash('No REST token received from Bullhorn', 'error')
