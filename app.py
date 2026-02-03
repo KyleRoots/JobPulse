@@ -2503,10 +2503,18 @@ def test_sftp_connection():
         directory = data.get('sftp_directory', '/').strip()
         port = data.get('sftp_port', '2222')
         
+        # If password is empty, try to use the saved password from database
+        # (Password field is intentionally empty by default for security)
+        if not password:
+            saved_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+            if saved_password and saved_password.setting_value:
+                password = saved_password.setting_value
+                app.logger.info("Using saved password from database for SFTP test")
+        
         if not all([hostname, username, password]):
             return jsonify({
                 'success': False,
-                'error': 'Please fill in hostname, username, and password fields.'
+                'error': 'Please fill in hostname, username, and password fields (or ensure password is saved).'
             })
         
         # Convert port to integer
