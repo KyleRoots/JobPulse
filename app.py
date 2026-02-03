@@ -3859,10 +3859,6 @@ def vetting_settings():
 @login_required
 def save_vetting_settings():
     """Save AI vetting settings"""
-    if is_production_request():
-        flash('Settings cannot be modified from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     from models import VettingConfig
     
     try:
