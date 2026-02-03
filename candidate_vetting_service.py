@@ -12,6 +12,7 @@ import base64
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
 
@@ -1494,39 +1495,85 @@ CRITICAL RULES:
             else:
                 logging.info("📍 No address in Bullhorn record - AI will infer location from resume")
             
-            # Analyze against each job
+            # Analyze against each job - PARALLEL PROCESSING for faster throughput
             threshold = self.get_threshold()
             qualified_matches = []
             all_match_results = []
             
-            for job in jobs:
+            # Pre-check resume validity once
+            if not cached_resume_text or len(cached_resume_text.strip()) < 50:
+                logging.error(f"❌ CRITICAL: Resume text missing or too short for candidate {candidate_id}")
+                logging.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
+                vetting_log.status = 'completed'
+                vetting_log.error_message = 'Resume text too short for analysis'
+                db.session.commit()
+                return vetting_log
+            
+            # Get IDs of jobs already analyzed for this candidate
+            existing_job_ids = set()
+            existing_matches = CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).all()
+            for match in existing_matches:
+                existing_job_ids.add(match.bullhorn_job_id)
+            
+            # Filter to only jobs that need analysis
+            jobs_to_analyze = [job for job in jobs if job.get('id') not in existing_job_ids]
+            
+            if not jobs_to_analyze:
+                logging.info(f"All {len(jobs)} jobs already analyzed for this candidate")
+                vetting_log.status = 'completed'
+                vetting_log.analyzed_at = datetime.utcnow()
+                db.session.commit()
+                return vetting_log
+            
+            logging.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
+            logging.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
+            
+            # Helper function for parallel execution - runs AI analysis for one job
+            def analyze_single_job(job):
+                """Analyze one job match - called in parallel threads"""
                 job_id = job.get('id')
+                try:
+                    analysis = self.analyze_candidate_job_match(cached_resume_text, job, candidate_location)
+                    return {
+                        'job': job,
+                        'job_id': job_id,
+                        'analysis': analysis,
+                        'error': None
+                    }
+                except Exception as e:
+                    logging.error(f"Error analyzing job {job_id}: {str(e)}")
+                    return {
+                        'job': job,
+                        'job_id': job_id,
+                        'analysis': {'match_score': 0, 'match_summary': f'Analysis failed: {str(e)}'},
+                        'error': str(e)
+                    }
+            
+            # Run parallel analysis - max 15 concurrent threads to respect API rate limits
+            analysis_results = []
+            max_workers = min(15, len(jobs_to_analyze))
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(analyze_single_job, job): job for job in jobs_to_analyze}
                 
-                # Skip if we've already analyzed this job for this candidate
-                existing_match = CandidateJobMatch.query.filter_by(
-                    vetting_log_id=vetting_log.id,
-                    bullhorn_job_id=job_id
-                ).first()
+                for future in as_completed(futures):
+                    result = future.result()
+                    analysis_results.append(result)
+            
+            logging.info(f"✅ Parallel analysis complete: {len(analysis_results)} jobs processed")
+            
+            # Process results and create match records (single-threaded for DB safety)
+            for result in analysis_results:
+                job = result['job']
+                job_id = result['job_id']
+                analysis = result['analysis']
                 
-                if existing_match:
-                    continue
-                
-                # Analyze the match - verify resume text exists and has content
-                if not cached_resume_text or len(cached_resume_text.strip()) < 50:
-                    logging.error(f"❌ CRITICAL: Resume text missing or too short for candidate {candidate_id}")
-                    logging.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
-                    break  # No point continuing if resume is missing
-                
-                logging.info(f"📄 Analyzing match - Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
-                analysis = self.analyze_candidate_job_match(cached_resume_text, job, candidate_location)
-                
-                # Get recruiter info from job's assignedUsers (assignments field in Bullhorn)
+                # Get recruiter info from job's assignedUsers
                 recruiter_name = ''
                 recruiter_email = ''
                 recruiter_id = None
                 
                 assigned_users = job.get('assignedUsers', {})
-                # Handle both dict with 'data' key and direct list formats
                 if isinstance(assigned_users, dict):
                     assigned_users_list = assigned_users.get('data', [])
                 elif isinstance(assigned_users, list):
@@ -1534,16 +1581,12 @@ CRITICAL RULES:
                 else:
                     assigned_users_list = []
                 
-                # Use first assigned user as primary recruiter
                 if assigned_users_list and len(assigned_users_list) > 0:
                     first_user = assigned_users_list[0]
                     if isinstance(first_user, dict):
                         recruiter_name = f"{first_user.get('firstName', '')} {first_user.get('lastName', '')}".strip()
                         recruiter_email = first_user.get('email', '')
                         recruiter_id = first_user.get('id')
-                        logging.info(f"  📧 Job {job_id} assigned to: {recruiter_name} ({recruiter_email})")
-                else:
-                    logging.warning(f"  ⚠️ Job {job_id} has no assigned users")
                 
                 # Determine if this is the job they applied to
                 is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
