@@ -923,21 +923,34 @@ scheduler_lock_file = '/tmp/jobpulse_scheduler.lock'
 scheduler_lock_fd = None
 is_primary_worker = False
 
+# CRITICAL: Use print() for guaranteed logging during module initialization
+# app.logger may not be properly configured at this point
+print("🔒 SCHEDULER INIT: Attempting to acquire scheduler lock...", flush=True)
+
 # Try to acquire exclusive lock for scheduler  
 try:
     scheduler_lock_fd = os.open(scheduler_lock_file, os.O_CREAT | os.O_WRONLY)
     fcntl.flock(scheduler_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     is_primary_worker = True
     worker_pid = os.getpid()
+    print(f"✅ SCHEDULER INIT: Process {worker_pid} acquired scheduler lock - will run as PRIMARY scheduler", flush=True)
     app.logger.info(f"✅ Process {worker_pid} acquired scheduler lock - will run as PRIMARY scheduler")
     atexit.register(release_scheduler_lock)
 except (IOError, OSError) as e:
     worker_pid = os.getpid()
+    print(f"⚠️ SCHEDULER INIT: Process {worker_pid} could not acquire scheduler lock (already held): {e}", flush=True)
     app.logger.info(f"⚠️ Process {worker_pid} could not acquire scheduler lock - another scheduler is already running")
     is_primary_worker = False
     if scheduler_lock_fd:
         os.close(scheduler_lock_fd)
         scheduler_lock_fd = None
+except Exception as e:
+    # Catch ANY exception to prevent silent failures
+    print(f"❌ SCHEDULER INIT: Unexpected error during lock acquisition: {e}", flush=True)
+    app.logger.error(f"❌ Unexpected scheduler lock error: {e}")
+    is_primary_worker = False
+
+print(f"🔒 SCHEDULER INIT: is_primary_worker = {is_primary_worker}", flush=True)
 
 if is_primary_worker:
     # RE-ENABLED: 5-Minute Incremental Monitoring (October 2025)
@@ -945,15 +958,21 @@ if is_primary_worker:
     # Now safe with fast keyword classification (<1 second, no timeouts)
     # This monitors Bullhorn and updates local database every 5 minutes
     # SFTP uploads still happen on 30-minute cycle separately
-    scheduler.add_job(
-        func=process_bullhorn_monitors,
-        trigger=IntervalTrigger(minutes=5),
-        id='process_bullhorn_monitors',
-        name='5-Minute Tearsheet Monitor with Keyword Classification',
-        replace_existing=True
-    )
-    app.logger.info("✅ 5-minute tearsheet monitoring ENABLED - provides UI visibility before 30-minute upload cycle")
+    try:
+        scheduler.add_job(
+            func=process_bullhorn_monitors,
+            trigger=IntervalTrigger(minutes=5),
+            id='process_bullhorn_monitors',
+            name='5-Minute Tearsheet Monitor with Keyword Classification',
+            replace_existing=True
+        )
+        print("✅ SCHEDULER INIT: 5-minute tearsheet monitoring job added", flush=True)
+        app.logger.info("✅ 5-minute tearsheet monitoring ENABLED - provides UI visibility before 30-minute upload cycle")
+    except Exception as e:
+        print(f"❌ SCHEDULER INIT: Failed to add 5-minute monitoring job: {e}", flush=True)
+        app.logger.error(f"Failed to add 5-minute monitoring job: {e}")
 else:
+    print(f"⚠️ SCHEDULER INIT: Process {os.getpid()} skipping scheduler setup - another worker handles scheduling", flush=True)
     app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -7263,14 +7282,20 @@ def automated_upload():
 
 if is_primary_worker:
     # Schedule automated uploads every 30 minutes - simple and reliable
-    scheduler.add_job(
-        func=automated_upload,
-        trigger=IntervalTrigger(minutes=30),
-        id='automated_upload',
-        name='Automated Upload (Every 30 Minutes)',
-        replace_existing=True
-    )
-    app.logger.info("📤 Scheduled automated uploads every 30 minutes")
+    print("📤 SCHEDULER INIT: Registering automated upload job (every 30 minutes)...", flush=True)
+    try:
+        scheduler.add_job(
+            func=automated_upload,
+            trigger=IntervalTrigger(minutes=30),
+            id='automated_upload',
+            name='Automated Upload (Every 30 Minutes)',
+            replace_existing=True
+        )
+        print("✅ SCHEDULER INIT: Automated upload job registered successfully", flush=True)
+        app.logger.info("📤 Scheduled automated uploads every 30 minutes")
+    except Exception as e:
+        print(f"❌ SCHEDULER INIT: Failed to register automated upload job: {e}", flush=True)
+        app.logger.error(f"Failed to register automated upload job: {e}")
     
     # Schedule reference refresh every 120 hours - with proper next_run_time calculation
     # This ensures the schedule doesn't reset on application restart
