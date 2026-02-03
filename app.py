@@ -2301,8 +2301,9 @@ def automation_status():
             automation_enabled = False
             status = 'Not scheduled'
         
-        # Get last upload from activity logs (we can implement this later)
-        last_upload_time = "Not available yet"
+        # Get last upload time from GlobalSettings
+        last_upload_setting = GlobalSettings.query.filter_by(setting_key='last_sftp_upload_time').first()
+        last_upload_time = last_upload_setting.setting_value if last_upload_setting else "No uploads yet"
         
         return jsonify({
             'automation_enabled': automation_enabled,
@@ -7343,6 +7344,25 @@ def automated_upload():
                             else:
                                 upload_error_message = "Upload failed"
                                 app.logger.error("❌ Automated upload failed")
+                        
+                        # Track successful upload time in GlobalSettings
+                        if upload_success:
+                            try:
+                                last_upload_setting = GlobalSettings.query.filter_by(setting_key='last_sftp_upload_time').first()
+                                upload_timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+                                if last_upload_setting:
+                                    last_upload_setting.setting_value = upload_timestamp
+                                    last_upload_setting.updated_at = datetime.utcnow()
+                                else:
+                                    last_upload_setting = GlobalSettings(
+                                        setting_key='last_sftp_upload_time',
+                                        setting_value=upload_timestamp
+                                    )
+                                    db.session.add(last_upload_setting)
+                                db.session.commit()
+                                app.logger.info(f"✅ Updated last upload timestamp: {upload_timestamp}")
+                            except Exception as ts_error:
+                                app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
                     else:
                         upload_error_message = "SFTP credentials not configured"
                         app.logger.error("❌ SFTP credentials not configured in Global Settings")
