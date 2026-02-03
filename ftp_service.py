@@ -188,12 +188,13 @@ class FTPService:
             logging.error(f"SFTP upload traceback: {traceback.format_exc()}")
             return False
     
-    def test_connection(self) -> bool:
+    def test_connection(self):
         """
         Test FTP/SFTP connection without uploading
         
         Returns:
-            bool: True if connection successful, False otherwise
+            For SFTP: dict with 'success' and 'error' or 'message' keys
+            For FTP: bool (legacy behavior)
         """
         if self.use_sftp:
             return self._test_sftp_connection()
@@ -213,8 +214,8 @@ class FTPService:
             logging.error(f"FTP connection test failed: {e}")
             return False
     
-    def _test_sftp_connection(self) -> bool:
-        """Test SFTP connection"""
+    def _test_sftp_connection(self) -> dict:
+        """Test SFTP connection and return result with error details"""
         try:
             import paramiko
             
@@ -222,13 +223,15 @@ class FTPService:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
+            logging.info(f"Testing SFTP connection to {self.hostname}:{self.port} as {self.username}")
+            
             # Connect to server
             ssh.connect(
                 hostname=self.hostname,
                 port=self.port,
                 username=self.username,
                 password=self.password,
-                timeout=10
+                timeout=15
             )
             
             # Test SFTP
@@ -238,18 +241,24 @@ class FTPService:
             ssh.close()
             
             logging.info("SFTP connection test successful")
-            return True
+            return {'success': True, 'message': 'Connection successful'}
             
+        except paramiko.AuthenticationException as e:
+            logging.error(f"SFTP authentication failed: {e}")
+            return {'success': False, 'error': f'Authentication failed: Invalid username or password'}
+        except paramiko.SSHException as e:
+            logging.error(f"SFTP SSH error: {e}")
+            return {'success': False, 'error': f'SSH error: {str(e)}'}
+        except socket.timeout:
+            logging.error(f"SFTP connection timeout to {self.hostname}:{self.port}")
+            return {'success': False, 'error': f'Connection timeout - check hostname and port'}
+        except socket.gaierror as e:
+            logging.error(f"SFTP DNS resolution failed: {e}")
+            return {'success': False, 'error': f'DNS resolution failed: Cannot resolve hostname {self.hostname}'}
         except Exception as e:
-            # Check if it's a paramiko-specific exception
             error_type = type(e).__name__
-            if 'AuthenticationException' in error_type:
-                logging.error(f"SFTP authentication failed: {e}")
-            elif 'SSHException' in error_type:
-                logging.error(f"SFTP SSH error: {e}")
-            else:
-                logging.error(f"SFTP connection test failed: {e}")
-            return False
+            logging.error(f"SFTP connection test failed ({error_type}): {e}")
+            return {'success': False, 'error': f'{error_type}: {str(e)}'}
     
     def list_directory(self, directory: Optional[str] = None) -> list:
         """

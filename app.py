@@ -2534,18 +2534,34 @@ def test_sftp_connection():
         )
         
         app.logger.info(f"Testing SFTP connection to {hostname}:{port} with user {username}")
-        success = ftp_service.test_connection()
+        result = ftp_service.test_connection()
         
-        if success:
-            return jsonify({
-                'success': True,
-                'message': f'Successfully connected to {hostname} on port {port}!'
-            })
+        # Handle dict response (SFTP) or bool response (FTP)
+        if isinstance(result, dict):
+            if result.get('success'):
+                return jsonify({
+                    'success': True,
+                    'message': f'Successfully connected to {hostname} on port {port}!'
+                })
+            else:
+                error_msg = result.get('error', 'Unknown error')
+                app.logger.error(f"SFTP test failed: {error_msg}")
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                })
         else:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to connect. Please check your credentials and try again.'
-            })
+            # Legacy bool response (FTP)
+            if result:
+                return jsonify({
+                    'success': True,
+                    'message': f'Successfully connected to {hostname} on port {port}!'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to connect. Please check your credentials and try again.'
+                })
         
     except Exception as e:
         app.logger.error(f"Error testing SFTP connection: {str(e)}")
