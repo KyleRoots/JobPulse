@@ -1714,15 +1714,40 @@ CRITICAL RULES:
                 f"Qualified Matches: {len(qualified_matches)} of {len(matches)} jobs",
                 f"Highest Match Score: {vetting_log.highest_match_score:.0f}%",
                 f"",
-                f"QUALIFIED POSITIONS:",
             ]
             
+            # Find applied job and separate from others
+            applied_match = None
+            other_qualified = []
             for match in qualified_matches:
+                if match.is_applied_job:
+                    applied_match = match
+                else:
+                    other_qualified.append(match)
+            
+            # Sort other qualified matches by score descending
+            other_qualified.sort(key=lambda m: m.match_score, reverse=True)
+            
+            # Show applied job FIRST if qualified
+            if applied_match:
+                note_lines.append(f"APPLIED POSITION (QUALIFIED):")
+                note_lines.append(f"")
+                note_lines.append(f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}")
+                note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
+                note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
+                note_lines.append(f"  Summary: {applied_match.match_summary}")
+                note_lines.append(f"  Skills: {applied_match.skills_match}")
+                if other_qualified:
+                    note_lines.append(f"")
+                    note_lines.append(f"OTHER QUALIFIED POSITIONS:")
+            else:
+                note_lines.append(f"QUALIFIED POSITIONS:")
+            
+            # Show other qualified matches
+            for match in other_qualified:
                 note_lines.append(f"")
                 note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
                 note_lines.append(f"  Match Score: {match.match_score:.0f}%")
-                if match.is_applied_job:
-                    note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
                 note_lines.append(f"  Summary: {match.match_summary}")
                 note_lines.append(f"  Skills: {match.skills_match}")
         else:
@@ -1737,16 +1762,39 @@ CRITICAL RULES:
                 f"",
                 f"This candidate did not meet the {threshold}% match threshold for any current open positions.",
                 f"",
-                f"TOP ANALYSIS RESULTS:",
             ]
             
-            # Show top 3 matches even if not qualified
-            for match in matches[:3]:
+            # Find the applied job (if analyzed)
+            applied_match = None
+            other_matches = []
+            for match in matches:
+                if match.is_applied_job:
+                    applied_match = match
+                else:
+                    other_matches.append(match)
+            
+            # Sort other matches by score descending
+            other_matches.sort(key=lambda m: m.match_score, reverse=True)
+            
+            # Show applied job FIRST if found
+            if applied_match:
+                note_lines.append(f"APPLIED POSITION:")
+                note_lines.append(f"")
+                note_lines.append(f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}")
+                note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
+                note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
+                if applied_match.gaps_identified:
+                    note_lines.append(f"  Gaps: {applied_match.gaps_identified}")
+                note_lines.append(f"")
+                note_lines.append(f"OTHER TOP MATCHES:")
+            else:
+                note_lines.append(f"TOP ANALYSIS RESULTS:")
+            
+            # Show top 5 other matches (sorted by score)
+            for match in other_matches[:5]:
                 note_lines.append(f"")
                 note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
                 note_lines.append(f"  Match Score: {match.match_score:.0f}%")
-                if match.is_applied_job:
-                    note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
                 if match.gaps_identified:
                     note_lines.append(f"  Gaps: {match.gaps_identified}")
         
