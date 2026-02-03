@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,34 +14,40 @@
             position: relative;
             overflow-x: hidden;
         }
-        
+
         .geometric-bg {
             position: fixed;
             width: 100%;
             height: 100%;
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
-                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255, 255, 255, 0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255, 255, 255, 0.02) 50%, transparent 51%);
             background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
             animation: drift 30s linear infinite;
             z-index: -1;
         }
-        
+
         @keyframes drift {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(-60px, -60px) rotate(360deg); }
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-60px, -60px) rotate(360deg);
+            }
         }
+
         .settings-card {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(15px);
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             position: relative;
             overflow: hidden;
         }
-        
+
         .settings-card::before {
             content: '';
             position: absolute;
@@ -48,29 +55,29 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
             transition: all 0.5s ease;
         }
-        
+
         .settings-card:hover::before {
             left: 100%;
         }
-        
+
         .settings-card:hover {
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
         }
-        
+
         /* Static card without hover effects */
         .settings-card.no-hover:hover {
-            background: rgba(255,255,255,0.08);
-            border-color: rgba(255,255,255,0.15);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
             transform: none;
             box-shadow: none;
         }
-        
+
         .settings-card.no-hover::before {
             display: none;
         }
@@ -80,24 +87,31 @@
             .jobpulse-logo {
                 font-size: 2rem !important;
             }
+
             .page-title {
                 font-size: 1.5rem !important;
             }
+
             .settings-card {
                 margin-bottom: 1rem;
             }
+
             .container-fluid {
                 padding-left: 15px;
                 padding-right: 15px;
             }
+
             .card-body {
                 padding: 1rem;
             }
+
             .btn {
                 font-size: 0.875rem;
                 padding: 0.5rem 0.75rem;
             }
-            .form-control, .form-select {
+
+            .form-control,
+            .form-select {
                 font-size: 0.875rem;
             }
         }
@@ -106,84 +120,92 @@
             .jobpulse-logo {
                 font-size: 1.8rem !important;
             }
+
             .page-title {
                 font-size: 1.3rem !important;
             }
+
             .btn {
                 font-size: 0.8rem;
                 padding: 0.4rem 0.6rem;
                 width: 100%;
                 margin-bottom: 0.5rem;
             }
-            .form-control, .form-select {
+
+            .form-control,
+            .form-select {
                 font-size: 0.8rem;
             }
+
             .card-header h5 {
                 font-size: 1.1rem;
             }
+
             .row .col-md-6 {
                 margin-bottom: 1rem;
             }
         }
-        
+
         .form-label {
             color: var(--bs-body-color);
             font-weight: 500;
         }
-        
-        .form-control, .form-select {
+
+        .form-control,
+        .form-select {
             background-color: var(--bs-body-bg);
             border-color: var(--bs-border-color);
             color: var(--bs-body-color);
         }
-        
-        .form-control:focus, .form-select:focus {
+
+        .form-control:focus,
+        .form-select:focus {
             background-color: var(--bs-body-bg);
             border-color: var(--bs-primary);
             color: var(--bs-body-color);
             box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
         }
-        
+
         .card-header {
             background-color: var(--bs-secondary-bg);
             border-bottom: 1px solid var(--bs-border-color);
         }
-        
+
         /* Fix toggle switch visibility */
         .form-check-input {
             background-color: var(--bs-gray-600) !important;
             border: 2px solid var(--bs-gray-400) !important;
             opacity: 1 !important;
         }
-        
+
         .form-check-input:checked {
             background-color: var(--bs-primary) !important;
             border-color: var(--bs-primary) !important;
         }
-        
+
         .form-check-input:focus {
             border-color: var(--bs-primary) !important;
             box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25) !important;
         }
-        
+
         .form-check-input:not(:checked) {
             background-color: var(--bs-gray-500) !important;
             border-color: var(--bs-gray-300) !important;
         }
-        
+
         .jobpulse-header {
             text-align: center;
             margin-bottom: 3rem;
         }
-        
+
         .jobpulse-logo {
             font-size: 2.5rem;
             font-weight: 700;
             color: #ffffff;
-            text-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
             margin-bottom: 0.5rem;
         }
-        
+
         .lyntrix-attribution {
             font-family: 'Kalam', cursive;
             font-size: 0.9rem;
@@ -191,20 +213,20 @@
             font-style: italic;
             margin-bottom: 1rem;
         }
-        
+
         .page-title {
             font-size: 1.8rem;
             font-weight: 600;
             color: #E8F0FF;
             margin-bottom: 0.5rem;
         }
-        
+
         .jobpulse-footer {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(10px);
             text-align: center;
             padding: 15px 0;
@@ -213,30 +235,30 @@
             pointer-events: none;
             z-index: 1000;
         }
-        
+
         .content-container {
             margin-bottom: 80px;
         }
-        
+
         .nav-pills .nav-link {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: #ffffff;
             margin: 0 0.25rem;
             transition: all 0.3s ease;
         }
-        
+
         .nav-pills .nav-link:hover {
-            background: rgba(255,255,255,0.15);
-            border-color: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-2px);
         }
-        
+
         .nav-pills .nav-link.active {
             background: linear-gradient(135deg, #e74c3c, #c0392b);
             border-color: #e74c3c;
         }
-        
+
         /* Enhanced Test SFTP Connection button */
         .btn-outline-info {
             background: rgba(13, 202, 240, 0.1);
@@ -246,7 +268,7 @@
             border-width: 1.5px;
             transition: all 0.3s ease;
         }
-        
+
         .btn-outline-info:hover {
             background: rgba(13, 202, 240, 0.2);
             border-color: #0dcaf0;
@@ -254,7 +276,7 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
         }
-        
+
         /* Standard logout button styling with light red background */
         .btn-outline-danger {
             background: rgba(220, 53, 69, 0.8) !important;
@@ -265,7 +287,7 @@
             padding: 0.5rem 1rem !important;
             transition: all 0.3s ease !important;
         }
-        
+
         .btn-outline-danger:hover {
             background: rgba(165, 42, 42, 1) !important;
             border-color: rgba(220, 20, 60, 1) !important;
@@ -273,7 +295,7 @@
             transform: translateY(-1px) !important;
             box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5) !important;
         }
-        
+
         /* Enhanced Test SFTP Connection button styling */
         .btn-outline-info {
             background: rgba(13, 202, 240, 0.15) !important;
@@ -284,7 +306,7 @@
             padding: 0.5rem 1rem !important;
             transition: all 0.3s ease !important;
         }
-        
+
         .btn-outline-info:hover {
             background: rgba(13, 202, 240, 0.25) !important;
             border-color: #0dcaf0 !important;
@@ -292,22 +314,21 @@
             transform: translateY(-1px) !important;
             box-shadow: 0 4px 12px rgba(13, 202, 240, 0.4) !important;
         }
-    
+
         /* Resume with pulse line effect */
         .jobpulse-logo {
             position: relative;
             display: inline-block;
         }
-        
+
         .jobpulse-logo i {
             position: relative;
             z-index: 2;
         }
-        
-
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="geometric-bg"></div>
     <div class="container py-5 content-container">
@@ -325,7 +346,7 @@
                         Configure SFTP upload and email notification settings
                     </p>
                 </div>
-                
+
                 <!-- Navigation -->
                 <div class="text-center mb-4">
                     <ul class="nav nav-pills justify-content-center">
@@ -361,7 +382,7 @@
                         </li>
                     </ul>
                 </div>
-                
+
                 <!-- User Info and Logout -->
                 <div class="d-flex justify-content-center align-items-center gap-3 mb-4">
                     <div class="d-flex align-items-center">
@@ -377,14 +398,15 @@
 
                 <!-- Flash Messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+                    role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+                {% endif %}
                 {% endwith %}
 
                 <!-- Settings Form -->
@@ -401,8 +423,9 @@
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="sftp_enabled" name="sftp_enabled" 
-                                               {% if settings.sftp_enabled == 'true' %}checked{% endif %}>
+                                        <input class="form-check-input" type="checkbox" id="sftp_enabled"
+                                            name="sftp_enabled" {% if settings.sftp_enabled=='true' %}checked{% endif
+                                            %}>
                                         <label class="form-check-label" for="sftp_enabled">
                                             <strong>Enable SFTP Connection</strong>
                                         </label>
@@ -413,14 +436,16 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="automated_uploads_enabled" name="automated_uploads_enabled" 
-                                               {% if settings.automated_uploads_enabled == 'true' %}checked{% endif %}>
+                                        <input class="form-check-input" type="checkbox" id="automated_uploads_enabled"
+                                            name="automated_uploads_enabled" {% if
+                                            settings.automated_uploads_enabled=='true' %}checked{% endif %}>
                                         <label class="form-check-label" for="automated_uploads_enabled">
                                             <strong>Enable Automated Uploads (Every 30 Minutes)</strong>
                                         </label>
                                     </div>
                                     <small class="text-muted">
-                                        Automatically upload XML files every 30 minutes. Disable for manual workflow only.
+                                        Automatically upload XML files every 30 minutes. Disable for manual workflow
+                                        only.
                                     </small>
                                 </div>
                             </div>
@@ -439,7 +464,8 @@
                                             <div class="row">
                                                 <div class="col-md-3">
                                                     <strong>Status:</strong>
-                                                    <span id="automation-status" class="badge bg-secondary">Loading...</span>
+                                                    <span id="automation-status"
+                                                        class="badge bg-secondary">Loading...</span>
                                                 </div>
                                                 <div class="col-md-4">
                                                     <strong>Next Upload:</strong>
@@ -460,46 +486,47 @@
                                 </div>
                             </div>
 
-                            
+
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label for="sftp_hostname" class="form-label">SFTP Hostname</label>
-                                    <input type="text" class="form-control" id="sftp_hostname" name="sftp_hostname" 
-                                           value="{{ settings.sftp_hostname }}" placeholder="yourdomain.wpengine.com">
+                                    <input type="text" class="form-control" id="sftp_hostname" name="sftp_hostname"
+                                        value="{{ settings.sftp_hostname }}" placeholder="yourdomain.wpengine.com">
                                     <small class="text-muted">Your SFTP server hostname (e.g., WP Engine domain)</small>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="sftp_port" class="form-label">SFTP Port</label>
-                                    <input type="number" class="form-control" id="sftp_port" name="sftp_port" 
-                                           value="{{ settings.sftp_port or '2222' }}" placeholder="2222">
+                                    <input type="number" class="form-control" id="sftp_port" name="sftp_port"
+                                        value="{{ settings.sftp_port or '2222' }}" placeholder="2222">
                                     <small class="text-muted">Usually 2222 for WP Engine, 22 for standard SFTP</small>
                                 </div>
                             </div>
-                            
+
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label for="sftp_username" class="form-label">SFTP Username</label>
-                                    <input type="text" class="form-control" id="sftp_username" name="sftp_username" 
-                                           value="{{ settings.sftp_username }}" placeholder="your-username">
+                                    <input type="text" class="form-control" id="sftp_username" name="sftp_username"
+                                        value="{{ settings.sftp_username }}" placeholder="your-username">
                                 </div>
                                 <div class="col-md-6">
                                     <label for="sftp_password" class="form-label">SFTP Password</label>
-                                    <input type="password" class="form-control" id="sftp_password" name="sftp_password" 
-                                           placeholder="{% if settings.sftp_password %}••••••••{% else %}Enter password{% endif %}">
+                                    <input type="password" class="form-control" id="sftp_password" name="sftp_password"
+                                        placeholder="{% if settings.sftp_password %}••••••••{% else %}Enter password{% endif %}">
                                     <small class="text-muted">Leave blank to keep current password</small>
                                 </div>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="sftp_directory" class="form-label">Upload Directory</label>
-                                <input type="text" class="form-control" id="sftp_directory" name="sftp_directory" 
-                                       value="{{ settings.sftp_directory or '/' }}" placeholder="/">
-                                <small class="text-muted">Target directory on your server (e.g., /wp-content/uploads/)</small>
+                                <input type="text" class="form-control" id="sftp_directory" name="sftp_directory"
+                                    value="{{ settings.sftp_directory or '/' }}" placeholder="/">
+                                <small class="text-muted">Target directory on your server (e.g.,
+                                    /wp-content/uploads/)</small>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Test Connection Section -->
+                    <!-- Test Connection & Manual Upload Section -->
                     <div class="card settings-card mb-4">
                         <div class="card-header">
                             <h5 class="card-title mb-0">
@@ -511,11 +538,18 @@
                             <p class="text-muted mb-3">
                                 Test your SFTP connection to ensure settings are correct before saving
                             </p>
-                            <button type="button" class="btn btn-outline-info" onclick="testSftpConnection()">
-                                <i class="fas fa-plug me-2"></i>
-                                Test SFTP Connection
-                            </button>
+                            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                                <button type="button" class="btn btn-outline-info" onclick="testSftpConnection()">
+                                    <i class="fas fa-plug me-2"></i>
+                                    Test SFTP Connection
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="triggerManualUpload()">
+                                    <i class="fas fa-upload me-2"></i>
+                                    Upload XML Now
+                                </button>
+                            </div>
                             <div id="testResult" class="mt-3"></div>
+                            <div id="uploadResult" class="mt-3"></div>
                         </div>
                     </div>
 
@@ -531,8 +565,9 @@
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="email_notifications_enabled" name="email_notifications_enabled" 
-                                               {% if settings.email_notifications_enabled == 'true' %}checked{% endif %}>
+                                        <input class="form-check-input" type="checkbox" id="email_notifications_enabled"
+                                            name="email_notifications_enabled" {% if
+                                            settings.email_notifications_enabled=='true' %}checked{% endif %}>
                                         <label class="form-check-label" for="email_notifications_enabled">
                                             <strong>Enable Email Notifications</strong>
                                         </label>
@@ -542,12 +577,15 @@
                                     </small>
                                 </div>
                             </div>
-                            
+
                             <div class="mb-3">
-                                <label for="default_notification_email" class="form-label">Default Notification Email</label>
-                                <input type="email" class="form-control" id="default_notification_email" name="default_notification_email" 
-                                       value="{{ settings.default_notification_email }}" placeholder="your-email@example.com">
-                                <small class="text-muted">Default email address for notifications (can be overridden per schedule)</small>
+                                <label for="default_notification_email" class="form-label">Default Notification
+                                    Email</label>
+                                <input type="email" class="form-control" id="default_notification_email"
+                                    name="default_notification_email" value="{{ settings.default_notification_email }}"
+                                    placeholder="your-email@example.com">
+                                <small class="text-muted">Default email address for notifications (can be overridden per
+                                    schedule)</small>
                             </div>
                         </div>
                     </div>
@@ -571,10 +609,14 @@
                             How These Settings Work
                         </h5>
                         <ul class="mb-0">
-                            <li><strong>SFTP Upload:</strong> When enabled, all processed XML files (both manual and scheduled) will automatically upload to your server</li>
-                            <li><strong>Email Notifications:</strong> Receive email notifications when scheduled processing completes with the processed file attached</li>
-                            <li><strong>Shared Credentials:</strong> These settings apply to both manual uploads and automated scheduling</li>
-                            <li><strong>Security:</strong> Passwords are stored securely and only updated when you enter a new value</li>
+                            <li><strong>SFTP Upload:</strong> When enabled, all processed XML files (both manual and
+                                scheduled) will automatically upload to your server</li>
+                            <li><strong>Email Notifications:</strong> Receive email notifications when scheduled
+                                processing completes with the processed file attached</li>
+                            <li><strong>Shared Credentials:</strong> These settings apply to both manual uploads and
+                                automated scheduling</li>
+                            <li><strong>Security:</strong> Passwords are stored securely and only updated when you enter
+                                a new value</li>
                         </ul>
                     </div>
                 </div>
@@ -583,12 +625,12 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         function testSftpConnection() {
             const button = event.target;
             const resultDiv = document.getElementById('testResult');
-            
+
             // Get current form values
             const formData = {
                 sftp_hostname: document.getElementById('sftp_hostname').value,
@@ -597,18 +639,18 @@
                 sftp_directory: document.getElementById('sftp_directory').value,
                 sftp_port: document.getElementById('sftp_port').value
             };
-            
+
             // Validate required fields
             if (!formData.sftp_hostname || !formData.sftp_username || !formData.sftp_password) {
                 resultDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Please fill in hostname, username, and password before testing</div>';
                 return;
             }
-            
+
             // Show loading state
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing...';
             resultDiv.innerHTML = '';
-            
+
             // Make test request with form data
             fetch('/test-sftp-connection', {
                 method: 'POST',
@@ -617,32 +659,66 @@
                 },
                 body: JSON.stringify(formData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check me-2"></i>' + data.message + '</div>';
-                } else {
-                    resultDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times me-2"></i>' + data.error + '</div>';
-                }
-            })
-            .catch(error => {
-                resultDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times me-2"></i>Failed to test connection</div>';
-            })
-            .finally(() => {
-                // Reset button
-                button.disabled = false;
-                button.innerHTML = '<i class="fas fa-plug me-2"></i>Test SFTP Connection';
-            });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check me-2"></i>' + data.message + '</div>';
+                    } else {
+                        resultDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times me-2"></i>' + data.error + '</div>';
+                    }
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times me-2"></i>Failed to test connection</div>';
+                })
+                .finally(() => {
+                    // Reset button
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fas fa-plug me-2"></i>Test SFTP Connection';
+                });
         }
 
+        function triggerManualUpload() {
+            const button = event.target;
+            const resultDiv = document.getElementById('uploadResult');
+
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating & Uploading...';
+            resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-sync fa-spin me-2"></i>Generating fresh XML and uploading to SFTP server...</div>';
+
+            fetch('/manual-upload-now', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check me-2"></i>' + data.message + '</div>';
+                        // Update the automation status to show new last upload time
+                        setTimeout(updateAutomationStatus, 1000);
+                    } else {
+                        resultDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times me-2"></i>' + data.error + '</div>';
+                    }
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times me-2"></i>Failed to trigger upload: ' + error + '</div>';
+                })
+                .finally(() => {
+                    // Reset button
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fas fa-upload me-2"></i>Upload XML Now';
+                });
+        }
 
         // Automation Status Management
         let countdownInterval = null;
-        
+
         function formatCountdown(timestamp, isoDate, humanDate) {
             const now = new Date();
             let target;
-            
+
             // Use the most reliable format available (timestamp > ISO > human readable)
             if (timestamp && typeof timestamp === 'number') {
                 target = new Date(timestamp);
@@ -654,28 +730,28 @@
             } else {
                 return "Invalid date format";
             }
-            
+
             // Validate parsed date
             if (isNaN(target.getTime())) {
                 return "Date parsing error";
             }
-            
+
             const diff = target - now;
-            
+
             if (diff <= 0) {
                 return "Upload should start soon...";
             }
-            
+
             const minutes = Math.floor(diff / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            
+
             if (minutes > 0) {
                 return `in ${minutes}m ${seconds}s`;
             } else {
                 return `in ${seconds}s`;
             }
         }
-        
+
         function updateAutomationStatus() {
             fetch('/automation-status')
                 .then(response => response.json())
@@ -684,27 +760,27 @@
                         console.error('Error getting automation status:', data.error);
                         return;
                     }
-                    
+
                     // Update status badge
                     const statusElement = document.getElementById('automation-status');
                     const statusSection = document.getElementById('automation-status-section');
-                    
+
                     if (data.automation_enabled) {
                         statusElement.className = 'badge bg-success';
                         statusElement.textContent = data.status;
                         statusSection.style.display = 'block';
-                        
+
                         // Update timing information
                         document.getElementById('next-upload-time').textContent = data.next_upload_time || 'Not scheduled';
                         document.getElementById('last-upload-time').textContent = data.last_upload_time || 'Not available yet';
                         document.getElementById('upload-interval').textContent = data.upload_interval;
-                        
+
                         // Start countdown timer if we have timing data
                         if (data.next_upload_timestamp || data.next_upload_iso || data.next_upload_time) {
                             if (countdownInterval) {
                                 clearInterval(countdownInterval);
                             }
-                            
+
                             const updateCountdown = () => {
                                 const countdown = formatCountdown(
                                     data.next_upload_timestamp,
@@ -713,7 +789,7 @@
                                 );
                                 document.getElementById('countdown-timer').textContent = countdown;
                             };
-                            
+
                             updateCountdown(); // Initial update
                             countdownInterval = setInterval(updateCountdown, 1000);
                         } else {
@@ -724,7 +800,7 @@
                         statusElement.className = 'badge bg-secondary';
                         statusElement.textContent = 'Disabled';
                         statusSection.style.display = 'none';
-                        
+
                         if (countdownInterval) {
                             clearInterval(countdownInterval);
                             countdownInterval = null;
@@ -735,25 +811,26 @@
                     console.error('Error fetching automation status:', error);
                 });
         }
-        
+
         // Handle toggle changes
-        document.getElementById('automated_uploads_enabled').addEventListener('change', function() {
+        document.getElementById('automated_uploads_enabled').addEventListener('change', function () {
             // Wait a moment for the form submission to complete, then update status
             setTimeout(updateAutomationStatus, 1000);
         });
-        
+
         // Initial load and periodic refresh
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             updateAutomationStatus();
-            
+
             // Refresh status every 30 seconds
             setInterval(updateAutomationStatus, 30000);
         });
     </script>
-    
+
     <!-- JobPulse™ Footer -->
     <div class="jobpulse-footer">
         © 2025 Lyntrix Solutions
     </div>
 </body>
+
 </html>

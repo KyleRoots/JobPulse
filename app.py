@@ -2546,6 +2546,112 @@ def test_sftp_connection():
             'error': f'Connection test failed: {str(e)}'
         })
 
+@app.route('/manual-upload-now', methods=['POST'])
+@login_required
+def manual_upload_now():
+    """Manually trigger XML generation and SFTP upload"""
+    try:
+        app.logger.info("📤 Manual upload triggered by user")
+        
+        # Check if SFTP is enabled
+        sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
+        if not (sftp_enabled and sftp_enabled.setting_value == 'true'):
+            return jsonify({
+                'success': False,
+                'error': 'SFTP is not enabled. Please enable it in settings first.'
+            })
+        
+        # Get SFTP settings
+        sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+        sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+        sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+        sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+        sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+        
+        if not (sftp_hostname and sftp_hostname.setting_value and 
+                sftp_username and sftp_username.setting_value and 
+                sftp_password and sftp_password.setting_value):
+            return jsonify({
+                'success': False,
+                'error': 'SFTP credentials not configured. Please fill in hostname, username, and password.'
+            })
+        
+        # Generate fresh XML using SimplifiedXMLGenerator (database-first approach)
+        from simplified_xml_generator import SimplifiedXMLGenerator
+        generator = SimplifiedXMLGenerator(db=db)
+        xml_content, stats = generator.generate_fresh_xml()
+        
+        app.logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
+        
+        # Save XML to temporary file
+        import tempfile
+        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
+        temp_file.write(xml_content)
+        temp_file.close()
+        
+        # Upload to SFTP
+        try:
+            port_value = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222
+        except ValueError:
+            port_value = 2222
+        
+        target_directory = sftp_directory.setting_value if sftp_directory else "/"
+        
+        from ftp_service import FTPService
+        ftp_service = FTPService(
+            hostname=sftp_hostname.setting_value,
+            username=sftp_username.setting_value,
+            password=sftp_password.setting_value,
+            target_directory=target_directory,
+            port=port_value,
+            use_sftp=True
+        )
+        
+        # Upload the file
+        upload_result = ftp_service.upload_file(temp_file.name, 'myticas-job-feed-v2.xml')
+        
+        # Clean up temporary file
+        try:
+            os.remove(temp_file.name)
+        except:
+            pass
+        
+        # Check result
+        if isinstance(upload_result, dict):
+            if upload_result.get('success'):
+                app.logger.info(f"✅ Manual upload successful: {upload_result.get('message', 'File uploaded')}")
+                return jsonify({
+                    'success': True,
+                    'message': f"Successfully uploaded XML with {stats['job_count']} jobs ({stats['xml_size_bytes']:,} bytes)"
+                })
+            else:
+                app.logger.error(f"❌ Manual upload failed: {upload_result.get('error', 'Unknown error')}")
+                return jsonify({
+                    'success': False,
+                    'error': upload_result.get('error', 'Upload failed')
+                })
+        else:
+            # FTP service returned boolean
+            if upload_result:
+                app.logger.info("✅ Manual upload successful")
+                return jsonify({
+                    'success': True,
+                    'message': f"Successfully uploaded XML with {stats['job_count']} jobs ({stats['xml_size_bytes']:,} bytes)"
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Upload failed - check SFTP settings'
+                })
+        
+    except Exception as e:
+        app.logger.error(f"❌ Manual upload error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Upload failed: {str(e)}'
+        })
+
+
 @app.route('/validate', methods=['POST'])
 @login_required
 def validate_file():
