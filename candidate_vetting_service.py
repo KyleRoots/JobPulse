@@ -625,7 +625,7 @@ Format as a bullet-point list. Be specific and concise."""
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
                 'query': f'status:"Online Applicant" AND dateAdded:[{since_timestamp} TO *]',
-                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(city,state,countryName)',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName)',
                 'count': 50,  # Limit batch size for performance
                 'sort': '-dateAdded',  # Most recent first
                 'BhRestToken': bullhorn.rest_token
