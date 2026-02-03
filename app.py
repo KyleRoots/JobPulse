@@ -3764,22 +3764,7 @@ def vetting_settings():
     """AI Candidate Vetting settings and activity page"""
     from models import VettingConfig, CandidateVettingLog, JobVettingRequirements
     
-    # Show simplified "Coming Soon" page for production requests
-    if is_production_request():
-        try:
-            from sqlalchemy import func
-            stats = {
-                'total_processed': CandidateVettingLog.query.filter_by(status='completed').count(),
-                'qualified': CandidateVettingLog.query.filter_by(status='completed', is_qualified=True).count(),
-                'notifications_sent': db.session.query(func.sum(CandidateVettingLog.notification_count)).scalar() or 0,
-                'pending': CandidateVettingLog.query.filter(CandidateVettingLog.status.in_(['pending', 'processing'])).count()
-            }
-            logging.info(f"Production vetting page: stats={stats}")
-            return render_template('vetting_coming_soon.html', stats=stats)
-        except Exception as e:
-            logging.error(f"Production vetting page error: {str(e)}", exc_info=True)
-            return f"<h1>Vetting Status</h1><p>System is operational. Error loading stats: {str(e)}</p>", 200
-    
+    # Full management UI is now available in all environments (including production)
     # Get settings
     settings = {
         'vetting_enabled': False,
