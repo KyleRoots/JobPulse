@@ -24,7 +24,8 @@ class FTPService:
         self.hostname = hostname
         self.username = username
         self.password = password
-        self.target_directory = target_directory.rstrip('/')
+        # Handle target directory - preserve "/" as root, strip trailing slashes from other paths
+        self.target_directory = target_directory.rstrip('/') if target_directory != "/" else "/"
         self.use_sftp = use_sftp
         self.port = port if port is not None else (2222 if use_sftp else 21)
         
@@ -176,8 +177,15 @@ class FTPService:
         except paramiko.SSHException as e:
             logging.error(f"SFTP SSH error: {e}")
             return False
+        except IOError as e:
+            # IOError often indicates permission denied or file not found on remote
+            logging.error(f"SFTP IOError (possible permission/path issue): {e}")
+            return False
         except Exception as e:
-            logging.error(f"SFTP upload error: {e}")
+            # Log the full exception type for debugging
+            import traceback
+            logging.error(f"SFTP upload error ({type(e).__name__}): {e}")
+            logging.error(f"SFTP upload traceback: {traceback.format_exc()}")
             return False
     
     def test_connection(self) -> bool:
