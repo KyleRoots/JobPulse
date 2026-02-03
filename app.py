@@ -3922,10 +3922,6 @@ def save_vetting_settings():
 @login_required
 def run_health_check_now():
     """Manually trigger a health check"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     try:
         run_vetting_health_check()
         flash('Health check completed successfully!', 'success')
@@ -3940,10 +3936,6 @@ def run_health_check_now():
 @login_required
 def run_vetting_now():
     """Manually trigger a vetting cycle"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     try:
         from candidate_vetting_service import CandidateVettingService
         
@@ -3978,10 +3970,6 @@ def reset_recent_vetting():
     This is useful when the clean slate accidentally marked new applications as vetted.
     Clears vetted_at for all records received in the last 6 hours.
     """
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     try:
         from models import ParsedEmail
         from datetime import datetime, timedelta
@@ -4017,10 +4005,6 @@ def reset_recent_vetting():
 @login_required
 def full_clean_slate():
     """Complete reset of all vetting data - dashboard shows all zeros"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     try:
         from models import CandidateVettingLog, CandidateJobMatch, VettingConfig, ParsedEmail
         
@@ -4057,10 +4041,6 @@ def full_clean_slate():
 @login_required
 def send_test_vetting_email():
     """Send a test notification email with sample data to demonstrate the format"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     from email_service import EmailService
     
     test_email = request.form.get('test_email', 'kyleroots00@gmail.com')
@@ -4363,10 +4343,6 @@ TOP ANALYSIS RESULTS:
 @login_required
 def create_test_vetting_note(candidate_id):
     """Create a test vetting note on an actual Bullhorn candidate record"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     from bullhorn_service import BullhornService
     
     note_type = request.form.get('note_type', 'qualified')  # 'qualified' or 'not_qualified'
@@ -4446,10 +4422,6 @@ TOP ANALYSIS RESULTS:
 @login_required
 def save_job_requirements(job_id):
     """Save custom requirements for a job"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     from models import JobVettingRequirements
     
     try:
@@ -4484,10 +4456,6 @@ def save_job_requirements(job_id):
 @login_required
 def refresh_job_requirements(job_id):
     """Re-fetch job description from Bullhorn and re-interpret with AI"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     from models import JobVettingRequirements, GlobalSettings
     from bullhorn_service import BullhornService
     from candidate_vetting_service import CandidateVettingService
@@ -4567,10 +4535,6 @@ def refresh_job_requirements(job_id):
 @login_required
 def sync_job_requirements():
     """Sync AI requirements with active tearsheet jobs - removes orphaned entries"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     try:
         from candidate_vetting_service import CandidateVettingService
         
@@ -4595,10 +4559,6 @@ def sync_job_requirements():
 @login_required
 def extract_all_job_requirements():
     """Extract AI requirements for all monitored jobs at once"""
-    if is_production_request():
-        flash('Actions not available from production. Please use the development dashboard.', 'warning')
-        return redirect(url_for('vetting_settings'))
-    
     try:
         from candidate_vetting_service import CandidateVettingService
         from bullhorn_service import BullhornService
