@@ -445,6 +445,22 @@ def eastern_datetime_filter(utc_dt):
 with app.app_context():
     db.create_all()
     
+    # Run any necessary schema migrations for existing tables
+    # SQLAlchemy's create_all() only creates new tables, it doesn't add columns to existing ones
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        
+        # Migration: Add vetting_threshold column to job_vetting_requirements if missing
+        if 'job_vetting_requirements' in inspector.get_table_names():
+            columns = [col['name'] for col in inspector.get_columns('job_vetting_requirements')]
+            if 'vetting_threshold' not in columns:
+                db.session.execute(text('ALTER TABLE job_vetting_requirements ADD COLUMN vetting_threshold INTEGER'))
+                db.session.commit()
+                app.logger.info('🔧 Migration: Added vetting_threshold column to job_vetting_requirements')
+    except Exception as migrate_err:
+        app.logger.warning(f'Migration check failed (may be first run): {migrate_err}')
+    
     # Seed database with initial data (production-safe, idempotent)
     try:
         from seed_database import seed_database
