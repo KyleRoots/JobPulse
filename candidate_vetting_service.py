@@ -1200,7 +1200,7 @@ Format as a bullet-point list. Be specific and concise."""
         logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
         return all_jobs
     
-    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None) -> Dict:
+    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None) -> Dict:
         """
         Use GPT-4o to analyze how well a candidate matches a job.
         
@@ -1284,7 +1284,8 @@ Format as a bullet-point list. Be specific and concise."""
         job_id = job.get('id', 'N/A')
         
         # Check for custom requirements override
-        custom_requirements = self._get_job_custom_requirements(job_id)
+        # Use pre-fetched requirements if provided (for parallel execution outside Flask context)
+        custom_requirements = prefetched_requirements if prefetched_requirements is not None else self._get_job_custom_requirements(job_id)
         
         # Clean up job description (remove HTML tags if present)
         import re
@@ -1655,12 +1656,28 @@ CRITICAL RULES:
             logging.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
             logging.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
             
+            # PRE-FETCH all custom requirements BEFORE parallel processing
+            # This is critical because parallel threads don't have Flask app context
+            job_requirements_cache = {}
+            for job in jobs_to_analyze:
+                job_id = job.get('id')
+                if job_id:
+                    # Fetch custom requirements (or None if not set) - runs in main thread with app context
+                    job_requirements_cache[job_id] = self._get_job_custom_requirements(job_id)
+            
+            logging.info(f"📋 Pre-fetched requirements for {len(job_requirements_cache)} jobs")
+            
             # Helper function for parallel execution - runs AI analysis for one job
-            def analyze_single_job(job):
+            def analyze_single_job(job_with_req):
                 """Analyze one job match - called in parallel threads"""
+                job = job_with_req['job']
+                prefetched_req = job_with_req['requirements']  # Pre-fetched from main thread
                 job_id = job.get('id')
                 try:
-                    analysis = self.analyze_candidate_job_match(cached_resume_text, job, candidate_location)
+                    analysis = self.analyze_candidate_job_match(
+                        cached_resume_text, job, candidate_location,
+                        prefetched_requirements=prefetched_req
+                    )
                     return {
                         'job': job,
                         'job_id': job_id,
@@ -1676,12 +1693,18 @@ CRITICAL RULES:
                         'error': str(e)
                     }
             
+            # Prepare jobs with pre-fetched requirements
+            jobs_with_requirements = [
+                {'job': job, 'requirements': job_requirements_cache.get(job.get('id'))}
+                for job in jobs_to_analyze
+            ]
+            
             # Run parallel analysis - max 15 concurrent threads to respect API rate limits
             analysis_results = []
             max_workers = min(15, len(jobs_to_analyze))
             
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(analyze_single_job, job): job for job in jobs_to_analyze}
+                futures = {executor.submit(analyze_single_job, jwr): jwr for jwr in jobs_with_requirements}
                 
                 for future in as_completed(futures):
                     result = future.result()
