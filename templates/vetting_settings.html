@@ -519,89 +519,254 @@
 
     <!-- Vetting Audit Dashboard -->
     <div class="card settings-card mt-4">
-        <div class="card-header bg-transparent border-bottom border-secondary">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">
-                    <i class="fas fa-chart-bar me-2"></i>Vetting Audit Dashboard
-                </h5>
-                <div class="d-flex gap-2">
-                    <form action="{{ url_for('full_clean_slate') }}" method="POST" class="d-inline">
-                        <button type="submit" class="btn btn-danger btn-sm"
-                            onclick="return confirm('⚠️ FULL CLEAN SLATE ⚠️\n\nThis will DELETE ALL vetting data:\n- All vetting logs\n- All job matches\n- Reset timestamp to now\n\nDashboard will show all zeros.\n\nThis cannot be undone. Continue?')">
-                            <i class="fas fa-trash-alt me-1"></i>Full Clean Slate
-                        </button>
-                    </form>
-                    <form action="{{ url_for('reset_recent_vetting') }}" method="POST" class="d-inline">
-                        <button type="submit" class="btn btn-warning btn-sm"
-                            onclick="return confirm('This will reset vetting status for all applications from the last 6 hours. They will be re-processed in the next cycle. Continue?')">
-                            <i class="fas fa-undo me-1"></i>Reset Recent (6h)
-                        </button>
-                    </form>
-                    <form action="{{ url_for('run_vetting_now') }}" method="POST" class="d-inline">
-                        <button type="submit" class="btn btn-primary btn-sm" {% if not settings.vetting_enabled
-                            %}disabled{% endif %}>
-                            <i class="fas fa-play me-1"></i>Run Vetting Now
-                        </button>
-                    </form>
-                </div>
-            </div>
-            <!-- Pipeline Overview -->
-            <div class="row mb-4 g-3">
-                <div class="col-md-3">
-                    <div class="p-3 rounded"
-                        style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
-                            <div>
-                                <div class="h4 mb-0 text-info">{{ stats.pending }}</div>
-                                <small class="text-muted">Awaiting Vetting</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="p-3 rounded"
-                        style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
-                            <div>
-                                <div class="h4 mb-0 text-success">{{ stats.qualified }}</div>
-                                <small class="text-muted">Recommended ({{ settings.match_threshold }}%+)</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="p-3 rounded"
-                        style="background: rgba(108, 117, 125, 0.1); border: 1px solid rgba(108, 117, 125, 0.3);">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-times-circle fa-2x text-secondary me-3 opacity-75"></i>
-                            <div>
-                                <div class="h4 mb-0 text-secondary">{{ stats.total_processed - stats.qualified }}</div>
-                                <small class="text-muted">Not Recommended</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="p-3 rounded"
-                        style="background: rgba(111, 66, 193, 0.1); border: 1px solid rgba(111, 66, 193, 0.3);">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-envelope fa-2x me-3 opacity-75" style="color: #6f42c1;"></i>
-                            <div>
-                                <div class="h4 mb-0" style="color: #6f42c1;">{{ stats.notifications_sent }}</div>
-                                <small class="text-muted">Emails Sent</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center"
+            style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#vettingAuditPanel" aria-expanded="true">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-chart-bar me-2"></i>Vetting Audit Dashboard
+                <i class="fas fa-chevron-down ms-3 vetting-toggle-icon"
+                    style="transition: transform 0.3s ease; font-size: 0.8rem;"></i>
+            </h5>
+            <div class="d-flex gap-2" onclick="event.stopPropagation();">
+                <form action="{{ url_for('full_clean_slate') }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-danger btn-sm"
+                        onclick="return confirm('⚠️ FULL CLEAN SLATE ⚠️\n\nThis will DELETE ALL vetting data:\n- All vetting logs\n- All job matches\n- Reset timestamp to now\n\nDashboard will show all zeros.\n\nThis cannot be undone. Continue?')">
+                        <i class="fas fa-trash-alt me-1"></i>Full Clean Slate
+                    </button>
+                </form>
+                <form action="{{ url_for('reset_recent_vetting') }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-warning btn-sm"
+                        onclick="return confirm('This will reset vetting status for all applications from the last 6 hours. They will be re-processed in the next cycle. Continue?')">
+                        <i class="fas fa-undo me-1"></i>Reset Recent (6h)
+                    </button>
+                </form>
+                <form action="{{ url_for('run_vetting_now') }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-primary btn-sm" {% if not settings.vetting_enabled %}disabled{%
+                        endif %}>
+                        <i class="fas fa-play me-1"></i>Run Vetting Now
+                    </button>
+                </form>
             </div>
         </div>
-        <div class="card-body">
-            <p class="text-muted text-center">
-                <i class="fas fa-info-circle me-1"></i>
-                View detailed candidate vetting history in the tabs above. Data refreshes every 60 seconds.
-            </p>
+        <div class="collapse show" id="vettingAuditPanel">
+            <!-- Pipeline Overview (Metric Cards) -->
+            <div class="card-header bg-transparent border-bottom border-secondary">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="p-3 rounded"
+                            style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
+                                <div>
+                                    <div class="h4 mb-0 text-info">{{ stats.pending }}</div>
+                                    <small class="text-muted">Awaiting Vetting</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 rounded"
+                            style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
+                                <div>
+                                    <div class="h4 mb-0 text-success">{{ stats.qualified }}</div>
+                                    <small class="text-muted">Recommended ({{ settings.match_threshold }}%+)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 rounded"
+                            style="background: rgba(108, 117, 125, 0.1); border: 1px solid rgba(108, 117, 125, 0.3);">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-times-circle fa-2x text-secondary me-3 opacity-75"></i>
+                                <div>
+                                    <div class="h4 mb-0 text-secondary">{{ stats.total_processed - stats.qualified }}
+                                    </div>
+                                    <small class="text-muted">Not Recommended</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 rounded"
+                            style="background: rgba(111, 66, 193, 0.1); border: 1px solid rgba(111, 66, 193, 0.3);">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-envelope fa-2x me-3 opacity-75" style="color: #6f42c1;"></i>
+                                <div>
+                                    <div class="h4 mb-0" style="color: #6f42c1;">{{ stats.notifications_sent }}</div>
+                                    <small class="text-muted">Emails Sent</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Candidate Drill-Down Tabs -->
+            <div class="card-body">
+                <ul class="nav nav-tabs mb-3" id="vettingTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab"
+                            data-bs-target="#pending-content" type="button" role="tab">
+                            <i class="fas fa-hourglass-half me-1"></i>Awaiting Vetting <span class="badge bg-info">{{
+                                stats.pending }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="recent-tab" data-bs-toggle="tab" data-bs-target="#recent-content"
+                            type="button" role="tab">
+                            <i class="fas fa-history me-1"></i>Recently Vetted <span class="badge bg-success">{{
+                                recent_vetting|default([])|length }}</span>
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="vettingTabsContent">
+                    <!-- Pending Candidates Tab -->
+                    <div class="tab-pane fade show active" id="pending-content" role="tabpanel">
+                        {% if pending_candidates and pending_candidates|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover activity-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Candidate</th>
+                                        <th>Applied Job</th>
+                                        <th>Applied Date</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for candidate in pending_candidates[:20] %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ candidate.candidate_name or 'Unknown' }}</strong>
+                                            <br><small class="text-muted">ID: {{ candidate.candidate_id }}</small>
+                                        </td>
+                                        <td>{{ candidate.job_title or 'N/A' }}</td>
+                                        <td>{{ candidate.date_added.strftime('%b %d, %H:%M') if candidate.date_added
+                                            else 'N/A' }}</td>
+                                        <td><span class="badge bg-info">Pending</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% if pending_candidates|length > 20 %}
+                        <p class="text-muted text-center mt-2 mb-0"><small>Showing 20 of {{ pending_candidates|length }}
+                                pending candidates</small></p>
+                        {% endif %}
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">No candidates currently awaiting vetting</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Recently Vetted Tab -->
+                    <div class="tab-pane fade" id="recent-content" role="tabpanel">
+                        {% if recent_vetting and recent_vetting|length > 0 %}
+                        <div class="accordion" id="recentVettingAccordion">
+                            {% for log in recent_vetting[:25] %}
+                            <div class="accordion-item"
+                                style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#recentVetting{{ loop.index }}"
+                                        style="background: rgba(30, 41, 59, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                        <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                            <div>
+                                                <strong>{{ log.candidate_name or 'Unknown Candidate' }}</strong>
+                                                <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">ID: {{
+                                                    log.candidate_id }}</span>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                {% if log.match_score and log.match_score >= settings.match_threshold %}
+                                                <span class="badge bg-success">{{ log.match_score }}%</span>
+                                                {% elif log.match_score %}
+                                                <span class="badge bg-secondary">{{ log.match_score }}%</span>
+                                                {% endif %}
+                                                <small class="text-muted">{{ log.vetted_at.strftime('%b %d, %H:%M') if
+                                                    log.vetted_at else '' }}</small>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div id="recentVetting{{ loop.index }}" class="accordion-collapse collapse">
+                                    <div class="accordion-body"
+                                        style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="text-info mb-2"><i class="fas fa-briefcase me-1"></i>Applied
+                                                    Job</h6>
+                                                <p class="mb-2">{{ log.job_title or 'N/A' }} <small
+                                                        class="text-muted">(ID: {{ log.job_id or 'N/A' }})</small></p>
+
+                                                <h6 class="text-info mb-2 mt-3"><i
+                                                        class="fas fa-chart-line me-1"></i>Match Score</h6>
+                                                <div class="progress mb-2"
+                                                    style="height: 20px; background: rgba(255,255,255,0.1);">
+                                                    <div class="progress-bar {% if log.match_score and log.match_score >= settings.match_threshold %}bg-success{% else %}bg-secondary{% endif %}"
+                                                        role="progressbar" style="width: {{ log.match_score or 0 }}%;">
+                                                        {{ log.match_score or 0 }}%
+                                                    </div>
+                                                </div>
+                                                <small class="text-muted">Threshold: {{ settings.match_threshold
+                                                    }}%</small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6 class="text-success mb-2"><i class="fas fa-robot me-1"></i>AI
+                                                    Summary</h6>
+                                                {% if log.ai_summary %}
+                                                <div class="p-2 rounded"
+                                                    style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); max-height: 150px; overflow-y: auto;">
+                                                    <small style="white-space: pre-wrap;">{{ log.ai_summary[:500] }}{%
+                                                        if log.ai_summary|length > 500 %}...{% endif %}</small>
+                                                </div>
+                                                {% else %}
+                                                <p class="text-muted"><small>No AI summary available</small></p>
+                                                {% endif %}
+
+                                                {% if log.notification_sent %}
+                                                <div class="mt-2">
+                                                    <span class="badge bg-purple"><i
+                                                            class="fas fa-envelope me-1"></i>Email Sent</span>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="mt-3 pt-2 border-top border-secondary">
+                                            <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={{ log.candidate_id }}"
+                                                target="_blank" class="btn btn-outline-info btn-sm">
+                                                <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if recent_vetting|length > 25 %}
+                        <p class="text-muted text-center mt-2 mb-0"><small>Showing 25 of {{ recent_vetting|length }}
+                                recently vetted candidates</small></p>
+                        {% endif %}
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-clipboard-check fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">No recently vetted candidates to display</p>
+                            <small class="text-muted">Run vetting to see candidates here</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <p class="text-muted text-center mt-3 mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Data refreshes every 60 seconds. Click on a recently vetted candidate to view AI summary and notes.
+                </p>
+            </div>
         </div>
     </div>
     {% endblock %}
@@ -745,6 +910,19 @@
             });
             jobRequirementsPanel.addEventListener('show.bs.collapse', function () {
                 const icon = document.querySelector('[data-bs-target="#jobRequirementsPanel"] .section-toggle-icon');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            });
+        }
+
+        // Handle Vetting Audit Dashboard collapse chevron rotation
+        const vettingAuditPanel = document.getElementById('vettingAuditPanel');
+        if (vettingAuditPanel) {
+            vettingAuditPanel.addEventListener('hide.bs.collapse', function () {
+                const icon = document.querySelector('[data-bs-target="#vettingAuditPanel"] .vetting-toggle-icon');
+                if (icon) icon.style.transform = 'rotate(-90deg)';
+            });
+            vettingAuditPanel.addEventListener('show.bs.collapse', function () {
+                const icon = document.querySelector('[data-bs-target="#vettingAuditPanel"] .vetting-toggle-icon');
                 if (icon) icon.style.transform = 'rotate(0deg)';
             });
         }

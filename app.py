@@ -4049,6 +4049,19 @@ def vetting_settings():
         VettingHealthCheck.check_time >= day_ago
     ).order_by(VettingHealthCheck.check_time.desc()).limit(10).all()
     
+    # Get pending candidates for drill-down tab
+    pending_candidates = CandidateVettingLog.query.filter(
+        CandidateVettingLog.status.in_(['pending', 'processing'])
+    ).order_by(CandidateVettingLog.created_at.desc()).limit(50).all()
+    
+    # Get recently vetted candidates (completed within last 7 days) for drill-down tab
+    from datetime import timedelta
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    recent_vetting = CandidateVettingLog.query.filter(
+        CandidateVettingLog.status == 'completed',
+        CandidateVettingLog.updated_at >= week_ago
+    ).order_by(CandidateVettingLog.updated_at.desc()).limit(50).all()
+    
     return render_template('vetting_settings.html', 
                           settings=settings, 
                           stats=stats, 
@@ -4058,6 +4071,8 @@ def vetting_settings():
                           job_requirements=job_requirements,
                           latest_health=latest_health,
                           recent_issues=recent_issues,
+                          pending_candidates=pending_candidates,
+                          recent_vetting=recent_vetting,
                           active_page='vetting')
 
 
