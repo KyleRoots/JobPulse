@@ -1259,12 +1259,109 @@ Format as a bullet-point list. Be specific and concise."""
             }
             return country_map.get(country_upper, country_value.strip())
         
+        def smart_correct_country(city: str, state: str, declared_country: str) -> str:
+            """
+            Smart correction for country based on city/state when there's a mismatch.
+            This compensates for human data entry errors where candidates or jobs
+            have the wrong country but correct city/state.
+            
+            Returns the corrected country name, or the original if no correction needed.
+            """
+            if not state and not city:
+                return declared_country
+            
+            state_upper = state.strip().upper() if state else ''
+            city_upper = city.strip().upper() if city else ''
+            
+            # Canadian provinces/territories
+            canadian_provinces = {
+                'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT',
+                'ALBERTA', 'BRITISH COLUMBIA', 'MANITOBA', 'NEW BRUNSWICK', 
+                'NEWFOUNDLAND AND LABRADOR', 'NEWFOUNDLAND', 'NOVA SCOTIA',
+                'NORTHWEST TERRITORIES', 'NUNAVUT', 'ONTARIO', 'PRINCE EDWARD ISLAND',
+                'QUEBEC', 'SASKATCHEWAN', 'YUKON'
+            }
+            
+            # Major Canadian cities (for cases where state might be missing or wrong)
+            canadian_cities = {
+                'TORONTO', 'MONTREAL', 'VANCOUVER', 'CALGARY', 'EDMONTON', 'OTTAWA',
+                'WINNIPEG', 'QUEBEC CITY', 'HAMILTON', 'KITCHENER', 'LONDON', 'VICTORIA',
+                'HALIFAX', 'OSHAWA', 'WINDSOR', 'SASKATOON', 'REGINA', 'ST. CATHARINES',
+                'KELOWNA', 'BARRIE', 'SHERBROOKE', 'GUELPH', 'KANATA', 'RICHMOND',
+                'BURNABY', 'SURREY', 'MARKHAM', 'MISSISSAUGA', 'BRAMPTON', 'SCARBOROUGH',
+                'WATERLOO', 'KINGSTON', 'THUNDER BAY', 'SAINT JOHN', 'MONCTON', 'FREDERICTON'
+            }
+            
+            # UK regions/countries
+            uk_regions = {
+                'ENGLAND', 'SCOTLAND', 'WALES', 'NORTHERN IRELAND',
+                'GREATER LONDON', 'WEST MIDLANDS', 'GREATER MANCHESTER'
+            }
+            
+            # Major UK cities
+            uk_cities = {
+                'LONDON', 'MANCHESTER', 'BIRMINGHAM', 'LEEDS', 'GLASGOW', 'LIVERPOOL',
+                'NEWCASTLE', 'SHEFFIELD', 'BRISTOL', 'EDINBURGH', 'CARDIFF', 'BELFAST',
+                'NOTTINGHAM', 'LEICESTER', 'COVENTRY', 'BRADFORD', 'READING'
+            }
+            
+            # Australian states
+            australian_states = {
+                'NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT',
+                'NEW SOUTH WALES', 'VICTORIA', 'QUEENSLAND', 'WESTERN AUSTRALIA',
+                'SOUTH AUSTRALIA', 'TASMANIA', 'AUSTRALIAN CAPITAL TERRITORY',
+                'NORTHERN TERRITORY'
+            }
+            
+            # Mexican states (common abbreviations and names)
+            mexican_states = {
+                'AGU', 'BCN', 'BCS', 'CAM', 'CHH', 'CHP', 'COA', 'COL', 'DIF', 'DUR',
+                'GRO', 'GUA', 'HID', 'JAL', 'MEX', 'MIC', 'MOR', 'NAY', 'NLE', 'OAX',
+                'PUE', 'QUE', 'ROO', 'SIN', 'SLP', 'SON', 'TAB', 'TAM', 'TLA', 'VER',
+                'YUC', 'ZAC', 'CDMX', 'CIUDAD DE MEXICO', 'JALISCO', 'NUEVO LEON',
+                'QUINTANA ROO', 'BAJA CALIFORNIA'
+            }
+            
+            # Major Mexican cities
+            mexican_cities = {
+                'MEXICO CITY', 'GUADALAJARA', 'MONTERREY', 'PUEBLA', 'TIJUANA',
+                'CANCUN', 'LEON', 'JUAREZ', 'MERIDA', 'CHIHUAHUA', 'AGUASCALIENTES',
+                'MORELIA', 'QUERETARO', 'TOLUCA', 'HERMOSILLO'
+            }
+            
+            # Check for Canada
+            if state_upper in canadian_provinces or city_upper in canadian_cities:
+                # Special case: London exists in both Canada (Ontario) and UK
+                if city_upper == 'LONDON' and state_upper in {'ENGLAND', 'GREATER LONDON', ''}:
+                    return 'United Kingdom'
+                # If it's a Canadian province or known Canadian city, correct to Canada
+                if declared_country != 'Canada':
+                    return 'Canada'
+            
+            # Check for UK (but not if state indicates Canada - e.g., London, ON)
+            if state_upper in uk_regions or (city_upper in uk_cities and state_upper not in canadian_provinces):
+                if declared_country not in ('United Kingdom', 'UK', 'GB'):
+                    return 'United Kingdom'
+            
+            # Check for Australia
+            if state_upper in australian_states:
+                if declared_country != 'Australia':
+                    return 'Australia'
+            
+            # Check for Mexico
+            if state_upper in mexican_states or city_upper in mexican_cities:
+                if declared_country != 'Mexico':
+                    return 'Mexico'
+            
+            return declared_country
+        
         # Extract full job location details
         job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
         job_city = job_address.get('city', '')
         job_state = job_address.get('state', '')
         job_country_raw = job_address.get('countryName', '') or job_address.get('country', '')
-        job_country = normalize_country(job_country_raw)
+        job_country_normalized = normalize_country(job_country_raw)
+        job_country = smart_correct_country(job_city, job_state, job_country_normalized)  # Auto-fix country mismatches
         job_location_full = ', '.join(filter(None, [job_city, job_state, job_country]))
         
         # Get work type using helper that handles both numeric and string values
@@ -1278,7 +1375,8 @@ Format as a bullet-point list. Be specific and concise."""
             candidate_city = candidate_location.get('city', '')
             candidate_state = candidate_location.get('state', '')
             candidate_country_raw = candidate_location.get('countryName', '') or candidate_location.get('country', '')
-            candidate_country = normalize_country(candidate_country_raw)
+            candidate_country_normalized = normalize_country(candidate_country_raw)
+            candidate_country = smart_correct_country(candidate_city, candidate_state, candidate_country_normalized)  # Auto-fix country mismatches
         candidate_location_full = ', '.join(filter(None, [candidate_city, candidate_state, candidate_country]))
         
         job_id = job.get('id', 'N/A')
