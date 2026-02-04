@@ -6791,6 +6791,36 @@ if is_primary_worker:
     )
     app.logger.info("📋 Scheduled activity retention cleanup (15 days)")
 
+# Log Monitoring with Self-Healing
+def log_monitoring_cycle():
+    """Run log monitoring cycle - fetches Render logs, analyzes for issues, auto-fixes or escalates."""
+    with app.app_context():
+        try:
+            from log_monitoring_service import run_log_monitoring_cycle
+            result = run_log_monitoring_cycle()
+            app.logger.info(f"📊 Log monitoring cycle complete: {result['logs_analyzed']} logs, "
+                          f"{result['issues_found']} issues found, {result['auto_fixed']} auto-fixed, "
+                          f"{result['escalated']} escalated")
+        except ImportError as e:
+            app.logger.warning(f"Log monitoring service not available: {e}")
+        except Exception as e:
+            app.logger.error(f"Log monitoring error: {e}")
+
+if is_primary_worker:
+    # Get interval from environment (default 15 minutes)
+    log_monitor_interval = int(os.environ.get('LOG_MONITOR_INTERVAL_MINUTES', '15'))
+    
+    scheduler.add_job(
+        func=log_monitoring_cycle,
+        trigger='interval',
+        minutes=log_monitor_interval,
+        id='log_monitoring',
+        name=f'Render Log Monitoring (Self-Healing) - {log_monitor_interval}min',
+        replace_existing=True
+    )
+    app.logger.info(f"📊 Log monitoring enabled - checking Render logs every {log_monitor_interval} minutes")
+
+
 # Email Parsing Stuck Record Cleanup
 def email_parsing_timeout_cleanup():
     """Auto-fail stuck email parsing records after 10 minutes"""
