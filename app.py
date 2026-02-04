@@ -4625,7 +4625,7 @@ def save_job_requirements(job_id):
 @login_required
 def save_job_threshold(job_id):
     """AJAX endpoint to save job-specific vetting threshold"""
-    from models import JobVettingRequirements
+    from models import JobVettingRequirements, VettingConfig
     
     try:
         data = request.get_json() if request.is_json else {}
