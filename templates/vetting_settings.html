@@ -363,6 +363,128 @@
     </div>
 </div>
 
+<!-- Job Requirements Drill-Down -->
+<div class="card settings-card mt-4">
+    <div
+        class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-briefcase me-2"></i>Job Requirements
+            {% if job_requirements %}
+            <span class="badge bg-info ms-2">{{ job_requirements|length }} Active Jobs</span>
+            {% endif %}
+        </h5>
+        <div class="d-flex gap-2">
+            <form action="{{ url_for('sync_job_requirements') }}" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-outline-secondary btn-sm"
+                    onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Syncing...'; this.form.submit();">
+                    <i class="fas fa-sync me-1"></i>Sync Jobs
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if job_requirements %}
+        <p class="text-muted small mb-3">
+            <i class="fas fa-info-circle me-1"></i>
+            AI interprets requirements from job descriptions. Adjust per-job thresholds to override the global default
+            ({{ settings.match_threshold }}%).
+        </p>
+        <div class="accordion" id="jobRequirementsAccordion">
+            {% for job in job_requirements %}
+            <div class="accordion-item"
+                style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1);">
+                <h2 class="accordion-header" id="heading{{ job.bullhorn_job_id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#collapse{{ job.bullhorn_job_id }}" aria-expanded="false"
+                        aria-controls="collapse{{ job.bullhorn_job_id }}" style="background: rgba(255,255,255,0.05);">
+                        <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                            <div>
+                                <strong>{{ job.job_title or 'Untitled Job' }}</strong>
+                                <span class="badge bg-secondary ms-2">ID: {{ job.bullhorn_job_id }}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if job.job_location %}
+                                <span class="badge bg-dark">{{ job.job_location }}</span>
+                                {% endif %}
+                                {% if job.vetting_threshold %}
+                                <span class="badge bg-warning text-dark">{{ job.vetting_threshold }}% threshold</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </button>
+                </h2>
+                <div id="collapse{{ job.bullhorn_job_id }}" class="accordion-collapse collapse"
+                    aria-labelledby="heading{{ job.bullhorn_job_id }}" data-bs-parent="#jobRequirementsAccordion">
+                    <div class="accordion-body" style="background: rgba(0,0,0,0.2);">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="text-info mb-2"><i class="fas fa-robot me-1"></i>AI-Interpreted Requirements
+                                </h6>
+                                {% if job.ai_interpreted_requirements %}
+                                <div class="p-3 rounded mb-3"
+                                    style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2);">
+                                    <pre
+                                        style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.ai_interpreted_requirements }}</pre>
+                                </div>
+                                {% else %}
+                                <p class="text-muted"><i class="fas fa-exclamation-circle me-1"></i>No AI interpretation
+                                    yet. Click "Sync Jobs" to extract requirements.</p>
+                                {% endif %}
+
+                                {% if job.custom_requirements %}
+                                <h6 class="text-success mb-2"><i class="fas fa-user-edit me-1"></i>Custom Override</h6>
+                                <div class="p-3 rounded mb-3"
+                                    style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2);">
+                                    <pre
+                                        style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.custom_requirements }}</pre>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="mb-2"><i class="fas fa-sliders-h me-1"></i>Job Settings</h6>
+                                <div class="mb-3">
+                                    <label class="form-label small">Threshold Override</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control job-threshold-input"
+                                            data-job-id="{{ job.bullhorn_job_id }}"
+                                            value="{{ job.vetting_threshold or '' }}"
+                                            placeholder="{{ settings.match_threshold }}" min="0" max="100">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <small class="text-muted">Leave blank to use global ({{ settings.match_threshold
+                                        }}%)</small>
+                                </div>
+
+                                {% if job.job_work_type %}
+                                <div class="mb-2">
+                                    <span class="text-muted small">Work Type:</span>
+                                    <span class="badge bg-dark">{{ job.job_work_type }}</span>
+                                </div>
+                                {% endif %}
+
+                                {% if job.last_ai_interpretation %}
+                                <div class="text-muted small">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Last interpreted: {{ job.last_ai_interpretation.strftime('%b %d, %Y') }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+            <h5>No Job Requirements Data</h5>
+            <p class="text-muted">Click "Sync Jobs" to extract requirements from active tearsheet jobs.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- System Health Panel -->
 <div class="card settings-card mt-4">
     <div

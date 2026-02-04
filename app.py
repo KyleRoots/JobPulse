@@ -1190,12 +1190,49 @@ def dashboard_redirect():
     except:
         environment_status = None
     
+    # Dashboard metrics
+    active_jobs = 0
+    candidates_vetted = 0
+    emails_sent = 0
+    auto_fixed = 0
+    
+    try:
+        # Active jobs: count from TearsheetJobHistory where is_current=True
+        from models import TearsheetJobHistory
+        active_jobs = TearsheetJobHistory.query.filter_by(is_current=True).distinct(TearsheetJobHistory.job_id).count()
+    except Exception as e:
+        app.logger.debug(f"Could not count active jobs: {e}")
+    
+    try:
+        # Candidates vetted: count from CandidateVettingLog where status='completed'
+        from models import CandidateVettingLog
+        candidates_vetted = CandidateVettingLog.query.filter_by(status='completed').count()
+    except Exception as e:
+        app.logger.debug(f"Could not count vetted candidates: {e}")
+    
+    try:
+        # Emails sent: count from EmailDeliveryLog where delivery_status='sent'
+        from models import EmailDeliveryLog
+        emails_sent = EmailDeliveryLog.query.filter_by(delivery_status='sent').count()
+    except Exception as e:
+        app.logger.debug(f"Could not count emails sent: {e}")
+    
+    try:
+        # Auto-fixed issues: count BullhornActivity entries with type 'job_modified' (auto-corrected data)
+        auto_fixed = BullhornActivity.query.filter_by(activity_type='job_modified').count()
+    except Exception as e:
+        app.logger.debug(f"Could not count auto-fixed issues: {e}")
+    
     return render_template('dashboard.html', 
                          active_page='dashboard',
                          recent_activities=recent_activities,
                          automation_active=automation_active,
                          schedules=schedules,
-                         environment_status=environment_status)
+                         environment_status=environment_status,
+                         active_jobs=active_jobs,
+                         candidates_vetted=candidates_vetted,
+                         emails_sent=emails_sent,
+                         auto_fixed=auto_fixed)
 
 @app.route('/scheduler')
 @login_required
