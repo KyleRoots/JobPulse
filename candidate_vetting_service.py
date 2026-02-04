@@ -1234,18 +1234,29 @@ Be lenient on soft skills - focus primarily on technical/hard skill requirements
                 location_instruction = f"""
 LOCATION REQUIREMENT (Remote Position):
 - Job Location: {job_location_full} (Work Type: {work_type})
-- Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown - check resume for location clues'}
+- Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown'}
 - For REMOTE positions: Candidate MUST be in the same COUNTRY as the job location for tax/legal compliance.
 - City and state do NOT need to match for remote roles - only the country matters.
-- If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 15-20 points."""
+- If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 15-20 points.
+
+IMPORTANT LOCATION INFERENCE: If candidate location is not explicitly stated in the resume header/contact section:
+1. Check the candidate's MOST RECENT work experience for the job location (city, state/province, country)
+2. Use that work location as the candidate's presumed current location
+3. This is a valid proxy - people typically work near where they live
+4. Only mark location as "unknown" if NO location can be inferred from work history either"""
             else:  # On-site or Hybrid
                 location_instruction = f"""
 LOCATION REQUIREMENT ({work_type} Position):
 - Job Location: {job_location_full} (Work Type: {work_type})
-- Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown - check resume for location clues'}
+- Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown'}
 - For ON-SITE/HYBRID positions: Candidate should be in or near the job's city/metro area, or willing to relocate.
 - If candidate is in a completely different region (different state/province) or country, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified and reduce score by 10-15 points.
-- If candidate location is unknown, check their resume for recent work locations or stated location."""
+
+IMPORTANT LOCATION INFERENCE: If candidate location is not explicitly stated in the resume header/contact section:
+1. Check the candidate's MOST RECENT work experience for the job location (city, state/province, country)
+2. Use that work location as the candidate's presumed current location
+3. This is a valid proxy - people typically work near where they live
+4. Only mark location as "unknown" if NO location can be inferred from work history either"""
         
         prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements.
 Provide an objective assessment with a percentage match score (0-100).
