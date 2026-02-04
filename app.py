@@ -6820,6 +6820,64 @@ if is_primary_worker:
     )
     app.logger.info(f"📊 Log monitoring enabled - checking Render logs every {log_monitor_interval} minutes")
 
+# Log Monitoring UI Routes
+@app.route('/log-monitoring')
+@login_required
+def log_monitoring_page():
+    """Log monitoring dashboard page."""
+    return render_template('log_monitoring.html')
+
+@app.route('/api/log-monitoring/status')
+@login_required
+def api_log_monitoring_status():
+    """Get current log monitoring status."""
+    try:
+        from log_monitoring_service import get_log_monitor
+        monitor = get_log_monitor()
+        return jsonify({
+            "success": True,
+            "status": monitor.get_status()
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/log-monitoring/history')
+@login_required
+def api_log_monitoring_history():
+    """Get recent log monitoring history."""
+    try:
+        from log_monitoring_service import get_log_monitor
+        monitor = get_log_monitor()
+        limit = request.args.get('limit', 10, type=int)
+        return jsonify({
+            "success": True,
+            "history": monitor.get_history(limit)
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/log-monitoring/run', methods=['POST'])
+@login_required
+def api_log_monitoring_run():
+    """Manually trigger a log monitoring cycle."""
+    try:
+        from log_monitoring_service import run_log_monitoring_cycle
+        result = run_log_monitoring_cycle()
+        return jsonify({
+            "success": True,
+            "result": result
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 # Email Parsing Stuck Record Cleanup
 def email_parsing_timeout_cleanup():

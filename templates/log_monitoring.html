@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Log Monitoring - JobPulse{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="fas fa-heartbeat me-2"></i>System Health Monitor</h2>
+                <div>
+                    <button id="runNowBtn" class="btn btn-primary me-2" onclick="runMonitoringNow()">
+                        <i class="fas fa-play me-1"></i>Run Now
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="refreshStatus()">
+                        <i class="fas fa-sync-alt me-1"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card h-100" id="statusCard">
+                <div class="card-body text-center">
+                    <div id="statusIndicator" class="mb-2">
+                        <i class="fas fa-circle-notch fa-spin fa-3x text-muted"></i>
+                    </div>
+                    <h5 class="card-title mb-0" id="statusText">Loading...</h5>
+                    <small class="text-muted" id="lastRunTime">--</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h2 class="display-5 text-primary mb-0" id="totalRuns">--</h2>
+                    <small class="text-muted">Total Runs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h2 class="display-5 text-success mb-0" id="totalAutoFixed">--</h2>
+                    <small class="text-muted">Auto-Fixed</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h2 class="display-5 text-danger mb-0" id="totalEscalated">--</h2>
+                    <small class="text-muted">Escalated</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Info -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-cog me-2"></i>Configuration</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td><strong>Monitoring Interval</strong></td>
+                            <td id="intervalMinutes">-- minutes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Escalation Email</strong></td>
+                            <td id="escalationEmail">--</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Patterns Configured</strong></td>
+                            <td id="patternsConfigured">--</td>
+                        </tr>
+                        <tr>
+                            <td><strong>API Connected</strong></td>
+                            <td id="apiConfigured">--</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Service Info</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td><strong>Service ID</strong></td>
+                            <td><code id="serviceId">--</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Service Started</strong></td>
+                            <td id="serviceStartTime">--</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Last Log Fetched</strong></td>
+                            <td id="lastLogTimestamp">--</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Issues Detected (Total)</strong></td>
+                            <td id="totalIssuesFound">--</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-history me-2"></i>Recent Monitoring Runs</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="historyTable">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                    <th>Logs Analyzed</th>
+                                    <th>Issues Found</th>
+                                    <th>Auto-Fixed</th>
+                                    <th>Escalated</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="fas fa-clock me-2"></i>No monitoring runs yet. The first run will
+                                        occur in a few minutes.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .status-healthy {
+        color: #28a745;
+    }
+
+    .status-issues {
+        color: #ffc107;
+    }
+
+    .status-critical {
+        color: #dc3545;
+    }
+
+    .status-pending {
+        color: #6c757d;
+    }
+</style>
+
+<script>
+    function formatTime(isoString) {
+        if (!isoString) return '--';
+        const date = new Date(isoString);
+        return date.toLocaleString();
+    }
+
+    function formatTimeAgo(isoString) {
+        if (!isoString) return '--';
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} min ago`;
+        if (diffHours < 24) return `${diffHours} hours ago`;
+        return formatTime(isoString);
+    }
+
+    function updateStatus(data) {
+        // Update status indicator
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const statusCard = document.getElementById('statusCard');
+
+        if (data.current_status === 'healthy') {
+            statusIndicator.innerHTML = '<i class="fas fa-check-circle fa-3x text-success"></i>';
+            statusText.textContent = 'System Healthy';
+            statusCard.className = 'card h-100 border-success';
+        } else if (data.current_status === 'issues_detected') {
+            statusIndicator.innerHTML = '<i class="fas fa-exclamation-triangle fa-3x text-warning"></i>';
+            statusText.textContent = 'Issues Detected';
+            statusCard.className = 'card h-100 border-warning';
+        } else {
+            statusIndicator.innerHTML = '<i class="fas fa-clock fa-3x text-muted"></i>';
+            statusText.textContent = 'Awaiting First Run';
+            statusCard.className = 'card h-100';
+        }
+
+        // Update last run time
+        if (data.last_run) {
+            document.getElementById('lastRunTime').textContent = formatTimeAgo(data.last_run.timestamp);
+        }
+
+        // Update stats
+        document.getElementById('totalRuns').textContent = data.total_runs || 0;
+        document.getElementById('totalAutoFixed').textContent = data.total_auto_fixed || 0;
+        document.getElementById('totalEscalated').textContent = data.total_escalated || 0;
+        document.getElementById('totalIssuesFound').textContent = data.total_issues_found || 0;
+
+        // Update config
+        document.getElementById('intervalMinutes').textContent = (data.interval_minutes || '--') + ' minutes';
+        document.getElementById('escalationEmail').textContent = data.escalation_email || '--';
+        document.getElementById('patternsConfigured').textContent = data.patterns_configured || '--';
+        document.getElementById('apiConfigured').innerHTML = data.api_configured
+            ? '<span class="badge bg-success">Connected</span>'
+            : '<span class="badge bg-danger">Not Configured</span>';
+
+        // Update service info
+        document.getElementById('serviceId').textContent = data.service_id || '--';
+        document.getElementById('serviceStartTime').textContent = formatTime(data.service_start_time);
+        document.getElementById('lastLogTimestamp').textContent = formatTime(data.last_log_timestamp);
+    }
+
+    function updateHistory(history) {
+        const tbody = document.getElementById('historyBody');
+
+        if (!history || history.length === 0) {
+            tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-clock me-2"></i>No monitoring runs yet. The first run will occur in a few minutes.
+                </td>
+            </tr>
+        `;
+            return;
+        }
+
+        tbody.innerHTML = history.map(run => {
+            const statusBadge = run.status === 'healthy'
+                ? '<span class="badge bg-success">Healthy</span>'
+                : '<span class="badge bg-warning">Issues</span>';
+
+            const details = run.issue_details && run.issue_details.length > 0
+                ? run.issue_details.map(i => `${i.name} (${i.occurrences}x)`).join(', ')
+                : '--';
+
+            return `
+            <tr>
+                <td>${formatTime(run.timestamp)}</td>
+                <td>${statusBadge}</td>
+                <td>${run.logs_analyzed}</td>
+                <td>${run.issues_found}</td>
+                <td class="text-success">${run.auto_fixed}</td>
+                <td class="text-danger">${run.escalated}</td>
+                <td><small class="text-muted">${details}</small></td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    function refreshStatus() {
+        // Fetch status
+        fetch('/api/log-monitoring/status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateStatus(data.status);
+                }
+            })
+            .catch(err => console.error('Error fetching status:', err));
+
+        // Fetch history
+        fetch('/api/log-monitoring/history')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateHistory(data.history);
+                }
+            })
+            .catch(err => console.error('Error fetching history:', err));
+    }
+
+    function runMonitoringNow() {
+        const btn = document.getElementById('runNowBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
+
+        fetch('/api/log-monitoring/run', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    setTimeout(refreshStatus, 1000);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Error running monitoring:', err);
+                alert('Error running monitoring cycle');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play me-1"></i>Run Now';
+            });
+    }
+
+    // Initial load
+    refreshStatus();
+
+    // Auto-refresh every 30 seconds
+    setInterval(refreshStatus, 30000);
+</script>
+{% endblock %}

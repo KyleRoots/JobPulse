@@ -224,6 +224,15 @@ class LogMonitoringService:
             for pattern, cat, desc, fixable, fix in self.ERROR_PATTERNS
         ]
         
+        # History tracking for UI
+        self._history: List[Dict[str, Any]] = []
+        self._max_history = 20  # Keep last 20 results
+        self._total_runs = 0
+        self._total_issues_found = 0
+        self._total_auto_fixed = 0
+        self._total_escalated = 0
+        self._service_start_time = datetime.utcnow()
+        
         logger.info(f"📊 Log Monitoring Service initialized")
         logger.info(f"   Service ID: {self.service_id[:20]}..." if self.service_id else "   Service ID: NOT SET")
         logger.info(f"   Interval: {self.interval_minutes} minutes")
@@ -611,18 +620,52 @@ class LogMonitoringService:
         logger.info("🔍 LOG MONITORING CYCLE COMPLETE")
         logger.info("=" * 60)
         
+        # Track history for UI
+        self._total_runs += 1
+        self._total_issues_found += len(analysis.issues_found)
+        self._total_auto_fixed += len(analysis.auto_fixed)
+        self._total_escalated += len(analysis.escalated)
+        
+        history_entry = {
+            "timestamp": analysis.analysis_timestamp.isoformat(),
+            "logs_analyzed": analysis.logs_analyzed,
+            "issues_found": len(analysis.issues_found),
+            "auto_fixed": len(analysis.auto_fixed),
+            "escalated": len(analysis.escalated),
+            "status": "healthy" if not analysis.issues_found else "issues_detected",
+            "issue_details": [
+                {"name": i.pattern_name, "category": i.category.value, "occurrences": i.occurrences}
+                for i in analysis.issues_found
+            ]
+        }
+        self._history.insert(0, history_entry)
+        self._history = self._history[:self._max_history]  # Keep only last N
+        
         return analysis
     
     def get_status(self) -> Dict[str, Any]:
         """Get current monitoring status for API/dashboard."""
+        last_run = self._history[0] if self._history else None
+        
         return {
             "service_id": self.service_id[:20] + "..." if self.service_id else None,
             "interval_minutes": self.interval_minutes,
             "escalation_email": self.escalation_email,
             "last_log_timestamp": self._last_log_timestamp.isoformat() if self._last_log_timestamp else None,
             "patterns_configured": len(self.ERROR_PATTERNS),
-            "api_configured": bool(self.api_key and self.service_id)
+            "api_configured": bool(self.api_key and self.service_id),
+            "service_start_time": self._service_start_time.isoformat(),
+            "total_runs": self._total_runs,
+            "total_issues_found": self._total_issues_found,
+            "total_auto_fixed": self._total_auto_fixed,
+            "total_escalated": self._total_escalated,
+            "last_run": last_run,
+            "current_status": last_run["status"] if last_run else "not_run_yet"
         }
+    
+    def get_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent monitoring history for UI."""
+        return self._history[:limit]
 
 
 # Singleton instance
