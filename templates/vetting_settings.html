@@ -702,10 +702,9 @@
 
                 <!-- Recommended Candidates Section -->
                 <div id="recommended-section" class="candidate-filter-section" style="display: none;">
-                    {% set recommended = recent_vetting|default([])|selectattr('is_qualified')|list %}
-                    {% if recommended|length > 0 %}
+                    {% if recommended_candidates and recommended_candidates|length > 0 %}
                     <div class="accordion" id="recommendedAccordion">
-                        {% for log in recommended[:30] %}
+                        {% for log in recommended_candidates[:30] %}
                         <div class="accordion-item candidate-item" data-status="recommended"
                             style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
                             <h2 class="accordion-header">
@@ -799,10 +798,9 @@
 
                 <!-- Not Recommended Candidates Section -->
                 <div id="not-recommended-section" class="candidate-filter-section" style="display: none;">
-                    {% set not_recommended = recent_vetting|default([])|rejectattr('is_qualified')|list %}
-                    {% if not_recommended|length > 0 %}
+                    {% if not_recommended_candidates and not_recommended_candidates|length > 0 %}
                     <div class="accordion" id="notRecommendedAccordion">
-                        {% for log in not_recommended[:30] %}
+                        {% for log in not_recommended_candidates[:30] %}
                         <div class="accordion-item candidate-item" data-status="not-recommended"
                             style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
                             <h2 class="accordion-header">
@@ -922,7 +920,8 @@
                     title: 'Awaiting Vetting',
                     iconClass: 'fas fa-clock text-info',
                     badgeClass: 'bg-info',
-                    count: {{ stats.pending }}
+                    count: {{ stats.pending }
+        }
         }
                 },
             'recommended': {

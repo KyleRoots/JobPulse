@@ -181,19 +181,18 @@
             align-items: center;
         }
 
-        .logo-j {
-            background: linear-gradient(135deg, #3b82f6, #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        /* "J" and "ob" in white */
+        .logo-job {
+            color: #e2e8f0;
         }
 
+        /* Pulse heartbeat SVG */
         .logo-pulse {
             display: inline-flex;
             align-items: center;
-            width: 24px;
-            height: 16px;
-            margin: 0 -2px;
+            width: 20px;
+            height: 14px;
+            margin: 0 1px;
         }
 
         .pulse-svg {
@@ -202,7 +201,8 @@
             color: #3b82f6;
         }
 
-        .logo-rest {
+        /* "Pulse" in blue gradient */
+        .logo-pulse-text {
             background: linear-gradient(135deg, #3b82f6, #06b6d4);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -213,7 +213,7 @@
             font-family: 'Kalam', cursive;
             font-size: 0.75rem;
             color: #64748b;
-            margin-left: 3.5rem;
+            text-align: center;
             margin-top: -0.25rem;
         }
 
@@ -1214,10 +1214,10 @@
         <div class="sidebar-header">
             <a href="{{ url_for('dashboard_redirect') }}" class="sidebar-logo">
                 <span class="sidebar-logo-text">
-                    <span class="logo-j">J</span><span class="logo-pulse"><svg viewBox="0 0 24 16" class="pulse-svg">
+                    <span class="logo-job">J</span><span class="logo-pulse"><svg viewBox="0 0 24 16" class="pulse-svg">
                             <path d="M0 8 L6 8 L8 3 L10 13 L12 6 L14 10 L16 8 L24 8" stroke="currentColor"
                                 stroke-width="2" fill="none" />
-                        </svg></span><span class="logo-rest">bPulse</span>
+                        </svg></span><span class="logo-job">b</span><span class="logo-pulse-text">Pulse</span>
                 </span>
             </a>
             <div class="sidebar-logo-sub">powered by BNuvola AI</div>
