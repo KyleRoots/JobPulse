@@ -5,41 +5,44 @@
 {% block extra_head %}
 <style>
     .settings-card {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(15px);
+        background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+        border: 1px solid rgba(59, 130, 246, 0.15);
+        backdrop-filter: blur(20px);
+        border-radius: 16px;
         transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         position: relative;
         overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
 
     .settings-card::before {
         content: '';
         position: absolute;
         top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-        transition: all 0.5s ease;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #3b82f6, #06b6d4);
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
 
     .settings-card:hover::before {
-        left: 100%;
+        opacity: 1;
     }
 
     .settings-card:hover {
-        background: rgba(255, 255, 255, 0.12);
-        border-color: rgba(255, 255, 255, 0.3);
+        background: linear-gradient(145deg, rgba(35, 48, 70, 0.95), rgba(20, 30, 50, 0.98));
+        border-color: rgba(59, 130, 246, 0.35);
         transform: translateY(-4px);
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25), 0 0 25px rgba(59, 130, 246, 0.1);
     }
 
     .settings-card.no-hover:hover {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.15);
+        background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+        border-color: rgba(59, 130, 246, 0.15);
         transform: none;
-        box-shadow: none;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
 
     .settings-card.no-hover::before {
@@ -47,24 +50,24 @@
     }
 
     .form-check-input {
-        background-color: var(--bs-gray-600) !important;
-        border: 2px solid var(--bs-gray-400) !important;
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border: 2px solid rgba(59, 130, 246, 0.4) !important;
         opacity: 1 !important;
     }
 
     .form-check-input:checked {
-        background-color: var(--bs-primary) !important;
-        border-color: var(--bs-primary) !important;
+        background-color: #3b82f6 !important;
+        border-color: #3b82f6 !important;
     }
 
     .form-check-input:focus {
-        border-color: var(--bs-primary) !important;
-        box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25) !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
     }
 
     .form-check-input:not(:checked) {
-        background-color: var(--bs-gray-500) !important;
-        border-color: var(--bs-gray-300) !important;
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border-color: rgba(59, 130, 246, 0.3) !important;
     }
 
     @media (max-width: 768px) {

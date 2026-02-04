@@ -369,21 +369,73 @@
             padding: 2rem;
         }
 
-        /* Cards */
-        .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            transition: all 0.3s ease;
+        /* Cards - Premium Glass Design */
+        .glass-card,
+        .settings-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
         }
 
-        .glass-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.15);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        .glass-card::before,
+        .settings-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
+
+        .glass-card:hover,
+        .settings-card:hover {
+            background: linear-gradient(145deg, rgba(35, 48, 70, 0.95), rgba(20, 30, 50, 0.98));
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25), 0 0 30px rgba(59, 130, 246, 0.1);
+        }
+
+        .glass-card:hover::before,
+        .settings-card:hover::before {
+            opacity: 1;
+        }
+
+        /* Card Headers - Premium Style */
+        .glass-card .card-header,
+        .settings-card .card-header {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.05));
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 1rem 1.25rem;
+        }
+
+        .glass-card .card-header h5,
+        .settings-card .card-header h5,
+        .glass-card .card-title,
+        .settings-card .card-title {
+            color: #f1f5f9;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .glass-card .card-header h5 i,
+        .settings-card .card-header h5 i {
+            color: #3b82f6;
+        }
+
+        .glass-card .card-body,
+        .settings-card .card-body {
+            padding: 1.5rem;
+        }
+
 
         .stat-card {
             padding: 1.5rem;
@@ -492,32 +544,164 @@
             color: #64748b;
         }
 
-        /* Tables */
-        .data-table {
-            background: rgba(255, 255, 255, 0.03);
+        /* Tables - Premium Style */
+        .data-table,
+        .table {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.7));
             border-radius: 12px;
             overflow: hidden;
+            border: 1px solid rgba(59, 130, 246, 0.1);
         }
 
-        .data-table th {
-            background: rgba(255, 255, 255, 0.05);
+        .data-table th,
+        .table thead th {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(6, 182, 212, 0.08));
             font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: #94a3b8;
             padding: 1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
         }
 
-        .data-table td {
+        .data-table td,
+        .table td {
             padding: 1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.08);
             color: #e2e8f0;
         }
 
-        .data-table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.03);
+        .data-table tbody tr:hover,
+        .table tbody tr:hover {
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        /* Monitor Cards - Premium Style */
+        .monitor-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            border-radius: 12px;
+            transition: all 0.4s ease;
+        }
+
+        .monitor-card:hover {
+            border-color: rgba(59, 130, 246, 0.35);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2), 0 0 20px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Section Headers - Premium Style */
+        .section-title,
+        .card-header h5 {
+            color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        .section-title i,
+        .card-header h5 i {
+            color: #3b82f6;
+        }
+
+        /* Form Elements - Premium Style */
+        .form-control,
+        .form-select {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 8px;
+            color: #e2e8f0;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            background: linear-gradient(145deg, rgba(35, 48, 70, 0.9), rgba(20, 30, 50, 0.95));
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), 0 0 20px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
+
+        .form-control::placeholder {
+            color: #64748b;
+        }
+
+        /* Form Labels */
+        .form-label,
+        label {
+            color: #94a3b8;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Checkboxes and Switches - Premium Style */
+        .form-check-input {
+            background-color: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .form-check-input:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .form-check-input:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        /* Alert Boxes - Premium Style */
+        .alert {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 12px;
+            color: #e2e8f0;
+        }
+
+        .alert-info {
+            background: linear-gradient(145deg, rgba(6, 182, 212, 0.15), rgba(59, 130, 246, 0.1));
+            border-color: rgba(6, 182, 212, 0.3);
+        }
+
+        .alert-warning {
+            background: linear-gradient(145deg, rgba(249, 115, 22, 0.15), rgba(234, 179, 8, 0.1));
+            border-color: rgba(249, 115, 22, 0.3);
+        }
+
+        .alert-success {
+            background: linear-gradient(145deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.1));
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .alert-danger {
+            background: linear-gradient(145deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        /* Info Boxes and Special Sections */
+        .info-box {
+            background: linear-gradient(145deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.05));
+            border-left: 4px solid #3b82f6;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Schedule/XML File Cards */
+        .schedule-card,
+        .xml-file-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.4s ease;
+            margin-bottom: 1rem;
+        }
+
+        .schedule-card:hover,
+        .xml-file-card:hover {
+            border-color: rgba(59, 130, 246, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 0 15px rgba(59, 130, 246, 0.08);
         }
 
         /* Mobile Responsive */
