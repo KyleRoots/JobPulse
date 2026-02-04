@@ -1551,18 +1551,25 @@ CRITICAL RULES:
             resume_text = None
             
             # First try: Get description field directly from candidate data
-            if candidate and candidate.get('description'):
-                description = candidate.get('description', '').strip()
+            raw_description = candidate.get('description') if candidate else None
+            logging.info(f"📄 Candidate description field present: {bool(raw_description)}, type: {type(raw_description).__name__}, length: {len(str(raw_description)) if raw_description else 0}")
+            
+            if raw_description:
+                description = str(raw_description).strip()
                 # Clean HTML tags if present
                 import re
                 description = re.sub(r'<[^>]+>', ' ', description)
                 description = re.sub(r'\s+', ' ', description).strip()
+                
+                logging.info(f"📄 After cleaning: {len(description)} chars, first 200: {description[:200]}")
                 
                 if len(description) >= 100:  # Minimum viable resume length
                     resume_text = description
                     logging.info(f"📄 Using candidate description field: {len(resume_text)} chars")
                 else:
                     logging.info(f"Description too short ({len(description)} chars), will try file download")
+            else:
+                logging.info(f"📄 No description field in candidate data - will try file download")
             
             # Second try: Fall back to file download if description not available
             if not resume_text:
