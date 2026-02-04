@@ -1327,6 +1327,13 @@ LOCATION REQUIREMENT (Remote Position):
 - City and state do NOT need to match for remote roles - only the country matters.
 - If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 15-20 points.
 
+CRITICAL STATE/PROVINCE RECOGNITION:
+- ANY U.S. STATE (Pennsylvania, California, Texas, New York, Florida, etc.) IS PART OF THE UNITED STATES.
+- If a remote job is in the United States and candidate is in ANY U.S. state, they ARE in the same country - NO location mismatch.
+- Similarly, Canadian provinces (Ontario, British Columbia, etc.) are part of Canada.
+- ONLY flag "Location mismatch: different country" if the candidate is literally in a DIFFERENT country (e.g., candidate in India for a US-based job, or candidate in UK for a Canada-based job).
+- DO NOT flag location mismatch just because candidate is in a different state/city within the same country.
+
 IMPORTANT LOCATION INFERENCE: If candidate location is not explicitly stated in the resume header/contact section:
 1. Check the candidate's MOST RECENT work experience for the job location (city, state/province, country)
 2. Use that work location as the candidate's presumed current location
