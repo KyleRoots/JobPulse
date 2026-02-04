@@ -702,7 +702,7 @@
 
                 <!-- Recommended Candidates Section -->
                 <div id="recommended-section" class="candidate-filter-section" style="display: none;">
-                    {% set recommended = recent_vetting|selectattr('is_qualified', 'equalto', true)|list %}
+                    {% set recommended = recent_vetting|selectattr('is_qualified')|list %}
                     {% if recommended|length > 0 %}
                     <div class="accordion" id="recommendedAccordion">
                         {% for log in recommended[:30] %}
@@ -799,7 +799,7 @@
 
                 <!-- Not Recommended Candidates Section -->
                 <div id="not-recommended-section" class="candidate-filter-section" style="display: none;">
-                    {% set not_recommended = recent_vetting|selectattr('is_qualified', 'equalto', false)|list %}
+                    {% set not_recommended = recent_vetting|rejectattr('is_qualified')|list %}
                     {% if not_recommended|length > 0 %}
                     <div class="accordion" id="notRecommendedAccordion">
                         {% for log in not_recommended[:30] %}
