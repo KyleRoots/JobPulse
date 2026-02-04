@@ -1250,7 +1250,12 @@ LOCATION REQUIREMENT ({work_type} Position):
 - Job Location: {job_location_full} (Work Type: {work_type})
 - Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown'}
 - For ON-SITE/HYBRID positions: Candidate should be in or near the job's city/metro area, or willing to relocate.
-- If candidate is in a completely different region (different state/province) or country, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified and reduce score by 10-15 points.
+
+CRITICAL: If candidate is ALREADY in the same city or metro area as the job, they AUTOMATICALLY qualify for on-site/hybrid work.
+- Do NOT flag "location mismatch" or "not willing to work on-site" if candidate lives locally.
+- Local candidates CAN work on-site by default - no explicit statement needed.
+- Only flag location issues if candidate is in a completely different region (different state/province) or country.
+- If candidate is non-local AND doesn't mention relocation willingness, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified.
 
 IMPORTANT LOCATION INFERENCE: If candidate location is not explicitly stated in the resume header/contact section:
 1. Check the candidate's MOST RECENT work experience for the job location (city, state/province, country)
