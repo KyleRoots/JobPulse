@@ -19,67 +19,67 @@
 {% endblock %}
 
 {% block content %}
-<!-- Statistics Cards -->
-<div class="row mb-4 g-3">
-    <div class="col-md-3">
-        <div class="card glass-card bg-success bg-opacity-25">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="card-title text-muted">Sent</h6>
-                        <h3 class="mb-0 text-success" id="sentCount">
-                            {{ logs.items | selectattr('delivery_status', 'equalto', 'sent') | list | length }}
-                        </h3>
-                    </div>
-                    <i class="fas fa-check-circle fa-2x text-success opacity-75"></i>
-                </div>
-            </div>
+<!-- Metrics Row - Horizontal Cards (matching Dashboard style) -->
+<div class="metrics-row">
+    <div class="metric-card green">
+        <div class="metric-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="metric-label">Sent</div>
+        <div class="metric-value" id="sentCount">
+            {{ logs.items | selectattr('delivery_status', 'equalto', 'sent') | list | length }}
+        </div>
+        <div class="metric-subtext">Successfully Delivered</div>
+        <div class="metric-trend up">
+            <i class="fas fa-paper-plane"></i>
+            Delivered
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card glass-card bg-danger bg-opacity-25">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="card-title text-muted">Failed</h6>
-                        <h3 class="mb-0 text-danger" id="failedCount">
-                            {{ logs.items | selectattr('delivery_status', 'equalto', 'failed') | list | length }}
-                        </h3>
-                    </div>
-                    <i class="fas fa-times-circle fa-2x text-danger opacity-75"></i>
-                </div>
-            </div>
+
+    <div class="metric-card orange">
+        <div class="metric-icon">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="metric-label">Failed</div>
+        <div class="metric-value" id="failedCount">
+            {{ logs.items | selectattr('delivery_status', 'equalto', 'failed') | list | length }}
+        </div>
+        <div class="metric-subtext">Delivery Errors</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-exclamation"></i>
+            Check logs
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card glass-card bg-info bg-opacity-25">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="card-title text-muted">Total</h6>
-                        <h3 class="mb-0 text-info" id="totalCount">{{ logs.total }}</h3>
-                    </div>
-                    <i class="fas fa-envelope fa-2x text-info opacity-75"></i>
-                </div>
-            </div>
+
+    <div class="metric-card blue">
+        <div class="metric-icon">
+            <i class="fas fa-envelope"></i>
+        </div>
+        <div class="metric-label">Total</div>
+        <div class="metric-value" id="totalCount">{{ logs.total }}</div>
+        <div class="metric-subtext">All Notifications</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-chart-line"></i>
+            All time
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card glass-card bg-warning bg-opacity-25">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="card-title text-muted">Pending</h6>
-                        <h3 class="mb-0 text-warning" id="pendingCount">
-                            {{ logs.items | selectattr('delivery_status', 'equalto', 'pending') | list | length }}
-                        </h3>
-                    </div>
-                    <i class="fas fa-hourglass-half fa-2x text-warning opacity-75"></i>
-                </div>
-            </div>
+
+    <div class="metric-card purple">
+        <div class="metric-icon">
+            <i class="fas fa-hourglass-half"></i>
+        </div>
+        <div class="metric-label">Pending</div>
+        <div class="metric-value" id="pendingCount">
+            {{ logs.items | selectattr('delivery_status', 'equalto', 'pending') | list | length }}
+        </div>
+        <div class="metric-subtext">Awaiting Send</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-clock"></i>
+            In queue
         </div>
     </div>
 </div>
+
 
 <!-- Email Logs Table -->
 <div class="card glass-card">

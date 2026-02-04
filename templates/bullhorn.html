@@ -168,6 +168,62 @@
 {% endif %}
 {% endwith %}
 
+<!-- Metrics Row - Horizontal Cards (matching Dashboard style) -->
+<div class="metrics-row">
+    <div class="metric-card blue">
+        <div class="metric-icon">
+            <i class="fas fa-desktop"></i>
+        </div>
+        <div class="metric-label">Active Monitors</div>
+        <div class="metric-value">{{ monitors|length }}</div>
+        <div class="metric-subtext">Tearsheets Tracked</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-eye"></i>
+            Watching
+        </div>
+    </div>
+
+    <div class="metric-card green">
+        <div class="metric-icon">
+            <i class="fas fa-briefcase"></i>
+        </div>
+        <div class="metric-label">Total Jobs</div>
+        {% set total_jobs = monitor_job_counts.values() | select('number') | sum %}
+        <div class="metric-value">{{ total_jobs }}</div>
+        <div class="metric-subtext">Across All Tearsheets</div>
+        <div class="metric-trend up">
+            <i class="fas fa-arrow-up"></i>
+            Active
+        </div>
+    </div>
+
+    <div class="metric-card orange">
+        <div class="metric-icon">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+        <div class="metric-label">Last Sync</div>
+        <div class="metric-value" style="font-size: 1.5rem;">Now</div>
+        <div class="metric-subtext">Auto-refresh enabled</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-clock"></i>
+            5 min cycle
+        </div>
+    </div>
+
+    <div class="metric-card purple">
+        <div class="metric-icon">
+            <i class="fas fa-plug"></i>
+        </div>
+        <div class="metric-label">Connection</div>
+        <div class="metric-value" style="font-size: 1.5rem;">{{ 'Live' if bullhorn_connected else 'Offline' }}</div>
+        <div class="metric-subtext">Bullhorn API</div>
+        <div class="metric-trend {{ 'up' if bullhorn_connected else 'neutral' }}">
+            <i class="fas fa-{{ 'check' if bullhorn_connected else 'exclamation-triangle' }}"></i>
+            {{ 'Connected' if bullhorn_connected else 'Setup Required' }}
+        </div>
+    </div>
+</div>
+
 <!-- ATS Selection -->
 <div class="card glass-card mb-4">
     <div class="card-body">

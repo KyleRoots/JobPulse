@@ -79,21 +79,7 @@
         transform: translateX(30px);
     }
 
-    .stat-card {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 1.5rem;
-        text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .stat-value {
-        font-size: 2rem;
-        font-weight: bold;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
+    /* stat-card styles removed - now using global metric-card from base_layout.html */
 
     .accordion-button {
         background-color: transparent !important;
@@ -136,33 +122,61 @@
 {% endif %}
 {% endwith %}
 
-<div class="row g-4 mb-4">
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-value">{{ stats.total_processed }}</div>
-            <div class="text-muted">Total Processed</div>
+<!-- Metrics Row - Horizontal Cards (matching Dashboard style) -->
+<div class="metrics-row">
+    <div class="metric-card blue">
+        <div class="metric-icon">
+            <i class="fas fa-clipboard-check"></i>
+        </div>
+        <div class="metric-label">Total Processed</div>
+        <div class="metric-value">{{ stats.total_processed }}</div>
+        <div class="metric-subtext">Candidates Vetted</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-chart-line"></i>
+            All time
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-value" style="-webkit-text-fill-color: #28a745;">{{ stats.qualified }}</div>
-            <div class="text-muted">Qualified Matches</div>
+
+    <div class="metric-card green">
+        <div class="metric-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="metric-label">Qualified Matches</div>
+        <div class="metric-value">{{ stats.qualified }}</div>
+        <div class="metric-subtext">{{ settings.match_threshold }}%+ Score</div>
+        <div class="metric-trend up">
+            <i class="fas fa-arrow-up"></i>
+            Recommended
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-value" style="-webkit-text-fill-color: #17a2b8;">{{ stats.notifications_sent }}
-            </div>
-            <div class="text-muted">Notifications Sent</div>
+
+    <div class="metric-card purple">
+        <div class="metric-icon">
+            <i class="fas fa-envelope"></i>
+        </div>
+        <div class="metric-label">Notifications Sent</div>
+        <div class="metric-value">{{ stats.notifications_sent }}</div>
+        <div class="metric-subtext">Email Alerts</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-paper-plane"></i>
+            Recruiter alerts
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-value" style="-webkit-text-fill-color: #ffc107;">{{ stats.pending }}</div>
-            <div class="text-muted">Pending</div>
+
+    <div class="metric-card orange">
+        <div class="metric-icon">
+            <i class="fas fa-hourglass-half"></i>
+        </div>
+        <div class="metric-label">Pending</div>
+        <div class="metric-value">{{ stats.pending }}</div>
+        <div class="metric-subtext">Awaiting Vetting</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-clock"></i>
+            In queue
         </div>
     </div>
 </div>
+
 
 <div class="row g-4">
     <div class="col-md-6">

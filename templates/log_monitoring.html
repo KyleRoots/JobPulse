@@ -66,36 +66,61 @@
 {% endblock %}
 
 {% block content %}
-<!-- Status Cards -->
-<div class="row mb-4">
-    <div class="col-md-3 mb-3">
-        <div class="glass-card stat-card text-center" id="statusCard">
-            <div id="statusIndicator" class="mb-2">
-                <i class="fas fa-circle-notch fa-spin fa-3x text-muted"></i>
-            </div>
-            <h5 class="mb-0" id="statusText">Loading...</h5>
-            <small class="text-muted" id="lastRunTime">--</small>
+<!-- Metrics Row - Horizontal Cards (matching Dashboard style) -->
+<div class="metrics-row">
+    <div class="metric-card blue" id="statusCard">
+        <div class="metric-icon" id="statusIndicator">
+            <i class="fas fa-circle-notch fa-spin"></i>
+        </div>
+        <div class="metric-label">System Status</div>
+        <div class="metric-value" id="statusText" style="font-size: 1.5rem;">Loading...</div>
+        <div class="metric-subtext">Health Check</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-clock"></i>
+            <span id="lastRunTime">--</span>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="glass-card stat-card text-center">
-            <div class="stat-number text-primary" id="totalRuns">--</div>
-            <small class="text-muted">Total Runs</small>
+
+    <div class="metric-card green">
+        <div class="metric-icon">
+            <i class="fas fa-play-circle"></i>
+        </div>
+        <div class="metric-label">Total Runs</div>
+        <div class="metric-value" id="totalRuns">--</div>
+        <div class="metric-subtext">Monitoring Cycles</div>
+        <div class="metric-trend up">
+            <i class="fas fa-chart-line"></i>
+            Active
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="glass-card stat-card text-center">
-            <div class="stat-number text-success" id="totalAutoFixed">--</div>
-            <small class="text-muted">Auto-Fixed</small>
+
+    <div class="metric-card purple">
+        <div class="metric-icon">
+            <i class="fas fa-wrench"></i>
+        </div>
+        <div class="metric-label">Auto-Fixed</div>
+        <div class="metric-value" id="totalAutoFixed">--</div>
+        <div class="metric-subtext">Issues Resolved</div>
+        <div class="metric-trend up">
+            <i class="fas fa-check"></i>
+            Automated
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="glass-card stat-card text-center">
-            <div class="stat-number text-danger" id="totalEscalated">--</div>
-            <small class="text-muted">Escalated</small>
+
+    <div class="metric-card orange">
+        <div class="metric-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="metric-label">Escalated</div>
+        <div class="metric-value" id="totalEscalated">--</div>
+        <div class="metric-subtext">Needs Attention</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-bell"></i>
+            Alerted
         </div>
     </div>
 </div>
+
 
 <!-- Configuration & Service Info -->
 <div class="row mb-4">
