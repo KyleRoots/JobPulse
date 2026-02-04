@@ -150,6 +150,8 @@ font-family: 'Kalam', cursive; /* For "powered by" attributions */
     --sidebar-hover: rgba(255, 255, 255, 0.05);
     --sidebar-active: rgba(59, 130, 246, 0.15);
     --sidebar-active-border: #3b82f6;
+    --sidebar-margin: 10px;  /* Floating margin */
+    --sidebar-radius: 20px;  /* Rounded corners */
     
     /* Content */
     --content-bg: linear-gradient(135deg, #1a2234 0%, #1e293b 50%, #0f172a 100%);
@@ -161,6 +163,33 @@ font-family: 'Kalam', cursive; /* For "powered by" attributions */
     --border-radius-sm: 8px;
     --border-radius-md: 12px;
     --border-radius-lg: 16px;
+    --border-radius-xl: 20px;
+}
+```
+
+### Sidebar Styling (Floating Design)
+
+The sidebar uses a "floating" design with rounded corners and shadow:
+
+```css
+.sidebar {
+    position: fixed;
+    left: 10px;      /* Floating margin */
+    top: 10px;
+    bottom: 10px;
+    width: var(--sidebar-width);
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 20px;  /* Rounded corners */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+/* Main content adjusts for floating sidebar */
+.main-content {
+    margin-left: calc(var(--sidebar-width) + 20px);  /* sidebar + margins */
 }
 ```
 
@@ -189,10 +218,17 @@ font-family: 'Kalam', cursive; /* For "powered by" attributions */
 <aside class="sidebar">
     <div class="sidebar-header">
         <a class="sidebar-logo">
-            <div class="sidebar-logo-icon">
-                <i class="fas fa-icon"></i>
-            </div>
-            <span class="sidebar-logo-text">AppName™</span>
+            <!-- NEW: Pulse heartbeat logo integrated into text -->
+            <span class="sidebar-logo-text">
+                <span class="logo-j">J</span>
+                <span class="logo-pulse">
+                    <svg viewBox="0 0 24 16" class="pulse-svg">
+                        <path d="M0 8 L6 8 L8 3 L10 13 L12 6 L14 10 L16 8 L24 8" 
+                              stroke="currentColor" stroke-width="2" fill="none"/>
+                    </svg>
+                </span>
+                <span class="logo-rest">bPulse</span>
+            </span>
         </a>
         <div class="sidebar-logo-sub">powered by BNuvola AI</div>
     </div>
@@ -221,6 +257,38 @@ font-family: 'Kalam', cursive; /* For "powered by" attributions */
         </a>
     </div>
 </aside>
+```
+
+### Logo CSS (Pulse Heartbeat Design)
+
+```css
+.sidebar-logo-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.logo-j, .logo-rest {
+    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.logo-pulse {
+    display: inline-flex;
+    align-items: center;
+    width: 24px;
+    height: 16px;
+    margin: 0 -2px;
+}
+
+.pulse-svg {
+    width: 100%;
+    height: 100%;
+    color: #3b82f6;
+}
 ```
 
 ---
@@ -635,6 +703,6 @@ Copy `templates/base_layout.html` as your starting point. It includes:
 
 ---
 
-*Last Updated: February 2026*  
-*Version: 1.0*  
+*Last Updated: February 4, 2026*  
+*Version: 1.1*  
 *© BNuvola AI Solutions*
