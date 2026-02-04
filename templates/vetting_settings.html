@@ -920,25 +920,23 @@
                     title: 'Awaiting Vetting',
                     iconClass: 'fas fa-clock text-info',
                     badgeClass: 'bg-info',
-                    count: {{ stats.pending }
-        }
+                    count: {{ stats.pending }}
                 },
-            'recommended': {
-            section: recommendedSection,
-            title: 'Recommended ({{ settings.match_threshold }}%+)',
-            iconClass: 'fas fa-check-circle text-success',
-            badgeClass: 'bg-success',
-            count: {{ stats.qualified }}
+                'recommended': {
+                    section: recommendedSection,
+                    title: 'Recommended ({{ settings.match_threshold }}%+)',
+                    iconClass: 'fas fa-check-circle text-success',
+                    badgeClass: 'bg-success',
+                    count: {{ stats.qualified }}
                 },
-            'not-recommended': {
-            section: notRecommendedSection,
-            title: 'Not Recommended',
-            iconClass: 'fas fa-times-circle text-danger',
-            badgeClass: 'bg-danger',
-            count: {{ stats.total_processed - stats.qualified }}
+                'not-recommended': {
+                    section: notRecommendedSection,
+                    title: 'Not Recommended',
+                    iconClass: 'fas fa-times-circle text-danger',
+                    badgeClass: 'bg-danger',
+                    count: {{ stats.total_processed - stats.qualified }}
                 }
             };
-
         filterCards.forEach(card => {
             card.addEventListener('click', function () {
                 const filter = this.dataset.filter;
