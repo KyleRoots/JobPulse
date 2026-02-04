@@ -4572,15 +4572,22 @@ def save_job_requirements(job_id):
     
     try:
         custom_requirements = request.form.get('custom_requirements', '').strip()
+        vetting_threshold = request.form.get('vetting_threshold', '').strip()
         
         job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
         if job_req:
             job_req.custom_requirements = custom_requirements if custom_requirements else None
+            # Handle threshold - empty string means clear (use global default)
+            if vetting_threshold:
+                job_req.vetting_threshold = int(vetting_threshold)
+            else:
+                job_req.vetting_threshold = None
             job_req.updated_at = datetime.utcnow()
         else:
             job_req = JobVettingRequirements(
                 bullhorn_job_id=job_id,
-                custom_requirements=custom_requirements if custom_requirements else None
+                custom_requirements=custom_requirements if custom_requirements else None,
+                vetting_threshold=int(vetting_threshold) if vetting_threshold else None
             )
             db.session.add(job_req)
         
@@ -4596,6 +4603,56 @@ def save_job_requirements(job_id):
         flash(f'Error saving requirements: {str(e)}', 'error')
     
     return redirect(url_for('vetting_settings'))
+
+
+@app.route('/vetting/job/<int:job_id>/threshold', methods=['POST'])
+@login_required
+def save_job_threshold(job_id):
+    """AJAX endpoint to save job-specific vetting threshold"""
+    from models import JobVettingRequirements
+    
+    try:
+        data = request.get_json() if request.is_json else {}
+        threshold_value = data.get('threshold')
+        
+        # Handle clearing threshold (null = use global)
+        if threshold_value is None or threshold_value == '':
+            new_threshold = None
+        else:
+            new_threshold = int(threshold_value)
+            if new_threshold < 50 or new_threshold > 100:
+                return jsonify({'success': False, 'error': 'Threshold must be between 50 and 100'}), 400
+        
+        job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+        if job_req:
+            job_req.vetting_threshold = new_threshold
+            job_req.updated_at = datetime.utcnow()
+        else:
+            # Create new record if it doesn't exist
+            job_req = JobVettingRequirements(
+                bullhorn_job_id=job_id,
+                vetting_threshold=new_threshold
+            )
+            db.session.add(job_req)
+        
+        db.session.commit()
+        
+        # Get global threshold for display
+        global_threshold = VettingConfig.get_value('match_threshold', '80')
+        display_threshold = new_threshold if new_threshold is not None else int(global_threshold)
+        
+        return jsonify({
+            'success': True,
+            'threshold': new_threshold,
+            'display_threshold': display_threshold,
+            'is_custom': new_threshold is not None
+        })
+        
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid threshold value'}), 400
+    except Exception as e:
+        app.logger.error(f"Error saving job threshold: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/vetting/job/<int:job_id>/refresh-requirements', methods=['POST'])

@@ -116,11 +116,22 @@ class CandidateVettingService:
         return self.get_config_value('vetting_enabled', 'false').lower() == 'true'
     
     def get_threshold(self) -> float:
-        """Get match threshold percentage"""
+        """Get global match threshold percentage"""
         try:
             return float(self.get_config_value('match_threshold', '80'))
         except (ValueError, TypeError):
             return 80.0
+    
+    def get_job_threshold(self, job_id: int) -> float:
+        """Get match threshold for a specific job (returns job-specific if set, otherwise global default)"""
+        try:
+            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            if job_req and job_req.vetting_threshold is not None:
+                return float(job_req.vetting_threshold)
+            return self.get_threshold()  # Fall back to global default
+        except Exception as e:
+            logging.warning(f"Error getting job threshold for {job_id}: {e}")
+            return self.get_threshold()
     
     def _get_job_custom_requirements(self, job_id: int) -> Optional[str]:
         """Get custom requirements for a job if user has specified any"""
@@ -1616,7 +1627,9 @@ CRITICAL RULES:
                 # Determine if this is the job they applied to
                 is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
                 
-                # Create match record
+                # Create match record - use job-specific threshold if set
+                job_threshold = self.get_job_threshold(job_id)
+                
                 match_record = CandidateJobMatch(
                     vetting_log_id=vetting_log.id,
                     bullhorn_job_id=job_id,
@@ -1628,7 +1641,7 @@ CRITICAL RULES:
                     recruiter_email=recruiter_email,
                     recruiter_bullhorn_id=recruiter_id,
                     match_score=analysis.get('match_score', 0),
-                    is_qualified=analysis.get('match_score', 0) >= threshold,
+                    is_qualified=analysis.get('match_score', 0) >= job_threshold,
                     is_applied_job=is_applied_job,
                     match_summary=analysis.get('match_summary', ''),
                     skills_match=analysis.get('skills_match', ''),
@@ -1639,11 +1652,13 @@ CRITICAL RULES:
                 db.session.add(match_record)
                 all_match_results.append(match_record)
                 
+                # Log with threshold info (show if custom threshold used)
+                threshold_note = f" (threshold: {int(job_threshold)}%)" if job_threshold != threshold else ""
                 if match_record.is_qualified:
                     qualified_matches.append(match_record)
-                    logging.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%")
+                    logging.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                 else:
-                    logging.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%")
+                    logging.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                 
                 # Handle deferred database save (now in main thread with Flask app context)
                 deferred = analysis.get('_deferred_save')

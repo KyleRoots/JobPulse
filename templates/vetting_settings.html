@@ -683,6 +683,7 @@
                                     <th>Location</th>
                                     <th>AI Interpreted Requirements</th>
                                     <th>Custom Override</th>
+                                    <th style="width: 110px;">Threshold</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -721,6 +722,23 @@
                                             req.custom_requirements|length > 100 %}...{% endif %}</small>
                                         {% else %}
                                         <span class="text-muted small">Using AI interpretation</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number"
+                                                class="form-control form-control-sm job-threshold-input"
+                                                data-job-id="{{ req.bullhorn_job_id }}"
+                                                value="{{ req.vetting_threshold or '' }}"
+                                                placeholder="{{ settings.match_threshold }}" min="50" max="100" step="5"
+                                                style="width: 60px;"
+                                                title="Custom threshold for this job (leave empty for default {{ settings.match_threshold }}%)">
+                                            <span class="input-group-text bg-dark text-muted"
+                                                style="padding: 0.25rem 0.4rem;">%</span>
+                                        </div>
+                                        {% if req.vetting_threshold %}
+                                        <small class="text-info" title="Using custom threshold"><i
+                                                class="fas fa-asterisk"></i></small>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -1345,6 +1363,66 @@
                         var count = this.querySelectorAll('.card').length + 10;
                         btn.innerHTML = '<i class="fas fa-chevron-down me-1"></i>Show All ' + count + ' Jobs';
                     }
+                });
+            });
+
+            // Auto-save job threshold changes
+            document.querySelectorAll('.job-threshold-input').forEach(function (input) {
+                let originalValue = input.value;
+
+                input.addEventListener('change', function () {
+                    const jobId = this.dataset.jobId;
+                    const threshold = this.value.trim();
+                    const inputEl = this;
+
+                    // Skip if value hasn't actually changed
+                    if (threshold === originalValue) return;
+
+                    // Visual feedback - show saving
+                    inputEl.classList.add('is-warning');
+                    inputEl.style.borderColor = '#ffc107';
+
+                    fetch(`/vetting/job/${jobId}/threshold`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ threshold: threshold || null })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                originalValue = threshold;
+                                inputEl.classList.remove('is-warning');
+                                inputEl.classList.add('is-valid');
+                                inputEl.style.borderColor = '#198754';
+
+                                // Add/remove asterisk indicator
+                                const asterisk = inputEl.closest('td').querySelector('.text-info');
+                                if (data.is_custom && !asterisk) {
+                                    const indicator = document.createElement('small');
+                                    indicator.className = 'text-info ms-1';
+                                    indicator.innerHTML = '<i class="fas fa-asterisk" title="Using custom threshold"></i>';
+                                    inputEl.closest('.input-group').after(indicator);
+                                } else if (!data.is_custom && asterisk) {
+                                    asterisk.remove();
+                                }
+
+                                setTimeout(() => {
+                                    inputEl.classList.remove('is-valid');
+                                    inputEl.style.borderColor = '';
+                                }, 2000);
+                            } else {
+                                inputEl.classList.add('is-invalid');
+                                inputEl.style.borderColor = '#dc3545';
+                                alert('Error saving threshold: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            inputEl.classList.add('is-invalid');
+                            inputEl.style.borderColor = '#dc3545';
+                            console.error('Error:', error);
+                        });
                 });
             });
 

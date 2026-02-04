@@ -612,6 +612,7 @@ class JobVettingRequirements(db.Model):
     job_work_type = db.Column(db.String(50), nullable=True)  # On-site, Hybrid, Remote
     custom_requirements = db.Column(db.Text, nullable=True)  # User-editable requirements text
     ai_interpreted_requirements = db.Column(db.Text, nullable=True)  # What AI extracted from job
+    vetting_threshold = db.Column(db.Integer, nullable=True)  # Custom threshold for this job (null = use global default)
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
