@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,26 +14,31 @@
             position: relative;
             overflow-x: hidden;
         }
-        
+
         .geometric-bg {
             position: fixed;
             width: 100%;
             height: 100%;
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
-                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255, 255, 255, 0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255, 255, 255, 0.02) 50%, transparent 51%);
             background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
             animation: drift 30s linear infinite;
             z-index: -1;
         }
-        
+
         @keyframes drift {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(-60px, -60px) rotate(360deg); }
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-60px, -60px) rotate(360deg);
+            }
         }
-        
+
         .welcome-container {
             min-height: 100vh;
             display: flex;
@@ -40,10 +46,10 @@
             justify-content: center;
             padding: 2rem;
         }
-        
+
         .welcome-card {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(15px);
             border-radius: 20px;
             padding: 3rem 2rem;
@@ -52,30 +58,30 @@
             width: 100%;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        
+
         .welcome-card:hover {
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
         }
-        
+
         .jobpulse-logo {
             font-size: 3rem;
             font-weight: 700;
             color: #ffffff;
-            text-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
             margin-bottom: 1rem;
             position: relative;
             display: inline-block;
         }
-        
+
         .jobpulse-logo i {
             position: relative;
             z-index: 2;
             animation: spin 4s linear infinite;
         }
-        
+
         .lyntrix-attribution {
             font-family: 'Kalam', cursive;
             font-size: 1rem;
@@ -83,20 +89,20 @@
             font-style: italic;
             margin-bottom: 2rem;
         }
-        
+
         .welcome-message {
             font-size: 1.3rem;
             color: #E8F0FF;
             margin-bottom: 1rem;
         }
-        
+
         .system-status {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             padding: 1rem;
             margin: 2rem 0;
         }
-        
+
         .status-indicator {
             display: inline-block;
             width: 12px;
@@ -104,20 +110,25 @@
             border-radius: 50%;
             margin-right: 8px;
         }
-        
-        .status-active { background-color: #28a745; }
-        .status-inactive { background-color: #dc3545; }
-        
+
+        .status-active {
+            background-color: #28a745;
+        }
+
+        .status-inactive {
+            background-color: #dc3545;
+        }
+
         .quick-actions {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
             margin-top: 2rem;
         }
-        
+
         .action-btn {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: #ffffff;
             padding: 1rem;
             border-radius: 10px;
@@ -128,30 +139,30 @@
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .action-btn:hover {
-            background: rgba(255,255,255,0.15);
-            border-color: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
             color: #ffffff;
             transform: translateY(-2px);
         }
-        
+
         .action-btn i {
             font-size: 1.5rem;
             margin-bottom: 0.5rem;
         }
-        
+
         .logout-section {
             margin-top: 2rem;
             padding-top: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .user-info {
             margin-bottom: 1rem;
             color: #A8B8C8;
         }
-        
+
         .btn-logout {
             background: rgba(220, 53, 69, 0.8);
             border: 2px solid rgba(220, 53, 69, 0.9);
@@ -163,7 +174,7 @@
             text-decoration: none;
             display: inline-block;
         }
-        
+
         .btn-logout:hover {
             background: rgba(165, 42, 42, 1);
             border-color: rgba(220, 20, 60, 1);
@@ -171,17 +182,20 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5);
         }
-        
+
         @media (max-width: 768px) {
             .jobpulse-logo {
                 font-size: 2.5rem;
             }
+
             .welcome-message {
                 font-size: 1.1rem;
             }
+
             .welcome-card {
                 padding: 2rem 1rem;
             }
+
             .quick-actions {
                 grid-template-columns: 1fr;
             }
@@ -189,9 +203,10 @@
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="geometric-bg"></div>
-    
+
     <div class="welcome-container">
         <div class="welcome-card">
             <!-- JobPulse™ Header -->
@@ -200,7 +215,7 @@
                 JobPulse™
             </div>
             <div class="lyntrix-attribution">powered by Lyntrix AI</div>
-            
+
             <!-- Welcome Message -->
             <div class="welcome-message">
                 Welcome to your XML job feed automation system
@@ -208,52 +223,53 @@
             <p class="lead text-muted">
                 Monitor ATS tearsheets, generate XML feeds, and automate job publishing
             </p>
-            
+
             <!-- System Status -->
             <div class="system-status">
                 <h6 class="mb-2">
                     <i class="fas fa-heartbeat me-2"></i>System Status
                 </h6>
-                
+
                 <!-- Automation Status -->
                 <div class="mb-2">
                     <span class="status-indicator status-{{ 'active' if automation_active else 'inactive' }}"></span>
-                    <strong>Automation:</strong> 
+                    <strong>Automation:</strong>
                     <span class="badge bg-{{ 'success' if automation_active else 'danger' }}">
                         {{ 'Active' if automation_active else 'Inactive' }}
                     </span>
                 </div>
-                
+
                 <!-- Environment Monitoring Status -->
                 <div class="mb-2">
                     {% if environment_status %}
-                        <span class="status-indicator status-{{ 'active' if environment_status.is_up else 'inactive' }}"></span>
-                        <strong>Production Environment:</strong> 
-                        <span class="badge bg-{{ 'success' if environment_status.is_up else 'danger' }}">
-                            {{ environment_status.current_status.title() }}
-                        </span>
-                        {% if environment_status.last_check_time %}
-                            <small class="text-muted d-block">
-                                Last checked: {{ environment_status.last_check_time | eastern_time('%I:%M %p %Z') }}
-                                {% if environment_status.consecutive_failures > 0 %}
-                                    | {{ environment_status.consecutive_failures }} consecutive failures
-                                {% endif %}
-                            </small>
+                    <span
+                        class="status-indicator status-{{ 'active' if environment_status.is_up else 'inactive' }}"></span>
+                    <strong>Production Environment:</strong>
+                    <span class="badge bg-{{ 'success' if environment_status.is_up else 'danger' }}">
+                        {{ environment_status.current_status.title() }}
+                    </span>
+                    {% if environment_status.last_check_time %}
+                    <small class="text-muted d-block">
+                        Last checked: {{ environment_status.last_check_time | eastern_time('%I:%M %p %Z') }}
+                        {% if environment_status.consecutive_failures > 0 %}
+                        | {{ environment_status.consecutive_failures }} consecutive failures
                         {% endif %}
-                        {% if environment_status.uptime_percentage is defined %}
-                            <small class="text-muted d-block">
-                                Uptime: {{ environment_status.uptime_percentage }}%
-                            </small>
-                        {% endif %}
+                    </small>
+                    {% endif %}
+                    {% if environment_status.uptime_percentage is defined %}
+                    <small class="text-muted d-block">
+                        Uptime: {{ environment_status.uptime_percentage }}%
+                    </small>
+                    {% endif %}
                     {% else %}
-                        <span class="status-indicator" style="background-color: #6c757d;"></span>
-                        <strong>Production Environment:</strong> 
-                        <span class="badge bg-secondary">Setting up...</span>
-                        <small class="text-muted d-block">Environment monitoring is initializing</small>
+                    <span class="status-indicator" style="background-color: #6c757d;"></span>
+                    <strong>Production Environment:</strong>
+                    <span class="badge bg-secondary">Setting up...</span>
+                    <small class="text-muted d-block">Environment monitoring is initializing</small>
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- Quick Actions -->
             <div class="quick-actions">
                 <a href="{{ url_for('bullhorn_dashboard') }}" class="action-btn">
@@ -261,50 +277,56 @@
                     <span>ATS Monitoring</span>
                     <small class="text-muted">Monitor job changes</small>
                 </a>
-                
+
                 <a href="{{ url_for('scheduler_dashboard') }}" class="action-btn">
                     <i class="fas fa-clock"></i>
                     <span>Schedule Jobs</span>
                     <small class="text-muted">Automate processing</small>
                 </a>
-                
+
                 <a href="{{ url_for('automation_test') }}" class="action-btn">
                     <i class="fas fa-play"></i>
                     <span>Test Upload</span>
                     <small class="text-muted">Test XML upload</small>
                 </a>
-                
+
                 <a href="{{ url_for('download_current_xml') }}" class="action-btn">
                     <i class="fas fa-download"></i>
                     <span>Download XML</span>
                     <small class="text-muted">Get current feed</small>
                 </a>
-                
+
                 <a href="{{ url_for('settings') }}" class="action-btn">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                     <small class="text-muted">Configure system</small>
                 </a>
-                
+
                 <a href="{{ url_for('email_logs') }}" class="action-btn">
                     <i class="fas fa-envelope"></i>
                     <span>Email Logs</span>
                     <small class="text-muted">View notifications</small>
                 </a>
-                
+
                 <a href="{{ url_for('email_parsing_dashboard') }}" class="action-btn">
                     <i class="fas fa-inbox"></i>
                     <span>Email Parsing</span>
                     <small class="text-muted">Inbound email monitor</small>
                 </a>
-                
+
                 <a href="{{ url_for('vetting_settings') }}" class="action-btn">
                     <i class="fas fa-brain"></i>
                     <span>AI Vetting</span>
                     <small class="text-muted">Candidate matching</small>
                 </a>
+
+                <a href="{{ url_for('log_monitoring_page') }}" class="action-btn">
+                    <i class="fas fa-heartbeat"></i>
+                    <span>Log Monitoring</span>
+                    <small class="text-muted">System health</small>
+                </a>
             </div>
-            
+
             <!-- User Info and Logout -->
             <div class="logout-section">
                 <div class="user-info">
@@ -318,4 +340,5 @@
         </div>
     </div>
 </body>
+
 </html>
