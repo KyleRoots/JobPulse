@@ -157,9 +157,9 @@
                             <div class="btn-group">
                                 {% if log.sendgrid_message_id %}
                                 <button class="btn btn-sm btn-outline-info"
-                                    title="SendGrid ID: {{ log.sendgrid_message_id }}"
+                                    title="Copy SendGrid ID: {{ log.sendgrid_message_id }}"
                                     onclick="copyToClipboard('{{ log.sendgrid_message_id }}')">
-                                    <i class="fas fa-external-link-alt"></i>
+                                    <i class="fas fa-copy"></i>
                                 </button>
                                 {% endif %}
                                 {% if log.error_message %}
