@@ -1191,6 +1191,7 @@ def dashboard_redirect():
         environment_status = None
     
     return render_template('dashboard.html', 
+                         active_page='dashboard',
                          recent_activities=recent_activities,
                          automation_active=automation_active,
                          schedules=schedules,
@@ -1307,7 +1308,7 @@ def scheduler_dashboard():
     except Exception as e:
         app.logger.warning(f"Could not calculate next refresh timestamp: {str(e)}")
     
-    return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs, active_xml_files=active_xml_files, next_refresh_info=next_refresh_info)
+    return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs, active_xml_files=active_xml_files, next_refresh_info=next_refresh_info, active_page='scheduler')
 
 @app.route('/api/schedules', methods=['POST'])
 def create_schedule():
@@ -2399,7 +2400,7 @@ def settings():
             setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
             settings_data[key] = setting.setting_value if setting else ''
         
-        return render_template('settings.html', settings=settings_data)
+        return render_template('settings.html', settings=settings_data, active_page='settings')
         
     except Exception as e:
         app.logger.error(f"Error loading settings: {str(e)}")
@@ -2814,7 +2815,8 @@ def bullhorn_dashboard():
                          monitors=monitors, 
                          recent_activities=recent_activities,
                          bullhorn_connected=bullhorn_connected,
-                         monitor_job_counts=monitor_job_counts)
+                         monitor_job_counts=monitor_job_counts,
+                         active_page='ats')
 
 @app.route('/test-bullhorn')
 def test_bullhorn_page():
@@ -4018,7 +4020,8 @@ def vetting_settings():
                           not_recommended_candidates=not_recommended_candidates,
                           job_requirements=job_requirements,
                           latest_health=latest_health,
-                          recent_issues=recent_issues)
+                          recent_issues=recent_issues,
+                          active_page='vetting')
 
 
 @app.route('/vetting/save', methods=['POST'])
@@ -6083,7 +6086,7 @@ def email_logs():
         error_out=False
     )
     
-    return render_template('email_logs.html', logs=logs)
+    return render_template('email_logs.html', logs=logs, active_page='email_logs')
 
 @app.route('/api/email-logs')
 @login_required
@@ -6212,7 +6215,7 @@ def email_parsing_dashboard():
         'duplicate_rate': round((duplicate_candidates / completed_emails * 100) if completed_emails > 0 else 0, 1)
     }
     
-    return render_template('email_parsing.html', emails=recent_emails, stats=stats)
+    return render_template('email_parsing.html', emails=recent_emails, stats=stats, active_page='email_parsing')
 
 
 @app.route('/api/email/parsed')
@@ -6825,7 +6828,7 @@ if is_primary_worker:
 @login_required
 def log_monitoring_page():
     """Log monitoring dashboard page."""
-    return render_template('log_monitoring.html')
+    return render_template('log_monitoring.html', active_page='log_monitoring')
 
 @app.route('/api/log-monitoring/status')
 @login_required

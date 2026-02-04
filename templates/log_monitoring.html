@@ -1,414 +1,334 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+{% extends "base_layout.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Log Monitoring - JobPulse™</title>
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
-            min-height: 100vh;
-        }
+{% block title %}Log Monitoring - JobPulse™{% endblock %}
 
-        .geometric-bg {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            background-image:
-                radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
-            background-size: 200px 200px, 300px 300px;
-            z-index: -1;
-        }
+{% block page_title %}System Health Monitor{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Real-time log analysis and automated issue resolution</p>{% endblock
+%}
 
-        .main-container {
-            padding: 2rem;
-        }
+{% block page_actions %}
+<button id="runNowBtn" class="btn btn-primary me-2" onclick="runMonitoringNow()">
+    <i class="fas fa-play me-1"></i>Run Now
+</button>
+<button class="btn btn-outline-light" onclick="refreshStatus()">
+    <i class="fas fa-sync-alt me-1"></i>Refresh
+</button>
+{% endblock %}
 
-        .page-header {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(15px);
-            border-radius: 15px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
+{% block extra_styles %}
+<style>
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
 
-        .card {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-        }
+    .status-healthy {
+        color: #22c55e;
+    }
 
-        .card-header {
-            background: rgba(255, 255, 255, 0.05);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
+    .status-issues {
+        color: #f59e0b;
+    }
 
-        .stat-card {
-            text-align: center;
-            padding: 1.5rem;
-        }
+    .status-critical {
+        color: #ef4444;
+    }
 
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: 700;
-        }
+    .status-pending {
+        color: #64748b;
+    }
 
-        .status-healthy {
-            color: #28a745;
-        }
+    .config-table td {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
 
-        .status-issues {
-            color: #ffc107;
-        }
+    .config-table tr:last-child td {
+        border-bottom: none;
+    }
 
-        .status-critical {
-            color: #dc3545;
-        }
+    .section-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
 
-        .status-pending {
-            color: #6c757d;
-        }
+    .section-title i {
+        color: #3b82f6;
+    }
+</style>
+{% endblock %}
 
-        .table {
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        .table thead th {
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .table tbody tr {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            border: none;
-        }
-
-        .back-link {
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-        }
-
-        .back-link:hover {
-            color: #ffffff;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="geometric-bg"></div>
-
-    <div class="main-container">
-        <!-- Header -->
-        <div class="page-header d-flex justify-content-between align-items-center">
-            <div>
-                <a href="{{ url_for('dashboard_redirect') }}" class="back-link">
-                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                </a>
-                <h2 class="mt-2 mb-0">
-                    <i class="fas fa-heartbeat me-2"></i>System Health Monitor
-                </h2>
+{% block content %}
+<!-- Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="glass-card stat-card text-center" id="statusCard">
+            <div id="statusIndicator" class="mb-2">
+                <i class="fas fa-circle-notch fa-spin fa-3x text-muted"></i>
             </div>
-            <div>
-                <button id="runNowBtn" class="btn btn-primary me-2" onclick="runMonitoringNow()">
-                    <i class="fas fa-play me-1"></i>Run Now
-                </button>
-                <button class="btn btn-outline-light" onclick="refreshStatus()">
-                    <i class="fas fa-sync-alt me-1"></i>Refresh
-                </button>
-            </div>
-        </div>
-
-        <!-- Status Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3 mb-3">
-                <div class="card h-100" id="statusCard">
-                    <div class="card-body stat-card">
-                        <div id="statusIndicator" class="mb-2">
-                            <i class="fas fa-circle-notch fa-spin fa-3x text-muted"></i>
-                        </div>
-                        <h5 class="mb-0" id="statusText">Loading...</h5>
-                        <small class="text-muted" id="lastRunTime">--</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card h-100">
-                    <div class="card-body stat-card">
-                        <div class="stat-number text-primary" id="totalRuns">--</div>
-                        <small class="text-muted">Total Runs</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card h-100">
-                    <div class="card-body stat-card">
-                        <div class="stat-number text-success" id="totalAutoFixed">--</div>
-                        <small class="text-muted">Auto-Fixed</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card h-100">
-                    <div class="card-body stat-card">
-                        <div class="stat-number text-danger" id="totalEscalated">--</div>
-                        <small class="text-muted">Escalated</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Configuration & Service Info -->
-        <div class="row mb-4">
-            <div class="col-md-6 mb-3">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="fas fa-cog me-2"></i>Configuration</h6>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-sm mb-0">
-                            <tr>
-                                <td><strong>Monitoring Interval</strong></td>
-                                <td id="intervalMinutes">-- minutes</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Escalation Email</strong></td>
-                                <td id="escalationEmail">--</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Patterns Configured</strong></td>
-                                <td id="patternsConfigured">--</td>
-                            </tr>
-                            <tr>
-                                <td><strong>API Connected</strong></td>
-                                <td id="apiConfigured">--</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-3">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Service Info</h6>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-sm mb-0">
-                            <tr>
-                                <td><strong>Service ID</strong></td>
-                                <td><code id="serviceId">--</code></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Service Started</strong></td>
-                                <td id="serviceStartTime">--</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Last Log Fetched</strong></td>
-                                <td id="lastLogTimestamp">--</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Issues Detected (Total)</strong></td>
-                                <td id="totalIssuesFound">--</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recent Activity -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="fas fa-history me-2"></i>Recent Monitoring Runs</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover" id="historyTable">
-                                <thead>
-                                    <tr>
-                                        <th>Time</th>
-                                        <th>Status</th>
-                                        <th>Logs Analyzed</th>
-                                        <th>Issues Found</th>
-                                        <th>Auto-Fixed</th>
-                                        <th>Escalated</th>
-                                        <th>Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="historyBody">
-                                    <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">
-                                            <i class="fas fa-clock me-2"></i>No monitoring runs yet. The first run will
-                                            occur in a few minutes.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <h5 class="mb-0" id="statusText">Loading...</h5>
+            <small class="text-muted" id="lastRunTime">--</small>
         </div>
     </div>
+    <div class="col-md-3 mb-3">
+        <div class="glass-card stat-card text-center">
+            <div class="stat-number text-primary" id="totalRuns">--</div>
+            <small class="text-muted">Total Runs</small>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="glass-card stat-card text-center">
+            <div class="stat-number text-success" id="totalAutoFixed">--</div>
+            <small class="text-muted">Auto-Fixed</small>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="glass-card stat-card text-center">
+            <div class="stat-number text-danger" id="totalEscalated">--</div>
+            <small class="text-muted">Escalated</small>
+        </div>
+    </div>
+</div>
 
-    <script>
-        function formatTime(isoString) {
-            if (!isoString) return '--';
-            const date = new Date(isoString);
-            return date.toLocaleString();
+<!-- Configuration & Service Info -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="section-title">
+            <i class="fas fa-cog"></i>
+            Configuration
+        </div>
+        <div class="glass-card p-3">
+            <table class="table table-borderless config-table mb-0">
+                <tr>
+                    <td><strong>Monitoring Interval</strong></td>
+                    <td id="intervalMinutes">-- minutes</td>
+                </tr>
+                <tr>
+                    <td><strong>Escalation Email</strong></td>
+                    <td id="escalationEmail">--</td>
+                </tr>
+                <tr>
+                    <td><strong>Patterns Configured</strong></td>
+                    <td id="patternsConfigured">--</td>
+                </tr>
+                <tr>
+                    <td><strong>API Connected</strong></td>
+                    <td id="apiConfigured">--</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="section-title">
+            <i class="fas fa-info-circle"></i>
+            Service Info
+        </div>
+        <div class="glass-card p-3">
+            <table class="table table-borderless config-table mb-0">
+                <tr>
+                    <td><strong>Service ID</strong></td>
+                    <td><code id="serviceId">--</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Service Started</strong></td>
+                    <td id="serviceStartTime">--</td>
+                </tr>
+                <tr>
+                    <td><strong>Last Log Fetched</strong></td>
+                    <td id="lastLogTimestamp">--</td>
+                </tr>
+                <tr>
+                    <td><strong>Issues Detected (Total)</strong></td>
+                    <td id="totalIssuesFound">--</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="section-title">
+    <i class="fas fa-history"></i>
+    Recent Monitoring Runs
+</div>
+<div class="glass-card">
+    <div class="table-responsive">
+        <table class="table data-table mb-0" id="historyTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Logs Analyzed</th>
+                    <th>Issues Found</th>
+                    <th>Auto-Fixed</th>
+                    <th>Escalated</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody">
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-clock me-2"></i>No monitoring runs yet. The first run will occur in a few
+                        minutes.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function formatTime(isoString) {
+        if (!isoString) return '--';
+        const date = new Date(isoString);
+        return date.toLocaleString();
+    }
+
+    function formatTimeAgo(isoString) {
+        if (!isoString) return '--';
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} min ago`;
+        if (diffHours < 24) return `${diffHours} hours ago`;
+        return formatTime(isoString);
+    }
+
+    function updateStatus(data) {
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const statusCard = document.getElementById('statusCard');
+
+        if (data.current_status === 'healthy') {
+            statusIndicator.innerHTML = '<i class="fas fa-check-circle fa-3x text-success"></i>';
+            statusText.textContent = 'System Healthy';
+        } else if (data.current_status === 'issues_detected') {
+            statusIndicator.innerHTML = '<i class="fas fa-exclamation-triangle fa-3x text-warning"></i>';
+            statusText.textContent = 'Issues Detected';
+        } else {
+            statusIndicator.innerHTML = '<i class="fas fa-clock fa-3x text-muted"></i>';
+            statusText.textContent = 'Awaiting First Run';
         }
 
-        function formatTimeAgo(isoString) {
-            if (!isoString) return '--';
-            const date = new Date(isoString);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMins / 60);
-
-            if (diffMins < 1) return 'Just now';
-            if (diffMins < 60) return `${diffMins} min ago`;
-            if (diffHours < 24) return `${diffHours} hours ago`;
-            return formatTime(isoString);
+        if (data.last_run) {
+            document.getElementById('lastRunTime').textContent = formatTimeAgo(data.last_run.timestamp);
         }
 
-        function updateStatus(data) {
-            const statusIndicator = document.getElementById('statusIndicator');
-            const statusText = document.getElementById('statusText');
-            const statusCard = document.getElementById('statusCard');
+        document.getElementById('totalRuns').textContent = data.total_runs || 0;
+        document.getElementById('totalAutoFixed').textContent = data.total_auto_fixed || 0;
+        document.getElementById('totalEscalated').textContent = data.total_escalated || 0;
+        document.getElementById('totalIssuesFound').textContent = data.total_issues_found || 0;
 
-            if (data.current_status === 'healthy') {
-                statusIndicator.innerHTML = '<i class="fas fa-check-circle fa-3x text-success"></i>';
-                statusText.textContent = 'System Healthy';
-                statusCard.className = 'card h-100 border-success';
-            } else if (data.current_status === 'issues_detected') {
-                statusIndicator.innerHTML = '<i class="fas fa-exclamation-triangle fa-3x text-warning"></i>';
-                statusText.textContent = 'Issues Detected';
-                statusCard.className = 'card h-100 border-warning';
-            } else {
-                statusIndicator.innerHTML = '<i class="fas fa-clock fa-3x text-muted"></i>';
-                statusText.textContent = 'Awaiting First Run';
-                statusCard.className = 'card h-100';
-            }
+        document.getElementById('intervalMinutes').textContent = (data.interval_minutes || '--') + ' minutes';
+        document.getElementById('escalationEmail').textContent = data.escalation_email || '--';
+        document.getElementById('patternsConfigured').textContent = data.patterns_configured || '--';
+        document.getElementById('apiConfigured').innerHTML = data.api_configured
+            ? '<span class="badge-status success">Connected</span>'
+            : '<span class="badge-status danger">Not Configured</span>';
 
-            if (data.last_run) {
-                document.getElementById('lastRunTime').textContent = formatTimeAgo(data.last_run.timestamp);
-            }
+        document.getElementById('serviceId').textContent = data.service_id || '--';
+        document.getElementById('serviceStartTime').textContent = formatTime(data.service_start_time);
+        document.getElementById('lastLogTimestamp').textContent = formatTime(data.last_log_timestamp);
+    }
 
-            document.getElementById('totalRuns').textContent = data.total_runs || 0;
-            document.getElementById('totalAutoFixed').textContent = data.total_auto_fixed || 0;
-            document.getElementById('totalEscalated').textContent = data.total_escalated || 0;
-            document.getElementById('totalIssuesFound').textContent = data.total_issues_found || 0;
+    function updateHistory(history) {
+        const tbody = document.getElementById('historyBody');
 
-            document.getElementById('intervalMinutes').textContent = (data.interval_minutes || '--') + ' minutes';
-            document.getElementById('escalationEmail').textContent = data.escalation_email || '--';
-            document.getElementById('patternsConfigured').textContent = data.patterns_configured || '--';
-            document.getElementById('apiConfigured').innerHTML = data.api_configured
-                ? '<span class="badge bg-success">Connected</span>'
-                : '<span class="badge bg-danger">Not Configured</span>';
-
-            document.getElementById('serviceId').textContent = data.service_id || '--';
-            document.getElementById('serviceStartTime').textContent = formatTime(data.service_start_time);
-            document.getElementById('lastLogTimestamp').textContent = formatTime(data.last_log_timestamp);
+        if (!history || history.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-clock me-2"></i>No monitoring runs yet. The first run will occur in a few minutes.
+                    </td>
+                </tr>
+            `;
+            return;
         }
 
-        function updateHistory(history) {
-            const tbody = document.getElementById('historyBody');
+        tbody.innerHTML = history.map(run => {
+            const statusBadge = run.status === 'healthy'
+                ? '<span class="badge-status success">Healthy</span>'
+                : '<span class="badge-status warning">Issues</span>';
 
-            if (!history || history.length === 0) {
-                tbody.innerHTML = `
-            <tr>
-                <td colspan="7" class="text-center text-muted py-4">
-                    <i class="fas fa-clock me-2"></i>No monitoring runs yet. The first run will occur in a few minutes.
-                </td>
-            </tr>
-        `;
-                return;
-            }
+            const details = run.issue_details && run.issue_details.length > 0
+                ? run.issue_details.map(i => `${i.name} (${i.occurrences}x)`).join(', ')
+                : '--';
 
-            tbody.innerHTML = history.map(run => {
-                const statusBadge = run.status === 'healthy'
-                    ? '<span class="badge bg-success">Healthy</span>'
-                    : '<span class="badge bg-warning">Issues</span>';
+            return `
+                <tr>
+                    <td>${formatTime(run.timestamp)}</td>
+                    <td>${statusBadge}</td>
+                    <td>${run.logs_analyzed}</td>
+                    <td>${run.issues_found}</td>
+                    <td class="text-success">${run.auto_fixed}</td>
+                    <td class="text-danger">${run.escalated}</td>
+                    <td><small class="text-muted">${details}</small></td>
+                </tr>
+            `;
+        }).join('');
+    }
 
-                const details = run.issue_details && run.issue_details.length > 0
-                    ? run.issue_details.map(i => `${i.name} (${i.occurrences}x)`).join(', ')
-                    : '--';
+    function refreshStatus() {
+        fetch('/api/log-monitoring/status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateStatus(data.status);
+                }
+            })
+            .catch(err => console.error('Error fetching status:', err));
 
-                return `
-            <tr>
-                <td>${formatTime(run.timestamp)}</td>
-                <td>${statusBadge}</td>
-                <td>${run.logs_analyzed}</td>
-                <td>${run.issues_found}</td>
-                <td class="text-success">${run.auto_fixed}</td>
-                <td class="text-danger">${run.escalated}</td>
-                <td><small class="text-muted">${details}</small></td>
-            </tr>
-        `;
-            }).join('');
-        }
+        fetch('/api/log-monitoring/history')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateHistory(data.history);
+                }
+            })
+            .catch(err => console.error('Error fetching history:', err));
+    }
 
-        function refreshStatus() {
-            fetch('/api/log-monitoring/status')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        updateStatus(data.status);
-                    }
-                })
-                .catch(err => console.error('Error fetching status:', err));
+    function runMonitoringNow() {
+        const btn = document.getElementById('runNowBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
 
-            fetch('/api/log-monitoring/history')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        updateHistory(data.history);
-                    }
-                })
-                .catch(err => console.error('Error fetching history:', err));
-        }
+        fetch('/api/log-monitoring/run', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    setTimeout(refreshStatus, 1000);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Error running monitoring:', err);
+                alert('Error running monitoring cycle');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play me-1"></i>Run Now';
+            });
+    }
 
-        function runMonitoringNow() {
-            const btn = document.getElementById('runNowBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
+    // Initial load
+    refreshStatus();
 
-            fetch('/api/log-monitoring/run', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        setTimeout(refreshStatus, 1000);
-                    } else {
-                        alert('Error: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(err => {
-                    console.error('Error running monitoring:', err);
-                    alert('Error running monitoring cycle');
-                })
-                .finally(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-play me-1"></i>Run Now';
-                });
-        }
-
-        // Initial load
-        refreshStatus();
-
-        // Auto-refresh every 30 seconds
-        setInterval(refreshStatus, 30000);
-    </script>
-</body>
-
-</html>
+    // Auto-refresh every 30 seconds
+    setInterval(refreshStatus, 30000);
+</script>
+{% endblock %}
