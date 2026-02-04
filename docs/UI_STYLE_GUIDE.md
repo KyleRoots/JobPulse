@@ -193,6 +193,50 @@ The sidebar uses a "floating" design with rounded corners and shadow:
 }
 ```
 
+### Sidebar Header (Centered Logo)
+
+The sidebar header centers the logo and subtitle:
+
+```css
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--sidebar-border);
+    text-align: center;  /* Center logo and subtitle */
+}
+
+.sidebar-logo {
+    display: inline-flex;  /* Changed from flex for centering */
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: #fff;
+}
+```
+
+### Sidebar Navigation (Hidden Scrollbar)
+
+The sidebar nav hides scrollbars while maintaining scroll functionality:
+
+```css
+.sidebar-nav {
+    flex: 1;
+    padding: 1rem 0;
+    overflow-y: auto;
+    
+    /* Hide scrollbar - cross-browser */
+    scrollbar-width: none;           /* Firefox */
+    -ms-overflow-style: none;        /* IE/Edge */
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    display: none;  /* Chrome/Safari/Opera */
+}
+```
+
+> [!NOTE]
+> The scrollbar is hidden for a cleaner UI, but users can still scroll using mouse wheel, touch, or keyboard navigation.
+
 ### Page Layout
 
 ```
@@ -704,5 +748,5 @@ Copy `templates/base_layout.html` as your starting point. It includes:
 ---
 
 *Last Updated: February 4, 2026*  
-*Version: 1.1*  
+*Version: 1.2*  
 *© BNuvola AI Solutions*
