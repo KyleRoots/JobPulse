@@ -564,234 +564,340 @@
         <div class="collapse show" id="vettingAuditPanel">
             <!-- Pipeline Overview (Metric Cards) -->
             <div class="card-header bg-transparent border-bottom border-secondary">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <div class="p-3 rounded"
-                            style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
-                                <div>
-                                    <div class="h4 mb-0 text-info">{{ stats.pending }}</div>
-                                    <small class="text-muted">Awaiting Vetting</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="p-3 rounded"
-                            style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
-                                <div>
-                                    <div class="h4 mb-0 text-success">{{ stats.qualified }}</div>
-                                    <small class="text-muted">Recommended ({{ settings.match_threshold }}%+)</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="p-3 rounded"
-                            style="background: rgba(108, 117, 125, 0.1); border: 1px solid rgba(108, 117, 125, 0.3);">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-times-circle fa-2x text-secondary me-3 opacity-75"></i>
-                                <div>
-                                    <div class="h4 mb-0 text-secondary">{{ stats.total_processed - stats.qualified }}
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded vetting-filter-card active" data-filter="pending"
+                            style="background: rgba(13, 202, 240, 0.15); border: 2px solid rgba(13, 202, 240, 0.5); cursor: pointer; transition: all 0.3s ease;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
+                                    <div>
+                                        <div class="h3 mb-0 text-info">{{ stats.pending }}</div>
+                                        <small class="text-light">Awaiting Vetting</small>
                                     </div>
-                                    <small class="text-muted">Not Recommended</small>
                                 </div>
+                                <i class="fas fa-chevron-right text-info opacity-50"></i>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="p-3 rounded"
-                            style="background: rgba(111, 66, 193, 0.1); border: 1px solid rgba(111, 66, 193, 0.3);">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-envelope fa-2x me-3 opacity-75" style="color: #6f42c1;"></i>
-                                <div>
-                                    <div class="h4 mb-0" style="color: #6f42c1;">{{ stats.notifications_sent }}</div>
-                                    <small class="text-muted">Emails Sent</small>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded vetting-filter-card" data-filter="recommended"
+                            style="background: rgba(25, 135, 84, 0.1); border: 2px solid rgba(25, 135, 84, 0.3); cursor: pointer; transition: all 0.3s ease;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
+                                    <div>
+                                        <div class="h3 mb-0 text-success">{{ stats.qualified }}</div>
+                                        <small class="text-light">Recommended ({{ settings.match_threshold }}%+)</small>
+                                    </div>
                                 </div>
+                                <i class="fas fa-chevron-right text-success opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded vetting-filter-card" data-filter="not-recommended"
+                            style="background: rgba(220, 53, 69, 0.1); border: 2px solid rgba(220, 53, 69, 0.3); cursor: pointer; transition: all 0.3s ease;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-times-circle fa-2x text-danger me-3 opacity-75"></i>
+                                    <div>
+                                        <div class="h3 mb-0 text-danger">{{ stats.total_processed - stats.qualified }}
+                                        </div>
+                                        <small class="text-light">Not Recommended</small>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-right text-danger opacity-50"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Candidate Drill-Down Tabs -->
+            <!-- Candidate List - Filtered by Card Selection -->
             <div class="card-body">
-                <ul class="nav nav-tabs mb-3" id="vettingTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab"
-                            data-bs-target="#pending-content" type="button" role="tab">
-                            <i class="fas fa-hourglass-half me-1"></i>Awaiting Vetting <span class="badge bg-info">{{
-                                stats.pending }}</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="recent-tab" data-bs-toggle="tab" data-bs-target="#recent-content"
-                            type="button" role="tab">
-                            <i class="fas fa-history me-1"></i>Recently Vetted <span class="badge bg-success">{{
-                                recent_vetting|default([])|length }}</span>
-                        </button>
-                    </li>
-                </ul>
+                <h6 class="mb-3" id="filterTitle">
+                    <i class="fas fa-clock text-info me-2"></i>
+                    <span id="filterTitleText">Awaiting Vetting</span>
+                    <span class="badge bg-info ms-2" id="filterCount">{{ stats.pending }}</span>
+                </h6>
 
-                <div class="tab-content" id="vettingTabsContent">
-                    <!-- Pending Candidates Tab -->
-                    <div class="tab-pane fade show active" id="pending-content" role="tabpanel">
-                        {% if pending_candidates and pending_candidates|length > 0 %}
-                        <div class="table-responsive">
-                            <table class="table table-dark table-hover activity-table mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Candidate</th>
-                                        <th>Applied Job</th>
-                                        <th>Applied Date</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for candidate in pending_candidates[:20] %}
-                                    <tr>
-                                        <td>
-                                            <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={{ candidate.bullhorn_candidate_id }}"
-                                                target="_blank" class="text-decoration-none">
-                                                <strong class="text-light">{{ candidate.candidate_name or 'Unknown'
-                                                    }}</strong>
-                                            </a>
-                                            <br><small class="text-muted">ID: {{ candidate.bullhorn_candidate_id
-                                                }}</small>
-                                        </td>
-                                        <td>{{ candidate.applied_job_title or 'N/A' }}</td>
-                                        <td>{{ candidate.detected_at.strftime('%b %d, %H:%M') if candidate.detected_at
-                                            else 'N/A' }}</td>
-                                        <td><span class="badge bg-info">{{ candidate.status|title }}</span></td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% if pending_candidates|length > 20 %}
-                        <p class="text-muted text-center mt-2 mb-0"><small>Showing 20 of {{ pending_candidates|length }}
-                                pending candidates</small></p>
-                        {% endif %}
-                        {% else %}
-                        <div class="text-center py-4">
-                            <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
-                            <p class="text-muted mb-0">No candidates currently awaiting vetting</p>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Recently Vetted Tab -->
-                    <div class="tab-pane fade" id="recent-content" role="tabpanel">
-                        {% if recent_vetting and recent_vetting|length > 0 %}
-                        <div class="accordion" id="recentVettingAccordion">
-                            {% for log in recent_vetting[:25] %}
-                            <div class="accordion-item"
-                                style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#recentVetting{{ loop.index }}"
-                                        style="background: rgba(30, 41, 59, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
-                                        <div class="d-flex justify-content-between w-100 me-3 align-items-center">
-                                            <div>
-                                                <strong>{{ log.candidate_name or 'Unknown Candidate' }}</strong>
-                                                <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">ID: {{
-                                                    log.bullhorn_candidate_id }}</span>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                {% if log.highest_match_score and log.highest_match_score >=
-                                                settings.match_threshold %}
-                                                <span class="badge bg-success">{{ log.highest_match_score|int }}%</span>
-                                                {% elif log.highest_match_score %}
-                                                <span class="badge bg-secondary">{{ log.highest_match_score|int
-                                                    }}%</span>
-                                                {% endif %}
-                                                <small class="text-muted">{{ log.analyzed_at.strftime('%b %d, %H:%M') if
-                                                    log.analyzed_at else '' }}</small>
-                                            </div>
+                <!-- Pending Candidates Section -->
+                <div id="pending-section" class="candidate-filter-section">
+                    {% if pending_candidates and pending_candidates|length > 0 %}
+                    <div class="accordion" id="pendingAccordion">
+                        {% for candidate in pending_candidates[:30] %}
+                        <div class="accordion-item candidate-item" data-status="pending"
+                            style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#pendingCandidate{{ loop.index }}"
+                                    style="background: rgba(30, 41, 59, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                        <div>
+                                            <strong>{{ candidate.candidate_name or 'Unknown' }}</strong>
+                                            <span class="badge bg-info ms-2" style="font-size: 0.7rem;">ID: {{
+                                                candidate.bullhorn_candidate_id }}</span>
                                         </div>
-                                    </button>
-                                </h2>
-                                <div id="recentVetting{{ loop.index }}" class="accordion-collapse collapse">
-                                    <div class="accordion-body"
-                                        style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <h6 class="text-info mb-2"><i class="fas fa-briefcase me-1"></i>Applied
-                                                    Job</h6>
-                                                <p class="mb-2">{{ log.applied_job_title or 'N/A' }} <small
-                                                        class="text-muted">(ID: {{ log.applied_job_id or 'N/A'
-                                                        }})</small></p>
-
-                                                <h6 class="text-info mb-2 mt-3"><i
-                                                        class="fas fa-chart-line me-1"></i>Match Score</h6>
-                                                <div class="progress mb-2"
-                                                    style="height: 20px; background: rgba(255,255,255,0.1);">
-                                                    <div class="progress-bar {% if log.highest_match_score and log.highest_match_score >= settings.match_threshold %}bg-success{% else %}bg-secondary{% endif %}"
-                                                        role="progressbar"
-                                                        style="width: {{ log.highest_match_score or 0 }}%;">
-                                                        {{ log.highest_match_score|int if log.highest_match_score else 0
-                                                        }}%
-                                                    </div>
-                                                </div>
-                                                <small class="text-muted">Threshold: {{ settings.match_threshold
-                                                    }}%</small>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <h6 class="text-success mb-2"><i class="fas fa-robot me-1"></i>AI
-                                                    Summary</h6>
-                                                {% set best_match = log.job_matches|sort(attribute='match_score',
-                                                reverse=true)|first %}
-                                                {% if best_match and best_match.match_summary %}
-                                                <div class="p-2 rounded"
-                                                    style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); max-height: 150px; overflow-y: auto;">
-                                                    <small style="white-space: pre-wrap;">{{
-                                                        best_match.match_summary[:500] }}{% if
-                                                        best_match.match_summary|length > 500 %}...{% endif %}</small>
-                                                </div>
-                                                {% else %}
-                                                <p class="text-muted"><small>No AI summary available</small></p>
-                                                {% endif %}
-
-                                                {% if log.notifications_sent %}
-                                                <div class="mt-2">
-                                                    <span class="badge bg-purple"><i class="fas fa-envelope me-1"></i>{{
-                                                        log.notification_count or 1 }} Email(s) Sent</span>
-                                                </div>
-                                                {% endif %}
-                                            </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-info">Pending</span>
+                                            <small class="text-muted">{{ candidate.detected_at.strftime('%b %d, %H:%M')
+                                                if candidate.detected_at else '' }}</small>
                                         </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="pendingCandidate{{ loop.index }}" class="accordion-collapse collapse">
+                                <div class="accordion-body"
+                                    style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2"><i class="fas fa-briefcase me-1"></i>Applied Job
+                                            </h6>
+                                            {% if candidate.applied_job_id %}
+                                            <p class="mb-2">
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ candidate.applied_job_id }}"
+                                                    target="_blank" class="text-info text-decoration-none">
+                                                    {{ candidate.applied_job_title or 'N/A' }} <i
+                                                        class="fas fa-external-link-alt ms-1 small"></i>
+                                                </a>
+                                                <small class="text-muted">(ID: {{ candidate.applied_job_id }})</small>
+                                            </p>
+                                            {% else %}
+                                            <p class="mb-2">{{ candidate.applied_job_title or 'N/A' }}</p>
+                                            {% endif %}
 
-                                        <div class="mt-3 pt-2 border-top border-secondary">
-                                            <a href="https://app.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={{ log.bullhorn_candidate_id }}"
-                                                target="_blank" class="btn btn-outline-info btn-sm">
-                                                <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
-                                            </a>
+                                            <h6 class="text-info mb-2 mt-3"><i
+                                                    class="fas fa-info-circle me-1"></i>Status</h6>
+                                            <p class="text-muted mb-0">Awaiting AI analysis</p>
                                         </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2"><i class="fas fa-calendar me-1"></i>Detected</h6>
+                                            <p class="mb-0">{{ candidate.detected_at.strftime('%B %d, %Y at %I:%M %p')
+                                                if candidate.detected_at else 'N/A' }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-top border-secondary">
+                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ candidate.bullhorn_candidate_id }}"
+                                            target="_blank" class="btn btn-outline-info btn-sm">
+                                            <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
+                                        </a>
                                     </div>
                                 </div>
                             </div>
-                            {% endfor %}
                         </div>
-                        {% if recent_vetting|length > 25 %}
-                        <p class="text-muted text-center mt-2 mb-0"><small>Showing 25 of {{ recent_vetting|length }}
-                                recently vetted candidates</small></p>
-                        {% endif %}
-                        {% else %}
-                        <div class="text-center py-4">
-                            <i class="fas fa-clipboard-check fa-2x text-muted mb-2"></i>
-                            <p class="text-muted mb-0">No recently vetted candidates to display</p>
-                            <small class="text-muted">Run vetting to see candidates here</small>
-                        </div>
-                        {% endif %}
+                        {% endfor %}
                     </div>
+                    {% if pending_candidates|length > 30 %}
+                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{ pending_candidates|length }}
+                            pending candidates</small></p>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No candidates currently awaiting vetting</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Recommended Candidates Section -->
+                <div id="recommended-section" class="candidate-filter-section" style="display: none;">
+                    {% set recommended = recent_vetting|selectattr('is_qualified', 'equalto', true)|list %}
+                    {% if recommended|length > 0 %}
+                    <div class="accordion" id="recommendedAccordion">
+                        {% for log in recommended[:30] %}
+                        <div class="accordion-item candidate-item" data-status="recommended"
+                            style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#recommendedCandidate{{ loop.index }}"
+                                    style="background: rgba(30, 41, 59, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                        <div>
+                                            <strong>{{ log.candidate_name or 'Unknown' }}</strong>
+                                            <span class="badge bg-success ms-2" style="font-size: 0.7rem;">ID: {{
+                                                log.bullhorn_candidate_id }}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-success">{{ log.highest_match_score|int }}%</span>
+                                            <small class="text-muted">{{ log.analyzed_at.strftime('%b %d, %H:%M') if
+                                                log.analyzed_at else '' }}</small>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="recommendedCandidate{{ loop.index }}" class="accordion-collapse collapse">
+                                <div class="accordion-body"
+                                    style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2"><i class="fas fa-briefcase me-1"></i>Applied Job
+                                            </h6>
+                                            {% if log.applied_job_id %}
+                                            <p class="mb-2">
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}"
+                                                    target="_blank" class="text-success text-decoration-none">
+                                                    {{ log.applied_job_title or 'N/A' }} <i
+                                                        class="fas fa-external-link-alt ms-1 small"></i>
+                                                </a>
+                                                <small class="text-muted">(ID: {{ log.applied_job_id }})</small>
+                                            </p>
+                                            {% else %}
+                                            <p class="mb-2">{{ log.applied_job_title or 'N/A' }}</p>
+                                            {% endif %}
+
+                                            <h6 class="text-info mb-2 mt-3"><i class="fas fa-chart-line me-1"></i>Match
+                                                Score</h6>
+                                            <div class="progress mb-2"
+                                                style="height: 20px; background: rgba(255,255,255,0.1);">
+                                                <div class="progress-bar bg-success" role="progressbar"
+                                                    style="width: {{ log.highest_match_score or 0 }}%;">
+                                                    {{ log.highest_match_score|int if log.highest_match_score else 0 }}%
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">Threshold: {{ settings.match_threshold }}%</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-success mb-2"><i class="fas fa-robot me-1"></i>AI Summary
+                                            </h6>
+                                            {% set best_match = log.job_matches|sort(attribute='match_score',
+                                            reverse=true)|first %}
+                                            {% if best_match and best_match.match_summary %}
+                                            <div class="p-2 rounded"
+                                                style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); max-height: 150px; overflow-y: auto;">
+                                                <small style="white-space: pre-wrap;">{{ best_match.match_summary[:500]
+                                                    }}{% if best_match.match_summary|length > 500 %}...{% endif
+                                                    %}</small>
+                                            </div>
+                                            {% else %}
+                                            <p class="text-muted"><small>No AI summary available</small></p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-top border-secondary">
+                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
+                                            target="_blank" class="btn btn-outline-success btn-sm">
+                                            <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if recommended|length > 30 %}
+                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{ recommended|length }}
+                            recommended candidates</small></p>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No recommended candidates to display</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Not Recommended Candidates Section -->
+                <div id="not-recommended-section" class="candidate-filter-section" style="display: none;">
+                    {% set not_recommended = recent_vetting|selectattr('is_qualified', 'equalto', false)|list %}
+                    {% if not_recommended|length > 0 %}
+                    <div class="accordion" id="notRecommendedAccordion">
+                        {% for log in not_recommended[:30] %}
+                        <div class="accordion-item candidate-item" data-status="not-recommended"
+                            style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#notRecommendedCandidate{{ loop.index }}"
+                                    style="background: rgba(30, 41, 59, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                        <div>
+                                            <strong>{{ log.candidate_name or 'Unknown' }}</strong>
+                                            <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">ID: {{
+                                                log.bullhorn_candidate_id }}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-danger">{{ log.highest_match_score|int if
+                                                log.highest_match_score else 0 }}%</span>
+                                            <small class="text-muted">{{ log.analyzed_at.strftime('%b %d, %H:%M') if
+                                                log.analyzed_at else '' }}</small>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="notRecommendedCandidate{{ loop.index }}" class="accordion-collapse collapse">
+                                <div class="accordion-body"
+                                    style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2"><i class="fas fa-briefcase me-1"></i>Applied Job
+                                            </h6>
+                                            {% if log.applied_job_id %}
+                                            <p class="mb-2">
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}"
+                                                    target="_blank" class="text-danger text-decoration-none">
+                                                    {{ log.applied_job_title or 'N/A' }} <i
+                                                        class="fas fa-external-link-alt ms-1 small"></i>
+                                                </a>
+                                                <small class="text-muted">(ID: {{ log.applied_job_id }})</small>
+                                            </p>
+                                            {% else %}
+                                            <p class="mb-2">{{ log.applied_job_title or 'N/A' }}</p>
+                                            {% endif %}
+
+                                            <h6 class="text-info mb-2 mt-3"><i class="fas fa-chart-line me-1"></i>Match
+                                                Score</h6>
+                                            <div class="progress mb-2"
+                                                style="height: 20px; background: rgba(255,255,255,0.1);">
+                                                <div class="progress-bar bg-danger" role="progressbar"
+                                                    style="width: {{ log.highest_match_score or 0 }}%;">
+                                                    {{ log.highest_match_score|int if log.highest_match_score else 0 }}%
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">Threshold: {{ settings.match_threshold }}%</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-warning mb-2"><i class="fas fa-robot me-1"></i>AI Summary
+                                            </h6>
+                                            {% set best_match = log.job_matches|sort(attribute='match_score',
+                                            reverse=true)|first %}
+                                            {% if best_match and best_match.match_summary %}
+                                            <div class="p-2 rounded"
+                                                style="background: rgba(220, 53, 69, 0.1); border: 1px solid rgba(220, 53, 69, 0.2); max-height: 150px; overflow-y: auto;">
+                                                <small style="white-space: pre-wrap;">{{ best_match.match_summary[:500]
+                                                    }}{% if best_match.match_summary|length > 500 %}...{% endif
+                                                    %}</small>
+                                            </div>
+                                            {% else %}
+                                            <p class="text-muted"><small>No AI summary available</small></p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-top border-secondary">
+                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
+                                            target="_blank" class="btn btn-outline-danger btn-sm">
+                                            <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if not_recommended|length > 30 %}
+                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{ not_recommended|length }} not
+                            recommended candidates</small></p>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-times-circle fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No candidates below threshold to display</p>
+                    </div>
+                    {% endif %}
                 </div>
 
                 <p class="text-muted text-center mt-3 mb-0">
                     <i class="fas fa-info-circle me-1"></i>
-                    Data refreshes every 60 seconds. Click on a recently vetted candidate to view AI summary and notes.
+                    Click on a candidate to view details. Click the metric cards above to filter.
                 </p>
             </div>
         </div>
@@ -800,6 +906,80 @@
 
     {% block extra_scripts %}
     <script>
+        // Vetting filter card click handling
+        document.addEventListener('DOMContentLoaded', function () {
+            const filterCards = document.querySelectorAll('.vetting-filter-card');
+            const pendingSection = document.getElementById('pending-section');
+            const recommendedSection = document.getElementById('recommended-section');
+            const notRecommendedSection = document.getElementById('not-recommended-section');
+            const filterTitleIcon = document.querySelector('#filterTitle i');
+            const filterTitleText = document.getElementById('filterTitleText');
+            const filterCount = document.getElementById('filterCount');
+
+            const filterConfig = {
+                'pending': {
+                    section: pendingSection,
+                    title: 'Awaiting Vetting',
+                    iconClass: 'fas fa-clock text-info',
+                    badgeClass: 'bg-info',
+                    count: {{ stats.pending }
+        }
+                },
+            'recommended': {
+            section: recommendedSection,
+            title: 'Recommended ({{ settings.match_threshold }}%+)',
+            iconClass: 'fas fa-check-circle text-success',
+            badgeClass: 'bg-success',
+            count: {{ stats.qualified }}
+                },
+            'not-recommended': {
+            section: notRecommendedSection,
+            title: 'Not Recommended',
+            iconClass: 'fas fa-times-circle text-danger',
+            badgeClass: 'bg-danger',
+            count: {{ stats.total_processed - stats.qualified }}
+                }
+            };
+
+        filterCards.forEach(card => {
+            card.addEventListener('click', function () {
+                const filter = this.dataset.filter;
+                const config = filterConfig[filter];
+
+                // Update active state
+                filterCards.forEach(c => {
+                    c.classList.remove('active');
+                    c.style.transform = 'scale(1)';
+                });
+                this.classList.add('active');
+                this.style.transform = 'scale(1.02)';
+
+                // Update title
+                filterTitleIcon.className = config.iconClass + ' me-2';
+                filterTitleText.textContent = config.title;
+                filterCount.className = 'badge ms-2 ' + config.badgeClass;
+                filterCount.textContent = config.count;
+
+                // Show/hide sections
+                pendingSection.style.display = filter === 'pending' ? 'block' : 'none';
+                recommendedSection.style.display = filter === 'recommended' ? 'block' : 'none';
+                notRecommendedSection.style.display = filter === 'not-recommended' ? 'block' : 'none';
+            });
+
+            // Add hover effects
+            card.addEventListener('mouseenter', function () {
+                if (!this.classList.contains('active')) {
+                    this.style.transform = 'scale(1.02)';
+                }
+            });
+            card.addEventListener('mouseleave', function () {
+                if (!this.classList.contains('active')) {
+                    this.style.transform = 'scale(1)';
+                }
+            });
+        });
+        });
+
         // Show loading indicator when saving settings
         function showSavingIndicator() {
             var saveBtn = document.getElementById('saveBtn');
