@@ -1327,13 +1327,22 @@ CRITICAL RULES:
             key_requirements = result.get('key_requirements', '')
             logging.info(f"📋 AI response for job {job_id}: has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}")
             
+            # Store data for deferred saving (to avoid Flask app context issues in parallel threads)
+            # The caller should save these after parallel execution completes
+            result['_deferred_save'] = {
+                'job_id': job_id,
+                'job_title': job_title,
+                'key_requirements': key_requirements,
+                'job_location_full': job_location_full,
+                'work_type': work_type,
+                'should_save': bool(key_requirements) and not custom_requirements
+            }
+            
             if not key_requirements:
                 logging.warning(f"⚠️ AI did not return key_requirements for job {job_id} - requirements will not be saved")
             elif custom_requirements:
                 logging.info(f"📝 Job {job_id} has custom requirements - skipping AI interpretation save (expected behavior)")
-            else:
-                # Save the AI-interpreted requirements with location data
-                self._save_ai_interpreted_requirements(job_id, job_title, key_requirements, job_location_full, work_type)
+            # NOTE: Actual save is now deferred to caller to avoid Flask app context issues in parallel threads
             
             return result
             
@@ -1619,6 +1628,20 @@ CRITICAL RULES:
                     logging.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%")
                 else:
                     logging.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%")
+                
+                # Handle deferred database save (now in main thread with Flask app context)
+                deferred = analysis.get('_deferred_save')
+                if deferred and deferred.get('should_save'):
+                    try:
+                        self._save_ai_interpreted_requirements(
+                            deferred['job_id'],
+                            deferred['job_title'],
+                            deferred['key_requirements'],
+                            deferred['job_location_full'],
+                            deferred['work_type']
+                        )
+                    except Exception as save_err:
+                        logging.warning(f"Failed to save requirements for job {deferred['job_id']}: {save_err}")
             
             # Update vetting log summary
             vetting_log.status = 'completed'
