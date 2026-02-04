@@ -365,15 +365,17 @@
 
 <!-- Job Requirements Drill-Down -->
 <div class="card settings-card mt-4">
-    <div
-        class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center"
+        style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#jobRequirementsPanel" aria-expanded="true">
+        <h5 class="mb-0 d-flex align-items-center">
             <i class="fas fa-briefcase me-2"></i>Job Requirements
             {% if job_requirements %}
             <span class="badge bg-info ms-2">{{ job_requirements|length }} Active Jobs</span>
             {% endif %}
+            <i class="fas fa-chevron-down ms-3 section-toggle-icon"
+                style="transition: transform 0.3s ease; font-size: 0.8rem;"></i>
         </h5>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2" onclick="event.stopPropagation();">
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllAccordions(true)"
                 title="Expand all job requirements">
                 <i class="fas fa-expand-alt me-1"></i>Expand All
@@ -390,340 +392,361 @@
             </form>
         </div>
     </div>
-    <div class="card-body">
-        {% if job_requirements %}
-        <p class="text-muted small mb-3">
-            <i class="fas fa-info-circle me-1"></i>
-            AI interprets requirements from job descriptions. Adjust per-job thresholds to override the global default
-            ({{ settings.match_threshold }}%).
-        </p>
-        <div class="accordion" id="jobRequirementsAccordion">
-            {% for job in job_requirements %}
-            <div class="accordion-item"
-                style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
-                <h2 class="accordion-header" id="heading{{ job.bullhorn_job_id }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                        data-bs-target="#collapse{{ job.bullhorn_job_id }}" aria-expanded="false"
-                        aria-controls="collapse{{ job.bullhorn_job_id }}"
-                        style="background: rgba(30, 41, 59, 0.9); color: #f1f5f9; border-radius: 6px;">
-                        <div class="d-flex justify-content-between w-100 me-3 align-items-center">
-                            <div>
-                                <strong style="color: #ffffff; font-size: 1rem;">{{ job.job_title or 'Untitled Job'
-                                    }}</strong>
-                                <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">ID: {{
-                                    job.bullhorn_job_id }}</span>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                {% if job.job_location %}
-                                <span class="badge" style="background: rgba(255,255,255,0.15); color: #e2e8f0;">{{
-                                    job.job_location }}</span>
-                                {% endif %}
-                                {% if job.vetting_threshold %}
-                                <span class="badge bg-warning text-dark">{{ job.vetting_threshold }}% threshold</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </button>
-                </h2>
-                <div id="collapse{{ job.bullhorn_job_id }}" class="accordion-collapse collapse"
-                    aria-labelledby="heading{{ job.bullhorn_job_id }}" data-bs-parent="#jobRequirementsAccordion">
-                    <div class="accordion-body"
-                        style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
-                        <!-- Job header reminder when expanded -->
-                        <div
-                            class="mb-3 pb-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
-                            <div>
-                                <h5 class="mb-0 text-white">{{ job.job_title or 'Untitled Job' }}</h5>
-                                <small class="text-muted">ID: {{ job.bullhorn_job_id }} {% if job.job_location %}• {{
-                                    job.job_location }}{% endif %}</small>
-                            </div>
-                            {% if job.job_work_type %}
-                            <span class="badge bg-info">{{ job.job_work_type }}</span>
-                            {% endif %}
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-7">
-                                <h6 class="text-info mb-2"><i class="fas fa-robot me-1"></i>AI-Interpreted Requirements
-                                </h6>
-                                {% if job.ai_interpreted_requirements %}
-                                <div class="p-3 rounded mb-3"
-                                    style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2);">
-                                    <pre
-                                        style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.ai_interpreted_requirements }}</pre>
+    <div class="collapse show" id="jobRequirementsPanel">
+        <div class="card-body">
+            {% if job_requirements %}
+            <p class="text-muted small mb-3">
+                <i class="fas fa-info-circle me-1"></i>
+                AI interprets requirements from job descriptions. Adjust per-job thresholds to override the global
+                default
+                ({{ settings.match_threshold }}%).
+            </p>
+            <div class="accordion" id="jobRequirementsAccordion">
+                {% for job in job_requirements %}
+                <div class="accordion-item"
+                    style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                    <h2 class="accordion-header" id="heading{{ job.bullhorn_job_id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse{{ job.bullhorn_job_id }}" aria-expanded="false"
+                            aria-controls="collapse{{ job.bullhorn_job_id }}"
+                            style="background: rgba(30, 41, 59, 0.9); color: #f1f5f9; border-radius: 6px;">
+                            <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                <div>
+                                    <strong style="color: #ffffff; font-size: 1rem;">{{ job.job_title or 'Untitled Job'
+                                        }}</strong>
+                                    <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">ID: {{
+                                        job.bullhorn_job_id }}</span>
                                 </div>
-                                {% else %}
-                                <p class="text-muted"><i class="fas fa-exclamation-circle me-1"></i>No AI interpretation
-                                    yet. Click "Sync Jobs" to extract requirements.</p>
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if job.job_location %}
+                                    <span class="badge" style="background: rgba(255,255,255,0.15); color: #e2e8f0;">{{
+                                        job.job_location }}</span>
+                                    {% endif %}
+                                    {% if job.vetting_threshold %}
+                                    <span class="badge bg-warning text-dark">{{ job.vetting_threshold }}%
+                                        threshold</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse{{ job.bullhorn_job_id }}" class="accordion-collapse collapse"
+                        aria-labelledby="heading{{ job.bullhorn_job_id }}" data-bs-parent="#jobRequirementsAccordion">
+                        <div class="accordion-body"
+                            style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                            <!-- Job header reminder when expanded -->
+                            <div
+                                class="mb-3 pb-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-0 text-white">{{ job.job_title or 'Untitled Job' }}</h5>
+                                    <small class="text-muted">ID: {{ job.bullhorn_job_id }} {% if job.job_location %}•
+                                        {{
+                                        job.job_location }}{% endif %}</small>
+                                </div>
+                                {% if job.job_work_type %}
+                                <span class="badge bg-info">{{ job.job_work_type }}</span>
                                 {% endif %}
                             </div>
-                            <div class="col-md-5">
-                                <h6 class="text-success mb-2"><i class="fas fa-user-edit me-1"></i>Custom Override</h6>
-                                <form class="job-override-form" data-job-id="{{ job.bullhorn_job_id }}">
-                                    <textarea class="form-control form-control-sm mb-2 custom-requirements-input"
-                                        rows="5"
-                                        placeholder="Enter custom requirements to override AI interpretation..."
-                                        style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #e2e8f0; font-size: 0.85rem;">{{ job.custom_requirements or '' }}</textarea>
-                                    <small class="text-muted d-block mb-2">Custom requirements take priority over
-                                        AI-interpreted ones during vetting.</small>
 
-                                    <div class="d-flex gap-2 align-items-center mb-3">
-                                        <div class="input-group input-group-sm" style="max-width: 150px;">
-                                            <span class="input-group-text"><i class="fas fa-percentage"></i></span>
-                                            <input type="number" class="form-control job-threshold-input"
-                                                data-job-id="{{ job.bullhorn_job_id }}"
-                                                value="{{ job.vetting_threshold or '' }}"
-                                                placeholder="{{ settings.match_threshold }}" min="0" max="100">
-                                        </div>
-                                        <small class="text-muted">Threshold (blank = global {{ settings.match_threshold
-                                            }}%)</small>
+                            <div class="row">
+                                <div class="col-md-7">
+                                    <h6 class="text-info mb-2"><i class="fas fa-robot me-1"></i>AI-Interpreted
+                                        Requirements
+                                    </h6>
+                                    {% if job.ai_interpreted_requirements %}
+                                    <div class="p-3 rounded mb-3"
+                                        style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2);">
+                                        <pre
+                                            style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.ai_interpreted_requirements }}</pre>
                                     </div>
-
-                                    <button type="submit" class="btn btn-success btn-sm">
-                                        <i class="fas fa-save me-1"></i>Save Changes
-                                    </button>
-                                </form>
-
-                                {% if job.last_ai_interpretation %}
-                                <div class="text-muted small mt-3">
-                                    <i class="fas fa-clock me-1"></i>
-                                    Last AI interpretation: {{ job.last_ai_interpretation.strftime('%b %d, %Y') }}
+                                    {% else %}
+                                    <p class="text-muted"><i class="fas fa-exclamation-circle me-1"></i>No AI
+                                        interpretation
+                                        yet. Click "Sync Jobs" to extract requirements.</p>
+                                    {% endif %}
                                 </div>
-                                {% endif %}
+                                <div class="col-md-5">
+                                    <h6 class="text-success mb-2"><i class="fas fa-user-edit me-1"></i>Custom Override
+                                    </h6>
+                                    <form class="job-override-form" data-job-id="{{ job.bullhorn_job_id }}">
+                                        <textarea class="form-control form-control-sm mb-2 custom-requirements-input"
+                                            rows="5"
+                                            placeholder="Enter custom requirements to override AI interpretation..."
+                                            style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #e2e8f0; font-size: 0.85rem;">{{ job.custom_requirements or '' }}</textarea>
+                                        <small class="text-muted d-block mb-2">Custom requirements take priority over
+                                            AI-interpreted ones during vetting.</small>
+
+                                        <div class="d-flex gap-2 align-items-center mb-3">
+                                            <div class="input-group input-group-sm" style="max-width: 150px;">
+                                                <span class="input-group-text"><i class="fas fa-percentage"></i></span>
+                                                <input type="number" class="form-control job-threshold-input"
+                                                    data-job-id="{{ job.bullhorn_job_id }}"
+                                                    value="{{ job.vetting_threshold or '' }}"
+                                                    placeholder="{{ settings.match_threshold }}" min="0" max="100">
+                                            </div>
+                                            <small class="text-muted">Threshold (blank = global {{
+                                                settings.match_threshold
+                                                }}%)</small>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="fas fa-save me-1"></i>Save Changes
+                                        </button>
+                                    </form>
+
+                                    {% if job.last_ai_interpretation %}
+                                    <div class="text-muted small mt-3">
+                                        <i class="fas fa-clock me-1"></i>
+                                        Last AI interpretation: {{ job.last_ai_interpretation.strftime('%b %d, %Y') }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                <h5>No Job Requirements Data</h5>
+                <p class="text-muted">Click "Sync Jobs" to extract requirements from active tearsheet jobs.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Vetting Audit Dashboard -->
+    <div class="card settings-card mt-4">
+        <div class="card-header bg-transparent border-bottom border-secondary">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Vetting Audit Dashboard
+                </h5>
+                <div class="d-flex gap-2">
+                    <form action="{{ url_for('full_clean_slate') }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-danger btn-sm"
+                            onclick="return confirm('⚠️ FULL CLEAN SLATE ⚠️\n\nThis will DELETE ALL vetting data:\n- All vetting logs\n- All job matches\n- Reset timestamp to now\n\nDashboard will show all zeros.\n\nThis cannot be undone. Continue?')">
+                            <i class="fas fa-trash-alt me-1"></i>Full Clean Slate
+                        </button>
+                    </form>
+                    <form action="{{ url_for('reset_recent_vetting') }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-warning btn-sm"
+                            onclick="return confirm('This will reset vetting status for all applications from the last 6 hours. They will be re-processed in the next cycle. Continue?')">
+                            <i class="fas fa-undo me-1"></i>Reset Recent (6h)
+                        </button>
+                    </form>
+                    <form action="{{ url_for('run_vetting_now') }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-primary btn-sm" {% if not settings.vetting_enabled
+                            %}disabled{% endif %}>
+                            <i class="fas fa-play me-1"></i>Run Vetting Now
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <!-- Pipeline Overview -->
+            <div class="row mb-4 g-3">
+                <div class="col-md-3">
+                    <div class="p-3 rounded"
+                        style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
+                            <div>
+                                <div class="h4 mb-0 text-info">{{ stats.pending }}</div>
+                                <small class="text-muted">Awaiting Vetting</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 rounded"
+                        style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
+                            <div>
+                                <div class="h4 mb-0 text-success">{{ stats.qualified }}</div>
+                                <small class="text-muted">Recommended ({{ settings.match_threshold }}%+)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 rounded"
+                        style="background: rgba(108, 117, 125, 0.1); border: 1px solid rgba(108, 117, 125, 0.3);">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-times-circle fa-2x text-secondary me-3 opacity-75"></i>
+                            <div>
+                                <div class="h4 mb-0 text-secondary">{{ stats.total_processed - stats.qualified }}</div>
+                                <small class="text-muted">Not Recommended</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 rounded"
+                        style="background: rgba(111, 66, 193, 0.1); border: 1px solid rgba(111, 66, 193, 0.3);">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-envelope fa-2x me-3 opacity-75" style="color: #6f42c1;"></i>
+                            <div>
+                                <div class="h4 mb-0" style="color: #6f42c1;">{{ stats.notifications_sent }}</div>
+                                <small class="text-muted">Emails Sent</small>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
-        {% else %}
-        <div class="text-center py-4">
-            <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
-            <h5>No Job Requirements Data</h5>
-            <p class="text-muted">Click "Sync Jobs" to extract requirements from active tearsheet jobs.</p>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Vetting Audit Dashboard -->
-<div class="card settings-card mt-4">
-    <div class="card-header bg-transparent border-bottom border-secondary">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0">
-                <i class="fas fa-chart-bar me-2"></i>Vetting Audit Dashboard
-            </h5>
-            <div class="d-flex gap-2">
-                <form action="{{ url_for('full_clean_slate') }}" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-danger btn-sm"
-                        onclick="return confirm('⚠️ FULL CLEAN SLATE ⚠️\n\nThis will DELETE ALL vetting data:\n- All vetting logs\n- All job matches\n- Reset timestamp to now\n\nDashboard will show all zeros.\n\nThis cannot be undone. Continue?')">
-                        <i class="fas fa-trash-alt me-1"></i>Full Clean Slate
-                    </button>
-                </form>
-                <form action="{{ url_for('reset_recent_vetting') }}" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-warning btn-sm"
-                        onclick="return confirm('This will reset vetting status for all applications from the last 6 hours. They will be re-processed in the next cycle. Continue?')">
-                        <i class="fas fa-undo me-1"></i>Reset Recent (6h)
-                    </button>
-                </form>
-                <form action="{{ url_for('run_vetting_now') }}" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-primary btn-sm" {% if not settings.vetting_enabled %}disabled{%
-                        endif %}>
-                        <i class="fas fa-play me-1"></i>Run Vetting Now
-                    </button>
-                </form>
-            </div>
-        </div>
-        <!-- Pipeline Overview -->
-        <div class="row mb-4 g-3">
-            <div class="col-md-3">
-                <div class="p-3 rounded"
-                    style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
-                        <div>
-                            <div class="h4 mb-0 text-info">{{ stats.pending }}</div>
-                            <small class="text-muted">Awaiting Vetting</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="p-3 rounded"
-                    style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
-                        <div>
-                            <div class="h4 mb-0 text-success">{{ stats.qualified }}</div>
-                            <small class="text-muted">Recommended ({{ settings.match_threshold }}%+)</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="p-3 rounded"
-                    style="background: rgba(108, 117, 125, 0.1); border: 1px solid rgba(108, 117, 125, 0.3);">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-times-circle fa-2x text-secondary me-3 opacity-75"></i>
-                        <div>
-                            <div class="h4 mb-0 text-secondary">{{ stats.total_processed - stats.qualified }}</div>
-                            <small class="text-muted">Not Recommended</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="p-3 rounded"
-                    style="background: rgba(111, 66, 193, 0.1); border: 1px solid rgba(111, 66, 193, 0.3);">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-envelope fa-2x me-3 opacity-75" style="color: #6f42c1;"></i>
-                        <div>
-                            <div class="h4 mb-0" style="color: #6f42c1;">{{ stats.notifications_sent }}</div>
-                            <small class="text-muted">Emails Sent</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="card-body">
+            <p class="text-muted text-center">
+                <i class="fas fa-info-circle me-1"></i>
+                View detailed candidate vetting history in the tabs above. Data refreshes every 60 seconds.
+            </p>
         </div>
     </div>
-    <div class="card-body">
-        <p class="text-muted text-center">
-            <i class="fas fa-info-circle me-1"></i>
-            View detailed candidate vetting history in the tabs above. Data refreshes every 60 seconds.
-        </p>
-    </div>
-</div>
-{% endblock %}
+    {% endblock %}
 
-{% block extra_scripts %}
-<script>
-    // Show loading indicator when saving settings
-    function showSavingIndicator() {
-        var saveBtn = document.getElementById('saveBtn');
-        var saveBtnText = document.getElementById('saveBtnText');
-        var saveBtnLoading = document.getElementById('saveBtnLoading');
+    {% block extra_scripts %}
+    <script>
+        // Show loading indicator when saving settings
+        function showSavingIndicator() {
+            var saveBtn = document.getElementById('saveBtn');
+            var saveBtnText = document.getElementById('saveBtnText');
+            var saveBtnLoading = document.getElementById('saveBtnLoading');
 
-        saveBtn.disabled = true;
-        saveBtnText.style.display = 'none';
-        saveBtnLoading.style.display = 'inline';
-    }
+            saveBtn.disabled = true;
+            saveBtnText.style.display = 'none';
+            saveBtnLoading.style.display = 'inline';
+        }
 
-    // Auto-save job threshold changes
-    document.querySelectorAll('.job-threshold-input').forEach(function (input) {
-        let originalValue = input.value;
-        input.addEventListener('change', function () {
-            const jobId = this.dataset.jobId;
-            const threshold = this.value.trim();
-            const inputEl = this;
+        // Auto-save job threshold changes
+        document.querySelectorAll('.job-threshold-input').forEach(function (input) {
+            let originalValue = input.value;
+            input.addEventListener('change', function () {
+                const jobId = this.dataset.jobId;
+                const threshold = this.value.trim();
+                const inputEl = this;
 
-            if (threshold === originalValue) return;
+                if (threshold === originalValue) return;
 
-            inputEl.classList.add('is-warning');
-            inputEl.style.borderColor = '#ffc107';
+                inputEl.classList.add('is-warning');
+                inputEl.style.borderColor = '#ffc107';
 
-            fetch(`/vetting/job/${jobId}/threshold`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ threshold: threshold || null })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        originalValue = threshold;
-                        inputEl.classList.remove('is-warning');
-                        inputEl.classList.add('is-valid');
-                        inputEl.style.borderColor = '#198754';
-                        setTimeout(() => {
-                            inputEl.classList.remove('is-valid');
-                            inputEl.style.borderColor = '';
-                        }, 2000);
-                    } else {
+                fetch(`/vetting/job/${jobId}/threshold`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ threshold: threshold || null })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            originalValue = threshold;
+                            inputEl.classList.remove('is-warning');
+                            inputEl.classList.add('is-valid');
+                            inputEl.style.borderColor = '#198754';
+                            setTimeout(() => {
+                                inputEl.classList.remove('is-valid');
+                                inputEl.style.borderColor = '';
+                            }, 2000);
+                        } else {
+                            inputEl.classList.add('is-invalid');
+                            inputEl.style.borderColor = '#dc3545';
+                            alert('Error saving threshold: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
                         inputEl.classList.add('is-invalid');
                         inputEl.style.borderColor = '#dc3545';
-                        alert('Error saving threshold: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    inputEl.classList.add('is-invalid');
-                    inputEl.style.borderColor = '#dc3545';
-                    console.error('Error:', error);
-                });
+                        console.error('Error:', error);
+                    });
+            });
         });
-    });
 
-    // Toggle all accordions expand/collapse
-    function toggleAllAccordions(expand) {
-        const accordion = document.getElementById('jobRequirementsAccordion');
-        const collapses = accordion.querySelectorAll('.accordion-collapse');
-        const buttons = accordion.querySelectorAll('.accordion-button');
+        // Toggle all accordions expand/collapse
+        function toggleAllAccordions(expand) {
+            const accordion = document.getElementById('jobRequirementsAccordion');
+            const collapses = accordion.querySelectorAll('.accordion-collapse');
+            const buttons = accordion.querySelectorAll('.accordion-button');
 
-        collapses.forEach((collapse, index) => {
-            if (expand) {
-                collapse.classList.add('show');
-                buttons[index].classList.remove('collapsed');
-                buttons[index].setAttribute('aria-expanded', 'true');
-            } else {
-                collapse.classList.remove('show');
-                buttons[index].classList.add('collapsed');
-                buttons[index].setAttribute('aria-expanded', 'false');
-            }
-        });
-    }
+            collapses.forEach((collapse, index) => {
+                if (expand) {
+                    collapse.classList.add('show');
+                    buttons[index].classList.remove('collapsed');
+                    buttons[index].setAttribute('aria-expanded', 'true');
+                } else {
+                    collapse.classList.remove('show');
+                    buttons[index].classList.add('collapsed');
+                    buttons[index].setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
 
-    // Handle job override form submissions
-    document.querySelectorAll('.job-override-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        // Handle job override form submissions
+        document.querySelectorAll('.job-override-form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
 
-            const jobId = this.dataset.jobId;
-            const customRequirements = this.querySelector('.custom-requirements-input').value.trim();
-            const threshold = this.querySelector('.job-threshold-input').value.trim();
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalBtnHTML = submitBtn.innerHTML;
+                const jobId = this.dataset.jobId;
+                const customRequirements = this.querySelector('.custom-requirements-input').value.trim();
+                const threshold = this.querySelector('.job-threshold-input').value.trim();
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnHTML = submitBtn.innerHTML;
 
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
 
-            fetch(`/vetting/job/${jobId}/requirements`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    custom_requirements: customRequirements || null,
-                    threshold: threshold || null
+                fetch(`/vetting/job/${jobId}/requirements`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        custom_requirements: customRequirements || null,
+                        threshold: threshold || null
+                    })
                 })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    submitBtn.disabled = false;
-                    if (data.success) {
-                        submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
-                        submitBtn.classList.remove('btn-success');
-                        submitBtn.classList.add('btn-outline-success');
-                        setTimeout(() => {
-                            submitBtn.innerHTML = originalBtnHTML;
-                            submitBtn.classList.remove('btn-outline-success');
-                            submitBtn.classList.add('btn-success');
-                        }, 2000);
-                    } else {
-                        submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Error';
-                        submitBtn.classList.remove('btn-success');
-                        submitBtn.classList.add('btn-danger');
-                        alert('Error saving: ' + data.error);
-                        setTimeout(() => {
-                            submitBtn.innerHTML = originalBtnHTML;
-                            submitBtn.classList.remove('btn-danger');
-                            submitBtn.classList.add('btn-success');
-                        }, 2000);
-                    }
-                })
-                .catch(error => {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnHTML;
-                    alert('Error saving requirements. Please try again.');
-                    console.error('Error:', error);
-                });
+                    .then(response => response.json())
+                    .then(data => {
+                        submitBtn.disabled = false;
+                        if (data.success) {
+                            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
+                            submitBtn.classList.remove('btn-success');
+                            submitBtn.classList.add('btn-outline-success');
+                            setTimeout(() => {
+                                submitBtn.innerHTML = originalBtnHTML;
+                                submitBtn.classList.remove('btn-outline-success');
+                                submitBtn.classList.add('btn-success');
+                            }, 2000);
+                        } else {
+                            submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Error';
+                            submitBtn.classList.remove('btn-success');
+                            submitBtn.classList.add('btn-danger');
+                            alert('Error saving: ' + data.error);
+                            setTimeout(() => {
+                                submitBtn.innerHTML = originalBtnHTML;
+                                submitBtn.classList.remove('btn-danger');
+                                submitBtn.classList.add('btn-success');
+                            }, 2000);
+                        }
+                    })
+                    .catch(error => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHTML;
+                        alert('Error saving requirements. Please try again.');
+                        console.error('Error:', error);
+                    });
+            });
         });
-    });
-</script>
-{% endblock %}
+
+        // Handle parent-level collapse chevron rotation
+        const jobRequirementsPanel = document.getElementById('jobRequirementsPanel');
+        if (jobRequirementsPanel) {
+            jobRequirementsPanel.addEventListener('hide.bs.collapse', function () {
+                const icon = document.querySelector('[data-bs-target="#jobRequirementsPanel"] .section-toggle-icon');
+                if (icon) icon.style.transform = 'rotate(-90deg)';
+            });
+            jobRequirementsPanel.addEventListener('show.bs.collapse', function () {
+                const icon = document.querySelector('[data-bs-target="#jobRequirementsPanel"] .section-toggle-icon');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            });
+        }
+    </script>
+    {% endblock %}

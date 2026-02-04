@@ -1088,11 +1088,6 @@
                 {% block page_subtitle %}<p class="page-subtitle">Welcome back to JobPulse</p>{% endblock %}
             </div>
             <div class="page-actions">
-                <div class="user-header-info">
-                    <div class="user-header-avatar" title="{{ current_user.username if current_user else 'User' }}">
-                        {{ current_user.username[0]|upper if current_user and current_user.username else 'U' }}
-                    </div>
-                </div>
                 {% block page_actions %}{% endblock %}
             </div>
         </header>
