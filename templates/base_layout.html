@@ -1273,6 +1273,11 @@
             </div>
             <div class="page-actions">
                 {% block page_actions %}{% endblock %}
+                <!-- Feedback Button -->
+                <button class="btn btn-outline-light btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#feedbackModal"
+                    title="Send Feedback">
+                    <i class="fas fa-comment-dots me-1"></i>Feedback
+                </button>
             </div>
         </header>
 
@@ -1352,6 +1357,108 @@
         });
     </script>
     {% block extra_scripts %}{% endblock %}
+
+    <!-- Feedback Modal -->
+    <div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content"
+                style="background: linear-gradient(145deg, #1e3a5f 0%, #0d2847 100%); border: 1px solid rgba(59, 130, 246, 0.3);">
+                <div class="modal-header border-bottom border-secondary">
+                    <h5 class="modal-title" id="feedbackModalLabel">
+                        <i class="fas fa-comment-dots text-primary me-2"></i>Send Feedback
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="feedbackForm">
+                        <div class="mb-3">
+                            <label for="feedbackType" class="form-label">What type of feedback?</label>
+                            <select class="form-select" id="feedbackType" required
+                                style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2);">
+                                <option value="">Select an option...</option>
+                                <option value="feature">💡 Feature Enhancement Idea</option>
+                                <option value="bug">🐛 Report an Issue</option>
+                                <option value="question">❓ Question About System</option>
+                                <option value="other">📝 Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="feedbackMessage" class="form-label">Your Message</label>
+                            <textarea class="form-control" id="feedbackMessage" rows="4" required
+                                placeholder="Please describe your feedback in detail..."
+                                style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2);"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="feedbackPage" class="form-label">Current Page (optional)</label>
+                            <input type="text" class="form-control" id="feedbackPage" readonly
+                                style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1);">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-top border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="submitFeedbackBtn" onclick="submitFeedback()">
+                        <i class="fas fa-paper-plane me-1"></i>Send Feedback
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Feedback modal - set current page
+        document.getElementById('feedbackModal').addEventListener('show.bs.modal', function () {
+            document.getElementById('feedbackPage').value = window.location.pathname;
+        });
+
+        function submitFeedback() {
+            const feedbackType = document.getElementById('feedbackType').value;
+            const feedbackMessage = document.getElementById('feedbackMessage').value;
+            const feedbackPage = document.getElementById('feedbackPage').value;
+
+            if (!feedbackType || !feedbackMessage) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const btn = document.getElementById('submitFeedbackBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
+
+            fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: feedbackType,
+                    message: feedbackMessage,
+                    page: feedbackPage,
+                    user: '{{ current_user.username if current_user.is_authenticated else "Unknown" }}'
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show success
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('feedbackModal'));
+                        modal.hide();
+                        document.getElementById('feedbackForm').reset();
+
+                        // Show toast or alert
+                        alert('Thank you! Your feedback has been submitted.');
+                    } else {
+                        alert('Error submitting feedback: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    alert('Error submitting feedback: ' + error.message);
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send Feedback';
+                });
+        }
+    </script>
 </body>
 
 </html>
