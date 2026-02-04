@@ -374,8 +374,16 @@
             {% endif %}
         </h5>
         <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllAccordions(true)"
+                title="Expand all job requirements">
+                <i class="fas fa-expand-alt me-1"></i>Expand All
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllAccordions(false)"
+                title="Collapse all job requirements">
+                <i class="fas fa-compress-alt me-1"></i>Collapse All
+            </button>
             <form action="{{ url_for('sync_job_requirements') }}" method="POST" class="d-inline">
-                <button type="submit" class="btn btn-outline-secondary btn-sm"
+                <button type="submit" class="btn btn-outline-primary btn-sm"
                     onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Syncing...'; this.form.submit();">
                     <i class="fas fa-sync me-1"></i>Sync Jobs
                 </button>
@@ -392,19 +400,23 @@
         <div class="accordion" id="jobRequirementsAccordion">
             {% for job in job_requirements %}
             <div class="accordion-item"
-                style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1);">
+                style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
                 <h2 class="accordion-header" id="heading{{ job.bullhorn_job_id }}">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                         data-bs-target="#collapse{{ job.bullhorn_job_id }}" aria-expanded="false"
-                        aria-controls="collapse{{ job.bullhorn_job_id }}" style="background: rgba(255,255,255,0.05);">
+                        aria-controls="collapse{{ job.bullhorn_job_id }}"
+                        style="background: rgba(30, 41, 59, 0.9); color: #f1f5f9; border-radius: 6px;">
                         <div class="d-flex justify-content-between w-100 me-3 align-items-center">
                             <div>
-                                <strong>{{ job.job_title or 'Untitled Job' }}</strong>
-                                <span class="badge bg-secondary ms-2">ID: {{ job.bullhorn_job_id }}</span>
+                                <strong style="color: #ffffff; font-size: 1rem;">{{ job.job_title or 'Untitled Job'
+                                    }}</strong>
+                                <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">ID: {{
+                                    job.bullhorn_job_id }}</span>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 {% if job.job_location %}
-                                <span class="badge bg-dark">{{ job.job_location }}</span>
+                                <span class="badge" style="background: rgba(255,255,255,0.15); color: #e2e8f0;">{{
+                                    job.job_location }}</span>
                                 {% endif %}
                                 {% if job.vetting_threshold %}
                                 <span class="badge bg-warning text-dark">{{ job.vetting_threshold }}% threshold</span>
@@ -415,9 +427,23 @@
                 </h2>
                 <div id="collapse{{ job.bullhorn_job_id }}" class="accordion-collapse collapse"
                     aria-labelledby="heading{{ job.bullhorn_job_id }}" data-bs-parent="#jobRequirementsAccordion">
-                    <div class="accordion-body" style="background: rgba(0,0,0,0.2);">
+                    <div class="accordion-body"
+                        style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                        <!-- Job header reminder when expanded -->
+                        <div
+                            class="mb-3 pb-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-0 text-white">{{ job.job_title or 'Untitled Job' }}</h5>
+                                <small class="text-muted">ID: {{ job.bullhorn_job_id }} {% if job.job_location %}• {{
+                                    job.job_location }}{% endif %}</small>
+                            </div>
+                            {% if job.job_work_type %}
+                            <span class="badge bg-info">{{ job.job_work_type }}</span>
+                            {% endif %}
+                        </div>
+
                         <div class="row">
-                            <div class="col-md-8">
+                            <div class="col-md-7">
                                 <h6 class="text-info mb-2"><i class="fas fa-robot me-1"></i>AI-Interpreted Requirements
                                 </h6>
                                 {% if job.ai_interpreted_requirements %}
@@ -430,42 +456,38 @@
                                 <p class="text-muted"><i class="fas fa-exclamation-circle me-1"></i>No AI interpretation
                                     yet. Click "Sync Jobs" to extract requirements.</p>
                                 {% endif %}
-
-                                {% if job.custom_requirements %}
-                                <h6 class="text-success mb-2"><i class="fas fa-user-edit me-1"></i>Custom Override</h6>
-                                <div class="p-3 rounded mb-3"
-                                    style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2);">
-                                    <pre
-                                        style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.custom_requirements }}</pre>
-                                </div>
-                                {% endif %}
                             </div>
-                            <div class="col-md-4">
-                                <h6 class="mb-2"><i class="fas fa-sliders-h me-1"></i>Job Settings</h6>
-                                <div class="mb-3">
-                                    <label class="form-label small">Threshold Override</label>
-                                    <div class="input-group input-group-sm">
-                                        <input type="number" class="form-control job-threshold-input"
-                                            data-job-id="{{ job.bullhorn_job_id }}"
-                                            value="{{ job.vetting_threshold or '' }}"
-                                            placeholder="{{ settings.match_threshold }}" min="0" max="100">
-                                        <span class="input-group-text">%</span>
-                                    </div>
-                                    <small class="text-muted">Leave blank to use global ({{ settings.match_threshold
-                                        }}%)</small>
-                                </div>
+                            <div class="col-md-5">
+                                <h6 class="text-success mb-2"><i class="fas fa-user-edit me-1"></i>Custom Override</h6>
+                                <form class="job-override-form" data-job-id="{{ job.bullhorn_job_id }}">
+                                    <textarea class="form-control form-control-sm mb-2 custom-requirements-input"
+                                        rows="5"
+                                        placeholder="Enter custom requirements to override AI interpretation..."
+                                        style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #e2e8f0; font-size: 0.85rem;">{{ job.custom_requirements or '' }}</textarea>
+                                    <small class="text-muted d-block mb-2">Custom requirements take priority over
+                                        AI-interpreted ones during vetting.</small>
 
-                                {% if job.job_work_type %}
-                                <div class="mb-2">
-                                    <span class="text-muted small">Work Type:</span>
-                                    <span class="badge bg-dark">{{ job.job_work_type }}</span>
-                                </div>
-                                {% endif %}
+                                    <div class="d-flex gap-2 align-items-center mb-3">
+                                        <div class="input-group input-group-sm" style="max-width: 150px;">
+                                            <span class="input-group-text"><i class="fas fa-percentage"></i></span>
+                                            <input type="number" class="form-control job-threshold-input"
+                                                data-job-id="{{ job.bullhorn_job_id }}"
+                                                value="{{ job.vetting_threshold or '' }}"
+                                                placeholder="{{ settings.match_threshold }}" min="0" max="100">
+                                        </div>
+                                        <small class="text-muted">Threshold (blank = global {{ settings.match_threshold
+                                            }}%)</small>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-success btn-sm">
+                                        <i class="fas fa-save me-1"></i>Save Changes
+                                    </button>
+                                </form>
 
                                 {% if job.last_ai_interpretation %}
-                                <div class="text-muted small">
+                                <div class="text-muted small mt-3">
                                     <i class="fas fa-clock me-1"></i>
-                                    Last interpreted: {{ job.last_ai_interpretation.strftime('%b %d, %Y') }}
+                                    Last AI interpretation: {{ job.last_ai_interpretation.strftime('%b %d, %Y') }}
                                 </div>
                                 {% endif %}
                             </div>
@@ -480,130 +502,6 @@
             <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
             <h5>No Job Requirements Data</h5>
             <p class="text-muted">Click "Sync Jobs" to extract requirements from active tearsheet jobs.</p>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- System Health Panel -->
-<div class="card settings-card mt-4">
-    <div
-        class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-            <i class="fas fa-heartbeat me-2"></i>System Health
-            {% if latest_health %}
-            {% if latest_health.is_healthy %}
-            <span class="badge bg-success ms-2">Healthy</span>
-            {% else %}
-            <span class="badge bg-danger ms-2">Issues Detected</span>
-            {% endif %}
-            {% else %}
-            <span class="badge bg-secondary ms-2">No Data</span>
-            {% endif %}
-        </h5>
-        <form action="{{ url_for('run_health_check_now') }}" method="POST" class="d-inline">
-            <button type="submit" class="btn btn-outline-secondary btn-sm"
-                onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Checking...'; this.form.submit();">
-                <i class="fas fa-sync me-1"></i>Check Now
-            </button>
-        </form>
-    </div>
-    <div class="card-body">
-        {% if latest_health %}
-        <div class="row g-3 mb-3">
-            <div class="col-md-3">
-                <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                    <i
-                        class="fas fa-building fa-lg me-3 {% if latest_health.bullhorn_status %}text-success{% else %}text-danger{% endif %}"></i>
-                    <div>
-                        <div class="small text-muted">Bullhorn</div>
-                        <div class="{% if latest_health.bullhorn_status %}text-success{% else %}text-danger{% endif %}">
-                            {% if latest_health.bullhorn_status %}Connected{% else %}Error{% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                    <i
-                        class="fas fa-brain fa-lg me-3 {% if latest_health.openai_status %}text-success{% else %}text-danger{% endif %}"></i>
-                    <div>
-                        <div class="small text-muted">OpenAI</div>
-                        <div class="{% if latest_health.openai_status %}text-success{% else %}text-danger{% endif %}">
-                            {% if latest_health.openai_status %}Available{% else %}Error{% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                    <i
-                        class="fas fa-database fa-lg me-3 {% if latest_health.database_status %}text-success{% else %}text-danger{% endif %}"></i>
-                    <div>
-                        <div class="small text-muted">Database</div>
-                        <div class="{% if latest_health.database_status %}text-success{% else %}text-danger{% endif %}">
-                            {% if latest_health.database_status %}Connected{% else %}Error{% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                    <i
-                        class="fas fa-clock fa-lg me-3 {% if latest_health.scheduler_status %}text-success{% else %}text-danger{% endif %}"></i>
-                    <div>
-                        <div class="small text-muted">Scheduler</div>
-                        <div
-                            class="{% if latest_health.scheduler_status %}text-success{% else %}text-danger{% endif %}">
-                            {% if latest_health.scheduler_status %}Running{% else %}Stopped{% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row g-3 mb-3">
-            <div class="col-md-4">
-                <div class="small text-muted">Last Check</div>
-                <div>{{ latest_health.check_time.strftime('%b %d, %Y %I:%M %p') if latest_health.check_time else 'N/A'
-                    }}</div>
-            </div>
-            <div class="col-md-4">
-                <div class="small text-muted">Last Successful Cycle</div>
-                <div>{{ latest_health.last_successful_cycle.strftime('%b %d, %Y %I:%M %p') if
-                    latest_health.last_successful_cycle else 'N/A' }}</div>
-            </div>
-            <div class="col-md-4">
-                <div class="small text-muted">Today's Stats</div>
-                <div>{{ latest_health.candidates_processed_today }} processed, {{ latest_health.emails_sent_today }}
-                    emails sent</div>
-            </div>
-        </div>
-
-        {% if not latest_health.is_healthy %}
-        <div class="alert alert-danger mb-0">
-            <strong><i class="fas fa-exclamation-triangle me-2"></i>Issues:</strong>
-            <ul class="mb-0 mt-2">
-                {% if not latest_health.bullhorn_status %}
-                <li>Bullhorn: {{ latest_health.bullhorn_error or 'Connection failed' }}</li>
-                {% endif %}
-                {% if not latest_health.openai_status %}
-                <li>OpenAI: {{ latest_health.openai_error or 'API unavailable' }}</li>
-                {% endif %}
-                {% if not latest_health.database_status %}
-                <li>Database: {{ latest_health.database_error or 'Connection failed' }}</li>
-                {% endif %}
-                {% if not latest_health.scheduler_status %}
-                <li>Scheduler: {{ latest_health.scheduler_error or 'Not running' }}</li>
-                {% endif %}
-            </ul>
-        </div>
-        {% endif %}
-        {% else %}
-        <div class="text-center text-muted py-4">
-            <i class="fas fa-heartbeat fa-3x mb-3 opacity-50"></i>
-            <p class="mb-0">No health check data yet. Click "Check Now" or wait for automated checks (every 10 minutes).
-            </p>
         </div>
         {% endif %}
     </div>
@@ -749,6 +647,80 @@
                 .catch(error => {
                     inputEl.classList.add('is-invalid');
                     inputEl.style.borderColor = '#dc3545';
+                    console.error('Error:', error);
+                });
+        });
+    });
+
+    // Toggle all accordions expand/collapse
+    function toggleAllAccordions(expand) {
+        const accordion = document.getElementById('jobRequirementsAccordion');
+        const collapses = accordion.querySelectorAll('.accordion-collapse');
+        const buttons = accordion.querySelectorAll('.accordion-button');
+
+        collapses.forEach((collapse, index) => {
+            if (expand) {
+                collapse.classList.add('show');
+                buttons[index].classList.remove('collapsed');
+                buttons[index].setAttribute('aria-expanded', 'true');
+            } else {
+                collapse.classList.remove('show');
+                buttons[index].classList.add('collapsed');
+                buttons[index].setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
+    // Handle job override form submissions
+    document.querySelectorAll('.job-override-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const jobId = this.dataset.jobId;
+            const customRequirements = this.querySelector('.custom-requirements-input').value.trim();
+            const threshold = this.querySelector('.job-threshold-input').value.trim();
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalBtnHTML = submitBtn.innerHTML;
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+
+            fetch(`/vetting/job/${jobId}/requirements`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    custom_requirements: customRequirements || null,
+                    threshold: threshold || null
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    submitBtn.disabled = false;
+                    if (data.success) {
+                        submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
+                        submitBtn.classList.remove('btn-success');
+                        submitBtn.classList.add('btn-outline-success');
+                        setTimeout(() => {
+                            submitBtn.innerHTML = originalBtnHTML;
+                            submitBtn.classList.remove('btn-outline-success');
+                            submitBtn.classList.add('btn-success');
+                        }, 2000);
+                    } else {
+                        submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Error';
+                        submitBtn.classList.remove('btn-success');
+                        submitBtn.classList.add('btn-danger');
+                        alert('Error saving: ' + data.error);
+                        setTimeout(() => {
+                            submitBtn.innerHTML = originalBtnHTML;
+                            submitBtn.classList.remove('btn-danger');
+                            submitBtn.classList.add('btn-success');
+                        }, 2000);
+                    }
+                })
+                .catch(error => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnHTML;
+                    alert('Error saving requirements. Please try again.');
                     console.error('Error:', error);
                 });
         });

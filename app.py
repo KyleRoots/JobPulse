@@ -1197,9 +1197,9 @@ def dashboard_redirect():
     auto_fixed = 0
     
     try:
-        # Active jobs: count from TearsheetJobHistory where is_current=True
-        from models import TearsheetJobHistory
-        active_jobs = TearsheetJobHistory.query.filter_by(is_current=True).distinct(TearsheetJobHistory.job_id).count()
+        # Active jobs: count from JobVettingRequirements (synced jobs from tearsheets)
+        from models import JobVettingRequirements
+        active_jobs = JobVettingRequirements.query.count()
     except Exception as e:
         app.logger.debug(f"Could not count active jobs: {e}")
     
@@ -4627,8 +4627,14 @@ def save_job_requirements(job_id):
     from models import JobVettingRequirements
     
     try:
-        custom_requirements = request.form.get('custom_requirements', '').strip()
-        vetting_threshold = request.form.get('vetting_threshold', '').strip()
+        # Support both JSON and form data
+        if request.is_json:
+            data = request.get_json()
+            custom_requirements = (data.get('custom_requirements') or '').strip()
+            vetting_threshold = data.get('threshold') or ''
+        else:
+            custom_requirements = request.form.get('custom_requirements', '').strip()
+            vetting_threshold = request.form.get('vetting_threshold', '').strip()
         
         job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
         if job_req:
@@ -4649,6 +4655,10 @@ def save_job_requirements(job_id):
         
         db.session.commit()
         
+        # For JSON requests, return JSON response
+        if request.is_json:
+            return jsonify({'success': True, 'message': f'Requirements saved for Job #{job_id}'})
+        
         if custom_requirements:
             flash(f'Custom requirements saved for Job #{job_id}', 'success')
         else:
@@ -4656,6 +4666,8 @@ def save_job_requirements(job_id):
         
     except Exception as e:
         app.logger.error(f"Error saving job requirements: {str(e)}")
+        if request.is_json:
+            return jsonify({'success': False, 'error': str(e)}), 400
         flash(f'Error saving requirements: {str(e)}', 'error')
     
     return redirect(url_for('vetting_settings'))
