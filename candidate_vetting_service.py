@@ -682,6 +682,83 @@ Format as a bullet-point list. Be specific and concise."""
             logging.error(f"Error detecting new applicants: {str(e)}")
             return []
     
+    def detect_pandologic_candidates(self, since_minutes: int = 5) -> List[Dict]:
+        """
+        Find candidates from Pandologic API that haven't been vetted recently.
+        Pandologic feeds candidates directly into Bullhorn with owner='Pandologic API'.
+        
+        Args:
+            since_minutes: Only look at candidates created in the last N minutes (fallback)
+            
+        Returns:
+            List of candidate dictionaries from Bullhorn
+        """
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            return []
+        
+        if not bullhorn.authenticate():
+            logging.error("Failed to authenticate with Bullhorn for Pandologic detection")
+            return []
+        
+        try:
+            # Use same timestamp logic as detect_new_applicants
+            last_run = self._get_last_run_timestamp()
+            if last_run:
+                since_time = last_run
+            else:
+                since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
+            
+            since_timestamp = int(since_time.timestamp() * 1000)
+            
+            # Query for candidates with Pandologic API ownership
+            url = f"{bullhorn.base_url}search/Candidate"
+            params = {
+                'query': f'owner.name:"Pandologic API" AND dateAdded:[{since_timestamp} TO *]',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName),owner(name)',
+                'count': 50,
+                'sort': '-dateAdded',
+                'BhRestToken': bullhorn.rest_token
+            }
+            
+            response = bullhorn.session.get(url, params=params, timeout=30)
+            
+            if response.status_code != 200:
+                logging.error(f"Failed to search for Pandologic candidates: {response.status_code}")
+                return []
+            
+            data = response.json()
+            candidates = data.get('data', [])
+            
+            logging.info(f"🔍 Pandologic: Found {len(candidates)} candidates since {since_time}")
+            
+            # Filter to only candidates not vetted within last 2 hours
+            # (longer window than Online Applicants since Pandologic is a different source)
+            new_candidates = []
+            for candidate in candidates:
+                candidate_id = candidate.get('id')
+                if not candidate_id:
+                    continue
+                
+                # 2-hour window for Pandologic candidates
+                recent_cutoff = datetime.utcnow() - timedelta(hours=2)
+                
+                recent_vetting = CandidateVettingLog.query.filter(
+                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                    CandidateVettingLog.created_at >= recent_cutoff
+                ).first()
+                
+                if not recent_vetting:
+                    new_candidates.append(candidate)
+                    logging.info(f"🔵 Pandologic candidate detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
+            
+            logging.info(f"🔍 Pandologic: {len(new_candidates)} candidates to vet out of {len(candidates)} total")
+            return new_candidates
+            
+        except Exception as e:
+            logging.error(f"Error detecting Pandologic candidates: {str(e)}")
+            return []
+    
     def detect_unvetted_applications(self, limit: int = 25) -> List[Dict]:
         """
         Find candidates from ParsedEmail records that have been successfully processed
@@ -2200,6 +2277,25 @@ CRITICAL RULES:
                 if candidates and len(candidates) > batch_size:
                     candidates = candidates[:batch_size]
                 summary['detection_method'] = 'bullhorn_search'
+            
+            # ALSO detect Pandologic API candidates (they don't come through ParsedEmail)
+            # These are fed directly into Bullhorn by Pandologic's integration
+            pandologic_candidates = self.detect_pandologic_candidates(since_minutes=10)
+            if pandologic_candidates:
+                logging.info(f"🔵 Adding {len(pandologic_candidates)} Pandologic candidates to vetting queue")
+                
+                # Merge with existing candidates, dedupe by candidate ID
+                existing_ids = {c.get('id') for c in candidates}
+                for pando_candidate in pandologic_candidates:
+                    if pando_candidate.get('id') not in existing_ids:
+                        candidates.append(pando_candidate)
+                        existing_ids.add(pando_candidate.get('id'))
+                
+                # Update detection method if we added Pandologic candidates
+                if summary['detection_method'] == 'parsed_email':
+                    summary['detection_method'] = 'parsed_email+pandologic'
+                else:
+                    summary['detection_method'] = 'bullhorn_search+pandologic'
             
             summary['candidates_detected'] = len(candidates)
             
