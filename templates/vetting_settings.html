@@ -486,7 +486,7 @@
                                         <textarea class="form-control form-control-sm mb-2 custom-requirements-input"
                                             rows="5"
                                             placeholder="Enter custom requirements to override AI interpretation..."
-                                            style="background: rgba(103, 142, 110, 0.1); border: 1px solid rgba(103, 142, 110, 0.3); color: #e2e8f0; font-size: 0.85rem;">{{ job.custom_requirements or '' }}</textarea>
+                                            style="background: rgba(85, 124, 91, 0.1); border: 1px solid rgba(85, 124, 91, 0.3); color: #e2e8f0; font-size: 0.85rem;">{{ job.custom_requirements or '' }}</textarea>
                                         <small class="text-muted d-block mb-2">Custom requirements take priority over
                                             AI-interpreted ones during vetting.</small>
 
@@ -763,7 +763,7 @@
                                             reverse=true)|first %}
                                             {% if best_match and best_match.match_summary %}
                                             <div class="p-2 rounded"
-                                                style="background: rgba(103, 142, 110, 0.1); border: 1px solid rgba(103, 142, 110, 0.2); max-height: 150px; overflow-y: auto;">
+                                                style="background: rgba(85, 124, 91, 0.1); border: 1px solid rgba(85, 124, 91, 0.2); max-height: 150px; overflow-y: auto;">
                                                 <small style="white-space: pre-wrap;">{{ best_match.match_summary[:500]
                                                     }}{% if best_match.match_summary|length > 500 %}...{% endif
                                                     %}</small>

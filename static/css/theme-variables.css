@@ -73,8 +73,8 @@
    --status-blue: #3b82f6;
    --status-blue-bg: rgba(59, 130, 246, 0.15);
 
-   --status-green: #678E6E;
-   --status-green-bg: rgba(103, 142, 110, 0.15);
+   --status-green: #557C5B;
+   --status-green-bg: rgba(85, 124, 91, 0.15);
 
    --status-cyan: #06b6d4;
    --status-cyan-bg: rgba(6, 182, 212, 0.15);
@@ -126,9 +126,9 @@
 }
 
 .theme-green {
-    --brand-primary: #678E6E;
+    --brand-primary: #557C5B;
     --brand-secondary: #14b8a6;
-    --sidebar-active: rgba(103, 142, 110, 0.15);
+    --sidebar-active: rgba(85, 124, 91, 0.15);
 }
 
 .theme-orange {

@@ -21,6 +21,9 @@
             --sidebar-active-border: #3b82f6;
             --content-bg: linear-gradient(135deg, #1a2234 0%, #1e293b 50%, #0f172a 100%);
             --header-height: 70px;
+            /* Override Bootstrap success green to darker, more readable green */
+            --bs-success: #557C5B;
+            --bs-success-rgb: 85, 124, 91;
         }
 
         * {
@@ -31,6 +34,29 @@
             background: var(--content-bg);
             min-height: 100vh;
             overflow-x: hidden;
+        }
+
+        /* Override Bootstrap success green classes */
+        .bg-success {
+            background-color: #557C5B !important;
+        }
+
+        .text-success {
+            color: #557C5B !important;
+        }
+
+        .btn-success {
+            background-color: #557C5B !important;
+            border-color: #557C5B !important;
+        }
+
+        .btn-success:hover {
+            background-color: #4A6B4F !important;
+            border-color: #4A6B4F !important;
+        }
+
+        .border-success {
+            border-color: #557C5B !important;
         }
 
         /* Sidebar */
@@ -497,8 +523,8 @@
         }
 
         .stat-icon.green {
-            background: rgba(103, 142, 110, 0.15);
-            color: #678E6E;
+            background: rgba(85, 124, 91, 0.15);
+            color: #557C5B;
         }
 
         .stat-icon.purple {
@@ -540,7 +566,7 @@
         }
 
         .stat-change.positive {
-            color: #678E6E;
+            color: #557C5B;
         }
 
         .stat-change.negative {
@@ -707,8 +733,8 @@
         }
 
         .alert-success {
-            background: linear-gradient(145deg, rgba(103, 142, 110, 0.15), rgba(16, 185, 129, 0.1));
-            border-color: rgba(103, 142, 110, 0.3);
+            background: linear-gradient(145deg, rgba(85, 124, 91, 0.15), rgba(16, 185, 129, 0.1));
+            border-color: rgba(85, 124, 91, 0.3);
         }
 
         .alert-danger {
@@ -889,8 +915,8 @@
         }
 
         .badge-status.success {
-            background: rgba(103, 142, 110, 0.15);
-            color: #678E6E;
+            background: rgba(85, 124, 91, 0.15);
+            color: #557C5B;
         }
 
         .badge-status.warning {
@@ -977,8 +1003,8 @@
         }
 
         .metric-trend.up {
-            background: rgba(103, 142, 110, 0.15);
-            color: #678E6E;
+            background: rgba(85, 124, 91, 0.15);
+            color: #557C5B;
         }
 
         .metric-trend.neutral {
@@ -1130,8 +1156,8 @@
         }
 
         .status-indicator.active {
-            background: #678E6E;
-            box-shadow: 0 0 10px rgba(103, 142, 110, 0.5);
+            background: #557C5B;
+            box-shadow: 0 0 10px rgba(85, 124, 91, 0.5);
         }
 
         .status-indicator.inactive {
@@ -1169,8 +1195,8 @@
         }
 
         .status-badge.success {
-            background: rgba(103, 142, 110, 0.15);
-            color: #678E6E;
+            background: rgba(85, 124, 91, 0.15);
+            color: #557C5B;
         }
 
         .status-badge.danger {

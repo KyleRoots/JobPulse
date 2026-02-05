@@ -63,7 +63,7 @@ Our design language emphasizes:
 | Status | Hex | RGBA Background |
 |--------|-----|-----------------|
 | **Blue (Info)** | `#3b82f6` | `rgba(59, 130, 246, 0.15)` |
-| **Green (Success)** | `#678E6E` | `rgba(103, 142, 110, 0.15)` |
+| **Green (Success)** | `#557C5B` | `rgba(85, 124, 91, 0.15)` |
 | **Cyan (Active)** | `#06b6d4` | `rgba(6, 182, 212, 0.15)` |
 | **Orange (Warning)** | `#f97316` | `rgba(249, 115, 22, 0.15)` |
 | **Red (Danger)** | `#ef4444` | `rgba(239, 68, 68, 0.15)` |
@@ -420,7 +420,7 @@ Icon color variations: `blue`, `green`, `purple`, `orange`, `cyan`, `red`
 
 /* Variants */
 .alert-info    { background: linear-gradient(145deg, rgba(6, 182, 212, 0.15), rgba(59, 130, 246, 0.1)); border-color: rgba(6, 182, 212, 0.3); }
-.alert-success { background: linear-gradient(145deg, rgba(103, 142, 110, 0.15), rgba(16, 185, 129, 0.1)); border-color: rgba(103, 142, 110, 0.3); }
+.alert-success { background: linear-gradient(145deg, rgba(85, 124, 91, 0.15), rgba(16, 185, 129, 0.1)); border-color: rgba(85, 124, 91, 0.3); }
 .alert-warning { background: linear-gradient(145deg, rgba(249, 115, 22, 0.15), rgba(234, 179, 8, 0.1)); border-color: rgba(249, 115, 22, 0.3); }
 .alert-danger  { background: linear-gradient(145deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1)); border-color: rgba(239, 68, 68, 0.3); }
 ```
@@ -686,7 +686,7 @@ Create a `client-theme.css` file and override these key variables:
 **Green/Teal Theme:**
 ```css
 :root {
-    --brand-primary: #678E6E;
+    --brand-primary: #557C5B;
     --brand-secondary: #14b8a6;
 }
 ```
