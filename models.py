@@ -691,3 +691,90 @@ class VettingHealthCheck(db.Model):
     
     def __repr__(self):
         return f'<VettingHealthCheck {self.check_time} healthy={self.is_healthy}>'
+
+
+class LogMonitoringRun(db.Model):
+    """Persists each log monitoring cycle run for transparency and audit trail"""
+    id = db.Column(db.Integer, primary_key=True)
+    run_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    logs_analyzed = db.Column(db.Integer, default=0)
+    issues_found = db.Column(db.Integer, default=0)
+    issues_auto_fixed = db.Column(db.Integer, default=0)
+    issues_escalated = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(50), nullable=False, default='completed')  # 'healthy', 'issues_detected', 'error'
+    time_range_start = db.Column(db.DateTime, nullable=True)
+    time_range_end = db.Column(db.DateTime, nullable=True)
+    
+    # Tracking
+    was_manual = db.Column(db.Boolean, default=False)  # True if triggered by "Run Now" button
+    execution_time_ms = db.Column(db.Integer, nullable=True)  # How long the cycle took
+    
+    # Relationship to issues
+    issues = db.relationship('LogMonitoringIssue', backref='run', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<LogMonitoringRun {self.id} at {self.run_time} - {self.status}>'
+
+
+class LogMonitoringIssue(db.Model):
+    """Persists all detected issues with resolution details for full transparency"""
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey('log_monitoring_run.id'), nullable=False, index=True)
+    detected_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Issue classification
+    pattern_name = db.Column(db.String(200), nullable=False)  # e.g., "API rate limit hit"
+    category = db.Column(db.String(50), nullable=False)  # 'auto_fix', 'auto_fix_notify', 'escalate', 'ignore'
+    severity = db.Column(db.String(20), nullable=False, default='minor')  # 'minor', 'major', 'critical'
+    description = db.Column(db.Text, nullable=True)
+    occurrences = db.Column(db.Integer, default=1)
+    sample_log = db.Column(db.Text, nullable=True)  # Sample log content for context
+    
+    # Resolution tracking
+    status = db.Column(db.String(50), nullable=False, default='detected')  # 'detected', 'auto_fixed', 'escalated', 'resolved', 'ignored'
+    resolution_action = db.Column(db.Text, nullable=True)  # Human-readable description of fix taken
+    resolution_summary = db.Column(db.Text, nullable=True)  # AI-generated summary of what happened
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    resolved_by = db.Column(db.String(100), nullable=True)  # 'system' or user email for manual resolutions
+    
+    # Index for efficient filtering
+    __table_args__ = (
+        db.Index('idx_issue_status_severity', 'status', 'severity'),
+        db.Index('idx_issue_detected_at', 'detected_at'),
+    )
+    
+    def __repr__(self):
+        return f'<LogMonitoringIssue {self.pattern_name} - {self.status}>'
+    
+    @classmethod
+    def get_severity_for_category(cls, category):
+        """Determine severity based on issue category"""
+        severity_map = {
+            'auto_fix': 'minor',
+            'auto_fix_notify': 'major',
+            'escalate': 'critical',
+            'ignore': 'minor'
+        }
+        return severity_map.get(category, 'minor')
+    
+    def mark_auto_fixed(self, action_description):
+        """Mark this issue as auto-fixed with the action taken"""
+        self.status = 'auto_fixed'
+        self.resolution_action = action_description
+        self.resolution_summary = f"Automatically resolved: {action_description}"
+        self.resolved_at = datetime.utcnow()
+        self.resolved_by = 'system'
+    
+    def mark_escalated(self, escalation_details=None):
+        """Mark this issue as escalated for human review"""
+        self.status = 'escalated'
+        self.resolution_summary = escalation_details or "Escalated for human review"
+    
+    def mark_resolved(self, resolver_email, resolution_notes=None):
+        """Mark an escalated issue as resolved by a human"""
+        self.status = 'resolved'
+        self.resolved_at = datetime.utcnow()
+        self.resolved_by = resolver_email
+        if resolution_notes:
+            self.resolution_action = resolution_notes
+            self.resolution_summary = f"Manually resolved by {resolver_email}: {resolution_notes}"

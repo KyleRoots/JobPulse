@@ -6935,7 +6935,7 @@ def api_log_monitoring_run():
     """Manually trigger a log monitoring cycle."""
     try:
         from log_monitoring_service import run_log_monitoring_cycle
-        result = run_log_monitoring_cycle()
+        result = run_log_monitoring_cycle(was_manual=True)  # Mark as manual trigger
         return jsonify({
             "success": True,
             "result": result
@@ -6945,6 +6945,181 @@ def api_log_monitoring_run():
             "success": False,
             "error": str(e)
         }), 500
+
+@app.route('/api/log-monitoring/issues')
+@login_required
+def api_log_monitoring_issues():
+    """Get all log monitoring issues with filtering support."""
+    try:
+        from models import LogMonitoringIssue, LogMonitoringRun
+        
+        # Filter parameters
+        status_filter = request.args.get('status', None)  # auto_fixed, escalated, resolved, all
+        severity_filter = request.args.get('severity', None)  # minor, major, critical, all
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 25, type=int)
+        
+        # Build query
+        query = LogMonitoringIssue.query.order_by(LogMonitoringIssue.detected_at.desc())
+        
+        if status_filter and status_filter != 'all':
+            query = query.filter(LogMonitoringIssue.status == status_filter)
+        
+        if severity_filter and severity_filter != 'all':
+            query = query.filter(LogMonitoringIssue.severity == severity_filter)
+        
+        # Paginate
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        issues = [{
+            'id': issue.id,
+            'run_id': issue.run_id,
+            'detected_at': issue.detected_at.isoformat() if issue.detected_at else None,
+            'pattern_name': issue.pattern_name,
+            'category': issue.category,
+            'severity': issue.severity,
+            'description': issue.description,
+            'occurrences': issue.occurrences,
+            'status': issue.status,
+            'resolution_action': issue.resolution_action,
+            'resolution_summary': issue.resolution_summary,
+            'resolved_at': issue.resolved_at.isoformat() if issue.resolved_at else None,
+            'resolved_by': issue.resolved_by
+        } for issue in pagination.items]
+        
+        # Get counts for filtering UI
+        total_count = LogMonitoringIssue.query.count()
+        auto_fixed_count = LogMonitoringIssue.query.filter_by(status='auto_fixed').count()
+        escalated_count = LogMonitoringIssue.query.filter_by(status='escalated').count()
+        resolved_count = LogMonitoringIssue.query.filter_by(status='resolved').count()
+        
+        return jsonify({
+            "success": True,
+            "issues": issues,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": pagination.total,
+                "pages": pagination.pages,
+                "has_next": pagination.has_next,
+                "has_prev": pagination.has_prev
+            },
+            "counts": {
+                "total": total_count,
+                "auto_fixed": auto_fixed_count,
+                "escalated": escalated_count,
+                "resolved": resolved_count
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/log-monitoring/issues/<int:issue_id>')
+@login_required
+def api_log_monitoring_issue_detail(issue_id):
+    """Get detailed information about a specific issue."""
+    try:
+        from models import LogMonitoringIssue
+        
+        issue = LogMonitoringIssue.query.get_or_404(issue_id)
+        
+        return jsonify({
+            "success": True,
+            "issue": {
+                'id': issue.id,
+                'run_id': issue.run_id,
+                'detected_at': issue.detected_at.isoformat() if issue.detected_at else None,
+                'pattern_name': issue.pattern_name,
+                'category': issue.category,
+                'severity': issue.severity,
+                'description': issue.description,
+                'occurrences': issue.occurrences,
+                'sample_log': issue.sample_log,  # Full sample log for detail view
+                'status': issue.status,
+                'resolution_action': issue.resolution_action,
+                'resolution_summary': issue.resolution_summary,
+                'resolved_at': issue.resolved_at.isoformat() if issue.resolved_at else None,
+                'resolved_by': issue.resolved_by
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/log-monitoring/issues/<int:issue_id>/resolve', methods=['POST'])
+@login_required
+def api_log_monitoring_resolve_issue(issue_id):
+    """Manually resolve an escalated issue."""
+    try:
+        from models import LogMonitoringIssue
+        
+        issue = LogMonitoringIssue.query.get_or_404(issue_id)
+        
+        if issue.status not in ['escalated', 'detected']:
+            return jsonify({
+                "success": False,
+                "error": "Only escalated or detected issues can be manually resolved"
+            }), 400
+        
+        data = request.get_json() or {}
+        resolution_notes = data.get('resolution_notes', 'Manually resolved')
+        
+        issue.mark_resolved(
+            resolver_email=current_user.email,
+            resolution_notes=resolution_notes
+        )
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"Issue #{issue_id} marked as resolved"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/log-monitoring/runs')
+@login_required
+def api_log_monitoring_runs():
+    """Get monitoring runs from database for persistence across restarts."""
+    try:
+        from models import LogMonitoringRun
+        
+        limit = request.args.get('limit', 20, type=int)
+        
+        runs = LogMonitoringRun.query.order_by(LogMonitoringRun.run_time.desc()).limit(limit).all()
+        
+        return jsonify({
+            "success": True,
+            "runs": [{
+                'id': run.id,
+                'timestamp': run.run_time.isoformat() if run.run_time else None,
+                'logs_analyzed': run.logs_analyzed,
+                'issues_found': run.issues_found,
+                'auto_fixed': run.issues_auto_fixed,
+                'escalated': run.issues_escalated,
+                'status': run.status,
+                'was_manual': run.was_manual,
+                'execution_time_ms': run.execution_time_ms
+            } for run in runs]
+        })
+    except Exception as e:
+        # Fall back to in-memory history if database not available
+        from log_monitoring_service import get_log_monitor
+        monitor = get_log_monitor()
+        limit = request.args.get('limit', 10, type=int)
+        return jsonify({
+            "success": True,
+            "runs": monitor.get_history(limit),
+            "source": "memory"
+        })
 
 @app.route('/api/feedback', methods=['POST'])
 @login_required

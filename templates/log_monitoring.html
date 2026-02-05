@@ -208,7 +208,146 @@
         </table>
     </div>
 </div>
+
+<!-- Issue Registry Section -->
+<div class="section-title mt-4">
+    <i class="fas fa-shield-alt"></i>
+    Issue Registry
+    <span class="badge bg-secondary ms-2" id="totalIssuesBadge">0</span>
+</div>
+
+<!-- Filtering Controls -->
+<div class="glass-card p-3 mb-3">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label small">Filter by Status</label>
+            <select class="form-select form-select-sm" id="issueStatusFilter" onchange="loadIssues()">
+                <option value="all">All Issues</option>
+                <option value="auto_fixed">✅ Auto-Fixed</option>
+                <option value="escalated">⚠️ Escalated</option>
+                <option value="resolved">✓ Resolved</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Filter by Severity</label>
+            <select class="form-select form-select-sm" id="issueSeverityFilter" onchange="loadIssues()">
+                <option value="all">All Severities</option>
+                <option value="critical">🔴 Critical</option>
+                <option value="major">🟠 Major</option>
+                <option value="minor">🟢 Minor</option>
+            </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div class="d-flex gap-2">
+                <span class="badge bg-success" id="autoFixedCount">0 auto-fixed</span>
+                <span class="badge bg-warning" id="escalatedCount">0 escalated</span>
+                <span class="badge bg-info" id="resolvedCount">0 resolved</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="table-responsive">
+        <table class="table data-table mb-0" id="issuesTable">
+            <thead>
+                <tr>
+                    <th>Detected</th>
+                    <th>Issue</th>
+                    <th>Severity</th>
+                    <th>Occurrences</th>
+                    <th>Status</th>
+                    <th>Resolution</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="issuesBody">
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-check-circle me-2"></i>No issues detected yet. The system is healthy.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <!-- Pagination -->
+    <div class="d-flex justify-content-between align-items-center p-3" id="issuesPagination"
+        style="display: none !important;">
+        <span id="paginationInfo" class="small text-muted">Showing 0 of 0 issues</span>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-light" id="prevPageBtn" onclick="changePage(-1)" disabled>
+                <i class="fas fa-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-outline-light" id="nextPageBtn" onclick="changePage(1)" disabled>
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Issue Detail Modal -->
+<div class="modal fade" id="issueDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: var(--card-bg); border: 1px solid var(--card-border);">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title">
+                    <i class="fas fa-bug me-2"></i>Issue Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="small text-muted">Issue Type</label>
+                        <p class="mb-0" id="modalPatternName"><strong>--</strong></p>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small text-muted">Severity</label>
+                        <p class="mb-0" id="modalSeverity">--</p>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small text-muted">Status</label>
+                        <p class="mb-0" id="modalStatus">--</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="small text-muted">Detected At</label>
+                        <p class="mb-0" id="modalDetectedAt">--</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small text-muted">Occurrences</label>
+                        <p class="mb-0" id="modalOccurrences">--</p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted">Resolution Summary</label>
+                    <div class="alert alert-secondary" id="modalResolution">--</div>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted">Sample Log Entry</label>
+                    <pre class="bg-dark p-3 rounded" style="max-height: 200px; overflow: auto; font-size: 0.8rem;"
+                        id="modalSampleLog">--</pre>
+                </div>
+                <!-- Resolution Form for Escalated Issues -->
+                <div id="resolveSection" style="display: none;">
+                    <hr>
+                    <h6><i class="fas fa-check-circle me-2"></i>Mark as Resolved</h6>
+                    <div class="mb-3">
+                        <label class="form-label">Resolution Notes</label>
+                        <textarea class="form-control" id="resolutionNotes" rows="2"
+                            placeholder="Describe how this issue was resolved..."></textarea>
+                    </div>
+                    <button class="btn btn-success" onclick="resolveIssue()">
+                        <i class="fas fa-check me-1"></i>Mark Resolved
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
+
 
 {% block extra_scripts %}
 <script>
@@ -335,7 +474,10 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    setTimeout(refreshStatus, 1000);
+                    setTimeout(() => {
+                        refreshStatus();
+                        loadIssues();  // Refresh issues after run
+                    }, 1000);
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }
@@ -350,10 +492,192 @@
             });
     }
 
+    // ========== Issue Registry Functions ==========
+
+    let currentPage = 1;
+    let currentIssueId = null;
+
+    function getSeverityBadge(severity) {
+        const badges = {
+            'critical': '<span class="badge bg-danger">🔴 Critical</span>',
+            'major': '<span class="badge bg-warning text-dark">🟠 Major</span>',
+            'minor': '<span class="badge bg-success">🟢 Minor</span>'
+        };
+        return badges[severity] || '<span class="badge bg-secondary">Unknown</span>';
+    }
+
+    function getStatusBadge(status) {
+        const badges = {
+            'auto_fixed': '<span class="badge-status success">✅ Auto-Fixed</span>',
+            'escalated': '<span class="badge-status warning">⚠️ Escalated</span>',
+            'resolved': '<span class="badge-status info">✓ Resolved</span>',
+            'detected': '<span class="badge-status secondary">⏳ Detected</span>',
+            'ignored': '<span class="badge-status secondary">— Ignored</span>'
+        };
+        return badges[status] || '<span class="badge-status secondary">Unknown</span>';
+    }
+
+    function loadIssues() {
+        const status = document.getElementById('issueStatusFilter').value;
+        const severity = document.getElementById('issueSeverityFilter').value;
+
+        const params = new URLSearchParams({
+            page: currentPage,
+            per_page: 15,
+            status: status,
+            severity: severity
+        });
+
+        fetch(`/api/log-monitoring/issues?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateIssuesTable(data.issues);
+                    updateIssueCounts(data.counts);
+                    updatePagination(data.pagination);
+                }
+            })
+            .catch(err => {
+                console.error('Error loading issues:', err);
+            });
+    }
+
+    function updateIssuesTable(issues) {
+        const tbody = document.getElementById('issuesBody');
+
+        if (!issues || issues.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-check-circle me-2"></i>No issues match the current filter.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = issues.map(issue => {
+            const truncatedSummary = issue.resolution_summary
+                ? (issue.resolution_summary.length > 60
+                    ? issue.resolution_summary.substring(0, 60) + '...'
+                    : issue.resolution_summary)
+                : '--';
+
+            return `
+                <tr>
+                    <td><small>${formatTime(issue.detected_at)}</small></td>
+                    <td><strong>${issue.pattern_name}</strong></td>
+                    <td>${getSeverityBadge(issue.severity)}</td>
+                    <td>${issue.occurrences}x</td>
+                    <td>${getStatusBadge(issue.status)}</td>
+                    <td><small class="text-muted">${truncatedSummary}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-light" onclick="viewIssueDetail(${issue.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function updateIssueCounts(counts) {
+        document.getElementById('totalIssuesBadge').textContent = counts.total || 0;
+        document.getElementById('autoFixedCount').textContent = `${counts.auto_fixed || 0} auto-fixed`;
+        document.getElementById('escalatedCount').textContent = `${counts.escalated || 0} escalated`;
+        document.getElementById('resolvedCount').textContent = `${counts.resolved || 0} resolved`;
+    }
+
+    function updatePagination(pagination) {
+        const paginationDiv = document.getElementById('issuesPagination');
+
+        if (pagination.total > 0) {
+            paginationDiv.style.display = 'flex';
+
+            const start = (pagination.page - 1) * pagination.per_page + 1;
+            const end = Math.min(pagination.page * pagination.per_page, pagination.total);
+            document.getElementById('paginationInfo').textContent =
+                `Showing ${start}-${end} of ${pagination.total} issues`;
+
+            document.getElementById('prevPageBtn').disabled = !pagination.has_prev;
+            document.getElementById('nextPageBtn').disabled = !pagination.has_next;
+        } else {
+            paginationDiv.style.display = 'none';
+        }
+    }
+
+    function changePage(delta) {
+        currentPage += delta;
+        loadIssues();
+    }
+
+    function viewIssueDetail(issueId) {
+        currentIssueId = issueId;
+
+        fetch(`/api/log-monitoring/issues/${issueId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const issue = data.issue;
+
+                    document.getElementById('modalPatternName').innerHTML = `<strong>${issue.pattern_name}</strong>`;
+                    document.getElementById('modalSeverity').innerHTML = getSeverityBadge(issue.severity);
+                    document.getElementById('modalStatus').innerHTML = getStatusBadge(issue.status);
+                    document.getElementById('modalDetectedAt').textContent = formatTime(issue.detected_at);
+                    document.getElementById('modalOccurrences').textContent = `${issue.occurrences}x`;
+                    document.getElementById('modalResolution').textContent = issue.resolution_summary || 'No resolution recorded';
+                    document.getElementById('modalSampleLog').textContent = issue.sample_log || 'No sample log available';
+
+                    // Show resolve section for escalated issues
+                    const resolveSection = document.getElementById('resolveSection');
+                    resolveSection.style.display = (issue.status === 'escalated') ? 'block' : 'none';
+
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('issueDetailModal'));
+                    modal.show();
+                }
+            })
+            .catch(err => {
+                console.error('Error loading issue detail:', err);
+                alert('Error loading issue details');
+            });
+    }
+
+    function resolveIssue() {
+        if (!currentIssueId) return;
+
+        const notes = document.getElementById('resolutionNotes').value || 'Manually resolved';
+
+        fetch(`/api/log-monitoring/issues/${currentIssueId}/resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resolution_notes: notes })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal and refresh
+                    bootstrap.Modal.getInstance(document.getElementById('issueDetailModal')).hide();
+                    loadIssues();
+                    document.getElementById('resolutionNotes').value = '';
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Error resolving issue:', err);
+                alert('Error resolving issue');
+            });
+    }
+
     // Initial load
     refreshStatus();
+    loadIssues();
 
     // Auto-refresh every 30 seconds
-    setInterval(refreshStatus, 30000);
+    setInterval(() => {
+        refreshStatus();
+        loadIssues();
+    }, 30000);
 </script>
 {% endblock %}

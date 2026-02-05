@@ -8,9 +8,11 @@ Features:
 - Analyzes logs for error patterns
 - Self-heals known issues automatically
 - Escalates critical/unknown issues via email
+- Persists all runs and issues to database for transparency
 
 Author: Claude AI
 Created: 2026-02-04
+Updated: 2026-02-04 - Added database persistence for transparency
 """
 
 import os
@@ -18,6 +20,7 @@ import re
 import json
 import logging
 import requests
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
@@ -579,19 +582,26 @@ class LogMonitoringService:
         except Exception as e:
             logger.error(f"❌ Failed to send notification email: {e}")
     
-    def run_monitoring_cycle(self) -> LogAnalysisResult:
+    def run_monitoring_cycle(self, was_manual: bool = False) -> LogAnalysisResult:
         """
         Run a complete monitoring cycle:
         1. Fetch logs
         2. Analyze for patterns
         3. Process issues (auto-fix or escalate)
+        4. Persist results to database
+        
+        Args:
+            was_manual: True if triggered by "Run Now" button
         
         Returns:
             LogAnalysisResult with full details
         """
+        start_time = time.time()
+        
         logger.info("=" * 60)
         logger.info("🔍 LOG MONITORING CYCLE STARTED")
         logger.info(f"   Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        logger.info(f"   Trigger: {'Manual' if was_manual else 'Scheduled'}")
         logger.info("=" * 60)
         
         # Fetch logs
@@ -599,7 +609,10 @@ class LogMonitoringService:
         
         if not logs:
             logger.info("📭 No new logs to analyze")
-            return LogAnalysisResult(logs_analyzed=0, time_range_start=None, time_range_end=None)
+            empty_result = LogAnalysisResult(logs_analyzed=0, time_range_start=None, time_range_end=None)
+            # Still persist the run for transparency
+            self._persist_to_database(empty_result, was_manual, int((time.time() - start_time) * 1000))
+            return empty_result
         
         # Analyze logs
         analysis = self.analyze_logs(logs)
@@ -616,11 +629,16 @@ class LogMonitoringService:
         else:
             logger.info("✅ No issues detected - system healthy")
         
+        execution_time_ms = int((time.time() - start_time) * 1000)
+        
         logger.info("=" * 60)
-        logger.info("🔍 LOG MONITORING CYCLE COMPLETE")
+        logger.info(f"🔍 LOG MONITORING CYCLE COMPLETE ({execution_time_ms}ms)")
         logger.info("=" * 60)
         
-        # Track history for UI
+        # Persist to database for transparency
+        self._persist_to_database(analysis, was_manual, execution_time_ms)
+        
+        # Track in-memory history for backward compatibility
         self._total_runs += 1
         self._total_issues_found += len(analysis.issues_found)
         self._total_auto_fixed += len(analysis.auto_fixed)
@@ -642,6 +660,85 @@ class LogMonitoringService:
         self._history = self._history[:self._max_history]  # Keep only last N
         
         return analysis
+    
+    def _persist_to_database(self, analysis: LogAnalysisResult, was_manual: bool, execution_time_ms: int):
+        """
+        Persist monitoring run and issues to database for full transparency.
+        
+        Args:
+            analysis: The analysis result to persist
+            was_manual: Whether this was a manual run
+            execution_time_ms: How long the cycle took in milliseconds
+        """
+        try:
+            from flask import current_app
+            from app import db
+            from models import LogMonitoringRun, LogMonitoringIssue
+            
+            with current_app.app_context():
+                # Create the run record
+                run = LogMonitoringRun(
+                    run_time=analysis.analysis_timestamp,
+                    logs_analyzed=analysis.logs_analyzed,
+                    issues_found=len(analysis.issues_found),
+                    issues_auto_fixed=len(analysis.auto_fixed),
+                    issues_escalated=len(analysis.escalated),
+                    status='healthy' if not analysis.issues_found else 'issues_detected',
+                    time_range_start=analysis.time_range_start,
+                    time_range_end=analysis.time_range_end,
+                    was_manual=was_manual,
+                    execution_time_ms=execution_time_ms
+                )
+                db.session.add(run)
+                db.session.flush()  # Get the run ID
+                
+                # Create issue records
+                for issue in analysis.issues_found:
+                    severity = LogMonitoringIssue.get_severity_for_category(issue.category.value)
+                    
+                    # Determine resolution status and action
+                    if issue.category in [IssueCategory.AUTO_FIX, IssueCategory.AUTO_FIX_NOTIFY]:
+                        status = 'auto_fixed'
+                        resolution_action = issue.suggested_fix
+                        resolution_summary = f"Automatically handled: {issue.suggested_fix}"
+                    elif issue.category == IssueCategory.ESCALATE:
+                        status = 'escalated'
+                        resolution_action = None
+                        resolution_summary = f"Escalated for human review - {issue.suggested_fix}"
+                    else:
+                        status = 'ignored'
+                        resolution_action = None
+                        resolution_summary = "Known noise, ignored"
+                    
+                    issue_record = LogMonitoringIssue(
+                        run_id=run.id,
+                        detected_at=issue.timestamp,
+                        pattern_name=issue.pattern_name,
+                        category=issue.category.value,
+                        severity=severity,
+                        description=issue.description,
+                        occurrences=issue.occurrences,
+                        sample_log=issue.sample_log[:2000] if issue.sample_log else None,  # Limit length
+                        status=status,
+                        resolution_action=resolution_action,
+                        resolution_summary=resolution_summary,
+                        resolved_at=datetime.utcnow() if status == 'auto_fixed' else None,
+                        resolved_by='system' if status == 'auto_fixed' else None
+                    )
+                    db.session.add(issue_record)
+                
+                db.session.commit()
+                logger.info(f"💾 Persisted run #{run.id} with {len(analysis.issues_found)} issues to database")
+                
+        except ImportError as e:
+            logger.warning(f"⚠️ Could not import database models for persistence: {e}")
+        except Exception as e:
+            logger.error(f"❌ Failed to persist monitoring run to database: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
+
     
     def get_status(self) -> Dict[str, Any]:
         """Get current monitoring status for API/dashboard."""
@@ -680,13 +777,17 @@ def get_log_monitor() -> LogMonitoringService:
     return _log_monitor
 
 
-def run_log_monitoring_cycle() -> Dict[str, Any]:
+
+def run_log_monitoring_cycle(was_manual: bool = False) -> Dict[str, Any]:
     """
     Entry point for scheduled log monitoring.
     Called by APScheduler every X minutes.
+    
+    Args:
+        was_manual: True if triggered by "Run Now" button, False if scheduled
     """
     monitor = get_log_monitor()
-    result = monitor.run_monitoring_cycle()
+    result = monitor.run_monitoring_cycle(was_manual=was_manual)
     
     return {
         "logs_analyzed": result.logs_analyzed,
@@ -695,3 +796,4 @@ def run_log_monitoring_cycle() -> Dict[str, Any]:
         "escalated": len(result.escalated),
         "timestamp": result.analysis_timestamp.isoformat()
     }
+
