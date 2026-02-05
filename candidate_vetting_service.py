@@ -284,6 +284,78 @@ Format as a bullet-point list. Be specific and concise."""
             
         return results
     
+    def refresh_empty_job_locations(self, jobs: list = None) -> dict:
+        """
+        One-time refresh of job locations for existing JobVettingRequirements 
+        records that have empty job_location fields.
+        
+        This fetches the current address from Bullhorn and updates the database.
+        
+        Args:
+            jobs: Optional list of job dicts from tearsheets. If None, fetches from tearsheets.
+            
+        Returns:
+            Summary dict with refresh counts
+        """
+        results = {
+            'jobs_checked': 0,
+            'locations_updated': 0,
+            'already_have_location': 0,
+            'errors': []
+        }
+        
+        try:
+            # Get jobs if not provided
+            if jobs is None:
+                jobs = self.get_active_jobs_from_tearsheets()
+            
+            results['jobs_checked'] = len(jobs)
+            
+            if not jobs:
+                return results
+            
+            # Build a lookup of job_id -> job data
+            job_lookup = {int(job.get('id')): job for job in jobs if job.get('id')}
+            
+            # Find all requirements with empty locations
+            empty_location_reqs = JobVettingRequirements.query.filter(
+                (JobVettingRequirements.job_location == None) | 
+                (JobVettingRequirements.job_location == '')
+            ).all()
+            
+            updates_made = 0
+            for req in empty_location_reqs:
+                job = job_lookup.get(req.bullhorn_job_id)
+                if not job:
+                    continue
+                
+                # Extract location from job address
+                job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+                job_city = job_address.get('city', '')
+                job_state = job_address.get('state', '')
+                job_country = job_address.get('countryName', '') or job_address.get('country', '')
+                job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
+                
+                if job_location:
+                    req.job_location = job_location
+                    updates_made += 1
+                    logging.info(f"📍 Updated location for job {req.bullhorn_job_id}: {job_location}")
+            
+            if updates_made > 0:
+                db.session.commit()
+                results['locations_updated'] = updates_made
+                logging.info(f"📍 Location refresh complete: updated {updates_made} jobs with empty locations")
+            
+            # Count jobs that already have locations
+            results['already_have_location'] = results['jobs_checked'] - len(empty_location_reqs)
+            
+        except Exception as e:
+            db.session.rollback()
+            results['errors'].append(str(e))
+            logging.error(f"Error refreshing job locations: {str(e)}")
+        
+        return results
+    
     def check_and_refresh_changed_jobs(self, jobs: list = None) -> dict:
         """
         Check for jobs that have been modified in Bullhorn since last AI interpretation.

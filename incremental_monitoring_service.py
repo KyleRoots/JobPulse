@@ -315,6 +315,19 @@ class IncrementalMonitoringService:
                 if recruiter_sync_results.get('matches_updated', 0) > 0:
                     self.logger.info(f"  ✅ Synced recruiter assignments: {recruiter_sync_results['matches_updated']} matches updated")
                     cycle_results['recruiter_matches_synced'] = recruiter_sync_results['matches_updated']
+                
+                # Cleanup stale requirements for jobs no longer in tearsheets
+                # This keeps the dashboard count accurate and AI Vetting page clean
+                cleanup_results = vetting_service.sync_requirements_with_active_jobs()
+                if cleanup_results.get('removed', 0) > 0:
+                    self.logger.info(f"  🧹 Cleaned up {cleanup_results['removed']} orphaned job requirements")
+                    cycle_results['requirements_cleaned'] = cleanup_results['removed']
+                
+                # Refresh locations for jobs with empty location fields (one-time fix)
+                location_refresh = vetting_service.refresh_empty_job_locations(jobs_list)
+                if location_refresh.get('locations_updated', 0) > 0:
+                    self.logger.info(f"  📍 Updated locations for {location_refresh['locations_updated']} jobs")
+                    cycle_results['locations_refreshed'] = location_refresh['locations_updated']
             except Exception as e:
                 self.logger.error(f"  ⚠️ Job change detection failed: {str(e)}")
                 cycle_results['errors'].append(f"Job change detection: {str(e)}")

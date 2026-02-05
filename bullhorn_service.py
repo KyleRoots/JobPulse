@@ -208,6 +208,54 @@ class BullhornService:
                 result['city'] = city_candidate
                 result['zip'] = zip_code
         
+        # FALLBACK: Handle space-separated addresses with NO commas
+        # Example: "333 Centennial Pkwy Louisville Colorado 80027 United States"
+        if not result['city'] and not result['state']:
+            # Look for state name or abbreviation in the address
+            words = address_str.split()
+            
+            # Try to find state name (could be multi-word like "New York")
+            for i, word in enumerate(words):
+                word_upper = word.upper()
+                
+                # Check for state abbreviation (2 letters)
+                if word_upper in state_abbrevs:
+                    result['state'] = state_abbrevs[word_upper]
+                    # City is likely the word(s) before the state
+                    # Skip street address parts (numbers, common street suffixes)
+                    street_suffixes = ['st', 'street', 'ave', 'avenue', 'blvd', 'boulevard', 
+                                      'dr', 'drive', 'rd', 'road', 'ln', 'lane', 'way', 
+                                      'ct', 'court', 'pkwy', 'parkway', 'pl', 'place', 'cir', 'circle']
+                    
+                    # Find the city by looking for a word before state that's not a street suffix
+                    for j in range(i - 1, -1, -1):
+                        candidate = words[j].lower().rstrip(',.')
+                        # Skip numbers and street suffixes
+                        if not candidate.isdigit() and candidate not in street_suffixes:
+                            result['city'] = words[j].rstrip(',.')
+                            break
+                    break
+                
+                # Check for full state name (e.g., "Colorado")
+                if word in state_abbrevs.values():
+                    result['state'] = word
+                    # City is likely the word before
+                    street_suffixes = ['st', 'street', 'ave', 'avenue', 'blvd', 'boulevard', 
+                                      'dr', 'drive', 'rd', 'road', 'ln', 'lane', 'way', 
+                                      'ct', 'court', 'pkwy', 'parkway', 'pl', 'place', 'cir', 'circle']
+                    for j in range(i - 1, -1, -1):
+                        candidate = words[j].lower().rstrip(',.')
+                        if not candidate.isdigit() and candidate not in street_suffixes:
+                            result['city'] = words[j].rstrip(',.')
+                            break
+                    break
+            
+            # Try to find ZIP code (5-digit number optionally followed by -4 digits)
+            zip_pattern = r'\b(\d{5}(?:-\d{4})?)\b'
+            zip_match = re.search(zip_pattern, address_str)
+            if zip_match:
+                result['zip'] = zip_match.group(1)
+        
         # Set default country if we found a valid US state
         if result['state'] and not result['country']:
             result['country'] = 'United States'
