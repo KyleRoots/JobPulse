@@ -239,7 +239,7 @@
         </div>
         <div class="col-md-4 d-flex align-items-end">
             <div class="d-flex gap-2">
-                <span class="badge bg-success" id="autoFixedCount">0 auto-fixed</span>
+                <span class="badge" style="background-color: #769D7D;" id="autoFixedCount">0 auto-fixed</span>
                 <span class="badge bg-warning" id="escalatedCount">0 escalated</span>
                 <span class="badge bg-info" id="resolvedCount">0 resolved</span>
             </div>
@@ -508,7 +508,7 @@
 
     function getStatusBadge(status) {
         const badges = {
-            'auto_fixed': '<span class="badge-status success">✅ Auto-Fixed</span>',
+            'auto_fixed': '<span class="badge-status" style="background-color: #769D7D;">✅ Auto-Fixed</span>',
             'escalated': '<span class="badge-status warning">⚠️ Escalated</span>',
             'resolved': '<span class="badge-status info">✓ Resolved</span>',
             'detected': '<span class="badge-status secondary">⏳ Detected</span>',
