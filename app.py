@@ -7248,7 +7248,77 @@ if is_primary_worker:
     )
     app.logger.info("📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)")
 
+# Data Retention Cleanup - keeps database optimized
+def run_data_retention_cleanup():
+    """
+    Clean up old data to keep the database optimized.
+    Retention periods:
+    - Log monitoring runs/issues: 30 days
+    - Vetting health checks: 7 days
+    - Environment alerts: 30 days
+    """
+    with app.app_context():
+        try:
+            from models import LogMonitoringRun, LogMonitoringIssue, VettingHealthCheck, EnvironmentAlert
+            from sqlalchemy import and_
+            
+            total_deleted = 0
+            
+            # Log Monitoring Runs (30 days)
+            log_retention_date = datetime.utcnow() - timedelta(days=30)
+            old_runs = LogMonitoringRun.query.filter(
+                LogMonitoringRun.run_time < log_retention_date
+            ).all()
+            
+            if old_runs:
+                for run in old_runs:
+                    db.session.delete(run)  # Cascade deletes issues
+                total_deleted += len(old_runs)
+                app.logger.info(f"🧹 Data cleanup: Deleted {len(old_runs)} log monitoring runs older than 30 days")
+            
+            # Vetting Health Checks (7 days - these are frequent and less critical)
+            health_retention_date = datetime.utcnow() - timedelta(days=7)
+            old_health_checks = VettingHealthCheck.query.filter(
+                VettingHealthCheck.check_time < health_retention_date
+            ).delete(synchronize_session=False)
+            
+            if old_health_checks:
+                total_deleted += old_health_checks
+                app.logger.info(f"🧹 Data cleanup: Deleted {old_health_checks} vetting health checks older than 7 days")
+            
+            # Environment Alerts (30 days)
+            alert_retention_date = datetime.utcnow() - timedelta(days=30)
+            old_alerts = EnvironmentAlert.query.filter(
+                EnvironmentAlert.sent_at < alert_retention_date
+            ).delete(synchronize_session=False)
+            
+            if old_alerts:
+                total_deleted += old_alerts
+                app.logger.info(f"🧹 Data cleanup: Deleted {old_alerts} environment alerts older than 30 days")
+            
+            if total_deleted > 0:
+                db.session.commit()
+                app.logger.info(f"🧹 Data retention cleanup complete: {total_deleted} total records cleaned")
+            
+        except Exception as e:
+            app.logger.error(f"Data retention cleanup error: {str(e)}")
+            db.session.rollback()
+
+if is_primary_worker:
+    # Add data retention cleanup - runs every 24 hours at 3 AM UTC
+    scheduler.add_job(
+        func=run_data_retention_cleanup,
+        trigger='cron',
+        hour=3,
+        minute=0,
+        id='data_retention_cleanup',
+        name='Data Retention Cleanup (Daily)',
+        replace_existing=True
+    )
+    app.logger.info("🧹 Scheduled data retention cleanup (daily at 3 AM UTC)")
+
 # Vetting System Health Check
+
 def run_vetting_health_check():
     """Run health checks on the vetting system components"""
     with app.app_context():
