@@ -396,6 +396,128 @@ Format as a bullet-point list. Be specific and concise."""
             
         return results
     
+    def sync_job_recruiter_assignments(self, jobs: list = None) -> dict:
+        """
+        Sync recruiter assignments from Bullhorn to existing CandidateJobMatch records.
+        This ensures that recruiters added to jobs AFTER initial vetting still receive notifications.
+        
+        Should be called periodically (alongside job change detection) to pick up recruiter changes.
+        
+        Args:
+            jobs: Optional list of job dicts from tearsheets. If None, fetches from tearsheets.
+            
+        Returns:
+            Summary dict with sync counts
+        """
+        results = {
+            'jobs_checked': 0,
+            'matches_updated': 0,
+            'recruiters_added': 0,
+            'errors': []
+        }
+        
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            results['errors'].append("Could not connect to Bullhorn")
+            return results
+        
+        try:
+            # Get jobs if not provided
+            if jobs is None:
+                jobs = self.get_active_jobs_from_tearsheets()
+            
+            results['jobs_checked'] = len(jobs)
+            
+            if not jobs:
+                return results
+            
+            # Build job ID -> current recruiters mapping
+            job_recruiters = {}
+            for job in jobs:
+                job_id = job.get('id')
+                if not job_id:
+                    continue
+                    
+                # Extract all recruiter emails from assignedUsers
+                assigned_users = job.get('assignedUsers', {})
+                if isinstance(assigned_users, dict):
+                    assigned_users_list = assigned_users.get('data', [])
+                elif isinstance(assigned_users, list):
+                    assigned_users_list = assigned_users
+                else:
+                    assigned_users_list = []
+                
+                recruiter_emails = []
+                recruiter_names = []
+                recruiter_ids = []
+                
+                for user in assigned_users_list:
+                    if isinstance(user, dict):
+                        email = user.get('email', '')
+                        name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+                        user_id = user.get('id')
+                        if email:
+                            recruiter_emails.append(email)
+                        if name:
+                            recruiter_names.append(name)
+                        if user_id:
+                            recruiter_ids.append(str(user_id))
+                
+                if recruiter_emails:
+                    job_recruiters[int(job_id)] = {
+                        'emails': ', '.join(recruiter_emails),
+                        'names': ', '.join(recruiter_names),
+                        'primary_id': int(recruiter_ids[0]) if recruiter_ids else None
+                    }
+            
+            # Find all CandidateJobMatch records for these jobs that might need updating
+            job_ids = list(job_recruiters.keys())
+            if not job_ids:
+                return results
+            
+            matches = CandidateJobMatch.query.filter(
+                CandidateJobMatch.bullhorn_job_id.in_(job_ids)
+            ).all()
+            
+            # Update matches where recruiter info has changed
+            for match in matches:
+                current_data = job_recruiters.get(match.bullhorn_job_id)
+                if not current_data:
+                    continue
+                
+                current_emails = set(e.strip() for e in current_data['emails'].split(',') if e.strip())
+                stored_emails = set(e.strip() for e in (match.recruiter_email or '').split(',') if e.strip())
+                
+                # Check if any new recruiters were added
+                new_recruiters = current_emails - stored_emails
+                
+                if new_recruiters:
+                    # Update the match record with current recruiter info
+                    old_emails = match.recruiter_email
+                    match.recruiter_email = current_data['emails']
+                    match.recruiter_name = current_data['names']
+                    # Keep primary ID for backward compatibility
+                    if current_data['primary_id']:
+                        match.recruiter_bullhorn_id = current_data['primary_id']
+                    
+                    results['matches_updated'] += 1
+                    results['recruiters_added'] += len(new_recruiters)
+                    
+                    logging.info(f"🔄 Updated job {match.bullhorn_job_id} match #{match.id}: "
+                                f"added {len(new_recruiters)} recruiter(s) - {', '.join(new_recruiters)}")
+            
+            if results['matches_updated'] > 0:
+                db.session.commit()
+                logging.info(f"✅ Recruiter sync complete: {results['matches_updated']} matches updated, "
+                            f"{results['recruiters_added']} recruiters added")
+            
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error in recruiter assignment sync: {str(e)}")
+            results['errors'].append(str(e))
+        
+        return results
+    
     def get_active_job_ids(self) -> set:
         """Get set of active job IDs from tearsheets (for filtering)"""
         try:
@@ -1817,10 +1939,11 @@ CRITICAL RULES:
                 job_id = result['job_id']
                 analysis = result['analysis']
                 
-                # Get recruiter info from job's assignedUsers
-                recruiter_name = ''
-                recruiter_email = ''
-                recruiter_id = None
+                # Get recruiter info from ALL job assignedUsers (not just first)
+                # Store as comma-separated lists to include all recruiters for notifications
+                recruiter_names = []
+                recruiter_emails = []
+                recruiter_ids = []
                 
                 assigned_users = job.get('assignedUsers', {})
                 if isinstance(assigned_users, dict):
@@ -1830,12 +1953,22 @@ CRITICAL RULES:
                 else:
                     assigned_users_list = []
                 
-                if assigned_users_list and len(assigned_users_list) > 0:
-                    first_user = assigned_users_list[0]
-                    if isinstance(first_user, dict):
-                        recruiter_name = f"{first_user.get('firstName', '')} {first_user.get('lastName', '')}".strip()
-                        recruiter_email = first_user.get('email', '')
-                        recruiter_id = first_user.get('id')
+                for user in assigned_users_list:
+                    if isinstance(user, dict):
+                        name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+                        email = user.get('email', '')
+                        user_id = user.get('id')
+                        if name:
+                            recruiter_names.append(name)
+                        if email:
+                            recruiter_emails.append(email)
+                        if user_id:
+                            recruiter_ids.append(str(user_id))
+                
+                # Join as comma-separated for storage (first ID as primary for backward compatibility)
+                recruiter_name = ', '.join(recruiter_names) if recruiter_names else ''
+                recruiter_email = ', '.join(recruiter_emails) if recruiter_emails else ''
+                recruiter_id = int(recruiter_ids[0]) if recruiter_ids else None
                 
                 # Determine if this is the job they applied to
                 is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
@@ -2128,31 +2261,51 @@ CRITICAL RULES:
         logging.info(f"  📨 Found {len(matches)} unsent qualified matches")
         
         # Determine primary recruiter (from applied job) and CC list
+        # Note: recruiter_email may now be comma-separated (multiple recruiters per job)
         primary_recruiter_email = None
         primary_recruiter_name = None
         cc_recruiter_emails = []
         
+        # Helper to parse comma-separated emails
+        def parse_emails(email_str):
+            if not email_str:
+                return []
+            return [e.strip() for e in email_str.split(',') if e.strip()]
+        
+        def parse_names(name_str):
+            if not name_str:
+                return []
+            return [n.strip() for n in name_str.split(',') if n.strip()]
+        
         # First pass: find the applied job recruiter (primary recipient)
         for match in matches:
             if match.is_applied_job and match.recruiter_email:
-                primary_recruiter_email = match.recruiter_email
-                primary_recruiter_name = match.recruiter_name
+                emails = parse_emails(match.recruiter_email)
+                names = parse_names(match.recruiter_name)
+                if emails:
+                    primary_recruiter_email = emails[0]  # First recruiter on applied job is primary
+                    primary_recruiter_name = names[0] if names else ''
                 break
         
-        # Second pass: collect all unique recruiter emails
+        # Second pass: collect all unique recruiter emails from all matches
         # If no applied job recruiter found, first recruiter becomes primary
         seen_emails = set()
         for match in matches:
-            if match.recruiter_email and match.recruiter_email not in seen_emails:
-                seen_emails.add(match.recruiter_email)
-                
-                if not primary_recruiter_email:
-                    # No applied job match - first recruiter becomes primary
-                    primary_recruiter_email = match.recruiter_email
-                    primary_recruiter_name = match.recruiter_name
-                elif match.recruiter_email != primary_recruiter_email:
-                    # Different from primary - add to CC list
-                    cc_recruiter_emails.append(match.recruiter_email)
+            emails = parse_emails(match.recruiter_email)
+            names = parse_names(match.recruiter_name)
+            
+            for i, email in enumerate(emails):
+                if email and email not in seen_emails:
+                    seen_emails.add(email)
+                    name = names[i] if i < len(names) else ''
+                    
+                    if not primary_recruiter_email:
+                        # No applied job match - first recruiter becomes primary
+                        primary_recruiter_email = email
+                        primary_recruiter_name = name
+                    elif email != primary_recruiter_email:
+                        # Different from primary - add to CC list
+                        cc_recruiter_emails.append(email)
         
         # Check email notification kill switch setting
         from models import VettingConfig

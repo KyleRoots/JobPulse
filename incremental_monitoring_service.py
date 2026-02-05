@@ -308,6 +308,13 @@ class IncrementalMonitoringService:
                     self.logger.info(f"  ✅ Refreshed AI requirements for {refresh_results['jobs_refreshed']} modified jobs")
                 else:
                     self.logger.info("  ✅ No job modifications detected requiring AI refresh")
+                
+                # Also sync recruiter assignments for existing candidate matches
+                # This ensures recruiters added after initial vetting still receive notifications
+                recruiter_sync_results = vetting_service.sync_job_recruiter_assignments(jobs_list)
+                if recruiter_sync_results.get('matches_updated', 0) > 0:
+                    self.logger.info(f"  ✅ Synced recruiter assignments: {recruiter_sync_results['matches_updated']} matches updated")
+                    cycle_results['recruiter_matches_synced'] = recruiter_sync_results['matches_updated']
             except Exception as e:
                 self.logger.error(f"  ⚠️ Job change detection failed: {str(e)}")
                 cycle_results['errors'].append(f"Job change detection: {str(e)}")
