@@ -1486,12 +1486,13 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
 Respond in JSON format with these exact fields:
 {{
     "match_score": <integer 0-100>,
-    "match_summary": "<2-3 sentence summary of overall fit - be honest about mismatches including location issues>",
+    "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say 'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.' Do NOT use contradictory phrasing like 'mismatch which matches'.>",
     "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
     "experience_match": "<ONLY list experience from the resume that is relevant to the job - be specific>",
     "gaps_identified": "<List ALL mandatory requirements NOT found in the resume INCLUDING location mismatches - this is critical>",
     "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>"
 }}
+
 
 SCORING GUIDELINES:
 - 85-100: Candidate meets nearly ALL mandatory requirements with explicit evidence in resume AND location matches
