@@ -444,6 +444,7 @@ class LogMonitoringService:
         
         # Send escalation email if needed
         if escalated:
+            logger.info(f"📧 Triggering escalation email for {len(escalated)} critical issue(s)")
             self._send_escalation_email(escalated, analysis)
         
         # Send notification for auto-fixed items that warrant a heads-up
@@ -471,8 +472,10 @@ class LogMonitoringService:
     
     def _send_escalation_email(self, escalated: List[str], analysis: LogAnalysisResult):
         """Send escalation email for critical issues."""
+        logger.info(f"📧 _send_escalation_email called with {len(escalated)} issue(s)")
+        
         if not self.escalation_email:
-            logger.warning("⚠️ No escalation email configured")
+            logger.warning("⚠️ No escalation email configured - cannot send notification")
             return
         
         try:
@@ -521,6 +524,7 @@ class LogMonitoringService:
             
             message = "\n".join(body_lines)
             
+            logger.info(f"📧 Sending escalation email to {self.escalation_email}...")
             success = email_service.send_notification_email(
                 to_email=self.escalation_email,
                 subject=subject,
@@ -529,14 +533,15 @@ class LogMonitoringService:
             )
             
             if success:
-                logger.info(f"📧 Escalation email sent to {self.escalation_email}")
+                logger.info(f"📧 ✅ Escalation email sent successfully to {self.escalation_email}")
             else:
-                logger.error(f"❌ Failed to send escalation email")
+                logger.error(f"❌ EmailService.send_notification_email returned False")
             
-        except ImportError:
-            logger.error("❌ EmailService not available for escalation")
+        except ImportError as e:
+            logger.error(f"❌ EmailService not available for escalation: {e}")
         except Exception as e:
-            logger.error(f"❌ Failed to send escalation email: {e}")
+            import traceback
+            logger.error(f"❌ Failed to send escalation email: {e}\n{traceback.format_exc()}")
     
     def _send_notification_email(self, issues: List[LogIssue], analysis: LogAnalysisResult):
         """Send notification email for auto-fixed items that warrant a heads-up."""
