@@ -401,18 +401,23 @@ Format as a bullet-point list. Be specific and concise."""
                 results['errors'].append("Failed to authenticate with Bullhorn")
                 return results
             
-            # Query candidates with notes in last 7 days
-            # IMPORTANT: Sort by dateAdded (oldest first) to avoid reprocessing
-            # Using -dateLastModified caused infinite loop: deleting notes updates 
-            # dateLastModified, pushing candidates back to top of list
+            # Query candidates modified in last 7 days (likely have AI vetting notes)
+            # Use dateLastModified to find candidates who may have duplicate notes
+            # Use offset pagination (start) to avoid reprocessing same candidates
+            # The offset persists across cycles until we reach the end
             since_timestamp = int((datetime.utcnow() - timedelta(days=7)).timestamp() * 1000)
+            
+            # Get/initialize pagination offset from class attribute
+            if not hasattr(self, '_cleanup_offset'):
+                self._cleanup_offset = 0
             
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
-                'query': f'dateAdded:[{since_timestamp} TO *]',
+                'query': f'dateLastModified:[{since_timestamp} TO *]',
                 'fields': 'id,firstName,lastName',
                 'count': batch_size,
-                'sort': 'dateAdded',  # Oldest first to avoid reprocessing
+                'start': self._cleanup_offset,  # Offset pagination
+                'sort': 'id',  # Sort by ID for stable pagination
                 'BhRestToken': bullhorn.rest_token
             }
             
@@ -423,11 +428,22 @@ Format as a bullet-point list. Be specific and concise."""
             
             data = response.json()
             candidates = data.get('data', [])
+            total = data.get('total', 0)
             
             if not candidates:
+                # Reset offset for next cycle since we've processed all
+                self._cleanup_offset = 0
                 results['cleanup_complete'] = True
-                logging.info("🧹 Note cleanup: No more candidates to process")
+                logging.info("🧹 Note cleanup: Completed full scan, resetting offset")
                 return results
+            
+            # Advance offset for next cycle
+            self._cleanup_offset += len(candidates)
+            
+            # If we've gone through all candidates, reset for next cycle
+            if self._cleanup_offset >= total:
+                self._cleanup_offset = 0
+                logging.info(f"🧹 Note cleanup: Reached end of {total} candidates, will restart next cycle")
             
             for candidate in candidates:
                 candidate_id = candidate.get('id')
