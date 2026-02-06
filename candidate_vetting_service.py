@@ -1930,19 +1930,20 @@ CRITICAL RULES:
             
             # Store data for deferred saving (to avoid Flask app context issues in parallel threads)
             # The caller should save these after parallel execution completes
+            # ALWAYS save AI interpretation - custom requirements SUPPLEMENT, not REPLACE
             result['_deferred_save'] = {
                 'job_id': job_id,
                 'job_title': job_title,
                 'key_requirements': key_requirements,
                 'job_location_full': job_location_full,
                 'work_type': work_type,
-                'should_save': bool(key_requirements) and not custom_requirements
+                'should_save': bool(key_requirements)  # Always save when we have requirements
             }
             
             if not key_requirements:
                 logging.warning(f"⚠️ AI did not return key_requirements for job {job_id} - requirements will not be saved")
             elif custom_requirements:
-                logging.info(f"📝 Job {job_id} has custom requirements - skipping AI interpretation save (expected behavior)")
+                logging.info(f"📝 Job {job_id} has custom requirements - AI interpretation will ALSO be saved (custom supplements AI)")
             # NOTE: Actual save is now deferred to caller to avoid Flask app context issues in parallel threads
             
             return result
