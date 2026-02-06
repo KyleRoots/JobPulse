@@ -373,7 +373,8 @@ Format as a bullet-point list. Be specific and concise."""
             Summary dict with cleanup counts
         """
         from bullhorn_service import BullhornService
-        from models import GlobalSettings
+        from models import GlobalSettings, CandidateVettingLog
+        from sqlalchemy import func
         
         logging.info(f"🧹 Starting duplicate notes cleanup batch (batch_size={batch_size})")
         
@@ -403,54 +404,51 @@ Format as a bullet-point list. Be specific and concise."""
                 results['errors'].append("Failed to authenticate with Bullhorn")
                 return results
             
-            # Query candidates modified in last 7 days (likely have AI vetting notes)
-            # Use dateLastModified to find candidates who may have duplicate notes
-            # Use offset pagination (start) to avoid reprocessing same candidates
-            # The offset persists across cycles until we reach the end
-            since_timestamp = int((datetime.utcnow() - timedelta(days=7)).timestamp() * 1000)
-            
-            # Get/initialize pagination offset from class attribute
+            # OPTIMIZED: Query local database for candidates with AI vetting notes
+            # This targets only the ~233 affected candidates instead of 958K from Bullhorn
+            # Get unique candidate IDs that have notes created (note_created=True)
             if not hasattr(self, '_cleanup_offset'):
                 self._cleanup_offset = 0
             
-            url = f"{bullhorn.base_url}search/Candidate"
-            params = {
-                'query': f'dateLastModified:[{since_timestamp} TO *]',
-                'fields': 'id,firstName,lastName',
-                'count': batch_size,
-                'start': self._cleanup_offset,  # Offset pagination
-                'sort': 'id',  # Sort by ID for stable pagination
-                'BhRestToken': bullhorn.rest_token
-            }
+            # Get distinct candidate IDs from our vetting logs where notes were created
+            candidate_ids_query = db.session.query(
+                CandidateVettingLog.bullhorn_candidate_id
+            ).filter(
+                CandidateVettingLog.note_created == True,
+                CandidateVettingLog.bullhorn_candidate_id.isnot(None)
+            ).distinct().order_by(
+                CandidateVettingLog.bullhorn_candidate_id
+            ).offset(self._cleanup_offset).limit(batch_size)
             
-            response = bullhorn.session.get(url, params=params, timeout=30)
-            if response.status_code != 200:
-                results['errors'].append(f"Search failed: {response.status_code}")
-                return results
+            candidate_rows = candidate_ids_query.all()
+            candidate_ids = [row[0] for row in candidate_rows]
             
-            data = response.json()
-            candidates = data.get('data', [])
-            total = data.get('total', 0)
+            # Count total candidates with notes (for progress tracking)
+            total_count = db.session.query(
+                func.count(func.distinct(CandidateVettingLog.bullhorn_candidate_id))
+            ).filter(
+                CandidateVettingLog.note_created == True,
+                CandidateVettingLog.bullhorn_candidate_id.isnot(None)
+            ).scalar() or 0
             
-            logging.info(f"🧹 Note cleanup: Found {len(candidates)} candidates (offset={self._cleanup_offset}, total={total})")
+            logging.info(f"🧹 Note cleanup: Found {len(candidate_ids)} candidates from local DB (offset={self._cleanup_offset}, total={total_count})")
             
-            if not candidates:
+            if not candidate_ids:
                 # Reset offset for next cycle since we've processed all
                 self._cleanup_offset = 0
                 results['cleanup_complete'] = True
-                logging.info("🧹 Note cleanup: Completed full scan, resetting offset")
+                logging.info("🧹 Note cleanup: Completed full scan of all vetted candidates, resetting offset")
                 return results
             
             # Advance offset for next cycle
-            self._cleanup_offset += len(candidates)
+            self._cleanup_offset += len(candidate_ids)
             
             # If we've gone through all candidates, reset for next cycle
-            if self._cleanup_offset >= total:
+            if self._cleanup_offset >= total_count:
                 self._cleanup_offset = 0
-                logging.info(f"🧹 Note cleanup: Reached end of {total} candidates, will restart next cycle")
+                logging.info(f"🧹 Note cleanup: Reached end of {total_count} vetted candidates, will restart next cycle")
             
-            for candidate in candidates:
-                candidate_id = candidate.get('id')
+            for candidate_id in candidate_ids:
                 if not candidate_id:
                     continue
                 
