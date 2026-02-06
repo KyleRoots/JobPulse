@@ -2123,8 +2123,13 @@ CRITICAL RULES:
             vetting_log: The vetting log with analysis results
             
         Returns:
-            True if note was created successfully
+            True if note was created successfully (or already exists)
         """
+        # DEDUPLICATION SAFETY: Skip if note already created for this vetting log
+        if vetting_log.note_created:
+            logging.info(f"⏭️ Note already exists for vetting log {vetting_log.id} (candidate {vetting_log.bullhorn_candidate_id}), skipping creation")
+            return True  # Return True to indicate note exists
+        
         bullhorn = self._get_bullhorn_service()
         if not bullhorn:
             return False
@@ -2677,9 +2682,12 @@ CRITICAL RULES:
                         if vetting_log.is_qualified:
                             summary['candidates_qualified'] += 1
                         
-                        # Create note
-                        if self.create_candidate_note(vetting_log):
-                            summary['notes_created'] += 1
+                        # Create note (only if not already created)
+                        if not vetting_log.note_created:
+                            if self.create_candidate_note(vetting_log):
+                                summary['notes_created'] += 1
+                        else:
+                            logging.info(f"⏭️ Skipping note creation - already exists for candidate {vetting_log.bullhorn_candidate_id}")
                         
                         # Send notifications for qualified candidates
                         if vetting_log.is_qualified:
