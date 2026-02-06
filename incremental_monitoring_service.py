@@ -387,7 +387,7 @@ class IncrementalMonitoringService:
                 try:
                     activity = BullhornActivity(
                         monitor_id=None,  # System-level monitoring activity
-                        activity_type='monitoring_cycle_completed',
+                        activity_type='cycle_complete',  # Shortened to fit VARCHAR(20)
                         job_id=None,
                         job_title=None,
                         details=json.dumps(activity_details),
