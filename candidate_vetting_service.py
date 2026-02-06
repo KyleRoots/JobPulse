@@ -628,22 +628,16 @@ Format as a bullet-point list. Be specific and concise."""
                         existing.job_location = job_location
                         existing.job_work_type = job_work_type
                         
-                        # Only re-extract AI interpretation if no custom override
-                        if not existing.custom_requirements:
-                            # Re-extract requirements
-                            extracted = self.extract_job_requirements(
-                                int(job_id), job_title, job_description,
-                                job_location, job_work_type
-                            )
-                            if extracted:
-                                logging.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
-                            else:
-                                logging.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
+                        # ALWAYS re-extract AI interpretation, even with custom override
+                        # Custom Override supplements AI interpretation, doesn't replace it
+                        extracted = self.extract_job_requirements(
+                            int(job_id), job_title, job_description,
+                            job_location, job_work_type
+                        )
+                        if extracted:
+                            logging.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
                         else:
-                            # Has custom override - just update metadata, not AI interpretation
-                            existing.updated_at = datetime.utcnow()
-                            db.session.commit()
-                            logging.info(f"  ℹ️ Job {job_id} has custom requirements - updated metadata only")
+                            logging.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
                         
                         results['jobs_refreshed'] += 1
                     else:
