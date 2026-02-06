@@ -356,6 +356,21 @@ Format as a bullet-point list. Be specific and concise."""
         
         return results
     
+    def _save_cleanup_offset(self, offset: int):
+        """Save the cleanup offset to database for persistence across restarts."""
+        from models import GlobalSettings
+        try:
+            offset_setting = GlobalSettings.query.filter_by(setting_key='cleanup_notes_offset').first()
+            if offset_setting:
+                offset_setting.setting_value = str(offset)
+            else:
+                offset_setting = GlobalSettings(setting_key='cleanup_notes_offset', setting_value=str(offset))
+                db.session.add(offset_setting)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Failed to save cleanup offset: {e}")
+    
     def cleanup_duplicate_notes_batch(self, batch_size: int = 10) -> dict:
         """
         Clean up duplicate AI vetting notes in small batches to avoid timeouts.
@@ -407,8 +422,10 @@ Format as a bullet-point list. Be specific and concise."""
             # OPTIMIZED: Query local database for candidates with AI vetting notes
             # This targets only the ~233 affected candidates instead of 958K from Bullhorn
             # Get unique candidate IDs that have notes created (note_created=True)
-            if not hasattr(self, '_cleanup_offset'):
-                self._cleanup_offset = 0
+            
+            # Get offset from database (persists across server restarts/deployments)
+            offset_setting = GlobalSettings.query.filter_by(setting_key='cleanup_notes_offset').first()
+            current_offset = int(offset_setting.setting_value) if offset_setting and offset_setting.setting_value else 0
             
             # Get distinct candidate IDs from our vetting logs where notes were created
             candidate_ids_query = db.session.query(
@@ -418,7 +435,7 @@ Format as a bullet-point list. Be specific and concise."""
                 CandidateVettingLog.bullhorn_candidate_id.isnot(None)
             ).distinct().order_by(
                 CandidateVettingLog.bullhorn_candidate_id
-            ).offset(self._cleanup_offset).limit(batch_size)
+            ).offset(current_offset).limit(batch_size)
             
             candidate_rows = candidate_ids_query.all()
             candidate_ids = [row[0] for row in candidate_rows]
@@ -431,22 +448,25 @@ Format as a bullet-point list. Be specific and concise."""
                 CandidateVettingLog.bullhorn_candidate_id.isnot(None)
             ).scalar() or 0
             
-            logging.info(f"🧹 Note cleanup: Found {len(candidate_ids)} candidates from local DB (offset={self._cleanup_offset}, total={total_count})")
+            logging.info(f"🧹 Note cleanup: Found {len(candidate_ids)} candidates from local DB (offset={current_offset}, total={total_count})")
             
             if not candidate_ids:
                 # Reset offset for next cycle since we've processed all
-                self._cleanup_offset = 0
+                self._save_cleanup_offset(0)
                 results['cleanup_complete'] = True
                 logging.info("🧹 Note cleanup: Completed full scan of all vetted candidates, resetting offset")
                 return results
             
             # Advance offset for next cycle
-            self._cleanup_offset += len(candidate_ids)
+            new_offset = current_offset + len(candidate_ids)
             
             # If we've gone through all candidates, reset for next cycle
-            if self._cleanup_offset >= total_count:
-                self._cleanup_offset = 0
+            if new_offset >= total_count:
+                new_offset = 0
                 logging.info(f"🧹 Note cleanup: Reached end of {total_count} vetted candidates, will restart next cycle")
+            
+            # Save offset to database (persists across restarts)
+            self._save_cleanup_offset(new_offset)
             
             for candidate_id in candidate_ids:
                 if not candidate_id:
