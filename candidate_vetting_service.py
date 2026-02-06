@@ -150,6 +150,7 @@ class CandidateVettingService:
         Extract mandatory requirements from a job description using AI.
         Called during monitoring when new jobs are indexed so requirements
         are available for review BEFORE any candidates are vetted.
+        Also called for REFRESH when job is modified in Bullhorn.
         
         Args:
             job_id: Bullhorn job ID
@@ -164,12 +165,10 @@ class CandidateVettingService:
         if not self.openai_client:
             logging.warning("OpenAI client not initialized - cannot extract requirements")
             return None
-            
-        # Check if requirements already exist
-        existing = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
-        if existing and existing.ai_interpreted_requirements:
-            logging.debug(f"Job {job_id} already has requirements extracted")
-            return existing.ai_interpreted_requirements
+        
+        # NOTE: Removed early return check for existing requirements
+        # This function is now called specifically for refresh when job is modified
+        # So we always want to re-extract from the updated job description
         
         # Clean job description (remove HTML)
         import re
