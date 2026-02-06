@@ -356,6 +356,161 @@ Format as a bullet-point list. Be specific and concise."""
         
         return results
     
+    def cleanup_duplicate_notes_batch(self, batch_size: int = 10) -> dict:
+        """
+        Clean up duplicate AI vetting notes in small batches to avoid timeouts.
+        Called by monitoring cycle - processes a few candidates each run until done.
+        
+        Logic:
+        - Keep: Oldest (original) note for each candidate
+        - Keep: Notes created 60+ minutes after previous kept note (new vetting session)
+        - Delete: All notes within 60 minutes of previous (duplicates from re-runs)
+        
+        Args:
+            batch_size: Max candidates to process per call
+            
+        Returns:
+            Summary dict with cleanup counts
+        """
+        from bullhorn_service import BullhornService
+        from models import GlobalSettings
+        
+        results = {
+            'candidates_processed': 0,
+            'notes_deleted': 0,
+            'cleanup_complete': False,
+            'errors': []
+        }
+        
+        try:
+            # Get Bullhorn credentials
+            credentials = {}
+            for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+                setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                if setting and setting.setting_value:
+                    credentials[key] = setting.setting_value.strip()
+            
+            bullhorn = BullhornService(
+                client_id=credentials.get('bullhorn_client_id'),
+                client_secret=credentials.get('bullhorn_client_secret'),
+                username=credentials.get('bullhorn_username'),
+                password=credentials.get('bullhorn_password')
+            )
+            
+            if not bullhorn.authenticate():
+                results['errors'].append("Failed to authenticate with Bullhorn")
+                return results
+            
+            # Query recently modified candidates (last 7 days)
+            since_timestamp = int((datetime.utcnow() - timedelta(days=7)).timestamp() * 1000)
+            
+            url = f"{bullhorn.base_url}search/Candidate"
+            params = {
+                'query': f'dateLastModified:[{since_timestamp} TO *]',
+                'fields': 'id,firstName,lastName',
+                'count': batch_size,
+                'sort': '-dateLastModified',
+                'BhRestToken': bullhorn.rest_token
+            }
+            
+            response = bullhorn.session.get(url, params=params, timeout=30)
+            if response.status_code != 200:
+                results['errors'].append(f"Search failed: {response.status_code}")
+                return results
+            
+            data = response.json()
+            candidates = data.get('data', [])
+            
+            if not candidates:
+                results['cleanup_complete'] = True
+                logging.info("🧹 Note cleanup: No more candidates to process")
+                return results
+            
+            for candidate in candidates:
+                candidate_id = candidate.get('id')
+                if not candidate_id:
+                    continue
+                
+                results['candidates_processed'] += 1
+                
+                # Fetch notes for this candidate
+                notes_url = f"{bullhorn.base_url}entity/Candidate/{candidate_id}/notes"
+                notes_params = {
+                    'fields': 'id,action,dateAdded,isDeleted',
+                    'count': 200,
+                    'BhRestToken': bullhorn.rest_token
+                }
+                
+                try:
+                    notes_response = bullhorn.session.get(notes_url, params=notes_params, timeout=15)
+                    if notes_response.status_code != 200:
+                        continue
+                    
+                    notes_data = notes_response.json()
+                    all_notes = notes_data.get('data', [])
+                    
+                    # Filter for AI vetting notes (not already deleted)
+                    vetting_notes = [
+                        n for n in all_notes 
+                        if n.get('action') == 'AI Vetting - Not Recommended' 
+                        and not n.get('isDeleted', False)
+                    ]
+                    
+                    if len(vetting_notes) <= 1:
+                        continue
+                    
+                    # Sort by dateAdded (oldest first)
+                    vetting_notes.sort(key=lambda x: x.get('dateAdded', 0))
+                    
+                    # Identify duplicates
+                    last_kept_time = None
+                    notes_to_delete = []
+                    
+                    for note in vetting_notes:
+                        note_time = note.get('dateAdded', 0)
+                        if isinstance(note_time, int):
+                            note_datetime = datetime.utcfromtimestamp(note_time / 1000)
+                        else:
+                            continue
+                        
+                        if last_kept_time is None:
+                            last_kept_time = note_datetime
+                        else:
+                            time_diff = (note_datetime - last_kept_time).total_seconds() / 60
+                            if time_diff >= 60:
+                                last_kept_time = note_datetime
+                            else:
+                                notes_to_delete.append(note)
+                    
+                    # Delete duplicates
+                    for note in notes_to_delete:
+                        note_id = note.get('id')
+                        try:
+                            delete_url = f"{bullhorn.base_url}entity/Note/{note_id}"
+                            delete_data = {'isDeleted': True}
+                            delete_response = bullhorn.session.post(
+                                delete_url, 
+                                json=delete_data,
+                                params={'BhRestToken': bullhorn.rest_token},
+                                timeout=5
+                            )
+                            if delete_response.status_code == 200:
+                                results['notes_deleted'] += 1
+                        except Exception as e:
+                            pass  # Continue with other notes
+                            
+                except Exception as e:
+                    continue
+            
+            if results['notes_deleted'] > 0:
+                logging.info(f"🧹 Note cleanup: Deleted {results['notes_deleted']} duplicate notes from {results['candidates_processed']} candidates")
+            
+        except Exception as e:
+            results['errors'].append(str(e))
+            logging.error(f"Error in duplicate notes cleanup: {str(e)}")
+        
+        return results
+    
     def check_and_refresh_changed_jobs(self, jobs: list = None) -> dict:
         """
         Check for jobs that have been modified in Bullhorn since last AI interpretation.
