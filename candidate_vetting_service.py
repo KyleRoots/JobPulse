@@ -401,15 +401,18 @@ Format as a bullet-point list. Be specific and concise."""
                 results['errors'].append("Failed to authenticate with Bullhorn")
                 return results
             
-            # Query recently modified candidates (last 7 days)
+            # Query candidates with notes in last 7 days
+            # IMPORTANT: Sort by dateAdded (oldest first) to avoid reprocessing
+            # Using -dateLastModified caused infinite loop: deleting notes updates 
+            # dateLastModified, pushing candidates back to top of list
             since_timestamp = int((datetime.utcnow() - timedelta(days=7)).timestamp() * 1000)
             
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
-                'query': f'dateLastModified:[{since_timestamp} TO *]',
+                'query': f'dateAdded:[{since_timestamp} TO *]',
                 'fields': 'id,firstName,lastName',
                 'count': batch_size,
-                'sort': '-dateLastModified',
+                'sort': 'dateAdded',  # Oldest first to avoid reprocessing
                 'BhRestToken': bullhorn.rest_token
             }
             
