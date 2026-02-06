@@ -375,6 +375,8 @@ Format as a bullet-point list. Be specific and concise."""
         from bullhorn_service import BullhornService
         from models import GlobalSettings
         
+        logging.info(f"🧹 Starting duplicate notes cleanup batch (batch_size={batch_size})")
+        
         results = {
             'candidates_processed': 0,
             'notes_deleted': 0,
@@ -429,6 +431,8 @@ Format as a bullet-point list. Be specific and concise."""
             data = response.json()
             candidates = data.get('data', [])
             total = data.get('total', 0)
+            
+            logging.info(f"🧹 Note cleanup: Found {len(candidates)} candidates (offset={self._cleanup_offset}, total={total})")
             
             if not candidates:
                 # Reset offset for next cycle since we've processed all
