@@ -331,7 +331,7 @@ class IncrementalMonitoringService:
                 
                 # Gradual cleanup of duplicate AI vetting notes (one-time fix)
                 # Processes 50 candidates per cycle until all duplicates are removed
-                notes_cleanup = vetting_service.cleanup_duplicate_notes_batch(batch_size=50)
+                notes_cleanup = vetting_service.cleanup_duplicate_notes_batch(batch_size=200)
                 if notes_cleanup.get('notes_deleted', 0) > 0:
                     self.logger.info(f"  🧹 Cleaned up {notes_cleanup['notes_deleted']} duplicate notes")
                     cycle_results['duplicate_notes_cleaned'] = notes_cleanup['notes_deleted']

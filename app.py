@@ -8307,66 +8307,10 @@ def diagnostic_automation_status():
         }), 500
 
 
-@app.route('/cleanup-duplicate-notes')
-@login_required
-def cleanup_duplicate_notes_page():
-    """Admin page to cleanup duplicate AI vetting notes."""
-    return render_template('cleanup_notes.html')
-
-
-@app.route('/cleanup-duplicate-notes/run', methods=['POST'])
-@login_required
-def run_cleanup_duplicate_notes():
-    """
-    API endpoint to run cleanup of duplicate AI vetting notes.
-    
-    Query Parameters:
-        mode: 'dry-run' (default) or 'execute'
-        max_candidates: Maximum candidates to scan (default 500)
-        days: Days to look back (default 5)
-    
-    Returns:
-        JSON summary of cleanup results
-    """
-    from automation.cleanup_duplicate_ai_notes import run_cleanup
-    
-    mode = request.args.get('mode', 'dry-run')
-    max_candidates = int(request.args.get('max_candidates', 500))
-    days = int(request.args.get('days', 5))
-    
-    dry_run = mode != 'execute'
-    
-    logging.info(f"🧹 Starting duplicate notes cleanup - mode={mode}, max_candidates={max_candidates}, days={days}")
-    
-    try:
-        result = run_cleanup(
-            dry_run=dry_run,
-            max_candidates=max_candidates,
-            days=days
-        )
-        
-        return jsonify({
-            'success': True,
-            'mode': mode,
-            'dry_run': dry_run,
-            'summary': {
-                'candidates_scanned': result.get('candidates_scanned', 0),
-                'candidates_with_duplicates': result.get('candidates_with_duplicates', 0),
-                'total_notes_found': result.get('total_notes_found', 0),
-                'notes_to_keep': result.get('notes_to_keep', 0),
-                'notes_to_delete': result.get('notes_to_delete', 0),
-                'notes_deleted': result.get('notes_deleted', 0) if not dry_run else 'N/A (dry-run)',
-                'errors': result.get('errors', [])[:10]  # Limit errors shown
-            },
-            'candidate_details': result.get('candidate_details', [])[:50]  # Show up to 50 candidates
-        })
-        
-    except Exception as e:
-        logging.error(f"❌ Cleanup failed: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+# ONE-TIME CLEANUP PAGE REMOVED (2026-02-07)
+# The /cleanup-duplicate-notes page was a one-time solution for duplicate AI vetting notes.
+# It has been removed as the issue is resolved and automated batch cleanup is in place.
+# The automated cleanup runs via incremental_monitoring_service.cleanup_duplicate_notes_batch()
 
 # Phase 2 approach removed - lazy scheduler now completes in single phase for reliability
 
