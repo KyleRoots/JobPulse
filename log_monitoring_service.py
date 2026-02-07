@@ -185,7 +185,9 @@ class LogMonitoringService:
             "Check database connection and run migrations if needed"
         ),
         (
-            r"CRITICAL|FATAL|Unhandled exception",
+            # Match log level indicators, not content like "mission-critical"
+            # Requires CRITICAL/FATAL to appear as a log level (after - or :, before space)
+            r"(?:^|[\s\-:])(CRITICAL|FATAL)[\s:\-]|Unhandled exception",
             IssueCategory.ESCALATE,
             "Critical/fatal error",
             False,
