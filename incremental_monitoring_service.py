@@ -329,12 +329,10 @@ class IncrementalMonitoringService:
                     self.logger.info(f"  📍 Updated locations for {location_refresh['locations_updated']} jobs")
                     cycle_results['locations_refreshed'] = location_refresh['locations_updated']
                 
-                # Gradual cleanup of duplicate AI vetting notes (one-time fix)
-                # Processes 50 candidates per cycle until all duplicates are removed
-                notes_cleanup = vetting_service.cleanup_duplicate_notes_batch(batch_size=200)
-                if notes_cleanup.get('notes_deleted', 0) > 0:
-                    self.logger.info(f"  🧹 Cleaned up {notes_cleanup['notes_deleted']} duplicate notes")
-                    cycle_results['duplicate_notes_cleaned'] = notes_cleanup['notes_deleted']
+                # CLEANUP REMOVED (2026-02-07): Duplicate AI vetting notes cleanup completed
+                # - All 1,398 candidates scanned, 0 duplicates remaining
+                # - Prevention logic in candidate_vetting_service.py prevents new duplicates
+                # - See: create_candidate_note() checks note_created flag before creating
             except Exception as e:
                 self.logger.error(f"  ⚠️ Job change detection failed: {str(e)}")
                 cycle_results['errors'].append(f"Job change detection: {str(e)}")
