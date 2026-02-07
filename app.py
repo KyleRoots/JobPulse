@@ -8370,6 +8370,36 @@ def run_cleanup_duplicate_notes():
 
 # Phase 2 approach removed - lazy scheduler now completes in single phase for reliability
 
+@app.route('/api/candidates/check-duplicates', methods=['GET'])
+@login_required
+def api_check_duplicate_notes():
+    """
+    Query Bullhorn for candidates with duplicate AI Vetting notes.
+    Returns sample candidate IDs for manual verification.
+    """
+    from candidate_vetting_service import CandidateVettingService
+    
+    try:
+        sample_size = request.args.get('sample_size', 5, type=int)
+        sample_size = min(sample_size, 20)  # Cap at 20 for performance
+        
+        vetting_service = CandidateVettingService()
+        results = vetting_service.get_candidates_with_duplicates(sample_size=sample_size)
+        
+        return jsonify({
+            'success': True,
+            'total_checked': results.get('total_checked', 0),
+            'candidates_with_duplicates': results.get('candidates_with_duplicates', []),
+            'errors': results.get('errors', [])
+        })
+        
+    except Exception as e:
+        logging.error(f"Error checking duplicate notes: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 # Scheduler and background services will be started lazily when first needed
 # This significantly reduces application startup time for deployment health checks
 

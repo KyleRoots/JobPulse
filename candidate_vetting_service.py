@@ -370,6 +370,111 @@ Format as a bullet-point list. Be specific and concise."""
             db.session.rollback()
             logging.error(f"Failed to save cleanup offset: {e}")
     
+    def get_candidates_with_duplicates(self, sample_size: int = 5) -> dict:
+        """
+        Query Bullhorn to find candidates with duplicate AI Vetting notes.
+        Returns a sample of candidate IDs for manual verification.
+        
+        Args:
+            sample_size: Number of candidate IDs to return
+            
+        Returns:
+            Dict with candidate IDs that have duplicates and their duplicate counts
+        """
+        from bullhorn_service import BullhornService
+        from models import GlobalSettings, CandidateVettingLog
+        
+        logging.info(f"🔍 Querying for candidates with duplicate AI Vetting notes...")
+        
+        results = {
+            'candidates_with_duplicates': [],
+            'total_checked': 0,
+            'errors': []
+        }
+        
+        try:
+            # Get Bullhorn credentials
+            credentials = {}
+            for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+                setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                if setting and setting.setting_value:
+                    credentials[key] = setting.setting_value.strip()
+            
+            bullhorn = BullhornService(
+                client_id=credentials.get('bullhorn_client_id'),
+                client_secret=credentials.get('bullhorn_client_secret'),
+                username=credentials.get('bullhorn_username'),
+                password=credentials.get('bullhorn_password')
+            )
+            
+            if not bullhorn.authenticate():
+                results['errors'].append("Failed to authenticate with Bullhorn")
+                return results
+            
+            # Get candidate IDs from our vetting logs
+            candidate_rows = db.session.query(
+                CandidateVettingLog.bullhorn_candidate_id
+            ).filter(
+                CandidateVettingLog.note_created == True,
+                CandidateVettingLog.bullhorn_candidate_id.isnot(None)
+            ).distinct().order_by(
+                CandidateVettingLog.bullhorn_candidate_id.desc()  # Most recent first
+            ).limit(50).all()
+            
+            candidate_ids = [row[0] for row in candidate_rows]
+            
+            for candidate_id in candidate_ids:
+                if not candidate_id:
+                    continue
+                
+                results['total_checked'] += 1
+                
+                # Fetch notes for this candidate
+                notes_url = f"{bullhorn.base_url}entity/Candidate/{candidate_id}/notes"
+                notes_params = {
+                    'fields': 'id,action,dateAdded,isDeleted',
+                    'count': 200,
+                    'BhRestToken': bullhorn.rest_token
+                }
+                
+                try:
+                    notes_response = bullhorn.session.get(notes_url, params=notes_params, timeout=15)
+                    if notes_response.status_code != 200:
+                        continue
+                    
+                    notes_data = notes_response.json()
+                    notes = notes_data.get('data', [])
+                    
+                    # Filter for AI Vetting notes
+                    ai_vetting_notes = [
+                        n for n in notes 
+                        if n.get('action') and 'AI Vetting' in n.get('action', '') and not n.get('isDeleted')
+                    ]
+                    
+                    # If more than 1 AI Vetting note, this has duplicates
+                    if len(ai_vetting_notes) > 1:
+                        results['candidates_with_duplicates'].append({
+                            'candidate_id': candidate_id,
+                            'duplicate_count': len(ai_vetting_notes),
+                            'note_timestamps': [n.get('dateAdded') for n in ai_vetting_notes[:5]]
+                        })
+                        
+                        # Stop once we have enough samples
+                        if len(results['candidates_with_duplicates']) >= sample_size:
+                            break
+                            
+                except Exception as e:
+                    logging.warning(f"Error checking candidate {candidate_id}: {e}")
+                    continue
+            
+            logging.info(f"🔍 Found {len(results['candidates_with_duplicates'])} candidates with duplicates out of {results['total_checked']} checked")
+            return results
+            
+        except Exception as e:
+            results['errors'].append(str(e))
+            logging.error(f"Error querying candidates with duplicates: {e}")
+            return results
+    
     def cleanup_duplicate_notes_batch(self, batch_size: int = 10) -> dict:
         """
         Clean up duplicate AI vetting notes in small batches to avoid timeouts.
