@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,39 +14,44 @@
             position: relative;
             overflow-x: hidden;
         }
-        
+
         .geometric-bg {
             position: fixed;
             width: 100%;
             height: 100%;
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
-                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255, 255, 255, 0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255, 255, 255, 0.02) 50%, transparent 51%);
             background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
             animation: drift 30s linear infinite;
             z-index: -1;
         }
-        
+
         @keyframes drift {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(-60px, -60px) rotate(360deg); }
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-60px, -60px) rotate(360deg);
+            }
         }
-        
+
         .jobpulse-header {
             text-align: center;
             margin-bottom: 3rem;
         }
-        
+
         .jobpulse-logo {
             font-size: 2.5rem;
             font-weight: 700;
             color: #ffffff;
-            text-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
             margin-bottom: 0.5rem;
         }
-        
+
         .lyntrix-attribution {
             font-family: 'Kalam', cursive;
             font-size: 0.9rem;
@@ -53,20 +59,20 @@
             font-style: italic;
             margin-bottom: 1rem;
         }
-        
+
         .page-title {
             font-size: 1.8rem;
             font-weight: 600;
             color: #E8F0FF;
             margin-bottom: 0.5rem;
         }
-        
+
         .jobpulse-footer {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(10px);
             text-align: center;
             padding: 15px 0;
@@ -75,42 +81,42 @@
             pointer-events: none;
             z-index: 1000;
         }
-        
+
         .content-container {
             margin-bottom: 80px;
         }
-        
+
         .nav-pills .nav-link {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: #ffffff;
             margin: 0 0.25rem;
             transition: all 0.3s ease;
         }
-        
+
         .nav-pills .nav-link:hover {
-            background: rgba(255,255,255,0.15);
-            border-color: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-2px);
         }
-        
+
         .nav-pills .nav-link.active {
             background: linear-gradient(135deg, #e74c3c, #c0392b);
             border-color: #e74c3c;
         }
-        
+
         .card {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(15px);
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        
+
         .card:hover {
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
         }
 
         /* Monitor Type Card Interactive Styles */
@@ -118,46 +124,46 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
+
         .monitor-type-card .fas {
             color: #F5F9FC !important;
             transition: all 0.3s ease;
         }
-        
+
         .monitor-type-card.selected .fas,
         .monitor-type-card:has(input:checked) .fas {
             color: #5ed9ff !important;
         }
-        
+
         .monitor-type-card .card-title {
             transition: all 0.3s ease;
         }
-        
+
         .monitor-type-card.selected .card-title,
         .monitor-type-card:has(input:checked) .card-title {
             color: #5ed9ff !important;
         }
-        
+
         .monitor-type-card .form-check-label strong {
             transition: all 0.3s ease;
         }
-        
+
         .monitor-type-card.selected .form-check-label strong,
         .monitor-type-card:has(input:checked) .form-check-label strong {
             color: #5ed9ff !important;
         }
-    
+
         /* Resume with pulse line effect */
         .jobpulse-logo {
             position: relative;
             display: inline-block;
         }
-        
+
         .jobpulse-logo i {
             position: relative;
             z-index: 2;
         }
-        
+
 
 
         /* Mobile Responsive Styles */
@@ -165,23 +171,31 @@
             .jobpulse-logo {
                 font-size: 2rem !important;
             }
+
             .page-title {
                 font-size: 1.5rem !important;
             }
+
             .container-fluid {
                 padding-left: 15px;
                 padding-right: 15px;
             }
+
             .card-body {
                 padding: 1rem;
             }
+
             .btn {
                 font-size: 0.875rem;
                 padding: 0.5rem 0.75rem;
             }
-            .form-control, .form-select, .form-check-input {
+
+            .form-control,
+            .form-select,
+            .form-check-input {
                 font-size: 0.875rem;
             }
+
             .modal-dialog {
                 margin: 0.5rem;
             }
@@ -191,27 +205,37 @@
             .jobpulse-logo {
                 font-size: 1.8rem !important;
             }
+
             .page-title {
                 font-size: 1.3rem !important;
             }
+
             .btn {
                 font-size: 0.8rem;
                 padding: 0.4rem 0.6rem;
                 width: 100%;
                 margin-bottom: 0.5rem;
             }
-            .form-control, .form-select, .form-check-input {
+
+            .form-control,
+            .form-select,
+            .form-check-input {
                 font-size: 0.8rem;
             }
+
             .card-header h5 {
                 font-size: 1.1rem;
             }
-            .row .col-md-6, .row .col-md-4 {
+
+            .row .col-md-6,
+            .row .col-md-4 {
                 margin-bottom: 1rem;
             }
+
             .modal-dialog {
                 margin: 0.25rem;
             }
+
             .table-responsive {
                 font-size: 0.8rem;
             }
@@ -219,6 +243,7 @@
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="geometric-bg"></div>
     <div class="container-fluid py-5 content-container">
@@ -234,8 +259,8 @@
                     <div class="page-title">Create Monitor</div>
                     <p class="lead text-muted">Set up automated monitoring for an ATS tearsheet</p>
                 </div>
-                
-                
+
+
                 <!-- Navigation Menu -->
                 <div class="text-center mb-4">
                     <ul class="nav nav-pills justify-content-center mb-3">
@@ -266,7 +291,7 @@
                         </li>
                     </ul>
                 </div>
-                
+
                 <!-- Clean User Info and Logout -->
                 <div class="text-center mb-4">
                     <div class="d-flex justify-content-center align-items-center gap-3">
@@ -277,7 +302,8 @@
                             <span class="badge bg-primary">{{ current_user.username }}</span>
                         </div>
                         <div class="d-flex gap-2">
-                            <a href="{{ url_for('bullhorn_settings') }}" class="btn btn-outline-info d-flex align-items-center justify-content-center">
+                            <a href="{{ url_for('bullhorn.bullhorn_settings') }}"
+                                class="btn btn-outline-info d-flex align-items-center justify-content-center">
                                 <i class="fas fa-cog me-2"></i>ATS Settings
                             </a>
                             <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger btn-sm">
@@ -289,15 +315,16 @@
 
                 <!-- Flash Messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
-                                <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show"
+                    role="alert">
+                    <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+                {% endif %}
                 {% endwith %}
 
                 <!-- Create Monitor Form -->
@@ -321,9 +348,11 @@
                                             <div class="card-body text-center">
                                                 <i class="fas fa-clipboard-list fa-3x mb-3"></i>
                                                 <h5 class="card-title">Tearsheet Jobs</h5>
-                                                <p class="card-text">Monitor jobs added or removed from a specific tearsheet</p>
+                                                <p class="card-text">Monitor jobs added or removed from a specific
+                                                    tearsheet</p>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="monitor_type" id="type_tearsheet" value="tearsheet" checked>
+                                                    <input class="form-check-input" type="radio" name="monitor_type"
+                                                        id="type_tearsheet" value="tearsheet" checked>
                                                     <label class="form-check-label" for="type_tearsheet">
                                                         <strong>Recommended for most users</strong>
                                                     </label>
@@ -338,7 +367,8 @@
                                                 <h5 class="card-title">Custom Search</h5>
                                                 <p class="card-text">Monitor jobs matching custom search criteria</p>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="monitor_type" id="type_query" value="query">
+                                                    <input class="form-check-input" type="radio" name="monitor_type"
+                                                        id="type_query" value="query">
                                                     <label class="form-check-label" for="type_query">
                                                         <strong>For advanced users</strong>
                                                     </label>
@@ -354,8 +384,8 @@
                                 <label for="name" class="form-label">
                                     <i class="fas fa-tag me-1"></i>Monitor Name
                                 </label>
-                                <input type="text" class="form-control" id="name" name="name" 
-                                       placeholder="e.g., Sales Team Tearsheet" required>
+                                <input type="text" class="form-control" id="name" name="name"
+                                    placeholder="e.g., Sales Team Tearsheet" required>
                                 <div class="form-text">
                                     Give this monitor a descriptive name for easy identification
                                 </div>
@@ -366,14 +396,15 @@
                                 <label for="tearsheet_selection" class="form-label">
                                     <i class="fas fa-list me-1"></i>Select Tearsheet
                                 </label>
-                                
+
                                 <!-- Available Tearsheets -->
                                 {% if tearsheets %}
                                 <div class="mb-3">
                                     <select class="form-select" id="tearsheet_id" name="tearsheet_id">
                                         <option value="">Choose from available tearsheets...</option>
                                         {% for tearsheet in tearsheets %}
-                                        <option value="{{ tearsheet.id }}">{{ tearsheet.name }} (ID: {{ tearsheet.id }})</option>
+                                        <option value="{{ tearsheet.id }}">{{ tearsheet.name }} (ID: {{ tearsheet.id }})
+                                        </option>
                                         {% endfor %}
                                     </select>
                                     <div class="form-text">
@@ -385,11 +416,12 @@
                                     <span class="text-muted">OR</span>
                                 </div>
                                 {% endif %}
-                                
+
                                 {% if not tearsheets %}
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    <strong>Tip:</strong> To find your tearsheet ID, go to your tearsheet in Bullhorn and look at the URL. 
+                                    <strong>Tip:</strong> To find your tearsheet ID, go to your tearsheet in Bullhorn
+                                    and look at the URL.
                                     It will contain something like "tearsheet/123" where 123 is the ID.
                                 </div>
                                 {% endif %}
@@ -400,8 +432,8 @@
                                 <label for="job_search_query" class="form-label">
                                     <i class="fas fa-search me-1"></i>Search Query
                                 </label>
-                                <input type="text" class="form-control" id="job_search_query" name="job_search_query" 
-                                       placeholder="e.g., status:Open AND isPublic:1">
+                                <input type="text" class="form-control" id="job_search_query" name="job_search_query"
+                                    placeholder="e.g., status:Open AND isPublic:1">
                                 <div class="form-text">
                                     <i class="fas fa-info-circle me-1"></i>
                                     Enter a Bullhorn search query. Examples: "status:Open", "clientCorporation.id:12345"
@@ -414,7 +446,8 @@
                                         <label for="check_interval_minutes" class="form-label">
                                             <i class="fas fa-clock me-1"></i>Check Interval (minutes)
                                         </label>
-                                        <select class="form-select" id="check_interval_minutes" name="check_interval_minutes">
+                                        <select class="form-select" id="check_interval_minutes"
+                                            name="check_interval_minutes">
                                             <option value="5" selected>Every 5 minutes</option>
                                             <option value="15">Every 15 minutes</option>
                                             <option value="30">Every 30 minutes</option>
@@ -434,8 +467,8 @@
                                         <label for="notification_email" class="form-label">
                                             <i class="fas fa-envelope me-1"></i>Notification Email (Optional)
                                         </label>
-                                        <input type="email" class="form-control" id="notification_email" name="notification_email" 
-                                               placeholder="notifications@company.com">
+                                        <input type="email" class="form-control" id="notification_email"
+                                            name="notification_email" placeholder="notifications@company.com">
                                         <div class="form-text">
                                             Leave blank to use the global notification email from settings
                                         </div>
@@ -445,13 +478,15 @@
 
                             <div class="mb-4">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="send_notifications" 
-                                           name="send_notifications" checked>
+                                    <input class="form-check-input" type="checkbox" id="send_notifications"
+                                        name="send_notifications" checked>
                                     <label class="form-check-label" for="send_notifications" style="color: #F5F9FC;">
-                                        <i class="fas fa-bell me-1"></i>Send email notifications when jobs are added or removed
+                                        <i class="fas fa-bell me-1"></i>Send email notifications when jobs are added or
+                                        removed
                                     </label>
                                     <div class="form-text">
-                                        When enabled, you'll receive emails whenever jobs are added to or removed from the tearsheet
+                                        When enabled, you'll receive emails whenever jobs are added to or removed from
+                                        the tearsheet
                                     </div>
                                 </div>
                             </div>
@@ -467,17 +502,19 @@
                                     <div class="card-body">
                                         <div class="mb-3">
                                             <label for="manual_tearsheet_id" class="form-label">Tearsheet ID</label>
-                                            <input type="number" class="form-control" id="manual_tearsheet_id" name="manual_tearsheet_id" 
-                                                   placeholder="e.g., 150" min="1">
+                                            <input type="number" class="form-control" id="manual_tearsheet_id"
+                                                name="manual_tearsheet_id" placeholder="e.g., 150" min="1">
                                             <div class="form-text">
                                                 <i class="fas fa-lightbulb me-1"></i>
-                                                If you know the specific tearsheet ID, enter it here. You can find this in your Bullhorn URL when viewing a tearsheet.
+                                                If you know the specific tearsheet ID, enter it here. You can find this
+                                                in your Bullhorn URL when viewing a tearsheet.
                                             </div>
                                         </div>
-                                        
+
                                         <div class="alert alert-info">
                                             <i class="fas fa-info-circle me-1"></i>
-                                            <strong>Finding your tearsheet ID:</strong> Go to your tearsheet in Bullhorn and look at the URL. 
+                                            <strong>Finding your tearsheet ID:</strong> Go to your tearsheet in Bullhorn
+                                            and look at the URL.
                                             It will contain something like "tearsheet/123" where 123 is the ID.
                                         </div>
                                     </div>
@@ -487,8 +524,10 @@
                             <!-- Info Box -->
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Before creating monitors:</strong> Make sure your Bullhorn API credentials are configured in 
-                                <a href="{{ url_for('bullhorn_settings') }}" class="alert-link">Bullhorn Settings</a>. 
+                                <strong>Before creating monitors:</strong> Make sure your Bullhorn API credentials are
+                                configured in
+                                <a href="{{ url_for('bullhorn.bullhorn_settings') }}" class="alert-link">Bullhorn
+                                    Settings</a>.
                                 You'll need your Client ID, Client Secret, Username, and Password.
                             </div>
 
@@ -496,7 +535,8 @@
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-plus me-2"></i>Create Monitor
                                 </button>
-                                <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}" class="btn btn-outline-secondary">
+                                <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}"
+                                    class="btn btn-outline-secondary">
                                     <i class="fas fa-times me-2"></i>Cancel
                                 </a>
                             </div>
@@ -513,35 +553,43 @@
                         </h5>
                     </div>
                     <div class="card-body" style="color: #F5F9FC;">
-                        <p>Monitor jobs in Bullhorn using custom search queries. You can create queries to track specific types of jobs:</p>
-                        
+                        <p>Monitor jobs in Bullhorn using custom search queries. You can create queries to track
+                            specific types of jobs:</p>
+
                         <h6 class="mt-3">Common Query Examples:</h6>
                         <ul>
                             <li><code style="color: rgb(48, 37, 102);">status:Open</code> - Monitor all open jobs</li>
                             <li><code style="color: rgb(48, 37, 102);">isPublic:1</code> - Monitor all public jobs</li>
-                            <li><code style="color: rgb(48, 37, 102);">status:Open AND isPublic:1</code> - Monitor open public jobs</li>
-                            <li><code style="color: rgb(48, 37, 102);">clientCorporation.id:12345</code> - Monitor jobs for a specific client</li>
-                            <li><code style="color: rgb(48, 37, 102);">title:Sales*</code> - Monitor jobs with "Sales" in the title</li>
-                            <li><code style="color: rgb(48, 37, 102);">dateAdded:[NOW-7DAYS TO *]</code> - Monitor jobs added in the last 7 days</li>
+                            <li><code style="color: rgb(48, 37, 102);">status:Open AND isPublic:1</code> - Monitor open
+                                public jobs</li>
+                            <li><code style="color: rgb(48, 37, 102);">clientCorporation.id:12345</code> - Monitor jobs
+                                for a specific client</li>
+                            <li><code style="color: rgb(48, 37, 102);">title:Sales*</code> - Monitor jobs with "Sales"
+                                in the title</li>
+                            <li><code style="color: rgb(48, 37, 102);">dateAdded:[NOW-7DAYS TO *]</code> - Monitor jobs
+                                added in the last 7 days</li>
                         </ul>
-                        
+
                         <h6 class="mt-3">Query Operators:</h6>
                         <ul>
                             <li><code style="color: rgb(48, 37, 102);">AND</code> - Both conditions must be true</li>
                             <li><code style="color: rgb(48, 37, 102);">OR</code> - Either condition can be true</li>
                             <li><code style="color: rgb(48, 37, 102);">NOT</code> - Exclude matching results</li>
                             <li><code style="color: rgb(48, 37, 102);">*</code> - Wildcard for partial matches</li>
-                            <li><code style="color: rgb(48, 37, 102);">[ TO ]</code> - Range queries for dates and numbers</li>
+                            <li><code style="color: rgb(48, 37, 102);">[ TO ]</code> - Range queries for dates and
+                                numbers</li>
                         </ul>
-                        
+
                         <div class="alert alert-info mt-3">
                             <i class="fas fa-lightbulb me-2"></i>
-                            <strong>Pro Tip:</strong> Test your queries in Bullhorn first to ensure they return the expected results 
+                            <strong>Pro Tip:</strong> Test your queries in Bullhorn first to ensure they return the
+                            expected results
                             before creating a monitor.
                         </div>
-                        
+
                         <p class="mb-0 text-muted">
-                            <strong>Note:</strong> The monitor will check for changes in the jobs matching your query at the specified interval 
+                            <strong>Note:</strong> The monitor will check for changes in the jobs matching your query at
+                            the specified interval
                             and send notifications when jobs are added, removed, or modified.
                         </p>
                     </div>
@@ -552,7 +600,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const form = document.querySelector('form');
             const submitButton = form.querySelector('button[type="submit"]');
             const tearsheetOptions = document.getElementById('tearsheet-options');
@@ -561,7 +609,7 @@
             const monitorTypeCards = document.querySelectorAll('.monitor-type-card');
             const tearsheetRadio = document.getElementById('type_tearsheet');
             const queryRadio = document.getElementById('type_query');
-            
+
             // Handle card click functionality
             function updateCardStates() {
                 monitorTypeCards.forEach(card => {
@@ -573,31 +621,31 @@
                     }
                 });
             }
-            
+
             // Handle monitor type selection
             function updateMonitorType() {
                 updateCardStates(); // Update visual states
-                
+
                 if (tearsheetRadio && tearsheetRadio.checked) {
                     if (tearsheetOptions) tearsheetOptions.style.display = 'block';
                     if (queryOptions) queryOptions.style.display = 'none';
                     if (manualTearsheetSection) manualTearsheetSection.style.display = 'block';
-                    
+
                     const queryInput = document.getElementById('job_search_query');
                     if (queryInput) queryInput.required = false;
                 } else {
                     if (tearsheetOptions) tearsheetOptions.style.display = 'none';
                     if (queryOptions) queryOptions.style.display = 'block';
                     if (manualTearsheetSection) manualTearsheetSection.style.display = 'none';
-                    
+
                     const queryInput = document.getElementById('job_search_query');
                     if (queryInput) queryInput.required = true;
                 }
             }
-            
+
             // Handle card clicks  
             monitorTypeCards.forEach(card => {
-                card.addEventListener('click', function() {
+                card.addEventListener('click', function () {
                     const type = this.dataset.type;
                     if (type === 'tearsheet') {
                         tearsheetRadio.checked = true;
@@ -607,31 +655,31 @@
                     updateMonitorType();
                 });
             });
-            
+
             // Handle radio button changes
             tearsheetRadio.addEventListener('change', updateMonitorType);
             queryRadio.addEventListener('change', updateMonitorType);
-            
+
             // Initialize
             updateMonitorType();
-            
+
             // Handle form submission
-            form.addEventListener('submit', function(e) {
+            form.addEventListener('submit', function (e) {
                 // Validate tearsheet selection if tearsheet monitoring is selected
                 if (tearsheetRadio && tearsheetRadio.checked) {
                     const tearsheetDropdown = document.getElementById('tearsheet_id');
                     const manualTearsheetInput = document.getElementById('manual_tearsheet_id');
-                    
+
                     const tearsheetId = tearsheetDropdown ? tearsheetDropdown.value : '';
                     const manualTearsheetId = manualTearsheetInput ? manualTearsheetInput.value : '';
-                    
+
                     if (!tearsheetId && !manualTearsheetId) {
                         e.preventDefault();
                         alert('Please select a tearsheet from the dropdown or enter a tearsheet ID manually');
                         return;
                     }
                 }
-                
+
                 if (submitButton) {
                     submitButton.disabled = true;
                     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Monitor...';
@@ -639,81 +687,82 @@
             });
         });
     </script>
-    
-        /* Resume with pulse line effect */
-        .jobpulse-logo {
-            position: relative;
-            display: inline-block;
-        }
-        
-        .jobpulse-logo i {
-            position: relative;
-            z-index: 2;
-        }
-        
+
+    /* Resume with pulse line effect */
+    .jobpulse-logo {
+    position: relative;
+    display: inline-block;
+    }
+
+    .jobpulse-logo i {
+    position: relative;
+    z-index: 2;
+    }
 
 
-        /* Mobile Responsive Styles */
-        @media (max-width: 768px) {
-            .jobpulse-logo {
-                font-size: 2rem !important;
-            }
-            .page-title {
-                font-size: 1.5rem !important;
-            }
-            .container-fluid {
-                padding-left: 15px;
-                padding-right: 15px;
-            }
-            .card-body {
-                padding: 1rem;
-            }
-            .btn {
-                font-size: 0.875rem;
-                padding: 0.5rem 0.75rem;
-            }
-            .form-control, .form-select, .form-check-input {
-                font-size: 0.875rem;
-            }
-            .modal-dialog {
-                margin: 0.5rem;
-            }
-        }
 
-        @media (max-width: 576px) {
-            .jobpulse-logo {
-                font-size: 1.8rem !important;
-            }
-            .page-title {
-                font-size: 1.3rem !important;
-            }
-            .btn {
-                font-size: 0.8rem;
-                padding: 0.4rem 0.6rem;
-                width: 100%;
-                margin-bottom: 0.5rem;
-            }
-            .form-control, .form-select, .form-check-input {
-                font-size: 0.8rem;
-            }
-            .card-header h5 {
-                font-size: 1.1rem;
-            }
-            .row .col-md-6, .row .col-md-4 {
-                margin-bottom: 1rem;
-            }
-            .modal-dialog {
-                margin: 0.25rem;
-            }
-            .table-responsive {
-                font-size: 0.8rem;
-            }
-        }
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+    .jobpulse-logo {
+    font-size: 2rem !important;
+    }
+    .page-title {
+    font-size: 1.5rem !important;
+    }
+    .container-fluid {
+    padding-left: 15px;
+    padding-right: 15px;
+    }
+    .card-body {
+    padding: 1rem;
+    }
+    .btn {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    }
+    .form-control, .form-select, .form-check-input {
+    font-size: 0.875rem;
+    }
+    .modal-dialog {
+    margin: 0.5rem;
+    }
+    }
+
+    @media (max-width: 576px) {
+    .jobpulse-logo {
+    font-size: 1.8rem !important;
+    }
+    .page-title {
+    font-size: 1.3rem !important;
+    }
+    .btn {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.6rem;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    }
+    .form-control, .form-select, .form-check-input {
+    font-size: 0.8rem;
+    }
+    .card-header h5 {
+    font-size: 1.1rem;
+    }
+    .row .col-md-6, .row .col-md-4 {
+    margin-bottom: 1rem;
+    }
+    .modal-dialog {
+    margin: 0.25rem;
+    }
+    .table-responsive {
+    font-size: 0.8rem;
+    }
+    }
     </style>
-    
+
     <!-- JobPulse™ Footer -->
     <div class="jobpulse-footer">
         © 2025 BNuvola Solutions
     </div>
 </body>
+
 </html>
