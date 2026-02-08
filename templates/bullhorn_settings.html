@@ -280,7 +280,7 @@
                         <span>Logged in as</span>
                         <span class="badge bg-primary ms-2">{{ current_user.username }}</span>
                     </div>
-                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger btn-sm">
                         <i class="fas fa-sign-out-alt me-1"></i>
                         Logout
                     </a>

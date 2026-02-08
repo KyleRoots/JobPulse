@@ -206,7 +206,11 @@ else:
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'auth.login'
+
+# Register blueprints
+from routes.auth import auth_bp
+app.register_blueprint(auth_bp)
 app.login_manager = login_manager
 
 def get_bullhorn_service():
@@ -991,51 +995,7 @@ else:
     print(f"⚠️ SCHEDULER INIT: Process {os.getpid()} skipping scheduler setup - another worker handles scheduling", flush=True)
     app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    """User login page"""
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard_redirect'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        if not username or not password:
-            flash('Please enter both username and password.', 'error')
-            return render_template('login.html')
-        
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
-            # Update last login
-            user.last_login = datetime.utcnow()
-            db.session.commit()
-            
-            login_user(user, remember=True)  # Remember user for extended session
-            session.permanent = True  # Enable 30-day session persistence
-            # Removed welcome message for cleaner login experience
-            
-            # Start scheduler on successful login
-            ensure_background_services()
-            
-            # Redirect to originally requested page or index
-            next_page = request.args.get('next')
-            if next_page:
-                return redirect(next_page)
-            # Force scroll to top by adding fragment
-            return redirect(url_for('dashboard_redirect') + '#top')
-        else:
-            flash('Invalid username or password.', 'error')
-    
-    return render_template('login.html')
-
-@app.route('/logout')
-@login_required
-def logout():
-    """User logout"""
-    logout_user()
-    flash('You have been logged out successfully.', 'info')
-    return redirect(url_for('login'))
+# Note: login and logout routes moved to routes/auth.py blueprint
 
 # Health check endpoints for deployment
 @app.route('/health')
@@ -1155,7 +1115,7 @@ def root():
         ensure_background_services()
         return redirect(url_for('dashboard_redirect'))
     else:
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
 
 @app.route('/dashboard')
 @login_required
