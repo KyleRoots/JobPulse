@@ -210,7 +210,9 @@ login_manager.login_view = 'auth.login'
 
 # Register blueprints
 from routes.auth import auth_bp
+from routes.health import health_bp
 app.register_blueprint(auth_bp)
+app.register_blueprint(health_bp)
 app.login_manager = login_manager
 
 def get_bullhorn_service():
@@ -997,84 +999,7 @@ else:
 
 # Note: login and logout routes moved to routes/auth.py blueprint
 
-# Health check endpoints for deployment
-@app.route('/health')
-def health_check():
-    """Optimized health check with cached database status"""
-    start_time = time.time()
-    
-    # Use cached database status if available (refresh every 10 seconds)
-    db_status = 'unknown'
-    cache_key = 'db_health_cache'
-    cache_time_key = 'db_health_cache_time'
-    
-    # Check if we have a recent cached result (within 10 seconds)
-    if hasattr(app, cache_time_key):
-        cache_age = time.time() - getattr(app, cache_time_key, 0)
-        if cache_age < 10:  # Use cached result if less than 10 seconds old
-            db_status = getattr(app, cache_key, 'unknown')
-        else:
-            # Perform quick database check with short timeout
-            try:
-                # Use a connection from the pool with timeout
-                with db.engine.connect() as conn:
-                    conn.execute(db.text('SELECT 1'))
-                db_status = 'connected'
-            except Exception:
-                db_status = 'disconnected'
-            # Cache the result
-            setattr(app, cache_key, db_status)
-            setattr(app, cache_time_key, time.time())
-    else:
-        # First check - do a quick test
-        try:
-            with db.engine.connect() as conn:
-                conn.execute(db.text('SELECT 1'))
-            db_status = 'connected'
-        except Exception:
-            db_status = 'disconnected'
-        # Cache the result
-        setattr(app, cache_key, db_status)
-        setattr(app, cache_time_key, time.time())
-    
-    # Quick scheduler check
-    scheduler_status = 'stopped'  # Default to stopped (lazy loading)
-    if 'scheduler' in globals():
-        try:
-            scheduler_status = 'running' if scheduler.running else 'stopped'
-        except:
-            pass
-    
-    health_status = {
-        'status': 'healthy' if db_status == 'connected' else 'degraded',
-        'timestamp': datetime.utcnow().isoformat(),
-        'database': db_status,
-        'scheduler': scheduler_status,
-        'response_time_ms': round((time.time() - start_time) * 1000, 2)
-    }
-    
-    return jsonify(health_status), 200
-
-@app.route('/ready')
-def readiness_check():
-    """Fast readiness check without database query"""
-    # Return OK immediately - app is ready if it can respond
-    return "OK", 200
-
-@app.route('/alive')
-def liveness_check():
-    """Simple liveness check for deployment systems"""
-    return "OK", 200
-
-@app.route('/ping')
-def ping():
-    """Ultra-fast health check for deployment monitoring"""
-    # Return immediately without any expensive operations
-    return jsonify({
-        'status': 'ok',
-        'service': 'job-feed-refresh',
-        'timestamp': datetime.utcnow().isoformat()
-    }), 200
+# Note: Health check routes moved to routes/health.py blueprint
 
 def get_automation_status():
     """Check if automation/scheduler is currently active"""
@@ -2828,47 +2753,7 @@ def test_bullhorn_page():
     except Exception as e:
         return f"Error rendering template: {str(e)}", 500
 
-@app.route('/healthz')
-def detailed_health_check():
-    """Detailed health check with configuration status"""
-    try:
-        start_time = time.time()
-        
-        # Test database connection with timeout
-        db_ok = False
-        try:
-            from sqlalchemy import text
-            db.session.execute(text('SELECT 1')).scalar()
-            db_ok = True
-        except Exception as e:
-            app.logger.warning(f"Database check failed: {str(e)}")
-        
-        # Quick configuration checks
-        config_status = {
-            'session_configured': bool(app.secret_key),
-            'database_configured': bool(os.environ.get('DATABASE_URL')),
-            'templates_directory_exists': os.path.exists('templates'),
-        }
-        
-        # Stop if taking too long (prevent timeout)
-        if time.time() - start_time > 2:  # 2 second timeout
-            return jsonify({
-                'status': 'timeout',
-                'message': 'Health check taking too long'
-            }), 503
-            
-        return jsonify({
-            'status': 'ok' if db_ok else 'degraded',
-            'timestamp': datetime.utcnow().isoformat(),
-            'database': db_ok,
-            'configuration': config_status,
-            'response_time_ms': round((time.time() - start_time) * 1000, 2)
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
+# Note: /healthz route moved to routes/health.py blueprint
 
 @app.route('/api/trigger/job-sync', methods=['POST'])
 @login_required  
@@ -8081,38 +7966,7 @@ if is_primary_worker:
     # XML Change Monitor - DISABLED automatic scheduling for manual workflow
     # Change notifications now triggered only during manual downloads
     app.logger.info("📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads")
-
-# Add deployment health check routes
-@app.route('/ready')
-def ready():
-    """Kubernetes/deployment readiness probe"""
-    try:
-        from sqlalchemy import text
-        # Test database connection
-        with db.engine.connect() as conn:
-            conn.execute(text('SELECT 1'))
-        
-        return jsonify({
-            'status': 'ready',
-            'timestamp': datetime.utcnow().isoformat(),
-            'database': True
-        })
-    except Exception as e:
-        app.logger.error(f"Readiness check failed: {e}")
-        return jsonify({
-            'status': 'not_ready',
-            'timestamp': datetime.utcnow().isoformat(),
-            'error': str(e)
-        }), 503
-
-@app.route('/alive')
-def alive():
-    """Basic liveness probe"""
-    return jsonify({
-        'status': 'alive',
-        'timestamp': datetime.utcnow().isoformat(),
-        'uptime': 'ok'
-    })
+# Note: /ready and /alive routes now provided by routes/health.py blueprint
 
 @app.route('/start_scheduler')
 def start_scheduler_manual():
