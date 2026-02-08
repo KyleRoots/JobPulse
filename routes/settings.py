@@ -36,7 +36,7 @@ def settings():
     except Exception as e:
         current_app.logger.error(f"Error loading settings: {str(e)}")
         flash('Error loading settings', 'error')
-        return redirect(url_for('bullhorn_dashboard'))
+        return redirect(url_for('bullhorn.bullhorn_dashboard'))
 
 
 @settings_bp.route('/settings', methods=['POST'])

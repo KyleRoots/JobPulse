@@ -1045,209 +1045,6 @@ def get_automation_status():
 
 # Note: Scheduler routes and helper functions moved to routes/scheduler.py blueprint
 
-def scheduler_dashboard():
-    """Scheduling dashboard for automated processing"""
-    import os
-    from datetime import datetime, timedelta
-    
-    # Get all active schedules
-    schedules = ScheduleConfig.query.filter_by(is_active=True).all()
-    
-    # Add real-time file information for each schedule
-    for schedule in schedules:
-        # Check if the scheduled file exists and get its stats
-        if schedule.file_path and os.path.exists(schedule.file_path):
-            file_stats = os.stat(schedule.file_path)
-            schedule.actual_file_size = file_stats.st_size
-            schedule.actual_last_modified = datetime.fromtimestamp(file_stats.st_mtime)
-        else:
-            schedule.actual_file_size = None
-            schedule.actual_last_modified = None
-    
-    # Get information about the actively maintained XML files
-    # Use schedule info if available for server timestamps, otherwise local file info
-    active_xml_files = []
-    for filename in ['myticas-job-feed.xml']:  # Back to standard file name
-        if os.path.exists(filename):
-            file_stats = os.stat(filename)
-            
-            # Try to find the schedule for this file to get the server upload time
-            schedule_for_file = None
-            for schedule in schedules:
-                if schedule.file_path == filename:
-                    schedule_for_file = schedule
-                    break
-            
-            # Use server upload time if available, otherwise local modified time
-            if schedule_for_file and schedule_for_file.last_file_upload:
-                last_modified = schedule_for_file.last_file_upload
-                # For display, show the actual server timestamp (UTC-4 = EDT)
-                app.logger.info(f"Using server upload time for {filename}: {last_modified}")
-            else:
-                last_modified = datetime.fromtimestamp(file_stats.st_mtime)
-                app.logger.info(f"Using local modified time for {filename}: {last_modified}")
-            
-            # Calculate proper display values
-            file_size_kb = file_stats.st_size / 1024
-            
-            # For 280,377 bytes, show exact server value
-            if file_stats.st_size == 280377:
-                display_size = "273.8 KB"  # Matches FileZilla display
-            else:
-                display_size = f"{file_size_kb:.1f} KB"
-            
-            # Convert to server display time (EDT = UTC-4)
-            # The server shows 19:52:10 for what we have as 23:52:10 UTC
-            if hasattr(last_modified, 'strftime'):
-                # last_modified is already a datetime object
-                server_time_dt = last_modified - timedelta(hours=4)
-                server_time_str = server_time_dt.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                # Fallback to current time if not a datetime
-                server_time_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            
-            # Display the remote filename that users actually access
-            display_filename = "myticas-job-feed-v2.xml" if filename == "myticas-job-feed.xml" else filename
-            
-            active_xml_files.append({
-                'filename': display_filename,
-                'file_size': file_stats.st_size,
-                'display_size': display_size,
-                'last_modified': last_modified,  # UTC time
-                'server_time': server_time_str,  # EDT time string
-                'is_active': True
-            })
-            app.logger.info(f"Added {filename}: size={file_stats.st_size} ({display_size}), server_time={server_time_str}")
-    
-    app.logger.info(f"Active XML files count: {len(active_xml_files)}")
-    
-    # Get recent processing logs
-    recent_logs = ProcessingLog.query.order_by(ProcessingLog.processed_at.desc()).limit(10).all()
-    
-    # Calculate next reference number refresh timestamp
-    next_refresh_info = {
-        'next_run': None,
-        'last_run': None,
-        'time_until_next': None,
-        'hours_until_next': None
-    }
-    
-    try:
-        # Get the last refresh from database
-        last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
-        
-        if last_refresh:
-            # Calculate next refresh (120 hours after last)
-            next_refresh_time = last_refresh.refresh_time + timedelta(hours=120)
-            time_until_next = next_refresh_time - datetime.utcnow()
-            
-            next_refresh_info['next_run'] = next_refresh_time
-            next_refresh_info['last_run'] = last_refresh.refresh_time
-            next_refresh_info['time_until_next'] = time_until_next
-            next_refresh_info['hours_until_next'] = time_until_next.total_seconds() / 3600 if time_until_next.total_seconds() > 0 else 0
-        else:
-            # No previous refresh found - next refresh will be soon
-            next_refresh_info['next_run'] = datetime.utcnow() + timedelta(minutes=5)  # Approximate next run
-            next_refresh_info['last_run'] = None
-            next_refresh_info['time_until_next'] = timedelta(minutes=5)
-            next_refresh_info['hours_until_next'] = 0.08  # ~5 minutes
-    except Exception as e:
-        app.logger.warning(f"Could not calculate next refresh timestamp: {str(e)}")
-    
-    return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs, active_xml_files=active_xml_files, next_refresh_info=next_refresh_info, active_page='scheduler')
-
-def create_schedule():
-    """Create a new automated processing schedule"""
-    try:
-        data = request.get_json()
-        
-        # Validate required fields
-        required_fields = ['name', 'file_path', 'schedule_days']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
-        
-        # Validate file exists
-        if not os.path.exists(data['file_path']):
-            return jsonify({'success': False, 'error': 'File does not exist'}), 400
-        
-        # Validate XML file
-        processor = XMLProcessor()
-        if not processor.validate_xml(data['file_path']):
-            return jsonify({'success': False, 'error': 'Invalid XML file'}), 400
-        
-        # Create new schedule
-        schedule = ScheduleConfig(
-            name=data['name'],
-            file_path=data['file_path'],
-            original_filename=data.get('original_filename'),
-            schedule_days=int(data['schedule_days']),
-            # Email notification settings (always enabled, uses Global Settings)
-            send_email_notifications=True,
-            notification_email=None,  # Will use Global Settings email
-            # Auto-upload settings (always enabled, uses Global Settings)
-            auto_upload_ftp=True,
-            last_file_upload=datetime.utcnow()  # Track when file was initially uploaded
-        )
-        schedule.calculate_next_run()
-        
-        db.session.add(schedule)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Schedule created successfully',
-            'schedule_id': schedule.id
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        app.logger.error(f"Error creating schedule: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-def delete_schedule(schedule_id):
-    """Delete a schedule"""
-    try:
-        schedule = ScheduleConfig.query.get_or_404(schedule_id)
-        schedule.is_active = False
-        db.session.commit()
-        
-        return jsonify({'success': True, 'message': 'Schedule deleted successfully'})
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-def get_schedule_status(schedule_id):
-    """Get the processing status of a schedule"""
-    try:
-        schedule = ScheduleConfig.query.get_or_404(schedule_id)
-        
-        # Get the latest processing log for this schedule
-        latest_log = ProcessingLog.query.filter_by(
-            schedule_config_id=schedule_id
-        ).order_by(ProcessingLog.processed_at.desc()).first()
-        
-        if latest_log:
-            return jsonify({
-                'success': True,
-                'last_processed': latest_log.processed_at.isoformat(),
-                'jobs_processed': latest_log.jobs_processed,
-                'processing_success': latest_log.success,
-                'error_message': latest_log.error_message
-            })
-        
-        return jsonify({
-            'success': True,
-            'last_processed': None,
-            'jobs_processed': 0,
-            'processing_success': None,
-            'error_message': None
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 @app.route('/api/refresh-reference-numbers', methods=['POST'])
 @login_required
 def refresh_reference_numbers():
@@ -1419,223 +1216,6 @@ def refresh_reference_numbers():
             'error': str(e)
         }), 500
 
-def replace_schedule_file():
-    """Replace the XML file for an existing schedule"""
-    try:
-        schedule_id = request.form.get('schedule_id')
-        if not schedule_id:
-            return jsonify({'success': False, 'error': 'Schedule ID is required'}), 400
-        
-        schedule = ScheduleConfig.query.get_or_404(int(schedule_id))
-        
-        # Check if file was uploaded
-        if 'file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
-        
-        if not allowed_file(file.filename):
-            return jsonify({'success': False, 'error': 'Only XML files are allowed'}), 400
-        
-        # Validate XML structure
-        try:
-            xml_processor = XMLProcessor()
-            
-            # Create a temporary copy for validation
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xml')
-            file.save(temp_file.name)
-            
-            # Validate the XML structure
-            validation_result = xml_processor.validate_xml_detailed(temp_file.name)
-            if not validation_result['valid']:
-                os.unlink(temp_file.name)
-                return jsonify({
-                    'success': False, 
-                    'error': f'Invalid XML structure: {validation_result["error"]}'
-                }), 400
-            
-            # If old file exists, remove it
-            if schedule.file_path and os.path.exists(schedule.file_path):
-                os.unlink(schedule.file_path)
-            
-            # Generate new secure filename with timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = secure_filename(file.filename) if file.filename else 'uploaded_file.xml'
-            new_filename = f"{timestamp}_{filename}"
-            
-            # Create scheduled files directory if it doesn't exist
-            scheduled_dir = os.path.join(tempfile.gettempdir(), 'scheduled_files')
-            os.makedirs(scheduled_dir, exist_ok=True)
-            
-            # Move the validated file to the scheduled directory
-            new_filepath = os.path.join(scheduled_dir, new_filename)
-            shutil.move(temp_file.name, new_filepath)
-            
-            # Update the schedule with new file path
-            schedule.file_path = new_filepath
-            schedule.original_filename = filename  # Store original filename
-            schedule.updated_at = datetime.utcnow()
-            schedule.last_file_upload = datetime.utcnow()  # Track when file was uploaded/replaced
-            
-            db.session.commit()
-            
-            # Immediately upload the new file to SFTP if configured
-            sftp_upload_success = False
-            if schedule.auto_upload_ftp:
-                try:
-                    # Get SFTP settings from Global Settings
-                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
-                    
-                    if (sftp_hostname and sftp_hostname.setting_value and 
-                        sftp_username and sftp_username.setting_value and 
-                        sftp_password and sftp_password.setting_value):
-                        
-                        ftp_service = FTPService(
-                            hostname=sftp_hostname.setting_value,
-                            username=sftp_username.setting_value,
-                            password=sftp_password.setting_value,
-                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
-                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                            use_sftp=True
-                        )
-                        
-                        # Upload the new file (without reference number processing)
-                        sftp_upload_success = ftp_service.upload_file(
-                            local_file_path=new_filepath,
-                            remote_filename=filename  # Use original filename
-                        )
-                        
-                        if sftp_upload_success:
-                            app.logger.info(f"File replacement uploaded to SFTP server: {filename}")
-                        else:
-                            app.logger.warning(f"Failed to upload replacement file to SFTP server")
-                    else:
-                        app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
-                except Exception as e:
-                    app.logger.error(f"Error uploading replacement file to SFTP: {str(e)}")
-            
-            success_message = 'File replaced successfully'
-            if sftp_upload_success:
-                success_message += ' and uploaded to server'
-            elif schedule.auto_upload_ftp:
-                success_message += ' but failed to upload to server'
-            
-            return jsonify({
-                'success': True,
-                'message': success_message,
-                'jobs_count': validation_result.get('jobs_count', 0),
-                'sftp_uploaded': sftp_upload_success
-            })
-            
-        except Exception as e:
-            # Clean up temporary file if it exists
-            temp_file = locals().get('temp_file')
-            if temp_file and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
-                try:
-                    os.unlink(temp_file.name)
-                except:
-                    pass
-            raise e
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-def get_schedule_progress(schedule_id):
-    """Get real-time progress for manual schedule execution"""
-    try:
-        progress_key = f"schedule_{schedule_id}"
-        progress = progress_tracker.get(progress_key, {
-            'step': 0,
-            'message': 'Ready to start...',
-            'completed': False,
-            'error': None
-        })
-        
-        return jsonify({
-            'success': True,
-            **progress
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-def run_schedule_now(schedule_id):
-    """Manually trigger a schedule to run now"""
-    try:
-        schedule = ScheduleConfig.query.get_or_404(schedule_id)
-        
-        # Clear any existing progress
-        if f"schedule_{schedule_id}" in progress_tracker:
-            del progress_tracker[f"schedule_{schedule_id}"]
-        
-        # Start processing in a separate thread
-        thread = threading.Thread(target=process_schedule_with_progress, args=(schedule_id,))
-        thread.daemon = True
-        thread.start()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Processing started',
-            'schedule_id': schedule_id
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        app.logger.error(f"Error running schedule manually: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-def upload_schedule_file():
-    """Handle file upload for scheduling"""
-    try:
-        if 'file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
-        
-        if not allowed_file(file.filename):
-            return jsonify({'success': False, 'error': 'Invalid file type'}), 400
-        
-        # Create uploads directory if it doesn't exist
-        uploads_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'scheduled_files')
-        os.makedirs(uploads_dir, exist_ok=True)
-        
-        # Save file with secure filename
-        filename = secure_filename(file.filename or 'unknown.xml')
-        unique_id = str(uuid.uuid4())[:8]
-        final_filename = f"{unique_id}_{filename}"
-        file_path = os.path.join(uploads_dir, final_filename)
-        
-        file.save(file_path)
-        
-        # Validate XML
-        processor = XMLProcessor()
-        if not processor.validate_xml(file_path):
-            os.remove(file_path)
-            return jsonify({'success': False, 'error': 'Invalid XML file'}), 400
-        
-        job_count = processor.count_jobs(file_path)
-        
-        return jsonify({
-            'success': True,
-            'file_path': file_path,
-            'filename': filename,
-            'original_filename': file.filename,
-            'job_count': job_count
-        })
-        
-    except Exception as e:
-        app.logger.error(f"Error uploading schedule file: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 @app.route('/upload', methods=['POST'])
 @login_required
 def upload_file():
@@ -1644,19 +1224,19 @@ def upload_file():
         # Check if file was uploaded
         if 'file' not in request.files:
             flash('No file selected', 'error')
-            return redirect(url_for('bullhorn_dashboard'))
+            return redirect(url_for('bullhorn.bullhorn_dashboard'))
         
         file = request.files['file']
         
         # Check if file was actually selected
         if file.filename == '':
             flash('No file selected', 'error')
-            return redirect(url_for('bullhorn_dashboard'))
+            return redirect(url_for('bullhorn.bullhorn_dashboard'))
         
         # Check file extension
         if not allowed_file(file.filename):
             flash('Invalid file type. Please upload an XML file.', 'error')
-            return redirect(url_for('bullhorn_dashboard'))
+            return redirect(url_for('bullhorn.bullhorn_dashboard'))
         
         # Generate unique filename
         original_filename = secure_filename(file.filename or 'unknown.xml')
@@ -1674,7 +1254,7 @@ def upload_file():
         if not processor.validate_xml(input_filepath):
             flash('Invalid XML file structure. Please check your file and try again.', 'error')
             os.remove(input_filepath)
-            return redirect(url_for('bullhorn_dashboard'))
+            return redirect(url_for('bullhorn.bullhorn_dashboard'))
         
         # Generate output filename (preserve original name without "updated_" prefix)
         output_filename = original_filename
@@ -1765,12 +1345,12 @@ def upload_file():
                                  show_progress=True)
         else:
             flash(f'Error processing file: {result["error"]}', 'error')
-            return redirect(url_for('bullhorn_dashboard'))
+            return redirect(url_for('bullhorn.bullhorn_dashboard'))
             
     except Exception as e:
         app.logger.error(f"Error in upload_file: {str(e)}")
         flash(f'An error occurred while processing the file: {str(e)}', 'error')
-        return redirect(url_for('bullhorn_dashboard'))
+        return redirect(url_for('bullhorn.bullhorn_dashboard'))
 
 @app.route('/manual-upload-progress/<upload_id>')
 def get_manual_upload_progress(upload_id):
@@ -1809,7 +1389,7 @@ def download_file(download_key):
         
         if session_key not in app.config:
             flash('Download link has expired or is invalid', 'error')
-            return redirect(url_for('bullhorn_dashboard'))
+            return redirect(url_for('bullhorn.bullhorn_dashboard'))
         
         file_info = app.config[session_key]
         filepath = file_info['filepath']
@@ -1817,7 +1397,7 @@ def download_file(download_key):
         
         if not os.path.exists(filepath):
             flash('File not found', 'error')
-            return redirect(url_for('bullhorn_dashboard'))
+            return redirect(url_for('bullhorn.bullhorn_dashboard'))
         
         # Send file and clean up
         from flask import after_this_request
@@ -1839,7 +1419,7 @@ def download_file(download_key):
     except Exception as e:
         app.logger.error(f"Error in download_file: {str(e)}")
         flash(f'Error downloading file: {str(e)}', 'error')
-        return redirect(url_for('bullhorn_dashboard'))
+        return redirect(url_for('bullhorn.bullhorn_dashboard'))
 
 @app.route('/download-current-xml')
 @login_required
@@ -1960,7 +1540,7 @@ def download_current_xml():
     except Exception as e:
         app.logger.error(f"Error generating fresh XML: {str(e)}")
         flash(f'Error generating XML file: {str(e)}', 'error')
-        return redirect(url_for('bullhorn_dashboard'))
+        return redirect(url_for('bullhorn.bullhorn_dashboard'))
 
 @app.route('/automation-status')
 def automation_status():

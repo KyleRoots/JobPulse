@@ -36,6 +36,7 @@ def app():
     # Configure for testing
     flask_app.config.update({
         'TESTING': True,
+        'SECRET_KEY': 'test-secret-key-for-pytest',  # Required for sessions/flash
         'WTF_CSRF_ENABLED': False,  # Disable CSRF for testing
         'LOGIN_DISABLED': False,
         'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
@@ -47,7 +48,8 @@ def app():
     with flask_app.app_context():
         db.create_all()
         
-        # Create a test admin user
+        # Create a test admin user - use pbkdf2 for compatibility (scrypt not available on all systems)
+        from werkzeug.security import generate_password_hash
         from models import User
         test_user = User.query.filter_by(username='testadmin').first()
         if not test_user:
@@ -55,7 +57,8 @@ def app():
                 username='testadmin',
                 email='testadmin@test.com'
             )
-            test_user.set_password('testpassword123')
+            # Use pbkdf2:sha256 method for compatibility (scrypt requires OpenSSL 1.1+)
+            test_user.password_hash = generate_password_hash('testpassword123', method='pbkdf2:sha256')
             db.session.add(test_user)
             db.session.commit()
         

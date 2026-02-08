@@ -252,16 +252,16 @@
                 <!-- Navigation - Consistent with other pages -->
                 <div class="text-center mb-4">
                     <div class="nav nav-pills justify-content-center">
-                        <a href="{{ url_for('dashboard_redirect') }}" class="nav-link">
+                        <a href="{{ url_for('dashboard.dashboard_redirect') }}" class="nav-link">
                             <i class="fas fa-home me-2"></i>Dashboard
                         </a>
-                        <a href="{{ url_for('scheduler_dashboard') }}" class="nav-link">
+                        <a href="{{ url_for('scheduler.scheduler_dashboard') }}" class="nav-link">
                             <i class="fas fa-clock me-2"></i>Schedule
                         </a>
-                        <a href="{{ url_for('bullhorn_dashboard') }}" class="nav-link">
+                        <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}" class="nav-link">
                             <i class="fas fa-building me-2"></i>ATS Monitor
                         </a>
-                        <a href="{{ url_for('settings') }}" class="nav-link">
+                        <a href="{{ url_for('settings.settings') }}" class="nav-link">
                             <i class="fas fa-cog me-2"></i>Settings
                         </a>
                         <a href="{{ url_for('bullhorn_settings') }}" class="nav-link active">

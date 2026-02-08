@@ -11,7 +11,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('bullhorn_dashboard') }}">
+            <a class="navbar-brand" href="{{ url_for('bullhorn.bullhorn_dashboard') }}">
                 <i class="fas fa-sync-alt me-2"></i>Job Feed Processor
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -20,22 +20,22 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard_redirect') }}">
+                        <a class="nav-link" href="{{ url_for('dashboard.dashboard_redirect') }}">
                             <i class="fas fa-home me-1"></i>Home
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('scheduler_dashboard') }}">
+                        <a class="nav-link" href="{{ url_for('scheduler.scheduler_dashboard') }}">
                             <i class="fas fa-calendar me-1"></i>Scheduler
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('bullhorn_dashboard') }}">
+                        <a class="nav-link active" href="{{ url_for('bullhorn.bullhorn_dashboard') }}">
                             <i class="fas fa-desktop me-1"></i>ATS Monitoring
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('settings') }}">
+                        <a class="nav-link" href="{{ url_for('settings.settings') }}">
                             <i class="fas fa-cog me-1"></i>Global Settings
                         </a>
                     </li>
@@ -54,15 +54,15 @@
                     </h1>
                     <div>
                         <div class="d-flex flex-wrap gap-2 mb-2">
-                            <a href="{{ url_for('dashboard_redirect') }}" class="btn btn-outline-secondary">
+                            <a href="{{ url_for('dashboard.dashboard_redirect') }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-home me-2"></i>
                                 <span class="d-none d-sm-inline">Main </span>Dashboard
                             </a>
-                            <a href="{{ url_for('scheduler_dashboard') }}" class="btn btn-outline-info">
+                            <a href="{{ url_for('scheduler.scheduler_dashboard') }}" class="btn btn-outline-info">
                                 <i class="fas fa-clock me-2"></i>
                                 <span class="d-none d-sm-inline">Schedule </span>Automation
                             </a>
-                            <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary">
+                            <a href="{{ url_for('settings.settings') }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-cog me-2"></i>
                                 <span class="d-none d-sm-inline">Global </span>Settings
                             </a>
@@ -71,7 +71,7 @@
                                 <span class="d-none d-sm-inline">Test </span>Automation
                             </a>
                         </div>
-                        <a href="{{ url_for('bullhorn_dashboard') }}" class="btn btn-outline-warning">
+                        <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}" class="btn btn-outline-warning">
                             <i class="fas fa-arrow-left me-2"></i>Back to ATS Monitoring
                         </a>
                         <!-- User Info and Logout -->

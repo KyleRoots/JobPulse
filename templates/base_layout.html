@@ -1249,7 +1249,7 @@
         </button>
 
         <div class="sidebar-header">
-            <a href="{{ url_for('dashboard_redirect') }}" class="sidebar-logo">
+            <a href="{{ url_for('dashboard.dashboard_redirect') }}" class="sidebar-logo">
                 <span class="sidebar-logo-text">
                     <span class="logo-job">J</span><span class="logo-pulse"><svg viewBox="0 0 24 16" class="pulse-svg">
                             <path d="M0 8 L6 8 L8 3 L10 13 L12 6 L14 10 L16 8 L24 8" stroke="currentColor"
@@ -1263,12 +1263,12 @@
         <nav class="sidebar-nav">
             <div class="nav-section">
                 <div class="nav-section-title">Main</div>
-                <a href="{{ url_for('dashboard_redirect') }}"
+                <a href="{{ url_for('dashboard.dashboard_redirect') }}"
                     class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
                     <i class="fas fa-home"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="{{ url_for('bullhorn_dashboard') }}"
+                <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}"
                     class="nav-item {% if active_page == 'ats' %}active{% endif %}">
                     <i class="fas fa-building"></i>
                     <span>ATS Monitoring</span>
@@ -1282,7 +1282,7 @@
 
             <div class="nav-section">
                 <div class="nav-section-title">Automation</div>
-                <a href="{{ url_for('scheduler_dashboard') }}"
+                <a href="{{ url_for('scheduler.scheduler_dashboard') }}"
                     class="nav-item {% if active_page == 'scheduler' %}active{% endif %}">
                     <i class="fas fa-clock"></i>
                     <span>Scheduler</span>
@@ -1306,7 +1306,7 @@
                     <i class="fas fa-envelope"></i>
                     <span>Email Logs</span>
                 </a>
-                <a href="{{ url_for('settings') }}"
+                <a href="{{ url_for('settings.settings') }}"
                     class="nav-item {% if active_page == 'settings' %}active{% endif %}">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
