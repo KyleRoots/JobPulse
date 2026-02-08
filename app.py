@@ -213,10 +213,14 @@ from routes.auth import auth_bp
 from routes.health import health_bp
 from routes.settings import settings_bp
 from routes.dashboard import dashboard_bp
+from routes.bullhorn import bullhorn_bp
+from routes.scheduler import scheduler_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(health_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(bullhorn_bp)
+app.register_blueprint(scheduler_bp)
 app.login_manager = login_manager
 
 def get_bullhorn_service():
@@ -1038,8 +1042,9 @@ def get_automation_status():
 
 # Note: / and /dashboard routes moved to routes/dashboard.py blueprint
 
-@app.route('/scheduler')
-@login_required
+
+# Note: Scheduler routes and helper functions moved to routes/scheduler.py blueprint
+
 def scheduler_dashboard():
     """Scheduling dashboard for automated processing"""
     import os
@@ -1151,7 +1156,6 @@ def scheduler_dashboard():
     
     return render_template('scheduler.html', schedules=schedules, recent_logs=recent_logs, active_xml_files=active_xml_files, next_refresh_info=next_refresh_info, active_page='scheduler')
 
-@app.route('/api/schedules', methods=['POST'])
 def create_schedule():
     """Create a new automated processing schedule"""
     try:
@@ -1201,7 +1205,6 @@ def create_schedule():
         app.logger.error(f"Error creating schedule: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/schedules/<int:schedule_id>', methods=['DELETE'])
 def delete_schedule(schedule_id):
     """Delete a schedule"""
     try:
@@ -1215,7 +1218,6 @@ def delete_schedule(schedule_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/schedules/<int:schedule_id>/status', methods=['GET'])
 def get_schedule_status(schedule_id):
     """Get the processing status of a schedule"""
     try:
@@ -1417,7 +1419,6 @@ def refresh_reference_numbers():
             'error': str(e)
         }), 500
 
-@app.route('/api/schedules/replace-file', methods=['POST'])
 def replace_schedule_file():
     """Replace the XML file for an existing schedule"""
     try:
@@ -1546,17 +1547,6 @@ def replace_schedule_file():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-def update_progress(schedule_id, step, message, completed=False, error=None):
-    """Update progress for a manual operation"""
-    progress_tracker[f"schedule_{schedule_id}"] = {
-        'step': step,
-        'message': message,
-        'completed': completed,
-        'error': error,
-        'timestamp': time.time()
-    }
-
-@app.route('/api/schedules/<int:schedule_id>/progress', methods=['GET'])
 def get_schedule_progress(schedule_id):
     """Get real-time progress for manual schedule execution"""
     try:
@@ -1576,151 +1566,6 @@ def get_schedule_progress(schedule_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-def process_schedule_with_progress(schedule_id):
-    """Process a schedule with real-time progress updates"""
-    try:
-        with app.app_context():
-            schedule = ScheduleConfig.query.get(schedule_id)
-            if not schedule:
-                update_progress(schedule_id, 0, "Schedule not found", completed=True, error="Schedule not found")
-                return
-            
-            update_progress(schedule_id, 1, "Starting XML processing...")
-            time.sleep(0.5)  # Brief pause for user to see
-            
-            if not os.path.exists(schedule.file_path):
-                update_progress(schedule_id, 1, "XML file not found", completed=True, error="XML file not found")
-                return
-            
-            # Process the XML file
-            processor = XMLProcessor()
-            update_progress(schedule_id, 1, "Processing XML file and updating reference numbers...")
-            
-            # Create backup
-            backup_path = f"{schedule.file_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            shutil.copy2(schedule.file_path, backup_path)
-            
-            # Generate temporary output
-            temp_output = f"{schedule.file_path}.temp"
-            
-            # Process the XML - preserve reference numbers for manual processing (not weekly automation)
-            result = processor.process_xml(schedule.file_path, temp_output, preserve_reference_numbers=True)
-            
-            if not result.get('success'):
-                update_progress(schedule_id, 1, f"XML processing failed: {result.get('error', 'Unknown error')}", completed=True, error=result.get('error'))
-                return
-            
-            jobs_processed = result.get('jobs_processed', 0)
-            if jobs_processed == 0:
-                update_progress(schedule_id, 1, "No jobs found to process", completed=True, error="No jobs found in XML file")
-                return
-            
-            # Replace original file with updated version
-            os.replace(temp_output, schedule.file_path)
-            
-            update_progress(schedule_id, 2, f"Processed {jobs_processed} jobs. Sending email notification...")
-            time.sleep(0.5)
-            
-            # Get original filename for email/FTP
-            original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
-            
-            time.sleep(0.5)
-            update_progress(schedule_id, 2, "Uploading to WP Engine server...")
-            
-            # Upload to SFTP if enabled (using Global Settings)
-            sftp_upload_success = True  # Default to success if not configured
-            if schedule.auto_upload_ftp:
-                # Get SFTP settings from Global Settings
-                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
-                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
-                
-                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
-                    sftp_hostname and sftp_hostname.setting_value and 
-                    sftp_username and sftp_username.setting_value and 
-                    sftp_password and sftp_password.setting_value):
-                    
-                    ftp_service = FTPService(
-                        hostname=sftp_hostname.setting_value,
-                        username=sftp_username.setting_value,
-                        password=sftp_password.setting_value,
-                        target_directory=sftp_directory.setting_value if sftp_directory else "/",
-                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                        use_sftp=True
-                    )
-                    
-                    sftp_upload_success = ftp_service.upload_file(
-                        local_file_path=schedule.file_path,
-                        remote_filename=original_filename
-                    )
-                    
-                    if sftp_upload_success:
-                        update_progress(schedule_id, 3, f"File uploaded successfully to {sftp_hostname.setting_value}")
-                    else:
-                        update_progress(schedule_id, 3, "File upload failed", error="Failed to upload to SFTP server")
-                else:
-                    sftp_upload_success = False
-                    update_progress(schedule_id, 3, "SFTP upload requested but not configured", error="SFTP credentials not set in Global Settings")
-            
-            time.sleep(0.5)
-            update_progress(schedule_id, 4, "Sending email notification...")
-            
-            # Send email notification if enabled (using Global Settings)
-            if schedule.send_email_notifications:
-                # Get email settings from Global Settings
-                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                
-                if (email_enabled and email_enabled.setting_value == 'true' and 
-                    email_address and email_address.setting_value):
-                    
-                    email_service = get_email_service()
-                    email_sent = email_service.send_processing_notification(
-                        to_email=email_address.setting_value,
-                        schedule_name=schedule.name,
-                        jobs_processed=jobs_processed,
-                        xml_file_path=schedule.file_path,
-                        original_filename=original_filename,
-                        sftp_upload_success=sftp_upload_success
-                    )
-                    
-                    if email_sent:
-                        update_progress(schedule_id, 4, f"Email sent successfully to {email_address.setting_value}")
-                    else:
-                        update_progress(schedule_id, 4, "Email sending failed", error="Failed to send email notification")
-                else:
-                    update_progress(schedule_id, 4, "Email notification requested but not configured in Global Settings", error="Email credentials not set")
-            
-            time.sleep(0.5)
-            update_progress(schedule_id, 5, "Processing completed successfully!", completed=True)
-            
-            # Log the processing
-            log_entry = ProcessingLog(
-                schedule_config_id=schedule.id,
-                file_path=schedule.file_path,
-                processing_type='manual',
-                jobs_processed=jobs_processed,
-                success=True,
-                error_message=None
-            )
-            db.session.add(log_entry)
-            
-            # Update schedule last run time
-            schedule.last_run = datetime.utcnow()
-            db.session.commit()
-            
-            time.sleep(0.5)
-            # Mark as completed
-            update_progress(schedule_id, 4, f"Processing complete! {jobs_processed} jobs processed successfully.", completed=True)
-            
-    except Exception as e:
-        app.logger.error(f"Error in manual processing: {str(e)}")
-        update_progress(schedule_id, 0, f"Error: {str(e)}", completed=True, error=str(e))
-
-@app.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
 def run_schedule_now(schedule_id):
     """Manually trigger a schedule to run now"""
     try:
@@ -1746,8 +1591,6 @@ def run_schedule_now(schedule_id):
         app.logger.error(f"Error running schedule manually: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/upload-schedule-file', methods=['POST'])
-@login_required
 def upload_schedule_file():
     """Handle file upload for scheduling"""
     try:
@@ -6640,7 +6483,6 @@ if is_primary_worker:
     app.logger.info("📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads")
 # Note: /ready and /alive routes now provided by routes/health.py blueprint
 
-@app.route('/start_scheduler')
 def start_scheduler_manual():
     """Manually start the scheduler and trigger monitoring"""
     try:
