@@ -9,6 +9,7 @@ import tempfile
 import os
 import html
 import json
+import hashlib
 from typing import Dict, Optional, Union
 from werkzeug.datastructures import FileStorage
 
@@ -70,7 +71,43 @@ class ResumeParser:
             'name': r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
         }
         self.openai_client = None
+        self._cache_enabled = os.environ.get('RESUME_CACHE_ENABLED', 'true').lower() != 'false'
         self._init_openai()
+    
+    def _get_content_hash(self, content: bytes) -> str:
+        """Generate SHA-256 hash of file content for cache lookup."""
+        return hashlib.sha256(content).hexdigest()
+    
+    def _check_cache(self, content_hash: str) -> Optional[Dict]:
+        """Check if parsed result exists in cache."""
+        if not self._cache_enabled:
+            return None
+        try:
+            from models import ParsedResumeCache
+            cached = ParsedResumeCache.get_cached(content_hash)
+            if cached:
+                logger.info(f"Resume cache HIT for hash {content_hash[:16]}... (access #{cached.access_count})")
+                return {
+                    'success': True,
+                    'parsed_data': json.loads(cached.parsed_data_json),
+                    'raw_text': cached.raw_text or '',
+                    'formatted_html': cached.formatted_html or '',
+                    'from_cache': True
+                }
+        except Exception as e:
+            logger.warning(f"Cache lookup failed: {e}")
+        return None
+    
+    def _store_cache(self, content_hash: str, parsed_data: Dict, raw_text: str, formatted_html: str, candidate_id: int = None):
+        """Store parsed result in cache."""
+        if not self._cache_enabled:
+            return
+        try:
+            from models import ParsedResumeCache
+            ParsedResumeCache.store(content_hash, parsed_data, raw_text, formatted_html, candidate_id)
+            logger.info(f"Resume cached with hash {content_hash[:16]}...")
+        except Exception as e:
+            logger.warning(f"Cache store failed: {e}")
     
     def _init_openai(self):
         """Initialize OpenAI client for AI-assisted formatting"""
@@ -218,28 +255,53 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
             logger.error(f"AI formatting failed: {str(e)}")
             return None
     
-    def parse_resume(self, file: Union[FileStorage, str], quick_mode: bool = False) -> Dict[str, any]:
+    def parse_resume(self, file: Union[FileStorage, str], quick_mode: bool = False, skip_cache: bool = False, candidate_id: int = None) -> Dict[str, any]:
         """
         Parse resume file and extract information with HTML formatting
         
         Args:
             file: Resume file (FileStorage or path)
             quick_mode: If True, skip AI formatting for faster contact extraction (used for form auto-fill)
+            skip_cache: If True, bypass cache and force fresh parsing
+            candidate_id: Optional Bullhorn candidate ID for cache association
         
         Returns:
             Dict with parsed_data, raw_text (plain text), and formatted_html
         """
+        content_hash = None
+        file_content = None
+        
         try:
+            # Read file content for hashing
             if isinstance(file, str):
                 file_path = file
                 filename = os.path.basename(file_path)
                 temp_created = False
+                # Read content for hashing
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
             else:
+                # Read content before saving to temp file
+                file_content = file.read()
+                file.seek(0)  # Reset for later save
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as temp_file:
-                    file.save(temp_file.name)
+                    temp_file.write(file_content)
                     file_path = temp_file.name
                     filename = file.filename
                     temp_created = True
+            
+            # Compute content hash for cache lookup
+            if file_content and not skip_cache:
+                content_hash = self._get_content_hash(file_content)
+                
+                # Check cache first (skip for quick_mode as it's for form auto-fill)
+                if not quick_mode:
+                    cached_result = self._check_cache(content_hash)
+                    if cached_result:
+                        # Clean up temp file if created
+                        if temp_created and os.path.exists(file_path):
+                            os.unlink(file_path)
+                        return cached_result
             
             try:
                 if filename.lower().endswith('.pdf'):
@@ -272,6 +334,10 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                 }
             
             parsed_data = self._parse_text(raw_text)
+            
+            # Store in cache for future use (skip for quick_mode)
+            if content_hash and not quick_mode and not skip_cache:
+                self._store_cache(content_hash, parsed_data, raw_text, formatted_html, candidate_id)
             
             return {
                 'success': True,

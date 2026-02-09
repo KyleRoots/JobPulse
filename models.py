@@ -778,3 +778,63 @@ class LogMonitoringIssue(db.Model):
         if resolution_notes:
             self.resolution_action = resolution_notes
             self.resolution_summary = f"Manually resolved by {resolver_email}: {resolution_notes}"
+
+
+class ParsedResumeCache(db.Model):
+    """Cache for parsed resume results to reduce OpenAI API costs.
+    
+    Uses content-based hashing (SHA-256) to identify duplicate resumes.
+    Same resume content = cache hit = skip GPT-4o call.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    content_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)  # SHA-256 hash
+    candidate_id = db.Column(db.Integer, nullable=True, index=True)  # Optional Bullhorn candidate ID
+    
+    # Parsed results
+    parsed_data_json = db.Column(db.Text, nullable=False)  # JSON: {first_name, last_name, email, phone}
+    raw_text = db.Column(db.Text, nullable=True)  # Extracted plain text
+    formatted_html = db.Column(db.Text, nullable=True)  # AI-formatted HTML
+    
+    # Cache metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_accessed = db.Column(db.DateTime, default=datetime.utcnow)  # For LRU tracking
+    access_count = db.Column(db.Integer, default=1)  # Track cache hits
+    
+    # TTL: 90 days default, entries older than this are considered stale
+    CACHE_TTL_DAYS = 90
+    
+    def __repr__(self):
+        return f'<ParsedResumeCache {self.content_hash[:16]}... accessed {self.access_count}x>'
+    
+    @classmethod
+    def get_cached(cls, content_hash):
+        """Retrieve cached result by content hash, update access stats if found."""
+        cached = cls.query.filter_by(content_hash=content_hash).first()
+        if cached:
+            # Check TTL
+            age_days = (datetime.utcnow() - cached.created_at).days
+            if age_days > cls.CACHE_TTL_DAYS:
+                # Cache entry expired, delete it
+                db.session.delete(cached)
+                db.session.commit()
+                return None
+            # Update access stats
+            cached.last_accessed = datetime.utcnow()
+            cached.access_count += 1
+            db.session.commit()
+        return cached
+    
+    @classmethod
+    def store(cls, content_hash, parsed_data, raw_text, formatted_html, candidate_id=None):
+        """Store parsed result in cache."""
+        import json
+        cached = cls(
+            content_hash=content_hash,
+            candidate_id=candidate_id,
+            parsed_data_json=json.dumps(parsed_data),
+            raw_text=raw_text,
+            formatted_html=formatted_html
+        )
+        db.session.add(cached)
+        db.session.commit()
+        return cached
