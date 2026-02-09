@@ -258,6 +258,36 @@ def load_user(user_id):
         return User.query.get(int(user_id))
     return None
 
+# ============================================================================
+# Security Headers
+# ============================================================================
+
+@app.after_request
+def set_security_headers(response):
+    """Add standard security headers to all responses."""
+    # Prevent clickjacking — deny all framing
+    response.headers['X-Frame-Options'] = 'DENY'
+    # Prevent MIME-type sniffing
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    # Enforce HTTPS for 1 year (Render/production uses HTTPS)
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # Control referrer information sent with requests
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Disable legacy XSS filter (modern browsers rely on CSP instead)
+    response.headers['X-XSS-Protection'] = '0'
+    # Content-Security-Policy — conservative starting point
+    # 'unsafe-inline' required because templates use inline scripts/styles
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'"
+    )
+    return response
+
 # Initialize database
 db.init_app(app)
 
