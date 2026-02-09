@@ -1387,6 +1387,7 @@ def upload_file():
         return redirect(url_for('bullhorn.bullhorn_dashboard'))
 
 @app.route('/manual-upload-progress/<upload_id>')
+@login_required
 def get_manual_upload_progress(upload_id):
     """Get real-time progress for manual upload processing"""
     try:
@@ -1577,6 +1578,7 @@ def download_current_xml():
         return redirect(url_for('bullhorn.bullhorn_dashboard'))
 
 @app.route('/automation-status')
+@login_required
 def automation_status():
     """Get current automation status based on REAL scheduler job state"""
     try:
@@ -2518,6 +2520,7 @@ def run_step_test(step_type):
         })
 
 @app.route('/test_download/<download_key>')
+@login_required
 def test_download(download_key):
     """Download test XML file"""
     try:
