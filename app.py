@@ -295,10 +295,20 @@ db.init_app(app)
 # Configuration
 UPLOAD_FOLDER = tempfile.gettempdir()
 ALLOWED_EXTENSIONS = {'xml'}
+ALLOWED_RESUME_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt', 'rtf'}
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """Handle file uploads that exceed MAX_CONTENT_LENGTH (50 MB)."""
+    if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+        return jsonify({'success': False, 'error': 'File too large. Maximum upload size is 50 MB.'}), 413
+    flash('File too large. Maximum upload size is 50 MB.', 'error')
+    return redirect(request.referrer or url_for('dashboard.dashboard_redirect')), 413
 
 # Import models
 from models import User, ScheduleConfig, ProcessingLog, RefreshLog, GlobalSettings, BullhornMonitor, BullhornActivity, TearsheetJobHistory, EmailDeliveryLog, RecruiterMapping, SchedulerLock
@@ -575,6 +585,10 @@ atexit.register(cleanup_scheduler)
 def allowed_file(filename):
     """Check if file has allowed extension"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_resume_file(filename):
+    """Check if file has an allowed resume extension (pdf, doc, docx, txt, rtf)"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_RESUME_EXTENSIONS
 
 def process_scheduled_files():
     """Process all scheduled files that are due for processing - ONLY for actual scheduled runs, not monitoring"""
@@ -1991,6 +2005,13 @@ def parse_resume():
                 'error': 'No resume file selected'
             })
         
+        # Validate file extension
+        if not allowed_resume_file(resume_file.filename):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid file type. Allowed: PDF, DOC, DOCX, TXT, RTF.'
+            }), 400
+        
         # Parse the resume
         parse_result = job_app_service.parse_resume(resume_file)
         
@@ -2066,6 +2087,13 @@ def submit_application():
                 'success': False,
                 'error': 'Resume file is required'
             })
+        
+        # Validate resume file extension
+        if not allowed_resume_file(resume_file.filename):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid resume file type. Allowed: PDF, DOC, DOCX, TXT, RTF.'
+            }), 400
         
         # Submit the application with request host for branding detection
         submission_result = job_app_service.submit_application(
