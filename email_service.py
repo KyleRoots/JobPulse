@@ -22,7 +22,8 @@ class EmailService:
         self.EmailDeliveryLog = EmailDeliveryLog
 
     def _check_recent_notification(self, notification_type: str, recipient_email: str, 
-                                 monitor_name: str = None, schedule_name: str = None, 
+                                 monitor_name: str = None, schedule_name: str = None,
+                                 job_id: str = None,
                                  minutes_threshold: int = 5) -> bool:
         """
         Check if a similar notification was sent recently to prevent duplicates
@@ -31,7 +32,8 @@ class EmailService:
             notification_type: Type of notification to check
             recipient_email: Email address to check
             monitor_name: Monitor name for bullhorn notifications
-            schedule_name: Schedule name for processing notifications  
+            schedule_name: Schedule name for processing notifications
+            job_id: Job ID for new_job_notification deduplication
             minutes_threshold: Time window in minutes to check for duplicates
             
         Returns:
@@ -50,7 +52,7 @@ class EmailService:
                 self.EmailDeliveryLog.notification_type == notification_type,
                 self.EmailDeliveryLog.recipient_email == recipient_email,
                 self.EmailDeliveryLog.delivery_status == 'sent',
-                self.EmailDeliveryLog.created_at >= cutoff_time
+                self.EmailDeliveryLog.sent_at >= cutoff_time
             )
             
             # Add specific filters based on notification type
@@ -62,12 +64,16 @@ class EmailService:
                 query = query.filter(
                     self.EmailDeliveryLog.schedule_name == schedule_name
                 )
+            elif notification_type == 'new_job_notification' and job_id:
+                query = query.filter(
+                    self.EmailDeliveryLog.job_id == str(job_id)
+                )
             
             recent_notification = query.first()
             
             if recent_notification:
                 logging.info(f"DUPLICATE PREVENTION: Blocking duplicate {notification_type} notification to {recipient_email} "
-                           f"(last sent: {recent_notification.created_at}, within {minutes_threshold}min threshold)")
+                           f"(last sent: {recent_notification.sent_at}, within {minutes_threshold}min threshold)")
                 return True
             
             return False
@@ -1277,6 +1283,16 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             if not self.api_key:
                 logging.warning("SendGrid API key not configured - cannot send email")
                 return False
+            
+            # Check for duplicate notification within 24 hours (1440 minutes)
+            if self._check_recent_notification(
+                'new_job_notification', 
+                to_email, 
+                job_id=job_id,
+                minutes_threshold=1440  # 24 hours
+            ):
+                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate new job notification for job {job_id}")
+                return True  # Return True since we're intentionally not sending (not an error)
             
             # Create subject line with job ID
             subject = f"🆕 New Job Added - ID: {job_id}"
