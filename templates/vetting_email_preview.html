@@ -40,7 +40,7 @@
                 </h1>
                 <p class="text-muted mb-0">{{ scenario_desc }}</p>
             </div>
-            <a href="{{ url_for('vetting_settings') }}" class="btn btn-outline-light">
+            <a href="{{ url_for('vetting.vetting_settings') }}" class="btn btn-outline-light">
                 <i class="fas fa-arrow-left me-2"></i>Back to Vetting Settings
             </a>
         </div>
@@ -51,7 +51,7 @@
                     <span class="badge bg-info me-2">Preview Mode</span>
                     <span class="text-muted">This is how the email will appear to recruiters</span>
                 </div>
-                <form action="{{ url_for('send_test_vetting_email') }}" method="POST" class="d-inline">
+                <form action="{{ url_for('vetting.send_test_vetting_email') }}" method="POST" class="d-inline">
                     <input type="hidden" name="test_email" value="{{ test_email }}">
                     <input type="hidden" name="scenario" value="{{ scenario }}">
                     <input type="hidden" name="action" value="send">
@@ -71,10 +71,10 @@
                     Email recipient: <strong>{{ test_email }}</strong>
                 </p>
                 <div class="btn-group">
-                    <a href="{{ url_for('vetting_settings') }}" class="btn btn-outline-secondary">
+                    <a href="{{ url_for('vetting.vetting_settings') }}" class="btn btn-outline-secondary">
                         <i class="fas fa-times me-2"></i>Cancel
                     </a>
-                    <form action="{{ url_for('send_test_vetting_email') }}" method="POST" class="d-inline">
+                    <form action="{{ url_for('vetting.send_test_vetting_email') }}" method="POST" class="d-inline">
                         <input type="hidden" name="test_email" value="{{ test_email }}">
                         <input type="hidden" name="scenario" value="{{ scenario }}">
                         <input type="hidden" name="action" value="send">

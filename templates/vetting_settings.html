@@ -187,7 +187,7 @@
                 </h5>
             </div>
             <div class="card-body">
-                <form action="{{ url_for('save_vetting_settings') }}" method="POST" id="settingsForm"
+                <form action="{{ url_for('vetting.save_vetting_settings') }}" method="POST" id="settingsForm"
                     onsubmit="showSavingIndicator()">
                     <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center">
@@ -270,7 +270,7 @@
                 <hr class="border-secondary my-4">
 
                 <h6 class="mb-3"><i class="fas fa-envelope-open-text me-2"></i>Test Email Preview</h6>
-                <form action="{{ url_for('send_test_vetting_email') }}" method="POST">
+                <form action="{{ url_for('vetting.send_test_vetting_email') }}" method="POST">
                     <div class="mb-3">
                         <label class="form-label">Test Scenario</label>
                         <select class="form-select" name="scenario">
@@ -301,7 +301,7 @@
                 </form>
 
                 <div class="mt-3">
-                    <a href="{{ url_for('show_sample_notes') }}" class="btn btn-outline-secondary w-100">
+                    <a href="{{ url_for('vetting.show_sample_notes') }}" class="btn btn-outline-secondary w-100">
                         <i class="fas fa-sticky-note me-2"></i>View Sample Candidate Notes
                     </a>
                     <small class="text-muted d-block mt-1">See what notes look like in Bullhorn</small>
@@ -398,7 +398,7 @@
                 title="Collapse all job requirements">
                 <i class="fas fa-compress-alt me-1"></i>Collapse All
             </button>
-            <form action="{{ url_for('sync_job_requirements') }}" method="POST" class="d-inline">
+            <form action="{{ url_for('vetting.sync_job_requirements') }}" method="POST" class="d-inline">
                 <button type="submit" class="btn btn-outline-primary btn-sm"
                     onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Syncing...'; this.form.submit();">
                     <i class="fas fa-sync me-1"></i>Sync Jobs
@@ -541,19 +541,19 @@
                     style="transition: transform 0.3s ease; font-size: 0.8rem;"></i>
             </h5>
             <div class="d-flex gap-2" onclick="event.stopPropagation();">
-                <form action="{{ url_for('full_clean_slate') }}" method="POST" class="d-inline">
+                <form action="{{ url_for('vetting.full_clean_slate') }}" method="POST" class="d-inline">
                     <button type="submit" class="btn btn-danger btn-sm"
                         onclick="return confirm('⚠️ FULL CLEAN SLATE ⚠️\n\nThis will DELETE ALL vetting data:\n- All vetting logs\n- All job matches\n- Reset timestamp to now\n\nDashboard will show all zeros.\n\nThis cannot be undone. Continue?')">
                         <i class="fas fa-trash-alt me-1"></i>Full Clean Slate
                     </button>
                 </form>
-                <form action="{{ url_for('reset_recent_vetting') }}" method="POST" class="d-inline">
+                <form action="{{ url_for('vetting.reset_recent_vetting') }}" method="POST" class="d-inline">
                     <button type="submit" class="btn btn-warning btn-sm"
                         onclick="return confirm('This will reset vetting status for all applications from the last 6 hours. They will be re-processed in the next cycle. Continue?')">
                         <i class="fas fa-undo me-1"></i>Reset Recent (6h)
                     </button>
                 </form>
-                <form action="{{ url_for('run_vetting_now') }}" method="POST" class="d-inline">
+                <form action="{{ url_for('vetting.run_vetting_now') }}" method="POST" class="d-inline">
                     <button type="submit" class="btn btn-primary btn-sm" {% if not settings.vetting_enabled %}disabled{%
                         endif %}>
                         <i class="fas fa-play me-1"></i>Run Vetting Now
