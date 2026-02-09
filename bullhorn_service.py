@@ -469,7 +469,7 @@ class BullhornService:
             
             auth_response = self.session.get(auth_endpoint, params=auth_params, allow_redirects=False, timeout=30)
             logging.info(f"Auth response status: {auth_response.status_code}")
-            logging.info(f"Auth response headers: {dict(auth_response.headers)}")
+            logging.info(f"Auth response headers: [redacted for security]")
             
             if auth_response.status_code == 302:
                 # Check for authorization code in redirect
@@ -530,7 +530,7 @@ class BullhornService:
             logging.info(f"Exchanging auth code at token endpoint: {token_endpoint}")
             token_response = self.session.post(token_endpoint, data=token_data, headers=headers, timeout=30)
             if token_response.status_code != 200:
-                logging.error(f"Failed to get access token: {token_response.status_code} - {token_response.text}")
+                logging.error(f"Failed to get access token: HTTP {token_response.status_code}")
                 return False
             
             token_info = self._safe_json_parse(token_response)
@@ -550,7 +550,7 @@ class BullhornService:
             logging.info(f"Getting REST token from: {rest_login_url}")
             rest_response = self.session.post(rest_login_url, params=rest_params, timeout=30)
             if rest_response.status_code != 200:
-                logging.error(f"Failed to get REST token: {rest_response.status_code} - {rest_response.text}")
+                logging.error(f"Failed to get REST token: HTTP {rest_response.status_code}")
                 return False
             
             rest_data = self._safe_json_parse(rest_response)
@@ -569,7 +569,7 @@ class BullhornService:
                 return False
             
             logging.info(f"Bullhorn authentication successful. Base URL: {self.base_url}")
-            logging.info(f"REST Token (first 20 chars): {self.rest_token[:20]}...")
+            logging.info(f"REST Token: ***{self.rest_token[-4:]}")
             
             # If user ID not in login response, try to fetch it
             if not self.user_id:

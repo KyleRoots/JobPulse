@@ -769,8 +769,8 @@ def bullhorn_oauth_callback():
             
             token_response = requests.post(token_endpoint, data=token_data, headers=headers, timeout=30)
             if token_response.status_code != 200:
-                logging.error(f"Token exchange failed: {token_response.status_code} - {token_response.text}")
-                flash(f'Failed to exchange authorization code for tokens: {token_response.text}', 'error')
+                logging.error(f"Token exchange failed: HTTP {token_response.status_code}")
+                flash(f'Failed to exchange authorization code for tokens (HTTP {token_response.status_code})', 'error')
                 return redirect(url_for('bullhorn.bullhorn_settings'))
             
             token_info = token_response.json()
@@ -793,7 +793,7 @@ def bullhorn_oauth_callback():
             logging.info(f"REST login request to: {rest_login_endpoint}")
             rest_response = requests.post(rest_login_endpoint, params=rest_params, timeout=30)
             if rest_response.status_code != 200:
-                logging.error(f"REST login failed: {rest_response.status_code} - {rest_response.text}")
+                logging.error(f"REST login failed: HTTP {rest_response.status_code}")
                 flash('Failed to get REST token for API access', 'error')
                 return redirect(url_for('bullhorn.bullhorn_settings'))
             
@@ -809,7 +809,7 @@ def bullhorn_oauth_callback():
                 return redirect(url_for('bullhorn.bullhorn_settings'))
             
             flash('✅ Bullhorn OAuth authentication completed successfully! Terms of Service accepted and connection established.', 'success')
-            logging.info(f"✅ Complete OAuth flow successful - REST Token: {rest_token[:20]}..., Base URL: {base_url_api}")
+            logging.info(f"✅ Complete OAuth flow successful - REST Token: ***{rest_token[-4:]}, Base URL: {base_url_api}")
             
             try:
                 test_url = f"{base_url_api}/search/JobOrder?query=id>0&count=1&fields=id"

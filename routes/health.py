@@ -111,8 +111,8 @@ def detailed_health_check():
             from sqlalchemy import text
             db.session.execute(text('SELECT 1')).scalar()
             db_ok = True
-        except Exception as e:
-            current_app.logger.warning(f"Database check failed: {str(e)}")
+        except Exception:
+            current_app.logger.warning("Database check failed during health check")
         
         # Quick configuration checks
         config_status = {
@@ -136,7 +136,8 @@ def detailed_health_check():
             'response_time_ms': round((time.time() - start_time) * 1000, 2)
         })
     except Exception as e:
+        current_app.logger.error(f"Health check error: {str(e)}")
         return jsonify({
             'status': 'error',
-            'error': str(e)
+            'error': 'Internal health check failure'
         }), 500
