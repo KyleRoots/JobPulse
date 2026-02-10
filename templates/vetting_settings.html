@@ -189,6 +189,7 @@
             <div class="card-body">
                 <form action="{{ url_for('vetting.save_vetting_settings') }}" method="POST" id="settingsForm"
                     onsubmit="showSavingIndicator()">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
@@ -271,6 +272,7 @@
 
                 <h6 class="mb-3"><i class="fas fa-envelope-open-text me-2"></i>Test Email Preview</h6>
                 <form action="{{ url_for('vetting.send_test_vetting_email') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Test Scenario</label>
                         <select class="form-select" name="scenario">
@@ -399,6 +401,7 @@
                 <i class="fas fa-compress-alt me-1"></i>Collapse All
             </button>
             <form action="{{ url_for('vetting.sync_job_requirements') }}" method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-outline-primary btn-sm"
                     onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Syncing...'; this.form.submit();">
                     <i class="fas fa-sync me-1"></i>Sync Jobs
@@ -542,18 +545,21 @@
             </h5>
             <div class="d-flex gap-2" onclick="event.stopPropagation();">
                 <form action="{{ url_for('vetting.full_clean_slate') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-danger btn-sm"
                         onclick="return confirm('⚠️ FULL CLEAN SLATE ⚠️\n\nThis will DELETE ALL vetting data:\n- All vetting logs\n- All job matches\n- Reset timestamp to now\n\nDashboard will show all zeros.\n\nThis cannot be undone. Continue?')">
                         <i class="fas fa-trash-alt me-1"></i>Full Clean Slate
                     </button>
                 </form>
                 <form action="{{ url_for('vetting.reset_recent_vetting') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-warning btn-sm"
                         onclick="return confirm('This will reset vetting status for all applications from the last 6 hours. They will be re-processed in the next cycle. Continue?')">
                         <i class="fas fa-undo me-1"></i>Reset Recent (6h)
                     </button>
                 </form>
                 <form action="{{ url_for('vetting.run_vetting_now') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-primary btn-sm" {% if not settings.vetting_enabled %}disabled{%
                         endif %}>
                         <i class="fas fa-play me-1"></i>Run Vetting Now
@@ -922,19 +928,19 @@
                     badgeClass: 'bg-info',
                     count: {{ stats.pending }}
                 },
-                'recommended': {
-                    section: recommendedSection,
-                    title: 'Recommended ({{ settings.match_threshold }}%+)',
-                    iconClass: 'fas fa-check-circle text-success',
-                    badgeClass: 'bg-success',
-                    count: {{ stats.qualified }}
+            'recommended': {
+            section: recommendedSection,
+            title: 'Recommended ({{ settings.match_threshold }}%+)',
+            iconClass: 'fas fa-check-circle text-success',
+            badgeClass: 'bg-success',
+            count: {{ stats.qualified }}
                 },
-                'not-recommended': {
-                    section: notRecommendedSection,
-                    title: 'Not Recommended',
-                    iconClass: 'fas fa-times-circle text-danger',
-                    badgeClass: 'bg-danger',
-                    count: {{ stats.total_processed - stats.qualified }}
+            'not-recommended': {
+            section: notRecommendedSection,
+            title: 'Not Recommended',
+            iconClass: 'fas fa-times-circle text-danger',
+            badgeClass: 'bg-danger',
+            count: {{ stats.total_processed - stats.qualified }}
                 }
             };
         filterCards.forEach(card => {

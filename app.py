@@ -5,6 +5,7 @@ import json
 import re
 import requests
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context, session, abort
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_sqlalchemy import SQLAlchemy
@@ -280,7 +281,7 @@ def set_security_headers(response):
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.replit.com; "
         "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "img-src 'self' data: https:; "
         "connect-src 'self'; "
@@ -300,6 +301,10 @@ MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+app.config['WTF_CSRF_TIME_LIMIT'] = None  # No token expiry (avoids issues with long-open tabs)
+
+# Initialize CSRF protection (validates on every POST/PUT/DELETE by default)
+csrf = CSRFProtect(app)
 
 
 @app.errorhandler(413)
@@ -1988,6 +1993,7 @@ def job_application_form(job_id, job_title):
         return f"Error loading application form: {str(e)}", 500
 
 @app.route('/parse-resume', methods=['POST'])
+@csrf.exempt  # Public job application form — no session cookie
 def parse_resume():
     """Parse uploaded resume file and extract candidate information"""
     try:
@@ -2047,6 +2053,7 @@ def parse_resume():
         })
 
 @app.route('/submit-application', methods=['POST'])
+@csrf.exempt  # Public job application form — no session cookie
 def submit_application():
     """Submit job application form"""
     try:
@@ -2838,6 +2845,7 @@ def api_email_logs():
 # ==================== Email Inbound Parsing Routes ====================
 
 @app.route('/api/email/inbound', methods=['GET', 'POST'])
+@csrf.exempt  # SendGrid inbound webhook — external service, no browser session
 def email_inbound_webhook():
     """
     SendGrid Inbound Parse webhook endpoint

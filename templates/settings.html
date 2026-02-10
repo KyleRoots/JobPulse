@@ -118,6 +118,7 @@
 
 <!-- Settings Form -->
 <form method="POST" action="{{ url_for('settings.update_settings') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <!-- SFTP Settings -->
     <div class="card glass-card mb-4">
         <div class="card-header bg-transparent border-bottom border-secondary">

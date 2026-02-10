@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}JobPulse™{% endblock %}</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
@@ -1233,6 +1234,33 @@
 </head>
 
 <body>
+    <!-- CSRF: auto-attach token to all fetch() calls -->
+    <script>
+    (function() {
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            options = options || {};
+            const method = (options.method || 'GET').toUpperCase();
+            if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) {
+                    options.headers = options.headers || {};
+                    // Support both Headers object and plain object
+                    if (options.headers instanceof Headers) {
+                        if (!options.headers.has('X-CSRFToken')) {
+                            options.headers.set('X-CSRFToken', meta.content);
+                        }
+                    } else {
+                        if (!options.headers['X-CSRFToken']) {
+                            options.headers['X-CSRFToken'] = meta.content;
+                        }
+                    }
+                }
+            }
+            return originalFetch.call(this, url, options);
+        };
+    })();
+    </script>
     <!-- Mobile Toggle -->
     <button class="mobile-toggle" onclick="toggleSidebar()">
         <i class="fas fa-bars"></i>

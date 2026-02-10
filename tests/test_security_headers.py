@@ -66,3 +66,13 @@ class TestSecurityHeaders:
         csp = response.headers['Content-Security-Policy']
         assert 'https://fonts.googleapis.com' in csp
         assert 'https://fonts.gstatic.com' in csp
+
+    def test_csp_allows_replit_bootstrap_theme(self, client):
+        """CSP style-src should allow cdn.replit.com for Bootstrap dark theme CSS"""
+        response = client.get('/login')
+        csp = response.headers['Content-Security-Policy']
+        assert 'https://cdn.replit.com' in csp
+        # Verify it's specifically in style-src (not script-src)
+        style_src = [d for d in csp.split(';') if 'style-src' in d]
+        assert len(style_src) == 1
+        assert 'https://cdn.replit.com' in style_src[0]
