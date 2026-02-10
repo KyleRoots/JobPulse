@@ -227,8 +227,9 @@ RAW RESUME TEXT:
 OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdown code blocks."""
 
         try:
+            # gpt-4.1-mini: cost-optimized for structured text→HTML formatting
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4.1-mini",
                 messages=[
                     {"role": "system", "content": "You are a resume formatting expert. Your job is to convert raw, unstructured resume text into clean, readable HTML while preserving all original content exactly."},
                     {"role": "user", "content": prompt}

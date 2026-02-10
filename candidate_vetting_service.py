@@ -204,7 +204,7 @@ Format as a bullet-point list. Be specific and concise."""
 
         try:
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",  # Use cheaper model for requirements extraction
+                model="gpt-4.1-mini",  # Cost-optimized: structured extraction (not main vetting)
                 messages=[
                     {"role": "system", "content": "You are a technical recruiter extracting key mandatory requirements from job descriptions. Be concise and specific."},
                     {"role": "user", "content": prompt}

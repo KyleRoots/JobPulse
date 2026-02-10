@@ -341,8 +341,9 @@ Resume text:
 {resume_text[:8000]}
 """
 
+            # gpt-4.1-mini: cost-optimized for structured JSON extraction from resumes
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4.1-mini",
                 messages=[
                     {"role": "system", "content": "You are an expert resume parser. Extract structured data accurately. Return only valid JSON."},
                     {"role": "user", "content": prompt}
@@ -463,8 +464,9 @@ Return only a number between 0.0 and 1.0 representing the probability these are 
 Consider: name spelling variations, nicknames, contact info matches.
 """
 
+            # gpt-4.1-mini: cost-optimized for simple deduplication confidence scoring
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4.1-mini",
                 messages=[
                     {"role": "system", "content": "You are a deduplication expert. Return only a decimal number."},
                     {"role": "user", "content": prompt}
