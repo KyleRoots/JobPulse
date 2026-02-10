@@ -1871,19 +1871,12 @@ Format as a bullet-point list. Be specific and concise."""
         # Build the requirements section - use custom if available, otherwise let AI extract
         requirements_instruction = ""
         if custom_requirements:
-            # Layer 1: Custom overrides are HARD pass/fail gates — unmet = cap at 60%
             requirements_instruction = f"""
-CRITICAL - CUSTOM OVERRIDE REQUIREMENTS (manually specified by recruiter):
+IMPORTANT: Use these specific requirements for evaluation (manually specified):
 {custom_requirements}
 
-These are HARD REQUIREMENTS set by the recruiter. Every custom requirement listed above is a MANDATORY pass/fail gate:
-- If the candidate does NOT meet ANY ONE of these custom requirements, the match_score MUST be capped at 60 or below (Not Recommended).
-- List each unmet custom requirement explicitly in gaps_identified, prefixed with "[CUSTOM UNMET]".
-- For location/geography requirements (e.g., "X years of experience in [country]"), verify against the candidate's ACTUAL WORK HISTORY locations, not just their current address.
-- A candidate who lives in Canada but has zero professional experience in Canada does NOT satisfy "5 years of professional experience in Canada."
-- Do NOT let strong technical fit override an unmet custom requirement — these are non-negotiable."""
+Focus ONLY on these requirements when scoring. Ignore nice-to-haves in the job description."""
         else:
-            # Layer 2: AI-extracted requirements — country-specific experience carries heavier weight
             requirements_instruction = """
 IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job description:
 - Required skills (often marked as "required", "must have", "essential")
@@ -1892,12 +1885,7 @@ IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job descri
 - Required education level
 
 DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
-Be lenient on soft skills - focus primarily on technical/hard skill requirements.
-
-COUNTRY-SPECIFIC EXPERIENCE: If the job description requires professional experience in a specific country (e.g., "5 years of experience in Canada" or "must have US work experience"), treat this as a HIGH-WEIGHT requirement:
-- Verify against the candidate's ACTUAL WORK HISTORY locations — where they held jobs — not just their current address.
-- If unmet, reduce the match_score by 15-20 points (more than a typical skill gap).
-- List the unmet country-experience requirement in gaps_identified with the specific shortfall (e.g., "Requires 5 years in Canada, candidate has 0 years of Canadian work experience")."""
+Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
         
         # Build location matching instructions based on work type
         location_instruction = ""
@@ -2018,15 +2006,6 @@ CRITICAL RULES:
             
             # Ensure match_score is an integer
             result['match_score'] = int(result.get('match_score', 0))
-            
-            # Layer 1 enforcement: Hard cap at 60% when custom requirements are unmet
-            # The prompt instructs the AI to do this, but we enforce it in code as a safety net
-            if custom_requirements:
-                gaps = result.get('gaps_identified', '')
-                if '[CUSTOM UNMET]' in gaps and result['match_score'] > 60:
-                    logging.warning(f"⚠️ Job {job_id}: AI scored {result['match_score']}% but custom requirement unmet — capping at 60%")
-                    result['match_score'] = 60
-                    result['match_summary'] = result.get('match_summary', '') + ' [Score capped: unmet custom requirement]'
             
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
