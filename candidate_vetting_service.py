@@ -2145,15 +2145,20 @@ CRITICAL RULES:
         parsed_email_id = candidate.get('_parsed_email_id')
         applied_job_id = candidate.get('_applied_job_id')
         
-        vetting_log = CandidateVettingLog(
-            bullhorn_candidate_id=candidate_id,
-            candidate_name=candidate_name,
-            candidate_email=candidate_email,
-            status='processing',
-            applied_job_id=applied_job_id
-        )
-        db.session.add(vetting_log)
-        db.session.commit()
+        try:
+            vetting_log = CandidateVettingLog(
+                bullhorn_candidate_id=candidate_id,
+                candidate_name=candidate_name,
+                candidate_email=candidate_email,
+                status='processing',
+                applied_job_id=applied_job_id
+            )
+            db.session.add(vetting_log)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+            return None
         
         try:
             # Get which job they applied to
@@ -3031,6 +3036,7 @@ CRITICAL RULES:
                         self._mark_application_vetted(parsed_email_id)
                             
                 except Exception as e:
+                    db.session.rollback()
                     error_msg = f"Error processing candidate {candidate.get('id')}: {str(e)}"
                     logging.error(error_msg)
                     summary['errors'].append(error_msg)
