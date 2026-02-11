@@ -1076,12 +1076,21 @@ Format as a bullet-point list. Be specific and concise."""
     def _release_vetting_lock(self):
         """Release the vetting lock"""
         try:
+            # Always rollback first in case session is in a bad state from errors
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             config = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
             if config:
                 config.setting_value = 'false'
                 db.session.commit()
         except Exception as e:
             logging.error(f"Error releasing vetting lock: {str(e)}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
     
     def detect_new_applicants(self, since_minutes: int = 5) -> List[Dict]:
         """
@@ -3048,6 +3057,7 @@ CRITICAL RULES:
             return summary
             
         except Exception as e:
+            db.session.rollback()
             error_msg = f"Vetting cycle error: {str(e)}"
             logging.error(error_msg)
             summary['errors'].append(error_msg)
