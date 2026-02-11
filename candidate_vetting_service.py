@@ -1900,6 +1900,18 @@ Format as a bullet-point list. Be specific and concise."""
             candidate_country = smart_correct_country(candidate_city, candidate_state, candidate_country_normalized)  # Auto-fix country mismatches
         candidate_location_full = ', '.join(filter(None, [candidate_city, candidate_state, candidate_country]))
         
+        # Detect low-quality Bullhorn default locations (country-only, no city/state)
+        # These should not prime the AI — demote to "system fallback" so resume takes priority
+        bullhorn_location_is_specific = bool(candidate_city or candidate_state)
+        
+        # Build quality-aware location label for the prompt
+        if candidate_location_full and bullhorn_location_is_specific:
+            candidate_location_label = f'System Address (cross-reference with resume): {candidate_location_full}'
+        elif candidate_location_full:
+            candidate_location_label = f'System Address (UNRELIABLE — Bullhorn default, verify against resume): {candidate_location_full}'
+        else:
+            candidate_location_label = 'Not provided — you MUST extract from resume text (header/contact section first, then work history, then education)'
+        
         job_id = job.get('id', 'N/A')
         
         # Check for custom requirements override
@@ -1942,7 +1954,7 @@ Be lenient on soft skills - focus primarily on technical/hard skill requirements
                 location_instruction = f"""
 LOCATION REQUIREMENT (Remote Position):
 - Job Location: {job_location_full} (Work Type: {work_type})
-- Candidate Location: {candidate_location_full if candidate_location_full else 'Not provided by system — extract from resume text (check header, work history, education)'}
+- {candidate_location_label}
 - For REMOTE positions: Candidate MUST be in the same COUNTRY as the job location for tax/legal compliance.
 - City and state do NOT need to match for remote roles - only the country matters.
 - If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 15-20 points.
@@ -1954,18 +1966,19 @@ CRITICAL STATE/PROVINCE RECOGNITION:
 - ONLY flag "Location mismatch: different country" if the candidate is literally in a DIFFERENT country (e.g., candidate in India for a US-based job, or candidate in UK for a Canada-based job).
 - DO NOT flag location mismatch just because candidate is in a different state/city within the same country.
 
-MANDATORY LOCATION EXTRACTION (follow in order, stop at first match):
-1. CHECK RESUME HEADER/CONTACT SECTION FIRST: Look for city, state, zip code, or country anywhere near the candidate's name, phone, or email at the TOP of the resume. Formats like "Frisco TX", "Dallas, TX 75033", "New York, NY, USA" etc. all count. This is the MOST RELIABLE source.
-2. CHECK WORK HISTORY: If the header has no location, check the candidate's MOST RECENT work experience for a city/state/country. Use that as their presumed current location.
-3. CHECK EDUCATION: If neither header nor work history has location, check education location.
-4. ONLY mark location as "unknown" if NONE of the above sources provide any city, state, or country.
+MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
+1. RESUME HEADER/CONTACT SECTION (HIGHEST PRIORITY): Look for city, state/province, zip code, or country near the candidate's name, phone, or email at the TOP of the resume. Formats like "Frisco TX", "Dallas, TX 75033", "New York, NY, USA" etc. all count. This is the MOST RELIABLE source — always check here first.
+2. MOST RECENT WORK HISTORY: If the header/contact section has no location, check the candidate's most recent job for a city/state/country. Use that as their presumed current location.
+3. SYSTEM ADDRESS FIELD (FALLBACK ONLY): Only if the resume provides NO location in either the header or work history, consider the system-provided address above. WARNING: Bullhorn often auto-fills "United States" as a default when no address is entered — a country-only value with no city/state is UNRELIABLE and should be treated as "unknown" for location matching purposes.
+4. EDUCATION LOCATION: If all above are empty, check education institution location.
+5. "UNKNOWN": Only if none of the four sources above provide any usable city, state, or country.
 
-CRITICAL: You MUST actively search the resume text for location data before concluding "unknown". The system's "Known Location" field may be empty even when the resume clearly states a location — ALWAYS trust what you find in the actual resume text over the system field."""
+CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults."""
             else:  # On-site or Hybrid
                 location_instruction = f"""
 LOCATION REQUIREMENT ({work_type} Position):
 - Job Location: {job_location_full} (Work Type: {work_type})
-- Candidate Location: {candidate_location_full if candidate_location_full else 'Not provided by system — extract from resume text (check header, work history, education)'}
+- {candidate_location_label}
 - For ON-SITE/HYBRID positions: Candidate should be in or near the job's city/metro area, or willing to relocate.
 
 CRITICAL: If candidate is ALREADY in the same city or metro area as the job, they AUTOMATICALLY qualify for on-site/hybrid work.
@@ -1974,13 +1987,14 @@ CRITICAL: If candidate is ALREADY in the same city or metro area as the job, the
 - Only flag location issues if candidate is in a completely different region (different state/province) or country.
 - If candidate is non-local AND doesn't mention relocation willingness, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified.
 
-MANDATORY LOCATION EXTRACTION (follow in order, stop at first match):
-1. CHECK RESUME HEADER/CONTACT SECTION FIRST: Look for city, state, zip code, or country anywhere near the candidate's name, phone, or email at the TOP of the resume. Formats like "Frisco TX", "Dallas, TX 75033", "New York, NY, USA" etc. all count. This is the MOST RELIABLE source.
-2. CHECK WORK HISTORY: If the header has no location, check the candidate's MOST RECENT work experience for a city/state/country. Use that as their presumed current location.
-3. CHECK EDUCATION: If neither header nor work history has location, check education location.
-4. ONLY mark location as "unknown" if NONE of the above sources provide any city, state, or country.
+MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
+1. RESUME HEADER/CONTACT SECTION (HIGHEST PRIORITY): Look for city, state/province, zip code, or country near the candidate's name, phone, or email at the TOP of the resume. Formats like "Frisco TX", "Dallas, TX 75033", "New York, NY, USA" etc. all count. This is the MOST RELIABLE source — always check here first.
+2. MOST RECENT WORK HISTORY: If the header/contact section has no location, check the candidate's most recent job for a city/state/country. Use that as their presumed current location.
+3. SYSTEM ADDRESS FIELD (FALLBACK ONLY): Only if the resume provides NO location in either the header or work history, consider the system-provided address above. WARNING: Bullhorn often auto-fills "United States" as a default when no address is entered — a country-only value with no city/state is UNRELIABLE and should be treated as "unknown" for location matching purposes.
+4. EDUCATION LOCATION: If all above are empty, check education institution location.
+5. "UNKNOWN": Only if none of the four sources above provide any usable city, state, or country.
 
-CRITICAL: You MUST actively search the resume text for location data before concluding "unknown". The system's "Known Location" field may be empty even when the resume clearly states a location — ALWAYS trust what you find in the actual resume text over the system field."""
+CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults."""
         
         prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements.
 Provide an objective assessment with a percentage match score (0-100).
@@ -1994,7 +2008,7 @@ JOB DETAILS:
 - Description: {job_description}
 
 CANDIDATE INFORMATION:
-- Known Location: {candidate_location_full if candidate_location_full else 'Not provided by system — you MUST extract from resume text (header/contact section first, then work history)'}
+- {candidate_location_label}
 
 CANDIDATE RESUME:
 {resume_text}
