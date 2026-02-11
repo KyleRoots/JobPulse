@@ -1247,22 +1247,17 @@ Format as a bullet-point list. Be specific and concise."""
         but not yet vetted. This captures ALL inbound applicants (both new and existing
         candidates) since email parsing is the entry point for all applications.
         
+        Database query runs FIRST (no external API needed), and Bullhorn auth is only
+        attempted when there are actual candidates to fetch details for.
+        
         Args:
             limit: Maximum number of candidates to return (configurable batch size)
             
         Returns:
             List of candidate dictionaries ready for vetting
         """
-        bullhorn = self._get_bullhorn_service()
-        if not bullhorn:
-            return []
-        
-        if not bullhorn.authenticate():
-            logging.error("Failed to authenticate with Bullhorn for candidate detection")
-            return []
-        
         try:
-            # Diagnostic: consolidated ParsedEmail stats (single query with conditional counts)
+            # ── Step 1: Query local database FIRST (no API call needed) ──
             from sqlalchemy import func, case
             stats = db.session.query(
                 func.count(ParsedEmail.id).label('total'),
@@ -1325,6 +1320,8 @@ Format as a bullet-point list. Be specific and concise."""
                     key = (log.bullhorn_candidate_id, log.applied_job_id)
                     recent_logs_by_candidate[key] = log
             
+            # Filter out already-vetted before making any Bullhorn API calls
+            candidates_needing_details = []
             for parsed_email in unvetted_emails:
                 candidate_id = parsed_email.bullhorn_candidate_id
                 
@@ -1359,16 +1356,7 @@ Format as a bullet-point list. Be specific and concise."""
                         db.session.delete(existing_log)
                         db.session.commit()
                 
-                # Fetch full candidate data from Bullhorn
-                candidate_data = self._fetch_candidate_details(bullhorn, candidate_id)
-                
-                if candidate_data:
-                    # Attach the ParsedEmail ID for tracking
-                    candidate_data['_parsed_email_id'] = parsed_email.id
-                    candidate_data['_applied_job_id'] = parsed_email.bullhorn_job_id
-                    candidate_data['_is_duplicate'] = parsed_email.is_duplicate_candidate
-                    candidates_to_vet.append(candidate_data)
-                    logging.info(f"Queued for vetting: {candidate_data.get('firstName')} {candidate_data.get('lastName')} (ID: {candidate_id}, Applied to Job: {parsed_email.bullhorn_job_id})")
+                candidates_needing_details.append(parsed_email)
             
             # Batch update already-vetted records in single transaction
             if already_vetted_ids:
@@ -1382,6 +1370,37 @@ Format as a bullet-point list. Be specific and concise."""
                 except Exception as e:
                     db.session.rollback()
                     logging.error(f"Error updating already-vetted applications: {str(e)}")
+            
+            # ── Step 2: Only authenticate with Bullhorn if we have candidates to fetch ──
+            if not candidates_needing_details:
+                logging.info("All unvetted candidates were already processed or skipped")
+                return []
+            
+            logging.info(f"Need Bullhorn details for {len(candidates_needing_details)} candidates")
+            
+            bullhorn = self._get_bullhorn_service()
+            if not bullhorn:
+                logging.warning(f"⚠️ Bullhorn service unavailable — {len(candidates_needing_details)} candidates waiting for vetting")
+                return []
+            
+            if not bullhorn.authenticate():
+                logging.warning(f"⚠️ Bullhorn authentication failed (possible rate limit) — "
+                              f"{len(candidates_needing_details)} candidates waiting for vetting. "
+                              f"Will retry next cycle.")
+                return []
+            
+            # ── Step 3: Fetch candidate details from Bullhorn ──
+            for parsed_email in candidates_needing_details:
+                candidate_id = parsed_email.bullhorn_candidate_id
+                candidate_data = self._fetch_candidate_details(bullhorn, candidate_id)
+                
+                if candidate_data:
+                    # Attach the ParsedEmail ID for tracking
+                    candidate_data['_parsed_email_id'] = parsed_email.id
+                    candidate_data['_applied_job_id'] = parsed_email.bullhorn_job_id
+                    candidate_data['_is_duplicate'] = parsed_email.is_duplicate_candidate
+                    candidates_to_vet.append(candidate_data)
+                    logging.info(f"Queued for vetting: {candidate_data.get('firstName')} {candidate_data.get('lastName')} (ID: {candidate_id}, Applied to Job: {parsed_email.bullhorn_job_id})")
             
             logging.info(f"Prepared {len(candidates_to_vet)} candidates for vetting from email parsing")
             return candidates_to_vet

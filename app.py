@@ -4213,16 +4213,16 @@ def run_candidate_vetting_cycle():
             app.logger.error(f"Candidate vetting cycle error: {str(e)}")
 
 if is_primary_worker:
-    # Add candidate vetting cycle - runs every 2 minutes
+    # Add candidate vetting cycle - runs every 3 minutes (reduced from 1 min to lower API pressure)
     scheduler.add_job(
         func=run_candidate_vetting_cycle,
         trigger='interval',
-        minutes=1,
+        minutes=3,
         id='candidate_vetting_cycle',
         name='AI Candidate Vetting Cycle',
         replace_existing=True
     )
-    app.logger.info("🎯 Scheduled AI candidate vetting cycle (every 1 minute)")
+    app.logger.info("🎯 Scheduled AI candidate vetting cycle (every 3 minutes)")
 
 # Reference Number Refresh (120-hour cycle)
 def reference_number_refresh():
