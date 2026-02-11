@@ -239,7 +239,7 @@
                                 value="{{ settings.batch_size }}" min="1" max="100" step="1">
                             <span class="input-group-text">candidates</span>
                         </div>
-                        <small class="text-muted">Maximum candidates to process per 5-minute cycle
+                        <small class="text-muted">Maximum candidates to process per 3-minute cycle
                             (1-100)</small>
                     </div>
 
@@ -325,8 +325,8 @@
                         <span class="badge bg-primary me-3" style="min-width: 30px;">1</span>
                         <div>
                             <strong>Detection</strong>
-                            <p class="text-muted mb-0 small">Every 1 minute, the system checks for new
-                                candidates with "Online Applicant" status</p>
+                            <p class="text-muted mb-0 small">Every 3 minutes, the system checks for new
+                                applicants — new candidates are typically vetted within minutes of applying</p>
                         </div>
                     </div>
                 </div>
@@ -926,7 +926,8 @@
                     title: 'Awaiting Vetting',
                     iconClass: 'fas fa-clock text-info',
                     badgeClass: 'bg-info',
-                    count: {{ stats.pending }}
+                    count: {{ stats.pending }
+        }
                 },
             'recommended': {
             section: recommendedSection,
