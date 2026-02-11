@@ -115,6 +115,10 @@ app.config['ENVIRONMENT'] = env
 # Log the chosen environment for debugging
 print(f"App environment set to: {env}")  # Use print for startup visibility
 
+# Initialize Sentry error tracking & performance monitoring (production only)
+from sentry_config import init_sentry
+init_sentry(app)
+
 # Global scheduler state management
 scheduler_started = False
 scheduler_lock = threading.Lock()

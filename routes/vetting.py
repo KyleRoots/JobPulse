@@ -24,7 +24,7 @@ def vetting_settings():
     
     db = get_db()
     
-    # Get settings
+    # Get settings (batch query: 1 query instead of 6)
     settings = {
         'vetting_enabled': False,
         'send_recruiter_emails': False,
@@ -34,18 +34,23 @@ def vetting_settings():
         'health_alert_email': ''
     }
     
+    all_configs = VettingConfig.query.filter(
+        VettingConfig.setting_key.in_(settings.keys())
+    ).all()
+    config_map = {c.setting_key: c.setting_value for c in all_configs}
+    
     for key in settings.keys():
-        config = VettingConfig.query.filter_by(setting_key=key).first()
-        if config:
+        value = config_map.get(key)
+        if value is not None:
             if key in ('vetting_enabled', 'send_recruiter_emails'):
-                settings[key] = config.setting_value.lower() == 'true'
+                settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size'):
                 try:
-                    settings[key] = int(config.setting_value)
+                    settings[key] = int(value)
                 except (ValueError, TypeError):
                     settings[key] = 80 if key == 'match_threshold' else 25
             else:
-                settings[key] = config.setting_value or ''
+                settings[key] = value or ''
     
     # Get stats
     stats = {
