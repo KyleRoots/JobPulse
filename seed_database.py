@@ -763,6 +763,30 @@ def run_schema_migrations(db):
         except Exception as e:
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")
+    
+    # Drop UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id
+    # (Feb 2026 - allow multiple vetting logs per candidate for re-applications)
+    try:
+        # Check if the unique constraint still exists (PostgreSQL only)
+        check_sql = text("""
+            SELECT constraint_name FROM information_schema.table_constraints
+            WHERE table_name = 'candidate_vetting_log'
+              AND constraint_type = 'UNIQUE'
+              AND constraint_name LIKE '%bullhorn_candidate_id%'
+        """)
+        result = db.session.execute(check_sql)
+        constraint = result.fetchone()
+        if constraint:
+            constraint_name = constraint[0]
+            drop_sql = text(f'ALTER TABLE candidate_vetting_log DROP CONSTRAINT {constraint_name}')
+            db.session.execute(drop_sql)
+            db.session.commit()
+            logger.info(f"✅ Dropped UNIQUE constraint {constraint_name} on candidate_vetting_log.bullhorn_candidate_id")
+        else:
+            logger.info("ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for dropping unique constraint: {str(e)}")
 
 
 def seed_database(db, User):

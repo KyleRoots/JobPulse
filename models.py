@@ -535,7 +535,7 @@ class EmailParsingConfig(db.Model):
 class CandidateVettingLog(db.Model):
     """Tracks candidates that have been analyzed by the AI vetting system"""
     id = db.Column(db.Integer, primary_key=True)
-    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, unique=True, index=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)  # Not unique: multiple logs per candidate (one per application)
     candidate_name = db.Column(db.String(255), nullable=True)
     candidate_email = db.Column(db.String(255), nullable=True)
     applied_job_id = db.Column(db.Integer, nullable=True)  # Job they originally applied to
