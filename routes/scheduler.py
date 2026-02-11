@@ -286,22 +286,22 @@ def replace_schedule_file():
             sftp_upload_success = False
             if schedule.auto_upload_ftp:
                 try:
-                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                    sftp_keys = ['sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_directory', 'sftp_port']
+                    sftp_rows = GlobalSettings.query.filter(
+                        GlobalSettings.setting_key.in_(sftp_keys)
+                    ).all()
+                    sftp_config = {r.setting_key: r.setting_value for r in sftp_rows}
                     
-                    if (sftp_hostname and sftp_hostname.setting_value and 
-                        sftp_username and sftp_username.setting_value and 
-                        sftp_password and sftp_password.setting_value):
+                    if (sftp_config.get('sftp_hostname') and 
+                        sftp_config.get('sftp_username') and 
+                        sftp_config.get('sftp_password')):
                         
                         ftp_service = FTPService(
-                            hostname=sftp_hostname.setting_value,
-                            username=sftp_username.setting_value,
-                            password=sftp_password.setting_value,
-                            target_directory=sftp_directory.setting_value if sftp_directory else "/",
-                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                            hostname=sftp_config['sftp_hostname'],
+                            username=sftp_config['sftp_username'],
+                            password=sftp_config['sftp_password'],
+                            target_directory=sftp_config.get('sftp_directory', '/'),
+                            port=int(sftp_config['sftp_port']) if sftp_config.get('sftp_port') else 2222,
                             use_sftp=True
                         )
                         
@@ -415,24 +415,23 @@ def process_schedule_with_progress(schedule_id):
             
             sftp_upload_success = True
             if schedule.auto_upload_ftp:
-                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
-                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                sftp_keys = ['sftp_enabled', 'sftp_hostname', 'sftp_username', 'sftp_password', 'sftp_directory', 'sftp_port']
+                sftp_rows = GlobalSettings.query.filter(
+                    GlobalSettings.setting_key.in_(sftp_keys)
+                ).all()
+                sftp_config = {r.setting_key: r.setting_value for r in sftp_rows}
                 
-                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
-                    sftp_hostname and sftp_hostname.setting_value and 
-                    sftp_username and sftp_username.setting_value and 
-                    sftp_password and sftp_password.setting_value):
+                if (sftp_config.get('sftp_enabled') == 'true' and 
+                    sftp_config.get('sftp_hostname') and 
+                    sftp_config.get('sftp_username') and 
+                    sftp_config.get('sftp_password')):
                     
                     ftp_service = FTPService(
-                        hostname=sftp_hostname.setting_value,
-                        username=sftp_username.setting_value,
-                        password=sftp_password.setting_value,
-                        target_directory=sftp_directory.setting_value if sftp_directory else "/",
-                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                        hostname=sftp_config['sftp_hostname'],
+                        username=sftp_config['sftp_username'],
+                        password=sftp_config['sftp_password'],
+                        target_directory=sftp_config.get('sftp_directory', '/'),
+                        port=int(sftp_config['sftp_port']) if sftp_config.get('sftp_port') else 2222,
                         use_sftp=True
                     )
                     
@@ -442,7 +441,7 @@ def process_schedule_with_progress(schedule_id):
                     )
                     
                     if sftp_upload_success:
-                        update_progress(schedule_id, 3, f"File uploaded successfully to {sftp_hostname.setting_value}")
+                        update_progress(schedule_id, 3, f"File uploaded successfully to {sftp_config.get('sftp_hostname')}")
                     else:
                         update_progress(schedule_id, 3, "File upload failed", error="Failed to upload to SFTP server")
                 else:

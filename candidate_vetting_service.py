@@ -896,6 +896,15 @@ Format as a bullet-point list. Be specific and concise."""
             'failed': 0
         }
         
+        # BATCH: Pre-fetch all existing requirements in one query instead of per-job
+        job_ids = [int(j.get('id')) for j in jobs if j.get('id')]
+        existing_reqs = {}
+        if job_ids:
+            existing_rows = JobVettingRequirements.query.filter(
+                JobVettingRequirements.bullhorn_job_id.in_(job_ids)
+            ).all()
+            existing_reqs = {r.bullhorn_job_id: r for r in existing_rows}
+        
         for job in jobs:
             job_id = job.get('id')
             job_title = job.get('title', '')
@@ -920,8 +929,8 @@ Format as a bullet-point list. Be specific and concise."""
                 results['skipped'] += 1
                 continue
                 
-            # Check if already exists
-            existing = JobVettingRequirements.query.filter_by(bullhorn_job_id=int(job_id)).first()
+            # Check pre-fetched requirements (no per-job query)
+            existing = existing_reqs.get(int(job_id))
             if existing and existing.ai_interpreted_requirements:
                 results['skipped'] += 1
                 continue
@@ -1253,32 +1262,32 @@ Format as a bullet-point list. Be specific and concise."""
             return []
         
         try:
-            # Diagnostic: Log ParsedEmail table stats for debugging
-            from sqlalchemy import func
-            total_emails = db.session.query(func.count(ParsedEmail.id)).scalar() or 0
-            completed_emails = db.session.query(func.count(ParsedEmail.id)).filter(
-                ParsedEmail.status == 'completed'
-            ).scalar() or 0
-            with_candidate_id = db.session.query(func.count(ParsedEmail.id)).filter(
-                ParsedEmail.status == 'completed',
-                ParsedEmail.bullhorn_candidate_id.isnot(None)
-            ).scalar() or 0
-            already_vetted = db.session.query(func.count(ParsedEmail.id)).filter(
-                ParsedEmail.status == 'completed',
-                ParsedEmail.bullhorn_candidate_id.isnot(None),
-                ParsedEmail.vetted_at.isnot(None)
-            ).scalar() or 0
+            # Diagnostic: consolidated ParsedEmail stats (single query with conditional counts)
+            from sqlalchemy import func, case
+            stats = db.session.query(
+                func.count(ParsedEmail.id).label('total'),
+                func.count(case((ParsedEmail.status == 'completed', 1))).label('completed'),
+                func.count(case((
+                    (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)),
+                    1
+                ))).label('with_candidate'),
+                func.count(case((
+                    (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)) & (ParsedEmail.vetted_at.isnot(None)),
+                    1
+                ))).label('already_vetted'),
+            ).first()
             
-            logging.info(f"📊 ParsedEmail stats: total={total_emails}, completed={completed_emails}, "
-                        f"with_candidate_id={with_candidate_id}, already_vetted={already_vetted}, "
-                        f"pending_vetting={with_candidate_id - already_vetted}")
+            logging.info(f"📊 ParsedEmail stats: total={stats.total}, completed={stats.completed}, "
+                        f"with_candidate_id={stats.with_candidate}, already_vetted={stats.already_vetted}, "
+                        f"pending_vetting={stats.with_candidate - stats.already_vetted}")
             
-            # DEBUG: Show most recent 5 ParsedEmail records for troubleshooting
-            recent_emails = ParsedEmail.query.order_by(ParsedEmail.received_at.desc()).limit(5).all()
-            for pe in recent_emails:
-                logging.info(f"  📧 Recent ParsedEmail id={pe.id}: candidate='{pe.candidate_name}', "
-                            f"status={pe.status}, bh_id={pe.bullhorn_candidate_id}, "
-                            f"vetted_at={'SET' if pe.vetted_at else 'NULL'}, received={pe.received_at}")
+            # DEBUG: Show most recent 5 ParsedEmail records (only at DEBUG level)
+            if logging.getLogger().isEnabledFor(logging.DEBUG):
+                recent_emails = ParsedEmail.query.order_by(ParsedEmail.received_at.desc()).limit(5).all()
+                for pe in recent_emails:
+                    logging.debug(f"  📧 Recent ParsedEmail id={pe.id}: candidate='{pe.candidate_name}', "
+                                f"status={pe.status}, bh_id={pe.bullhorn_candidate_id}, "
+                                f"vetted_at={'SET' if pe.vetted_at else 'NULL'}, received={pe.received_at}")
             
             # Query ParsedEmail for completed applications that haven't been vetted
             unvetted_emails = ParsedEmail.query.filter(
@@ -1299,19 +1308,25 @@ Format as a bullet-point list. Be specific and concise."""
             candidates_to_vet = []
             already_vetted_ids = []
             
+            # BATCH: Pre-fetch all recent vetting logs for candidate IDs in this batch (1 query instead of N)
+            from datetime import timedelta
+            recent_cutoff = datetime.utcnow() - timedelta(hours=1)
+            batch_candidate_ids = [pe.bullhorn_candidate_id for pe in unvetted_emails if pe.bullhorn_candidate_id]
+            
+            recent_logs_by_candidate = {}
+            if batch_candidate_ids:
+                recent_logs = CandidateVettingLog.query.filter(
+                    CandidateVettingLog.bullhorn_candidate_id.in_(batch_candidate_ids),
+                    CandidateVettingLog.created_at >= recent_cutoff
+                ).all()
+                for log in recent_logs:
+                    recent_logs_by_candidate[log.bullhorn_candidate_id] = log
+            
             for parsed_email in unvetted_emails:
                 candidate_id = parsed_email.bullhorn_candidate_id
                 
-                # Check if there's a RECENT vetting log for this candidate (within last hour)
-                # This prevents duplicate processing of the same application cycle
-                # But allows re-vetting for new applications (days/weeks later)
-                from datetime import timedelta
-                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
-                
-                existing_log = CandidateVettingLog.query.filter(
-                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.created_at >= recent_cutoff
-                ).first()
+                # Check pre-fetched recent vetting logs (no per-candidate query)
+                existing_log = recent_logs_by_candidate.get(candidate_id)
                 
                 if existing_log:
                     # Only skip if recently completed or failed (within the hour)
@@ -2231,12 +2246,20 @@ CRITICAL RULES:
             
             # PRE-FETCH all custom requirements BEFORE parallel processing
             # This is critical because parallel threads don't have Flask app context
+            # BATCH: One IN query instead of N individual queries
             job_requirements_cache = {}
-            for job in jobs_to_analyze:
-                job_id = job.get('id')
-                if job_id:
-                    # Fetch custom requirements (or None if not set) - runs in main thread with app context
-                    job_requirements_cache[job_id] = self._get_job_custom_requirements(job_id)
+            batch_job_ids = [job.get('id') for job in jobs_to_analyze if job.get('id')]
+            if batch_job_ids:
+                try:
+                    batch_reqs = JobVettingRequirements.query.filter(
+                        JobVettingRequirements.bullhorn_job_id.in_(batch_job_ids)
+                    ).all()
+                    for req in batch_reqs:
+                        active = req.get_active_requirements()
+                        if active:
+                            job_requirements_cache[req.bullhorn_job_id] = active
+                except Exception as e:
+                    logging.error(f"Error batch-fetching job requirements: {str(e)}")
             
             logging.info(f"📋 Pre-fetched requirements for {len(job_requirements_cache)} jobs")
             

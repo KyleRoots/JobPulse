@@ -117,6 +117,10 @@ class ProcessingLog(db.Model):
     # Relationship
     schedule_config = db.relationship('ScheduleConfig', backref='processing_logs')
     
+    __table_args__ = (
+        db.Index('idx_processing_log_processed_at', 'processed_at'),
+    )
+    
     def __repr__(self):
         return f'<ProcessingLog {self.file_path} - {self.processing_type}>'
 
@@ -198,6 +202,11 @@ class BullhornActivity(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     monitor = db.relationship('BullhornMonitor', backref='activities')  # Can be None for system-level activities
+    
+    __table_args__ = (
+        db.Index('idx_activity_type_job_created', 'activity_type', 'job_id', 'created_at'),
+        db.Index('idx_activity_created_at', 'created_at'),
+    )
     
     @classmethod
     def check_duplicate_activity(cls, activity_type: str, job_id: int, minutes_threshold: int = 5):
@@ -503,6 +512,10 @@ class ParsedEmail(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     vetted_at = db.Column(db.DateTime, nullable=True)  # Tracks when AI vetting was completed
     
+    __table_args__ = (
+        db.Index('idx_parsed_email_unvetted', 'status', 'vetted_at', 'bullhorn_candidate_id'),
+    )
+    
     def __repr__(self):
         return f'<ParsedEmail {self.id} from {self.source_platform} - {self.status}>'
 
@@ -555,6 +568,10 @@ class CandidateVettingLog(db.Model):
     analyzed_at = db.Column(db.DateTime, nullable=True)  # When AI analysis completed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_vetting_log_status_created', 'status', 'created_at'),
+    )
     
     # Relationship to match results
     job_matches = db.relationship('CandidateJobMatch', backref='vetting_log', lazy='dynamic',
