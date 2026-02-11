@@ -886,6 +886,19 @@ def seed_database(db, User):
         except Exception as e:
             logger.warning(f"⚠️ Vetting clean slate check failed: {str(e)}")
         
+        # AUTO-RELEASE: Release any stuck vetting lock on deploy
+        # When Render restarts the service, the previous lock becomes stale
+        try:
+            lock = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
+            if lock and lock.setting_value == 'true':
+                lock.setting_value = 'false'
+                db.session.commit()
+                logger.info("🔓 Auto-released stuck vetting lock on deploy")
+            else:
+                logger.debug("ℹ️ No stuck vetting lock found")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to check vetting lock: {str(e)}")
+        
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
     except Exception as e:

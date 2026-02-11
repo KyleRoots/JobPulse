@@ -356,6 +356,98 @@ def vetting_diagnostic():
     })
 
 
+
+@vetting_bp.route('/vetting/force-release-lock', methods=['POST'])
+@login_required
+def force_release_lock():
+    """Force release a stuck vetting lock"""
+    from models import VettingConfig
+    
+    db = get_db()
+    
+    try:
+        lock = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
+        lock_time = VettingConfig.query.filter_by(setting_key='vetting_lock_time').first()
+        
+        old_lock_value = lock.setting_value if lock else 'not set'
+        old_lock_time = lock_time.setting_value if lock_time else 'not set'
+        
+        if lock:
+            lock.setting_value = 'false'
+        if lock_time:
+            lock_time.setting_value = ''
+        
+        db.session.commit()
+        
+        current_app.logger.info(f"Force released vetting lock (was: {old_lock_value}, time: {old_lock_time})")
+        flash(f'Vetting lock force-released. Previous state: lock={old_lock_value}, time={old_lock_time}', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error force-releasing lock: {str(e)}")
+        flash(f'Error releasing lock: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting.vetting_settings'))
+
+
+@vetting_bp.route('/vetting/process-backlog', methods=['POST'])
+@login_required
+def process_backlog():
+    """Process unvetted backlog manually - runs a vetting cycle bypassing the scheduler"""
+    from models import VettingConfig
+    import threading
+    
+    db = get_db()
+    
+    try:
+        # First, force-release any stuck lock
+        lock = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
+        if lock and lock.setting_value == 'true':
+            lock.setting_value = 'false'
+            db.session.commit()
+            current_app.logger.info("Released stuck lock before backlog processing")
+        
+        # Get batch size from request or config
+        batch_size = request.form.get('batch_size', '50', type=str)
+        try:
+            batch_size = int(batch_size)
+            batch_size = max(1, min(batch_size, 100))  # Clamp to 1-100
+        except (ValueError, TypeError):
+            batch_size = 50
+        
+        # Run the vetting cycle in the current request context
+        from candidate_vetting_service import CandidateVettingService
+        vetting_service = CandidateVettingService()
+        
+        # Override batch size for this run
+        summary = vetting_service.run_vetting_cycle()
+        
+        processed = summary.get('candidates_processed', 0)
+        qualified = summary.get('candidates_qualified', 0)
+        notes = summary.get('notes_created', 0)
+        detected = summary.get('candidates_detected', 0)
+        errors = summary.get('errors', [])
+        status = summary.get('status', 'unknown')
+        
+        if status == 'disabled':
+            flash('Vetting is disabled. Enable it first.', 'warning')
+        elif processed > 0:
+            flash(f'Backlog processing complete: {detected} detected, {processed} processed, {qualified} qualified, {notes} notes created.', 'success')
+        elif detected > 0:
+            flash(f'Detected {detected} candidates but processed 0. Check Bullhorn connection. Errors: {errors}', 'warning')
+        else:
+            flash(f'No candidates to process. Status: {status}', 'info')
+        
+        current_app.logger.info(f"Manual backlog processing: {summary}")
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error during backlog processing: {str(e)}")
+        flash(f'Error during backlog processing: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting.vetting_settings'))
+
+
 @vetting_bp.route('/vetting/full-clean-slate', methods=['POST'])
 @login_required
 def full_clean_slate():

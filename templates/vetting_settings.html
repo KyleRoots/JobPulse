@@ -558,6 +558,21 @@
                         <i class="fas fa-undo me-1"></i>Reset Recent (6h)
                     </button>
                 </form>
+                <form action="{{ url_for('vetting.force_release_lock') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-warning btn-sm"
+                        onclick="return confirm('This will force-release any stuck vetting lock. Continue?')">
+                        <i class="fas fa-unlock me-1"></i>Release Lock
+                    </button>
+                </form>
+                <form action="{{ url_for('vetting.process_backlog') }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-success btn-sm" {% if not settings.vetting_enabled %}disabled{%
+                        endif %}
+                        onclick="return confirm('This will release any stuck lock and run a full vetting cycle now. Continue?')">
+                        <i class="fas fa-bolt me-1"></i>Process Backlog
+                    </button>
+                </form>
                 <form action="{{ url_for('vetting.run_vetting_now') }}" method="POST" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-primary btn-sm" {% if not settings.vetting_enabled %}disabled{%
@@ -926,7 +941,8 @@
                     title: 'Awaiting Vetting',
                     iconClass: 'fas fa-clock text-info',
                     badgeClass: 'bg-info',
-                    count: {{ stats.pending }}
+                    count: {{ stats.pending }
+        }
                 },
             'recommended': {
             section: recommendedSection,
