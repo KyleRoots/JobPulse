@@ -328,6 +328,11 @@ def vetting_diagnostic():
         })
     
     last_check = VettingConfig.query.filter_by(setting_key='last_check_timestamp').first()
+    last_run = VettingConfig.query.filter_by(setting_key='last_run_timestamp').first()
+    vetting_enabled = VettingConfig.query.filter_by(setting_key='vetting_enabled').first()
+    lock_in_progress = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
+    lock_time = VettingConfig.query.filter_by(setting_key='vetting_lock_time').first()
+    batch_size = VettingConfig.query.filter_by(setting_key='batch_size').first()
     
     return jsonify({
         'overall_stats': {
@@ -337,7 +342,14 @@ def vetting_diagnostic():
             'unvetted_eligible': stats.unvetted_eligible,
             'already_vetted': stats.already_vetted,
         },
-        'last_check_timestamp': last_check.setting_value if last_check else None,
+        'vetting_config': {
+            'vetting_enabled': vetting_enabled.setting_value if vetting_enabled else None,
+            'last_check_timestamp': last_check.setting_value if last_check else None,
+            'last_run_timestamp': last_run.setting_value if last_run else None,
+            'vetting_in_progress': lock_in_progress.setting_value if lock_in_progress else None,
+            'vetting_lock_time': lock_time.setting_value if lock_time else None,
+            'batch_size': batch_size.setting_value if batch_size else None,
+        },
         'records_above_threshold': records,
         'threshold': min_bh_id,
         'count': len(records)
