@@ -4048,9 +4048,9 @@ def run_vetting_health_check():
             
             # Get last successful cycle
             last_success = CandidateVettingLog.query.filter_by(status='completed').order_by(
-                CandidateVettingLog.processed_at.desc()
+                CandidateVettingLog.analyzed_at.desc()
             ).first()
-            last_successful_cycle = last_success.processed_at if last_success else None
+            last_successful_cycle = last_success.analyzed_at if last_success else None
             
             # Determine overall health
             is_healthy = bullhorn_status and openai_status and database_status and scheduler_status
