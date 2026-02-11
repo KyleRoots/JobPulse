@@ -270,6 +270,80 @@ def reset_recent_vetting():
     return redirect(url_for('vetting.vetting_settings'))
 
 
+
+@vetting_bp.route('/vetting/diagnostic')
+@login_required
+def vetting_diagnostic():
+    """Temporary diagnostic endpoint to investigate vetting backlog"""
+    from models import ParsedEmail, CandidateVettingLog, VettingConfig
+    from sqlalchemy import func, case
+    
+    db = get_db()
+    min_bh_id = request.args.get('min_bh_id', 4586546, type=int)
+    
+    # Overall ParsedEmail stats
+    stats = db.session.query(
+        func.count(ParsedEmail.id).label('total'),
+        func.count(case((ParsedEmail.status == 'completed', 1))).label('completed'),
+        func.count(case((
+            (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)),
+            1
+        ))).label('with_bh_id'),
+        func.count(case((
+            (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)) & (ParsedEmail.vetted_at.is_(None)),
+            1
+        ))).label('unvetted_eligible'),
+        func.count(case((
+            (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)) & (ParsedEmail.vetted_at.isnot(None)),
+            1
+        ))).label('already_vetted'),
+    ).first()
+    
+    # Records with BH ID above threshold
+    above_threshold = ParsedEmail.query.filter(
+        ParsedEmail.bullhorn_candidate_id >= min_bh_id,
+        ParsedEmail.status == 'completed'
+    ).order_by(ParsedEmail.bullhorn_candidate_id.desc()).limit(100).all()
+    
+    records = []
+    for pe in above_threshold:
+        vetting_log = CandidateVettingLog.query.filter_by(
+            bullhorn_candidate_id=pe.bullhorn_candidate_id
+        ).order_by(CandidateVettingLog.created_at.desc()).first()
+        
+        records.append({
+            'id': pe.id,
+            'bullhorn_candidate_id': pe.bullhorn_candidate_id,
+            'bullhorn_job_id': pe.bullhorn_job_id,
+            'candidate_name': pe.candidate_name,
+            'status': pe.status,
+            'vetted_at': pe.vetted_at.isoformat() if pe.vetted_at else None,
+            'processed_at': pe.processed_at.isoformat() if pe.processed_at else None,
+            'received_at': pe.received_at.isoformat() if pe.received_at else None,
+            'is_duplicate': pe.is_duplicate_candidate,
+            'has_vetting_log': vetting_log is not None,
+            'vetting_log_status': vetting_log.status if vetting_log else None,
+            'vetting_log_created': vetting_log.created_at.isoformat() if vetting_log else None,
+            'note_created': vetting_log.note_created if vetting_log else None,
+        })
+    
+    last_check = VettingConfig.query.filter_by(setting_key='last_check_timestamp').first()
+    
+    return jsonify({
+        'overall_stats': {
+            'total_parsed_emails': stats.total,
+            'completed': stats.completed,
+            'with_bullhorn_id': stats.with_bh_id,
+            'unvetted_eligible': stats.unvetted_eligible,
+            'already_vetted': stats.already_vetted,
+        },
+        'last_check_timestamp': last_check.setting_value if last_check else None,
+        'records_above_threshold': records,
+        'threshold': min_bh_id,
+        'count': len(records)
+    })
+
+
 @vetting_bp.route('/vetting/full-clean-slate', methods=['POST'])
 @login_required
 def full_clean_slate():
