@@ -1315,18 +1315,23 @@ Format as a bullet-point list. Be specific and concise."""
             
             recent_logs_by_candidate = {}
             if batch_candidate_ids:
+                # Build a mapping of (candidate_id, job_id) → recent log
+                # This allows re-vetting the same candidate for a DIFFERENT job
                 recent_logs = CandidateVettingLog.query.filter(
                     CandidateVettingLog.bullhorn_candidate_id.in_(batch_candidate_ids),
                     CandidateVettingLog.created_at >= recent_cutoff
                 ).all()
                 for log in recent_logs:
-                    recent_logs_by_candidate[log.bullhorn_candidate_id] = log
+                    key = (log.bullhorn_candidate_id, log.applied_job_id)
+                    recent_logs_by_candidate[key] = log
             
             for parsed_email in unvetted_emails:
                 candidate_id = parsed_email.bullhorn_candidate_id
                 
                 # Check pre-fetched recent vetting logs (no per-candidate query)
-                existing_log = recent_logs_by_candidate.get(candidate_id)
+                existing_log = recent_logs_by_candidate.get(
+                    (candidate_id, parsed_email.bullhorn_job_id)
+                )
                 
                 if existing_log:
                     # Only skip if recently completed or failed (within the hour)
@@ -2112,20 +2117,20 @@ CRITICAL RULES:
         
         logging.info(f"🔍 Processing candidate: {candidate_name} (ID: {candidate_id})")
         
-        # Create or get vetting log entry
-        vetting_log = CandidateVettingLog.query.filter_by(
-            bullhorn_candidate_id=candidate_id
-        ).first()
+        # Always create a FRESH vetting log for each application
+        # This ensures returning applicants get a new analysis + Bullhorn note
+        parsed_email_id = candidate.get('_parsed_email_id')
+        applied_job_id = candidate.get('_applied_job_id')
         
-        if not vetting_log:
-            vetting_log = CandidateVettingLog(
-                bullhorn_candidate_id=candidate_id,
-                candidate_name=candidate_name,
-                candidate_email=candidate_email,
-                status='processing'
-            )
-            db.session.add(vetting_log)
-            db.session.commit()
+        vetting_log = CandidateVettingLog(
+            bullhorn_candidate_id=candidate_id,
+            candidate_name=candidate_name,
+            candidate_email=candidate_email,
+            status='processing',
+            applied_job_id=applied_job_id
+        )
+        db.session.add(vetting_log)
+        db.session.commit()
         
         try:
             # Get which job they applied to
