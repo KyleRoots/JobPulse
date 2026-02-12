@@ -4,6 +4,9 @@ Test returning applicant re-vetting behavior.
 Ensures that when a candidate re-applies (same or different job), a fresh
 CandidateVettingLog is created and a new Bullhorn note would be written,
 rather than silently reusing the old completed log.
+
+Also tests the ParsedEmail.id-linked dedup to prevent duplicate loop vetting
+while allowing valid re-applications.
 """
 
 import pytest
@@ -37,6 +40,7 @@ class TestReturningApplicantRevetting:
                 candidate_email='juan@example.com',
                 status='completed',
                 applied_job_id=job_id,
+                parsed_email_id=5001,  # Linked to a specific ParsedEmail
                 note_created=True,
                 created_at=datetime.utcnow() - timedelta(hours=24)
             )
@@ -69,7 +73,7 @@ class TestReturningApplicantRevetting:
                 'lastName': 'Lopez',
                 'email': 'juan@example.com',
                 'description': 'Software engineer with 5 years experience in Python and Flask...' * 10,
-                '_parsed_email_id': 2962,
+                '_parsed_email_id': 5002,  # NEW ParsedEmail (re-application)
                 '_applied_job_id': job_id,
                 '_is_duplicate': True,
             }
@@ -93,6 +97,7 @@ class TestReturningApplicantRevetting:
                 "New log's note_created must start as False/None so a new Bullhorn note is written"
             )
             assert new_log.applied_job_id == job_id
+            assert new_log.parsed_email_id == 5002, "New log must be linked to the new ParsedEmail ID"
 
             # Clean up
             for log in all_logs:
@@ -100,35 +105,132 @@ class TestReturningApplicantRevetting:
             db.session.commit()
 
     @patch('candidate_vetting_service.BullhornService')
-    def test_detect_unvetted_scopes_dedup_to_candidate_and_job(self, mock_bullhorn_cls, app):
+    def test_detect_unvetted_dedup_by_parsed_email_id(self, mock_bullhorn_cls, app):
         """
-        The 1-hour dedup in detect_unvetted_applications is keyed on
-        (candidate_id, job_id). A recent completed log for Job A should NOT
-        block vetting for the same candidate applying to Job B.
+        The 3-run dedup scenario:
+        Run 1: Candidate vets successfully (ParsedEmail ID 100) → PROCESS
+        Run 2: Same ParsedEmail ID 100 still unvetted → SKIP (duplicate loop)
+        Run 3: New ParsedEmail ID 200 (re-application) → PROCESS
         """
         from app import db
         from models import CandidateVettingLog, ParsedEmail
         from candidate_vetting_service import CandidateVettingService
 
         with app.app_context():
-            candidate_id = 999002
-            job_a = 11111
-            job_b = 22222
+            candidate_id = 999003
+            job_id = 33333
 
-            # --- Arrange: recent completed log for Job A (within 1 hour) ---
-            recent_log = CandidateVettingLog(
+            # --- Arrange: Create ParsedEmail 100 (first application) ---
+            pe_100 = ParsedEmail(
+                sender_email='noreply@indeed.com',
+                recipient_email='jobs@lyntrix.com',
+                subject='Application Run 1',
+                status='completed',
+                bullhorn_candidate_id=candidate_id,
+                bullhorn_job_id=job_id,
+                vetted_at=None,  # Not yet vetted
+                received_at=datetime.utcnow() - timedelta(minutes=30),
+                processed_at=datetime.utcnow() - timedelta(minutes=25),
+            )
+            db.session.add(pe_100)
+            db.session.commit()
+            pe_100_id = pe_100.id
+
+            # --- Run 1: Should detect and process ---
+            mock_bullhorn = Mock()
+            mock_bullhorn.authenticate.return_value = True
+            mock_bullhorn.base_url = 'https://rest.bullhorn.com/rest-services/'
+            mock_bullhorn.rest_token = 'fake-token'
+            mock_bullhorn.session = Mock()
+
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                'data': {
+                    'id': candidate_id,
+                    'firstName': 'Test',
+                    'lastName': 'Candidate',
+                    'email': 'test@example.com',
+                }
+            }
+            mock_bullhorn.session.get.return_value = mock_response
+            mock_bullhorn_cls.return_value = mock_bullhorn
+
+            service = CandidateVettingService(bullhorn_service=mock_bullhorn)
+            candidates_run1 = service.detect_unvetted_applications(limit=25)
+
+            assert any(c.get('id') == candidate_id for c in candidates_run1), (
+                f"Run 1: Candidate {candidate_id} should be detected for first-time vetting"
+            )
+
+            # Simulate vetting completion: create a completed log linked to pe_100
+            vetting_log = CandidateVettingLog(
                 bullhorn_candidate_id=candidate_id,
                 candidate_name='Test Candidate',
                 candidate_email='test@example.com',
                 status='completed',
-                applied_job_id=job_a,
+                applied_job_id=job_id,
+                parsed_email_id=pe_100_id,
                 note_created=True,
-                created_at=datetime.utcnow() - timedelta(minutes=30)
+                created_at=datetime.utcnow()
             )
-            db.session.add(recent_log)
+            db.session.add(vetting_log)
+            # DON'T set vetted_at on the ParsedEmail (simulating the bug scenario)
+            db.session.commit()
 
-            # Two ParsedEmail records: one vetted (Job A), one unvetted (Job B)
-            pe_vetted = ParsedEmail(
+            # --- Run 2: Same ParsedEmail, should SKIP ---
+            candidates_run2 = service.detect_unvetted_applications(limit=25)
+            run2_ids = [c.get('id') for c in candidates_run2]
+
+            assert candidate_id not in run2_ids, (
+                f"Run 2: Candidate {candidate_id} should be SKIPPED — "
+                f"vetting log already exists for ParsedEmail {pe_100_id}"
+            )
+
+            # --- Run 3: New ParsedEmail (re-application) → should PROCESS ---
+            pe_200 = ParsedEmail(
+                sender_email='noreply@indeed.com',
+                recipient_email='jobs@lyntrix.com',
+                subject='Application Run 3 - Re-application',
+                status='completed',
+                bullhorn_candidate_id=candidate_id,
+                bullhorn_job_id=job_id,
+                vetted_at=None,  # New, unvetted
+                received_at=datetime.utcnow() - timedelta(minutes=5),
+                processed_at=datetime.utcnow() - timedelta(minutes=2),
+            )
+            db.session.add(pe_200)
+            db.session.commit()
+
+            candidates_run3 = service.detect_unvetted_applications(limit=25)
+
+            assert any(c.get('id') == candidate_id for c in candidates_run3), (
+                f"Run 3: Candidate {candidate_id} should be detected for re-application "
+                f"(new ParsedEmail ID {pe_200.id} is different from {pe_100_id})"
+            )
+
+            # Clean up
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            ParsedEmail.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            db.session.commit()
+
+    @patch('candidate_vetting_service.BullhornService')
+    def test_detect_unvetted_allows_different_job_same_candidate(self, mock_bullhorn_cls, app):
+        """
+        A candidate applying to Job B should be vetted even if they were
+        already vetted for Job A — as long as it's a different ParsedEmail.
+        """
+        from app import db
+        from models import CandidateVettingLog, ParsedEmail
+        from candidate_vetting_service import CandidateVettingService
+
+        with app.app_context():
+            candidate_id = 999004
+            job_a = 11111
+            job_b = 22222
+
+            # --- Arrange: completed log for Job A linked to ParsedEmail 300 ---
+            pe_job_a = ParsedEmail(
                 sender_email='noreply@indeed.com',
                 recipient_email='jobs@lyntrix.com',
                 subject='Application for Job A',
@@ -139,7 +241,23 @@ class TestReturningApplicantRevetting:
                 received_at=datetime.utcnow() - timedelta(minutes=45),
                 processed_at=datetime.utcnow() - timedelta(minutes=40),
             )
-            pe_unvetted = ParsedEmail(
+            db.session.add(pe_job_a)
+            db.session.commit()
+
+            recent_log = CandidateVettingLog(
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Test Candidate',
+                candidate_email='test@example.com',
+                status='completed',
+                applied_job_id=job_a,
+                parsed_email_id=pe_job_a.id,
+                note_created=True,
+                created_at=datetime.utcnow() - timedelta(minutes=30)
+            )
+            db.session.add(recent_log)
+
+            # Unvetted ParsedEmail for Job B (different ParsedEmail ID)
+            pe_job_b = ParsedEmail(
                 sender_email='noreply@indeed.com',
                 recipient_email='jobs@lyntrix.com',
                 subject='Application for Job B',
@@ -150,7 +268,7 @@ class TestReturningApplicantRevetting:
                 received_at=datetime.utcnow() - timedelta(minutes=10),
                 processed_at=datetime.utcnow() - timedelta(minutes=5),
             )
-            db.session.add_all([pe_vetted, pe_unvetted])
+            db.session.add(pe_job_b)
             db.session.commit()
 
             # --- Act ---
@@ -160,7 +278,6 @@ class TestReturningApplicantRevetting:
             mock_bullhorn.rest_token = 'fake-token'
             mock_bullhorn.session = Mock()
 
-            # Mock the Bullhorn candidate fetch to return candidate data
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
@@ -181,11 +298,11 @@ class TestReturningApplicantRevetting:
             candidate_ids_in_queue = [c.get('id') for c in candidates]
             assert candidate_id in candidate_ids_in_queue, (
                 f"Candidate {candidate_id} should be queued for Job B vetting, "
-                f"even though Job A was recently vetted. Got queue: {candidate_ids_in_queue}"
+                f"even though Job A was recently vetted (different ParsedEmail ID). "
+                f"Got queue: {candidate_ids_in_queue}"
             )
 
             # Clean up
-            db.session.delete(recent_log)
-            db.session.delete(pe_vetted)
-            db.session.delete(pe_unvetted)
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            ParsedEmail.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
             db.session.commit()

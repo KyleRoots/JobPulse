@@ -540,6 +540,7 @@ class CandidateVettingLog(db.Model):
     candidate_email = db.Column(db.String(255), nullable=True)
     applied_job_id = db.Column(db.Integer, nullable=True)  # Job they originally applied to
     applied_job_title = db.Column(db.String(500), nullable=True)
+    parsed_email_id = db.Column(db.Integer, nullable=True, index=True)  # Links to specific ParsedEmail that triggered vetting
     
     # Resume data
     resume_text = db.Column(db.Text, nullable=True)  # Extracted resume content

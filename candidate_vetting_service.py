@@ -1191,17 +1191,29 @@ Format as a bullet-point list. Be specific and concise."""
                 if not candidate_id:
                     continue
                     
-                # Check if RECENTLY vetted (within last hour) to prevent duplicate processing
-                # But allow re-vetting for candidates who apply again days/weeks later
-                from datetime import timedelta
-                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
-                
-                recent_vetting = CandidateVettingLog.query.filter(
+                # Check for existing completed vetting + compare dateLastModified
+                # Re-vet only if candidate profile was updated since last vetting
+                last_vetting = CandidateVettingLog.query.filter(
                     CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.created_at >= recent_cutoff
-                ).first()
+                    CandidateVettingLog.status.in_(['completed', 'failed'])
+                ).order_by(CandidateVettingLog.created_at.desc()).first()
                 
-                if not recent_vetting:
+                if last_vetting:
+                    # Compare Bullhorn dateLastModified with our last vetting time
+                    date_modified_ms = candidate.get('dateLastModified')
+                    if date_modified_ms:
+                        date_modified = datetime.utcfromtimestamp(date_modified_ms / 1000)
+                        if date_modified > last_vetting.created_at:
+                            logging.info(f"Candidate {candidate_id} modified after last vetting ({date_modified} > {last_vetting.created_at}), re-vetting")
+                            new_candidates.append(candidate)
+                            continue
+                    # Fallback: 24-hour dedup window if dateLastModified unavailable
+                    hours_since = (datetime.utcnow() - last_vetting.created_at).total_seconds() / 3600
+                    if hours_since >= 24:
+                        logging.info(f"Candidate {candidate_id} last vetted {hours_since:.0f}h ago (no dateLastModified), re-checking")
+                        new_candidates.append(candidate)
+                else:
+                    # Never vetted — process
                     new_candidates.append(candidate)
                     logging.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
             
@@ -1270,15 +1282,36 @@ Format as a bullet-point list. Be specific and concise."""
                 if not candidate_id:
                     continue
                 
-                # 2-hour window for Pandologic candidates
-                recent_cutoff = datetime.utcnow() - timedelta(hours=2)
-                
-                recent_vetting = CandidateVettingLog.query.filter(
+                # Check for existing completed vetting
+                last_vetting = CandidateVettingLog.query.filter(
                     CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.created_at >= recent_cutoff
-                ).first()
+                    CandidateVettingLog.status.in_(['completed', 'failed'])
+                ).order_by(CandidateVettingLog.created_at.desc()).first()
                 
-                if not recent_vetting:
+                if last_vetting:
+                    # Compare Bullhorn dateLastModified with our last vetting time
+                    date_modified_ms = candidate.get('dateLastModified')
+                    if date_modified_ms:
+                        date_modified = datetime.utcfromtimestamp(date_modified_ms / 1000)
+                        if date_modified > last_vetting.created_at:
+                            logging.info(f"🔵 Pandologic candidate {candidate_id} modified after last vetting, re-vetting")
+                            new_candidates.append(candidate)
+                            continue
+                    # Fallback: 24-hour dedup window if dateLastModified unavailable
+                    hours_since = (datetime.utcnow() - last_vetting.created_at).total_seconds() / 3600
+                    if hours_since >= 24:
+                        logging.info(f"🔵 Pandologic candidate {candidate_id} last vetted {hours_since:.0f}h ago, re-checking")
+                        new_candidates.append(candidate)
+                        continue
+                    # Also check if already handled via ParsedEmail path
+                    already_handled = ParsedEmail.query.filter(
+                        ParsedEmail.bullhorn_candidate_id == candidate_id,
+                        ParsedEmail.vetted_at.isnot(None)
+                    ).first()
+                    if not already_handled:
+                        logging.debug(f"Pandologic candidate {candidate_id} vetted recently, no ParsedEmail — skipping")
+                else:
+                    # Never vetted — process
                     new_candidates.append(candidate)
                     logging.info(f"🔵 Pandologic candidate detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
             
@@ -1367,58 +1400,31 @@ Format as a bullet-point list. Be specific and concise."""
             candidates_to_vet = []
             already_vetted_ids = []
             
-            # BATCH: Pre-fetch all recent vetting logs for candidate IDs in this batch (1 query instead of N)
-            from datetime import timedelta
-            recent_cutoff = datetime.utcnow() - timedelta(hours=1)
-            batch_candidate_ids = [pe.bullhorn_candidate_id for pe in unvetted_emails if pe.bullhorn_candidate_id]
+            # BATCH: Pre-fetch vetting logs linked to these specific ParsedEmail IDs
+            batch_email_ids = [pe.id for pe in unvetted_emails]
             
-            recent_logs_by_candidate = {}
-            if batch_candidate_ids:
-                # Build a mapping of (candidate_id, job_id) → recent log
-                # This allows re-vetting the same candidate for a DIFFERENT job
-                recent_logs = CandidateVettingLog.query.filter(
-                    CandidateVettingLog.bullhorn_candidate_id.in_(batch_candidate_ids),
-                    CandidateVettingLog.created_at >= recent_cutoff
+            vetted_email_ids = set()
+            if batch_email_ids:
+                # Check if a vetting log already exists for these specific ParsedEmail IDs
+                # This is the key dedup: same ParsedEmail.id = duplicate loop, different = valid re-application
+                existing_logs = CandidateVettingLog.query.filter(
+                    CandidateVettingLog.parsed_email_id.in_(batch_email_ids),
+                    CandidateVettingLog.status.in_(['completed', 'failed', 'processing'])
                 ).all()
-                for log in recent_logs:
-                    key = (log.bullhorn_candidate_id, log.applied_job_id)
-                    recent_logs_by_candidate[key] = log
+                vetted_email_ids = {log.parsed_email_id for log in existing_logs}
+                if vetted_email_ids:
+                    logging.info(f"Found {len(vetted_email_ids)} ParsedEmails already linked to vetting logs")
             
             # Filter out already-vetted before making any Bullhorn API calls
             candidates_needing_details = []
             for parsed_email in unvetted_emails:
                 candidate_id = parsed_email.bullhorn_candidate_id
                 
-                # Check pre-fetched recent vetting logs (no per-candidate query)
-                existing_log = recent_logs_by_candidate.get(
-                    (candidate_id, parsed_email.bullhorn_job_id)
-                )
-                
-                if existing_log:
-                    # Only skip if recently completed or failed (within the hour)
-                    if existing_log.status in ('completed', 'failed'):
-                        already_vetted_ids.append(parsed_email.id)
-                        logging.info(f"Candidate {candidate_id} recently vetted (status={existing_log.status}), marking for skip")
-                        continue
-                    
-                    # Reset stuck 'processing' candidates (older than 10 minutes)
-                    if existing_log.status == 'processing':
-                        processing_age = (datetime.utcnow() - existing_log.created_at).total_seconds()
-                        if processing_age > 600:  # 10 minutes
-                            logging.warning(f"Resetting stuck candidate {candidate_id} (processing for {processing_age:.0f}s)")
-                            existing_log.status = 'pending'
-                            existing_log.error_message = f"Reset from stuck processing state after {processing_age:.0f}s"
-                            db.session.commit()
-                        else:
-                            # Still processing recently, skip
-                            logging.info(f"Candidate {candidate_id} still processing (started {processing_age:.0f}s ago), skipping")
-                            continue
-                    
-                    # Pending status - delete old log and reprocess
-                    if existing_log.status == 'pending':
-                        logging.info(f"Candidate {candidate_id} has pending log, will reprocess")
-                        db.session.delete(existing_log)
-                        db.session.commit()
+                # Dedup: skip if a vetting log already exists for THIS specific ParsedEmail
+                if parsed_email.id in vetted_email_ids:
+                    already_vetted_ids.append(parsed_email.id)
+                    logging.info(f"Candidate {candidate_id} already vetted for ParsedEmail {parsed_email.id}, skipping (duplicate loop prevention)")
+                    continue
                 
                 candidates_needing_details.append(parsed_email)
             
@@ -2233,7 +2239,8 @@ CRITICAL RULES:
                 candidate_name=candidate_name,
                 candidate_email=candidate_email,
                 status='processing',
-                applied_job_id=applied_job_id
+                applied_job_id=applied_job_id,
+                parsed_email_id=parsed_email_id
             )
             db.session.add(vetting_log)
             db.session.commit()
