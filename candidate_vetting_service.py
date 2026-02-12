@@ -2380,11 +2380,44 @@ CRITICAL RULES:
                 # On error, proceed with all jobs (safe fallback)
             
             if not jobs_to_analyze:
-                logging.info(f"All jobs filtered by embedding pre-filter for candidate {candidate_id} — no GPT calls needed")
-                vetting_log.status = 'completed'
-                vetting_log.analyzed_at = datetime.utcnow()
-                db.session.commit()
-                return vetting_log
+                # SAFEGUARD: Never allow 100% filter rate — fall back to top 5
+                # jobs by similarity so GPT can still produce real scores.
+                # A 100% block likely means the threshold is too aggressive.
+                logging.warning(
+                    f"⚠️ Embedding pre-filter blocked ALL {pre_filter_count} jobs for "
+                    f"candidate {candidate_id} ({candidate_name}). "
+                    f"Falling back to top 5 jobs by similarity to avoid 0% scores."
+                )
+                # Re-run filter with threshold=0 to get similarity-ranked jobs
+                try:
+                    # Get all jobs with their similarities by temporarily using 0 threshold
+                    from models import EmbeddingFilterLog
+                    filter_logs = EmbeddingFilterLog.query.filter_by(
+                        vetting_log_id=vetting_log.id
+                    ).order_by(EmbeddingFilterLog.similarity_score.desc()).limit(5).all()
+                    
+                    if filter_logs:
+                        # Re-include the top 5 most similar jobs
+                        top_job_ids = {log.bullhorn_job_id for log in filter_logs}
+                        jobs_to_analyze = [
+                            job for job in jobs
+                            if job.get('id') in top_job_ids
+                        ]
+                        top_sims = [f"{log.job_title}: {log.similarity_score:.4f}" for log in filter_logs]
+                        logging.info(
+                            f"🔄 Fallback: passing top {len(jobs_to_analyze)} jobs to GPT: "
+                            f"{', '.join(top_sims)}"
+                        )
+                except Exception as fb_e:
+                    logging.error(f"Fallback failed: {str(fb_e)}")
+                
+                if not jobs_to_analyze:
+                    # True fallback: even the similarity lookup failed
+                    logging.info(f"All jobs filtered by embedding pre-filter for candidate {candidate_id} — no GPT calls needed")
+                    vetting_log.status = 'completed'
+                    vetting_log.analyzed_at = datetime.utcnow()
+                    db.session.commit()
+                    return vetting_log
             
             logging.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
             logging.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
