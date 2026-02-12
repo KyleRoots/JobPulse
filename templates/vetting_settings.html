@@ -809,8 +809,8 @@
                         </div>
                         {% endfor %}
                     </div>
-                    {% if recommended|length > 30 %}
-                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{ recommended|length }}
+                    {% if recommended_candidates|length > 30 %}
+                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{ recommended_candidates|length }}
                             recommended candidates</small></p>
                     {% endif %}
                     {% else %}
@@ -906,8 +906,9 @@
                         </div>
                         {% endfor %}
                     </div>
-                    {% if not_recommended|length > 30 %}
-                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{ not_recommended|length }} not
+                    {% if not_recommended_candidates|length > 30 %}
+                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{
+                            not_recommended_candidates|length }} not
                             recommended candidates</small></p>
                     {% endif %}
                     {% else %}
@@ -947,6 +948,7 @@
                     badgeClass: 'bg-info',
                     count: {{ stats.pending }
         }
+                }
                 },
             'recommended': {
             section: recommendedSection,
