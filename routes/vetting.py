@@ -32,7 +32,8 @@ def vetting_settings():
         'match_threshold': 80,
         'batch_size': 25,
         'admin_notification_email': '',
-        'health_alert_email': ''
+        'health_alert_email': '',
+        'embedding_similarity_threshold': 0.25
     }
     
     all_configs = VettingConfig.query.filter(
@@ -50,6 +51,11 @@ def vetting_settings():
                     settings[key] = int(value)
                 except (ValueError, TypeError):
                     settings[key] = 80 if key == 'match_threshold' else 25
+            elif key == 'embedding_similarity_threshold':
+                try:
+                    settings[key] = float(value)
+                except (ValueError, TypeError):
+                    settings[key] = 0.25
             else:
                 settings[key] = value or ''
     
@@ -146,6 +152,7 @@ def save_vetting_settings():
         batch_size = request.form.get('batch_size', '25')
         admin_email = request.form.get('admin_notification_email', '')
         health_alert_email = request.form.get('health_alert_email', '')
+        embedding_threshold = request.form.get('embedding_similarity_threshold', '0.25')
         
         # Validate threshold
         try:
@@ -163,6 +170,14 @@ def save_vetting_settings():
         except ValueError:
             batch = 25
         
+        # Validate embedding similarity threshold
+        try:
+            emb_thresh = float(embedding_threshold)
+            if emb_thresh < 0.0 or emb_thresh > 1.0:
+                emb_thresh = 0.25
+        except ValueError:
+            emb_thresh = 0.25
+        
         # Update settings
         settings_to_save = [
             ('vetting_enabled', 'true' if vetting_enabled else 'false'),
@@ -170,7 +185,8 @@ def save_vetting_settings():
             ('match_threshold', str(threshold)),
             ('batch_size', str(batch)),
             ('admin_notification_email', admin_email),
-            ('health_alert_email', health_alert_email)
+            ('health_alert_email', health_alert_email),
+            ('embedding_similarity_threshold', str(emb_thresh))
         ]
         
         for key, value in settings_to_save:
