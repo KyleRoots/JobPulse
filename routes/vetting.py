@@ -1131,3 +1131,267 @@ def extract_all_job_requirements():
         flash(f'Error: {str(e)}', 'error')
     
     return redirect(url_for('vetting.vetting_settings'))
+
+
+# ═══════════════════════════════════════════════════════════════
+# EMBEDDING FILTER MONITORING ROUTES
+# ═══════════════════════════════════════════════════════════════
+
+@vetting_bp.route('/vetting/send-digest', methods=['POST'])
+@login_required
+def send_embedding_digest():
+    """Manually trigger the daily embedding filter digest email."""
+    try:
+        from embedding_digest_service import send_daily_digest
+        
+        success = send_daily_digest()
+        
+        if success:
+            flash('Embedding filter digest email sent successfully!', 'success')
+        else:
+            flash('Failed to send digest email. Check SendGrid configuration.', 'error')
+            
+    except Exception as e:
+        current_app.logger.error(f"Error sending embedding digest: {str(e)}")
+        flash(f'Error sending digest: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting.embedding_audit'))
+
+
+@vetting_bp.route('/vetting/embedding-audit')
+@login_required
+def embedding_audit():
+    """Embedding filter audit page — filtered pairs and escalations."""
+    from models import EmbeddingFilterLog, EscalationLog, CandidateJobMatch
+    from sqlalchemy import func
+    
+    db = get_db()
+    
+    # Parse date range filters
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    active_tab = request.args.get('tab', 'filtered')
+    
+    # Default to last 7 days
+    if not date_from:
+        from_date = datetime.utcnow() - timedelta(days=7)
+    else:
+        try:
+            from_date = datetime.strptime(date_from, '%Y-%m-%d')
+        except ValueError:
+            from_date = datetime.utcnow() - timedelta(days=7)
+    
+    if not date_to:
+        to_date = datetime.utcnow()
+    else:
+        try:
+            to_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+        except ValueError:
+            to_date = datetime.utcnow()
+    
+    # Parse similarity range filter
+    try:
+        sim_min = float(request.args.get('sim_min', '0.0'))
+    except (ValueError, TypeError):
+        sim_min = 0.0
+    try:
+        sim_max = float(request.args.get('sim_max', '1.0'))
+    except (ValueError, TypeError):
+        sim_max = 1.0
+    
+    # Parse score band filter for escalations
+    score_band = request.args.get('score_band', 'all')
+    
+    # ─── Filtered Pairs Tab ───
+    filter_query = EmbeddingFilterLog.query.filter(
+        EmbeddingFilterLog.filtered_at >= from_date,
+        EmbeddingFilterLog.filtered_at <= to_date
+    )
+    if sim_min > 0:
+        filter_query = filter_query.filter(EmbeddingFilterLog.similarity_score >= sim_min)
+    if sim_max < 1.0:
+        filter_query = filter_query.filter(EmbeddingFilterLog.similarity_score <= sim_max)
+    
+    sort_by = request.args.get('sort', 'date')
+    if sort_by == 'similarity':
+        filtered_pairs = filter_query.order_by(EmbeddingFilterLog.similarity_score.desc()).limit(500).all()
+    else:
+        filtered_pairs = filter_query.order_by(EmbeddingFilterLog.filtered_at.desc()).limit(500).all()
+    
+    # ─── Escalations Tab ───
+    esc_query = EscalationLog.query.filter(
+        EscalationLog.escalated_at >= from_date,
+        EscalationLog.escalated_at <= to_date
+    )
+    
+    if score_band == '60-69':
+        esc_query = esc_query.filter(EscalationLog.mini_score >= 60, EscalationLog.mini_score < 70)
+    elif score_band == '70-79':
+        esc_query = esc_query.filter(EscalationLog.mini_score >= 70, EscalationLog.mini_score < 80)
+    elif score_band == '80-85':
+        esc_query = esc_query.filter(EscalationLog.mini_score >= 80, EscalationLog.mini_score <= 85)
+    
+    esc_sort = request.args.get('esc_sort', 'date')
+    if esc_sort == 'delta':
+        escalations = esc_query.order_by(EscalationLog.score_delta.desc()).limit(500).all()
+    else:
+        escalations = esc_query.order_by(EscalationLog.escalated_at.desc()).limit(500).all()
+    
+    # ─── Summary Banner (today's stats) ───
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    today_filtered = EmbeddingFilterLog.query.filter(
+        EmbeddingFilterLog.filtered_at >= today_start
+    ).count()
+    
+    today_escalated = EscalationLog.query.filter(
+        EscalationLog.escalated_at >= today_start
+    ).count()
+    
+    today_passed = CandidateJobMatch.query.filter(
+        CandidateJobMatch.created_at >= today_start
+    ).count()
+    
+    today_total = today_filtered + today_passed
+    today_rate = round((today_filtered / today_total * 100), 1) if today_total > 0 else 0.0
+    
+    # Estimated savings
+    savings_per_filter = 0.003 - 0.00002  # GPT-4o-mini minus embedding
+    savings_per_pass = 0.03 - 0.003       # GPT-4o minus GPT-4o-mini
+    today_savings = round(today_filtered * savings_per_filter + today_passed * savings_per_pass, 2)
+    
+    summary = {
+        'today_filtered': today_filtered,
+        'today_escalated': today_escalated,
+        'today_total': today_total,
+        'today_rate': today_rate,
+        'today_savings': today_savings,
+    }
+    
+    return render_template('embedding_audit.html',
+                          filtered_pairs=filtered_pairs,
+                          escalations=escalations,
+                          summary=summary,
+                          date_from=date_from or from_date.strftime('%Y-%m-%d'),
+                          date_to=date_to or '',
+                          sim_min=sim_min,
+                          sim_max=sim_max,
+                          score_band=score_band,
+                          sort=sort_by,
+                          esc_sort=esc_sort,
+                          active_tab=active_tab,
+                          active_page='vetting')
+
+
+@vetting_bp.route('/vetting/embedding-audit/filtered-csv')
+@login_required
+def export_filtered_csv():
+    """Export filtered pairs as CSV."""
+    from models import EmbeddingFilterLog
+    from flask import Response
+    import csv
+    import io
+    
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    
+    if not date_from:
+        from_date = datetime.utcnow() - timedelta(days=7)
+    else:
+        try:
+            from_date = datetime.strptime(date_from, '%Y-%m-%d')
+        except ValueError:
+            from_date = datetime.utcnow() - timedelta(days=7)
+    
+    if not date_to:
+        to_date = datetime.utcnow()
+    else:
+        try:
+            to_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+        except ValueError:
+            to_date = datetime.utcnow()
+    
+    logs = EmbeddingFilterLog.query.filter(
+        EmbeddingFilterLog.filtered_at >= from_date,
+        EmbeddingFilterLog.filtered_at <= to_date
+    ).order_by(EmbeddingFilterLog.filtered_at.desc()).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Date', 'Candidate ID', 'Candidate Name', 'Job ID', 'Job Title', 
+                     'Similarity Score', 'Threshold', 'Resume Snippet'])
+    
+    for log in logs:
+        writer.writerow([
+            log.filtered_at.strftime('%Y-%m-%d %H:%M') if log.filtered_at else '',
+            log.bullhorn_candidate_id,
+            log.candidate_name or '',
+            log.bullhorn_job_id,
+            log.job_title or '',
+            f'{log.similarity_score:.4f}' if log.similarity_score else '',
+            f'{log.threshold_used:.2f}' if log.threshold_used else '',
+            (log.resume_snippet or '')[:200]
+        ])
+    
+    response = Response(output.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = f'attachment; filename=filtered_pairs_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+    return response
+
+
+@vetting_bp.route('/vetting/embedding-audit/escalations-csv')
+@login_required
+def export_escalations_csv():
+    """Export escalations as CSV."""
+    from models import EscalationLog
+    from flask import Response
+    import csv
+    import io
+    
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    
+    if not date_from:
+        from_date = datetime.utcnow() - timedelta(days=7)
+    else:
+        try:
+            from_date = datetime.strptime(date_from, '%Y-%m-%d')
+        except ValueError:
+            from_date = datetime.utcnow() - timedelta(days=7)
+    
+    if not date_to:
+        to_date = datetime.utcnow()
+    else:
+        try:
+            to_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+        except ValueError:
+            to_date = datetime.utcnow()
+    
+    logs = EscalationLog.query.filter(
+        EscalationLog.escalated_at >= from_date,
+        EscalationLog.escalated_at <= to_date
+    ).order_by(EscalationLog.escalated_at.desc()).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Date', 'Candidate ID', 'Candidate Name', 'Job ID', 'Job Title',
+                     'GPT-4o-mini Score', 'GPT-4o Score', 'Delta', 'Material Change', 
+                     'Crossed Threshold', 'Threshold'])
+    
+    for log in logs:
+        writer.writerow([
+            log.escalated_at.strftime('%Y-%m-%d %H:%M') if log.escalated_at else '',
+            log.bullhorn_candidate_id,
+            log.candidate_name or '',
+            log.bullhorn_job_id,
+            log.job_title or '',
+            f'{log.mini_score:.0f}' if log.mini_score else '',
+            f'{log.gpt4o_score:.0f}' if log.gpt4o_score else '',
+            f'{log.score_delta:+.0f}' if log.score_delta else '',
+            'Yes' if log.material_change else 'No',
+            'Yes' if log.crossed_threshold else 'No',
+            f'{log.threshold_used:.0f}' if log.threshold_used else ''
+        ])
+    
+    response = Response(output.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = f'attachment; filename=escalations_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+    return response

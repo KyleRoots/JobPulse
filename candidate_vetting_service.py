@@ -72,7 +72,11 @@ class CandidateVettingService:
         # Default settings
         self.match_threshold = 80.0  # Minimum match percentage for notifications
         self.check_interval_minutes = 5
-        self.model = "gpt-4o"  # Using GPT-4o for accuracy
+        self.model = self._get_layer2_model()  # Default GPT-4o-mini, revertible via VettingConfig
+        
+        # Embedding pre-filter (Layer 1)
+        from embedding_service import EmbeddingService
+        self.embedding_service = EmbeddingService()
         
     def _init_openai(self):
         """Initialize OpenAI client"""
@@ -132,6 +136,41 @@ class CandidateVettingService:
         except Exception as e:
             logging.warning(f"Error getting job threshold for {job_id}: {e}")
             return self.get_threshold()
+    
+    def _get_layer2_model(self) -> str:
+        """Get the Layer 2 model from VettingConfig (supports live revert to GPT-4o)."""
+        try:
+            value = self.get_config_value('layer2_model', 'gpt-4o-mini')
+            if value and value.strip():
+                return value.strip()
+        except Exception:
+            pass
+        return 'gpt-4o-mini'
+    
+    def _get_escalation_range(self) -> tuple:
+        """Get escalation score range from VettingConfig.
+        
+        Returns:
+            Tuple of (low, high) — scores within this range trigger GPT-4o re-analysis.
+        """
+        try:
+            low = float(self.get_config_value('escalation_low', '60'))
+            high = float(self.get_config_value('escalation_high', '85'))
+            return (low, high)
+        except (ValueError, TypeError):
+            return (60.0, 85.0)
+    
+    def should_escalate_to_gpt4o(self, match_score: float) -> bool:
+        """Check if a match score falls in the escalation range for GPT-4o re-analysis.
+        
+        Args:
+            match_score: Layer 2 (GPT-4o-mini) match score.
+            
+        Returns:
+            True if score is within [escalation_low, escalation_high].
+        """
+        low, high = self._get_escalation_range()
+        return low <= match_score <= high
     
     def _get_job_custom_requirements(self, job_id: int) -> Optional[str]:
         """Get custom requirements for a job if user has specified any"""
@@ -1721,7 +1760,7 @@ Format as a bullet-point list. Be specific and concise."""
         logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
         return all_jobs
     
-    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None) -> Dict:
+    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None, model_override: Optional[str] = None) -> Dict:
         """
         Use GPT-4o to analyze how well a candidate matches a job.
         
@@ -2058,7 +2097,7 @@ CRITICAL RULES:
    - If candidate location doesn't match, this is a GAP that should reduce their score."""
 
             response = self.openai_client.chat.completions.create(
-                model=self.model,
+                model=model_override or self.model,
                 messages=[
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": prompt}
@@ -2297,6 +2336,40 @@ CRITICAL RULES:
                 db.session.commit()
                 return vetting_log
             
+            # ═══════════════════════════════════════════════════════════════
+            # LAYER 1: EMBEDDING PRE-FILTER
+            # Compare resume embedding against ALL active job embeddings
+            # (across all tearsheets) and filter out clearly irrelevant pairs.
+            # This preserves multi-job vetting — each job is independently
+            # evaluated against the resume. A candidate applied for Job A 
+            # can still be surfaced for Jobs B, C, D if semantically relevant.
+            # ═══════════════════════════════════════════════════════════════
+            pre_filter_count = len(jobs_to_analyze)
+            candidate_filter_info = {
+                'id': candidate_id,
+                'name': candidate_name
+            }
+            try:
+                jobs_to_analyze, filtered_count = self.embedding_service.filter_relevant_jobs(
+                    cached_resume_text, jobs_to_analyze,
+                    candidate_filter_info, vetting_log.id
+                )
+                if filtered_count > 0:
+                    logging.info(
+                        f"🔍 Embedding pre-filter: {pre_filter_count} → {len(jobs_to_analyze)} jobs "
+                        f"({filtered_count} filtered out)"
+                    )
+            except Exception as e:
+                logging.error(f"⚠️ Embedding pre-filter error (bypassing filter): {str(e)}")
+                # On error, proceed with all jobs (safe fallback)
+            
+            if not jobs_to_analyze:
+                logging.info(f"All jobs filtered by embedding pre-filter for candidate {candidate_id} — no GPT calls needed")
+                vetting_log.status = 'completed'
+                vetting_log.analyzed_at = datetime.utcnow()
+                db.session.commit()
+                return vetting_log
+            
             logging.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
             logging.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
             
@@ -2319,17 +2392,66 @@ CRITICAL RULES:
             
             logging.info(f"📋 Pre-fetched requirements for {len(job_requirements_cache)} jobs")
             
+            # Read Layer 2 model fresh each cycle (supports live revert via VettingConfig)
+            self.model = self._get_layer2_model()
+            logging.info(f"🤖 Layer 2 model: {self.model}")
+            
             # Helper function for parallel execution - runs AI analysis for one job
             def analyze_single_job(job_with_req):
-                """Analyze one job match - called in parallel threads"""
+                """Analyze one job match - called in parallel threads.
+                
+                Layer 2: Uses self.model (GPT-4o-mini by default).
+                Layer 3: If score falls in escalation range, re-analyzes with GPT-4o.
+                """
                 job = job_with_req['job']
                 prefetched_req = job_with_req['requirements']  # Pre-fetched from main thread
                 job_id = job.get('id')
                 try:
+                    # Layer 2: Main analysis with self.model (GPT-4o-mini default)
                     analysis = self.analyze_candidate_job_match(
                         cached_resume_text, job, candidate_location,
                         prefetched_requirements=prefetched_req
                     )
+                    
+                    mini_score = analysis.get('match_score', 0)
+                    
+                    # Layer 3: Escalation check — re-analyze borderline with GPT-4o
+                    if self.should_escalate_to_gpt4o(mini_score) and self.model != 'gpt-4o':
+                        job_title = job.get('title', 'Unknown')
+                        logging.info(
+                            f"⬆️ Escalating {candidate_name} × {job_title}: "
+                            f"Layer 2 score={mini_score}% (in escalation range)"
+                        )
+                        try:
+                            # Thread-safe: pass model_override instead of mutating self.model
+                            escalated_analysis = self.analyze_candidate_job_match(
+                                cached_resume_text, job, candidate_location,
+                                prefetched_requirements=prefetched_req,
+                                model_override='gpt-4o'
+                            )
+                            
+                            gpt4o_score = escalated_analysis.get('match_score', 0)
+                            
+                            # Log escalation for effectiveness tracking
+                            job_threshold = self.get_job_threshold(job_id)
+                            self.embedding_service.save_escalation_log(
+                                vetting_log_id=vetting_log.id,
+                                candidate_id=candidate_id,
+                                candidate_name=candidate_name,
+                                job_id=job_id,
+                                job_title=job_title,
+                                mini_score=mini_score,
+                                gpt4o_score=gpt4o_score,
+                                threshold=job_threshold
+                            )
+                            
+                            # Use the GPT-4o result as the final analysis
+                            analysis = escalated_analysis
+                            
+                        except Exception as esc_e:
+                            logging.error(f"Escalation failed for job {job_id}: {str(esc_e)}")
+                            # Fall back to Layer 2 result
+                    
                     return {
                         'job': job,
                         'job_id': job_id,

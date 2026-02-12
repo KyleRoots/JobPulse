@@ -855,3 +855,71 @@ class ParsedResumeCache(db.Model):
         db.session.add(cached)
         db.session.commit()
         return cached
+
+
+class JobEmbedding(db.Model):
+    """Cached job description embeddings for the embedding pre-filter (Layer 1)"""
+    __tablename__ = 'job_embedding'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    bullhorn_job_id = db.Column(db.Integer, unique=True, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    description_hash = db.Column(db.String(64), nullable=False)  # SHA-256 of description text
+    embedding_vector = db.Column(db.Text, nullable=False)  # JSON-serialized float array (1536 dims)
+    embedding_model = db.Column(db.String(50), nullable=False, default='text-embedding-3-small')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<JobEmbedding job_id={self.bullhorn_job_id}>'
+
+
+class EmbeddingFilterLog(db.Model):
+    """Audit trail of candidate-job pairs filtered by the embedding pre-filter (Layer 1)"""
+    __tablename__ = 'embedding_filter_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
+    candidate_name = db.Column(db.String(255), nullable=True)
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    similarity_score = db.Column(db.Float, nullable=False)  # Cosine similarity (0.0-1.0)
+    threshold_used = db.Column(db.Float, nullable=False)  # Threshold at time of filtering
+    resume_snippet = db.Column(db.Text, nullable=True)  # First 500 chars of resume
+    filtered_at = db.Column(db.DateTime, default=datetime.utcnow)
+    vetting_log_id = db.Column(db.Integer, db.ForeignKey('candidate_vetting_log.id'), nullable=True, index=True)
+    
+    __table_args__ = (
+        db.Index('idx_filter_log_filtered_at', 'filtered_at'),
+        db.Index('idx_filter_log_similarity', 'similarity_score'),
+    )
+    
+    def __repr__(self):
+        return f'<EmbeddingFilterLog candidate={self.bullhorn_candidate_id} job={self.bullhorn_job_id} sim={self.similarity_score}>'
+
+
+class EscalationLog(db.Model):
+    """Tracks Layer 2 → Layer 3 escalation events for effectiveness analysis"""
+    __tablename__ = 'escalation_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    vetting_log_id = db.Column(db.Integer, db.ForeignKey('candidate_vetting_log.id'), nullable=True, index=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
+    candidate_name = db.Column(db.String(255), nullable=True)
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    mini_score = db.Column(db.Float, nullable=False)  # GPT-4o-mini score (Layer 2)
+    gpt4o_score = db.Column(db.Float, nullable=False)  # GPT-4o score (Layer 3)
+    score_delta = db.Column(db.Float, nullable=False)  # gpt4o_score - mini_score
+    material_change = db.Column(db.Boolean, nullable=False, default=False)  # |delta| >= 5 points
+    threshold_used = db.Column(db.Float, nullable=False)  # Job-specific or global threshold
+    crossed_threshold = db.Column(db.Boolean, nullable=False, default=False)  # Recommendation changed
+    escalated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_escalation_log_escalated_at', 'escalated_at'),
+        db.Index('idx_escalation_log_crossed', 'crossed_threshold'),
+    )
+    
+    def __repr__(self):
+        return f'<EscalationLog candidate={self.bullhorn_candidate_id} job={self.bullhorn_job_id} delta={self.score_delta}>'

@@ -104,6 +104,10 @@
 {% block page_subtitle %}Automated resume-to-job matching for inbound applicants{% endblock %}
 
 {% block header_actions %}
+<a href="{{ url_for('vetting.embedding_audit') }}" class="btn btn-outline-info btn-sm me-2"
+    title="Embedding filter monitoring">
+    <i class="fas fa-chart-bar me-1"></i>Embedding Audit
+</a>
 <button onclick="location.reload()" class="btn btn-outline-light btn-sm" title="Refresh data">
     <i class="fas fa-sync-alt me-1"></i>Refresh
 </button>
@@ -941,7 +945,8 @@
                     title: 'Awaiting Vetting',
                     iconClass: 'fas fa-clock text-info',
                     badgeClass: 'bg-info',
-                    count: {{ stats.pending }}
+                    count: {{ stats.pending }
+        }
                 },
             'recommended': {
             section: recommendedSection,

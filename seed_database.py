@@ -475,7 +475,15 @@ def seed_vetting_config(db, VettingConfig):
             'batch_size': '25',  # Default batch size per 5-minute cycle
             'admin_notification_email': 'kroots@myticas.com',
             'health_alert_email': 'kroots@myticas.com',  # Email for system health alerts
-            'send_recruiter_emails': 'false'  # Kill switch for recruiter notifications
+            'send_recruiter_emails': 'false',  # Kill switch for recruiter notifications
+            # Embedding pre-filter settings (Layer 1)
+            'embedding_filter_enabled': 'true',  # Killswitch: set to 'false' to bypass filter
+            'embedding_similarity_threshold': '0.25',  # Cosine similarity threshold (0.0-1.0)
+            # Escalation settings (Layer 3)
+            'escalation_low': '60',  # Lower bound of escalation range (GPT-4o re-analysis)
+            'escalation_high': '85',  # Upper bound of escalation range
+            # Layer 2 model (revertible to 'gpt-4o' via UI if quality drop detected)
+            'layer2_model': 'gpt-4o-mini',
         }
         
         settings_created = []
