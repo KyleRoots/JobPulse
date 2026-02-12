@@ -35,7 +35,7 @@ def get_digest_data(since: datetime = None) -> Dict:
         Dictionary with all digest data sections
     """
     from app import db
-    from models import EmbeddingFilterLog, EscalationLog
+    from models import EmbeddingFilterLog, EscalationLog, CandidateVettingLog
     
     if since is None:
         since = datetime.utcnow() - timedelta(hours=24)
@@ -110,6 +110,33 @@ def get_digest_data(since: datetime = None) -> Dict:
             'avg_delta': round(sum(l.score_delta for l in logs) / len(logs), 1)
         }
     
+    # ═══════════════════════════════════════════
+    # SECTION 4: Duplicate Vetting Detection
+    # ═══════════════════════════════════════════
+    # Find candidates with multiple vetting logs in the period
+    # (any candidate with >1 log in a 24h window is suspicious)
+    duplicate_candidates = db.session.execute(db.text("""
+        SELECT bullhorn_candidate_id, candidate_name,
+               COUNT(*) as log_count,
+               MIN(created_at) as first_log,
+               MAX(created_at) as last_log
+        FROM candidate_vetting_log
+        WHERE created_at >= :since
+        AND bullhorn_candidate_id IS NOT NULL
+        GROUP BY bullhorn_candidate_id, candidate_name
+        HAVING COUNT(*) > 1
+        ORDER BY COUNT(*) DESC
+        LIMIT 20
+    """), {'since': since}).fetchall()
+    
+    duplicate_alerts = [{
+        'candidate_id': row[0],
+        'candidate_name': row[1],
+        'log_count': row[2],
+        'first_log': row[3],
+        'last_log': row[4]
+    } for row in duplicate_candidates]
+    
     return {
         'period_start': since,
         'period_end': datetime.utcnow(),
@@ -131,6 +158,9 @@ def get_digest_data(since: datetime = None) -> Dict:
         'band_60_69': band_stats(band_60_69),
         'band_70_79': band_stats(band_70_79),
         'band_80_85': band_stats(band_80_85),
+        # Section 4
+        'duplicate_alerts': duplicate_alerts,
+        'duplicate_count': len(duplicate_alerts),
     }
 
 
@@ -268,7 +298,7 @@ def build_digest_html(data: Dict) -> str:
         </div>
         
         <!-- Section 3: Escalation Effectiveness -->
-        <div style="padding: 20px; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 8px 8px;">
+        <div style="padding: 20px; border: 1px solid #dee2e6; border-top: none;">
             <h2 style="font-size: 16px; color: #1a1a2e; margin: 0 0 12px;">📈 Escalation Effectiveness (Layer 3)</h2>
             
             <div style="display: flex; gap: 16px; margin-bottom: 16px;">
@@ -303,6 +333,11 @@ def build_digest_html(data: Dict) -> str:
                     {band_row('80–85%', data['band_80_85'])}
                 </tbody>
             </table>
+        </div>
+        
+        <!-- Section 4: Duplicate Vetting Alert -->
+        <div style="padding: 20px; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 8px 8px;">
+            {_build_duplicate_alert_html(data)}
             
             <p style="font-size: 11px; color: #a0a0b0; margin: 16px 0 0; text-align: center;">
                 JobPulse Embedding Filter Monitor • 14-Day Review Period • 
@@ -313,6 +348,51 @@ def build_digest_html(data: Dict) -> str:
     """
     
     return html
+
+
+def _build_duplicate_alert_html(data: Dict) -> str:
+    """Build the duplicate vetting alert section HTML."""
+    dupes = data.get('duplicate_alerts', [])
+    count = data.get('duplicate_count', 0)
+    
+    if count == 0:
+        return """
+        <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 12px; text-align: center;">
+            <span style="font-size: 18px;">✅</span>
+            <strong style="color: #155724;">Duplicate Vetting Check: All Clear</strong>
+            <p style="font-size: 12px; color: #155724; margin: 4px 0 0;">No duplicate vetting logs detected in the last 24 hours.</p>
+        </div>
+        """
+    
+    # Build alert rows
+    rows = ''
+    for d in dupes:
+        rows += f"""
+        <tr style="background-color: #f8d7da;">
+            <td style="padding: 8px; border: 1px solid #dee2e6;">{d['candidate_name']}</td>
+            <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">{d['candidate_id']}</td>
+            <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; color: #dc3545;">{d['log_count']}</td>
+        </tr>
+        """
+    
+    return f"""
+    <div style="background: #f8d7da; border: 2px solid #dc3545; border-radius: 6px; padding: 16px; margin-bottom: 12px;">
+        <h2 style="font-size: 16px; color: #dc3545; margin: 0 0 8px;">🚨 Duplicate Vetting Alert — {count} Candidate{'s' if count != 1 else ''} Affected</h2>
+        <p style="font-size: 13px; color: #721c24; margin: 0 0 12px;">The following candidates have multiple vetting logs created within a 1-hour window. This may indicate a deduplication regression.</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; background: white;">
+            <thead>
+                <tr style="background-color: #721c24; color: white;">
+                    <th style="padding: 8px; border: 1px solid #dee2e6;">Candidate</th>
+                    <th style="padding: 8px; border: 1px solid #dee2e6;">ID</th>
+                    <th style="padding: 8px; border: 1px solid #dee2e6;">Duplicate Logs</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+    </div>
+    """
 
 
 def send_daily_digest(since: datetime = None) -> bool:
@@ -329,8 +409,10 @@ def send_daily_digest(since: datetime = None) -> bool:
         data = get_digest_data(since=since)
         html = build_digest_html(data)
         
+        # Include duplicate alert in subject line if any found
+        dup_prefix = f"🚨 {data['duplicate_count']} DUPLICATE{'S' if data['duplicate_count'] != 1 else ''} — " if data.get('duplicate_count', 0) > 0 else ''
         subject = (
-            f"🔍 Embedding Filter Digest — "
+            f"{dup_prefix}🔍 Embedding Filter Digest — "
             f"{data['total_filtered']} filtered, "
             f"{data['total_escalated']} escalated, "
             f"${data['daily_savings']:.2f} saved"
