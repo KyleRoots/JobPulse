@@ -2125,12 +2125,16 @@ CRITICAL RULES:
             
             result = json.loads(response.choices[0].message.content)
             
+            # Diagnostic: log raw GPT response score before integer conversion
+            raw_score = result.get('match_score')
+            logging.info(f"📊 Raw GPT score for job {job_id}: {raw_score} (type: {type(raw_score).__name__})")
+            
             # Ensure match_score is an integer
             result['match_score'] = int(result.get('match_score', 0))
             
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
-            logging.info(f"📋 AI response for job {job_id}: has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}")
+            logging.info(f"📋 AI response for job {job_id}: score={result['match_score']}%, has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}")
             
             # Store data for deferred saving (to avoid Flask app context issues in parallel threads)
             # The caller should save these after parallel execution completes
@@ -2639,6 +2643,11 @@ CRITICAL RULES:
                     logging.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                 else:
                     logging.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
+                    # Diagnostic: log GPT's reasoning for 0% scores
+                    if analysis.get('match_score', 0) == 0:
+                        summary = analysis.get('match_summary', 'no summary')[:200]
+                        gaps = analysis.get('gaps_identified', 'no gaps')[:200]
+                        logging.warning(f"    🔬 0% diagnostic: summary={summary} | gaps={gaps}")
                 
                 # Handle deferred database save (now in main thread with Flask app context)
                 deferred = analysis.get('_deferred_save')
