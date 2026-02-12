@@ -2235,8 +2235,40 @@ CRITICAL RULES:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            logging.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
-            return None
+            # If UniqueViolation, find the existing log and re-analyze if it has 0% scores
+            if 'UniqueViolation' in str(e) or 'unique constraint' in str(e).lower():
+                existing_log = CandidateVettingLog.query.filter_by(
+                    bullhorn_candidate_id=candidate_id
+                ).first()
+                if existing_log:
+                    if existing_log.highest_match_score == 0 and existing_log.status == 'completed':
+                        # Reset stale 0% vetting log for re-analysis
+                        logging.info(
+                            f"🔄 Re-analyzing candidate {candidate_id} ({candidate_name}) — "
+                            f"previous vetting had 0% scores (likely from aggressive filter threshold)"
+                        )
+                        # Delete old match records so they can be regenerated
+                        CandidateJobMatch.query.filter_by(vetting_log_id=existing_log.id).delete()
+                        existing_log.status = 'processing'
+                        existing_log.highest_match_score = 0.0
+                        existing_log.total_jobs_matched = 0
+                        existing_log.is_qualified = False
+                        existing_log.note_created = False
+                        existing_log.bullhorn_note_id = None
+                        existing_log.analyzed_at = None
+                        existing_log.error_message = None
+                        db.session.commit()
+                        vetting_log = existing_log
+                    else:
+                        # Already has real scores — skip
+                        logging.info(f"⏭️ Candidate {candidate_id} already vetted with score {existing_log.highest_match_score}%")
+                        return existing_log
+                else:
+                    logging.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+                    return None
+            else:
+                logging.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+                return None
         
         try:
             # Get which job they applied to
