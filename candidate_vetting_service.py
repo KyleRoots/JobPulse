@@ -1333,10 +1333,26 @@ Format as a bullet-point list. Be specific and concise."""
                                 f"vetted_at={'SET' if pe.vetted_at else 'NULL'}, received={pe.received_at}")
             
             # Query ParsedEmail for completed applications that haven't been vetted
-            unvetted_emails = ParsedEmail.query.filter(
+            # Apply cutoff date if configured (skip historical backlog)
+            cutoff_dt = None
+            cutoff_raw = VettingConfig.get_value('vetting_cutoff_date')
+            if cutoff_raw:
+                try:
+                    cutoff_dt = datetime.strptime(cutoff_raw.strip(), '%Y-%m-%d %H:%M:%S')
+                    logging.info(f"📅 Vetting cutoff active: only processing applicants received after {cutoff_dt} UTC")
+                except ValueError:
+                    logging.warning(f"⚠️ Invalid vetting_cutoff_date format: '{cutoff_raw}' — expected 'YYYY-MM-DD HH:MM:SS', ignoring cutoff")
+            
+            filters = [
                 ParsedEmail.status == 'completed',
                 ParsedEmail.vetted_at.is_(None),
-                ParsedEmail.bullhorn_candidate_id.isnot(None)
+                ParsedEmail.bullhorn_candidate_id.isnot(None),
+            ]
+            if cutoff_dt:
+                filters.append(ParsedEmail.received_at >= cutoff_dt)
+            
+            unvetted_emails = ParsedEmail.query.filter(
+                *filters
             ).order_by(
                 ParsedEmail.processed_at.asc()  # Process oldest first (FIFO)
             ).limit(limit).all()

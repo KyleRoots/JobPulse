@@ -191,6 +191,16 @@
                 </h5>
             </div>
             <div class="card-body">
+                {% if settings.vetting_cutoff_date %}
+                <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+                    <i class="fas fa-calendar-check me-2"></i>
+                    <div>
+                        <strong>Backlog paused.</strong> Currently vetting only applicants received after
+                        <strong>{{ settings.vetting_cutoff_date }} UTC</strong>.
+                        Clear the cutoff date below to resume processing the full backlog.
+                    </div>
+                </div>
+                {% endif %}
                 <form action="{{ url_for('vetting.save_vetting_settings') }}" method="POST" id="settingsForm"
                     onsubmit="showSavingIndicator()">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -256,6 +266,16 @@
                         <small class="text-muted">Cosine similarity threshold for the embedding pre-filter (0.0–1.0).
                             Resume-job pairs below this score are filtered out before GPT analysis.
                             Lower = less filtering, higher = more aggressive filtering. Default: 0.25</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Vetting Cutoff Date (UTC)</label>
+                        <input type="text" class="form-control" name="vetting_cutoff_date"
+                            value="{{ settings.vetting_cutoff_date }}"
+                            placeholder="e.g. 2026-02-12 07:00:00 (leave blank for no cutoff)">
+                        <small class="text-muted">Only candidates with received_at after this timestamp will be
+                            vetted. Leave blank to process all unvetted candidates including the backlog.
+                            Format: YYYY-MM-DD HH:MM:SS</small>
                     </div>
 
                     <div class="mb-4">
@@ -958,7 +978,6 @@
                     iconClass: 'fas fa-clock text-info',
                     badgeClass: 'bg-info',
                     count: {{ stats.pending }}
-        }
                 },
             'recommended': {
             section: recommendedSection,

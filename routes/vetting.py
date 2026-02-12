@@ -33,7 +33,8 @@ def vetting_settings():
         'batch_size': 25,
         'admin_notification_email': '',
         'health_alert_email': '',
-        'embedding_similarity_threshold': 0.25
+        'embedding_similarity_threshold': 0.25,
+        'vetting_cutoff_date': ''
     }
     
     all_configs = VettingConfig.query.filter(
@@ -153,6 +154,7 @@ def save_vetting_settings():
         admin_email = request.form.get('admin_notification_email', '')
         health_alert_email = request.form.get('health_alert_email', '')
         embedding_threshold = request.form.get('embedding_similarity_threshold', '0.25')
+        vetting_cutoff = request.form.get('vetting_cutoff_date', '').strip()
         
         # Validate threshold
         try:
@@ -178,6 +180,14 @@ def save_vetting_settings():
         except ValueError:
             emb_thresh = 0.25
         
+        # Validate vetting cutoff date (if provided)
+        if vetting_cutoff:
+            try:
+                datetime.strptime(vetting_cutoff, '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                flash('Invalid cutoff date format. Use YYYY-MM-DD HH:MM:SS', 'error')
+                return redirect(url_for('vetting.vetting_settings'))
+        
         # Update settings
         settings_to_save = [
             ('vetting_enabled', 'true' if vetting_enabled else 'false'),
@@ -186,7 +196,8 @@ def save_vetting_settings():
             ('batch_size', str(batch)),
             ('admin_notification_email', admin_email),
             ('health_alert_email', health_alert_email),
-            ('embedding_similarity_threshold', str(emb_thresh))
+            ('embedding_similarity_threshold', str(emb_thresh)),
+            ('vetting_cutoff_date', vetting_cutoff)
         ]
         
         for key, value in settings_to_save:
