@@ -1191,29 +1191,20 @@ Format as a bullet-point list. Be specific and concise."""
                 if not candidate_id:
                     continue
                     
-                # Check for existing completed vetting + compare dateLastModified
-                # Re-vet only if candidate profile was updated since last vetting
-                last_vetting = CandidateVettingLog.query.filter(
-                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.status.in_(['completed', 'failed'])
-                ).order_by(CandidateVettingLog.created_at.desc()).first()
+                # Strict dedup: skip if vetted within the last hour (prevents loops)
+                # Allow re-vetting after 24h for genuine profile updates
+                from datetime import timedelta
+                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
                 
-                if last_vetting:
-                    # Compare Bullhorn dateLastModified with our last vetting time
-                    date_modified_ms = candidate.get('dateLastModified')
-                    if date_modified_ms:
-                        date_modified = datetime.utcfromtimestamp(date_modified_ms / 1000)
-                        if date_modified > last_vetting.created_at:
-                            logging.info(f"Candidate {candidate_id} modified after last vetting ({date_modified} > {last_vetting.created_at}), re-vetting")
-                            new_candidates.append(candidate)
-                            continue
-                    # Fallback: 24-hour dedup window if dateLastModified unavailable
-                    hours_since = (datetime.utcnow() - last_vetting.created_at).total_seconds() / 3600
-                    if hours_since >= 24:
-                        logging.info(f"Candidate {candidate_id} last vetted {hours_since:.0f}h ago (no dateLastModified), re-checking")
-                        new_candidates.append(candidate)
+                recent_vetting = CandidateVettingLog.query.filter(
+                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                    CandidateVettingLog.status.in_(['completed', 'failed', 'processing']),
+                    CandidateVettingLog.created_at >= recent_cutoff
+                ).first()
+                
+                if recent_vetting:
+                    logging.debug(f"Candidate {candidate_id} vetted within last hour (status={recent_vetting.status}), skipping")
                 else:
-                    # Never vetted — process
                     new_candidates.append(candidate)
                     logging.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
             
@@ -1282,36 +1273,21 @@ Format as a bullet-point list. Be specific and concise."""
                 if not candidate_id:
                     continue
                 
-                # Check for existing completed vetting
-                last_vetting = CandidateVettingLog.query.filter(
-                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.status.in_(['completed', 'failed'])
-                ).order_by(CandidateVettingLog.created_at.desc()).first()
+                # Strict dedup: skip if vetted within the last hour (prevents loops)
+                # Note: dateLastModified is NOT reliable for dedup because our own
+                # note creation bumps it, creating an infinite re-vetting loop.
+                from datetime import timedelta
+                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
                 
-                if last_vetting:
-                    # Compare Bullhorn dateLastModified with our last vetting time
-                    date_modified_ms = candidate.get('dateLastModified')
-                    if date_modified_ms:
-                        date_modified = datetime.utcfromtimestamp(date_modified_ms / 1000)
-                        if date_modified > last_vetting.created_at:
-                            logging.info(f"🔵 Pandologic candidate {candidate_id} modified after last vetting, re-vetting")
-                            new_candidates.append(candidate)
-                            continue
-                    # Fallback: 24-hour dedup window if dateLastModified unavailable
-                    hours_since = (datetime.utcnow() - last_vetting.created_at).total_seconds() / 3600
-                    if hours_since >= 24:
-                        logging.info(f"🔵 Pandologic candidate {candidate_id} last vetted {hours_since:.0f}h ago, re-checking")
-                        new_candidates.append(candidate)
-                        continue
-                    # Also check if already handled via ParsedEmail path
-                    already_handled = ParsedEmail.query.filter(
-                        ParsedEmail.bullhorn_candidate_id == candidate_id,
-                        ParsedEmail.vetted_at.isnot(None)
-                    ).first()
-                    if not already_handled:
-                        logging.debug(f"Pandologic candidate {candidate_id} vetted recently, no ParsedEmail — skipping")
+                recent_vetting = CandidateVettingLog.query.filter(
+                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                    CandidateVettingLog.status.in_(['completed', 'failed', 'processing']),
+                    CandidateVettingLog.created_at >= recent_cutoff
+                ).first()
+                
+                if recent_vetting:
+                    logging.debug(f"Pandologic candidate {candidate_id} vetted within last hour, skipping")
                 else:
-                    # Never vetted — process
                     new_candidates.append(candidate)
                     logging.info(f"🔵 Pandologic candidate detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
             
