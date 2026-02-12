@@ -5,6 +5,7 @@ AI Candidate Vetting settings, operations, and job requirements management
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required
 from datetime import datetime, timedelta
+import logging
 
 vetting_bp = Blueprint('vetting', __name__)
 
@@ -19,114 +20,123 @@ def get_db():
 @login_required
 def vetting_settings():
     """AI Candidate Vetting settings and activity page"""
-    from models import VettingConfig, CandidateVettingLog, JobVettingRequirements, VettingHealthCheck
-    from sqlalchemy import func
-    
-    db = get_db()
-    
-    # Get settings (batch query: 1 query instead of 6)
-    settings = {
-        'vetting_enabled': False,
-        'send_recruiter_emails': False,
-        'match_threshold': 80,
-        'batch_size': 25,
-        'admin_notification_email': '',
-        'health_alert_email': ''
-    }
-    
-    all_configs = VettingConfig.query.filter(
-        VettingConfig.setting_key.in_(settings.keys())
-    ).all()
-    config_map = {c.setting_key: c.setting_value for c in all_configs}
-    
-    for key in settings.keys():
-        value = config_map.get(key)
-        if value is not None:
-            if key in ('vetting_enabled', 'send_recruiter_emails'):
-                settings[key] = value.lower() == 'true'
-            elif key in ('match_threshold', 'batch_size'):
-                try:
-                    settings[key] = int(value)
-                except (ValueError, TypeError):
-                    settings[key] = 80 if key == 'match_threshold' else 25
-            else:
-                settings[key] = value or ''
-    
-    # Get stats
-    stats = {
-        'total_processed': CandidateVettingLog.query.filter_by(status='completed').count(),
-        'qualified': CandidateVettingLog.query.filter_by(status='completed', is_qualified=True).count(),
-        'notifications_sent': db.session.query(func.sum(CandidateVettingLog.notification_count)).scalar() or 0,
-        'pending': CandidateVettingLog.query.filter(CandidateVettingLog.status.in_(['pending', 'processing'])).count()
-    }
-    
-    # Get recent activity
-    recent_activity = CandidateVettingLog.query.order_by(
-        CandidateVettingLog.created_at.desc()
-    ).limit(50).all()
-    
-    # Get recommended candidates
-    recommended_candidates = CandidateVettingLog.query.filter_by(
-        status='completed', 
-        is_qualified=True
-    ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
-    
-    # Get not recommended candidates
-    not_recommended_candidates = CandidateVettingLog.query.filter_by(
-        status='completed',
-        is_qualified=False
-    ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
-    
-    # Get job requirements - filtered to only show active tearsheet jobs
-    from candidate_vetting_service import CandidateVettingService
-    vetting_svc = CandidateVettingService()
-    active_job_ids = vetting_svc.get_active_job_ids()
-    
-    if active_job_ids:
-        job_requirements = JobVettingRequirements.query.filter(
-            JobVettingRequirements.bullhorn_job_id.in_(active_job_ids)
-        ).order_by(JobVettingRequirements.updated_at.desc()).all()
-    else:
-        job_requirements = JobVettingRequirements.query.order_by(
-            JobVettingRequirements.updated_at.desc()
+    import traceback
+    try:
+        from models import VettingConfig, CandidateVettingLog, JobVettingRequirements, VettingHealthCheck
+        from sqlalchemy import func
+        
+        db = get_db()
+        
+        # Get settings (batch query: 1 query instead of 6)
+        settings = {
+            'vetting_enabled': False,
+            'send_recruiter_emails': False,
+            'match_threshold': 80,
+            'batch_size': 25,
+            'admin_notification_email': '',
+            'health_alert_email': ''
+        }
+        
+        all_configs = VettingConfig.query.filter(
+            VettingConfig.setting_key.in_(settings.keys())
+        ).all()
+        config_map = {c.setting_key: c.setting_value for c in all_configs}
+        
+        for key in settings.keys():
+            value = config_map.get(key)
+            if value is not None:
+                if key in ('vetting_enabled', 'send_recruiter_emails'):
+                    settings[key] = value.lower() == 'true'
+                elif key in ('match_threshold', 'batch_size'):
+                    try:
+                        settings[key] = int(value)
+                    except (ValueError, TypeError):
+                        settings[key] = 80 if key == 'match_threshold' else 25
+                else:
+                    settings[key] = value or ''
+        
+        # Get stats
+        stats = {
+            'total_processed': CandidateVettingLog.query.filter_by(status='completed').count(),
+            'qualified': CandidateVettingLog.query.filter_by(status='completed', is_qualified=True).count(),
+            'notifications_sent': db.session.query(func.sum(CandidateVettingLog.notification_count)).scalar() or 0,
+            'pending': CandidateVettingLog.query.filter(CandidateVettingLog.status.in_(['pending', 'processing'])).count()
+        }
+        
+        # Get recent activity
+        recent_activity = CandidateVettingLog.query.order_by(
+            CandidateVettingLog.created_at.desc()
         ).limit(50).all()
-    
-    # Get latest health check
-    latest_health = VettingHealthCheck.query.order_by(
-        VettingHealthCheck.check_time.desc()
-    ).first()
-    
-    # Get recent health issues
-    day_ago = datetime.utcnow() - timedelta(hours=24)
-    recent_issues = VettingHealthCheck.query.filter(
-        VettingHealthCheck.is_healthy == False,
-        VettingHealthCheck.check_time >= day_ago
-    ).order_by(VettingHealthCheck.check_time.desc()).limit(10).all()
-    
-    # Get pending candidates
-    pending_candidates = CandidateVettingLog.query.filter(
-        CandidateVettingLog.status.in_(['pending', 'processing'])
-    ).order_by(CandidateVettingLog.created_at.desc()).limit(50).all()
-    
-    # Get recently vetted candidates
-    week_ago = datetime.utcnow() - timedelta(days=7)
-    recent_vetting = CandidateVettingLog.query.filter(
-        CandidateVettingLog.status == 'completed',
-        CandidateVettingLog.updated_at >= week_ago
-    ).order_by(CandidateVettingLog.updated_at.desc()).limit(50).all()
-    
-    return render_template('vetting_settings.html', 
-                          settings=settings, 
-                          stats=stats, 
-                          recent_activity=recent_activity,
-                          recommended_candidates=recommended_candidates,
-                          not_recommended_candidates=not_recommended_candidates,
-                          job_requirements=job_requirements,
-                          latest_health=latest_health,
-                          recent_issues=recent_issues,
-                          pending_candidates=pending_candidates,
-                          recent_vetting=recent_vetting,
-                          active_page='vetting')
+        
+        # Get recommended candidates
+        recommended_candidates = CandidateVettingLog.query.filter_by(
+            status='completed', 
+            is_qualified=True
+        ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
+        
+        # Get not recommended candidates
+        not_recommended_candidates = CandidateVettingLog.query.filter_by(
+            status='completed',
+            is_qualified=False
+        ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
+        
+        # Get job requirements - filtered to only show active tearsheet jobs
+        from candidate_vetting_service import CandidateVettingService
+        vetting_svc = CandidateVettingService()
+        active_job_ids = vetting_svc.get_active_job_ids()
+        
+        if active_job_ids:
+            job_requirements = JobVettingRequirements.query.filter(
+                JobVettingRequirements.bullhorn_job_id.in_(active_job_ids)
+            ).order_by(JobVettingRequirements.updated_at.desc()).all()
+        else:
+            job_requirements = JobVettingRequirements.query.order_by(
+                JobVettingRequirements.updated_at.desc()
+            ).limit(50).all()
+        
+        # Get latest health check
+        latest_health = VettingHealthCheck.query.order_by(
+            VettingHealthCheck.check_time.desc()
+        ).first()
+        
+        # Get recent health issues
+        day_ago = datetime.utcnow() - timedelta(hours=24)
+        recent_issues = VettingHealthCheck.query.filter(
+            VettingHealthCheck.is_healthy == False,
+            VettingHealthCheck.check_time >= day_ago
+        ).order_by(VettingHealthCheck.check_time.desc()).limit(10).all()
+        
+        # Get pending candidates
+        pending_candidates = CandidateVettingLog.query.filter(
+            CandidateVettingLog.status.in_(['pending', 'processing'])
+        ).order_by(CandidateVettingLog.created_at.desc()).limit(50).all()
+        
+        # Get recently vetted candidates
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        recent_vetting = CandidateVettingLog.query.filter(
+            CandidateVettingLog.status == 'completed',
+            CandidateVettingLog.updated_at >= week_ago
+        ).order_by(CandidateVettingLog.updated_at.desc()).limit(50).all()
+        
+        return render_template('vetting_settings.html', 
+                              settings=settings, 
+                              stats=stats, 
+                              recent_activity=recent_activity,
+                              recommended_candidates=recommended_candidates,
+                              not_recommended_candidates=not_recommended_candidates,
+                              job_requirements=job_requirements,
+                              latest_health=latest_health,
+                              recent_issues=recent_issues,
+                              pending_candidates=pending_candidates,
+                              recent_vetting=recent_vetting,
+                              active_page='vetting')
+    except Exception as e:
+        logging.error(f"Error rendering vetting settings: {traceback.format_exc()}")
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc(),
+            'type': type(e).__name__
+        }), 500
 
 
 @vetting_bp.route('/vetting/save', methods=['POST'])
