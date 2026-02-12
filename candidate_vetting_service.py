@@ -2481,12 +2481,32 @@ CRITICAL RULES:
             self.model = self._get_layer2_model()
             logging.info(f"🤖 Layer 2 model: {self.model}")
             
+            # PRE-FETCH all DB-dependent config BEFORE entering ThreadPoolExecutor
+            # Threads lack Flask app context — any DB access inside them will crash
+            escalation_range = self._get_escalation_range()
+            global_threshold = self.get_threshold()
+            
+            # Pre-fetch per-job thresholds (batch query, not N individual queries)
+            job_threshold_cache = {}
+            try:
+                batch_threshold_reqs = JobVettingRequirements.query.filter(
+                    JobVettingRequirements.bullhorn_job_id.in_(batch_job_ids),
+                    JobVettingRequirements.vetting_threshold.isnot(None)
+                ).all()
+                for req in batch_threshold_reqs:
+                    job_threshold_cache[req.bullhorn_job_id] = float(req.vetting_threshold)
+            except Exception as e:
+                logging.error(f"Error pre-fetching job thresholds: {str(e)}")
+            
             # Helper function for parallel execution - runs AI analysis for one job
             def analyze_single_job(job_with_req):
                 """Analyze one job match - called in parallel threads.
                 
                 Layer 2: Uses self.model (GPT-4o-mini by default).
                 Layer 3: If score falls in escalation range, re-analyzes with GPT-4o.
+                
+                IMPORTANT: This runs in a ThreadPoolExecutor thread WITHOUT Flask app context.
+                ALL database access must use pre-fetched values from the main thread.
                 """
                 job = job_with_req['job']
                 prefetched_req = job_with_req['requirements']  # Pre-fetched from main thread
@@ -2501,7 +2521,9 @@ CRITICAL RULES:
                     mini_score = analysis.get('match_score', 0)
                     
                     # Layer 3: Escalation check — re-analyze borderline with GPT-4o
-                    if self.should_escalate_to_gpt4o(mini_score) and self.model != 'gpt-4o':
+                    # Uses pre-fetched escalation_range (no DB access needed)
+                    esc_low, esc_high = escalation_range
+                    if esc_low <= mini_score <= esc_high and self.model != 'gpt-4o':
                         job_title = job.get('title', 'Unknown')
                         logging.info(
                             f"⬆️ Escalating {candidate_name} × {job_title}: "
@@ -2517,25 +2539,27 @@ CRITICAL RULES:
                             
                             gpt4o_score = escalated_analysis.get('match_score', 0)
                             
-                            # Log escalation for effectiveness tracking
-                            job_threshold = self.get_job_threshold(job_id)
-                            self.embedding_service.save_escalation_log(
-                                vetting_log_id=vetting_log.id,
-                                candidate_id=candidate_id,
-                                candidate_name=candidate_name,
-                                job_id=job_id,
-                                job_title=job_title,
-                                mini_score=mini_score,
-                                gpt4o_score=gpt4o_score,
-                                threshold=job_threshold
-                            )
+                            # Defer escalation log save to main thread (needs Flask context)
+                            analysis['_escalation_data'] = {
+                                'mini_score': mini_score,
+                                'gpt4o_score': gpt4o_score,
+                                'job_id': job_id,
+                                'job_title': job_title
+                            }
                             
                             # Use the GPT-4o result as the final analysis
                             analysis = escalated_analysis
+                            # Carry over escalation data to the new analysis dict
+                            analysis['_escalation_data'] = {
+                                'mini_score': mini_score,
+                                'gpt4o_score': gpt4o_score,
+                                'job_id': job_id,
+                                'job_title': job_title
+                            }
                             
                         except Exception as esc_e:
                             logging.error(f"Escalation failed for job {job_id}: {str(esc_e)}")
-                            # Fall back to Layer 2 result
+                            # Fall back to Layer 2 result (preserved)
                     
                     return {
                         'job': job,
@@ -2614,8 +2638,8 @@ CRITICAL RULES:
                 # Determine if this is the job they applied to
                 is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
                 
-                # Create match record - use job-specific threshold if set
-                job_threshold = self.get_job_threshold(job_id)
+                # Create match record - use pre-fetched job-specific threshold if set
+                job_threshold = job_threshold_cache.get(job_id, global_threshold)
                 
                 match_record = CandidateJobMatch(
                     vetting_log_id=vetting_log.id,
@@ -2665,6 +2689,23 @@ CRITICAL RULES:
                         )
                     except Exception as save_err:
                         logging.warning(f"Failed to save requirements for job {deferred['job_id']}: {save_err}")
+                
+                # Handle deferred escalation log (needs Flask app context for DB write)
+                esc_data = analysis.get('_escalation_data')
+                if esc_data:
+                    try:
+                        self.embedding_service.save_escalation_log(
+                            vetting_log_id=vetting_log.id,
+                            candidate_id=candidate_id,
+                            candidate_name=candidate_name,
+                            job_id=esc_data['job_id'],
+                            job_title=esc_data['job_title'],
+                            mini_score=esc_data['mini_score'],
+                            gpt4o_score=esc_data['gpt4o_score'],
+                            threshold=job_threshold
+                        )
+                    except Exception as esc_save_err:
+                        logging.warning(f"Failed to save escalation log for job {esc_data['job_id']}: {esc_save_err}")
             
             # Update vetting log summary
             vetting_log.status = 'completed'
