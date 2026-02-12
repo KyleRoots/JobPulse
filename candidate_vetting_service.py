@@ -2553,8 +2553,11 @@ CRITICAL RULES:
                     }
             
             # Prepare jobs with pre-fetched requirements
+            # CRITICAL: Use '' (not None) as default — None triggers a DB fallback query
+            # inside analyze_candidate_job_match, which crashes in ThreadPoolExecutor
+            # threads because they lack Flask app context.
             jobs_with_requirements = [
-                {'job': job, 'requirements': job_requirements_cache.get(job.get('id'))}
+                {'job': job, 'requirements': job_requirements_cache.get(job.get('id'), '')}
                 for job in jobs_to_analyze
             ]
             
