@@ -2010,7 +2010,13 @@ MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
 4. EDUCATION LOCATION: If all above are empty, check education institution location.
 5. "UNKNOWN": Only if none of the four sources above provide any usable city, state, or country.
 
-CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults."""
+CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults.
+
+INTERNATIONAL/OFFSHORE OVERRIDE:
+- If the job description explicitly mentions international eligibility, offshore work, or specific non-job-address countries/regions (e.g., "open to candidates in Egypt or Spain", "100% Remote, international OK", "offshore resources welcome", "candidates in [Country] welcome"), then the same-country rule above does NOT apply.
+- In this case, match the candidate's country against the countries/regions listed IN THE JOB DESCRIPTION, not the Bullhorn job address field.
+- If the candidate is located in one of the explicitly allowed countries/regions from the description, there is NO location mismatch — do not penalize their score.
+- Example: Job address says "United States" but description says "Must be located in Egypt or Spain" → a candidate in Cairo, Egypt or Madrid, Spain has NO location mismatch."""
             else:  # On-site or Hybrid
                 location_instruction = f"""
 LOCATION REQUIREMENT ({work_type} Position):
