@@ -192,7 +192,7 @@ class TestGenerateEmbedding:
         assert service.generate_embedding("   ") is None
     
     def test_generate_embedding_truncates_long_text(self):
-        """Long text should be truncated to avoid token limits."""
+        """Long text should be intelligently truncated using head+tail strategy."""
         from embedding_service import EmbeddingService
         
         service = EmbeddingService()
@@ -202,11 +202,59 @@ class TestGenerateEmbedding:
         mock_client.embeddings.create.return_value = mock_response
         service.openai_client = mock_client
         
+        # 50,000 chars ≈ 12,500 tokens — well over 7,500 limit
         long_text = "x" * 50000
         service.generate_embedding(long_text)
         
         call_kwargs = mock_client.embeddings.create.call_args
-        assert len(call_kwargs[1]['input']) == 30000
+        sent_text = call_kwargs[1]['input']
+        # Should be truncated: head (22500) + separator + tail (7500) < 50000
+        assert len(sent_text) < 50000
+        assert "...[truncated]..." in sent_text
+    
+    def test_short_text_not_truncated(self):
+        """Text under the token limit should pass through unchanged."""
+        from embedding_service import EmbeddingService
+        
+        service = EmbeddingService()
+        short_text = "Python developer with 5 years experience"
+        result = service._truncate_for_embedding(short_text)
+        assert result == short_text
+    
+    def test_truncation_preserves_head_and_tail(self):
+        """Truncated text should keep the first 75% and last 25% of the budget."""
+        from embedding_service import EmbeddingService
+        
+        service = EmbeddingService()
+        # Create text with identifiable head and tail sections
+        head_marker = "HEAD_CONTACT_INFO_SKILLS "
+        tail_marker = " TAIL_EDUCATION_CERTS"
+        # 40,000 chars ≈ 10,000 tokens, triggers truncation (limit 7,500)
+        text = head_marker + ("m" * 39950) + tail_marker
+        
+        result = service._truncate_for_embedding(text)
+        
+        # Head should be preserved (starts with our marker)
+        assert result.startswith(head_marker)
+        # Tail should be preserved (ends with our marker)
+        assert result.endswith(tail_marker)
+        # Separator should be present
+        assert "...[truncated]..." in result
+    
+    def test_truncation_logs_warning(self):
+        """Truncation should log a warning with token counts."""
+        from embedding_service import EmbeddingService
+        import logging
+        
+        service = EmbeddingService()
+        long_text = "x" * 50000  # ~12,500 tokens
+        
+        with patch('embedding_service.logging') as mock_logging:
+            service._truncate_for_embedding(long_text)
+            mock_logging.warning.assert_called_once()
+            warning_msg = mock_logging.warning.call_args[0][0]
+            assert "truncated" in warning_msg.lower()
+            assert "12500" in warning_msg  # estimated tokens
 
 
 class TestFilterRelevantJobs:

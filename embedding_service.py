@@ -54,12 +54,48 @@ class EmbeddingService:
         else:
             logging.warning("OPENAI_API_KEY not found - embedding service will not work")
     
+    def _truncate_for_embedding(self, text: str, max_tokens: int = 7500) -> str:
+        """
+        Intelligently truncate text to stay under the embedding model's token limit.
+        
+        Strategy: Keep the first ~75% of the character budget (contact info, summary,
+        skills, recent work history) and the last ~25% (education, certifications).
+        Drops middle content (older work history, verbose descriptions).
+        
+        Args:
+            text: The full resume/document text
+            max_tokens: Maximum token budget (default 7500, model limit is 8191)
+            
+        Returns:
+            Original text if under limit, or truncated text with head + tail
+        """
+        # Estimate tokens: ~4 chars per token for typical English text
+        estimated_tokens = len(text) // 4
+        if estimated_tokens <= max_tokens:
+            return text  # No truncation needed
+        
+        max_chars = max_tokens * 4  # Convert token budget back to chars
+        head_chars = int(max_chars * 0.75)  # First 75% → top of resume
+        tail_chars = max_chars - head_chars  # Last 25% → education/certs
+        
+        head = text[:head_chars]
+        tail = text[-tail_chars:]
+        
+        dropped_chars = len(text) - head_chars - tail_chars
+        logging.warning(
+            f"📏 Resume truncated for embedding: ~{estimated_tokens} est. tokens "
+            f"exceeds {max_tokens} limit. Kept first {head_chars} + last {tail_chars} chars, "
+            f"dropped {dropped_chars} middle chars."
+        )
+        
+        return head + "\n...[truncated]...\n" + tail
+    
     def generate_embedding(self, text: str) -> Optional[List[float]]:
         """
         Generate an embedding vector for the given text.
         
         Args:
-            text: Input text to embed (truncated to ~8000 tokens for safety)
+            text: Input text to embed (intelligently truncated to stay under token limit)
             
         Returns:
             List of floats (embedding vector) or None if generation fails
@@ -73,9 +109,9 @@ class EmbeddingService:
             return None
         
         try:
-            # Truncate to avoid token limits (text-embedding-3-small supports 8191 tokens)
-            # Roughly 4 chars per token, leave margin
-            truncated_text = text[:30000]
+            # Intelligently truncate to avoid token limits
+            # (text-embedding-3-small supports max 8191 tokens)
+            truncated_text = self._truncate_for_embedding(text)
             
             response = self.openai_client.embeddings.create(
                 input=truncated_text,

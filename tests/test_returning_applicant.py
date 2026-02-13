@@ -369,3 +369,136 @@ class TestReturningApplicantRevetting:
                 CandidateVettingLog.bullhorn_candidate_id.in_([999066, 999067])
             ).delete()
             db.session.commit()
+
+
+class TestPreNoteDuplicateSafeguard:
+    """Test the Bullhorn-level duplicate safeguard in create_candidate_note()."""
+    
+    def test_skips_note_when_bh_already_has_one(self, app):
+        """
+        If Bullhorn already has an AI vetting note for this candidate from the
+        last 24 hours, create_candidate_note() should skip creation and return True.
+        """
+        with app.app_context():
+            from candidate_vetting_service import CandidateVettingService
+            from models import CandidateVettingLog, CandidateJobMatch
+            from app import db
+            from unittest.mock import MagicMock, patch
+            from datetime import datetime, timedelta
+            import time
+            
+            # Create a vetting log that hasn't had note_created set yet
+            vetting_log = CandidateVettingLog(
+                bullhorn_candidate_id=999070,
+                candidate_name='Test Safeguard Candidate',
+                status='completed',
+                note_created=False,
+                created_at=datetime.utcnow()
+            )
+            db.session.add(vetting_log)
+            db.session.commit()
+            
+            # Create a match so the note builder has data
+            match = CandidateJobMatch(
+                vetting_log_id=vetting_log.id,
+                bullhorn_job_id=1001,
+                job_title='Test Job',
+                match_score=85.0,
+                is_qualified=True,
+                match_summary='Good match',
+                skills_match='Python',
+                experience_match='5 years',
+                gaps_identified='None'
+            )
+            db.session.add(match)
+            db.session.commit()
+            
+            service = CandidateVettingService()
+            
+            # Mock bullhorn service to return an existing note (from 12 hours ago)
+            twelve_hours_ago_ms = int((datetime.utcnow() - timedelta(hours=12)).timestamp() * 1000)
+            mock_bullhorn = MagicMock()
+            mock_bullhorn.get_candidate_notes.return_value = [
+                {'id': 9999, 'action': 'AI Vetting - Qualified', 'dateAdded': twelve_hours_ago_ms}
+            ]
+            # create_candidate_note on bullhorn should NOT be called
+            mock_bullhorn.create_candidate_note.return_value = 12345
+            
+            with patch.object(service, '_get_bullhorn_service', return_value=mock_bullhorn):
+                result = service.create_candidate_note(vetting_log)
+            
+            # Should return True (existing note found, skipped creation)
+            assert result is True
+            
+            # Bullhorn's create_candidate_note should NOT have been called
+            mock_bullhorn.create_candidate_note.assert_not_called()
+            
+            # The vetting log should have note_created=True and the existing note ID
+            db.session.refresh(vetting_log)
+            assert vetting_log.note_created is True
+            assert vetting_log.bullhorn_note_id == 9999
+            
+            # Clean up
+            CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).delete()
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=999070).delete()
+            db.session.commit()
+    
+    def test_creates_note_when_bh_has_none(self, app):
+        """
+        If Bullhorn has no existing AI vetting note, create_candidate_note()
+        should proceed with normal note creation.
+        """
+        with app.app_context():
+            from candidate_vetting_service import CandidateVettingService
+            from models import CandidateVettingLog, CandidateJobMatch
+            from app import db
+            from unittest.mock import MagicMock, patch
+            from datetime import datetime
+            
+            vetting_log = CandidateVettingLog(
+                bullhorn_candidate_id=999071,
+                candidate_name='Test New Candidate',
+                status='completed',
+                is_qualified=True,
+                highest_match_score=90.0,
+                note_created=False,
+                analyzed_at=datetime.utcnow(),
+                created_at=datetime.utcnow()
+            )
+            db.session.add(vetting_log)
+            db.session.commit()
+            
+            match = CandidateJobMatch(
+                vetting_log_id=vetting_log.id,
+                bullhorn_job_id=1002,
+                job_title='Test Job',
+                match_score=90.0,
+                is_qualified=True,
+                match_summary='Excellent match',
+                skills_match='Python, SQL',
+                experience_match='7 years',
+                gaps_identified='None'
+            )
+            db.session.add(match)
+            db.session.commit()
+            
+            service = CandidateVettingService()
+            
+            # Mock bullhorn with NO existing notes
+            mock_bullhorn = MagicMock()
+            mock_bullhorn.get_candidate_notes.return_value = []  # No existing notes
+            mock_bullhorn.create_candidate_note.return_value = 55555  # New note ID
+            
+            with patch.object(service, '_get_bullhorn_service', return_value=mock_bullhorn):
+                result = service.create_candidate_note(vetting_log)
+            
+            # Should return True (note created)
+            assert result is True
+            
+            # Bullhorn's create_candidate_note SHOULD have been called
+            mock_bullhorn.create_candidate_note.assert_called_once()
+            
+            # Clean up
+            CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).delete()
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=999071).delete()
+            db.session.commit()

@@ -1824,6 +1824,68 @@ class BullhornService:
         
         return created_ids
     
+    def get_candidate_notes(self, candidate_id: int, action_filter: list = None,
+                            since: 'datetime' = None, count: int = 10) -> list:
+        """
+        Retrieve notes for a candidate, optionally filtered by action and date.
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            action_filter: List of action strings to filter by (e.g., ["AI Vetting - Qualified"])
+            since: Only return notes created after this datetime
+            count: Maximum number of notes to retrieve
+            
+        Returns:
+            List of note dicts with id, action, dateAdded fields, or empty list on failure
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                logging.error(f"get_candidate_notes failed: Could not authenticate with Bullhorn")
+                return []
+        
+        try:
+            url = f"{self.base_url}entity/Candidate/{candidate_id}/notes"
+            params = {
+                'fields': 'id,action,dateAdded',
+                'count': count,
+                'orderBy': '-dateAdded',
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params, timeout=15)
+            
+            if response.status_code == 401:
+                # Token expired, re-authenticate and retry
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    url = f"{self.base_url}entity/Candidate/{candidate_id}/notes"
+                    response = self.session.get(url, params=params, timeout=15)
+                else:
+                    return []
+            
+            if response.status_code != 200:
+                logging.warning(f"get_candidate_notes failed: HTTP {response.status_code}")
+                return []
+            
+            data = self._safe_json_parse(response)
+            notes = data.get('data', [])
+            
+            # Filter by action if specified
+            if action_filter:
+                notes = [n for n in notes if n.get('action') in action_filter]
+            
+            # Filter by date if specified
+            if since:
+                since_ms = int(since.timestamp() * 1000)
+                notes = [n for n in notes if n.get('dateAdded', 0) >= since_ms]
+            
+            return notes
+            
+        except Exception as e:
+            logging.error(f"Error retrieving notes for candidate {candidate_id}: {str(e)}")
+            return []
+    
     def create_candidate_note(self, candidate_id: int, note_text: str, 
                                action: str = "AI Resume Summary") -> Optional[int]:
         """

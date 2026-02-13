@@ -2092,7 +2092,12 @@ CRITICAL RULES:
 7. LOCATION MATTERS: Check if the candidate's location is compatible with the job's work type (remote/onsite/hybrid).
    - Remote jobs: Candidate must be in the same COUNTRY for tax/legal compliance.
    - On-site/Hybrid jobs: Candidate should be in or near the job's city/metro area.
-   - If candidate location doesn't match, this is a GAP that should reduce their score."""
+   - If candidate location doesn't match, this is a GAP that should reduce their score.
+8. EDUCATION HIERARCHY (higher degrees satisfy lower requirements):
+   - Doctorate/PhD > Master's (MA, MS, MBA, etc.) > Bachelor's (BA, BS, etc.) > Associate's > High School/GED
+   - If a job requires "Bachelor's degree" and the candidate has a Master's, PhD, or Doctorate, the education requirement is MET (exceeded), NOT a gap.
+   - Only flag an education gap if the candidate's highest degree is LOWER than what the job requires.
+   - If the job specifies a field (e.g., "Bachelor's in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap."""
 
             response = self.openai_client.chat.completions.create(
                 model=model_override or self.model,
@@ -2731,6 +2736,33 @@ CRITICAL RULES:
         bullhorn = self._get_bullhorn_service()
         if not bullhorn:
             return False
+        
+        # PRE-CREATION SAFEGUARD: Check Bullhorn for existing AI vetting notes (24h window)
+        # This prevents duplicate notes even if upstream dedup logic has a bug
+        from datetime import timedelta
+        try:
+            existing_notes = bullhorn.get_candidate_notes(
+                vetting_log.bullhorn_candidate_id,
+                action_filter=[
+                    "AI Vetting - Qualified",
+                    "AI Vetting - Not Recommended",
+                    "AI Vetting - Incomplete"
+                ],
+                since=datetime.utcnow() - timedelta(hours=24)
+            )
+            if existing_notes:
+                logging.warning(
+                    f"⚠️ DUPLICATE SAFEGUARD: Candidate {vetting_log.bullhorn_candidate_id} already has "
+                    f"{len(existing_notes)} AI vetting note(s) in Bullhorn from last 24h. "
+                    f"Skipping duplicate note creation."
+                )
+                vetting_log.note_created = True
+                vetting_log.bullhorn_note_id = existing_notes[0].get('id')
+                db.session.commit()
+                return True
+        except Exception as e:
+            # Don't block note creation if the safety check itself fails
+            logging.warning(f"Pre-note duplicate check failed (proceeding with creation): {str(e)}")
         
         # Get all match results for this candidate
         matches = CandidateJobMatch.query.filter_by(
