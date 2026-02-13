@@ -1191,10 +1191,10 @@ Format as a bullet-point list. Be specific and concise."""
                 if not candidate_id:
                     continue
                     
-                # Strict dedup: skip if vetted within the last hour (prevents loops)
-                # Allow re-vetting after 24h for genuine profile updates
+                # Strict dedup: skip if vetted within the last 24 hours
+                # This prevents cross-path re-detection (e.g. email path → PandoLogic path)
                 from datetime import timedelta
-                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
+                recent_cutoff = datetime.utcnow() - timedelta(hours=24)
                 
                 recent_vetting = CandidateVettingLog.query.filter(
                     CandidateVettingLog.bullhorn_candidate_id == candidate_id,
@@ -1203,7 +1203,7 @@ Format as a bullet-point list. Be specific and concise."""
                 ).first()
                 
                 if recent_vetting:
-                    logging.debug(f"Candidate {candidate_id} vetted within last hour (status={recent_vetting.status}), skipping")
+                    logging.debug(f"Candidate {candidate_id} vetted within last 24h (status={recent_vetting.status}), skipping")
                 else:
                     new_candidates.append(candidate)
                     logging.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
@@ -1273,11 +1273,11 @@ Format as a bullet-point list. Be specific and concise."""
                 if not candidate_id:
                     continue
                 
-                # Strict dedup: skip if vetted within the last hour (prevents loops)
-                # Note: dateLastModified is NOT reliable for dedup because our own
-                # note creation bumps it, creating an infinite re-vetting loop.
+                # Strict dedup: skip if vetted within the last 24 hours
+                # This prevents cross-path re-detection (e.g. email path detects
+                # first, then PandoLogic path re-detects 60+ minutes later)
                 from datetime import timedelta
-                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
+                recent_cutoff = datetime.utcnow() - timedelta(hours=24)
                 
                 recent_vetting = CandidateVettingLog.query.filter(
                     CandidateVettingLog.bullhorn_candidate_id == candidate_id,
@@ -1286,7 +1286,7 @@ Format as a bullet-point list. Be specific and concise."""
                 ).first()
                 
                 if recent_vetting:
-                    logging.debug(f"Pandologic candidate {candidate_id} vetted within last hour, skipping")
+                    logging.debug(f"Pandologic candidate {candidate_id} vetted within last 24h, skipping")
                 else:
                     new_candidates.append(candidate)
                     logging.info(f"🔵 Pandologic candidate detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
