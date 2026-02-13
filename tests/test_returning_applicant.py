@@ -306,3 +306,66 @@ class TestReturningApplicantRevetting:
             CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
             ParsedEmail.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
             db.session.commit()
+
+    def test_24h_dedup_window_catches_recent_vetting(self, app):
+        """
+        Isolation test: the 24h dedup query should find a vetting log
+        created 66 minutes ago (the exact gap that caused cross-path duplicates
+        with the old 1-hour window).
+        """
+        from app import db
+        from models import CandidateVettingLog
+
+        with app.app_context():
+            candidate_id = 999066
+
+            # Create a log 66 minutes ago (the exact scenario that was failing)
+            log_66min = CandidateVettingLog(
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Test 66min',
+                status='completed',
+                created_at=datetime.utcnow() - timedelta(minutes=66)
+            )
+            db.session.add(log_66min)
+            db.session.commit()
+
+            # The 24h dedup query should FIND this log
+            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+            found = CandidateVettingLog.query.filter(
+                CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                CandidateVettingLog.status.in_(['completed', 'failed', 'processing']),
+                CandidateVettingLog.created_at >= recent_cutoff
+            ).first()
+
+            assert found is not None, (
+                "24h dedup query must find a log from 66 minutes ago! "
+                "This is the exact gap that caused cross-path duplicates."
+            )
+            assert found.id == log_66min.id
+
+            # A log 25 hours ago should NOT be found (beyond the 24h window)
+            old_log = CandidateVettingLog(
+                bullhorn_candidate_id=999067,
+                candidate_name='Test 25h',
+                status='completed',
+                created_at=datetime.utcnow() - timedelta(hours=25)
+            )
+            db.session.add(old_log)
+            db.session.commit()
+
+            old_found = CandidateVettingLog.query.filter(
+                CandidateVettingLog.bullhorn_candidate_id == 999067,
+                CandidateVettingLog.status.in_(['completed', 'failed', 'processing']),
+                CandidateVettingLog.created_at >= recent_cutoff
+            ).first()
+
+            assert old_found is None, (
+                "24h dedup query should NOT find a log from 25 hours ago — "
+                "this candidate should be eligible for re-vetting."
+            )
+
+            # Clean up
+            CandidateVettingLog.query.filter(
+                CandidateVettingLog.bullhorn_candidate_id.in_([999066, 999067])
+            ).delete()
+            db.session.commit()
