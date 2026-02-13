@@ -310,6 +310,10 @@ app.config['WTF_CSRF_TIME_LIMIT'] = None  # No token expiry (avoids issues with 
 # Initialize CSRF protection (validates on every POST/PUT/DELETE by default)
 csrf = CSRFProtect(app)
 
+# Exempt cron job API endpoints from CSRF (they use bearer token auth via CRON_SECRET)
+from routes.health import cron_send_digest
+csrf.exempt(cron_send_digest)
+
 
 @app.errorhandler(413)
 def request_entity_too_large(error):

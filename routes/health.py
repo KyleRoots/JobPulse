@@ -2,13 +2,14 @@
 Health check routes for JobPulse.
 
 Provides various health check endpoints for deployment monitoring and Kubernetes probes.
+Also provides CSRF-exempt cron job endpoints authenticated via bearer token.
 """
 
 import os
 import time
 from datetime import datetime
-from flask import Blueprint, jsonify, current_app
-
+from functools import wraps
+from flask import Blueprint, jsonify, current_app, request
 
 health_bp = Blueprint('health', __name__)
 
@@ -140,4 +141,64 @@ def detailed_health_check():
         return jsonify({
             'status': 'error',
             'error': 'Internal health check failure'
+        }), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+# CRON JOB API ENDPOINTS
+# Authenticated via Bearer token (CRON_SECRET env var).
+# CSRF-exempt since these are called by Render cron jobs, not browsers.
+# ═══════════════════════════════════════════════════════════════
+
+def require_cron_secret(f):
+    """Decorator to require CRON_SECRET bearer token for API access."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        cron_secret = os.environ.get('CRON_SECRET', '')
+        if not cron_secret:
+            current_app.logger.error("CRON_SECRET env var not set — cron endpoint disabled")
+            return jsonify({'error': 'Cron endpoint not configured'}), 503
+        
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer ') or auth_header[7:] != cron_secret:
+            current_app.logger.warning(f"Unauthorized cron API call from {request.remote_addr}")
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        return f(*args, **kwargs)
+    return decorated
+
+
+@health_bp.route('/api/cron/send-digest', methods=['POST'])
+@require_cron_secret
+def cron_send_digest():
+    """Trigger daily vetting digest email via cron job.
+    
+    Authenticated via CRON_SECRET bearer token, CSRF-exempt.
+    Called by Render cron job: Daily Vetting Digest Email (0 12 * * *)
+    """
+    try:
+        from embedding_digest_service import send_daily_digest
+        
+        current_app.logger.info("📧 Cron trigger: sending daily vetting digest email")
+        success = send_daily_digest()
+        
+        if success:
+            current_app.logger.info("📧 Daily digest email sent successfully via cron")
+            return jsonify({
+                'success': True,
+                'message': 'Daily digest email sent successfully',
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+        else:
+            current_app.logger.warning("📧 Daily digest email failed to send via cron")
+            return jsonify({
+                'success': False,
+                'error': 'Digest email failed to send — check SendGrid configuration'
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"📧 Error in cron digest trigger: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
