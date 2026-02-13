@@ -21,6 +21,7 @@ class BullhornService:
     def __init__(self, client_id=None, client_secret=None, username=None, password=None):
         self.base_url = None
         self.rest_token = None
+        self.access_token = None  # OAuth access token (set during _direct_login)
         self.user_id = None  # Corporate user ID for note creation
         self.client_id = client_id
         self.client_secret = client_secret
@@ -535,6 +536,7 @@ class BullhornService:
             
             token_info = self._safe_json_parse(token_response)
             access_token = token_info.get('access_token')
+            self.access_token = access_token  # Persist as instance attribute for health checks
             
             if not access_token:
                 logging.error("No access token in response")

@@ -3994,9 +3994,9 @@ def run_vetting_health_check():
             try:
                 from bullhorn_service import BullhornService
                 bh = BullhornService()
-                if not bh.access_token:
+                if not bh.authenticate():
                     bullhorn_status = False
-                    bullhorn_error = "Failed to obtain Bullhorn access token"
+                    bullhorn_error = "Failed to authenticate with Bullhorn"
             except Exception as e:
                 bullhorn_status = False
                 bullhorn_error = str(e)[:500]
@@ -4076,7 +4076,7 @@ def run_vetting_health_check():
             db.session.add(health_check)
             db.session.commit()
             
-            # Send alert email if unhealthy
+            # Send alert email only for persistent or critical issues
             if not is_healthy:
                 send_vetting_health_alert(health_check)
             
@@ -4092,7 +4092,17 @@ def run_vetting_health_check():
 
 
 def send_vetting_health_alert(health_check):
-    """Send email alert for vetting system health issues"""
+    """
+    Send email alert for vetting system health issues.
+    
+    Threshold-based suppression:
+    - Only alerts if the same component has failed in 3 consecutive checks (persistent issue).
+    - Single transient failures that self-heal are suppressed.
+    
+    Severity levels:
+    - Critical: Component down AND 0 candidates processed → immediate alert.
+    - Warning: Component fails but candidates still processing → suppressed.
+    """
     try:
         from models import VettingConfig, VettingHealthCheck
         from datetime import datetime, timedelta
@@ -4100,7 +4110,7 @@ def send_vetting_health_alert(health_check):
         from sendgrid.helpers.mail import Mail
         import os
         
-        # Check if we already sent an alert in the last hour
+        # ── Cooldown: skip if alert already sent within the last hour ──
         one_hour_ago = datetime.utcnow() - timedelta(hours=1)
         recent_alert = VettingHealthCheck.query.filter(
             VettingHealthCheck.alert_sent == True,
@@ -4110,6 +4120,53 @@ def send_vetting_health_alert(health_check):
         if recent_alert:
             app.logger.info("🩺 Skipping alert - already sent within last hour")
             return
+        
+        # ── Threshold check: require 3 consecutive failures (30 min window) ──
+        thirty_min_ago = datetime.utcnow() - timedelta(minutes=30)
+        recent_checks = VettingHealthCheck.query \
+            .filter(VettingHealthCheck.check_time >= thirty_min_ago) \
+            .order_by(VettingHealthCheck.check_time.desc()) \
+            .limit(3).all()
+        
+        # Count consecutive failures per component
+        bh_fails = sum(1 for c in recent_checks if not c.bullhorn_status)
+        openai_fails = sum(1 for c in recent_checks if not c.openai_status)
+        db_fails = sum(1 for c in recent_checks if not c.database_status)
+        sched_fails = sum(1 for c in recent_checks if not c.scheduler_status)
+        
+        # ── Severity classification ──
+        candidates_today = health_check.candidates_processed_today or 0
+        
+        # Critical: component persistently down (3 consecutive) AND no candidates processed
+        is_critical = (
+            candidates_today == 0 and
+            (bh_fails >= 3 or openai_fails >= 3 or db_fails >= 3 or sched_fails >= 3)
+        )
+        
+        # Warning: component down but candidates still processing (system is functional)
+        is_warning = not is_critical and (
+            bh_fails >= 3 or openai_fails >= 3 or db_fails >= 3 or sched_fails >= 3
+        )
+        
+        # Transient: fewer than 3 consecutive failures — suppress entirely
+        is_transient = not is_critical and not is_warning
+        
+        if is_transient:
+            app.logger.info(
+                f"🩺 Suppressing transient alert — failures not persistent "
+                f"(BH:{bh_fails}/3, OpenAI:{openai_fails}/3, DB:{db_fails}/3, Sched:{sched_fails}/3). "
+                f"{candidates_today} candidates processed today."
+            )
+            return
+        
+        if is_warning:
+            app.logger.info(
+                f"🩺 Suppressing warning-level alert — component down but {candidates_today} "
+                f"candidates processed today. System is still functional."
+            )
+            return
+        
+        # ── Only Critical alerts reach here — send email ──
         
         # Get health alert email - skip if not configured
         health_alert_email = VettingConfig.get_value('health_alert_email', '')
@@ -4128,28 +4185,38 @@ def send_vetting_health_alert(health_check):
         if not health_check.scheduler_status:
             errors.append(f"Scheduler: {health_check.scheduler_error or 'Not running'}")
         
-        error_list = "\\n".join([f"• {e}" for e in errors])
+        severity_label = "🔴 CRITICAL" if is_critical else "🟡 WARNING"
+        
+        # Context line about processing health
+        if candidates_today > 0:
+            context_line = f'<div style="background: #d4edda; border-left: 4px solid #28a745; padding: 10px; margin: 10px 0;">✅ Despite this error, <strong>{candidates_today}</strong> candidates were successfully processed today.</div>'
+        else:
+            context_line = '<div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 10px; margin: 10px 0;">⛔ No candidates have been processed today — vetting may be completely stopped.</div>'
         
         html_content = f"""
         <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2 style="color: #dc3545;">⚠️ JobPulse Vetting System Alert</h2>
-            <p>The AI Candidate Vetting system has detected issues that require attention:</p>
+            <h2 style="color: #dc3545;">{severity_label} JobPulse Vetting System Alert</h2>
+            <p>The AI Candidate Vetting system has detected <strong>persistent</strong> issues requiring attention:</p>
             
             <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
-                <strong>Issues Detected:</strong><br>
+                <strong>Issues Detected (3+ consecutive failures):</strong><br>
                 {"<br>".join([f"• {e}" for e in errors])}
             </div>
             
+            {context_line}
+            
             <p><strong>System Stats:</strong></p>
             <ul>
-                <li>Candidates Processed Today: {health_check.candidates_processed_today}</li>
+                <li>Candidates Processed Today: {candidates_today}</li>
                 <li>Candidates Pending: {health_check.candidates_pending}</li>
                 <li>Emails Sent Today: {health_check.emails_sent_today}</li>
+                <li>Consecutive Failures — BH: {bh_fails}, OpenAI: {openai_fails}, DB: {db_fails}, Scheduler: {sched_fails}</li>
             </ul>
             
             <p style="color: #666; font-size: 12px;">
-                This is an automated alert from JobPulse. Check the <a href="https://jobpulse.lyntrix.ai/vetting/settings">Vetting Dashboard</a> for more details.
+                This is an automated alert from JobPulse. Only sent for persistent critical issues (3+ consecutive failures with 0 candidates processed).
+                Check the <a href="https://jobpulse.lyntrix.ai/vetting/settings">Vetting Dashboard</a> for more details.
             </p>
         </body>
         </html>
@@ -4158,7 +4225,7 @@ def send_vetting_health_alert(health_check):
         message = Mail(
             from_email='noreply@myticas.com',
             to_emails=health_alert_email,
-            subject='⚠️ JobPulse Vetting System Alert - Issues Detected',
+            subject=f'{severity_label} JobPulse Vetting System Alert - Persistent Issues',
             html_content=html_content
         )
         
@@ -4169,7 +4236,7 @@ def send_vetting_health_alert(health_check):
             health_check.alert_sent = True
             health_check.alert_sent_at = datetime.utcnow()
             db.session.commit()
-            app.logger.info(f"🩺 Health alert sent to {health_alert_email}")
+            app.logger.info(f"🩺 CRITICAL health alert sent to {health_alert_email}")
         else:
             app.logger.warning(f"🩺 Health alert failed: {response.status_code}")
             
