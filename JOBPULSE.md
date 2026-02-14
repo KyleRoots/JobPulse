@@ -405,6 +405,39 @@ The AI prompt includes sophisticated location matching:
 - **Per-job override**: Each `JobVettingRequirements` record can have a custom `vetting_threshold`
 - **Preserved during sync**: "Sync Jobs" only removes orphaned entries — custom thresholds are never modified
 
+### Years of Experience Analysis
+
+The vetting prompt requires the AI to perform explicit year-counting for every skill that has an "X+ years" requirement in the job description.
+
+**How it works:**
+
+1. **Identification**: The AI identifies all skills with explicit year-based requirements (e.g., "3+ years of Python")
+2. **Duration calculation**: For each skill, sums role durations from the resume:
+   - Full-time roles: 100% weight
+   - Internships/part-time: 50% weight
+   - University projects/coursework: 0% (excluded entirely)
+   - "Present" roles: calculated to current date
+3. **Comparison**: Compares estimated years against required years
+4. **Score impact**: Shortfalls reduce the match score (enforced in both prompt and post-processing)
+
+**Response field** — `years_analysis` in the AI response:
+```json
+"years_analysis": {
+  "Python": {"required_years": 3, "estimated_years": 1.5, "meets_requirement": false},
+  "React": {"required_years": 2, "estimated_years": 2.5, "meets_requirement": true}
+}
+```
+
+**Post-processing hard gate** (defense in depth after AI scoring):
+
+| Shortfall | Action | Example |
+|---|---|---|
+| ≥ 2 years | Score capped at 60 (hard ceiling) | Requires 5yr, has 2yr → cap at 60 |
+| 1–2 years | Score reduced by 15 points | Requires 3yr, has 1.5yr → score - 15 |
+| < 1 year | No adjustment (prompt handles this) | Requires 3yr, has 2.5yr → prompt scores it |
+
+The hard gate appends `CRITICAL: <skill> requires Nyr, candidate has ~Myr` to `gaps_identified`.
+
 ---
 
 ## 10. Job Requirements Management

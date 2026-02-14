@@ -1983,6 +1983,33 @@ IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job descri
 
 DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
 Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
+
+        # Years-of-experience analysis instruction (applies regardless of custom vs AI requirements)
+        years_analysis_instruction = """
+
+YEARS OF EXPERIENCE ANALYSIS (MANDATORY):
+Before scoring, you MUST perform this analysis for EACH skill or technology that has an
+explicit "X+ years" or "X years" requirement in the job description or requirements:
+
+1. Identify which skills have year-based requirements (e.g., "3+ years of Python", "5 years Java development").
+2. For each such skill, scan the resume for ALL roles where the candidate used that skill.
+3. Calculate the total duration by summing the date ranges of those roles:
+   - Use start/end dates (e.g., "Jan 2021 - Dec 2023" = 3.0 years).
+   - For "Present" or ongoing roles, use today's date (February 2026).
+   - Internships and part-time roles count at 50% weight (e.g., a 6-month internship = 0.25 years).
+   - University coursework, academic projects, and personal projects do NOT count toward professional years.
+   - Overlapping roles should not be double-counted; use the union of date ranges.
+4. Compare the candidate's calculated years against the job's requirement.
+5. If ANY required skill has a candidate shortfall of 2+ years below the minimum,
+   the match_score MUST be capped at 60 (regardless of how well other requirements match).
+   If the shortfall is 1-2 years, reduce the score by at least 15 points from what it would otherwise be.
+
+EXAMPLE: Job requires "3+ years of React". Candidate's resume shows:
+  - Software Engineer at Acme Corp (Jun 2024 - Present, ~1.7 years, used React) = 1.7 years
+  - Intern at Beta Inc (Jan 2024 - May 2024, 5 months, used React) = 0.21 years (50% weight)
+  Total estimated React experience: ~1.9 years → shortfall is 1.1 years → reduce score by 15+ points.
+
+If no skills in the job description have explicit year-based requirements, set years_analysis to an empty object {}."""
         
         # Build location matching instructions based on work type
         location_instruction = ""
@@ -2042,6 +2069,7 @@ CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., 
         prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements.
 Provide an objective assessment with a percentage match score (0-100).
 {requirements_instruction}
+{years_analysis_instruction}
 {location_instruction}
 
 JOB DETAILS:
@@ -2071,19 +2099,30 @@ Respond in JSON format with these exact fields:
     "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say 'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.' Do NOT use contradictory phrasing like 'mismatch which matches'.>",
     "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
     "experience_match": "<ONLY list experience from the resume that is relevant to the job - be specific>",
-    "gaps_identified": "<List ALL mandatory requirements NOT found in the resume INCLUDING location mismatches - this is critical>",
-    "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>"
+    "gaps_identified": "<List ALL mandatory requirements NOT found in the resume INCLUDING location mismatches AND years-of-experience shortfalls - this is critical>",
+    "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>",
+    "years_analysis": {{
+        "<skill_name>": {{
+            "required_years": <N>,
+            "estimated_years": <M>,
+            "meets_requirement": true/false
+        }}
+    }}
 }}
 
 
 SCORING GUIDELINES:
-- 85-100: Candidate meets nearly ALL mandatory requirements with explicit evidence in resume AND location matches
-- 70-84: Candidate meets MOST mandatory requirements but has 1-2 minor gaps (may include minor location concerns)
-- 50-69: Candidate meets SOME requirements but is missing key qualifications or has location issues
-- 30-49: Candidate has tangential experience, significant gaps, or major location mismatch
+- 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, location matches, AND meets or exceeds ALL required years of experience per skill
+- 70-84: Candidate meets MOST mandatory requirements, may have 1-2 minor gaps or be 1 year short on a non-critical skill
+- 50-69: Candidate has relevant skills but INSUFFICIENT years of professional experience for required skills, OR is missing key qualifications, OR has location issues
+- 30-49: Candidate has tangential experience, significant experience/years gaps, or major location mismatch
 - 0-29: Candidate's background does not align with the role (wrong field/specialty or completely wrong location)
 
-BE HONEST. If the resume does not show the required skills OR the candidate location doesn't match, the candidate should NOT score high."""
+CRITICAL SCORING RULES:
+- If a job requires "X+ years" for a skill and the candidate has < (X-2) years, the score MUST be <= 60.
+- University projects, coursework, and hackathons are NOT professional experience and do NOT count toward years.
+- A candidate fresh out of school with only internships CANNOT score 85+ for a role requiring 3+ years of professional experience.
+- BE HONEST. If the resume does not show the required skills, sufficient years, OR the candidate location doesn't match, the candidate should NOT score high."""
 
         try:
             system_message = """You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
@@ -2103,7 +2142,9 @@ CRITICAL RULES:
    - Doctorate/PhD > Master's (MA, MS, MBA, etc.) > Bachelor's (BA, BS, etc.) > Associate's > High School/GED
    - If a job requires "Bachelor's degree" and the candidate has a Master's, PhD, or Doctorate, the education requirement is MET (exceeded), NOT a gap.
    - Only flag an education gap if the candidate's highest degree is LOWER than what the job requires.
-   - If the job specifies a field (e.g., "Bachelor's in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap."""
+   - If the job specifies a field (e.g., "Bachelor's in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap.
+9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
+10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement."""
 
             response = self.openai_client.chat.completions.create(
                 model=model_override or self.model,
@@ -2113,7 +2154,7 @@ CRITICAL RULES:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.1,  # Lower temperature for more deterministic/accurate responses
-                max_tokens=1000
+                max_tokens=1500  # Increased to accommodate years_analysis in response
             )
             
             result = json.loads(response.choices[0].message.content)
@@ -2125,9 +2166,58 @@ CRITICAL RULES:
             # Ensure match_score is an integer
             result['match_score'] = int(result.get('match_score', 0))
             
+            # ── POST-PROCESSING: Years-of-experience hard gate (Option B defense-in-depth) ──
+            # Even if the AI prompt correctly penalizes for insufficient years,
+            # this code enforces a hard ceiling so inflated scores cannot slip through.
+            years_analysis = result.get('years_analysis', {})
+            if isinstance(years_analysis, dict) and years_analysis:
+                original_score = result['match_score']
+                max_shortfall = 0.0
+                shortfall_details = []
+                
+                for skill, data in years_analysis.items():
+                    if not isinstance(data, dict):
+                        continue
+                    meets = data.get('meets_requirement', True)
+                    if not meets:
+                        required = float(data.get('required_years', 0))
+                        estimated = float(data.get('estimated_years', 0))
+                        shortfall = required - estimated
+                        if shortfall > max_shortfall:
+                            max_shortfall = shortfall
+                        shortfall_details.append(
+                            f"CRITICAL: {skill} requires {required:.0f}yr, candidate has ~{estimated:.1f}yr"
+                        )
+                
+                if max_shortfall >= 2.0:
+                    # Hard cap: 2+ year shortfall on ANY required skill → cap at 60
+                    if result['match_score'] > 60:
+                        result['match_score'] = 60
+                        logging.info(
+                            f"📉 Years hard gate: capped score {original_score}→60 for job {job_id} "
+                            f"(shortfall: {max_shortfall:.1f}yr)"
+                        )
+                elif max_shortfall >= 1.0:
+                    # Significant penalty: 1-2 year shortfall → reduce by 15 points
+                    result['match_score'] = max(0, result['match_score'] - 15)
+                    if result['match_score'] != original_score:
+                        logging.info(
+                            f"📉 Years penalty: reduced score {original_score}→{result['match_score']} for job {job_id} "
+                            f"(shortfall: {max_shortfall:.1f}yr)"
+                        )
+                
+                # Append shortfall details to gaps_identified
+                if shortfall_details:
+                    existing_gaps = result.get('gaps_identified', '') or ''
+                    gap_suffix = ' | '.join(shortfall_details)
+                    if existing_gaps:
+                        result['gaps_identified'] = f"{existing_gaps} | {gap_suffix}"
+                    else:
+                        result['gaps_identified'] = gap_suffix
+            
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
-            logging.info(f"📋 AI response for job {job_id}: score={result['match_score']}%, has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}")
+            logging.info(f"📋 AI response for job {job_id}: score={result['match_score']}%, has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}, years_analysis={bool(years_analysis)}")
             
             # Store data for deferred saving (to avoid Flask app context issues in parallel threads)
             # The caller should save these after parallel execution completes
