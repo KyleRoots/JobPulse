@@ -82,8 +82,7 @@
             width: var(--sidebar-collapsed-width);
         }
 
-        .sidebar.collapsed .sidebar-logo-text,
-        .sidebar.collapsed .sidebar-logo-sub,
+        .sidebar.collapsed .sidebar-logo-full,
         .sidebar.collapsed .nav-section-title,
         .sidebar.collapsed .nav-item span,
         .sidebar.collapsed .user-details,
@@ -91,12 +90,12 @@
             display: none;
         }
 
-        .sidebar.collapsed .sidebar-logo {
-            justify-content: center;
+        .sidebar.collapsed .sidebar-logo-compact {
+            display: block;
         }
 
-        .sidebar.collapsed .sidebar-logo-icon {
-            margin: 0;
+        .sidebar.collapsed .sidebar-logo {
+            justify-content: center;
         }
 
         .sidebar.collapsed .nav-item {
@@ -111,16 +110,22 @@
 
         .sidebar.collapsed .user-info {
             justify-content: center;
-            padding: 0.75rem;
+            padding: 0.50rem;
         }
 
         .sidebar.collapsed .user-avatar {
             margin: 0;
+            min-width: 36px;
+            min-height: 36px;
+            width: 36px;
+            height: 36px;
         }
 
         .sidebar.collapsed .logout-btn {
             justify-content: center;
-            padding: 0.6rem;
+            padding: 0.5rem;
+            min-width: 36px;
+            min-height: 36px;
         }
 
         .sidebar.collapsed .sidebar-header {
@@ -132,7 +137,10 @@
         }
 
         .sidebar.collapsed .sidebar-footer {
-            padding: 0.75rem 0.5rem;
+            padding: 0.50rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         /* Sidebar collapse toggle button */
@@ -178,7 +186,8 @@
         }
 
         .sidebar-header {
-            padding: 1.5rem;
+            padding: 1rem;
+            padding-top: 1.5rem;
             border-bottom: 1px solid var(--sidebar-border);
             text-align: center;
         }
@@ -187,63 +196,20 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.75rem;
             text-decoration: none;
-            color: #fff;
         }
 
-        .sidebar-logo-icon {
+        .sidebar-logo-full {
+            width: 180px;
+            height: auto;
+            display: block;
+        }
+
+        .sidebar-logo-compact {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, #3b82f6, #06b6d4);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-        }
-
-        .sidebar-logo-text {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-        }
-
-        /* "J" and "ob" in white */
-        .logo-job {
-            color: #e2e8f0;
-        }
-
-        /* Pulse heartbeat SVG */
-        .logo-pulse {
-            display: inline-flex;
-            align-items: center;
-            width: 20px;
-            height: 14px;
-            margin: 0 1px;
-        }
-
-        .pulse-svg {
-            width: 100%;
-            height: 100%;
-            color: #3b82f6;
-        }
-
-        /* "Pulse" in blue gradient */
-        .logo-pulse-text {
-            background: linear-gradient(135deg, #3b82f6, #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .sidebar-logo-sub {
-            font-family: 'Kalam', cursive;
-            font-size: 0.75rem;
-            color: #64748b;
-            text-align: center;
-            margin-top: -0.25rem;
+            display: none;
+            object-fit: contain;
         }
 
         .sidebar-nav {
@@ -329,6 +295,8 @@
         .user-avatar {
             width: 36px;
             height: 36px;
+            min-width: 36px;
+            min-height: 36px;
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
             border-radius: 50%;
             display: flex;
@@ -337,6 +305,7 @@
             font-size: 0.875rem;
             font-weight: 600;
             color: #fff;
+            flex-shrink: 0;
         }
 
         .user-details {
@@ -807,8 +776,7 @@
                 width: var(--sidebar-width) !important;
             }
 
-            .sidebar.collapsed .sidebar-logo-text,
-            .sidebar.collapsed .sidebar-logo-sub,
+            .sidebar.collapsed .sidebar-logo-full,
             .sidebar.collapsed .nav-section-title,
             .sidebar.collapsed .nav-item span,
             .sidebar.collapsed .user-details,
@@ -1278,11 +1246,11 @@
 
         <div class="sidebar-header">
             <a href="{{ url_for('dashboard.dashboard_redirect') }}" class="sidebar-logo">
-                <span class="sidebar-logo-text">
-                    <span class="logo-job">Scout</span><span class="logo-pulse-text"> Genius</span>
-                </span>
+                <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
+                    class="sidebar-logo-full">
+                <img src="{{ url_for('static', filename='images/scout-genius-icon.png') }}" alt="Scout Genius"
+                    class="sidebar-logo-compact">
             </a>
-
         </div>
 
         <nav class="sidebar-nav">
