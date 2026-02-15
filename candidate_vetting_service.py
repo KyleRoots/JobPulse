@@ -618,8 +618,12 @@ Format as a bullet-point list. Be specific and concise."""
                     notes_data = notes_response.json()
                     all_notes = notes_data.get('data', [])
                     
-                    # Filter for screening notes (backward-compat: match both old and new action strings)
-                    screening_actions = {'AI Vetting - Not Recommended', 'Scout Screening - Not Recommended'}
+                    # Filter for screening notes (backward-compat: match old, intermediate, and new action strings)
+                    screening_actions = {
+                        'AI Vetting - Not Recommended',
+                        'Scout Screening - Not Recommended',  # Legacy (>30 chars, never created successfully)
+                        'Scout Screen - Not Qualified',        # Current format (≤30 chars)
+                    }
                     vetting_notes = [
                         n for n in all_notes 
                         if n.get('action') in screening_actions
@@ -2996,10 +3000,14 @@ CRITICAL RULES:
             existing_notes = bullhorn.get_candidate_notes(
                 vetting_log.bullhorn_candidate_id,
                 action_filter=[
+                    # Current format (≤30 chars for Bullhorn action field)
+                    "Scout Screen - Qualified",
+                    "Scout Screen - Not Qualified",
+                    "Scout Screen - Incomplete",
+                    # Backward compat: match legacy action strings
                     "Scout Screening - Qualified",
                     "Scout Screening - Not Recommended",
                     "Scout Screening - Incomplete",
-                    # Backward compat: also match historical action strings
                     "AI Vetting - Qualified",
                     "AI Vetting - Not Recommended",
                     "AI Vetting - Incomplete"
@@ -3049,7 +3057,7 @@ CRITICAL RULES:
                 f"Please review manually if needed."
             ]
             note_text = "\n".join(note_lines)
-            action = "Scout Screening - Incomplete"
+            action = "Scout Screen - Incomplete"
             
             note_id = bullhorn.create_candidate_note(
                 vetting_log.bullhorn_candidate_id,
@@ -3164,7 +3172,7 @@ CRITICAL RULES:
         note_text = "\n".join(note_lines)
         
         # Create the note
-        action = "Scout Screening - Qualified" if vetting_log.is_qualified else "Scout Screening - Not Recommended"
+        action = "Scout Screen - Qualified" if vetting_log.is_qualified else "Scout Screen - Not Qualified"
         note_id = bullhorn.create_candidate_note(
             vetting_log.bullhorn_candidate_id,
             note_text,

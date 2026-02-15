@@ -418,6 +418,75 @@ def force_release_lock():
     return redirect(url_for('vetting.vetting_settings'))
 
 
+@vetting_bp.route('/vetting/retry-failed-notes', methods=['POST'])
+@login_required
+def retry_failed_notes():
+    """Retry creating Bullhorn notes for vetting logs where note creation previously failed.
+    
+    Processes in batches to prevent request timeouts. Call multiple times if needed.
+    Accepts optional batch_size parameter (default 50, max 100).
+    """
+    from models import CandidateVettingLog
+    from candidate_vetting_service import CandidateVettingService
+    
+    db = get_db()
+    
+    # Parse batch size from form or default to 50
+    try:
+        batch_size = int(request.form.get('batch_size', 50))
+        batch_size = max(1, min(batch_size, 100))  # Clamp to 1-100
+    except (ValueError, TypeError):
+        batch_size = 50
+    
+    try:
+        # Count total failed before applying batch limit
+        total_failed = CandidateVettingLog.query.filter(
+            CandidateVettingLog.status == 'completed',
+            CandidateVettingLog.note_created == False
+        ).count()
+        
+        if total_failed == 0:
+            flash('No failed notes to retry — all completed vetting logs have notes.', 'info')
+            return redirect(url_for('vetting.vetting_settings'))
+        
+        # Apply batch limit
+        failed_logs = CandidateVettingLog.query.filter(
+            CandidateVettingLog.status == 'completed',
+            CandidateVettingLog.note_created == False
+        ).order_by(CandidateVettingLog.analyzed_at.desc()).limit(batch_size).all()
+        
+        vetting_service = CandidateVettingService()
+        success_count = 0
+        fail_count = 0
+        
+        for log in failed_logs:
+            try:
+                if vetting_service.create_candidate_note(log):
+                    success_count += 1
+                else:
+                    fail_count += 1
+            except Exception as e:
+                current_app.logger.error(f"Error retrying note for candidate {log.bullhorn_candidate_id}: {str(e)}")
+                fail_count += 1
+        
+        remaining = total_failed - success_count
+        msg = f'Note retry batch complete: {success_count} created, {fail_count} failed (batch of {len(failed_logs)}).'
+        if remaining > 0:
+            msg += f' {remaining} still pending — click again to process the next batch.'
+        
+        flash(msg, 'success' if fail_count == 0 else 'warning')
+        current_app.logger.info(
+            f"Retry failed notes: {success_count}/{len(failed_logs)} succeeded in this batch, "
+            f"{remaining} remaining of {total_failed} total"
+        )
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error retrying failed notes: {str(e)}")
+        flash(f'Error retrying failed notes: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting.vetting_settings'))
+
 @vetting_bp.route('/vetting/process-backlog', methods=['POST'])
 @login_required
 def process_backlog():
@@ -804,7 +873,7 @@ QUALIFIED POSITIONS:
   ⭐ APPLIED TO THIS POSITION
   Summary: Strong candidate with 5+ years of Azure experience.
   Skills: Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server"""
-            action = "Scout Screening - Qualified"
+            action = "Scout Screen - Qualified"
         else:
             note_text = f"""📋 SCOUT SCREENING - NOT RECOMMENDED
 
@@ -814,7 +883,7 @@ Highest Match Score: 62%
 Jobs Analyzed: 5
 
 This candidate did not meet the 80% match threshold for any current open positions."""
-            action = "Scout Screening - Not Recommended"
+            action = "Scout Screen - Not Qualified"
         
         note_id = bullhorn.create_candidate_note(candidate_id, note_text, action=action)
         
