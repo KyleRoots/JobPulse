@@ -305,6 +305,23 @@ Sent daily at 8:00 AM EST via Render cron job, includes:
 - Per-candidate breakdown
 - Trend analysis vs. previous periods
 
+### Token Limit Handling
+
+The `text-embedding-3-small` model has a maximum context length of **8,192 tokens**. Long resumes or job descriptions can exceed this limit.
+
+| Setting | Value | Purpose |
+|---|---|---|
+| Token budget | **8,000** | 192-token safety buffer below the 8,192 model limit |
+| Tokenizer | `tiktoken` (OpenAI official) | Precise token counting at token boundaries |
+| Fallback estimation | `len(text) // 3` | Conservative fallback if `tiktoken` is unavailable |
+| Truncation strategy | **Head 75% + Tail 25%** | Preserves contact info/skills (top) and education/certs (bottom) |
+
+**Behavior:**
+- Text under 8,000 tokens passes through unchanged
+- Over-limit text is truncated at token boundaries using a head+tail split
+- Truncation logs a `WARNING` (not `ERROR`) with original and truncated token counts
+- If embedding generation fails entirely, the candidate **bypasses** the filter and proceeds to Layer 2 (fail-safe)
+
 ---
 
 ## 7. Multi-Model Scoring (Layers 2 & 3)

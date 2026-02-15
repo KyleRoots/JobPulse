@@ -202,14 +202,15 @@ class TestGenerateEmbedding:
         mock_client.embeddings.create.return_value = mock_response
         service.openai_client = mock_client
         
-        # 50,000 chars ≈ 12,500 tokens — well over 7,500 limit
-        long_text = "x" * 50000
+        # Create text that is definitely over 8000 tokens
+        # Use real words to get predictable tiktoken counts
+        long_text = "software engineer experience " * 5000  # ~10,000+ tokens
         service.generate_embedding(long_text)
         
         call_kwargs = mock_client.embeddings.create.call_args
         sent_text = call_kwargs[1]['input']
-        # Should be truncated: head (22500) + separator + tail (7500) < 50000
-        assert len(sent_text) < 50000
+        # Should be truncated (shorter than original)
+        assert len(sent_text) < len(long_text)
         assert "...[truncated]..." in sent_text
     
     def test_short_text_not_truncated(self):
@@ -218,43 +219,139 @@ class TestGenerateEmbedding:
         
         service = EmbeddingService()
         short_text = "Python developer with 5 years experience"
-        result = service._truncate_for_embedding(short_text)
+        result, was_truncated, original_tokens = service._truncate_for_embedding(short_text)
         assert result == short_text
+        assert was_truncated is False
+        assert original_tokens > 0
     
     def test_truncation_preserves_head_and_tail(self):
-        """Truncated text should keep the first 75% and last 25% of the budget."""
+        """Truncated text should keep the beginning and end of the original."""
         from embedding_service import EmbeddingService
         
         service = EmbeddingService()
         # Create text with identifiable head and tail sections
-        head_marker = "HEAD_CONTACT_INFO_SKILLS "
-        tail_marker = " TAIL_EDUCATION_CERTS"
-        # 40,000 chars ≈ 10,000 tokens, triggers truncation (limit 7,500)
-        text = head_marker + ("m" * 39950) + tail_marker
+        head_marker = "HEAD CONTACT INFO SKILLS "
+        tail_marker = " TAIL EDUCATION CERTS"
+        # Use repeating words to create predictable token count well over 8000
+        middle = "experienced software developer working on projects " * 2000
+        text = head_marker + middle + tail_marker
         
-        result = service._truncate_for_embedding(text)
+        result, was_truncated, original_tokens = service._truncate_for_embedding(text)
         
+        assert was_truncated is True
         # Head should be preserved (starts with our marker)
         assert result.startswith(head_marker)
         # Tail should be preserved (ends with our marker)
         assert result.endswith(tail_marker)
         # Separator should be present
         assert "...[truncated]..." in result
+        # Original token count should be reported
+        assert original_tokens > 8000
     
     def test_truncation_logs_warning(self):
         """Truncation should log a warning with token counts."""
         from embedding_service import EmbeddingService
-        import logging
         
         service = EmbeddingService()
-        long_text = "x" * 50000  # ~12,500 tokens
+        long_text = "software engineer experience " * 5000  # well over 8000 tokens
         
         with patch('embedding_service.logging') as mock_logging:
-            service._truncate_for_embedding(long_text)
-            mock_logging.warning.assert_called_once()
+            result, was_truncated, original_tokens = service._truncate_for_embedding(long_text)
+            assert was_truncated is True
+            # Should have logged at least one warning about truncation
+            assert mock_logging.warning.called
             warning_msg = mock_logging.warning.call_args[0][0]
             assert "truncated" in warning_msg.lower()
-            assert "12500" in warning_msg  # estimated tokens
+    
+    def test_truncation_returns_metadata_tuple(self):
+        """_truncate_for_embedding should return (text, was_truncated, original_tokens)."""
+        from embedding_service import EmbeddingService
+        
+        service = EmbeddingService()
+        
+        # Short text: no truncation
+        result = service._truncate_for_embedding("hello world")
+        assert isinstance(result, tuple)
+        assert len(result) == 3
+        text, was_truncated, token_count = result
+        assert text == "hello world"
+        assert was_truncated is False
+        assert isinstance(token_count, int)
+        assert token_count > 0
+        
+        # Long text: triggers truncation
+        long_text = "data science machine learning " * 5000
+        text2, was_truncated2, token_count2 = service._truncate_for_embedding(long_text)
+        assert was_truncated2 is True
+        assert token_count2 > 8000
+        assert "...[truncated]..." in text2
+    
+    def test_count_tokens_basic(self):
+        """count_tokens should return a positive integer for non-empty text."""
+        from embedding_service import EmbeddingService
+        
+        count = EmbeddingService.count_tokens("Hello world, this is a test.")
+        assert isinstance(count, int)
+        assert count > 0
+        # "Hello world, this is a test." is about 8 tokens
+        assert 5 <= count <= 12
+    
+    def test_count_tokens_empty_text(self):
+        """count_tokens should return 0 for empty or None text."""
+        from embedding_service import EmbeddingService
+        
+        assert EmbeddingService.count_tokens("") == 0
+        assert EmbeddingService.count_tokens(None) == 0
+    
+    def test_count_tokens_accuracy_vs_estimation(self):
+        """tiktoken should give more accurate counts than char-based estimation."""
+        from embedding_service import EmbeddingService, TIKTOKEN_AVAILABLE
+        
+        if not TIKTOKEN_AVAILABLE:
+            pytest.skip("tiktoken not installed")
+        
+        # Technical text where char estimation is inaccurate
+        technical_text = "API/ML: AWS SageMaker, CI/CD, ETL, NLP, LLM, GCP, k8s. " * 100
+        
+        actual_tokens = EmbeddingService.count_tokens(technical_text)
+        char_estimate = len(technical_text) // 4  # Old estimation
+        
+        # The char estimate should differ from actual
+        # (technical text with short tokens tends to have MORE tokens than estimated)
+        assert actual_tokens != char_estimate
+        # Token count should be reasonable (not wildly off)
+        assert actual_tokens > 0
+    
+    def test_count_tokens_fallback_when_tiktoken_unavailable(self):
+        """count_tokens should use conservative fallback if tiktoken is missing."""
+        from embedding_service import EmbeddingService
+        
+        text = "This is a test sentence for token counting."
+        
+        # Mock tiktoken being unavailable
+        with patch('embedding_service.TIKTOKEN_AVAILABLE', False):
+            count = EmbeddingService.count_tokens(text)
+            # Should use len(text) // 3 = 44 // 3 = 14
+            assert count == len(text) // 3
+    
+    def test_truncation_within_token_budget(self):
+        """After truncation, the result should fit within the token budget."""
+        from embedding_service import EmbeddingService, TIKTOKEN_AVAILABLE
+        
+        if not TIKTOKEN_AVAILABLE:
+            pytest.skip("tiktoken not installed")
+        
+        service = EmbeddingService()
+        # Create text that is clearly over 8000 tokens  
+        long_text = "data scientist with experience " * 5000
+        
+        result_text, was_truncated, original_tokens = service._truncate_for_embedding(long_text)
+        assert was_truncated is True
+        
+        # Verify the truncated text is within budget
+        truncated_tokens = EmbeddingService.count_tokens(result_text)
+        # Allow small overhead for the separator text
+        assert truncated_tokens <= 8100  # 8000 budget + separator overhead
 
 
 class TestFilterRelevantJobs:

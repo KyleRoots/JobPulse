@@ -23,11 +23,20 @@ from typing import Dict, List, Optional, Tuple
 
 from openai import OpenAI
 
+# Tiktoken for precise token counting (graceful fallback if unavailable)
+try:
+    import tiktoken
+    TIKTOKEN_AVAILABLE = True
+except ImportError:
+    TIKTOKEN_AVAILABLE = False
+    logging.warning("tiktoken not available; using conservative fallback estimation")
+
 
 # Default configuration constants
 DEFAULT_SIMILARITY_THRESHOLD = 0.25
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 1536
+MAX_EMBEDDING_TOKENS = 8000  # Model limit is 8192; 192-token safety buffer
 
 
 class EmbeddingService:
@@ -54,45 +63,106 @@ class EmbeddingService:
         else:
             logging.warning("OPENAI_API_KEY not found - embedding service will not work")
     
-    def _truncate_for_embedding(self, text: str, max_tokens: int = 7500) -> str:
+    @staticmethod
+    def count_tokens(text: str, model: str = DEFAULT_EMBEDDING_MODEL) -> int:
+        """
+        Count tokens using tiktoken if available, fallback to conservative estimation.
+        
+        Args:
+            text: Input text to count tokens for
+            model: Model name for tokenizer selection
+            
+        Returns:
+            Token count (exact with tiktoken, conservative estimate without)
+        """
+        if not text:
+            return 0
+        
+        if TIKTOKEN_AVAILABLE:
+            try:
+                encoding = tiktoken.encoding_for_model(model)
+                return len(encoding.encode(text))
+            except Exception as e:
+                logging.warning(f"tiktoken encoding failed: {e}, using fallback")
+                return len(text) // 3  # Conservative fallback
+        else:
+            # Conservative estimation: assume 3 chars/token (safer than 4)
+            return len(text) // 3
+    
+    def _truncate_for_embedding(self, text: str, max_tokens: int = MAX_EMBEDDING_TOKENS) -> Tuple[str, bool, int]:
         """
         Intelligently truncate text to stay under the embedding model's token limit.
         
-        Strategy: Keep the first ~75% of the character budget (contact info, summary,
-        skills, recent work history) and the last ~25% (education, certifications).
-        Drops middle content (older work history, verbose descriptions).
+        Uses tiktoken for precise token counting when available, with a conservative
+        character-based fallback. Strategy: keep the first ~75% of the token budget
+        (contact info, summary, skills, recent work history) and the last ~25%
+        (education, certifications). Drops middle content (older work history,
+        verbose descriptions).
         
         Args:
             text: The full resume/document text
-            max_tokens: Maximum token budget (default 7500, model limit is 8191)
+            max_tokens: Maximum token budget (default 8000, model limit is 8192)
             
         Returns:
-            Original text if under limit, or truncated text with head + tail
+            Tuple of (text, was_truncated, original_token_count):
+              - text: Original text if under limit, or truncated text
+              - was_truncated: True if truncation was applied
+              - original_token_count: Token count of the original text
         """
-        # Estimate tokens: ~4 chars per token for typical English text
-        estimated_tokens = len(text) // 4
-        if estimated_tokens <= max_tokens:
-            return text  # No truncation needed
+        original_tokens = self.count_tokens(text)
+        if original_tokens <= max_tokens:
+            return text, False, original_tokens
         
-        max_chars = max_tokens * 4  # Convert token budget back to chars
-        head_chars = int(max_chars * 0.75)  # First 75% → top of resume
-        tail_chars = max_chars - head_chars  # Last 25% → education/certs
+        # Truncate at token level using tiktoken if available
+        if TIKTOKEN_AVAILABLE:
+            try:
+                encoding = tiktoken.encoding_for_model(self.embedding_model)
+                tokens = encoding.encode(text)
+                
+                head_budget = int(max_tokens * 0.75)  # First 75% → top of resume
+                tail_budget = max_tokens - head_budget  # Last 25% → education/certs
+                
+                head_tokens = tokens[:head_budget]
+                tail_tokens = tokens[-tail_budget:]
+                
+                head_text = encoding.decode(head_tokens)
+                tail_text = encoding.decode(tail_tokens)
+                
+                truncated = head_text + "\n...[truncated]...\n" + tail_text
+                
+                logging.warning(
+                    f"📏 Text truncated for embedding: {original_tokens} tokens → "
+                    f"{max_tokens} tokens (head={head_budget}, tail={tail_budget}). "
+                    f"Original length: {len(text)} chars."
+                )
+                
+                return truncated, True, original_tokens
+            except Exception as e:
+                logging.warning(f"tiktoken truncation failed: {e}, using char fallback")
+        
+        # Fallback: character-based truncation (conservative 3 chars/token)
+        max_chars = max_tokens * 3
+        head_chars = int(max_chars * 0.75)
+        tail_chars = max_chars - head_chars
         
         head = text[:head_chars]
         tail = text[-tail_chars:]
         
-        dropped_chars = len(text) - head_chars - tail_chars
         logging.warning(
-            f"📏 Resume truncated for embedding: ~{estimated_tokens} est. tokens "
-            f"exceeds {max_tokens} limit. Kept first {head_chars} + last {tail_chars} chars, "
-            f"dropped {dropped_chars} middle chars."
+            f"📏 Text truncated for embedding (char fallback): ~{original_tokens} est. tokens "
+            f"→ ~{max_tokens} budget. Kept first {head_chars} + last {tail_chars} chars."
         )
         
-        return head + "\n...[truncated]...\n" + tail
+        return head + "\n...[truncated]...\n" + tail, True, original_tokens
     
     def generate_embedding(self, text: str) -> Optional[List[float]]:
         """
         Generate an embedding vector for the given text.
+        
+        Automatically truncates text exceeding the model's token limit (8192 for
+        text-embedding-3-small). If truncation is applied, logs a WARNING. If
+        generation fails entirely, returns None (caller should handle gracefully
+        to allow candidate through to Layer 2).
         
         Args:
             text: Input text to embed (intelligently truncated to stay under token limit)
@@ -110,8 +180,15 @@ class EmbeddingService:
         
         try:
             # Intelligently truncate to avoid token limits
-            # (text-embedding-3-small supports max 8191 tokens)
-            truncated_text = self._truncate_for_embedding(text)
+            # (text-embedding-3-small supports max 8192 tokens, budget 8000)
+            truncated_text, was_truncated, original_tokens = self._truncate_for_embedding(text)
+            
+            if was_truncated:
+                logging.warning(
+                    f"Embedding truncation applied: {original_tokens} tokens → "
+                    f"{MAX_EMBEDDING_TOKENS} token budget. "
+                    f"Resume length: {len(text)} chars."
+                )
             
             response = self.openai_client.embeddings.create(
                 input=truncated_text,
