@@ -3312,7 +3312,7 @@ Troubleshooting Steps:
 
 You will receive another notification when the environment is back online.
 
-This is an automated message from JobPulse Environment Monitoring.
+This is an automated message from Scout Genius Environment Monitoring.
 """
         else:  # status == 'up'
             subject = f"✅ RECOVERY: {env_status.environment_name.title()} Environment is UP"
@@ -3330,7 +3330,7 @@ Recovery Time: {current_time_eastern}
 The environment is now accessible and functioning normally.
 Current uptime: {env_status.uptime_percentage}%
 
-This is an automated message from JobPulse Environment Monitoring.
+This is an automated message from Scout Genius Environment Monitoring.
 """
         
         # Initialize email service
@@ -3810,7 +3810,7 @@ def api_submit_feedback():
             sg = SendGridAPIClient(sg_api_key)
             
             email_content = f"""
-JobPulse™ User Feedback Received
+Scout Genius™ User Feedback Received
 
 Type: {type_label}
 From: {user}
@@ -3821,13 +3821,13 @@ Message:
 {message}
 
 ---
-This feedback was submitted via the JobPulse™ Feedback system.
+This feedback was submitted via the Scout Genius™ Feedback system.
             """
             
             html_content = f"""
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: linear-gradient(135deg, #1e3a5f 0%, #0d2847 100%); padding: 20px; border-radius: 8px;">
-                    <h2 style="color: #60a5fa; margin: 0;">📬 JobPulse™ Feedback</h2>
+                    <h2 style="color: #60a5fa; margin: 0;">📬 Scout Genius™ Feedback</h2>
                 </div>
                 <div style="padding: 20px; background: #f8fafc; border-radius: 0 0 8px 8px;">
                     <table style="width: 100%; border-collapse: collapse;">
@@ -3846,9 +3846,9 @@ This feedback was submitted via the JobPulse™ Feedback system.
             """
             
             mail = Mail(
-                from_email=Email("noreply@lyntrix.ai", "JobPulse Feedback"),
+                from_email=Email("noreply@lyntrix.ai", "Scout Genius Feedback"),
                 to_emails=To(admin_email),
-                subject=f"[JobPulse Feedback] {type_label} from {user}",
+                subject=f"[Scout Genius Feedback] {type_label} from {user}",
                 plain_text_content=Content("text/plain", email_content),
                 html_content=Content("text/html", html_content)
             )
@@ -4200,7 +4200,7 @@ def send_vetting_health_alert(health_check):
         html_content = f"""
         <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2 style="color: #dc3545;">{severity_label} JobPulse Vetting System Alert</h2>
+            <h2 style="color: #dc3545;">{severity_label} Scout Screening System Alert</h2>
             <p>The AI Candidate Vetting system has detected <strong>persistent</strong> issues requiring attention:</p>
             
             <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
@@ -4219,7 +4219,7 @@ def send_vetting_health_alert(health_check):
             </ul>
             
             <p style="color: #666; font-size: 12px;">
-                This is an automated alert from JobPulse. Only sent for persistent critical issues (3+ consecutive failures with 0 candidates processed).
+                This is an automated alert from Scout Screening. Only sent for persistent critical issues (3+ consecutive failures with 0 candidates processed).
                 Check the <a href="https://jobpulse.lyntrix.ai/vetting/settings">Vetting Dashboard</a> for more details.
             </p>
         </body>
@@ -4229,7 +4229,7 @@ def send_vetting_health_alert(health_check):
         message = Mail(
             from_email='noreply@myticas.com',
             to_emails=health_alert_email,
-            subject=f'{severity_label} JobPulse Vetting System Alert - Persistent Issues',
+            subject=f'{severity_label} Scout Screening System Alert - Persistent Issues',
             html_content=html_content
         )
         

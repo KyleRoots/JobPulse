@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}JobPulse™{% endblock %}</title>
+    <title>{% block title %}Scout Genius™{% endblock %}</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link
@@ -1236,30 +1236,30 @@
 <body>
     <!-- CSRF: auto-attach token to all fetch() calls -->
     <script>
-    (function() {
-        const originalFetch = window.fetch;
-        window.fetch = function(url, options) {
-            options = options || {};
-            const method = (options.method || 'GET').toUpperCase();
-            if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-                const meta = document.querySelector('meta[name="csrf-token"]');
-                if (meta) {
-                    options.headers = options.headers || {};
-                    // Support both Headers object and plain object
-                    if (options.headers instanceof Headers) {
-                        if (!options.headers.has('X-CSRFToken')) {
-                            options.headers.set('X-CSRFToken', meta.content);
-                        }
-                    } else {
-                        if (!options.headers['X-CSRFToken']) {
-                            options.headers['X-CSRFToken'] = meta.content;
+        (function () {
+            const originalFetch = window.fetch;
+            window.fetch = function (url, options) {
+                options = options || {};
+                const method = (options.method || 'GET').toUpperCase();
+                if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+                    const meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) {
+                        options.headers = options.headers || {};
+                        // Support both Headers object and plain object
+                        if (options.headers instanceof Headers) {
+                            if (!options.headers.has('X-CSRFToken')) {
+                                options.headers.set('X-CSRFToken', meta.content);
+                            }
+                        } else {
+                            if (!options.headers['X-CSRFToken']) {
+                                options.headers['X-CSRFToken'] = meta.content;
+                            }
                         }
                     }
                 }
-            }
-            return originalFetch.call(this, url, options);
-        };
-    })();
+                return originalFetch.call(this, url, options);
+            };
+        })();
     </script>
     <!-- Mobile Toggle -->
     <button class="mobile-toggle" onclick="toggleSidebar()">
@@ -1279,13 +1279,10 @@
         <div class="sidebar-header">
             <a href="{{ url_for('dashboard.dashboard_redirect') }}" class="sidebar-logo">
                 <span class="sidebar-logo-text">
-                    <span class="logo-job">J</span><span class="logo-pulse"><svg viewBox="0 0 24 16" class="pulse-svg">
-                            <path d="M0 8 L6 8 L8 3 L10 13 L12 6 L14 10 L16 8 L24 8" stroke="currentColor"
-                                stroke-width="2" fill="none" />
-                        </svg></span><span class="logo-job">b</span><span class="logo-pulse-text">Pulse</span>
+                    <span class="logo-job">Scout</span><span class="logo-pulse-text"> Genius</span>
                 </span>
             </a>
-            <div class="sidebar-logo-sub">powered by BNuvola AI</div>
+
         </div>
 
         <nav class="sidebar-nav">
@@ -1299,12 +1296,12 @@
                 <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}"
                     class="nav-item {% if active_page == 'ats' %}active{% endif %}">
                     <i class="fas fa-building"></i>
-                    <span>ATS Monitoring</span>
+                    <span>Scout Inbound</span>
                 </a>
                 <a href="{{ url_for('vetting.vetting_settings') }}"
                     class="nav-item {% if active_page == 'vetting' %}active{% endif %}">
                     <i class="fas fa-brain"></i>
-                    <span>AI Vetting</span>
+                    <span>Scout Screening</span>
                 </a>
             </div>
 
@@ -1364,7 +1361,7 @@
         <header class="page-header">
             <div>
                 <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
-                {% block page_subtitle %}<p class="page-subtitle">Welcome back to JobPulse</p>{% endblock %}
+                {% block page_subtitle %}<p class="page-subtitle">Welcome back to Scout Genius</p>{% endblock %}
             </div>
             <div class="page-actions">
                 {% block page_actions %}{% endblock %}

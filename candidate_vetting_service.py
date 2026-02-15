@@ -618,10 +618,11 @@ Format as a bullet-point list. Be specific and concise."""
                     notes_data = notes_response.json()
                     all_notes = notes_data.get('data', [])
                     
-                    # Filter for AI vetting notes (not already deleted)
+                    # Filter for screening notes (backward-compat: match both old and new action strings)
+                    screening_actions = {'AI Vetting - Not Recommended', 'Scout Screening - Not Recommended'}
                     vetting_notes = [
                         n for n in all_notes 
-                        if n.get('action') == 'AI Vetting - Not Recommended' 
+                        if n.get('action') in screening_actions
                         and not n.get('isDeleted', False)
                     ]
                     
@@ -2995,6 +2996,10 @@ CRITICAL RULES:
             existing_notes = bullhorn.get_candidate_notes(
                 vetting_log.bullhorn_candidate_id,
                 action_filter=[
+                    "Scout Screening - Qualified",
+                    "Scout Screening - Not Recommended",
+                    "Scout Screening - Incomplete",
+                    # Backward compat: also match historical action strings
                     "AI Vetting - Qualified",
                     "AI Vetting - Not Recommended",
                     "AI Vetting - Incomplete"
@@ -3029,7 +3034,7 @@ CRITICAL RULES:
             # Create a note explaining why no analysis was done
             error_reason = vetting_log.error_message or "No job matches could be performed"
             note_lines = [
-                f"📋 AI VETTING SUMMARY - INCOMPLETE ANALYSIS",
+                f"📋 SCOUT SCREENING - INCOMPLETE ANALYSIS",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
                 f"Status: {vetting_log.status}",
@@ -3044,7 +3049,7 @@ CRITICAL RULES:
                 f"Please review manually if needed."
             ]
             note_text = "\n".join(note_lines)
-            action = "AI Vetting - Incomplete"
+            action = "Scout Screening - Incomplete"
             
             note_id = bullhorn.create_candidate_note(
                 vetting_log.bullhorn_candidate_id,
@@ -3065,7 +3070,7 @@ CRITICAL RULES:
         if vetting_log.is_qualified:
             # Qualified candidate note
             note_lines = [
-                f"🎯 AI VETTING SUMMARY - QUALIFIED CANDIDATE",
+                f"🎯 SCOUT SCREENING - QUALIFIED CANDIDATE",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
                 f"Threshold: {threshold}%",
@@ -3111,7 +3116,7 @@ CRITICAL RULES:
         else:
             # Not qualified note
             note_lines = [
-                f"📋 AI VETTING SUMMARY - NOT RECOMMENDED",
+                f"📋 SCOUT SCREENING - NOT RECOMMENDED",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
                 f"Threshold: {threshold}%",
@@ -3159,7 +3164,7 @@ CRITICAL RULES:
         note_text = "\n".join(note_lines)
         
         # Create the note
-        action = "AI Vetting - Qualified" if vetting_log.is_qualified else "AI Vetting - Not Recommended"
+        action = "Scout Screening - Qualified" if vetting_log.is_qualified else "Scout Screening - Not Recommended"
         note_id = bullhorn.create_candidate_note(
             vetting_log.bullhorn_candidate_id,
             note_text,
@@ -3372,7 +3377,7 @@ CRITICAL RULES:
                 {transparency_note}
                 
                 <p style="margin: 0 0 15px 0;">
-                    A new candidate has been analyzed by JobPulse AI and matches 
+                    A new candidate has been analyzed by Scout Screening and matches 
                     <strong>{len(matches)} position(s)</strong>.
                 </p>
                 
@@ -3430,7 +3435,7 @@ CRITICAL RULES:
             
             <div style="background: #343a40; color: #adb5bd; padding: 15px; 
                         border-radius: 0 0 8px 8px; font-size: 12px; text-align: center;">
-                Powered by JobPulse™ AI Vetting • Myticas Consulting
+                Powered by Scout Screening™ • Myticas Consulting
             </div>
         </div>
         """

@@ -1,6 +1,10 @@
-# BNuvola AI Solutions - UI Style Guide
+# Scout Genius - UI Style Guide
 
-**Design System Documentation for JobPulse™ and Future Applications**
+**Design System Documentation for Scout Genius™ Platform**
+
+> **Platform Architecture:** Scout Genius is the umbrella platform comprising two modules:
+> - **Scout Inbound** — Job distribution and ATS monitoring
+> - **Scout Screening** — AI-powered candidate vetting
 
 ---
 
@@ -262,19 +266,10 @@ The sidebar nav hides scrollbars while maintaining scroll functionality:
 <aside class="sidebar">
     <div class="sidebar-header">
         <a class="sidebar-logo">
-            <!-- NEW: Pulse heartbeat logo integrated into text -->
             <span class="sidebar-logo-text">
-                <span class="logo-j">J</span>
-                <span class="logo-pulse">
-                    <svg viewBox="0 0 24 16" class="pulse-svg">
-                        <path d="M0 8 L6 8 L8 3 L10 13 L12 6 L14 10 L16 8 L24 8" 
-                              stroke="currentColor" stroke-width="2" fill="none"/>
-                    </svg>
-                </span>
-                <span class="logo-rest">bPulse</span>
+                <span class="logo-job">Scout</span><span class="logo-pulse-text"> Genius</span>
             </span>
         </a>
-        <div class="sidebar-logo-sub">powered by BNuvola AI</div>
     </div>
     
     <nav class="sidebar-nav">
@@ -710,7 +705,6 @@ Replace the logo icon and text in the sidebar header:
     <i class="fas fa-custom-icon"></i>
 </div>
 <span class="sidebar-logo-text">ClientApp™</span>
-<div class="sidebar-logo-sub">powered by BNuvola AI</div>
 ```
 
 ---
@@ -747,6 +741,6 @@ Copy `templates/base_layout.html` as your starting point. It includes:
 
 ---
 
-*Last Updated: February 4, 2026*  
-*Version: 1.2*  
-*© BNuvola AI Solutions*
+*Last Updated: February 15, 2026*  
+*Version: 2.0*  
+*© 2025 Scout Genius. All rights reserved.*

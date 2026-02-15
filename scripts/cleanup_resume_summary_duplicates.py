@@ -171,6 +171,10 @@ def run_cleanup(hours: int = 24, execute: bool = False):
     }
 
     vetting_actions = [
+        "Scout Screening - Qualified",
+        "Scout Screening - Not Recommended",
+        "Scout Screening - Incomplete",
+        # Backward compat: match historical action strings
         "AI Vetting - Qualified",
         "AI Vetting - Not Recommended",
         "AI Vetting - Incomplete"

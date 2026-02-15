@@ -485,10 +485,10 @@ class LogMonitoringService:
             
             email_service = EmailService()
             
-            subject = f"🚨 JobPulse Alert: {len(escalated)} Critical Issue(s) Detected"
+            subject = f"🚨 Scout Genius Alert: {len(escalated)} Critical Issue(s) Detected"
             
             body_lines = [
-                "The JobPulse log monitoring system has detected critical issues that require your attention.",
+                "The Scout Genius log monitoring system has detected critical issues that require your attention.",
                 "",
                 f"Analysis Period: {analysis.time_range_start} to {analysis.time_range_end}",
                 f"Logs Analyzed: {analysis.logs_analyzed}",
@@ -521,7 +521,7 @@ class LogMonitoringService:
                 "---",
                 "Please review these issues and take appropriate action.",
                 "",
-                "— JobPulse Log Monitoring"
+                "— Scout Genius Log Monitoring"
             ])
             
             message = "\n".join(body_lines)
@@ -555,7 +555,7 @@ class LogMonitoringService:
             
             email_service = EmailService()
             
-            subject = f"ℹ️ JobPulse: {len(issues)} Issue(s) Auto-Fixed"
+            subject = f"ℹ️ Scout Genius: {len(issues)} Issue(s) Auto-Fixed"
             
             body_lines = [
                 "The following issues were automatically handled by the log monitoring system:",
@@ -571,7 +571,7 @@ class LogMonitoringService:
                 "",
                 "No action required - this is for your awareness.",
                 "",
-                "— JobPulse Log Monitoring"
+                "— Scout Genius Log Monitoring"
             ])
             
             message = "\n".join(body_lines)

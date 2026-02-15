@@ -340,7 +340,7 @@ def build_digest_html(data: Dict) -> str:
             {_build_duplicate_alert_html(data)}
             
             <p style="font-size: 11px; color: #a0a0b0; margin: 16px 0 0; text-align: center;">
-                JobPulse Embedding Filter Monitor • 14-Day Review Period • 
+                Scout Screening Embedding Filter Monitor • 14-Day Review Period • 
                 <a href="#" style="color: #0f3460;">View Full Audit</a>
             </p>
         </div>

@@ -662,7 +662,7 @@ def send_test_vetting_email():
         <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
             <p>Hi there,</p>
             {transparency_note}
-            <p>A new candidate has been analyzed by JobPulse AI and matches <strong>{len(matches)} position(s)</strong>.</p>
+            <p>A new candidate has been analyzed by Scout Screening and matches <strong>{len(matches)} position(s)</strong>.</p>
             <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin: 20px 0;">
                 <h2 style="margin: 0 0 10px 0; color: #495057; font-size: 18px;">👤 {candidate_name}</h2>
                 <a href="{candidate_url}" style="display: inline-block; background: #667eea; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none;">View Candidate Profile →</a>
@@ -688,7 +688,7 @@ def send_test_vetting_email():
     html_content += """
         </div>
         <div style="background: #343a40; color: #adb5bd; padding: 15px; font-size: 12px; text-align: center;">
-            Powered by JobPulse™ AI Vetting • Myticas Consulting
+            Powered by Scout Screening™ • Myticas Consulting
         </div>
     </div>
     """
@@ -728,7 +728,7 @@ def send_test_vetting_email():
 def show_sample_notes():
     """Show sample note formats for qualified and non-qualified candidates"""
     
-    qualified_note = """🎯 AI VETTING SUMMARY - QUALIFIED CANDIDATE
+    qualified_note = """🎯 SCOUT SCREENING - QUALIFIED CANDIDATE
 
 Analysis Date: 2026-01-29 12:45 UTC
 Threshold: 80%
@@ -748,7 +748,7 @@ QUALIFIED POSITIONS:
   Summary: Solid technical background with full-stack development experience.
   Skills: Python, JavaScript, React, AWS, Docker, PostgreSQL"""
     
-    not_qualified_note = """📋 AI VETTING SUMMARY - NOT RECOMMENDED
+    not_qualified_note = """📋 SCOUT SCREENING - NOT RECOMMENDED
 
 Analysis Date: 2026-01-29 12:45 UTC
 Threshold: 80%
@@ -790,7 +790,7 @@ def create_test_vetting_note(candidate_id):
         now = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
         
         if note_type == 'qualified':
-            note_text = f"""🎯 AI VETTING SUMMARY - QUALIFIED CANDIDATE
+            note_text = f"""🎯 SCOUT SCREENING - QUALIFIED CANDIDATE
 
 Analysis Date: {now}
 Threshold: 80%
@@ -804,9 +804,9 @@ QUALIFIED POSITIONS:
   ⭐ APPLIED TO THIS POSITION
   Summary: Strong candidate with 5+ years of Azure experience.
   Skills: Azure Functions, Logic Apps, API Management, C#, .NET Core, SQL Server"""
-            action = "AI Vetting - Qualified"
+            action = "Scout Screening - Qualified"
         else:
-            note_text = f"""📋 AI VETTING SUMMARY - NOT RECOMMENDED
+            note_text = f"""📋 SCOUT SCREENING - NOT RECOMMENDED
 
 Analysis Date: {now}
 Threshold: 80%
@@ -814,7 +814,7 @@ Highest Match Score: 62%
 Jobs Analyzed: 5
 
 This candidate did not meet the 80% match threshold for any current open positions."""
-            action = "AI Vetting - Not Recommended"
+            action = "Scout Screening - Not Recommended"
         
         note_id = bullhorn.create_candidate_note(candidate_id, note_text, action=action)
         
