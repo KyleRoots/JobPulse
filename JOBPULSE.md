@@ -280,6 +280,19 @@ A cost-saving layer using vector similarity to eliminate obvious mismatches befo
 3. **Cosine Similarity**: Calculate similarity between resume and each job
 4. **Filter Decision**: If similarity < threshold (0.35), the pair is filtered out
 5. **Safeguard**: Top 5 most similar jobs always pass through regardless of score
+6. **Applied Job Protection**: The candidate's applied position always bypasses the filter
+
+### Applied Position Protection
+
+The candidate's applied job is **always** evaluated by GPT regardless of its embedding similarity score:
+
+| Protection Layer | Description |
+|---|---|
+| **Filter Bypass** | Applied job is separated from the filter input and re-added to results afterward |
+| **Tearsheet Injection** | If the applied job isn't in a monitored tearsheet, it's fetched directly from Bullhorn (open jobs only) |
+| **Note Labeling** | Applied job appears as "APPLIED POSITION (QUALIFIED)" or "APPLIED POSITION:" in the Bullhorn note |
+
+This ensures recruiters always see whether the candidate qualifies for the position they applied to, with any additional matches shown separately as "OTHER QUALIFIED POSITIONS" or "OTHER TOP MATCHES".
 
 ### Configuration
 

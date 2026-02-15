@@ -1487,6 +1487,90 @@ Format as a bullet-point list. Be specific and concise."""
             logging.error(f"Error fetching candidate {candidate_id}: {str(e)}")
             return None
     
+    def _fetch_applied_job(self, bullhorn: 'BullhornService', job_id: int) -> Optional[Dict]:
+        """
+        Fetch a single job by ID from Bullhorn for applied-job injection.
+        
+        Used when the applied job isn't in a monitored tearsheet. Returns the
+        job dict in the same format as get_active_jobs_from_tearsheets() so it
+        can be seamlessly added to the job list.
+        
+        Only returns jobs with status 'Accepting Candidates' or where isOpen=True.
+        Returns None for closed/deleted/invalid jobs.
+        
+        Args:
+            bullhorn: Authenticated Bullhorn service
+            job_id: Bullhorn job order ID
+            
+        Returns:
+            Job dictionary matching tearsheet format, or None if closed/invalid
+        """
+        if not bullhorn or not bullhorn.rest_token:
+            return None
+        
+        try:
+            url = f"{bullhorn.base_url}entity/JobOrder/{job_id}"
+            params = {
+                'fields': (
+                    'id,title,isOpen,status,dateAdded,dateLastModified,'
+                    'clientCorporation(name),description,publicDescription,'
+                    'address(address1,city,state,countryName),'
+                    'employmentType,onSite,'
+                    'assignedUsers(id,firstName,lastName,email),'
+                    'responseUser(firstName,lastName),owner(firstName,lastName)'
+                ),
+                'BhRestToken': bullhorn.rest_token
+            }
+            
+            response = bullhorn.session.get(url, params=params, timeout=30)
+            
+            if response.status_code != 200:
+                logging.warning(
+                    f"Bullhorn returned {response.status_code} for job {job_id}"
+                )
+                return None
+            
+            job_data = response.json().get('data', {})
+            
+            if not job_data or not job_data.get('id'):
+                return None
+            
+            # Only return open jobs
+            is_open = job_data.get('isOpen', False)
+            status = job_data.get('status', '')
+            
+            if not is_open and status != 'Accepting Candidates':
+                logging.info(
+                    f"Applied job {job_id} is closed (isOpen={is_open}, "
+                    f"status={status}) — skipping injection"
+                )
+                return None
+            
+            # Enrich with user emails (same pattern as get_active_jobs_from_tearsheets)
+            assigned_users = job_data.get('assignedUsers', {})
+            if isinstance(assigned_users, dict):
+                users_list = assigned_users.get('data', [])
+            elif isinstance(assigned_users, list):
+                users_list = assigned_users
+            else:
+                users_list = []
+            
+            user_ids = [u.get('id') for u in users_list if isinstance(u, dict) and u.get('id')]
+            if user_ids:
+                user_email_map = bullhorn.get_user_emails(user_ids)
+                for user in users_list:
+                    if isinstance(user, dict) and user.get('id') in user_email_map:
+                        user['email'] = user_email_map[user['id']].get('email', '')
+            
+            # Mark as injected for audit trail
+            job_data['_injected_applied_job'] = True
+            
+            return job_data
+            
+        except Exception as e:
+            logging.error(f"Error fetching applied job {job_id}: {str(e)}")
+            return None
+    
     def _mark_application_vetted(self, parsed_email_id: int):
         """Mark a ParsedEmail record as vetted"""
         try:
@@ -2410,6 +2494,40 @@ CRITICAL RULES:
             # Get all active jobs from tearsheets
             jobs = self.get_active_jobs_from_tearsheets()
             
+            # ═══════════════════════════════════════════════════════════════
+            # APPLIED JOB INJECTION
+            # If the candidate applied to a specific job, ensure it is in
+            # the job list even if it's not in a monitored tearsheet.
+            # This guarantees the applied position is always evaluated.
+            # ═══════════════════════════════════════════════════════════════
+            if vetting_log.applied_job_id:
+                applied_in_tearsheets = any(
+                    j.get('id') == vetting_log.applied_job_id for j in jobs
+                )
+                if not applied_in_tearsheets:
+                    try:
+                        applied_job_data = self._fetch_applied_job(
+                            self._get_bullhorn_service(),
+                            vetting_log.applied_job_id
+                        )
+                        if applied_job_data:
+                            jobs.append(applied_job_data)
+                            logging.info(
+                                f"🎯 Injected applied job {vetting_log.applied_job_id} "
+                                f"({applied_job_data.get('title', 'Unknown')}) — "
+                                f"not in monitored tearsheets"
+                            )
+                        else:
+                            logging.warning(
+                                f"⚠️ Applied job {vetting_log.applied_job_id} could not be "
+                                f"fetched (closed/invalid) — will proceed without it"
+                            )
+                    except Exception as e:
+                        logging.warning(
+                            f"⚠️ Failed to fetch applied job {vetting_log.applied_job_id}: "
+                            f"{str(e)} — will proceed without it"
+                        )
+            
             if not jobs:
                 vetting_log.status = 'completed'
                 vetting_log.error_message = 'No active jobs found in tearsheets'
@@ -2479,17 +2597,54 @@ CRITICAL RULES:
             # This preserves multi-job vetting — each job is independently
             # evaluated against the resume. A candidate applied for Job A 
             # can still be surfaced for Jobs B, C, D if semantically relevant.
+            #
+            # IMPORTANT: The applied job is PROTECTED from filtering.
+            # It is always sent to GPT regardless of cosine similarity.
             # ═══════════════════════════════════════════════════════════════
             pre_filter_count = len(jobs_to_analyze)
             candidate_filter_info = {
                 'id': candidate_id,
                 'name': candidate_name
             }
+            
+            # Protect the applied job from the embedding pre-filter
+            # It must ALWAYS be evaluated by GPT regardless of similarity
+            applied_job_entry = None
+            if vetting_log.applied_job_id:
+                for j in jobs_to_analyze:
+                    if j.get('id') == vetting_log.applied_job_id:
+                        applied_job_entry = j
+                        break
+            
+            # Run embedding filter on non-applied jobs only
+            non_applied_jobs = (
+                [j for j in jobs_to_analyze if j.get('id') != vetting_log.applied_job_id]
+                if applied_job_entry else jobs_to_analyze
+            )
+            
             try:
-                jobs_to_analyze, filtered_count = self.embedding_service.filter_relevant_jobs(
-                    cached_resume_text, jobs_to_analyze,
+                filtered_jobs, filtered_count = self.embedding_service.filter_relevant_jobs(
+                    cached_resume_text, non_applied_jobs,
                     candidate_filter_info, vetting_log.id
                 )
+                
+                # Re-add applied job to the front (guaranteed GPT analysis)
+                if applied_job_entry:
+                    if applied_job_entry not in filtered_jobs:
+                        filtered_jobs.insert(0, applied_job_entry)
+                        logging.info(
+                            f"🎯 Applied job {vetting_log.applied_job_id} "
+                            f"({applied_job_entry.get('title', 'Unknown')}) protected "
+                            f"from embedding pre-filter — guaranteed GPT analysis"
+                        )
+                    else:
+                        logging.info(
+                            f"🎯 Applied job {vetting_log.applied_job_id} passed "
+                            f"embedding filter naturally"
+                        )
+                
+                jobs_to_analyze = filtered_jobs
+                
                 if filtered_count > 0:
                     logging.info(
                         f"🔍 Embedding pre-filter: {pre_filter_count} → {len(jobs_to_analyze)} jobs "
