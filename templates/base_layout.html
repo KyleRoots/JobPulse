@@ -883,6 +883,121 @@
             transform: translateY(-1px);
         }
 
+        /* ============================================
+           BOOTSTRAP COLOR OVERRIDES
+           Scout Genius Green Theme
+           Remaps all Bootstrap blue/cyan utilities
+           ============================================ */
+
+        /* --- Bootstrap CSS Variables --- */
+        :root {
+            --bs-primary: #2c4c3b;
+            --bs-primary-rgb: 44, 76, 59;
+            --bs-info: #4a9678;
+            --bs-info-rgb: 74, 150, 120;
+            --bs-link-color: #4a9678;
+            --bs-link-hover-color: #2c4c3b;
+        }
+
+        /* --- Background & Text Utilities --- */
+        .bg-primary {
+            background-color: var(--brand-primary) !important;
+        }
+
+        .text-primary {
+            color: var(--brand-secondary) !important;
+        }
+
+        .bg-info {
+            background-color: var(--brand-secondary) !important;
+        }
+
+        .text-info {
+            color: var(--brand-secondary) !important;
+        }
+
+        .border-info {
+            border-color: var(--brand-secondary) !important;
+        }
+
+        .border-primary {
+            border-color: var(--brand-primary) !important;
+        }
+
+        .bg-primary.bg-opacity-10 {
+            background-color: rgba(44, 76, 59, 0.1) !important;
+        }
+
+        /* --- Badge Overrides (defensive) --- */
+        .badge.bg-primary {
+            background-color: var(--brand-primary) !important;
+        }
+
+        .badge.bg-info {
+            background-color: var(--brand-secondary) !important;
+        }
+
+        /* --- Button: btn-info --- */
+        .btn-info {
+            background: linear-gradient(135deg, #4a9678, #2c4c3b);
+            border: none;
+            color: white;
+            font-weight: 500;
+        }
+
+        .btn-info:hover {
+            background: linear-gradient(135deg, #2c4c3b, #1a3d2f);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        /* --- Button: btn-outline-primary --- */
+        .btn-outline-primary {
+            color: var(--brand-secondary);
+            border-color: var(--brand-secondary);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--brand-primary);
+            border-color: var(--brand-primary);
+            color: white;
+        }
+
+        /* --- Alert: alert-primary --- */
+        .alert-primary {
+            background-color: rgba(74, 150, 120, 0.1);
+            border-color: var(--brand-secondary);
+            color: var(--text-primary);
+        }
+
+        /* --- Form Focus States --- */
+        .form-control:focus,
+        .form-select:focus,
+        .form-check-input:focus {
+            border-color: var(--brand-secondary);
+            box-shadow: 0 0 0 0.25rem rgba(74, 150, 120, 0.25);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--brand-primary);
+            border-color: var(--brand-primary);
+        }
+
+        /* --- Spinner --- */
+        .spinner-border.text-primary {
+            color: var(--brand-secondary) !important;
+        }
+
+        .spinner-border.text-info {
+            color: var(--brand-secondary) !important;
+        }
+
+        /* --- Card Header with bg-info --- */
+        .card-header.bg-info {
+            background: linear-gradient(135deg, #4a9678, #2c4c3b) !important;
+            border-bottom: 1px solid rgba(74, 150, 120, 0.3);
+        }
+
         /* Alerts */
         .alert {
             border: none;
