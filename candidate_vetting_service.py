@@ -3184,7 +3184,7 @@ CRITICAL RULES:
                 note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
                 note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
                 if applied_match.gaps_identified:
-                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(applied_match.gaps_identified, applied_match.bullhorn_candidate_id)}")
+                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(applied_match.gaps_identified, vetting_log.bullhorn_candidate_id)}")
                 note_lines.append(f"")
                 note_lines.append(f"OTHER TOP MATCHES:")
             else:
@@ -3196,7 +3196,7 @@ CRITICAL RULES:
                 note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
                 note_lines.append(f"  Match Score: {match.match_score:.0f}%")
                 if match.gaps_identified:
-                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(match.gaps_identified, match.bullhorn_candidate_id)}")
+                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(match.gaps_identified, vetting_log.bullhorn_candidate_id)}")
         
         note_text = "\n".join(note_lines)
         
