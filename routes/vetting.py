@@ -298,6 +298,77 @@ def reset_recent_vetting():
     return redirect(url_for('vetting.vetting_settings'))
 
 
+@vetting_bp.route('/vetting/revet-candidate/<int:candidate_id>', methods=['POST'])
+@login_required
+def revet_candidate(candidate_id):
+    """Re-vet a specific candidate by clearing their existing vetting records.
+    
+    This removes the VettingLog and CandidateJobMatch records so the duplicate
+    loop prevention won't skip them on the next cycle.
+    """
+    from models import ParsedEmail, CandidateVettingLog, CandidateJobMatch
+    
+    db = get_db()
+    
+    try:
+        # Find all ParsedEmail records for this candidate
+        parsed_emails = ParsedEmail.query.filter(
+            ParsedEmail.bullhorn_candidate_id == candidate_id,
+            ParsedEmail.status == 'completed'
+        ).all()
+        
+        if not parsed_emails:
+            flash(f'No ParsedEmail records found for candidate {candidate_id}.', 'warning')
+            return redirect(url_for('vetting.vetting_settings'))
+        
+        pe_ids = [pe.id for pe in parsed_emails]
+        
+        # Delete existing VettingLog records to bypass duplicate loop prevention
+        vetting_logs = CandidateVettingLog.query.filter(
+            CandidateVettingLog.parsed_email_id.in_(pe_ids)
+        ).all()
+        
+        log_ids = [vl.id for vl in vetting_logs]
+        
+        # Delete CandidateJobMatch records linked to these vetting logs
+        match_count = 0
+        if log_ids:
+            match_count = CandidateJobMatch.query.filter(
+                CandidateJobMatch.vetting_log_id.in_(log_ids)
+            ).delete(synchronize_session=False)
+        
+        # Delete the VettingLog records themselves
+        log_count = 0
+        if log_ids:
+            log_count = CandidateVettingLog.query.filter(
+                CandidateVettingLog.id.in_(log_ids)
+            ).delete(synchronize_session=False)
+        
+        # Reset vetted_at on ParsedEmail records
+        for pe in parsed_emails:
+            pe.vetted_at = None
+        
+        db.session.commit()
+        
+        current_app.logger.info(
+            f"🔄 Re-vet reset for candidate {candidate_id}: "
+            f"cleared {log_count} vetting logs, {match_count} match records, "
+            f"reset {len(pe_ids)} ParsedEmails"
+        )
+        flash(
+            f'Reset candidate {candidate_id} for re-vetting: cleared {log_count} vetting log(s) '
+            f'and {match_count} match record(s). Will be processed in next vetting cycle.',
+            'success'
+        )
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error resetting candidate {candidate_id} for re-vet: {str(e)}")
+        flash(f'Error resetting candidate for re-vet: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting.vetting_settings'))
+
+
 
 @vetting_bp.route('/vetting/diagnostic')
 @login_required
