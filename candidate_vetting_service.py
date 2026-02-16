@@ -2088,7 +2088,25 @@ Before scoring, you MUST perform this analysis for EACH skill or technology that
 explicit "X+ years" or "X years" requirement in the job description or requirements:
 
 1. Identify which skills have year-based requirements (e.g., "3+ years of Python", "5 years Java development").
-2. For each such skill, scan the resume for ALL roles where the candidate used that skill.
+2. For each such skill, scan the resume for ALL roles where the candidate performed work in that skill area.
+   DISCIPLINE RECOGNITION — count a role if the candidate DID the work, even if their title differs:
+   - "Data Science" experience includes roles titled: Data Scientist, ML Engineer, AI Engineer,
+     Machine Learning Engineer, Research Scientist, Applied Scientist, or any role where
+     responsibilities include predictive/statistical modeling, feature engineering, ML model
+     training/evaluation/deployment, or NLP/CV/deep learning applications.
+   - A "Data Analyst" role ONLY counts toward Data Science if responsibilities demonstrate
+     hands-on work in at least TWO of: predictive/statistical modeling, feature engineering,
+     ML model training/evaluation/deployment, NLP/CV/deep learning. Roles that ONLY involve
+     SQL queries, Excel dashboards, report generation, or KPI tracking do NOT count.
+   - "Machine Learning" experience includes: ML Engineer, AI Engineer, Data Scientist,
+     Deep Learning Engineer, NLP Engineer, Computer Vision Engineer, Research Scientist.
+   - "AI" experience includes: AI Engineer, ML Engineer, Data Scientist, GenAI Engineer.
+   - "Software Engineering" includes: Software Developer, Full-Stack Developer, Backend Engineer.
+   - "Data Engineering" includes: Data Engineer, ETL Developer, Analytics Engineer, Data Architect.
+   - "DevOps" includes: SRE, Platform Engineer, Infrastructure Engineer, Cloud Engineer.
+   CRITICAL: Focus on WHAT THE CANDIDATE DID in each role (responsibilities), not their job title alone.
+   If a job requires "5 years of Data Science" and a candidate was a "Machine Learning Engineer" for
+   7 years doing predictive modeling, NLP, and statistical analysis — that IS Data Science experience.
 3. Calculate the total duration IN MONTHS using this exact formula for each role:
    - Convert start and end dates to (year, month) pairs.
    - Duration in months = (end_year - start_year) × 12 + (end_month - start_month).
@@ -2110,7 +2128,7 @@ EXAMPLE: Job requires "3+ years of React". Candidate's resume shows:
   - Intern at Beta Inc (Jan 2024 - May 2024): (2024-2024)×12 + (5-1) = 4 months × 50% = 2 months
   Total: {(_today_year - 2024) * 12 + (_today_month - 6)} + 2 = {(_today_year - 2024) * 12 + (_today_month - 6) + 2} months / 12 = {((_today_year - 2024) * 12 + (_today_month - 6) + 2) / 12:.2f} years
 
-If no skills in the job description have explicit year-based requirements, set years_analysis to an empty object {{}}."""
+If no skills in the job description have explicit year-based requirements, set years_analysis to an empty object {{}}.\n\nTRANSFERABLE SKILLS — TECHNOLOGY EQUIVALENCY:\nWhen counting years for a SPECIFIC TOOL, also check for equivalent/competing technologies:\n\nEquivalency Groups:\n- BI/Data Visualization: Power BI <-> Tableau <-> Looker <-> QlikView <-> MicroStrategy <-> Sisense\n- Cloud ML Platforms: AWS SageMaker <-> Azure ML <-> Google Vertex AI <-> Databricks ML\n- Data Lakehouse/Warehouse: Microsoft Fabric <-> Databricks <-> Snowflake <-> BigQuery <-> AWS Lake Formation\n- ETL/Data Integration: SSIS <-> Informatica <-> Talend <-> Apache Airflow <-> AWS Glue <-> Azure Data Factory\n- API/Integration: REST API experience in ANY language/framework satisfies \"API literacy\" requirements\n- Cloud Platforms: AWS <-> Azure <-> GCP (core cloud concepts transfer between platforms)\n- Databases/SQL: SQL Server <-> PostgreSQL <-> MySQL <-> Oracle (SQL skills transfer across engines)\n- Low-Code AI/RPA: Copilot Studio <-> Power Automate <-> UiPath <-> Automation Anywhere\n- Containerization: Docker <-> Podman, Kubernetes <-> ECS <-> GKE\n\nCredit Rules (TWO-TIER):\n1. If the job requires a SKILL CATEGORY (e.g., \"5yr data visualization experience\", \"5yr cloud ML\"),\n   sum ALL equivalent tools at 100% credit — the job is asking for category experience.\n2. If the job requires a SPECIFIC TOOL (e.g., \"5yr Power BI\", \"3yr Azure ML\"),\n   sum equivalent tool years and apply 75% credit (accounts for tool-specific features not transferring).\n3. Mark gap as \"TRANSFERABLE\" (not \"CRITICAL\") when equivalent experience exists.\n4. In years_analysis, document the equivalency:\n   e.g., \"Power BI: required 5yr, candidate has ~0yr Power BI but 6yr Tableau (equivalent: 4.5yr credit)\"\n5. In gaps_identified, write:\n   \"Missing [required tool] specifically, but has [equivalent tool] experience (transferable skill)\"\n   NOT \"CRITICAL: [required tool] requires Xyr, candidate has ~0.0yr\""""
         
         # Build location matching instructions based on work type
         location_instruction = ""
@@ -2190,7 +2208,7 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
 2. DO NOT infer, assume, or hallucinate any skills not directly mentioned in the resume.
 3. If a MANDATORY job requirement skill is NOT mentioned in the resume, you MUST list it in gaps_identified.
 4. For skills_match and experience_match, ONLY quote or paraphrase content that actually exists in the resume.
-5. If the job requires specific technologies (e.g., FPGA, Verilog, AWS, Python) and the resume does NOT mention them, the candidate does NOT qualify.
+5. If the job requires specific technologies and the resume mentions NEITHER the exact tool NOR an equivalent/competing technology from the equivalency groups above, the candidate does NOT qualify. However, if the candidate has deep experience with a direct competitor tool in the same category (e.g., Tableau for Power BI, AWS for Azure), apply partial credit rather than marking as zero.
 6. A candidate whose background is completely different from the job (e.g., DBA applying to FPGA role) should score BELOW 30.
 7. LOCATION CHECK: If the job has a location requirement, verify candidate location matches. For remote jobs, same country is required. For on-site/hybrid, proximity to job location matters.
 
@@ -2216,7 +2234,8 @@ Respond in JSON format with these exact fields:
 SCORING GUIDELINES:
 - 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, location matches, AND meets or exceeds ALL required years of experience per skill
 - 70-84: Candidate meets MOST mandatory requirements, may have 1-2 minor gaps or be 1 year short on a non-critical skill
-- 50-69: Candidate has relevant skills but INSUFFICIENT years of professional experience for required skills, OR is missing key qualifications, OR has location issues
+- 65-75: Candidate has strong equivalent experience with competing tools in the same category — core competencies align but specific tool experience is limited (transferable skills present)
+- 50-69: Candidate has relevant skills but INSUFFICIENT years of professional experience for required skills, OR is missing key qualifications, OR has location issues, OR has equivalent tools but lacks the specific required tool
 - 30-49: Candidate has tangential experience, significant experience/years gaps, or major location mismatch
 - 0-29: Candidate's background does not align with the role (wrong field/specialty or completely wrong location)
 
@@ -2233,7 +2252,7 @@ CRITICAL RULES:
 1. You MUST only cite skills and experience that are EXPLICITLY written in the candidate's resume.
 2. You MUST NOT infer or hallucinate skills that are not directly stated.
 3. If a job requires FPGA and the resume shows SQL/database experience, they DO NOT match.
-4. If a job requires Python and the resume only mentions Java, that is a GAP.
+4. If a job requires a technology and the resume shows ONLY an unrelated technology (e.g., FPGA job but resume shows SQL/database), that IS a GAP. However, if the resume shows a COMPETING tool in the same category (e.g., Tableau for Power BI, AWS SageMaker for Azure ML), apply partial credit and mark as TRANSFERABLE, not CRITICAL.
 5. Be honest - a mismatched candidate should score LOW even if they have impressive but irrelevant skills.
 6. Your assessment will be used for recruiter decisions - accuracy is critical.
 7. LOCATION MATTERS: Check if the candidate's location is compatible with the job's work type (remote/onsite/hybrid).
