@@ -11,16 +11,17 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&display=swap"
         rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/theme-variables.css') }}" rel="stylesheet">
     <style>
         :root {
             --sidebar-width: 260px;
             --sidebar-collapsed-width: 70px;
-            --sidebar-bg: #0d1421;
+            --sidebar-bg: #0a1610;
             --sidebar-border: rgba(255, 255, 255, 0.08);
             --sidebar-hover: rgba(255, 255, 255, 0.05);
-            --sidebar-active: rgba(59, 130, 246, 0.15);
-            --sidebar-active-border: #3b82f6;
-            --content-bg: linear-gradient(135deg, #1a2234 0%, #1e293b 50%, #0f172a 100%);
+            --sidebar-active: rgba(74, 150, 120, 0.15);
+            --sidebar-active-border: #2c4c3b;
+            --content-bg: linear-gradient(135deg, #0f1f16 0%, #162a1f 50%, #0a1610 100%);
             --header-height: 70px;
             /* Override Bootstrap success green to darker, more readable green */
             --bs-success: #557C5B;
@@ -70,7 +71,7 @@
             background: var(--sidebar-bg);
             border: 1px solid var(--sidebar-border);
             border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(74, 150, 120, 0.1);
             display: flex;
             flex-direction: column;
             z-index: 1000;
@@ -165,9 +166,9 @@
         }
 
         .sidebar-toggle:hover {
-            background: rgba(59, 130, 246, 0.2);
-            color: #3b82f6;
-            border-color: #3b82f6;
+            background: rgba(74, 150, 120, 0.2);
+            color: #4a9678;
+            border-color: #4a9678;
         }
 
         .sidebar.collapsed .sidebar-toggle i {
@@ -262,8 +263,21 @@
 
         .nav-item.active {
             background: var(--sidebar-active);
-            color: #3b82f6;
+            color: #4a9678;
             border-left-color: var(--sidebar-active-border);
+        }
+
+        /* Module-specific nav accents (Option C: Contextual) */
+        .nav-item.active[href*="bullhorn"] {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border-left-color: #f59e0b;
+        }
+
+        .nav-item.active[href*="vetting"] {
+            background: rgba(244, 63, 94, 0.15);
+            color: #f43f5e;
+            border-left-color: #f43f5e;
         }
 
         .nav-item i {
@@ -297,7 +311,7 @@
             height: 36px;
             min-width: 36px;
             min-height: 36px;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            background: linear-gradient(135deg, #4a9678, #4a9678);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -352,7 +366,7 @@
         /* Main Content - base styles (transitions moved to collapsed section above) */
 
         .page-header {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.1));
+            background: linear-gradient(135deg, rgba(74, 150, 120, 0.1), rgba(74, 150, 120, 0.1));
             border-bottom: 1px solid var(--sidebar-border);
             padding: 1.25rem 2rem;
             display: flex;
@@ -383,8 +397,8 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            border: 2px solid rgba(59, 130, 246, 0.4);
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: 2px solid rgba(74, 150, 120, 0.4);
+            background: linear-gradient(135deg, #4a9678, #4a9678);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -408,7 +422,7 @@
         .glass-card,
         .settings-card {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
-            border: 1px solid rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(74, 150, 120, 0.15);
             backdrop-filter: blur(20px);
             border-radius: 16px;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -424,7 +438,7 @@
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            background: linear-gradient(90deg, #4a9678, #4a9678);
             opacity: 0;
             transition: opacity 0.3s ease;
         }
@@ -432,9 +446,9 @@
         .glass-card:hover,
         .settings-card:hover {
             background: linear-gradient(145deg, rgba(35, 48, 70, 0.95), rgba(20, 30, 50, 0.98));
-            border-color: rgba(59, 130, 246, 0.3);
+            border-color: rgba(74, 150, 120, 0.3);
             transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25), 0 0 30px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25), 0 0 30px rgba(74, 150, 120, 0.1);
         }
 
         .glass-card:hover::before,
@@ -445,8 +459,8 @@
         /* Card Headers - Premium Style */
         .glass-card .card-header,
         .settings-card .card-header {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.05));
-            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            background: linear-gradient(135deg, rgba(74, 150, 120, 0.1), rgba(74, 150, 120, 0.05));
+            border-bottom: 1px solid rgba(74, 150, 120, 0.2);
             padding: 1rem 1.25rem;
         }
 
@@ -463,7 +477,7 @@
 
         .glass-card .card-header h5 i,
         .settings-card .card-header h5 i {
-            color: #3b82f6;
+            color: #4a9678;
         }
 
         .glass-card .card-body,
@@ -488,8 +502,8 @@
         }
 
         .stat-icon.blue {
-            background: rgba(59, 130, 246, 0.15);
-            color: #3b82f6;
+            background: rgba(74, 150, 120, 0.15);
+            color: #4a9678;
         }
 
         .stat-icon.green {
@@ -508,8 +522,8 @@
         }
 
         .stat-icon.cyan {
-            background: rgba(6, 182, 212, 0.15);
-            color: #06b6d4;
+            background: rgba(74, 150, 120, 0.15);
+            color: #4a9678;
         }
 
         .stat-icon.red {
@@ -564,8 +578,8 @@
             justify-content: center;
             font-size: 1rem;
             margin-bottom: 0.75rem;
-            background: rgba(59, 130, 246, 0.15);
-            color: #3b82f6;
+            background: rgba(74, 150, 120, 0.15);
+            color: #4a9678;
         }
 
         .action-title {
@@ -585,45 +599,45 @@
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.7));
             border-radius: 12px;
             overflow: hidden;
-            border: 1px solid rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(74, 150, 120, 0.1);
         }
 
         .data-table th,
         .table thead th {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(6, 182, 212, 0.08));
+            background: linear-gradient(135deg, rgba(74, 150, 120, 0.15), rgba(74, 150, 120, 0.08));
             font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: #94a3b8;
             padding: 1rem;
-            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            border-bottom: 1px solid rgba(74, 150, 120, 0.2);
         }
 
         .data-table td,
         .table td {
             padding: 1rem;
-            border-bottom: 1px solid rgba(59, 130, 246, 0.08);
+            border-bottom: 1px solid rgba(74, 150, 120, 0.08);
             color: #e2e8f0;
         }
 
         .data-table tbody tr:hover,
         .table tbody tr:hover {
-            background: rgba(59, 130, 246, 0.08);
+            background: rgba(74, 150, 120, 0.08);
         }
 
         /* Monitor Cards - Premium Style */
         .monitor-card {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
-            border: 1px solid rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(74, 150, 120, 0.15);
             border-radius: 12px;
             transition: all 0.4s ease;
         }
 
         .monitor-card:hover {
-            border-color: rgba(59, 130, 246, 0.35);
+            border-color: rgba(74, 150, 120, 0.35);
             transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2), 0 0 20px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2), 0 0 20px rgba(74, 150, 120, 0.1);
         }
 
         /* Section Headers - Premium Style */
@@ -635,14 +649,14 @@
 
         .section-title i,
         .card-header h5 i {
-            color: #3b82f6;
+            color: #4a9678;
         }
 
         /* Form Elements - Premium Style */
         .form-control,
         .form-select {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(74, 150, 120, 0.2);
             border-radius: 8px;
             color: #e2e8f0;
             padding: 0.75rem 1rem;
@@ -652,8 +666,8 @@
         .form-control:focus,
         .form-select:focus {
             background: linear-gradient(145deg, rgba(35, 48, 70, 0.9), rgba(20, 30, 50, 0.95));
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), 0 0 20px rgba(59, 130, 246, 0.1);
+            border-color: #4a9678;
+            box-shadow: 0 0 0 3px rgba(74, 150, 120, 0.15), 0 0 20px rgba(74, 150, 120, 0.1);
             outline: none;
         }
 
@@ -672,29 +686,29 @@
         /* Checkboxes and Switches - Premium Style */
         .form-check-input {
             background-color: rgba(30, 41, 59, 0.8);
-            border: 1px solid rgba(59, 130, 246, 0.3);
+            border: 1px solid rgba(74, 150, 120, 0.3);
         }
 
         .form-check-input:checked {
-            background-color: #3b82f6;
-            border-color: #3b82f6;
+            background-color: #4a9678;
+            border-color: #4a9678;
         }
 
         .form-check-input:focus {
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            box-shadow: 0 0 0 3px rgba(74, 150, 120, 0.15);
         }
 
         /* Alert Boxes - Premium Style */
         .alert {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(74, 150, 120, 0.2);
             border-radius: 12px;
             color: #e2e8f0;
         }
 
         .alert-info {
-            background: linear-gradient(145deg, rgba(6, 182, 212, 0.15), rgba(59, 130, 246, 0.1));
-            border-color: rgba(6, 182, 212, 0.3);
+            background: linear-gradient(145deg, rgba(74, 150, 120, 0.15), rgba(74, 150, 120, 0.1));
+            border-color: rgba(74, 150, 120, 0.3);
         }
 
         .alert-warning {
@@ -714,8 +728,8 @@
 
         /* Info Boxes and Special Sections */
         .info-box {
-            background: linear-gradient(145deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.05));
-            border-left: 4px solid #3b82f6;
+            background: linear-gradient(145deg, rgba(74, 150, 120, 0.1), rgba(74, 150, 120, 0.05));
+            border-left: 4px solid #4a9678;
             border-radius: 8px;
             padding: 1rem 1.25rem;
             margin-bottom: 1rem;
@@ -725,7 +739,7 @@
         .schedule-card,
         .xml-file-card {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
-            border: 1px solid rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(74, 150, 120, 0.15);
             border-radius: 12px;
             padding: 1.25rem;
             transition: all 0.4s ease;
@@ -734,9 +748,9 @@
 
         .schedule-card:hover,
         .xml-file-card:hover {
-            border-color: rgba(59, 130, 246, 0.35);
+            border-color: rgba(74, 150, 120, 0.35);
             transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 0 15px rgba(59, 130, 246, 0.08);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 0 15px rgba(74, 150, 120, 0.08);
         }
 
         /* Mobile Responsive */
@@ -846,9 +860,9 @@
         .form-control:focus,
         .form-select:focus {
             background: rgba(255, 255, 255, 0.08);
-            border-color: #3b82f6;
+            border-color: #4a9678;
             color: #e2e8f0;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 0 3px rgba(74, 150, 120, 0.1);
         }
 
         .form-label {
@@ -859,7 +873,7 @@
 
         /* Buttons */
         .btn-primary {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            background: linear-gradient(135deg, #4a9678, #2563eb);
             border: none;
             font-weight: 500;
         }
@@ -914,10 +928,10 @@
         }
 
         .metric-card {
-            background: linear-gradient(145deg, #1e3a5f 0%, #0d2847 50%, #0a1f3a 100%);
+            background: linear-gradient(145deg, #1e3a2a 0%, #0d2817 50%, #0a1f16 100%);
             border-radius: 14px;
             padding: 1.25rem 1.5rem;
-            border: 1px solid rgba(59, 130, 246, 0.3);
+            border: 1px solid rgba(74, 150, 120, 0.3);
             position: relative;
             overflow: hidden;
             transition: all 0.3s ease;
@@ -931,14 +945,14 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, transparent 50%);
+            background: linear-gradient(135deg, rgba(74, 150, 120, 0.15) 0%, transparent 50%);
             pointer-events: none;
         }
 
         .metric-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
-            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 10px 30px rgba(74, 150, 120, 0.2);
+            border-color: rgba(74, 150, 120, 0.5);
         }
 
         .metric-label {
@@ -993,7 +1007,7 @@
             justify-content: center;
             font-size: 1.25rem;
             background: rgba(255, 255, 255, 0.05);
-            color: var(--accent-color, #3b82f6);
+            color: var(--accent-color, #4a9678);
         }
 
         /* Action Tiles Grid */
@@ -1012,7 +1026,7 @@
         }
 
         .section-header i {
-            color: #3b82f6;
+            color: #4a9678;
             font-size: 1.1rem;
         }
 
@@ -1041,10 +1055,10 @@
         }
 
         .action-tile {
-            background: linear-gradient(145deg, #1e3a5f 0%, #0d2847 50%, #0a1f3a 100%);
+            background: linear-gradient(145deg, #1e3a2a 0%, #0d2817 50%, #0a1f16 100%);
             border-radius: 12px;
             padding: 1rem 1.25rem;
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(74, 150, 120, 0.2);
             text-decoration: none;
             transition: all 0.3s ease;
             display: flex;
@@ -1055,10 +1069,10 @@
         }
 
         .action-tile:hover {
-            background: linear-gradient(145deg, #24476d 0%, #0f3052 50%, #0c2444 100%);
-            border-color: rgba(59, 130, 246, 0.4);
+            background: linear-gradient(145deg, #24473a 0%, #0f3025 50%, #0c2420 100%);
+            border-color: rgba(74, 150, 120, 0.4);
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+            box-shadow: 0 8px 25px rgba(74, 150, 120, 0.15);
             text-decoration: none;
         }
 
@@ -1070,13 +1084,13 @@
             align-items: center;
             justify-content: center;
             font-size: 1.1rem;
-            background: rgba(59, 130, 246, 0.2);
+            background: rgba(74, 150, 120, 0.2);
             color: #60a5fa;
             transition: all 0.3s ease;
         }
 
         .action-tile:hover .action-tile-icon {
-            background: rgba(59, 130, 246, 0.3);
+            background: rgba(74, 150, 120, 0.3);
             transform: scale(1.05);
         }
 
@@ -1093,10 +1107,10 @@
 
         /* Status Panel */
         .status-panel {
-            background: linear-gradient(145deg, #1e3a5f 0%, #0d2847 50%, #0a1f3a 100%);
+            background: linear-gradient(145deg, #1e3a2a 0%, #0d2817 50%, #0a1f16 100%);
             border-radius: 12px;
             padding: 1.25rem;
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(74, 150, 120, 0.2);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
         }
 
@@ -1180,16 +1194,16 @@
 
         /* Settings Card Enhancements */
         .settings-card {
-            background: linear-gradient(145deg, #1e3a5f 0%, #0d2847 50%, #0a1f3a 100%);
+            background: linear-gradient(145deg, #1e3a2a 0%, #0d2817 50%, #0a1f16 100%);
             border-radius: 12px;
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(74, 150, 120, 0.2);
             overflow: hidden;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
         }
 
         .settings-card .card-header {
-            background: rgba(59, 130, 246, 0.1);
-            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            background: rgba(74, 150, 120, 0.1);
+            border-bottom: 1px solid rgba(74, 150, 120, 0.2);
             padding: 1rem 1.5rem;
             color: #ffffff;
         }
@@ -1422,7 +1436,7 @@
     <div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content"
-                style="background: linear-gradient(145deg, #1e3a5f 0%, #0d2847 100%); border: 1px solid rgba(59, 130, 246, 0.3);">
+                style="background: linear-gradient(145deg, #1e3a2a 0%, #0d2817 100%); border: 1px solid rgba(74, 150, 120, 0.3);">
                 <div class="modal-header border-bottom border-secondary">
                     <h5 class="modal-title" id="feedbackModalLabel">
                         <i class="fas fa-comment-dots text-primary me-2"></i>Send Feedback
