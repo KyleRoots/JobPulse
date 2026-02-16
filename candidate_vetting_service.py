@@ -2074,7 +2074,14 @@ DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualificati
 Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
 
         # Years-of-experience analysis instruction (applies regardless of custom vs AI requirements)
-        years_analysis_instruction = """
+        # Inject exact current date from Python for accurate ongoing-role calculation
+        from datetime import date as _date
+        _today = _date.today()
+        _today_str = _today.strftime('%B %d, %Y')  # e.g., "February 16, 2026"
+        _today_month = _today.month
+        _today_year = _today.year
+        
+        years_analysis_instruction = f"""
 
 YEARS OF EXPERIENCE ANALYSIS (MANDATORY):
 Before scoring, you MUST perform this analysis for EACH skill or technology that has an
@@ -2082,23 +2089,28 @@ explicit "X+ years" or "X years" requirement in the job description or requireme
 
 1. Identify which skills have year-based requirements (e.g., "3+ years of Python", "5 years Java development").
 2. For each such skill, scan the resume for ALL roles where the candidate used that skill.
-3. Calculate the total duration by summing the date ranges of those roles:
-   - Use start/end dates (e.g., "Jan 2021 - Dec 2023" = 3.0 years).
-   - For "Present" or ongoing roles, use today's date (February 2026).
-   - Internships and part-time roles count at 50% weight (e.g., a 6-month internship = 0.25 years).
+3. Calculate the total duration IN MONTHS using this exact formula for each role:
+   - Convert start and end dates to (year, month) pairs.
+   - Duration in months = (end_year - start_year) × 12 + (end_month - start_month).
+   - For "Present", "Current", or ongoing roles, use today's exact date: {_today_str} (month {_today_month} of {_today_year}).
+   - EXAMPLE: "Jan 2024 - {_today_str}" = ({_today_year} - 2024) × 12 + ({_today_month} - 1) = {(_today_year - 2024) * 12 + (_today_month - 1)} months.
+   - EXAMPLE: "Jul 2021 - Aug 2023" = (2023 - 2021) × 12 + (8 - 7) = 25 months.
+   - Internships and part-time roles count at 50% weight (e.g., a 6-month internship = 3 months effective).
    - University coursework, academic projects, and personal projects do NOT count toward professional years.
    - Overlapping roles should not be double-counted; use the union of date ranges.
-4. Compare the candidate's calculated years against the job's requirement.
-5. If ANY required skill has a candidate shortfall of 2+ years below the minimum,
+4. SUM all months across qualifying roles, then divide by 12 to get total years.
+5. Show your step-by-step arithmetic in the "calculation" field (see JSON format below).
+6. Compare the candidate's calculated years against the job's requirement.
+7. If ANY required skill has a candidate shortfall of 2+ years below the minimum,
    the match_score MUST be capped at 60 (regardless of how well other requirements match).
    If the shortfall is 1-2 years, reduce the score by at least 15 points from what it would otherwise be.
 
 EXAMPLE: Job requires "3+ years of React". Candidate's resume shows:
-  - Software Engineer at Acme Corp (Jun 2024 - Present, ~1.7 years, used React) = 1.7 years
-  - Intern at Beta Inc (Jan 2024 - May 2024, 5 months, used React) = 0.21 years (50% weight)
-  Total estimated React experience: ~1.9 years → shortfall is 1.1 years → reduce score by 15+ points.
+  - Software Engineer at Acme Corp (Jun 2024 - {_today_str}): ({_today_year} - 2024)×12 + ({_today_month} - 6) = {(_today_year - 2024) * 12 + (_today_month - 6)} months
+  - Intern at Beta Inc (Jan 2024 - May 2024): (2024-2024)×12 + (5-1) = 4 months × 50% = 2 months
+  Total: {(_today_year - 2024) * 12 + (_today_month - 6)} + 2 = {(_today_year - 2024) * 12 + (_today_month - 6) + 2} months / 12 = {((_today_year - 2024) * 12 + (_today_month - 6) + 2) / 12:.2f} years
 
-If no skills in the job description have explicit year-based requirements, set years_analysis to an empty object {}."""
+If no skills in the job description have explicit year-based requirements, set years_analysis to an empty object {{}}."""
         
         # Build location matching instructions based on work type
         location_instruction = ""
@@ -2194,7 +2206,8 @@ Respond in JSON format with these exact fields:
         "<skill_name>": {{
             "required_years": <N>,
             "estimated_years": <M>,
-            "meets_requirement": true/false
+            "meets_requirement": true/false,
+            "calculation": "<step-by-step month arithmetic, e.g. 'Role1: (2026-2024)×12+(2-1)=25mo + Role2: (2023-2021)×12+(8-7)=25mo = 50mo/12 = 4.17yr'>"
         }}
     }}
 }}
@@ -2313,6 +2326,10 @@ CRITICAL RULES:
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
             logging.info(f"📋 AI response for job {job_id}: score={result['match_score']}%, has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}, years_analysis={bool(years_analysis)}")
+            
+            # Serialize years_analysis for database persistence (auditability)
+            years_analysis_json = json.dumps(years_analysis) if years_analysis else None
+            result['_years_analysis_json'] = years_analysis_json
             
             # Store data for deferred saving (to avoid Flask app context issues in parallel threads)
             # The caller should save these after parallel execution completes
@@ -2907,7 +2924,8 @@ CRITICAL RULES:
                     match_summary=analysis.get('match_summary', ''),
                     skills_match=analysis.get('skills_match', ''),
                     experience_match=analysis.get('experience_match', ''),
-                    gaps_identified=analysis.get('gaps_identified', '')
+                    gaps_identified=analysis.get('gaps_identified', ''),
+                    years_analysis_json=analysis.get('_years_analysis_json')
                 )
                 
                 db.session.add(match_record)

@@ -752,6 +752,8 @@ def run_schema_migrations(db):
         # Add location columns to job_vetting_requirements (added Jan 2026)
         ("job_vetting_requirements", "job_location", "VARCHAR(255)"),
         ("job_vetting_requirements", "job_work_type", "VARCHAR(50)"),
+        # Add years_analysis_json to candidate_job_match for auditability (added Feb 2026)
+        ("candidate_job_match", "years_analysis_json", "TEXT"),
     ]
     
     for table, column, col_type in migrations:

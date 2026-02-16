@@ -609,6 +609,7 @@ class CandidateJobMatch(db.Model):
     skills_match = db.Column(db.Text, nullable=True)  # Skills alignment details
     experience_match = db.Column(db.Text, nullable=True)  # Experience alignment details
     gaps_identified = db.Column(db.Text, nullable=True)  # What's missing
+    years_analysis_json = db.Column(db.Text, nullable=True)  # GPT's years-of-experience calculation (JSON for auditing)
     
     # Notification tracking
     notification_sent = db.Column(db.Boolean, default=False)
