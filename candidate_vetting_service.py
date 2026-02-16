@@ -2188,7 +2188,7 @@ Respond in JSON format with these exact fields:
     "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say 'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.' Do NOT use contradictory phrasing like 'mismatch which matches'.>",
     "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
     "experience_match": "<ONLY list experience from the resume that is relevant to the job - be specific>",
-    "gaps_identified": "<List ALL mandatory requirements NOT found in the resume INCLUDING location mismatches AND years-of-experience shortfalls - this is critical>",
+    "gaps_identified": "<Describe in natural prose ALL mandatory requirements NOT found in the resume INCLUDING location mismatches AND years-of-experience shortfalls. Separate multiple gaps with periods or semicolons. Return as a single cohesive string, NOT as a JSON array - this is critical>",
     "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>",
     "years_analysis": {{
         "<skill_name>": {{
@@ -2247,6 +2247,12 @@ CRITICAL RULES:
             )
             
             result = json.loads(response.choices[0].message.content)
+            
+            # ── Layer 2: Normalize text fields that GPT may return as arrays ──
+            for field in ['gaps_identified', 'match_summary', 'skills_match', 'experience_match']:
+                if isinstance(result.get(field), list):
+                    result[field] = ". ".join(str(item) for item in result[field])
+                    logging.warning(f"Normalized {field} from array to string for job {job_id}")
             
             # Diagnostic: log raw GPT response score before integer conversion
             raw_score = result.get('match_score')
@@ -2974,6 +2980,29 @@ CRITICAL RULES:
             db.session.commit()
             return vetting_log
     
+    def _normalize_gaps_text(self, gaps, candidate_id=None):
+        """Layer 3 safety net: normalize gaps_identified to clean prose.
+        
+        Handles:
+        - list type: GPT returned an array that bypassed Layer 2
+        - str starting with '[': legacy JSON array stored as string in DB
+        - str: returned as-is (already clean prose)
+        """
+        if isinstance(gaps, list):
+            logging.warning(f"Render-time array normalization for candidate {candidate_id}")
+            return ". ".join(str(item) for item in gaps)
+        
+        if isinstance(gaps, str) and gaps.startswith('['):
+            try:
+                gaps_list = json.loads(gaps)
+                if isinstance(gaps_list, list):
+                    logging.warning(f"Render-time JSON string normalization for candidate {candidate_id}")
+                    return ". ".join(str(item) for item in gaps_list)
+            except json.JSONDecodeError:
+                pass  # Not valid JSON, keep original
+        
+        return gaps
+    
     def create_candidate_note(self, vetting_log: CandidateVettingLog) -> bool:
         """
         Create a note on the candidate record summarizing the vetting results.
@@ -3155,7 +3184,7 @@ CRITICAL RULES:
                 note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
                 note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
                 if applied_match.gaps_identified:
-                    note_lines.append(f"  Gaps: {applied_match.gaps_identified}")
+                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(applied_match.gaps_identified, applied_match.bullhorn_candidate_id)}")
                 note_lines.append(f"")
                 note_lines.append(f"OTHER TOP MATCHES:")
             else:
@@ -3167,7 +3196,7 @@ CRITICAL RULES:
                 note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
                 note_lines.append(f"  Match Score: {match.match_score:.0f}%")
                 if match.gaps_identified:
-                    note_lines.append(f"  Gaps: {match.gaps_identified}")
+                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(match.gaps_identified, match.bullhorn_candidate_id)}")
         
         note_text = "\n".join(note_lines)
         
