@@ -306,7 +306,7 @@ def revet_candidate(candidate_id):
     This removes the VettingLog and CandidateJobMatch records so the duplicate
     loop prevention won't skip them on the next cycle.
     """
-    from models import ParsedEmail, CandidateVettingLog, CandidateJobMatch
+    from models import ParsedEmail, CandidateVettingLog, CandidateJobMatch, EmbeddingFilterLog, EscalationLog
     
     db = get_db()
     
@@ -330,14 +330,28 @@ def revet_candidate(candidate_id):
         
         log_ids = [vl.id for vl in vetting_logs]
         
-        # Delete CandidateJobMatch records linked to these vetting logs
+        # Cascade-delete all child tables that reference candidate_vetting_log
+        # Order: children first, then parent
+        filter_count = 0
+        escalation_count = 0
         match_count = 0
         if log_ids:
+            # 1. Delete EmbeddingFilterLog records (FK → candidate_vetting_log)
+            filter_count = EmbeddingFilterLog.query.filter(
+                EmbeddingFilterLog.vetting_log_id.in_(log_ids)
+            ).delete(synchronize_session=False)
+            
+            # 2. Delete EscalationLog records (FK → candidate_vetting_log)
+            escalation_count = EscalationLog.query.filter(
+                EscalationLog.vetting_log_id.in_(log_ids)
+            ).delete(synchronize_session=False)
+            
+            # 3. Delete CandidateJobMatch records (FK → candidate_vetting_log)
             match_count = CandidateJobMatch.query.filter(
                 CandidateJobMatch.vetting_log_id.in_(log_ids)
             ).delete(synchronize_session=False)
         
-        # Delete the VettingLog records themselves
+        # 4. Delete the VettingLog records themselves
         log_count = 0
         if log_ids:
             log_count = CandidateVettingLog.query.filter(
