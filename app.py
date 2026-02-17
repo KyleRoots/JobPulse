@@ -218,7 +218,7 @@ from routes.auth import auth_bp
 from routes.health import health_bp
 from routes.settings import settings_bp
 from routes.dashboard import dashboard_bp
-from routes.bullhorn import bullhorn_bp
+from routes.ats_integration import ats_integration_bp
 from routes.scheduler import scheduler_bp
 from routes.vetting import vetting_bp
 from routes.triggers import triggers_bp
@@ -226,7 +226,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(health_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(dashboard_bp)
-app.register_blueprint(bullhorn_bp)
+app.register_blueprint(ats_integration_bp)
 app.register_blueprint(scheduler_bp)
 app.register_blueprint(vetting_bp)
 app.register_blueprint(triggers_bp)
@@ -1285,19 +1285,19 @@ def upload_file():
         # Check if file was uploaded
         if 'file' not in request.files:
             flash('No file selected', 'error')
-            return redirect(url_for('bullhorn.bullhorn_dashboard'))
+            return redirect(url_for('ats_integration.ats_integration_dashboard'))
         
         file = request.files['file']
         
         # Check if file was actually selected
         if file.filename == '':
             flash('No file selected', 'error')
-            return redirect(url_for('bullhorn.bullhorn_dashboard'))
+            return redirect(url_for('ats_integration.ats_integration_dashboard'))
         
         # Check file extension
         if not allowed_file(file.filename):
             flash('Invalid file type. Please upload an XML file.', 'error')
-            return redirect(url_for('bullhorn.bullhorn_dashboard'))
+            return redirect(url_for('ats_integration.ats_integration_dashboard'))
         
         # Generate unique filename
         original_filename = secure_filename(file.filename or 'unknown.xml')
@@ -1315,7 +1315,7 @@ def upload_file():
         if not processor.validate_xml(input_filepath):
             flash('Invalid XML file structure. Please check your file and try again.', 'error')
             os.remove(input_filepath)
-            return redirect(url_for('bullhorn.bullhorn_dashboard'))
+            return redirect(url_for('ats_integration.ats_integration_dashboard'))
         
         # Generate output filename (preserve original name without "updated_" prefix)
         output_filename = original_filename
@@ -1406,12 +1406,12 @@ def upload_file():
                                  show_progress=True)
         else:
             flash(f'Error processing file: {result["error"]}', 'error')
-            return redirect(url_for('bullhorn.bullhorn_dashboard'))
+            return redirect(url_for('ats_integration.ats_integration_dashboard'))
             
     except Exception as e:
         app.logger.error(f"Error in upload_file: {str(e)}")
         flash(f'An error occurred while processing the file: {str(e)}', 'error')
-        return redirect(url_for('bullhorn.bullhorn_dashboard'))
+        return redirect(url_for('ats_integration.ats_integration_dashboard'))
 
 @app.route('/manual-upload-progress/<upload_id>')
 @login_required
@@ -1451,7 +1451,7 @@ def download_file(download_key):
         
         if session_key not in app.config:
             flash('Download link has expired or is invalid', 'error')
-            return redirect(url_for('bullhorn.bullhorn_dashboard'))
+            return redirect(url_for('ats_integration.ats_integration_dashboard'))
         
         file_info = app.config[session_key]
         filepath = file_info['filepath']
@@ -1459,7 +1459,7 @@ def download_file(download_key):
         
         if not os.path.exists(filepath):
             flash('File not found', 'error')
-            return redirect(url_for('bullhorn.bullhorn_dashboard'))
+            return redirect(url_for('ats_integration.ats_integration_dashboard'))
         
         # Send file and clean up
         from flask import after_this_request
@@ -1481,7 +1481,7 @@ def download_file(download_key):
     except Exception as e:
         app.logger.error(f"Error in download_file: {str(e)}")
         flash(f'Error downloading file: {str(e)}', 'error')
-        return redirect(url_for('bullhorn.bullhorn_dashboard'))
+        return redirect(url_for('ats_integration.ats_integration_dashboard'))
 
 @app.route('/download-current-xml')
 @login_required
@@ -1602,7 +1602,7 @@ def download_current_xml():
     except Exception as e:
         app.logger.error(f"Error generating fresh XML: {str(e)}")
         flash(f'Error generating XML file: {str(e)}', 'error')
-        return redirect(url_for('bullhorn.bullhorn_dashboard'))
+        return redirect(url_for('ats_integration.ats_integration_dashboard'))
 
 @app.route('/automation-status')
 @login_required
@@ -1865,8 +1865,15 @@ def validate_file():
         return jsonify({'valid': False, 'error': str(e)})
 
 
-# Note: Bullhorn routes moved to routes/bullhorn.py blueprint
+# Note: ATS Integration routes moved to routes/ats_integration.py blueprint (formerly routes/bullhorn.py)
 
+# Permanent 307 redirect: old OAuth callback URL → new URL
+# Preserves query params (code, state) needed for OAuth flow
+# Safety net for Bullhorn OAuth whitelist transition
+@app.route('/bullhorn/oauth/callback')
+def bullhorn_oauth_callback_redirect():
+    """Permanent redirect for old OAuth callback URL - preserves query params"""
+    return redirect(url_for('ats_integration.oauth_callback', **request.args), code=307)
 
 
 @app.route('/automation_test')

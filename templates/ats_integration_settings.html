@@ -283,13 +283,13 @@
                         <a href="{{ url_for('scheduler.scheduler_dashboard') }}" class="nav-link">
                             <i class="fas fa-clock me-2"></i>Schedule
                         </a>
-                        <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}" class="nav-link">
+                        <a href="{{ url_for('ats_integration.ats_integration_dashboard') }}" class="nav-link">
                             <i class="fas fa-building me-2"></i>ATS Monitor
                         </a>
                         <a href="{{ url_for('settings.settings') }}" class="nav-link">
                             <i class="fas fa-cog me-2"></i>Settings
                         </a>
-                        <a href="{{ url_for('bullhorn.bullhorn_settings') }}" class="nav-link active">
+                        <a href="{{ url_for('ats_integration.ats_integration_settings') }}" class="nav-link active">
                             <i class="fas fa-key me-2"></i>API Settings
                         </a>
                         <a href="{{ url_for('automation_test') }}" class="nav-link">
@@ -399,7 +399,7 @@
                                 <button type="submit" name="action" value="save" class="btn btn-primary">
                                     <i class="fas fa-save me-2"></i>Save Settings
                                 </button>
-                                <a href="{{ url_for('bullhorn.bullhorn_oauth_start') }}" class="btn btn-outline-info">
+                                <a href="{{ url_for('ats_integration.oauth_start') }}" class="btn btn-outline-info">
                                     <i class="fas fa-vial me-2"></i>Test Connection
                                 </a>
                             </div>
@@ -452,8 +452,8 @@
                                 <p class="card-text text-muted">Configure your planned production domain</p>
                                 <div class="input-group mb-3">
                                     <input type="text" class="form-control" id="prodRedirectUri"
-                                        placeholder="https://your-domain.com/bullhorn/oauth/callback"
-                                        value="https://job-feed-refresh.replit.app/bullhorn/oauth/callback">
+                                        placeholder="https://your-domain.com/ats-integration/oauth/callback"
+                                        value="https://job-feed-refresh.replit.app/ats-integration/oauth/callback">
                                     <button class="btn btn-outline-secondary" type="button"
                                         onclick="copyToClipboard('prodRedirectUri', this)">
                                         <i class="fas fa-copy"></i> Copy

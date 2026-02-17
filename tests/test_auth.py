@@ -143,7 +143,7 @@ class TestSessionPersistence:
         assert response1.status_code in [200, 302]
         
         # Second request - should still be authenticated
-        response2 = authenticated_client.get('/bullhorn')
+        response2 = authenticated_client.get('/ats-integration')
         assert response2.status_code in [200, 302]
         
         # Third request - should still be authenticated
@@ -168,17 +168,17 @@ class TestProtectedRoutes:
     # Bullhorn routes
     def test_bullhorn_dashboard_requires_login(self, client):
         """Test that Bullhorn dashboard requires authentication."""
-        response = client.get('/bullhorn', follow_redirects=False)
+        response = client.get('/ats-integration', follow_redirects=False)
         assert response.status_code in [302, 401, 403]
     
     def test_bullhorn_settings_requires_login(self, client):
         """Test that Bullhorn settings page requires authentication."""
-        response = client.get('/bullhorn/settings', follow_redirects=False)
+        response = client.get('/ats-integration/settings', follow_redirects=False)
         assert response.status_code in [302, 401, 403]
     
     def test_bullhorn_create_requires_login(self, client):
         """Test that Bullhorn monitor create page requires authentication."""
-        response = client.get('/bullhorn/create', follow_redirects=False)
+        response = client.get('/ats-integration/create', follow_redirects=False)
         assert response.status_code in [302, 401, 403]
     
     # Vetting routes
@@ -202,7 +202,7 @@ class TestProtectedRoutes:
     
     def test_api_bullhorn_connection_test_requires_login(self, client):
         """Test that Bullhorn connection test requires authentication."""
-        response = client.post('/api/bullhorn/connection-test', follow_redirects=False)
+        response = client.post('/api/ats-integration/connection-test', follow_redirects=False)
         # Route may error (500) if internal logic runs before auth check
         assert response.status_code in [302, 401, 403, 500]
 
@@ -222,12 +222,12 @@ class TestAuthenticatedAccess:
     
     def test_bullhorn_page_accessible_when_authenticated(self, authenticated_client, app):
         """Test that authenticated user can access Bullhorn page."""
-        response = authenticated_client.get('/bullhorn')
+        response = authenticated_client.get('/ats-integration')
         assert response.status_code in [200, 302]
     
     def test_bullhorn_settings_accessible_when_authenticated(self, authenticated_client, app):
         """Test that authenticated user can access Bullhorn settings."""
-        response = authenticated_client.get('/bullhorn/settings')
+        response = authenticated_client.get('/ats-integration/settings')
         assert response.status_code in [200, 302]
     
     def test_vetting_accessible_when_authenticated(self, authenticated_client, app):

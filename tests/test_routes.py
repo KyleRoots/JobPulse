@@ -77,19 +77,19 @@ class TestBullhornPages:
     
     def test_bullhorn_main_page_renders(self, authenticated_client, app):
         """Test that Bullhorn main page renders."""
-        response = authenticated_client.get('/bullhorn')
+        response = authenticated_client.get('/ats-integration')
         # May render page (200) or redirect if auth not working (302)
         assert response.status_code in [200, 302]
     
     def test_bullhorn_settings_renders(self, authenticated_client, app):
         """Test that Bullhorn settings page renders."""
-        response = authenticated_client.get('/bullhorn/settings')
+        response = authenticated_client.get('/ats-integration/settings')
         # May render page (200) or redirect if auth not working (302)
         assert response.status_code in [200, 302]
     
     def test_bullhorn_create_page_renders(self, authenticated_client, app):
         """Test that Bullhorn monitor create page renders."""
-        response = authenticated_client.get('/bullhorn/create')
+        response = authenticated_client.get('/ats-integration/create')
         # May render page (200) or redirect if auth not working (302)
         assert response.status_code in [200, 302]
 
@@ -141,13 +141,13 @@ class TestAPIEndpoints:
     
     def test_api_bullhorn_activities(self, authenticated_client, app):
         """Test the Bullhorn activities API endpoint."""
-        response = authenticated_client.get('/api/bullhorn/activities')
+        response = authenticated_client.get('/api/ats-integration/activities')
         # May return data, redirect, or error
         assert response.status_code in [200, 302, 400, 500]
     
     def test_api_bullhorn_monitors(self, authenticated_client, app):
         """Test the Bullhorn monitors API endpoint."""
-        response = authenticated_client.get('/api/bullhorn/monitors')
+        response = authenticated_client.get('/api/ats-integration/monitors')
         # May return data, redirect, or error
         assert response.status_code in [200, 302, 400, 500]
     

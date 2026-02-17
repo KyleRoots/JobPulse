@@ -13,7 +13,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('bullhorn.bullhorn_dashboard') }}">
+            <a class="navbar-brand" href="{{ url_for('ats_integration.ats_integration_dashboard') }}">
                 <i class="fas fa-sync-alt me-2"></i>Job Feed Processor
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -32,7 +32,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('bullhorn.bullhorn_dashboard') }}">
+                        <a class="nav-link active" href="{{ url_for('ats_integration.ats_integration_dashboard') }}">
                             <i class="fas fa-desktop me-1"></i>ATS Monitoring
                         </a>
                     </li>
@@ -73,7 +73,7 @@
                                 <span class="d-none d-sm-inline">Test </span>Automation
                             </a>
                         </div>
-                        <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}" class="btn btn-outline-warning">
+                        <a href="{{ url_for('ats_integration.ats_integration_dashboard') }}" class="btn btn-outline-warning">
                             <i class="fas fa-arrow-left me-2"></i>Back to ATS Monitoring
                         </a>
                         <!-- User Info and Logout -->
@@ -148,7 +148,7 @@
                             </button>
                             {% endif %}
                             <form method="POST"
-                                action="{{ url_for('bullhorn.delete_bullhorn_monitor', monitor_id=monitor.id) }}"
+                                action="{{ url_for('ats_integration.delete_ats_monitor', monitor_id=monitor.id) }}"
                                 class="d-inline ms-2"
                                 onsubmit="return confirm('Are you sure you want to delete this monitor?')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -286,7 +286,7 @@
 
             modal.show();
 
-            fetch(`/bullhorn/monitor/${monitorId}/test`, {
+            fetch(`/ats-integration/monitor/${monitorId}/test`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -332,7 +332,7 @@
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
 
-            fetch(`/bullhorn/monitor/${monitorId}/test-email`, {
+            fetch(`/ats-integration/monitor/${monitorId}/test-email`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

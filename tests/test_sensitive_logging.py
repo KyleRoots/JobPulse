@@ -53,7 +53,7 @@ class TestTokenMaskingInBullhornService:
 
 
 class TestTokenMaskingInBullhornRoute:
-    """Verify that routes/bullhorn.py masks token values in OAuth callback logs"""
+    """Verify that routes/ats_integration.py masks token values in OAuth callback logs"""
 
     def test_successful_oauth_log_masks_token(self, app, caplog):
         """Successful OAuth log should show only last 4 chars of REST token"""

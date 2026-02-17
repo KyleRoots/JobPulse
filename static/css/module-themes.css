@@ -1,0 +1,151 @@
+/**
+ * Module Themes – Dynamic per-page theming
+ *
+ * Uses data-module="inbound|screening" on <body> to swap
+ * the active accent color across all themed components.
+ * System pages omit data-module and stay Scout Genius green.
+ *
+ * Loaded AFTER theme-variables.css so module overrides cascade.
+ */
+
+/* ============================================
+   MODULE VARIABLE OVERRIDES
+   ============================================ */
+
+body[data-module="inbound"] {
+    --module-accent: var(--module-inbound-accent);
+    --module-bg: var(--module-inbound-bg);
+    --module-border: var(--module-inbound-border);
+    --module-text: var(--module-inbound-text);
+    --module-glow: var(--module-inbound-glow);
+    --module-gradient: var(--module-inbound-gradient);
+}
+
+body[data-module="screening"] {
+    --module-accent: var(--module-screening-accent);
+    --module-bg: var(--module-screening-bg);
+    --module-border: var(--module-screening-border);
+    --module-text: var(--module-screening-text);
+    --module-glow: var(--module-screening-glow);
+    --module-gradient: var(--module-screening-gradient);
+}
+
+/* ============================================
+   PAGE HEADER – Module accent top bar
+   ============================================ */
+.page-header {
+    border-bottom: 2px solid var(--module-accent, var(--brand-primary));
+}
+
+/* ============================================
+   GLASS CARDS – Module-colored top strip
+   ============================================ */
+.glass-card::before,
+.settings-card::before {
+    background: var(--module-gradient, var(--brand-gradient)) !important;
+}
+
+/* ============================================
+   PRIMARY BUTTONS – Follow module color
+   ============================================ */
+body[data-module] .btn-primary {
+    background-color: var(--module-accent);
+    border-color: var(--module-accent);
+}
+
+body[data-module] .btn-primary:hover {
+    background-color: color-mix(in srgb, var(--module-accent) 85%, black);
+    border-color: color-mix(in srgb, var(--module-accent) 85%, black);
+}
+
+body[data-module] .btn-outline-primary {
+    color: var(--module-text);
+    border-color: var(--module-accent);
+}
+
+body[data-module] .btn-outline-primary:hover {
+    background-color: var(--module-bg);
+    color: var(--module-text);
+}
+
+/* ============================================
+   BADGES – Module-tinted
+   ============================================ */
+body[data-module] .badge.bg-primary {
+    background-color: var(--module-accent) !important;
+}
+
+/* ============================================
+   SIDEBAR ACTIVE STATE – Highlight target module
+   ============================================ */
+body[data-module="inbound"] .nav-section[data-section="inbound"] .nav-item.active {
+    background: var(--module-inbound-bg);
+    color: var(--module-inbound-text);
+    border-left: 3px solid var(--module-inbound-accent);
+}
+
+body[data-module="screening"] .nav-section[data-section="screening"] .nav-item.active {
+    background: var(--module-screening-bg);
+    color: var(--module-screening-text);
+    border-left: 3px solid var(--module-screening-accent);
+}
+
+/* ============================================
+   NAV SECTION TITLES – Module-colored when active
+   ============================================ */
+body[data-module="inbound"] .nav-section[data-section="inbound"] .nav-section-title {
+    color: var(--module-inbound-accent);
+}
+
+body[data-module="screening"] .nav-section[data-section="screening"] .nav-section-title {
+    color: var(--module-screening-accent);
+}
+
+/* ============================================
+   MODULE LOGO IN SIDEBAR – Shows module icon
+   ============================================ */
+.module-logo {
+    height: 28px;
+    width: auto;
+    margin-right: 0.5rem;
+    opacity: 0.9;
+    vertical-align: middle;
+}
+
+.nav-section-title .module-logo {
+    height: 20px;
+}
+
+/* ============================================
+   TABLE HEADER ACCENTS
+   ============================================ */
+body[data-module] .table thead th {
+    border-bottom-color: var(--module-border);
+}
+
+/* ============================================
+   FOCUS STATES – Module-colored ring
+   ============================================ */
+body[data-module] .form-control:focus,
+body[data-module] .form-select:focus {
+    border-color: var(--module-accent);
+    box-shadow: 0 0 0 0.2rem var(--module-glow);
+}
+
+/* ============================================
+   LINKS – Module-colored within content
+   ============================================ */
+body[data-module] .content-area a:not(.btn):not(.nav-item):not(.nav-link) {
+    color: var(--module-text);
+}
+
+/* ============================================
+   SPINNERS – Neutral gray (semantic)
+   ============================================ */
+/* Intentionally NOT themed – spinners stay generic */
+
+/* ============================================
+   ALERTS/TOASTS – Semantic only (NOT themed)
+   ============================================ */
+/* Keeping standard Bootstrap semantics:
+   green=success, red=error, yellow=warning, blue=info */

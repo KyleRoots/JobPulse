@@ -12,6 +12,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&display=swap"
         rel="stylesheet">
     <link href="{{ url_for('static', filename='css/theme-variables.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/module-themes.css') }}" rel="stylesheet">
     <style>
         :root {
             --sidebar-width: 260px;
@@ -1342,7 +1343,7 @@
     {% block extra_styles %}{% endblock %}
 </head>
 
-<body>
+<body {% block body_attrs %}{% endblock %}>
     <!-- CSRF: auto-attach token to all fetch() calls -->
     <script>
         (function () {
@@ -1387,35 +1388,30 @@
 
         <div class="sidebar-header">
             <a href="{{ url_for('dashboard.dashboard_redirect') }}" class="sidebar-logo">
+                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring'] %}
+                <img src="{{ url_for('static', filename='images/scout-inbound-logo.png') }}" alt="Scout Inbound"
+                    class="sidebar-logo-full">
+                {% elif active_page in ['vetting'] %}
+                <img src="{{ url_for('static', filename='images/scout-screening-logo.png') }}" alt="Scout Screening"
+                    class="sidebar-logo-full">
+                {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
                     class="sidebar-logo-full">
+                {% endif %}
                 <img src="{{ url_for('static', filename='images/scout-genius-icon.png') }}" alt="Scout Genius"
                     class="sidebar-logo-compact">
             </a>
         </div>
 
         <nav class="sidebar-nav">
-            <div class="nav-section">
-                <div class="nav-section-title">Main</div>
-                <a href="{{ url_for('dashboard.dashboard_redirect') }}"
-                    class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
-                    <i class="fas fa-home"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="{{ url_for('bullhorn.bullhorn_dashboard') }}"
+            <!-- Scout Inbound Module (Gold) -->
+            <div class="nav-section" data-section="inbound">
+                <div class="nav-section-title">Scout Inbound</div>
+                <a href="{{ url_for('ats_integration.ats_integration_dashboard') }}"
                     class="nav-item {% if active_page == 'ats' %}active{% endif %}">
                     <i class="fas fa-building"></i>
-                    <span>Scout Inbound</span>
+                    <span>ATS Integration</span>
                 </a>
-                <a href="{{ url_for('vetting.vetting_settings') }}"
-                    class="nav-item {% if active_page == 'vetting' %}active{% endif %}">
-                    <i class="fas fa-brain"></i>
-                    <span>Scout Screening</span>
-                </a>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">Automation</div>
                 <a href="{{ url_for('scheduler.scheduler_dashboard') }}"
                     class="nav-item {% if active_page == 'scheduler' %}active{% endif %}">
                     <i class="fas fa-clock"></i>
@@ -1426,19 +1422,40 @@
                     <i class="fas fa-inbox"></i>
                     <span>Email Parsing</span>
                 </a>
-                <a href="{{ url_for('log_monitoring_page') }}"
-                    class="nav-item {% if active_page == 'log_monitoring' %}active{% endif %}">
+                <a href="{{ url_for('ats_monitoring') }}"
+                    class="nav-item {% if active_page == 'ats_monitoring' %}active{% endif %}">
                     <i class="fas fa-heartbeat"></i>
-                    <span>Log Monitoring</span>
+                    <span>ATS Monitoring</span>
                 </a>
             </div>
 
-            <div class="nav-section">
+            <!-- Scout Screening Module (Pink) -->
+            <div class="nav-section" data-section="screening">
+                <div class="nav-section-title">Scout Screening</div>
+                <a href="{{ url_for('vetting.vetting_settings') }}"
+                    class="nav-item {% if active_page == 'vetting' %}active{% endif %}">
+                    <i class="fas fa-brain"></i>
+                    <span>AI Candidate Vetting</span>
+                </a>
+            </div>
+
+            <!-- System Pages (Scout Genius Green) -->
+            <div class="nav-section" data-section="system">
                 <div class="nav-section-title">System</div>
+                <a href="{{ url_for('dashboard.dashboard_redirect') }}"
+                    class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
                 <a href="{{ url_for('email_logs') }}"
                     class="nav-item {% if active_page == 'email_logs' %}active{% endif %}">
                     <i class="fas fa-envelope"></i>
                     <span>Email Logs</span>
+                </a>
+                <a href="{{ url_for('log_monitoring_page') }}"
+                    class="nav-item {% if active_page == 'log_monitoring' %}active{% endif %}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Log Monitoring</span>
                 </a>
                 <a href="{{ url_for('settings.settings') }}"
                     class="nav-item {% if active_page == 'settings' %}active{% endif %}">
