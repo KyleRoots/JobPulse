@@ -2513,6 +2513,10 @@ CRITICAL RULES:
                     meets = data.get('meets_requirement', True)
                     if not meets:
                         required = float(data.get('required_years', 0))
+                        # Skip entries where no years requirement was specified
+                        # (AI sometimes returns 0yr instead of omitting the entry)
+                        if required <= 0:
+                            continue
                         estimated = float(data.get('estimated_years', 0))
                         shortfall = required - estimated
                         if shortfall > max_shortfall:
@@ -2539,6 +2543,9 @@ CRITICAL RULES:
                             meets = data.get('meets_requirement', True)
                             if not meets:
                                 required = float(data.get('required_years', 0))
+                                # Skip entries where no years requirement was specified
+                                if required <= 0:
+                                    continue
                                 estimated = float(data.get('estimated_years', 0))
                                 shortfall = required - estimated
                                 if shortfall > max_shortfall:
