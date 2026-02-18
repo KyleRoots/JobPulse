@@ -870,14 +870,14 @@ class TestEscalationRange:
 class TestLayer2Model:
     """Tests for Layer 2 model configuration."""
     
-    def test_default_model_is_gpt4o_mini(self, app):
-        """Default Layer 2 model should be gpt-4o-mini."""
+    def test_default_model_is_gpt4o(self, app):
+        """Default Layer 2 model should be gpt-4o."""
         with app.app_context():
             from candidate_vetting_service import CandidateVettingService
             
             service = CandidateVettingService()
-            # With no config, should default to gpt-4o-mini
-            assert service._get_layer2_model() == 'gpt-4o-mini'
+            # With no config, should default to gpt-4o
+            assert service._get_layer2_model() == 'gpt-4o'
     
     def test_model_configurable_via_vetting_config(self, app):
         """Layer 2 model should be changeable via VettingConfig."""
@@ -901,7 +901,7 @@ class TestModelOverride:
             from candidate_vetting_service import CandidateVettingService
             
             service = CandidateVettingService()
-            service.model = 'gpt-4o-mini'
+            service.model = 'gpt-4o'
             
             # Mock OpenAI call
             mock_response = MagicMock()
@@ -936,7 +936,7 @@ class TestModelOverride:
             from candidate_vetting_service import CandidateVettingService
             
             service = CandidateVettingService()
-            service.model = 'gpt-4o-mini'
+            service.model = 'gpt-4o'
             
             mock_response = MagicMock()
             mock_response.choices = [MagicMock()]
@@ -961,4 +961,4 @@ class TestModelOverride:
             )
             
             call_kwargs = mock_client.chat.completions.create.call_args
-            assert call_kwargs[1]['model'] == 'gpt-4o-mini'
+            assert call_kwargs[1]['model'] == 'gpt-4o'

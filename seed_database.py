@@ -909,6 +909,31 @@ def seed_database(db, User):
         except Exception as e:
             logger.warning(f"⚠️ Failed to check vetting lock: {str(e)}")
         
+        # ONE-TIME: Upgrade layer2_model from gpt-4o-mini to gpt-4o (Feb 2026)
+        # Improves arithmetic accuracy for years-of-experience calculations
+        try:
+            upgrade_flag = VettingConfig.query.filter_by(setting_key='layer2_model_upgraded_to_4o').first()
+            if not upgrade_flag or upgrade_flag.setting_value != 'true':
+                model_setting = VettingConfig.query.filter_by(setting_key='layer2_model').first()
+                if model_setting and model_setting.setting_value == 'gpt-4o-mini':
+                    model_setting.setting_value = 'gpt-4o'
+                    model_setting.updated_at = datetime.utcnow()
+                    logger.info("🔄 Upgraded layer2_model from gpt-4o-mini → gpt-4o")
+                
+                # Set flag so this never runs again
+                if upgrade_flag:
+                    upgrade_flag.setting_value = 'true'
+                else:
+                    db.session.add(VettingConfig(
+                        setting_key='layer2_model_upgraded_to_4o',
+                        setting_value='true',
+                        description='One-time upgrade to GPT-4o for better arithmetic (Feb 2026)'
+                    ))
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"⚠️ Failed to upgrade layer2_model: {str(e)}")
+        
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
     except Exception as e:
