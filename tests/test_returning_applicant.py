@@ -371,6 +371,203 @@ class TestReturningApplicantRevetting:
             db.session.commit()
 
 
+class TestShouldSkipCandidate:
+    """Test the _should_skip_candidate job-aware dedup helper."""
+
+    def test_different_job_allows_rescreening(self, app):
+        """
+        Candidate vetted for Job A within 24h should still be allowed
+        for Job B (different job = always rescreen).
+        """
+        from app import db
+        from models import CandidateVettingLog
+        from candidate_vetting_service import CandidateVettingService
+
+        with app.app_context():
+            candidate_id = 998001
+
+            # Create a completed log for Job A from 2 hours ago
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Test DiffJob',
+                status='completed',
+                applied_job_id=11111,
+                created_at=datetime.utcnow() - timedelta(hours=2)
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            service = CandidateVettingService()
+
+            # Applying to Job B (different job) → should NOT skip
+            assert service._should_skip_candidate(candidate_id, applied_job_id=22222) is False
+
+            # Clean up
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            db.session.commit()
+
+    def test_same_job_within_24h_skips(self, app):
+        """
+        Candidate vetted for the same job within 24h should be skipped.
+        """
+        from app import db
+        from models import CandidateVettingLog
+        from candidate_vetting_service import CandidateVettingService
+
+        with app.app_context():
+            candidate_id = 998002
+            job_id = 33333
+
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Test SameJob24h',
+                status='completed',
+                applied_job_id=job_id,
+                created_at=datetime.utcnow() - timedelta(hours=2)
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            service = CandidateVettingService()
+
+            # Same job, within 24h → should skip
+            assert service._should_skip_candidate(candidate_id, applied_job_id=job_id) is True
+
+            # Clean up
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            db.session.commit()
+
+    def test_same_job_after_24h_allows(self, app):
+        """
+        Candidate vetted for the same job but more than 24h ago should be allowed.
+        """
+        from app import db
+        from models import CandidateVettingLog
+        from candidate_vetting_service import CandidateVettingService
+
+        with app.app_context():
+            candidate_id = 998003
+            job_id = 44444
+
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Test SameJobOld',
+                status='completed',
+                applied_job_id=job_id,
+                created_at=datetime.utcnow() - timedelta(hours=25)
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            service = CandidateVettingService()
+
+            # Same job, but 25h ago → should NOT skip
+            assert service._should_skip_candidate(candidate_id, applied_job_id=job_id) is False
+
+            # Clean up
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            db.session.commit()
+
+    def test_same_job_3_times_in_7_days_skips(self, app):
+        """
+        Candidate vetted for the same job 3+ times within 7 days should be skipped
+        (soft cap to prevent spam).
+        """
+        from app import db
+        from models import CandidateVettingLog
+        from candidate_vetting_service import CandidateVettingService
+
+        with app.app_context():
+            candidate_id = 998004
+            job_id = 55555
+
+            # Create 3 completed logs for the same job within 7 days
+            for i in range(3):
+                log = CandidateVettingLog(
+                    bullhorn_candidate_id=candidate_id,
+                    candidate_name=f'Test Cap{i}',
+                    status='completed',
+                    applied_job_id=job_id,
+                    created_at=datetime.utcnow() - timedelta(days=i + 1)
+                )
+                db.session.add(log)
+            db.session.commit()
+
+            service = CandidateVettingService()
+
+            # Same job, 3 times in 7 days → should skip
+            assert service._should_skip_candidate(candidate_id, applied_job_id=job_id) is True
+
+            # Clean up
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            db.session.commit()
+
+    def test_same_job_after_7_day_window_resets(self, app):
+        """
+        If all 3 vetting logs for the same job are older than 7 days,
+        the candidate should be allowed (window resets).
+        """
+        from app import db
+        from models import CandidateVettingLog
+        from candidate_vetting_service import CandidateVettingService
+
+        with app.app_context():
+            candidate_id = 998005
+            job_id = 66666
+
+            # Create 3 logs older than 7 days
+            for i in range(3):
+                log = CandidateVettingLog(
+                    bullhorn_candidate_id=candidate_id,
+                    candidate_name=f'Test OldCap{i}',
+                    status='completed',
+                    applied_job_id=job_id,
+                    created_at=datetime.utcnow() - timedelta(days=8 + i)
+                )
+                db.session.add(log)
+            db.session.commit()
+
+            service = CandidateVettingService()
+
+            # Same job, but all logs are beyond 7-day window → should NOT skip
+            assert service._should_skip_candidate(candidate_id, applied_job_id=job_id) is False
+
+            # Clean up
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            db.session.commit()
+
+    def test_no_job_context_falls_back_to_24h_global(self, app):
+        """
+        When no applied_job_id is provided, fall back to 24h global dedup.
+        """
+        from app import db
+        from models import CandidateVettingLog
+        from candidate_vetting_service import CandidateVettingService
+
+        with app.app_context():
+            candidate_id = 998006
+
+            # Recent log (no job context matters — any recent log blocks)
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Test NoJob',
+                status='completed',
+                applied_job_id=77777,
+                created_at=datetime.utcnow() - timedelta(hours=2)
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            service = CandidateVettingService()
+
+            # No job context → fall back to 24h global dedup → should skip
+            assert service._should_skip_candidate(candidate_id, applied_job_id=None) is True
+
+            # Clean up
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=candidate_id).delete()
+            db.session.commit()
+
+
 class TestPreNoteDuplicateSafeguard:
     """Test the Bullhorn-level duplicate safeguard in create_candidate_note()."""
     

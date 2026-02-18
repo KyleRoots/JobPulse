@@ -1258,10 +1258,75 @@ Format as a bullet-point list. Be specific and concise."""
             except Exception:
                 pass
     
+    def _should_skip_candidate(self, candidate_id: int, applied_job_id: int = None) -> bool:
+        """
+        Job-aware dedup: decide whether to skip a candidate based on their vetting history.
+        
+        Rules:
+        - Different job → always rescreen (return False)
+        - Same job within 24h → skip (return True)
+        - Same job 3+ times within 7 days → skip (return True)
+        - No applied_job_id context → fall back to 24h global dedup
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            applied_job_id: The job ID the candidate applied to (None if unknown)
+            
+        Returns:
+            True if candidate should be skipped, False if they should be rescreened
+        """
+        from datetime import timedelta
+        
+        if not applied_job_id:
+            # No job context — fall back to 24h global dedup (cross-path safety)
+            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+            recent = CandidateVettingLog.query.filter(
+                CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                CandidateVettingLog.status.in_(['completed', 'processing']),
+                CandidateVettingLog.created_at >= recent_cutoff
+            ).first()
+            if recent:
+                logging.debug(
+                    f"Candidate {candidate_id} vetted within 24h (no job context), skipping"
+                )
+            return recent is not None
+        
+        # Rule 1: Same job within 24h → skip
+        recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+        same_job_recent = CandidateVettingLog.query.filter(
+            CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+            CandidateVettingLog.applied_job_id == applied_job_id,
+            CandidateVettingLog.status.in_(['completed', 'processing']),
+            CandidateVettingLog.created_at >= recent_cutoff
+        ).first()
+        if same_job_recent:
+            logging.debug(
+                f"Candidate {candidate_id} vetted for job {applied_job_id} within 24h, skipping"
+            )
+            return True
+        
+        # Rule 2: Same job 3+ times in 7 days → skip
+        week_cutoff = datetime.utcnow() - timedelta(days=7)
+        same_job_week_count = CandidateVettingLog.query.filter(
+            CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+            CandidateVettingLog.applied_job_id == applied_job_id,
+            CandidateVettingLog.status.in_(['completed', 'processing']),
+            CandidateVettingLog.created_at >= week_cutoff
+        ).count()
+        if same_job_week_count >= 3:
+            logging.debug(
+                f"Candidate {candidate_id} vetted for job {applied_job_id} "
+                f"{same_job_week_count} times in 7 days, skipping (soft cap)"
+            )
+            return True
+        
+        # Different job or under caps → allow rescreening
+        return False
+    
     def detect_new_applicants(self, since_minutes: int = 5) -> List[Dict]:
         """
         Find new candidates with "Online Applicant" status that haven't been processed yet.
-        Uses dateAdded filter in Bullhorn query to only fetch recent candidates.
+        Uses dateLastModified filter to catch both new and returning candidates.
         
         Args:
             since_minutes: Only look at candidates created/updated in the last N minutes
@@ -1290,13 +1355,14 @@ Format as a bullet-point list. Be specific and concise."""
             
             since_timestamp = int(since_time.timestamp() * 1000)  # Bullhorn uses milliseconds
             
-            # Build search query with date filter to prevent historical processing
+            # Use dateLastModified to catch returning candidates who reapply to new jobs
+            # (dateAdded only reflects candidate creation, not new applications)
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
-                'query': f'status:"Online Applicant" AND dateAdded:[{since_timestamp} TO *]',
+                'query': f'status:"Online Applicant" AND dateLastModified:[{since_timestamp} TO *]',
                 'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName)',
                 'count': 50,  # Limit batch size for performance
-                'sort': '-dateAdded',  # Most recent first
+                'sort': '-dateLastModified',  # Most recently modified first
                 'BhRestToken': bullhorn.rest_token
             }
             
@@ -1311,26 +1377,18 @@ Format as a bullet-point list. Be specific and concise."""
             
             logging.info(f"Bullhorn returned {len(candidates)} candidates since {since_time}")
             
-            # Filter to only candidates not already processed
+            # Job-aware dedup: allow rescreening for different jobs
             new_candidates = []
             for candidate in candidates:
                 candidate_id = candidate.get('id')
                 if not candidate_id:
                     continue
-                    
-                # Strict dedup: skip if vetted within the last 24 hours
-                # This prevents cross-path re-detection (e.g. email path → PandoLogic path)
-                from datetime import timedelta
-                recent_cutoff = datetime.utcnow() - timedelta(hours=24)
                 
-                recent_vetting = CandidateVettingLog.query.filter(
-                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.status.in_(['completed', 'failed', 'processing']),
-                    CandidateVettingLog.created_at >= recent_cutoff
-                ).first()
-                
-                if recent_vetting:
-                    logging.debug(f"Candidate {candidate_id} vetted within last 24h (status={recent_vetting.status}), skipping")
+                # For Online Applicants detected via Bullhorn search, we don't have the
+                # applied job ID at this stage. Use global 24h dedup as a safety net.
+                # The ParsedEmail path (primary) already handles job-aware dedup properly.
+                if self._should_skip_candidate(candidate_id):
+                    logging.debug(f"Candidate {candidate_id} vetted recently, skipping")
                 else:
                     new_candidates.append(candidate)
                     logging.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
@@ -1347,8 +1405,13 @@ Format as a bullet-point list. Be specific and concise."""
         Find candidates from Pandologic API that haven't been vetted recently.
         Pandologic feeds candidates directly into Bullhorn with owner='Pandologic API'.
         
+        Uses dateLastModified to catch returning candidates who reapply to new jobs
+        (dateAdded only reflects candidate creation, not new applications).
+        
+        Job-aware dedup: candidates applying to different jobs are always rescreened.
+        
         Args:
-            since_minutes: Only look at candidates created in the last N minutes (fallback)
+            since_minutes: Only look at candidates modified in the last N minutes (fallback)
             
         Returns:
             List of candidate dictionaries from Bullhorn
@@ -1371,13 +1434,14 @@ Format as a bullet-point list. Be specific and concise."""
             
             since_timestamp = int(since_time.timestamp() * 1000)
             
-            # Query for candidates with Pandologic API ownership
+            # Use dateLastModified to catch returning candidates who reapply to new jobs
+            # (dateAdded only reflects candidate creation, not new applications)
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
-                'query': f'owner.name:"Pandologic API" AND dateAdded:[{since_timestamp} TO *]',
+                'query': f'owner.name:"Pandologic API" AND dateLastModified:[{since_timestamp} TO *]',
                 'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName),owner(name)',
                 'count': 50,
-                'sort': '-dateAdded',
+                'sort': '-dateLastModified',
                 'BhRestToken': bullhorn.rest_token
             }
             
@@ -1392,31 +1456,50 @@ Format as a bullet-point list. Be specific and concise."""
             
             logging.info(f"🔍 Pandologic: Found {len(candidates)} candidates since {since_time}")
             
-            # Filter to only candidates not vetted within last 2 hours
-            # (longer window than Online Applicants since Pandologic is a different source)
+            # Job-aware dedup: get latest JobSubmission for each candidate to check
+            # if they were already vetted for THIS specific job
             new_candidates = []
             for candidate in candidates:
                 candidate_id = candidate.get('id')
                 if not candidate_id:
                     continue
                 
-                # Strict dedup: skip if vetted within the last 24 hours
-                # This prevents cross-path re-detection (e.g. email path detects
-                # first, then PandoLogic path re-detects 60+ minutes later)
-                from datetime import timedelta
-                recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+                # Get latest job submission to determine which job they applied to
+                applied_job_id = None
+                try:
+                    sub_url = f"{bullhorn.base_url}search/JobSubmission"
+                    sub_params = {
+                        'query': f'candidate.id:{candidate_id}',
+                        'fields': 'id,jobOrder(id,title),dateAdded',
+                        'count': 1,
+                        'sort': '-dateAdded',
+                        'BhRestToken': bullhorn.rest_token
+                    }
+                    sub_response = bullhorn.session.get(sub_url, params=sub_params, timeout=15)
+                    if sub_response.status_code == 200:
+                        submissions = sub_response.json().get('data', [])
+                        if submissions:
+                            job_order = submissions[0].get('jobOrder', {})
+                            applied_job_id = job_order.get('id')
+                            candidate['_applied_job_id'] = applied_job_id
+                            candidate['_applied_job_title'] = job_order.get('title', '')
+                except Exception as e:
+                    logging.debug(f"Could not fetch JobSubmission for candidate {candidate_id}: {str(e)}")
                 
-                recent_vetting = CandidateVettingLog.query.filter(
-                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.status.in_(['completed', 'failed', 'processing']),
-                    CandidateVettingLog.created_at >= recent_cutoff
-                ).first()
-                
-                if recent_vetting:
-                    logging.debug(f"Pandologic candidate {candidate_id} vetted within last 24h, skipping")
+                # Job-aware dedup: different job = always allow; same job = apply caps
+                if self._should_skip_candidate(candidate_id, applied_job_id):
+                    logging.debug(
+                        f"Pandologic candidate {candidate_id} skipped by job-aware dedup "
+                        f"(applied_job={applied_job_id})"
+                    )
                 else:
                     new_candidates.append(candidate)
-                    logging.info(f"🔵 Pandologic candidate detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
+                    job_info = f" for job {applied_job_id}" if applied_job_id else ""
+                    logging.info(
+                        f"🔵 Pandologic candidate detected: "
+                        f"{candidate.get('firstName')} {candidate.get('lastName')} "
+                        f"(ID: {candidate_id}{job_info})"
+                    )
             
             logging.info(f"🔍 Pandologic: {len(new_candidates)} candidates to vet out of {len(candidates)} total")
             return new_candidates
