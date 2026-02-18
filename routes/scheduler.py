@@ -131,6 +131,7 @@ def scheduler_dashboard():
 
 
 @scheduler_bp.route('/api/schedules', methods=['POST'])
+@login_required
 def create_schedule():
     """Create a new automated processing schedule"""
     from app import db
@@ -174,6 +175,7 @@ def create_schedule():
 
 
 @scheduler_bp.route('/api/schedules/<int:schedule_id>', methods=['DELETE'])
+@login_required
 def delete_schedule(schedule_id):
     """Delete a schedule"""
     from app import db
@@ -192,6 +194,7 @@ def delete_schedule(schedule_id):
 
 
 @scheduler_bp.route('/api/schedules/<int:schedule_id>/status', methods=['GET'])
+@login_required
 def get_schedule_status(schedule_id):
     """Get the processing status of a schedule"""
     from models import ScheduleConfig, ProcessingLog
@@ -225,6 +228,7 @@ def get_schedule_status(schedule_id):
 
 
 @scheduler_bp.route('/api/schedules/replace-file', methods=['POST'])
+@login_required
 def replace_schedule_file():
     """Replace the XML file for an existing schedule"""
     from app import db, allowed_file, get_email_service
@@ -500,6 +504,7 @@ def process_schedule_with_progress(schedule_id):
 
 
 @scheduler_bp.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
+@login_required
 def run_schedule_now(schedule_id):
     """Manually trigger a schedule to run now"""
     from app import db
@@ -582,6 +587,7 @@ def upload_schedule_file():
 
 
 @scheduler_bp.route('/start_scheduler')
+@login_required
 def start_scheduler_manual():
     """Manually start the scheduler and trigger monitoring"""
     from app import db, lazy_start_scheduler, scheduler, process_bullhorn_monitors

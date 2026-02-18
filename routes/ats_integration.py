@@ -104,8 +104,9 @@ def ats_integration_dashboard():
 
 
 @ats_integration_bp.route('/test-ats-integration')
+@login_required
 def test_ats_integration_page():
-    """Test page that doesn't require authentication"""
+    """Test page for ATS integration dashboard"""
     try:
         return render_template('ats_integration.html', 
                              monitors=[], 
@@ -242,6 +243,7 @@ def create_ats_monitor():
 
 
 @ats_integration_bp.route('/ats-integration/monitor/<int:monitor_id>')
+@login_required
 def ats_monitor_details(monitor_id):
     """View details of a specific Bullhorn monitor"""
     from app import get_bullhorn_service
@@ -274,6 +276,7 @@ def ats_monitor_details(monitor_id):
 
 
 @ats_integration_bp.route('/ats-integration/monitor/<int:monitor_id>/delete', methods=['POST'])
+@login_required
 def delete_ats_monitor(monitor_id):
     """Delete a Bullhorn monitor"""
     from app import db
@@ -296,6 +299,7 @@ def delete_ats_monitor(monitor_id):
 
 
 @ats_integration_bp.route('/ats-integration/monitor/<int:monitor_id>/test', methods=['POST'])
+@login_required
 def test_ats_monitor(monitor_id):
     """Test a Bullhorn monitor manually"""
     from app import get_bullhorn_service
@@ -409,6 +413,7 @@ def get_monitor_jobs(monitor_id):
 
 
 @ats_integration_bp.route('/ats-integration/monitor/<int:monitor_id>/test-email', methods=['POST'])
+@login_required
 def test_email_notification(monitor_id):
     """Send a test email notification"""
     from app import get_email_service
