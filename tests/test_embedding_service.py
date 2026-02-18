@@ -544,19 +544,36 @@ class TestGetSimilarityThreshold:
         
         service = EmbeddingService()
         with app.app_context():
-            # Set a threshold value in the DB
-            config = VettingConfig(
-                setting_key='embedding_similarity_threshold',
-                setting_value='0.30'
-            )
-            db.session.add(config)
+            # Use upsert pattern to avoid UNIQUE constraint violation
+            # (seed_database may have already created this key)
+            existing = VettingConfig.query.filter_by(
+                setting_key='embedding_similarity_threshold'
+            ).first()
+            
+            original_value = None
+            if existing:
+                original_value = existing.setting_value
+                existing.setting_value = '0.30'
+            else:
+                config = VettingConfig(
+                    setting_key='embedding_similarity_threshold',
+                    setting_value='0.30'
+                )
+                db.session.add(config)
             db.session.commit()
             
             result = service.get_similarity_threshold()
             assert result == 0.30
             
-            # Cleanup
-            db.session.delete(config)
+            # Cleanup: restore original value or remove
+            if original_value is not None:
+                existing.setting_value = original_value
+            else:
+                config = VettingConfig.query.filter_by(
+                    setting_key='embedding_similarity_threshold'
+                ).first()
+                if config:
+                    db.session.delete(config)
             db.session.commit()
 
 

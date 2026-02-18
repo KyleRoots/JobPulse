@@ -268,18 +268,6 @@
             border-left-color: var(--sidebar-active-border);
         }
 
-        /* Module-specific nav accents (Option C: Contextual) */
-        .nav-item.active[href*="bullhorn"] {
-            background: rgba(245, 158, 11, 0.15);
-            color: #f59e0b;
-            border-left-color: #f59e0b;
-        }
-
-        .nav-item.active[href*="vetting"] {
-            background: rgba(244, 63, 94, 0.15);
-            color: #f43f5e;
-            border-left-color: #f43f5e;
-        }
 
         .nav-item i {
             width: 20px;
@@ -399,7 +387,7 @@
             height: 40px;
             border-radius: 50%;
             border: 2px solid rgba(74, 150, 120, 0.4);
-            background: linear-gradient(135deg, #4a9678, #4a9678);
+            background: linear-gradient(135deg, #2c4c3b, #4a9678);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -422,7 +410,7 @@
         /* Cards - Premium Glass Design */
         .glass-card,
         .settings-card {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            background: linear-gradient(145deg, rgba(22, 42, 31, 0.9), rgba(10, 22, 16, 0.95));
             border: 1px solid rgba(74, 150, 120, 0.15);
             backdrop-filter: blur(20px);
             border-radius: 16px;
@@ -446,7 +434,7 @@
 
         .glass-card:hover,
         .settings-card:hover {
-            background: linear-gradient(145deg, rgba(35, 48, 70, 0.95), rgba(20, 30, 50, 0.98));
+            background: linear-gradient(145deg, rgba(30, 58, 42, 0.95), rgba(15, 35, 25, 0.98));
             border-color: rgba(74, 150, 120, 0.3);
             transform: translateY(-4px);
             box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25), 0 0 30px rgba(74, 150, 120, 0.1);
@@ -597,7 +585,7 @@
         /* Tables - Premium Style */
         .data-table,
         .table {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.7));
+            background: linear-gradient(145deg, rgba(22, 42, 31, 0.6), rgba(10, 22, 16, 0.7));
             border-radius: 12px;
             overflow: hidden;
             border: 1px solid rgba(74, 150, 120, 0.1);
@@ -627,9 +615,73 @@
             background: rgba(74, 150, 120, 0.08);
         }
 
+        /* Override Bootstrap table CSS variables for ALL .table variants */
+        .table,
+        .table thead,
+        .table tbody,
+        .table th,
+        .table td,
+        .table-dark,
+        .table-dark thead,
+        .table-dark tbody,
+        .table-dark th,
+        .table-dark td {
+            --bs-table-bg: transparent;
+            --bs-table-color: #e2e8f0;
+            --bs-table-striped-bg: rgba(74, 150, 120, 0.05);
+            --bs-table-striped-color: #e2e8f0;
+            --bs-table-hover-bg: rgba(74, 150, 120, 0.08);
+            --bs-table-hover-color: #e2e8f0;
+            --bs-table-border-color: rgba(74, 150, 120, 0.1);
+            --bs-table-active-bg: rgba(74, 150, 120, 0.1);
+            background-color: transparent !important;
+            color: #e2e8f0;
+        }
+
+        .table-dark thead th,
+        .table thead th {
+            background: linear-gradient(135deg, rgba(74, 150, 120, 0.15), rgba(74, 150, 120, 0.08));
+        }
+
+        /* Tables inside glass-cards should inherit transparent bg */
+        .glass-card .table,
+        .glass-card .table th,
+        .glass-card .table td {
+            background-color: transparent !important;
+            border-color: rgba(74, 150, 120, 0.1);
+        }
+
+        /* Config tables (borderless inside glass-cards) */
+        .config-table td {
+            color: #e2e8f0;
+        }
+
+        /* Override Bootstrap .card (non-.glass-card) to use green-tinted dark */
+        .card:not(.glass-card):not(.settings-card) {
+            background: linear-gradient(145deg, rgba(22, 42, 31, 0.9), rgba(10, 22, 16, 0.95));
+            border: 1px solid rgba(74, 150, 120, 0.15);
+            border-radius: 12px;
+        }
+
+        .card:not(.glass-card):not(.settings-card) .card-header {
+            background: rgba(74, 150, 120, 0.1);
+            border-bottom: 1px solid rgba(74, 150, 120, 0.2);
+        }
+
+        /* Override Bootstrap bg-info/border-info on cards for Scout Genius theme */
+        .card .card-header.bg-info {
+            background: linear-gradient(135deg, rgba(74, 150, 120, 0.25), rgba(74, 150, 120, 0.15)) !important;
+            border-bottom: 1px solid rgba(74, 150, 120, 0.3);
+            color: #e2e8f0 !important;
+        }
+
+        .card.border-info {
+            border-color: rgba(74, 150, 120, 0.3) !important;
+        }
+
         /* Monitor Cards - Premium Style */
         .monitor-card {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            background: linear-gradient(145deg, rgba(22, 42, 31, 0.9), rgba(10, 22, 16, 0.95));
             border: 1px solid rgba(74, 150, 120, 0.15);
             border-radius: 12px;
             transition: all 0.4s ease;
@@ -656,7 +708,7 @@
         /* Form Elements - Premium Style */
         .form-control,
         .form-select {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+            background: linear-gradient(145deg, rgba(22, 42, 31, 0.8), rgba(10, 22, 16, 0.9));
             border: 1px solid rgba(74, 150, 120, 0.2);
             border-radius: 8px;
             color: #e2e8f0;
@@ -666,7 +718,7 @@
 
         .form-control:focus,
         .form-select:focus {
-            background: linear-gradient(145deg, rgba(35, 48, 70, 0.9), rgba(20, 30, 50, 0.95));
+            background: linear-gradient(145deg, rgba(30, 58, 42, 0.9), rgba(15, 35, 25, 0.95));
             border-color: #4a9678;
             box-shadow: 0 0 0 3px rgba(74, 150, 120, 0.15), 0 0 20px rgba(74, 150, 120, 0.1);
             outline: none;
@@ -686,7 +738,7 @@
 
         /* Checkboxes and Switches - Premium Style */
         .form-check-input {
-            background-color: rgba(30, 41, 59, 0.8);
+            background-color: rgba(22, 42, 31, 0.8);
             border: 1px solid rgba(74, 150, 120, 0.3);
         }
 
@@ -701,7 +753,7 @@
 
         /* Alert Boxes - Premium Style */
         .alert {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            background: linear-gradient(145deg, rgba(22, 42, 31, 0.9), rgba(10, 22, 16, 0.95));
             border: 1px solid rgba(74, 150, 120, 0.2);
             border-radius: 12px;
             color: #e2e8f0;
@@ -739,7 +791,7 @@
         /* Schedule/XML File Cards */
         .schedule-card,
         .xml-file-card {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            background: linear-gradient(145deg, rgba(22, 42, 31, 0.9), rgba(10, 22, 16, 0.95));
             border: 1px solid rgba(74, 150, 120, 0.15);
             border-radius: 12px;
             padding: 1.25rem;
@@ -1339,6 +1391,37 @@
         .settings-card .card-body {
             padding: 1.5rem;
         }
+
+        /* Feedback Modal – Base (Scout Genius green - matches glass-card) */
+        .feedback-modal-content {
+            background: linear-gradient(145deg, rgba(22, 42, 31, 0.95), rgba(10, 22, 16, 0.98)) !important;
+            border: 1px solid rgba(74, 150, 120, 0.3) !important;
+            backdrop-filter: blur(20px);
+        }
+
+        .feedback-modal-icon {
+            color: var(--brand-secondary);
+        }
+
+        .feedback-submit-btn {
+            background: var(--brand-gradient) !important;
+            border: none !important;
+        }
+
+        .feedback-submit-btn:hover {
+            background: linear-gradient(135deg, #2c4c3b, #1a3d2f) !important;
+        }
+
+        /* Feedback trigger button in page header */
+        .feedback-trigger-btn {
+            border-color: rgba(255, 255, 255, 0.4) !important;
+        }
+
+        /* Stat card icon – module-aware via data-module */
+        .stat-icon.module-accent {
+            background: rgba(74, 150, 120, 0.15);
+            color: #4a9678;
+        }
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
@@ -1393,13 +1476,21 @@
                     class="sidebar-logo-full">
                 {% elif active_page in ['vetting'] %}
                 <img src="{{ url_for('static', filename='images/scout-screening-logo.png') }}" alt="Scout Screening"
-                    class="sidebar-logo-full">
+                    class="sidebar-logo-full screening-logo">
                 {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
                     class="sidebar-logo-full">
                 {% endif %}
+                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring'] %}
+                <img src="{{ url_for('static', filename='images/scout-inbound-icon.png') }}" alt="Scout Inbound"
+                    class="sidebar-logo-compact">
+                {% elif active_page in ['vetting'] %}
+                <img src="{{ url_for('static', filename='images/scout-screening-icon.png') }}" alt="Scout Screening"
+                    class="sidebar-logo-compact">
+                {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-icon.png') }}" alt="Scout Genius"
                     class="sidebar-logo-compact">
+                {% endif %}
             </a>
         </div>
 
@@ -1579,11 +1670,10 @@
     <!-- Feedback Modal -->
     <div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content"
-                style="background: linear-gradient(145deg, #1e3a2a 0%, #0d2817 100%); border: 1px solid rgba(74, 150, 120, 0.3);">
+            <div class="modal-content feedback-modal-content">
                 <div class="modal-header border-bottom border-secondary">
                     <h5 class="modal-title" id="feedbackModalLabel">
-                        <i class="fas fa-comment-dots text-primary me-2"></i>Send Feedback
+                        <i class="fas fa-comment-dots feedback-modal-icon me-2"></i>Send Feedback
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Close"></button>
@@ -1616,7 +1706,8 @@
                 </div>
                 <div class="modal-footer border-top border-secondary">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="submitFeedbackBtn" onclick="submitFeedback()">
+                    <button type="button" class="btn btn-primary feedback-submit-btn" id="submitFeedbackBtn"
+                        onclick="submitFeedback()">
                         <i class="fas fa-paper-plane me-1"></i>Send Feedback
                     </button>
                 </div>

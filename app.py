@@ -2614,7 +2614,7 @@ def test_download(download_key):
 @login_required
 def ats_monitoring():
     """ATS monitoring dashboard"""
-    return render_template('ats_monitoring.html')
+    return render_template('ats_monitoring.html', active_page='ats_monitoring')
 
 @app.route('/api/monitors')
 @login_required

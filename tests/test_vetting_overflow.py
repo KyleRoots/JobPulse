@@ -52,7 +52,7 @@ class TestVettingOverflowConditionals:
         """
         from flask import render_template
         
-        with app.app_context():
+        with app.test_request_context():
             recommended = [make_mock_candidate(i, True) for i in range(35)]
             not_recommended = [make_mock_candidate(i + 100, False) for i in range(5)]
             
@@ -94,7 +94,7 @@ class TestVettingOverflowConditionals:
         """
         from flask import render_template
         
-        with app.app_context():
+        with app.test_request_context():
             recommended = [make_mock_candidate(i, True) for i in range(5)]
             not_recommended = [make_mock_candidate(i + 100, False) for i in range(35)]
             
@@ -136,7 +136,7 @@ class TestVettingOverflowConditionals:
         """
         from flask import render_template
         
-        with app.app_context():
+        with app.test_request_context():
             recommended = [make_mock_candidate(i, True) for i in range(35)]
             not_recommended = [make_mock_candidate(i + 100, False) for i in range(35)]
             pending = [make_mock_candidate(i + 200, False) for i in range(35)]

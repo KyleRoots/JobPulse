@@ -118,12 +118,16 @@
        ============================================ */
 
     /* Scout Inbound – Gold/Amber */
-    --module-inbound-accent: #f59e0b;
-    --module-inbound-bg: rgba(245, 158, 11, 0.15);
-    --module-inbound-border: rgba(245, 158, 11, 0.25);
-    --module-inbound-text: #fbbf24;
-    --module-inbound-glow: rgba(245, 158, 11, 0.12);
-    --module-inbound-gradient: linear-gradient(135deg, #f59e0b, #d97706);
+    --module-inbound-accent: #d97706;
+    --module-inbound-bg: rgba(217, 119, 6, 0.12);
+    --module-inbound-border: rgba(217, 119, 6, 0.22);
+    --module-inbound-text: #e5a50a;
+    --module-inbound-glow: rgba(217, 119, 6, 0.10);
+    --module-inbound-gradient: linear-gradient(135deg, #d97706, #b45309);
+    --module-inbound-subtle: rgba(217, 119, 6, 0.08);
+    --module-inbound-border-strong: rgba(217, 119, 6, 0.3);
+    --module-inbound-card-bg: linear-gradient(145deg, rgba(35, 26, 10, 0.9), rgba(21, 16, 8, 0.95));
+    --module-inbound-card-hover-bg: linear-gradient(145deg, rgba(45, 33, 12, 0.95), rgba(28, 20, 10, 0.98));
 
     /* Scout Screening – Pink/Rose */
     --module-screening-accent: #f43f5e;
@@ -132,6 +136,10 @@
     --module-screening-text: #fb7185;
     --module-screening-glow: rgba(244, 63, 94, 0.12);
     --module-screening-gradient: linear-gradient(135deg, #f43f5e, #e11d48);
+    --module-screening-subtle: rgba(244, 63, 94, 0.08);
+    --module-screening-border-strong: rgba(244, 63, 94, 0.3);
+    --module-screening-card-bg: linear-gradient(145deg, rgba(42, 21, 32, 0.9), rgba(23, 10, 18, 0.95));
+    --module-screening-card-hover-bg: linear-gradient(145deg, rgba(52, 26, 40, 0.95), rgba(30, 14, 24, 0.98));
 
     /* Active module accent (set dynamically by data-module) */
     --module-accent: var(--brand-primary);

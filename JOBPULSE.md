@@ -1237,6 +1237,19 @@ JobPulse/
 
 ---
 
+## 28. Future Refactoring Backlog
+
+### CSS / Theming
+
+| Item | Priority | Effort | Description |
+|---|---|---|---|
+| **base_layout.html CSS Extraction** | Medium | Large (4hr+) | Extract the ~1,400-line inline `<style>` block from `base_layout.html` into an external `base-theme.css` file. Replace 79+ hardcoded green `rgba(74, 150, 120, ...)` values with CSS variables from `theme-variables.css`. Requires testing every page (dashboard, settings, logs, audit, vetting, scheduler, ATS monitoring). |
+| **`!important` Audit** | Low | Medium (1-4hr) | `module-themes.css` uses `!important` ~28 times. Most are needed to override Bootstrap's own `!important` declarations, but some could be replaced with higher-specificity selectors. Cosmetic code quality only. |
+
+*Logged: February 17, 2026 — deferred from Categories 4 & 5 of the Scout Inbound theming refactoring sprint.*
+
+---
+
 *Confidential — Internal Documentation*
 *Maintained by: Kyle Roots (kroots@myticas.com)*
-*Last comprehensive audit: February 14, 2026*
+*Last comprehensive audit: February 17, 2026*

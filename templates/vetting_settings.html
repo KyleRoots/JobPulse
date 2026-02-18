@@ -73,7 +73,7 @@
     }
 
     .toggle-switch input:checked+.toggle-slider {
-        background-color: #667eea;
+        background-color: var(--module-accent, #4a9678);
     }
 
     .toggle-switch input:checked+.toggle-slider:before {
@@ -391,7 +391,7 @@
 
                 <div class="mb-3">
                     <div class="d-flex align-items-start mb-2">
-                        <span class="badge bg-success me-3" style="min-width: 30px;">4</span>
+                        <span class="badge bg-primary me-3" style="min-width: 30px;">4</span>
                         <div>
                             <strong>Note Creation</strong>
                             <p class="text-muted mb-0 small">A detailed note is added to every candidate record
@@ -462,7 +462,7 @@
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse{{ job.bullhorn_job_id }}" aria-expanded="false"
                             aria-controls="collapse{{ job.bullhorn_job_id }}"
-                            style="background: rgba(30, 41, 59, 0.9); color: #f1f5f9; border-radius: 6px;">
+                            style="background: rgba(20, 20, 30, 0.9); color: #f1f5f9; border-radius: 6px;">
                             <div class="d-flex justify-content-between w-100 me-3 align-items-center">
                                 <div>
                                     <strong style="color: #ffffff; font-size: 1rem;">{{ job.job_title or 'Untitled Job'
@@ -486,7 +486,7 @@
                     <div id="collapse{{ job.bullhorn_job_id }}" class="accordion-collapse collapse"
                         aria-labelledby="heading{{ job.bullhorn_job_id }}" data-bs-parent="#jobRequirementsAccordion">
                         <div class="accordion-body"
-                            style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                            style="background: var(--module-bg, rgba(15, 23, 42, 0.6)); border-top: 1px solid var(--module-border, rgba(255,255,255,0.1));">
                             <!-- Job header reminder when expanded -->
                             <div
                                 class="mb-3 pb-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
@@ -508,7 +508,7 @@
                                     </h6>
                                     {% if job.ai_interpreted_requirements %}
                                     <div class="p-3 rounded mb-3"
-                                        style="background: rgba(74, 150, 120, 0.1); border: 1px solid rgba(74, 150, 120, 0.2);">
+                                        style="background: var(--module-bg, rgba(74, 150, 120, 0.1)); border: 1px solid var(--module-border, rgba(74, 150, 120, 0.2));">
                                         <pre
                                             style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.ai_interpreted_requirements }}</pre>
                                     </div>
@@ -525,7 +525,7 @@
                                         <textarea class="form-control form-control-sm mb-2 custom-requirements-input"
                                             rows="5"
                                             placeholder="Enter custom requirements to override AI interpretation..."
-                                            style="background: rgba(85, 124, 91, 0.1); border: 1px solid rgba(85, 124, 91, 0.3); color: #e2e8f0; font-size: 0.85rem;">{{ job.custom_requirements or '' }}</textarea>
+                                            style="background: var(--module-bg, rgba(85, 124, 91, 0.1)); border: 1px solid var(--module-border, rgba(85, 124, 91, 0.3)); color: #e2e8f0; font-size: 0.85rem;">{{ job.custom_requirements or '' }}</textarea>
                                         <small class="text-muted d-block mb-2">Custom requirements take priority over
                                             AI-interpreted ones during vetting.</small>
 
@@ -599,14 +599,6 @@
                     <button type="submit" class="btn btn-outline-warning btn-sm"
                         onclick="return confirm('This will force-release any stuck vetting lock. Continue?')">
                         <i class="fas fa-unlock me-1"></i>Release Lock
-                    </button>
-                </form>
-                <form action="{{ url_for('vetting.process_backlog') }}" method="POST" class="d-inline">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-success btn-sm" {% if not settings.vetting_enabled %}disabled{%
-                        endif %}
-                        onclick="return confirm('This will release any stuck lock and run a full vetting cycle now. Continue?')">
-                        <i class="fas fa-bolt me-1"></i>Process Backlog
                     </button>
                 </form>
                 <form action="{{ url_for('vetting.run_vetting_now') }}" method="POST" class="d-inline">
@@ -689,7 +681,7 @@
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#pendingCandidate{{ loop.index }}"
-                                    style="background: rgba(30, 41, 59, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    style="background: rgba(20, 20, 30, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
                                     <div class="d-flex justify-content-between w-100 me-3 align-items-center">
                                         <div>
                                             <strong>{{ candidate.candidate_name or 'Unknown' }}</strong>
@@ -767,7 +759,7 @@
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#recommendedCandidate{{ loop.index }}"
-                                    style="background: rgba(30, 41, 59, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    style="background: rgba(20, 20, 30, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
                                     <div class="d-flex justify-content-between w-100 me-3 align-items-center">
                                         <div>
                                             <strong>{{ log.candidate_name or 'Unknown' }}</strong>
@@ -820,7 +812,7 @@
                                             reverse=true)|first %}
                                             {% if best_match and best_match.match_summary %}
                                             <div class="p-2 rounded"
-                                                style="background: rgba(85, 124, 91, 0.1); border: 1px solid rgba(85, 124, 91, 0.2); max-height: 150px; overflow-y: auto;">
+                                                style="background: var(--module-bg, rgba(85, 124, 91, 0.1)); border: 1px solid var(--module-border, rgba(85, 124, 91, 0.2)); max-height: 150px; overflow-y: auto;">
                                                 <small style="white-space: pre-wrap;">{{ best_match.match_summary[:500]
                                                     }}{% if best_match.match_summary|length > 500 %}...{% endif
                                                     %}</small>
@@ -863,7 +855,7 @@
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#notRecommendedCandidate{{ loop.index }}"
-                                    style="background: rgba(30, 41, 59, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    style="background: rgba(20, 20, 30, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
                                     <div class="d-flex justify-content-between w-100 me-3 align-items-center">
                                         <div>
                                             <strong>{{ log.candidate_name or 'Unknown' }}</strong>
@@ -979,6 +971,7 @@
                     iconClass: 'fas fa-clock text-info',
                     badgeClass: 'bg-info',
                     count: {{ stats.pending }}
+        }
                 },
             'recommended': {
             section: recommendedSection,
