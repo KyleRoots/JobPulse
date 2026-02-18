@@ -339,3 +339,85 @@ class TestInternationalScoringEndToEnd:
         assert result is not None
         assert result['match_score'] >= 60
         assert 'location mismatch' not in result.get('gaps_identified', '').lower()
+
+
+class TestSmartCorrectCountryWACollision:
+    """Regression tests for WA (Washington vs Western Australia) collision fix."""
+
+    def test_wa_with_us_country_stays_us(self, vetting_service, app):
+        """Washington state (WA) with declared 'United States' should NOT be corrected to Australia."""
+        job = _make_job(
+            description="Remote Sr Python Developer-W2 only. US-based.",
+            city="", state="", country="United States"
+        )
+
+        mock_response = MagicMock()
+        mock_choice = MagicMock()
+        mock_choice.message.content = json.dumps({
+            "match_score": 75,
+            "match_summary": "Strong Python match. Candidate is US-based in Seattle, WA.",
+            "skills_match": "Python, Flask, PostgreSQL, Docker, Kubernetes",
+            "experience_match": "12 years software engineering",
+            "gaps_identified": "No specific gaps",
+            "key_requirements": "Python, W2 employment"
+        })
+        mock_response.choices = [mock_choice]
+        vetting_service.openai_client.chat.completions.create.return_value = mock_response
+
+        # Candidate in Seattle, WA — state 'WA' must NOT trigger Australia correction
+        candidate_location = {'city': 'Seattle', 'state': 'WA', 'countryName': 'United States'}
+
+        result = vetting_service.analyze_candidate_job_match(
+            resume_text="Maxwell Hirsch\nSeattle, WA, 98144\nSenior Software Engineer with 12+ years Python\n",
+            job=job,
+            candidate_location=candidate_location
+        )
+
+        assert result is not None
+        assert 'location mismatch' not in result.get('gaps_identified', '').lower(), \
+            f"WA candidate incorrectly flagged for location: {result['gaps_identified']}"
+        assert 'different country' not in result.get('gaps_identified', '').lower(), \
+            "WA (Washington) incorrectly treated as Western Australia"
+
+        # Verify the prompt sent correct US location, not Australia
+        call_args = vetting_service.openai_client.chat.completions.create.call_args
+        messages = call_args[1]['messages']
+        user_prompt = messages[1]['content']
+        assert 'Australia' not in user_prompt, \
+            "Prompt incorrectly contains 'Australia' for WA (Washington) candidate"
+
+    def test_genuine_western_australia_still_corrects(self, vetting_service, app):
+        """A candidate with state 'NSW' (New South Wales) should still be corrected to Australia."""
+        job = _make_job(
+            description="Remote Developer. US-based team.",
+            country="United States"
+        )
+
+        mock_response = MagicMock()
+        mock_choice = MagicMock()
+        mock_choice.message.content = json.dumps({
+            "match_score": 40,
+            "match_summary": "Location mismatch: candidate in Australia.",
+            "skills_match": "Python",
+            "experience_match": "3 years",
+            "gaps_identified": "Location mismatch: different country",
+            "key_requirements": "Python, US-based"
+        })
+        mock_response.choices = [mock_choice]
+        vetting_service.openai_client.chat.completions.create.return_value = mock_response
+
+        # NSW is unambiguously Australian — should be corrected
+        candidate_location = {'city': 'Sydney', 'state': 'NSW', 'countryName': ''}
+
+        result = vetting_service.analyze_candidate_job_match(
+            resume_text="Test Candidate\nSydney, NSW\nDeveloper with 3 years Python\n",
+            job=job,
+            candidate_location=candidate_location
+        )
+
+        # Verify prompt has Australia (NSW correctly resolved)
+        call_args = vetting_service.openai_client.chat.completions.create.call_args
+        messages = call_args[1]['messages']
+        user_prompt = messages[1]['content']
+        assert 'Australia' in user_prompt, \
+            "NSW should be correctly resolved to Australia"
