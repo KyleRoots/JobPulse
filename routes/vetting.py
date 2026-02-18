@@ -869,14 +869,14 @@ def send_test_vetting_email():
     # Send the email
     try:
         email_service = EmailService()
-        success = email_service.send_html_email(
+        result = email_service.send_html_email(
             to_email=test_email,
             subject=subject,
             html_content=html_content,
             notification_type='vetting_test_email'
         )
         
-        if success:
+        if result and (result is True or result.get('success')):
             flash(f'Test email ({scenario_desc}) sent successfully to {test_email}!', 'success')
         else:
             flash(f'Failed to send test email to {test_email}', 'error')

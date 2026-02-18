@@ -202,3 +202,47 @@ def cron_send_digest():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@health_bp.route('/api/cron/scout-vetting-followups', methods=['POST'])
+@require_cron_secret
+def cron_scout_vetting_followups():
+    """Run Scout Vetting follow-up processing.
+    
+    Sends follow-up emails to unresponsive candidates,
+    closes expired sessions, and promotes queued sessions.
+    
+    Authenticated via CRON_SECRET bearer token, CSRF-exempt.
+    Called by Render cron job every 30 minutes: */30 * * * *
+    """
+    try:
+        from scout_vetting_service import ScoutVettingService
+        from email_service import EmailService
+
+        current_app.logger.info("🔍 Cron trigger: running Scout Vetting follow-ups")
+
+        svc = ScoutVettingService(email_service=EmailService())
+
+        if not svc.is_enabled():
+            return jsonify({
+                'success': True,
+                'message': 'Scout Vetting is disabled — no follow-ups processed',
+                'stats': {}
+            }), 200
+
+        stats = svc.run_followups()
+
+        current_app.logger.info(f"🔍 Scout Vetting follow-ups complete: {stats}")
+        return jsonify({
+            'success': True,
+            'message': 'Scout Vetting follow-ups processed',
+            'stats': stats,
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"🔍 Error in Scout Vetting follow-up cron: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

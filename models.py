@@ -632,6 +632,7 @@ class JobVettingRequirements(db.Model):
     custom_requirements = db.Column(db.Text, nullable=True)  # User-editable requirements text
     ai_interpreted_requirements = db.Column(db.Text, nullable=True)  # What AI extracted from job
     vetting_threshold = db.Column(db.Integer, nullable=True)  # Custom threshold for this job (null = use global default)
+    scout_vetting_enabled = db.Column(db.Boolean, nullable=True)  # null = follow global, True/False = per-job override
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -925,3 +926,117 @@ class EscalationLog(db.Model):
     
     def __repr__(self):
         return f'<EscalationLog candidate={self.bullhorn_candidate_id} job={self.bullhorn_job_id} delta={self.score_delta}>'
+
+
+class ScoutVettingSession(db.Model):
+    """Tracks a conversational AI vetting session for a qualified candidate on a specific job.
+    
+    Created after Scout Screening qualifies a candidate. Uses multi-turn email
+    conversations via Claude Opus to verify skills, experience, and availability
+    before recruiter handoff.
+    """
+    __tablename__ = 'scout_vetting_session'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    vetting_log_id = db.Column(db.Integer, db.ForeignKey('candidate_vetting_log.id'), nullable=False, index=True)
+    candidate_job_match_id = db.Column(db.Integer, db.ForeignKey('candidate_job_match.id'), nullable=True, index=True)
+    
+    # Candidate info (denormalized for query efficiency)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
+    candidate_email = db.Column(db.String(255), nullable=False)
+    candidate_name = db.Column(db.String(255), nullable=True)
+    
+    # Job info (denormalized)
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    
+    # Recruiter info (for handoff)
+    recruiter_email = db.Column(db.String(255), nullable=True)
+    recruiter_name = db.Column(db.String(255), nullable=True)
+    
+    # Session state
+    # pending: created, waiting to send outreach
+    # queued: waiting for slot (max 3 concurrent per candidate)
+    # outreach_sent: initial email sent, awaiting reply
+    # in_progress: candidate has replied, conversation active
+    # qualified: vetting complete, candidate passed
+    # not_qualified: vetting complete, candidate did not pass
+    # unresponsive: no reply after follow-ups exhausted
+    # declined: candidate declined to participate
+    status = db.Column(db.String(50), nullable=False, default='pending')
+    
+    # Vetting content
+    vetting_questions_json = db.Column(db.Text, nullable=True)  # JSON array of generated questions
+    answered_questions_json = db.Column(db.Text, nullable=True)  # JSON dict of question→answer
+    current_turn = db.Column(db.Integer, nullable=False, default=0)
+    max_turns = db.Column(db.Integer, nullable=False, default=5)  # Safety cap
+    
+    # Email cadence
+    last_outreach_at = db.Column(db.DateTime, nullable=True)
+    last_reply_at = db.Column(db.DateTime, nullable=True)
+    follow_up_count = db.Column(db.Integer, nullable=False, default=0)  # 0/1/2 then unresponsive
+    
+    # Outcome
+    outcome_summary = db.Column(db.Text, nullable=True)  # AI-generated final assessment
+    outcome_score = db.Column(db.Float, nullable=True)  # 0-100 confidence
+    
+    # Bullhorn integration
+    bullhorn_note_id = db.Column(db.Integer, nullable=True)
+    note_created = db.Column(db.Boolean, nullable=False, default=False)
+    handoff_sent = db.Column(db.Boolean, nullable=False, default=False)
+    
+    # Email threading
+    last_message_id = db.Column(db.String(255), nullable=True)  # For In-Reply-To header
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_svs_candidate_job_status', 'bullhorn_candidate_id', 'bullhorn_job_id', 'status'),
+        db.Index('idx_svs_status_outreach', 'status', 'last_outreach_at'),
+        db.Index('idx_svs_status_updated', 'status', 'updated_at'),
+    )
+    
+    # Relationships
+    vetting_log = db.relationship('CandidateVettingLog', backref=db.backref('scout_vetting_sessions', lazy='dynamic'))
+    candidate_job_match = db.relationship('CandidateJobMatch', backref=db.backref('scout_vetting_session', uselist=False))
+    conversation_turns = db.relationship('VettingConversationTurn', backref='session', lazy='dynamic',
+                                          cascade='all, delete-orphan',
+                                          order_by='VettingConversationTurn.turn_number')
+    
+    def __repr__(self):
+        return f'<ScoutVettingSession {self.id} candidate={self.bullhorn_candidate_id} job={self.bullhorn_job_id} status={self.status}>'
+
+
+class VettingConversationTurn(db.Model):
+    """Individual email exchange in a Scout Vetting conversation.
+    
+    Stores both outbound (system→candidate) and inbound (candidate→system) messages,
+    along with AI classification of intent and extracted answers.
+    """
+    __tablename__ = 'vetting_conversation_turn'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('scout_vetting_session.id'), nullable=False, index=True)
+    turn_number = db.Column(db.Integer, nullable=False)
+    direction = db.Column(db.String(10), nullable=False)  # 'outbound' or 'inbound'
+    
+    # Email content
+    email_subject = db.Column(db.String(500), nullable=True)
+    email_body = db.Column(db.Text, nullable=True)
+    
+    # AI analysis (for inbound messages)
+    ai_intent = db.Column(db.String(50), nullable=True)  # answer, question, decline, unrelated, etc.
+    ai_reasoning = db.Column(db.Text, nullable=True)
+    questions_asked_json = db.Column(db.Text, nullable=True)  # Questions posed in this turn
+    answers_extracted_json = db.Column(db.Text, nullable=True)  # Answers extracted from candidate reply
+    
+    # Email threading
+    message_id = db.Column(db.String(255), nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<VettingConversationTurn session={self.session_id} turn={self.turn_number} dir={self.direction}>'

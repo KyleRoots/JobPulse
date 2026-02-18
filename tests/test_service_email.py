@@ -134,7 +134,9 @@ class TestEmailServiceSendMethods:
                 html_content='<p>Test</p>'
             )
             
-            assert result == False
+            # send_html_email returns a dict with 'success' key
+            assert isinstance(result, dict)
+            assert result['success'] == False
     
     @patch('email_service.SendGridAPIClient')
     def test_send_automated_upload_notification_no_api_key(self, mock_sendgrid):
@@ -235,8 +237,9 @@ class TestEmailServiceWithMockedSendGrid:
                 bcc_emails=['bcc@example.com']
             )
             
-            # Implementation may return True or False depending on internal logic
-            assert isinstance(result, bool)
+            # send_html_email returns a dict with 'success' and 'message_id' keys
+            assert isinstance(result, dict)
+            assert 'success' in result
 
 
 class TestEmailServiceJobChangeNotification:

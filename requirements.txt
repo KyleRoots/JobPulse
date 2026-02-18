@@ -57,6 +57,7 @@ tzlocal==5.3.1
 urllib3==2.6.3
 Werkzeug==3.1.5
 WTForms==3.2.1
+langchain-anthropic>=0.3.0
 
 # Testing dependencies
 pytest==8.3.5

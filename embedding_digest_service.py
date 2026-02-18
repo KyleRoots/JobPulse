@@ -421,12 +421,14 @@ def send_daily_digest(since: datetime = None) -> bool:
         from email_service import EmailService
         email = EmailService()
         
-        success = email.send_html_email(
+        result = email.send_html_email(
             to_email=DIGEST_RECIPIENT,
             subject=subject,
             html_content=html,
             notification_type='embedding_digest'
         )
+        
+        success = result is True or (isinstance(result, dict) and result.get('success', False))
         
         if success:
             logging.info(f"✅ Daily embedding digest sent to {DIGEST_RECIPIENT}")

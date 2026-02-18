@@ -311,8 +311,9 @@ app.config['WTF_CSRF_TIME_LIMIT'] = None  # No token expiry (avoids issues with 
 csrf = CSRFProtect(app)
 
 # Exempt cron job API endpoints from CSRF (they use bearer token auth via CRON_SECRET)
-from routes.health import cron_send_digest
+from routes.health import cron_send_digest, cron_scout_vetting_followups
 csrf.exempt(cron_send_digest)
+csrf.exempt(cron_scout_vetting_followups)
 
 
 @app.errorhandler(413)
@@ -2870,6 +2871,47 @@ def api_email_logs():
 
 # ==================== Email Inbound Parsing Routes ====================
 
+# ==================== Scout Vetting Dashboard ====================
+
+@app.route('/scout-vetting')
+@login_required
+def scout_vetting_dashboard():
+    """Scout Vetting Module dashboard — shows session stats and recent activity."""
+    from models import ScoutVettingSession
+    from scout_vetting_service import ScoutVettingService
+
+    svc = ScoutVettingService(email_service=None)
+    is_enabled = svc.is_enabled()
+
+    # Aggregate session stats
+    stats = {
+        'total': ScoutVettingSession.query.count(),
+        'active': ScoutVettingSession.query.filter(
+            ScoutVettingSession.status.in_(['outreach_sent', 'in_progress'])
+        ).count(),
+        'awaiting_reply': ScoutVettingSession.query.filter_by(status='outreach_sent').count(),
+        'pending': ScoutVettingSession.query.filter_by(status='pending').count(),
+        'in_progress': ScoutVettingSession.query.filter_by(status='in_progress').count(),
+        'qualified': ScoutVettingSession.query.filter_by(status='qualified').count(),
+        'not_qualified': ScoutVettingSession.query.filter_by(status='not_qualified').count(),
+        'declined': ScoutVettingSession.query.filter_by(status='declined').count(),
+        'unresponsive': ScoutVettingSession.query.filter_by(status='unresponsive').count(),
+        'completed': 0,
+    }
+    stats['completed'] = stats['qualified'] + stats['not_qualified']
+
+    # Recent sessions (last 50)
+    sessions = ScoutVettingSession.query.order_by(
+        ScoutVettingSession.updated_at.desc()
+    ).limit(50).all()
+
+    return render_template('scout_vetting_dashboard.html',
+                           stats=stats,
+                           sessions=sessions,
+                           is_enabled=is_enabled,
+                           active_page='scout_vetting')
+
+
 @app.route('/api/email/inbound', methods=['GET', 'POST'])
 @csrf.exempt  # SendGrid inbound webhook — external service, no browser session
 def email_inbound_webhook():
@@ -2911,6 +2953,16 @@ def email_inbound_webhook():
                     'content_type': file.content_type
                 }
         
+        # ── Application-level routing ──
+        # Check if this email is addressed to the Scout Vetting reply-to address.
+        # Since SendGrid only allows one Inbound Parse rule per hostname,
+        # we route based on the 'to' address field.
+        to_field = payload.get('to', '')
+        if 'scout-vetting@parse.lyntrix.ai' in to_field.lower():
+            app.logger.info("📧 Routing to Scout Vetting inbound handler")
+            return _handle_scout_vetting_inbound(payload)
+        
+        # ── Default: job board email parsing pipeline ──
         # Process the email
         service = EmailInboundService()
         result = service.process_email(payload)
@@ -2924,6 +2976,70 @@ def email_inbound_webhook():
             
     except Exception as e:
         app.logger.error(f"❌ Email inbound webhook error: {str(e)}")
+        import traceback
+        app.logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'message': str(e)}), 200
+
+
+def _handle_scout_vetting_inbound(payload):
+    """Process an inbound email routed to the Scout Vetting service.
+    
+    Called from email_inbound_webhook when the 'to' address matches
+    scout-vetting@parse.lyntrix.ai.
+    """
+    try:
+        from scout_vetting_service import ScoutVettingService
+        from email_service import EmailService
+
+        # Extract fields from SendGrid payload
+        sender_email = payload.get('from', '')
+        subject = payload.get('subject', '')
+        text_body = payload.get('text', '')
+        html_body = payload.get('html', '')
+
+        # Extract clean email address from "Name <email>" format
+        import re
+        email_match = re.search(r'[\w.+-]+@[\w.-]+', sender_email)
+        sender_clean = email_match.group(0) if email_match else sender_email
+
+        # Prefer text body; fall back to HTML with tags stripped
+        body = text_body
+        if not body and html_body:
+            body = re.sub(r'<[^>]+>', '', html_body)
+
+        # Get Message-ID header if available (for threading)
+        message_id = payload.get('Message-ID') or payload.get('message-id', '')
+
+        app.logger.info(f"🔍 Scout Vetting inbound from {sender_clean}, subject: {subject}")
+
+        # Find the session — try subject token first, then email fallback
+        session = ScoutVettingService.find_session_by_subject_token(subject)
+        if not session:
+            session = ScoutVettingService.find_session_by_email(sender_clean)
+
+        if not session:
+            app.logger.warning(f"⚠️ Scout Vetting: No active session found for {sender_clean}")
+            return jsonify({
+                'success': False,
+                'message': 'No active vetting session found for this sender'
+            }), 200
+
+        # Process the reply
+        svc = ScoutVettingService(email_service=EmailService())
+        svc.process_candidate_reply(
+            session=session,
+            email_body=body,
+            email_subject=subject,
+            message_id=message_id
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Scout Vetting reply processed for session {session.id}'
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"❌ Scout Vetting inbound error: {str(e)}")
         import traceback
         app.logger.error(traceback.format_exc())
         return jsonify({'success': False, 'message': str(e)}), 200

@@ -2206,8 +2206,17 @@ Format as a bullet-point list. Be specific and concise."""
                 if declared_country not in ('United Kingdom', 'UK', 'GB'):
                     return 'United Kingdom'
             
-            # Check for Australia
-            if state_upper in australian_states:
+            # US state abbreviations — used to disambiguate collisions (e.g. WA = Washington vs Western Australia)
+            us_states = {
+                'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+                'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+                'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+                'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+                'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+            }
+            
+            # Check for Australia (skip if state is a known US abbreviation)
+            if state_upper in australian_states and state_upper not in us_states:
                 if declared_country != 'Australia':
                     return 'Australia'
             
@@ -3673,6 +3682,19 @@ CRITICAL RULES:
                 
                 cc_info = f" (CC: {', '.join(cc_recruiter_emails)})" if cc_recruiter_emails else ""
                 logging.info(f"Sent notification to {primary_recruiter_email}{cc_info} for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id}, {len(matches)} positions)")
+                
+                # ── Scout Vetting trigger ──
+                # After recruiter notification, initiate Scout Vetting for qualified matches
+                try:
+                    from scout_vetting_service import ScoutVettingService
+                    sv_service = ScoutVettingService(email_service=self.email_service, bullhorn_service=self.bullhorn)
+                    if sv_service.is_enabled():
+                        sv_result = sv_service.initiate_vetting(vetting_log, matches)
+                        logging.info(f"🔍 Scout Vetting initiated: {sv_result.get('created', 0)} sessions created, "
+                                    f"{sv_result.get('queued', 0)} queued, {sv_result.get('skipped', 0)} skipped")
+                except Exception as sv_err:
+                    logging.error(f"Scout Vetting trigger error (non-blocking): {str(sv_err)}")
+                
                 return 1
             else:
                 logging.error(f"Failed to send notification for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id})")
@@ -3791,7 +3813,7 @@ CRITICAL RULES:
             # Always BCC admin for monitoring/troubleshooting
             admin_bcc_email = 'kroots@myticas.com'
             
-            success = self.email_service.send_html_email(
+            result = self.email_service.send_html_email(
                 to_email=recruiter_email,
                 subject=subject,
                 html_content=html_content,
@@ -3799,7 +3821,7 @@ CRITICAL RULES:
                 cc_emails=cc_emails,  # CC all other recruiters on same thread
                 bcc_emails=[admin_bcc_email]  # BCC admin for transparency
             )
-            return success
+            return result is True or (isinstance(result, dict) and result.get('success', False))
         except Exception as e:
             logging.error(f"Email send error: {str(e)}")
             return False
