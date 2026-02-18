@@ -138,14 +138,14 @@ class CandidateVettingService:
             return self.get_threshold()
     
     def _get_layer2_model(self) -> str:
-        """Get the Layer 2 model from VettingConfig (supports live revert to GPT-4o)."""
+        """Get the Layer 2 model from VettingConfig (supports live revert)."""
         try:
-            value = self.get_config_value('layer2_model', 'gpt-4o-mini')
+            value = self.get_config_value('layer2_model', 'gpt-4o')
             if value and value.strip():
                 return value.strip()
         except Exception:
             pass
-        return 'gpt-4o-mini'
+        return 'gpt-4o'
     
     def _get_escalation_range(self) -> tuple:
         """Get escalation score range from VettingConfig.
@@ -181,6 +181,128 @@ class CandidateVettingService:
             return None
         except Exception as e:
             logging.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
+            return None
+    
+    def _recheck_years_calculation(self, resume_text: str, original_years_analysis: dict,
+                                    job_id: int, job_title: str) -> Optional[dict]:
+        """Re-check years-of-experience calculation when a >2yr shortfall is detected.
+        
+        Uses a focused prompt that asks GPT-4o to verify the arithmetic from the original
+        analysis. This catches false negatives from model arithmetic errors (e.g., 
+        miscounting 3.75yr as 1.8yr).
+        
+        Args:
+            resume_text: The candidate's cleaned resume text
+            original_years_analysis: The years_analysis dict from the initial analysis
+            job_id: Bullhorn job ID for logging
+            job_title: Job title for logging
+            
+        Returns:
+            Corrected years_analysis dict if corrections were made, None if re-check
+            confirms the original or if the re-check fails.
+        """
+        from datetime import datetime
+        _today = datetime.utcnow()
+        _today_str = _today.strftime('%B %d, %Y')
+        _today_month = _today.month
+        _today_year = _today.year
+        
+        # Build a summary of what needs re-checking
+        skills_to_check = []
+        for skill, data in original_years_analysis.items():
+            if not isinstance(data, dict):
+                continue
+            if not data.get('meets_requirement', True):
+                required = data.get('required_years', 0)
+                estimated = data.get('estimated_years', 0)
+                calculation = data.get('calculation', 'N/A')
+                skills_to_check.append(
+                    f"- {skill}: required {required}yr, initial estimate {estimated}yr, "
+                    f"calculation: {calculation}"
+                )
+        
+        if not skills_to_check:
+            return None
+        
+        skills_summary = "\n".join(skills_to_check)
+        
+        prompt = f"""You are verifying a years-of-experience calculation. An initial AI analysis 
+found the following shortfalls for Job "{job_title}" (ID: {job_id}):
+
+{skills_summary}
+
+TODAY'S DATE: {_today_str} (month {_today_month} of {_today_year}).
+
+CANDIDATE RESUME:
+{resume_text[:8000]}
+
+INSTRUCTIONS:
+1. For EACH skill listed above, re-scan the resume for ALL roles where the candidate performed 
+   relevant work (focus on responsibilities, not just titles).
+2. Calculate total months using the EXACT formula:
+   Duration = (end_year - start_year) × 12 + (end_month - start_month)
+   For "Present"/"Current" roles, use today: month {_today_month} of {_today_year}.
+3. Show your step-by-step arithmetic.
+4. Internships/part-time = 50% weight. University projects = 0.
+5. Return the CORRECTED years_analysis.
+
+Respond in JSON format:
+{{
+    "<skill_name>": {{
+        "required_years": <N>,
+        "estimated_years": <M>,
+        "meets_requirement": true/false,
+        "calculation": "<step-by-step month arithmetic>"
+    }}
+}}"""
+        
+        try:
+            logging.info(f"🔄 Years re-check: verifying {len(skills_to_check)} skill(s) for job {job_id}")
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o",  # Always use GPT-4o for re-checks (better arithmetic)
+                messages=[
+                    {"role": "system", "content": "You are a precise arithmetic calculator. "
+                     "Your ONLY job is to verify years-of-experience calculations by counting "
+                     "months between dates on a resume. Be exact. Show your work."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.0,  # Maximum determinism for arithmetic
+                max_tokens=800
+            )
+            
+            recheck = json.loads(response.choices[0].message.content)
+            
+            # Check if the re-check differs materially from the original
+            any_correction = False
+            for skill, data in recheck.items():
+                if not isinstance(data, dict):
+                    continue
+                original = original_years_analysis.get(skill, {})
+                if not isinstance(original, dict):
+                    continue
+                    
+                orig_est = float(original.get('estimated_years', 0))
+                new_est = float(data.get('estimated_years', 0))
+                
+                if abs(new_est - orig_est) >= 0.5:
+                    any_correction = True
+                    logging.info(
+                        f"🔄 Years re-check CORRECTION for '{skill}' on job {job_id}: "
+                        f"{orig_est:.1f}yr → {new_est:.1f}yr "
+                        f"(calc: {data.get('calculation', 'N/A')})"
+                    )
+            
+            if any_correction:
+                logging.info(f"✅ Years re-check found corrections for job {job_id} — using updated values")
+                return recheck
+            else:
+                logging.info(f"✅ Years re-check CONFIRMS original values for job {job_id}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"❌ Years re-check failed for job {job_id}: {str(e)}")
             return None
     
     def extract_job_requirements(self, job_id: int, job_title: str, job_description: str,
@@ -2317,12 +2439,52 @@ CRITICAL RULES:
                         )
                 
                 if max_shortfall >= 2.0:
-                    # Hard cap: 2+ year shortfall on ANY required skill → cap at 60
-                    if result['match_score'] > 60:
-                        result['match_score'] = 60
+                    # Before capping score, re-check the years calculation to prevent false negatives
+                    # from arithmetic errors (e.g., model miscounting 3.75yr as 1.8yr)
+                    recheck_result = self._recheck_years_calculation(
+                        resume_text, years_analysis, job_id, job_title
+                    )
+                    if recheck_result:
+                        # Re-check returned corrected data — recalculate shortfalls
+                        years_analysis = recheck_result
+                        result['years_analysis'] = recheck_result
+                        max_shortfall = 0.0
+                        shortfall_details = []
+                        for skill, data in years_analysis.items():
+                            if not isinstance(data, dict):
+                                continue
+                            meets = data.get('meets_requirement', True)
+                            if not meets:
+                                required = float(data.get('required_years', 0))
+                                estimated = float(data.get('estimated_years', 0))
+                                shortfall = required - estimated
+                                if shortfall > max_shortfall:
+                                    max_shortfall = shortfall
+                                shortfall_details.append(
+                                    f"CRITICAL: {skill} requires {required:.0f}yr, candidate has ~{estimated:.1f}yr"
+                                )
+                    
+                    # Apply hard cap only if shortfall is STILL >= 2.0 after re-check
+                    if max_shortfall >= 2.0:
+                        if result['match_score'] > 60:
+                            result['match_score'] = 60
+                            logging.info(
+                                f"📉 Years hard gate: capped score {original_score}→60 for job {job_id} "
+                                f"(shortfall: {max_shortfall:.1f}yr, confirmed by re-check)"
+                            )
+                    elif max_shortfall >= 1.0:
+                        result['match_score'] = max(0, result['match_score'] - 15)
+                        if result['match_score'] != original_score:
+                            logging.info(
+                                f"📉 Years penalty: reduced score {original_score}→{result['match_score']} for job {job_id} "
+                                f"(shortfall: {max_shortfall:.1f}yr, adjusted after re-check)"
+                            )
+                    else:
+                        # Re-check overturned the shortfall — no penalty
                         logging.info(
-                            f"📉 Years hard gate: capped score {original_score}→60 for job {job_id} "
-                            f"(shortfall: {max_shortfall:.1f}yr)"
+                            f"✅ Years re-check OVERTURNED shortfall for job {job_id}: "
+                            f"now meets requirements (max remaining shortfall: {max_shortfall:.1f}yr). "
+                            f"Score {original_score} preserved."
                         )
                 elif max_shortfall >= 1.0:
                     # Significant penalty: 1-2 year shortfall → reduce by 15 points

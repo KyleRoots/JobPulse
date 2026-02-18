@@ -483,7 +483,7 @@ def seed_vetting_config(db, VettingConfig):
             'escalation_low': '60',  # Lower bound of escalation range (GPT-4o re-analysis)
             'escalation_high': '85',  # Upper bound of escalation range
             # Layer 2 model (revertible to 'gpt-4o' via UI if quality drop detected)
-            'layer2_model': 'gpt-4o-mini',
+            'layer2_model': 'gpt-4o',
         }
         
         settings_created = []
