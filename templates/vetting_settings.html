@@ -295,6 +295,18 @@
                             occur</small>
                     </div>
 
+                    <div class="mb-4">
+                        <label class="form-label"><i class="fas fa-globe me-1"></i>Global Screening Instructions</label>
+                        <textarea class="form-control" name="global_custom_requirements" rows="4"
+                            placeholder="Enter global screening instructions that apply to ALL jobs (e.g., citizenship inference rules). Leave blank if not needed."
+                            style="font-size: 0.9rem;">{{ settings.global_custom_requirements }}</textarea>
+                        <small class="text-muted">These instructions are applied to every candidate screening across all
+                            jobs.
+                            Job-level custom overrides are applied in addition to these global rules.
+                            Example: "If candidates have 6+ years of US professional work experience (excluding
+                            education), infer US citizenship eligibility."</small>
+                    </div>
+
                     <button type="submit" class="btn btn-primary w-100" id="saveBtn">
                         <span id="saveBtnText"><i class="fas fa-save me-2"></i>Save Settings</span>
                         <span id="saveBtnLoading" style="display: none;">
@@ -1116,7 +1128,10 @@
 
                 fetch(`/vetting/job/${jobId}/requirements`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                    },
                     body: JSON.stringify({
                         custom_requirements: customRequirements || null,
                         threshold: threshold || null

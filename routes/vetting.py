@@ -34,7 +34,8 @@ def vetting_settings():
         'admin_notification_email': '',
         'health_alert_email': '',
         'embedding_similarity_threshold': 0.25,
-        'vetting_cutoff_date': ''
+        'vetting_cutoff_date': '',
+        'global_custom_requirements': ''
     }
     
     all_configs = VettingConfig.query.filter(
@@ -163,6 +164,7 @@ def save_vetting_settings():
         health_alert_email = request.form.get('health_alert_email', '')
         embedding_threshold = request.form.get('embedding_similarity_threshold', '0.25')
         vetting_cutoff = request.form.get('vetting_cutoff_date', '').strip()
+        global_custom_requirements = request.form.get('global_custom_requirements', '').strip()
         
         # Validate threshold
         try:
@@ -205,7 +207,8 @@ def save_vetting_settings():
             ('admin_notification_email', admin_email),
             ('health_alert_email', health_alert_email),
             ('embedding_similarity_threshold', str(emb_thresh)),
-            ('vetting_cutoff_date', vetting_cutoff)
+            ('vetting_cutoff_date', vetting_cutoff),
+            ('global_custom_requirements', global_custom_requirements)
         ]
         
         for key, value in settings_to_save:

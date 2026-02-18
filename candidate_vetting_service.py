@@ -183,6 +183,17 @@ class CandidateVettingService:
             logging.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
             return None
     
+    def _get_global_custom_requirements(self) -> Optional[str]:
+        """Get global screening instructions that apply to ALL jobs."""
+        try:
+            config = VettingConfig.query.filter_by(setting_key='global_custom_requirements').first()
+            if config and config.setting_value and config.setting_value.strip():
+                return config.setting_value.strip()
+            return None
+        except Exception as e:
+            logging.error(f"Error getting global custom requirements: {str(e)}")
+            return None
+    
     def _recheck_years_calculation(self, resume_text: str, original_years_analysis: dict,
                                     job_id: int, job_title: str) -> Optional[dict]:
         """Re-check years-of-experience calculation when a >2yr shortfall is detected.
@@ -2260,6 +2271,8 @@ Format as a bullet-point list. Be specific and concise."""
         job_description = job_description[:max_desc_len] if job_description else ''
         
         # Build the requirements section - use custom if available, otherwise let AI extract
+        # Also fetch global screening instructions that apply to ALL jobs
+        global_requirements = self._get_global_custom_requirements()
         requirements_instruction = ""
         if custom_requirements:
             requirements_instruction = f"""
@@ -2277,6 +2290,13 @@ IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job descri
 
 DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
 Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
+
+        # Append global screening instructions (apply to ALL jobs, additive)
+        if global_requirements:
+            requirements_instruction += f"""
+
+GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
+{global_requirements}"""
 
         # Years-of-experience analysis instruction (applies regardless of custom vs AI requirements)
         # Inject exact current date from Python for accurate ongoing-role calculation
