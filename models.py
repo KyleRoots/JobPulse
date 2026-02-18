@@ -32,7 +32,7 @@ class ScheduleConfig(db.Model):
     schedule_days = db.Column(db.Integer, nullable=False, default=7)  # Days between runs
     last_run = db.Column(db.DateTime, nullable=True)
     next_run = db.Column(db.DateTime, nullable=False)
-    is_active = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True, index=True)
     
     # Email notification settings
     notification_email = db.Column(db.String(255), nullable=True)  # Email for notifications
@@ -263,7 +263,7 @@ class TearsheetJobHistory(db.Model):
 class EmailDeliveryLog(db.Model):
     """Log of email notifications sent for job changes"""
     id = db.Column(db.Integer, primary_key=True)
-    notification_type = db.Column(db.String(50), nullable=False)  # 'job_added', 'job_removed', 'job_modified', 'scheduled_processing'
+    notification_type = db.Column(db.String(50), nullable=False, index=True)  # 'job_added', 'job_removed', 'job_modified', 'scheduled_processing'
     job_id = db.Column(db.String(20), nullable=True)  # Bullhorn job ID (null for scheduled processing)
     job_title = db.Column(db.String(255), nullable=True)  # Job title for reference
     recipient_email = db.Column(db.String(255), nullable=False)  # Email address notification was sent to
@@ -405,7 +405,7 @@ class SchedulerLock(db.Model):
 class EnvironmentStatus(db.Model):
     """Track production environment up/down status for monitoring and alerting"""
     id = db.Column(db.Integer, primary_key=True)
-    environment_name = db.Column(db.String(100), nullable=False, default='production')  # Environment being monitored
+    environment_name = db.Column(db.String(100), nullable=False, default='production', index=True)  # Environment being monitored
     environment_url = db.Column(db.String(500), nullable=False)  # URL to monitor
     current_status = db.Column(db.String(20), nullable=False, default='unknown')  # 'up', 'down', 'unknown'
     last_check_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
