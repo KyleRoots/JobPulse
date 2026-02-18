@@ -702,7 +702,15 @@ body[data-module="inbound"] .card:not(.glass-card):not(.settings-card) .card-hea
    ACCORDION – Module-tinted within screening
    ============================================ */
 body[data-module="screening"] .accordion-body {
-    background: rgba(42, 21, 32, 0.15);
+    background: rgba(244, 63, 94, 0.07) !important;
+}
+
+/* Job ID badge in accordion headers */
+body[data-module="screening"] .accordion-button .badge.bg-secondary,
+body[data-module="screening"] .accordion-button .badge.bg-info,
+body[data-module="screening"] .accordion-button .badge.bg-success {
+    background: var(--module-accent) !important;
+    color: #fff;
 }
 
 body[data-module="inbound"] .accordion-body {
