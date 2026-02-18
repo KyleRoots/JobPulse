@@ -154,16 +154,21 @@
             .then(response => response.json())
             .then(data => {
                 const statusDiv = document.getElementById('systemStatus');
-                const statusClass = data.status === 'healthy' ? 'text-success' :
-                    data.status === 'warning' ? 'text-warning' : 'text-danger';
-                const statusIcon = data.status === 'healthy' ? 'fas fa-check-circle' :
-                    data.status === 'warning' ? 'fas fa-exclamation-triangle' : 'fas fa-times-circle';
+                const status = data.health_status || data.status || 'unknown';
+                const healthy = (data.timing_accuracy && data.timing_accuracy.healthy_monitors) ??
+                    data.healthy_monitors ?? 0;
+                const total = (data.timing_accuracy && data.timing_accuracy.total_monitors) ??
+                    data.total_monitors ?? 0;
+                const statusClass = status === 'healthy' ? 'text-success' :
+                    status === 'warning' ? 'text-warning' : 'text-danger';
+                const statusIcon = status === 'healthy' ? 'fas fa-check-circle' :
+                    status === 'warning' ? 'fas fa-exclamation-triangle' : 'fas fa-times-circle';
 
                 statusDiv.innerHTML = `
                     <i class="${statusIcon} ${statusClass} me-2"></i>
                     <span class="${statusClass}">
-                        ${data.status.charAt(0).toUpperCase() + data.status.slice(1)} - 
-                        ${data.healthy_monitors}/${data.total_monitors} monitors healthy
+                        ${status.charAt(0).toUpperCase() + status.slice(1)} - 
+                        ${healthy}/${total} monitors healthy
                     </span>
                 `;
             })

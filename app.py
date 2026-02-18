@@ -2707,22 +2707,33 @@ def get_activities():
     """Get recent Bullhorn activities"""
     try:
         activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(50).all()
-        activity_data = []
         
+        # Batch-load monitor names (eliminates N+1 queries)
+        monitor_ids = {a.monitor_id for a in activities if a.monitor_id}
+        monitor_map = {}
+        if monitor_ids:
+            monitors = BullhornMonitor.query.filter(BullhornMonitor.id.in_(monitor_ids)).all()
+            monitor_map = {m.id: m.name for m in monitors}
+        
+        activity_data = []
         for activity in activities:
-            # Get monitor name
-            monitor_name = "Unknown"
+            # Resolve monitor name: use map for known IDs, "System" for null
             if activity.monitor_id:
-                monitor = BullhornMonitor.query.get(activity.monitor_id)
-                if monitor:
-                    monitor_name = monitor.name
+                monitor_name = monitor_map.get(activity.monitor_id, "Unknown")
+            else:
+                monitor_name = "System"
+            
+            # Guard against None details
+            details = activity.details or ''
+            if len(details) > 200:
+                details = details[:200] + '...'
             
             activity_data.append({
                 'id': activity.id,
                 'timestamp': activity.created_at.isoformat(),
                 'monitor_name': monitor_name,
                 'activity_type': activity.activity_type,
-                'details': activity.details[:200] + '...' if len(activity.details) > 200 else activity.details
+                'details': details
             })
         
         return jsonify(activity_data)
