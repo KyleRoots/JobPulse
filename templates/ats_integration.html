@@ -73,7 +73,7 @@
     }
 
     .monitor-card {
-        background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+        background: linear-gradient(145deg, rgba(22, 42, 31, 0.9), rgba(10, 22, 16, 0.95));
         border: 1px solid rgba(74, 150, 120, 0.15);
         backdrop-filter: blur(20px);
         border-radius: 12px;
@@ -82,7 +82,7 @@
     }
 
     .monitor-card:hover {
-        background: linear-gradient(145deg, rgba(35, 48, 70, 0.95), rgba(20, 30, 50, 0.98));
+        background: linear-gradient(145deg, rgba(30, 58, 42, 0.95), rgba(15, 35, 25, 0.98));
         border-color: rgba(74, 150, 120, 0.35);
         transform: translateY(-4px);
         box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25), 0 0 25px rgba(74, 150, 120, 0.1);
@@ -90,7 +90,7 @@
 
     .monitor-card.overdue {
         border-left: 4px solid var(--bs-danger) !important;
-        background: linear-gradient(145deg, rgba(220, 53, 69, 0.2), rgba(30, 41, 59, 0.9));
+        background: linear-gradient(145deg, rgba(220, 53, 69, 0.2), rgba(22, 42, 31, 0.9));
     }
 
     .overdue-indicator {
@@ -317,11 +317,6 @@
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h6 class="card-title mb-0">{{ monitor.name }}</h6>
                             <div class="d-flex gap-1 flex-wrap">
-                                {% if monitor.tearsheet_id == 0 %}
-                                <span class="badge bg-secondary">Query</span>
-                                {% else %}
-                                <span class="badge bg-primary">Tearsheet</span>
-                                {% endif %}
                                 {% if monitor_job_counts[monitor.id] is not none %}
                                 <span class="badge bg-info job-count-badge">{{ monitor_job_counts[monitor.id] }}
                                     jobs</span>

@@ -60,12 +60,20 @@ def vetting_settings():
             else:
                 settings[key] = value or ''
     
-    # Get stats
+    # Get stats — single aggregated query (4 queries → 1)
+    from sqlalchemy import case
+    stats_row = db.session.query(
+        func.count(case((CandidateVettingLog.status == 'completed', 1))).label('total_processed'),
+        func.count(case(((CandidateVettingLog.status == 'completed') & (CandidateVettingLog.is_qualified == True), 1))).label('qualified'),
+        func.coalesce(func.sum(case((CandidateVettingLog.status == 'completed', CandidateVettingLog.notification_count))), 0).label('notifications_sent'),
+        func.count(case((CandidateVettingLog.status.in_(['pending', 'processing']), 1))).label('pending'),
+    ).first()
+    
     stats = {
-        'total_processed': CandidateVettingLog.query.filter_by(status='completed').count(),
-        'qualified': CandidateVettingLog.query.filter_by(status='completed', is_qualified=True).count(),
-        'notifications_sent': db.session.query(func.sum(CandidateVettingLog.notification_count)).scalar() or 0,
-        'pending': CandidateVettingLog.query.filter(CandidateVettingLog.status.in_(['pending', 'processing'])).count()
+        'total_processed': stats_row.total_processed,
+        'qualified': stats_row.qualified,
+        'notifications_sent': stats_row.notifications_sent,
+        'pending': stats_row.pending
     }
     
     # Get recent activity
@@ -73,17 +81,17 @@ def vetting_settings():
         CandidateVettingLog.created_at.desc()
     ).limit(50).all()
     
-    # Get recommended candidates
+    # Get recommended candidates (limit 30 — template renders max 30)
     recommended_candidates = CandidateVettingLog.query.filter_by(
         status='completed', 
         is_qualified=True
-    ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
+    ).order_by(CandidateVettingLog.created_at.desc()).limit(30).all()
     
-    # Get not recommended candidates
+    # Get not recommended candidates (limit 30 — template renders max 30)
     not_recommended_candidates = CandidateVettingLog.query.filter_by(
         status='completed',
         is_qualified=False
-    ).order_by(CandidateVettingLog.created_at.desc()).limit(100).all()
+    ).order_by(CandidateVettingLog.created_at.desc()).limit(30).all()
     
     # Get job requirements - filtered to only show active tearsheet jobs
     from candidate_vetting_service import CandidateVettingService
