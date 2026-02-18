@@ -17,6 +17,7 @@ from xml_integration_service import XMLIntegrationService
 from bullhorn_service import BullhornService
 from email_service import EmailService
 from tearsheet_config import TearsheetConfig
+from utils.field_mappers import map_employment_type, map_remote_type
 
 class ComprehensiveMonitoringService:
     """
@@ -955,29 +956,12 @@ class ComprehensiveMonitoringService:
         return value
     
     def _map_employment_type(self, employment_type: str) -> str:
-        """Map Bullhorn employment type to XML jobtype"""
-        mapping = {
-            'Full-Time': 'Direct Hire',
-            'Contract': 'Contract',
-            'Contract-to-Hire': 'Contract to Hire',
-            'Part-Time': 'Part-Time',
-            'Temporary': 'Contract'
-        }
-        return mapping.get(employment_type, 'Contract')
+        """Map Bullhorn employment type to XML jobtype (delegates to shared module)"""
+        return map_employment_type(employment_type)
     
     def _map_remote_type(self, onsite_value: str) -> str:
-        """Map Bullhorn onSite to XML remotetype"""
-        # Handle list values (sometimes Bullhorn returns arrays)
-        if isinstance(onsite_value, list):
-            onsite_value = onsite_value[0] if onsite_value else 'No Preference'
-        
-        mapping = {
-            'On-Site': 'Onsite',
-            'Remote': 'Remote',
-            'Hybrid': 'Hybrid',
-            'No Preference': 'No Preference'
-        }
-        return mapping.get(onsite_value, 'No Preference')
+        """Map Bullhorn onSite to XML remotetype (delegates to shared module)"""
+        return map_remote_type(onsite_value)
     
     def _format_date(self, timestamp) -> str:
         """Format timestamp to readable date"""

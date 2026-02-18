@@ -12,6 +12,7 @@ from feeds.myticas_v2 import MyticasFeedV2
 from bullhorn_service import BullhornService
 from job_classification_service import JobClassificationService
 import threading
+from utils.field_mappers import map_employment_type, map_remote_type
 
 class TearsheetFlow:
     """Manages tearsheet-driven XML feed rebuilds"""
@@ -252,26 +253,12 @@ class TearsheetFlow:
         }
     
     def _map_employment_type(self, employment_type: str) -> str:
-        """Map Bullhorn employment type to XML job type"""
-        mapping = {
-            'Contract': 'Contract',
-            'Contract-to-Hire': 'Contract to Hire',
-            'Direct Hire': 'Direct Hire',
-            'Full Time': 'Full-time',
-            'Part Time': 'Part-time',
-            'Temporary': 'Temporary'
-        }
-        return mapping.get(employment_type, 'Contract')
+        """Map Bullhorn employment type to XML job type (delegates to shared module)"""
+        return map_employment_type(employment_type)
     
     def _map_remote_type(self, onsite_value: str) -> str:
-        """Map Bullhorn onSite value to remote type"""
-        if onsite_value == 'Remote':
-            return 'Remote'
-        elif onsite_value == 'On Site':
-            return 'On-site'
-        elif onsite_value == 'Hybrid':
-            return 'Hybrid'
-        return ''
+        """Map Bullhorn onSite value to remote type (delegates to shared module)"""
+        return map_remote_type(onsite_value)
     
     def _extract_recruiter(self, assignments, assigned_users, response_user, owner) -> str:
         """Extract recruiter name from various Bullhorn fields"""

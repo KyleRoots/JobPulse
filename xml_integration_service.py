@@ -21,6 +21,7 @@ from xml_processor import XMLProcessor
 from job_classification_service import JobClassificationService, InternalJobClassifier
 from xml_safeguards import XMLSafeguards
 from tearsheet_config import TearsheetConfig
+from utils.field_mappers import map_employment_type, map_remote_type
 
 
 class XMLIntegrationService:
@@ -394,17 +395,8 @@ class XMLIntegrationService:
             return "https://myticas.com/"
 
     def _map_employment_type(self, employment_type: str) -> str:
-        """Map Bullhorn employment type to XML job type"""
-        employment_type = employment_type.lower() if employment_type else ''
-        
-        if 'contract to hire' in employment_type or 'contract-to-hire' in employment_type:
-            return 'Contract to Hire'
-        elif 'direct hire' in employment_type or 'permanent' in employment_type or 'full-time' in employment_type:
-            return 'Direct Hire'
-        elif 'contract' in employment_type:
-            return 'Contract'
-        else:
-            return 'Contract'  # Default fallback
+        """Map Bullhorn employment type to XML job type (delegates to shared module)"""
+        return map_employment_type(employment_type)
     
     def _validate_job_data(self, bullhorn_job: Dict) -> bool:
         """Validate that essential job data is present"""
@@ -463,43 +455,8 @@ class XMLIntegrationService:
             return False
     
     def _map_remote_type(self, onsite_value) -> str:
-        """Map Bullhorn onSite value to XML remote type"""
-        # Enhanced logging for debugging - ALWAYS log at INFO level for job 34219
-        self.logger.info(f"Mapping onSite value: {onsite_value} (type: {type(onsite_value)})")
-        
-        # Handle both list and string formats from Bullhorn
-        if isinstance(onsite_value, list):
-            # If it's a list, take the first item
-            onsite_value = onsite_value[0] if onsite_value else ''
-        
-        # Convert to string and lowercase for comparison
-        onsite_value = str(onsite_value).lower() if onsite_value else ''
-        
-        # Log the processed value
-        self.logger.info(f"Processed onSite value for comparison: '{onsite_value}'")
-        
-        # Enhanced mapping with more variations
-        # IMPORTANT: The value "Remote" from Bullhorn should map to Remote in XML
-        if 'remote' in onsite_value or onsite_value == 'offsite':
-            result = 'Remote'
-        elif 'hybrid' in onsite_value:
-            result = 'Hybrid'  
-        elif 'onsite' in onsite_value or 'on-site' in onsite_value or 'on site' in onsite_value:
-            result = 'Onsite'
-        elif 'off-site' in onsite_value or 'off site' in onsite_value:
-            result = 'Off-Site'
-        elif 'no preference' in onsite_value:
-            result = 'No Preference'
-        elif onsite_value == '':
-            # Default for empty values - but log a warning
-            self.logger.warning(f"Empty onSite value detected - defaulting to Onsite")
-            result = 'Onsite'  
-        else:
-            self.logger.warning(f"Unknown onSite value '{onsite_value}' - defaulting to Onsite")
-            result = 'Onsite'  # Default fallback
-        
-        self.logger.info(f"Mapped onSite '{onsite_value}' to remotetype '{result}'")
-        return result
+        """Map Bullhorn onSite value to XML remote type (delegates to shared module)"""
+        return map_remote_type(onsite_value, log_context='xml_integration')
     
     def _map_country_id_to_name(self, country_value) -> str:
         """Map Bullhorn country ID or name to proper country name for XML"""

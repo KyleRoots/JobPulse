@@ -22,6 +22,7 @@ from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
 from tearsheet_config import TearsheetConfig
 from email_service import EmailService
+from utils.field_mappers import map_employment_type, map_remote_type
 
 class IncrementalMonitoringService:
     """Simplified incremental monitoring service"""
@@ -815,32 +816,12 @@ This alert was triggered by the zero-job detection safeguard.
         }
     
     def _map_employment_type(self, employment_type: str) -> str:
-        """Map Bullhorn employment type to XML jobtype"""
-        if not employment_type:
-            return 'Contract'
-        
-        employment_type_lower = employment_type.lower()
-        if 'direct' in employment_type_lower or 'perm' in employment_type_lower:
-            return 'Direct Hire'
-        elif 'contract' in employment_type_lower:
-            return 'Contract'
-        else:
-            return employment_type
+        """Map Bullhorn employment type to XML jobtype (delegates to shared module)"""
+        return map_employment_type(employment_type)
     
     def _map_remote_type(self, on_site: str) -> str:
-        """Map Bullhorn onSite field to remotetype"""
-        if not on_site:
-            return 'Hybrid'
-        
-        on_site_lower = on_site.lower()
-        if 'remote' in on_site_lower:
-            return 'Remote'
-        elif 'hybrid' in on_site_lower:
-            return 'Hybrid'
-        elif 'onsite' in on_site_lower or 'on-site' in on_site_lower:
-            return 'On-site'
-        else:
-            return 'Hybrid'
+        """Map Bullhorn onSite field to remotetype (delegates to shared module)"""
+        return map_remote_type(on_site)
     
     def _extract_recruiter(self, bullhorn_job: Dict) -> str:
         """Extract recruiter information using tag-only LinkedIn format (no names)"""
