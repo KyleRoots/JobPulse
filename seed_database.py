@@ -617,6 +617,7 @@ def seed_recruiter_mappings(db, RecruiterMapping):
         ('Daniel Sifer', '#LI-DS1'),
         ('Dawn Geistert-Dixon', '#LI-DG1'),
         ('Dominic Scaletta', '#LI-DS2'),
+        ('Innocent Nangoma', '#LI-IN1'),
         ('Jayne Kritschgau', '#LI-JK1'),
         ('Julie Johnson', '#LI-JJ1'),
         ('Kaniz Abedin', '#LI-KA1'),
