@@ -31,3 +31,7 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+
+# Runtime artifacts
+instance/fallback.db
+myticas-job-feed-v2.xml
