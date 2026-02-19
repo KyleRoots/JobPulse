@@ -1051,6 +1051,10 @@ Format as a bullet-point list. Be specific and concise."""
     _active_job_ids_cache_time: float = 0
     _ACTIVE_JOB_IDS_TTL = 300  # 5 minutes
 
+    # OpenAI quota exhaustion tracking (class-level, shared across instances)
+    _consecutive_quota_errors: int = 0
+    _quota_alert_sent: bool = False
+
     def get_active_job_ids(self) -> set:
         """Get set of active job IDs from tearsheets (for filtering).
         
@@ -3156,12 +3160,16 @@ CRITICAL RULES:
                         'error': None
                     }
                 except Exception as e:
-                    logging.error(f"Error analyzing job {job_id}: {str(e)}")
+                    error_str = str(e)
+                    logging.error(f"Error analyzing job {job_id}: {error_str}")
+                    # Track OpenAI quota exhaustion (429 with 'quota' keyword)
+                    if '429' in error_str and 'quota' in error_str.lower():
+                        CandidateVettingService._consecutive_quota_errors += 1
                     return {
                         'job': job,
                         'job_id': job_id,
-                        'analysis': {'match_score': 0, 'match_summary': f'Analysis failed: {str(e)}'},
-                        'error': str(e)
+                        'analysis': {'match_score': 0, 'match_summary': f'Analysis failed: {error_str}'},
+                        'error': error_str
                     }
             
             # Prepare jobs with pre-fetched requirements
@@ -3847,6 +3855,136 @@ CRITICAL RULES:
             logging.error(f"Email send error: {str(e)}")
             return False
     
+    def _reset_zero_score_failures(self):
+        """Auto-retry safeguard: detect and reset candidates where ALL job matches
+        scored 0%, indicating an API failure (e.g., OpenAI quota exhaustion) rather
+        than a genuine low score.
+        
+        Called at the start of each vetting cycle to automatically queue failed
+        candidates for re-processing.
+        
+        Safety guards:
+        - Only resets records older than 10 minutes (avoids in-progress interference)
+        - Max 50 records per cycle (prevents thundering herd)
+        - Only resets when ALL job matches are 0% (not legitimate low scores)
+        """
+        try:
+            from models import CandidateVettingLog, CandidateJobMatch, ParsedEmail
+            from sqlalchemy import func
+            
+            cutoff = datetime.utcnow() - timedelta(minutes=10)
+            
+            # Find completed vetting logs with highest_match_score = 0
+            # that are old enough to not be in-progress
+            zero_logs = CandidateVettingLog.query.filter(
+                CandidateVettingLog.highest_match_score == 0,
+                CandidateVettingLog.status == 'completed',
+                CandidateVettingLog.created_at < cutoff
+            ).limit(50).all()
+            
+            if not zero_logs:
+                return
+            
+            reset_count = 0
+            for log in zero_logs:
+                # Verify ALL job matches scored 0 (not a legitimate low score)
+                non_zero = db.session.query(func.count(CandidateJobMatch.id)).filter(
+                    CandidateJobMatch.vetting_log_id == log.id,
+                    CandidateJobMatch.match_score > 0
+                ).scalar()
+                
+                if non_zero > 0:
+                    continue  # Has some non-zero scores — legitimate result
+                
+                candidate_id = log.bullhorn_candidate_id
+                log_id = log.id
+                
+                # Delete child records (FK constraints)
+                CandidateJobMatch.query.filter_by(vetting_log_id=log_id).delete()
+                
+                from models import EmbeddingFilterLog, EscalationLog
+                EmbeddingFilterLog.query.filter_by(vetting_log_id=log_id).delete()
+                EscalationLog.query.filter_by(vetting_log_id=log_id).delete()
+                
+                # Delete the vetting log
+                db.session.delete(log)
+                
+                # Reset vetted_at on ParsedEmail to re-queue
+                ParsedEmail.query.filter_by(
+                    bullhorn_candidate_id=candidate_id
+                ).update({'vetted_at': None})
+                
+                reset_count += 1
+            
+            if reset_count > 0:
+                db.session.commit()
+                logging.info(f"🔄 Auto-retry: Reset {reset_count} candidates with 0% scores (API failure recovery)")
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error in zero-score auto-retry: {str(e)}")
+    
+    def _handle_quota_exhaustion(self):
+        """Handle OpenAI quota exhaustion: auto-disable vetting and send alert email.
+        
+        Called when 3+ consecutive quota errors are detected in a single vetting cycle.
+        Prevents the system from creating further 0% notes in Bullhorn.
+        """
+        if CandidateVettingService._quota_alert_sent:
+            return  # Already alerted this outage
+        
+        try:
+            # Auto-disable vetting
+            config = VettingConfig.query.filter_by(setting_key='vetting_enabled').first()
+            if config:
+                config.setting_value = 'false'
+                db.session.commit()
+                logging.warning("⛔ Scout Screening auto-disabled due to OpenAI quota exhaustion")
+            
+            # Send alert email
+            try:
+                email_svc = EmailService()
+                alert_email = self._get_admin_notification_email() or 'kroots@myticas.com'
+                
+                subject = "⚠️ Scout Screening Auto-Disabled — OpenAI Quota Exhausted"
+                message = (
+                    "ALERT: Scout Screening has been automatically disabled.\n\n"
+                    "WHAT'S HAPPENING:\n"
+                    f"  {CandidateVettingService._consecutive_quota_errors} consecutive OpenAI API calls "
+                    "returned '429 - You exceeded your current quota'.\n"
+                    "  All vetting scores are returning 0%, creating incorrect notes in Bullhorn.\n"
+                    "  To prevent further damage, Scout Screening has been disabled.\n\n"
+                    "ACTION REQUIRED:\n"
+                    "  1. Top up OpenAI credits at https://platform.openai.com/account/billing\n"
+                    "  2. Re-enable Scout Screening from the /screening settings page\n"
+                    "  3. Any candidates vetted with 0% during this outage will be automatically\n"
+                    "     re-processed on the next vetting cycle (auto-retry safeguard)\n\n"
+                    "This is an automated alert from Scout Screening."
+                )
+                email_svc.send_notification_email(
+                    to_email=alert_email,
+                    subject=subject,
+                    message=message,
+                    notification_type='openai_quota_alert'
+                )
+                logging.info(f"📧 Quota exhaustion alert sent to {alert_email}")
+            except Exception as email_err:
+                logging.error(f"Failed to send quota alert email: {str(email_err)}")
+            
+            CandidateVettingService._quota_alert_sent = True
+            
+        except Exception as e:
+            logging.error(f"Error handling quota exhaustion: {str(e)}")
+    
+    def _get_admin_notification_email(self) -> str:
+        """Get the admin notification email from VettingConfig."""
+        try:
+            config = VettingConfig.query.filter_by(setting_key='admin_notification_email').first()
+            if config and config.setting_value:
+                return config.setting_value.strip()
+        except Exception:
+            pass
+        return ''
+
     def _get_batch_size(self) -> int:
         """Get configured batch size from database, default 25"""
         try:
@@ -3889,6 +4027,13 @@ CRITICAL RULES:
         
         logging.info("🚀 Starting candidate vetting cycle")
         cycle_start = datetime.utcnow()
+        
+        # Auto-retry: reset candidates that failed with 0% on all jobs
+        # (e.g., from a previous OpenAI quota outage)
+        self._reset_zero_score_failures()
+        
+        # Reset quota error counter at cycle start
+        CandidateVettingService._consecutive_quota_errors = 0
         
         # Get configurable batch size
         batch_size = self._get_batch_size()
@@ -3982,6 +4127,13 @@ CRITICAL RULES:
             
             # Update last run timestamp
             self._set_last_run_timestamp(cycle_start)
+            
+            # Check for OpenAI quota exhaustion at end of cycle
+            if CandidateVettingService._consecutive_quota_errors >= 3:
+                self._handle_quota_exhaustion()
+            elif CandidateVettingService._consecutive_quota_errors == 0:
+                # Reset alert flag when quota is healthy
+                CandidateVettingService._quota_alert_sent = False
             
             logging.info(f"✅ Vetting cycle complete: {summary}")
             return summary
