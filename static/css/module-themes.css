@@ -393,6 +393,24 @@ body[data-module="screening"] .glass-card .table td {
     border-color: rgba(244, 63, 94, 0.1);
 }
 
+/* Bootstrap table CSS variables override – vetting teal */
+body[data-module="vetting"] .table,
+body[data-module="vetting"] .table thead,
+body[data-module="vetting"] .table tbody,
+body[data-module="vetting"] .table th,
+body[data-module="vetting"] .table td {
+    --bs-table-striped-bg: rgba(6, 182, 212, 0.05);
+    --bs-table-hover-bg: rgba(6, 182, 212, 0.08);
+    --bs-table-border-color: rgba(6, 182, 212, 0.1);
+    --bs-table-active-bg: rgba(6, 182, 212, 0.1);
+}
+
+body[data-module="vetting"] .glass-card .table,
+body[data-module="vetting"] .glass-card .table th,
+body[data-module="vetting"] .glass-card .table td {
+    border-color: rgba(6, 182, 212, 0.1);
+}
+
 /* ============================================
    FOCUS STATES – Module-colored ring
    ============================================ */
@@ -461,6 +479,19 @@ body[data-module="screening"] .feedback-modal-icon {
 
 body[data-module="screening"] .feedback-submit-btn {
     background: var(--module-screening-gradient) !important;
+}
+
+body[data-module="vetting"] .feedback-modal-content {
+    background: linear-gradient(145deg, #0a1e26 0%, #061218 100%) !important;
+    border: 1px solid var(--module-vetting-border) !important;
+}
+
+body[data-module="vetting"] .feedback-modal-icon {
+    color: var(--module-vetting-accent) !important;
+}
+
+body[data-module="vetting"] .feedback-submit-btn {
+    background: var(--module-vetting-gradient) !important;
 }
 
 /* ============================================
@@ -535,6 +566,30 @@ body[data-module="inbound"] .metric-card .metric-label {
 body[data-module="inbound"] .metric-card .metric-icon {
     color: var(--module-inbound-text) !important;
     background: var(--module-inbound-bg) !important;
+}
+
+/* Vetting-specific: dark teal/cyan-tinted card backgrounds */
+body[data-module="vetting"] .metric-card {
+    background: linear-gradient(145deg, #0a1e26 0%, #061218 50%, #040e12 100%);
+    border-color: var(--module-vetting-border-strong);
+}
+
+body[data-module="vetting"] .metric-card::before {
+    background: linear-gradient(135deg, var(--module-vetting-bg) 0%, transparent 50%);
+}
+
+body[data-module="vetting"] .metric-card:hover {
+    box-shadow: 0 10px 30px var(--module-vetting-glow);
+    border-color: rgba(6, 182, 212, 0.5);
+}
+
+body[data-module="vetting"] .metric-card .metric-label {
+    color: rgba(34, 211, 238, 0.85);
+}
+
+body[data-module="vetting"] .metric-card .metric-icon {
+    color: var(--module-vetting-text) !important;
+    background: var(--module-vetting-bg) !important;
 }
 
 /* ============================================
@@ -643,6 +698,21 @@ body[data-module="inbound"] .settings-card .card-header {
     border-bottom-color: rgba(217, 119, 6, 0.15);
 }
 
+body[data-module="vetting"] .settings-card {
+    background: linear-gradient(145deg, #0a1e26 0%, #061218 50%, #040e12 100%);
+    border-color: var(--module-vetting-border);
+}
+
+body[data-module="vetting"] .settings-card .card-header {
+    background: var(--module-vetting-subtle);
+    border-bottom-color: rgba(6, 182, 212, 0.15);
+}
+
+/* Vetting badge override – blue-gray instead of default secondary */
+body[data-module="vetting"] .bg-secondary {
+    background-color: rgb(109, 132, 186) !important;
+}
+
 /* Card header icons follow module accent */
 body[data-module] .settings-card .card-header h5 i,
 body[data-module] .card-header h5 i {
@@ -705,6 +775,11 @@ body[data-module="inbound"] .table thead th {
     border-bottom-color: rgba(217, 119, 6, 0.15);
 }
 
+body[data-module="vetting"] .table thead th {
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(6, 182, 212, 0.06));
+    border-bottom-color: rgba(6, 182, 212, 0.15);
+}
+
 /* ============================================
    NON-.glass-card CARDS – Module backgrounds
    ============================================ */
@@ -726,6 +801,16 @@ body[data-module="inbound"] .card:not(.glass-card):not(.settings-card) {
 body[data-module="inbound"] .card:not(.glass-card):not(.settings-card) .card-header {
     background: var(--module-inbound-subtle);
     border-bottom-color: rgba(217, 119, 6, 0.15);
+}
+
+body[data-module="vetting"] .card:not(.glass-card):not(.settings-card) {
+    background: var(--module-vetting-card-bg);
+    border-color: rgba(6, 182, 212, 0.15);
+}
+
+body[data-module="vetting"] .card:not(.glass-card):not(.settings-card) .card-header {
+    background: var(--module-vetting-subtle);
+    border-bottom-color: rgba(6, 182, 212, 0.15);
 }
 
 /* ============================================
