@@ -4694,7 +4694,7 @@ def automated_upload():
                         # ENVIRONMENT-AWARE UPLOAD: Dev uploads to -dev.xml, Production uploads to .xml
                         # CRITICAL: Check both APP_ENV and ENVIRONMENT variables explicitly
                         # Default to 'development' if neither is set (safer than defaulting to production)
-                        current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'development').lower()
+                        current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
                         app.logger.info(f"🔍 Environment detection: APP_ENV={os.environ.get('APP_ENV')}, ENVIRONMENT={os.environ.get('ENVIRONMENT')}, using={current_env}")
                         
                         # Validate environment value
