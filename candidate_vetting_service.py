@@ -3070,7 +3070,7 @@ CRITICAL RULES:
             # Threads lack Flask app context — any DB access inside them will crash
             escalation_range = self._get_escalation_range()
             global_threshold = self.get_threshold()
-            prefetched_global_reqs = self._get_global_custom_requirements()
+            prefetched_global_reqs = self._get_global_custom_requirements() or ''  # '' not None — avoids DB fallback in threads
             
             # Pre-fetch per-job thresholds (batch query, not N individual queries)
             job_threshold_cache = {}
