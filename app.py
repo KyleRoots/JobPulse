@@ -3573,6 +3573,37 @@ if is_primary_worker:
     )
     app.logger.info("Environment monitoring enabled - checking production status every 5 minutes")
 
+    # P0 optimization: background-refresh active job IDs cache so /screening
+    # never triggers a synchronous Bullhorn API call on page load.
+    def refresh_active_job_ids_cache():
+        """Refresh the CandidateVettingService active job IDs cache in the background."""
+        with app.app_context():
+            try:
+                from candidate_vetting_service import CandidateVettingService
+                import time
+                svc = CandidateVettingService()
+                active_jobs = svc.get_active_jobs_from_tearsheets()
+                result = set(int(job.get('id')) for job in active_jobs if job.get('id'))
+                CandidateVettingService._active_job_ids_cache = result
+                CandidateVettingService._active_job_ids_cache_time = time.time()
+                app.logger.info(f"🔄 Active job IDs cache refreshed: {len(result)} jobs")
+            except Exception as e:
+                app.logger.error(f"Error refreshing active job IDs cache: {e}")
+
+    scheduler.add_job(
+        func=refresh_active_job_ids_cache,
+        trigger=IntervalTrigger(minutes=5),
+        id='refresh_active_job_ids',
+        name='Active Job IDs Cache Refresh (5 min)',
+        replace_existing=True
+    )
+    # Also warm the cache immediately on startup
+    try:
+        refresh_active_job_ids_cache()
+    except Exception as e:
+        app.logger.warning(f"Initial active job IDs cache warm failed: {e}")
+    app.logger.info("Active job IDs background cache refresh enabled (5-min interval)")
+
     # Schedule automatic file cleanup
     def schedule_file_cleanup():
         """Schedule automatic file cleanup"""
