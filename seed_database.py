@@ -467,23 +467,34 @@ def seed_vetting_config(db, VettingConfig):
         db: SQLAlchemy database instance
         VettingConfig: VettingConfig model class
     """
+    is_prod = is_production_environment()
+    
     try:
         # Define vetting settings with production-aware defaults
+        # IMPORTANT: Every VettingConfig key that the app reads MUST be listed here
+        # so it is recreated with a sensible default if the DB is ever reset.
+        # Production defaults reflect actual operational values; dev defaults are
+        # conservative to prevent accidental emails or processing.
         vetting_settings = {
-            'vetting_enabled': 'true' if is_production_environment() else 'false',
+            'vetting_enabled': 'true' if is_prod else 'false',
             'match_threshold': '80',
             'batch_size': '25',  # Default batch size per 5-minute cycle
             'admin_notification_email': 'kroots@myticas.com',
             'health_alert_email': 'kroots@myticas.com',  # Email for system health alerts
-            'send_recruiter_emails': 'false',  # Kill switch for recruiter notifications
+            # Recruiter email notifications: ON in prod, OFF in dev
+            'send_recruiter_emails': 'true' if is_prod else 'false',
             # Embedding pre-filter settings (Layer 1)
             'embedding_filter_enabled': 'true',  # Killswitch: set to 'false' to bypass filter
-            'embedding_similarity_threshold': '0.25',  # Cosine similarity threshold (0.0-1.0)
+            'embedding_similarity_threshold': '0.45' if is_prod else '0.25',
             # Escalation settings (Layer 3)
             'escalation_low': '60',  # Lower bound of escalation range (GPT-4o re-analysis)
             'escalation_high': '85',  # Upper bound of escalation range
             # Layer 2 model (revertible to 'gpt-4o' via UI if quality drop detected)
             'layer2_model': 'gpt-4o',
+            # Cutoff date: only process candidates received after this timestamp
+            'vetting_cutoff_date': '2026-02-12 07:00:00' if is_prod else '',
+            # Global screening instructions (set via UI; seed empty so key exists)
+            'global_custom_requirements': '',
         }
         
         settings_created = []
@@ -503,7 +514,7 @@ def seed_vetting_config(db, VettingConfig):
                 )
                 db.session.add(new_setting)
                 settings_created.append(key)
-                logger.info(f"✅ Created vetting setting: {key}={default_value} (production={is_production_environment()})")
+                logger.info(f"✅ Created vetting setting: {key}={default_value} (production={is_prod})")
         
         if settings_created:
             db.session.commit()
