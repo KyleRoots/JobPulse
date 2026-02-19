@@ -3923,6 +3923,68 @@ CRITICAL RULES:
             db.session.rollback()
             logging.error(f"Error in zero-score auto-retry: {str(e)}")
     
+    def _reset_stuck_processing(self):
+        """Reset vetting logs stuck in 'processing' status.
+        
+        When a deployment restart or worker timeout kills a vetting cycle
+        mid-analysis, CandidateVettingLog records get orphaned in 'processing'
+        status with 0 job matches. The candidate's ParsedEmail.vetted_at is
+        already set, so they never get re-queued.
+        
+        This method detects and resets those orphaned records:
+        - Only resets 'processing' logs older than 10 minutes
+        - Only resets logs with 0 job matches (never started analysis)
+        - Max 50 per cycle
+        """
+        try:
+            from models import CandidateVettingLog, CandidateJobMatch, ParsedEmail
+            from sqlalchemy import func
+            
+            cutoff = datetime.utcnow() - timedelta(minutes=10)
+            
+            stuck_logs = CandidateVettingLog.query.filter(
+                CandidateVettingLog.status == 'processing',
+                CandidateVettingLog.created_at < cutoff
+            ).limit(50).all()
+            
+            if not stuck_logs:
+                return
+            
+            reset_count = 0
+            for log in stuck_logs:
+                # Only reset if no job matches were created (cycle died before analysis)
+                match_count = db.session.query(func.count(CandidateJobMatch.id)).filter(
+                    CandidateJobMatch.vetting_log_id == log.id
+                ).scalar()
+                
+                if match_count > 0:
+                    continue  # Has job matches — may be partially complete, skip
+                
+                candidate_id = log.bullhorn_candidate_id
+                log_id = log.id
+                
+                # Delete child records (FK constraints)
+                from models import EmbeddingFilterLog, EscalationLog
+                EmbeddingFilterLog.query.filter_by(vetting_log_id=log_id).delete()
+                EscalationLog.query.filter_by(vetting_log_id=log_id).delete()
+                
+                # Delete the stuck log
+                db.session.delete(log)
+                
+                # Reset vetted_at to re-queue
+                ParsedEmail.query.filter_by(
+                    bullhorn_candidate_id=candidate_id
+                ).update({'vetted_at': None})
+                
+                reset_count += 1
+            
+            if reset_count > 0:
+                db.session.commit()
+                logging.info(f"🔄 Auto-retry: Reset {reset_count} candidates stuck in 'processing' (deployment restart recovery)")
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error in stuck-processing reset: {str(e)}")
+    
     def _handle_quota_exhaustion(self):
         """Handle OpenAI quota exhaustion: auto-disable vetting and send alert email.
         
@@ -4031,6 +4093,10 @@ CRITICAL RULES:
         # Auto-retry: reset candidates that failed with 0% on all jobs
         # (e.g., from a previous OpenAI quota outage)
         self._reset_zero_score_failures()
+        
+        # Auto-retry: reset candidates stuck in 'processing' status
+        # (e.g., from deployment restarts killing cycles mid-analysis)
+        self._reset_stuck_processing()
         
         # Reset quota error counter at cycle start
         CandidateVettingService._consecutive_quota_errors = 0

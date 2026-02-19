@@ -284,3 +284,118 @@ class TestQuotaExhaustionAlert:
                 CandidateVettingService._quota_alert_sent = False
 
             assert CandidateVettingService._quota_alert_sent is False
+
+
+class TestStuckProcessingReset:
+    """Test _reset_stuck_processing() for deployment-restart recovery."""
+
+    def test_resets_stuck_processing_with_zero_matches(self, app):
+        """Processing logs older than 10 min with 0 job matches should be reset."""
+        from app import db
+        from models import CandidateVettingLog, ParsedEmail
+
+        with app.app_context():
+            pe = ParsedEmail(
+                sender_email='stuck@example.com',
+                recipient_email='jobs@test.com',
+                subject='Application',
+                status='completed',
+                bullhorn_candidate_id=998001,
+                vetted_at=datetime.utcnow() - timedelta(minutes=15)
+            )
+            db.session.add(pe)
+            db.session.flush()
+
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=998001,
+                candidate_name='Stuck Processing',
+                status='processing',
+                highest_match_score=0,
+                created_at=datetime.utcnow() - timedelta(minutes=15)
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            from candidate_vetting_service import CandidateVettingService
+            svc = CandidateVettingService()
+            svc._reset_stuck_processing()
+
+            remaining = CandidateVettingLog.query.filter_by(bullhorn_candidate_id=998001, status='processing').count()
+            assert remaining == 0, "Stuck processing log should be deleted"
+
+            pe_check = ParsedEmail.query.filter_by(bullhorn_candidate_id=998001).first()
+            assert pe_check.vetted_at is None, "vetted_at should be reset to NULL"
+
+    def test_skips_processing_with_partial_matches(self, app):
+        """Processing logs with some job matches should NOT be reset (partially complete)."""
+        from app import db
+        from models import CandidateVettingLog, CandidateJobMatch, ParsedEmail
+
+        with app.app_context():
+            pe = ParsedEmail(
+                sender_email='partial@example.com',
+                recipient_email='jobs@test.com',
+                subject='Application',
+                status='completed',
+                bullhorn_candidate_id=998002,
+                vetted_at=datetime.utcnow() - timedelta(minutes=15)
+            )
+            db.session.add(pe)
+            db.session.flush()
+
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=998002,
+                candidate_name='Partial Processing',
+                status='processing',
+                highest_match_score=0,
+                created_at=datetime.utcnow() - timedelta(minutes=15)
+            )
+            db.session.add(log)
+            db.session.flush()
+
+            db.session.add(CandidateJobMatch(
+                vetting_log_id=log.id,
+                bullhorn_job_id=100, job_title='Job 100', match_score=35.0
+            ))
+            db.session.commit()
+
+            from candidate_vetting_service import CandidateVettingService
+            svc = CandidateVettingService()
+            svc._reset_stuck_processing()
+
+            remaining = CandidateVettingLog.query.filter_by(bullhorn_candidate_id=998002, status='processing').count()
+            assert remaining == 1, "Log with partial matches should NOT be deleted"
+
+    def test_skips_recent_processing_logs(self, app):
+        """Processing logs less than 10 minutes old should NOT be reset (may still be running)."""
+        from app import db
+        from models import CandidateVettingLog, ParsedEmail
+
+        with app.app_context():
+            pe = ParsedEmail(
+                sender_email='recent_proc@example.com',
+                recipient_email='jobs@test.com',
+                subject='Application',
+                status='completed',
+                bullhorn_candidate_id=998003,
+                vetted_at=datetime.utcnow() - timedelta(minutes=3)
+            )
+            db.session.add(pe)
+            db.session.flush()
+
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=998003,
+                candidate_name='Recent Processing',
+                status='processing',
+                highest_match_score=0,
+                created_at=datetime.utcnow() - timedelta(minutes=3)
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            from candidate_vetting_service import CandidateVettingService
+            svc = CandidateVettingService()
+            svc._reset_stuck_processing()
+
+            remaining = CandidateVettingLog.query.filter_by(bullhorn_candidate_id=998003, status='processing').count()
+            assert remaining == 1, "Recent processing log should NOT be deleted"
