@@ -314,20 +314,20 @@ class TestEmbeddingAuditPage:
     def test_audit_page_requires_login(self, client, app):
         """Audit page should redirect unauthenticated users."""
         with app.app_context():
-            response = client.get('/vetting/embedding-audit')
+            response = client.get('/screening/embedding-audit')
             assert response.status_code in (302, 308)
 
     def test_audit_page_renders(self, authenticated_client, app):
         """Audit page should render for authenticated users."""
         with app.app_context():
-            response = authenticated_client.get('/vetting/embedding-audit')
+            response = authenticated_client.get('/screening/embedding-audit')
             assert response.status_code == 200
             assert b'Embedding Filter Audit' in response.data
 
     def test_audit_page_has_summary_banner(self, authenticated_client, app):
         """Audit page should show summary metrics."""
         with app.app_context():
-            response = authenticated_client.get('/vetting/embedding-audit')
+            response = authenticated_client.get('/screening/embedding-audit')
             assert response.status_code == 200
             assert b'Filtered Today' in response.data
             assert b'Escalated Today' in response.data
@@ -336,7 +336,7 @@ class TestEmbeddingAuditPage:
     def test_audit_page_has_tabs(self, authenticated_client, app):
         """Audit page should have Filtered Pairs and Escalations tabs."""
         with app.app_context():
-            response = authenticated_client.get('/vetting/embedding-audit')
+            response = authenticated_client.get('/screening/embedding-audit')
             assert response.status_code == 200
             assert b'Filtered Pairs' in response.data
             assert b'Escalations' in response.data
@@ -345,7 +345,7 @@ class TestEmbeddingAuditPage:
         """Audit page should accept date filter parameters."""
         with app.app_context():
             response = authenticated_client.get(
-                '/vetting/embedding-audit?date_from=2026-01-01&date_to=2026-01-31'
+                '/screening/embedding-audit?date_from=2026-01-01&date_to=2026-01-31'
             )
             assert response.status_code == 200
 
@@ -353,7 +353,7 @@ class TestEmbeddingAuditPage:
         """Audit page should accept similarity range filter parameters."""
         with app.app_context():
             response = authenticated_client.get(
-                '/vetting/embedding-audit?sim_min=0.1&sim_max=0.3'
+                '/screening/embedding-audit?sim_min=0.1&sim_max=0.3'
             )
             assert response.status_code == 200
 
@@ -361,7 +361,7 @@ class TestEmbeddingAuditPage:
         """Escalations tab should render with score band filter."""
         with app.app_context():
             response = authenticated_client.get(
-                '/vetting/embedding-audit?tab=escalations&score_band=60-69'
+                '/screening/embedding-audit?tab=escalations&score_band=60-69'
             )
             assert response.status_code == 200
 
@@ -369,7 +369,7 @@ class TestEmbeddingAuditPage:
         """Filtered pairs should be sortable by similarity."""
         with app.app_context():
             response = authenticated_client.get(
-                '/vetting/embedding-audit?sort=similarity'
+                '/screening/embedding-audit?sort=similarity'
             )
             assert response.status_code == 200
 
@@ -377,7 +377,7 @@ class TestEmbeddingAuditPage:
         """Escalations should be sortable by score delta."""
         with app.app_context():
             response = authenticated_client.get(
-                '/vetting/embedding-audit?tab=escalations&esc_sort=delta'
+                '/screening/embedding-audit?tab=escalations&esc_sort=delta'
             )
             assert response.status_code == 200
 
@@ -388,13 +388,13 @@ class TestCSVExports:
     def test_filtered_csv_requires_login(self, client, app):
         """Filtered CSV export should redirect unauthenticated users."""
         with app.app_context():
-            response = client.get('/vetting/embedding-audit/filtered-csv')
+            response = client.get('/screening/embedding-audit/filtered-csv')
             assert response.status_code in (302, 308)
 
     def test_filtered_csv_returns_csv(self, authenticated_client, app):
         """Filtered CSV export should return CSV content type."""
         with app.app_context():
-            response = authenticated_client.get('/vetting/embedding-audit/filtered-csv')
+            response = authenticated_client.get('/screening/embedding-audit/filtered-csv')
             assert response.status_code == 200
             assert 'text/csv' in response.content_type
             # Should have CSV header row
@@ -404,13 +404,13 @@ class TestCSVExports:
     def test_escalations_csv_requires_login(self, client, app):
         """Escalations CSV export should redirect unauthenticated users."""
         with app.app_context():
-            response = client.get('/vetting/embedding-audit/escalations-csv')
+            response = client.get('/screening/embedding-audit/escalations-csv')
             assert response.status_code in (302, 308)
 
     def test_escalations_csv_returns_csv(self, authenticated_client, app):
         """Escalations CSV export should return CSV content type."""
         with app.app_context():
-            response = authenticated_client.get('/vetting/embedding-audit/escalations-csv')
+            response = authenticated_client.get('/screening/embedding-audit/escalations-csv')
             assert response.status_code == 200
             assert 'text/csv' in response.content_type
             content = response.data.decode('utf-8')
@@ -434,7 +434,7 @@ class TestCSVExports:
             db.session.add(log)
             db.session.commit()
 
-            response = authenticated_client.get('/vetting/embedding-audit/filtered-csv')
+            response = authenticated_client.get('/screening/embedding-audit/filtered-csv')
             content = response.data.decode('utf-8')
 
             assert 'CSV Test' in content
@@ -467,7 +467,7 @@ class TestCSVExports:
             db.session.add(log)
             db.session.commit()
 
-            response = authenticated_client.get('/vetting/embedding-audit/escalations-csv')
+            response = authenticated_client.get('/screening/embedding-audit/escalations-csv')
             content = response.data.decode('utf-8')
 
             assert 'Esc CSV Test' in content
@@ -485,7 +485,7 @@ class TestSendDigestRoute:
     def test_send_digest_requires_login(self, client, app):
         """Digest trigger endpoint should redirect unauthenticated users."""
         with app.app_context():
-            response = client.post('/vetting/send-digest')
+            response = client.post('/screening/send-digest')
             assert response.status_code in (302, 308)
 
     def test_send_digest_triggers_email(self, authenticated_client, app):
@@ -495,7 +495,7 @@ class TestSendDigestRoute:
                 mock_send.return_value = True
 
                 response = authenticated_client.post(
-                    '/vetting/send-digest',
+                    '/screening/send-digest',
                     follow_redirects=True
                 )
 

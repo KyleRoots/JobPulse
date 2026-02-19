@@ -1474,9 +1474,12 @@
                 {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring'] %}
                 <img src="{{ url_for('static', filename='images/scout-inbound-logo.png') }}" alt="Scout Inbound"
                     class="sidebar-logo-full">
-                {% elif active_page in ['vetting'] %}
+                {% elif active_page in ['screening'] %}
                 <img src="{{ url_for('static', filename='images/scout-screening-logo.png') }}" alt="Scout Screening"
                     class="sidebar-logo-full screening-logo">
+                {% elif active_page in ['vetting'] %}
+                <img src="{{ url_for('static', filename='images/scout-vetting-logo.png') }}" alt="Scout Vetting"
+                    class="sidebar-logo-full">
                 {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
                     class="sidebar-logo-full">
@@ -1484,8 +1487,11 @@
                 {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring'] %}
                 <img src="{{ url_for('static', filename='images/scout-inbound-icon.png') }}" alt="Scout Inbound"
                     class="sidebar-logo-compact">
-                {% elif active_page in ['vetting'] %}
+                {% elif active_page in ['screening'] %}
                 <img src="{{ url_for('static', filename='images/scout-screening-icon.png') }}" alt="Scout Screening"
+                    class="sidebar-logo-compact">
+                {% elif active_page in ['vetting'] %}
+                <img src="{{ url_for('static', filename='images/scout-vetting-icon.png') }}" alt="Scout Vetting"
                     class="sidebar-logo-compact">
                 {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-icon.png') }}" alt="Scout Genius"
@@ -1524,12 +1530,17 @@
             <div class="nav-section" data-section="screening">
                 <div class="nav-section-title">Scout Screening</div>
                 <a href="{{ url_for('vetting.vetting_settings') }}"
-                    class="nav-item {% if active_page == 'vetting' %}active{% endif %}">
+                    class="nav-item {% if active_page == 'screening' %}active{% endif %}">
                     <i class="fas fa-brain"></i>
                     <span>AI Candidate Vetting</span>
                 </a>
+            </div>
+
+            <!-- Scout Vetting Module (Teal/Cyan) -->
+            <div class="nav-section" data-section="vetting">
+                <div class="nav-section-title">Scout Vetting</div>
                 <a href="{{ url_for('scout_vetting_dashboard') }}"
-                    class="nav-item {% if active_page == 'scout_vetting' %}active{% endif %}">
+                    class="nav-item {% if active_page == 'vetting' %}active{% endif %}">
                     <i class="fas fa-comments"></i>
                     <span>Scout Vetting</span>
                 </a>

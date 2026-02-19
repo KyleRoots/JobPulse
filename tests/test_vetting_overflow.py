@@ -79,7 +79,7 @@ class TestVettingOverflowConditionals:
                 recent_issues=[],
                 pending_candidates=[],
                 recent_vetting=[],
-                active_page='vetting'
+                active_page='screening'
             )
             
             assert 'Showing 30 of 35' in html
@@ -121,7 +121,7 @@ class TestVettingOverflowConditionals:
                 recent_issues=[],
                 pending_candidates=[],
                 recent_vetting=[],
-                active_page='vetting'
+                active_page='screening'
             )
             
             assert 'Showing 30 of 35' in html
@@ -166,7 +166,7 @@ class TestVettingOverflowConditionals:
                 recent_issues=[],
                 pending_candidates=pending,
                 recent_vetting=[],
-                active_page='vetting'
+                active_page='screening'
             )
             
             # Verify the page rendered at all (no TemplateSyntaxError)

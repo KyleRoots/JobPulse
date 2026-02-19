@@ -920,6 +920,17 @@ This alert was triggered by the zero-job detection safeguard.
     def _add_job_to_xml(self, xml_file: str, job_data: Dict) -> bool:
         """Add job to XML file with atomic write"""
         try:
+            # Bootstrap empty XML scaffold if file doesn't exist
+            # (Render's ephemeral filesystem wipes it on every deploy)
+            if not os.path.exists(xml_file):
+                self.logger.info(f"Creating XML scaffold: {xml_file}")
+                root = etree.Element('source')
+                etree.SubElement(root, 'title').text = 'Myticas Consulting'
+                etree.SubElement(root, 'link').text = 'https://www.myticas.com'
+                etree.SubElement(root, 'publisherurl').text = 'https://www.myticas.com'
+                tree = etree.ElementTree(root)
+                self._write_xml_atomically(xml_file, tree)
+
             # Read current XML
             tree = etree.parse(xml_file, self.parser)
             root = tree.getroot()

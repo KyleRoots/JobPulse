@@ -1,7 +1,7 @@
 /**
  * Module Themes – Dynamic per-page theming
  *
- * Uses data-module="inbound|screening" on <body> to swap
+ * Uses data-module="inbound|screening|vetting" on <body> to swap
  * the active accent color across all themed components.
  * System pages omit data-module and stay Scout Genius green.
  *
@@ -53,6 +53,26 @@ body[data-module="screening"] {
     --bs-success-rgb: 244, 63, 94;
     --bs-info: #f43f5e;
     --bs-info-rgb: 244, 63, 94;
+}
+
+body[data-module="vetting"] {
+    --module-accent: var(--module-vetting-accent);
+    --module-bg: var(--module-vetting-bg);
+    --module-border: var(--module-vetting-border);
+    --module-text: var(--module-vetting-text);
+    --module-glow: var(--module-vetting-glow);
+    --module-gradient: var(--module-vetting-gradient);
+    --module-subtle: var(--module-vetting-subtle);
+    --module-border-strong: var(--module-vetting-border-strong);
+    --module-card-bg: var(--module-vetting-card-bg);
+    --module-card-hover-bg: var(--module-vetting-card-hover-bg);
+    --content-bg: linear-gradient(135deg, #0a1620 0%, #0e1e2a 50%, #081218 100%);
+    --sidebar-bg: #081218;
+    /* Override Bootstrap semantic colors for module consistency */
+    --bs-success: #06b6d4;
+    --bs-success-rgb: 6, 182, 212;
+    --bs-info: #06b6d4;
+    --bs-info-rgb: 6, 182, 212;
 }
 
 /* ============================================
@@ -265,6 +285,12 @@ body[data-module="screening"] .nav-section[data-section="screening"] .nav-item.a
     border-left: 3px solid var(--module-screening-accent);
 }
 
+body[data-module="vetting"] .nav-section[data-section="vetting"] .nav-item.active {
+    background: var(--module-vetting-bg);
+    color: var(--module-vetting-text);
+    border-left: 3px solid var(--module-vetting-accent);
+}
+
 /* ============================================
    NAV SECTION TITLES – Module-colored when active
    ============================================ */
@@ -274,6 +300,10 @@ body[data-module="inbound"] .nav-section[data-section="inbound"] .nav-section-ti
 
 body[data-module="screening"] .nav-section[data-section="screening"] .nav-section-title {
     color: var(--module-screening-accent);
+}
+
+body[data-module="vetting"] .nav-section[data-section="vetting"] .nav-section-title {
+    color: var(--module-vetting-accent);
 }
 
 /* ============================================
@@ -961,6 +991,32 @@ body[data-module="inbound"] .btn-outline-info:hover {
 .type-orphan_cleanup {
     background-color: var(--bs-secondary);
     color: white;
+}
+
+/* ============================================
+   SIDEBAR FOOTER – Module-colored avatar & border
+   ============================================ */
+body[data-module] .sidebar-footer {
+    border-top-color: var(--module-border);
+}
+
+body[data-module] .user-avatar {
+    background: var(--module-gradient) !important;
+}
+
+body[data-module] .user-info {
+    background: var(--module-bg);
+}
+
+body[data-module] .logout-btn {
+    background: color-mix(in srgb, var(--module-accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--module-accent) 35%, transparent);
+    color: var(--module-text);
+}
+
+body[data-module] .logout-btn:hover {
+    background: color-mix(in srgb, var(--module-accent) 22%, transparent);
+    color: var(--module-text);
 }
 
 /* Loading spinner (hidden by default) */

@@ -2873,7 +2873,7 @@ def api_email_logs():
 
 # ==================== Scout Vetting Dashboard ====================
 
-@app.route('/scout-vetting')
+@app.route('/vetting')
 @login_required
 def scout_vetting_dashboard():
     """Scout Vetting Module dashboard — shows session stats and recent activity."""
@@ -2909,7 +2909,7 @@ def scout_vetting_dashboard():
                            stats=stats,
                            sessions=sessions,
                            is_enabled=is_enabled,
-                           active_page='scout_vetting')
+                           active_page='vetting')
 
 
 @app.route('/api/email/inbound', methods=['GET', 'POST'])
@@ -4354,7 +4354,7 @@ def send_vetting_health_alert(health_check):
             
             <p style="color: #666; font-size: 12px;">
                 This is an automated alert from Scout Screening. Only sent for persistent critical issues (3+ consecutive failures with 0 candidates processed).
-                Check the <a href="https://jobpulse.lyntrix.ai/vetting/settings">Vetting Dashboard</a> for more details.
+                Check the <a href="https://jobpulse.lyntrix.ai/screening">Vetting Dashboard</a> for more details.
             </p>
         </body>
         </html>

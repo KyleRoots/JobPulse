@@ -422,7 +422,7 @@ class TestScoutVettingDashboard:
 
     def test_dashboard_requires_auth(self, client, app):
         with app.app_context():
-            response = client.get('/scout-vetting')
+            response = client.get('/vetting')
             assert response.status_code in (302, 301)
 
     def test_dashboard_loads_when_authenticated(self, authenticated_client, app):
@@ -435,7 +435,7 @@ class TestScoutVettingDashboard:
                 mock_query.filter_by.return_value.count.return_value = 0
                 mock_query.order_by.return_value.limit.return_value.all.return_value = []
 
-                response = authenticated_client.get('/scout-vetting')
+                response = authenticated_client.get('/vetting')
                 assert response.status_code == 200
                 assert b'Scout Vetting' in response.data
 

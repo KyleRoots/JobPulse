@@ -109,7 +109,7 @@ class TestVettingPages:
     
     def test_vetting_main_page_renders(self, authenticated_client, app):
         """Test that vetting main page renders."""
-        response = authenticated_client.get('/vetting')
+        response = authenticated_client.get('/screening')
         # May render page (200) or redirect if auth not working (302)
         assert response.status_code in [200, 302]
 

@@ -1046,14 +1046,31 @@ Format as a bullet-point list. Be specific and concise."""
         
         return results
     
+    # TTL cache for get_active_job_ids — avoids 7+ Bullhorn API calls per page load
+    _active_job_ids_cache: set = None
+    _active_job_ids_cache_time: float = 0
+    _ACTIVE_JOB_IDS_TTL = 300  # 5 minutes
+
     def get_active_job_ids(self) -> set:
-        """Get set of active job IDs from tearsheets (for filtering)"""
+        """Get set of active job IDs from tearsheets (for filtering).
+        
+        Results are cached for 5 minutes to avoid expensive Bullhorn API
+        calls on every /screening page load.
+        """
+        import time
+        now = time.time()
+        if (CandidateVettingService._active_job_ids_cache is not None
+                and now - CandidateVettingService._active_job_ids_cache_time < self._ACTIVE_JOB_IDS_TTL):
+            return CandidateVettingService._active_job_ids_cache
         try:
             active_jobs = self.get_active_jobs_from_tearsheets()
-            return set(int(job.get('id')) for job in active_jobs if job.get('id'))
+            result = set(int(job.get('id')) for job in active_jobs if job.get('id'))
+            CandidateVettingService._active_job_ids_cache = result
+            CandidateVettingService._active_job_ids_cache_time = now
+            return result
         except Exception as e:
             logging.error(f"Error getting active job IDs: {str(e)}")
-            return set()
+            return CandidateVettingService._active_job_ids_cache or set()
     
     def extract_requirements_for_jobs(self, jobs: list) -> dict:
         """
@@ -2063,7 +2080,7 @@ Format as a bullet-point list. Be specific and concise."""
         logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
         return all_jobs
     
-    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None, model_override: Optional[str] = None) -> Dict:
+    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None, model_override: Optional[str] = None, prefetched_global_requirements: Optional[str] = None) -> Dict:
         """
         Use GPT-4o to analyze how well a candidate matches a job.
         
@@ -2281,7 +2298,8 @@ Format as a bullet-point list. Be specific and concise."""
         
         # Build the requirements section - use custom if available, otherwise let AI extract
         # Also fetch global screening instructions that apply to ALL jobs
-        global_requirements = self._get_global_custom_requirements()
+        # Use pre-fetched value when available (ThreadPoolExecutor threads lack app context)
+        global_requirements = prefetched_global_requirements if prefetched_global_requirements is not None else self._get_global_custom_requirements()
         requirements_instruction = ""
         if custom_requirements:
             requirements_instruction = f"""
@@ -3052,6 +3070,7 @@ CRITICAL RULES:
             # Threads lack Flask app context — any DB access inside them will crash
             escalation_range = self._get_escalation_range()
             global_threshold = self.get_threshold()
+            prefetched_global_reqs = self._get_global_custom_requirements()
             
             # Pre-fetch per-job thresholds (batch query, not N individual queries)
             job_threshold_cache = {}
@@ -3082,7 +3101,8 @@ CRITICAL RULES:
                     # Layer 2: Main analysis with self.model (GPT-4o-mini default)
                     analysis = self.analyze_candidate_job_match(
                         cached_resume_text, job, candidate_location,
-                        prefetched_requirements=prefetched_req
+                        prefetched_requirements=prefetched_req,
+                        prefetched_global_requirements=prefetched_global_reqs
                     )
                     
                     mini_score = analysis.get('match_score', 0)
@@ -3101,7 +3121,8 @@ CRITICAL RULES:
                             escalated_analysis = self.analyze_candidate_job_match(
                                 cached_resume_text, job, candidate_location,
                                 prefetched_requirements=prefetched_req,
-                                model_override='gpt-4o'
+                                model_override='gpt-4o',
+                                prefetched_global_requirements=prefetched_global_reqs
                             )
                             
                             gpt4o_score = escalated_analysis.get('match_score', 0)

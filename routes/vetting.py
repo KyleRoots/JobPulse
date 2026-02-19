@@ -16,7 +16,7 @@ def get_db():
     return db
 
 
-@vetting_bp.route('/vetting')
+@vetting_bp.route('/screening')
 @login_required
 def vetting_settings():
     """AI Candidate Vetting settings and activity page"""
@@ -143,10 +143,10 @@ def vetting_settings():
                           recent_issues=recent_issues,
                           pending_candidates=pending_candidates,
                           recent_vetting=recent_vetting,
-                          active_page='vetting')
+                          active_page='screening')
 
 
-@vetting_bp.route('/vetting/save', methods=['POST'])
+@vetting_bp.route('/screening/save', methods=['POST'])
 @login_required
 def save_vetting_settings():
     """Save AI vetting settings"""
@@ -229,7 +229,7 @@ def save_vetting_settings():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/health-check', methods=['POST'])
+@vetting_bp.route('/screening/health-check', methods=['POST'])
 @login_required
 def run_health_check_now():
     """Manually trigger a health check"""
@@ -244,7 +244,7 @@ def run_health_check_now():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/run', methods=['POST'])
+@vetting_bp.route('/screening/run', methods=['POST'])
 @login_required
 def run_vetting_now():
     """Manually trigger a vetting cycle"""
@@ -274,7 +274,7 @@ def run_vetting_now():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/reset-recent', methods=['POST'])
+@vetting_bp.route('/screening/reset-recent', methods=['POST'])
 @login_required
 def reset_recent_vetting():
     """Reset vetted_at for recent applications to allow re-vetting"""
@@ -309,7 +309,7 @@ def reset_recent_vetting():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/revet-candidate/<int:candidate_id>', methods=['POST'])
+@vetting_bp.route('/screening/revet-candidate/<int:candidate_id>', methods=['POST'])
 @login_required
 def revet_candidate(candidate_id):
     """Re-vet a specific candidate by clearing their existing vetting records.
@@ -395,7 +395,7 @@ def revet_candidate(candidate_id):
 
 
 
-@vetting_bp.route('/vetting/diagnostic')
+@vetting_bp.route('/screening/diagnostic')
 @login_required
 def vetting_diagnostic():
     """Temporary diagnostic endpoint to investigate vetting backlog"""
@@ -481,7 +481,7 @@ def vetting_diagnostic():
 
 
 
-@vetting_bp.route('/vetting/force-release-lock', methods=['POST'])
+@vetting_bp.route('/screening/force-release-lock', methods=['POST'])
 @login_required
 def force_release_lock():
     """Force release a stuck vetting lock"""
@@ -514,7 +514,7 @@ def force_release_lock():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/retry-failed-notes', methods=['POST'])
+@vetting_bp.route('/screening/retry-failed-notes', methods=['POST'])
 @login_required
 def retry_failed_notes():
     """Retry creating Bullhorn notes for vetting logs where note creation previously failed.
@@ -583,7 +583,7 @@ def retry_failed_notes():
     
     return redirect(url_for('vetting.vetting_settings'))
 
-@vetting_bp.route('/vetting/process-backlog', methods=['POST'])
+@vetting_bp.route('/screening/process-backlog', methods=['POST'])
 @login_required
 def process_backlog():
     """Process unvetted backlog manually - runs a vetting cycle bypassing the scheduler"""
@@ -641,7 +641,7 @@ def process_backlog():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/full-clean-slate', methods=['POST'])
+@vetting_bp.route('/screening/full-clean-slate', methods=['POST'])
 @login_required
 def full_clean_slate():
     """Complete reset of all vetting data - dashboard shows all zeros"""
@@ -679,7 +679,7 @@ def full_clean_slate():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/test-email', methods=['POST'])
+@vetting_bp.route('/screening/test-email', methods=['POST'])
 @login_required
 def send_test_vetting_email():
     """Send a test notification email with sample data"""
@@ -888,7 +888,7 @@ def send_test_vetting_email():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/sample-notes')
+@vetting_bp.route('/screening/sample-notes')
 @login_required
 def show_sample_notes():
     """Show sample note formats for qualified and non-qualified candidates"""
@@ -938,7 +938,7 @@ TOP ANALYSIS RESULTS:
                           not_qualified_note=not_qualified_note)
 
 
-@vetting_bp.route('/vetting/create-test-note/<int:candidate_id>', methods=['POST'])
+@vetting_bp.route('/screening/create-test-note/<int:candidate_id>', methods=['POST'])
 @login_required
 def create_test_vetting_note(candidate_id):
     """Create a test vetting note on an actual Bullhorn candidate record"""
@@ -995,7 +995,7 @@ This candidate did not meet the 80% match threshold for any current open positio
     return redirect(url_for('vetting.show_sample_notes'))
 
 
-@vetting_bp.route('/vetting/job/<int:job_id>/requirements', methods=['POST'])
+@vetting_bp.route('/screening/job/<int:job_id>/requirements', methods=['POST'])
 @login_required
 def save_job_requirements(job_id):
     """Save custom requirements for a job"""
@@ -1048,7 +1048,7 @@ def save_job_requirements(job_id):
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/job/<int:job_id>/threshold', methods=['POST'])
+@vetting_bp.route('/screening/job/<int:job_id>/threshold', methods=['POST'])
 @login_required
 def save_job_threshold(job_id):
     """AJAX endpoint to save job-specific vetting threshold"""
@@ -1097,7 +1097,7 @@ def save_job_threshold(job_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@vetting_bp.route('/vetting/job/<int:job_id>/refresh-requirements', methods=['POST'])
+@vetting_bp.route('/screening/job/<int:job_id>/refresh-requirements', methods=['POST'])
 @login_required
 def refresh_job_requirements(job_id):
     """Re-fetch job description from Bullhorn and re-interpret with AI"""
@@ -1173,7 +1173,7 @@ def refresh_job_requirements(job_id):
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/sync-requirements', methods=['POST'])
+@vetting_bp.route('/screening/sync-requirements', methods=['POST'])
 @login_required
 def sync_job_requirements():
     """Sync AI requirements with active tearsheet jobs - removes orphaned entries"""
@@ -1197,7 +1197,7 @@ def sync_job_requirements():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/vetting/extract-all-requirements', methods=['POST'])
+@vetting_bp.route('/screening/extract-all-requirements', methods=['POST'])
 @login_required
 def extract_all_job_requirements():
     """Extract AI requirements for all monitored jobs at once"""
@@ -1330,7 +1330,7 @@ def extract_all_job_requirements():
 # EMBEDDING FILTER MONITORING ROUTES
 # ═══════════════════════════════════════════════════════════════
 
-@vetting_bp.route('/vetting/send-digest', methods=['POST'])
+@vetting_bp.route('/screening/send-digest', methods=['POST'])
 @login_required
 def send_embedding_digest():
     """Manually trigger the daily embedding filter digest email."""
@@ -1351,7 +1351,7 @@ def send_embedding_digest():
     return redirect(url_for('vetting.embedding_audit'))
 
 
-@vetting_bp.route('/vetting/embedding-audit')
+@vetting_bp.route('/screening/embedding-audit')
 @login_required
 def embedding_audit():
     """Embedding filter audit page — filtered pairs and escalations."""
@@ -1473,10 +1473,10 @@ def embedding_audit():
                           sort=sort_by,
                           esc_sort=esc_sort,
                           active_tab=active_tab,
-                          active_page='vetting')
+                          active_page='screening')
 
 
-@vetting_bp.route('/vetting/embedding-audit/filtered-csv')
+@vetting_bp.route('/screening/embedding-audit/filtered-csv')
 @login_required
 def export_filtered_csv():
     """Export filtered pairs as CSV."""
@@ -1531,7 +1531,7 @@ def export_filtered_csv():
     return response
 
 
-@vetting_bp.route('/vetting/embedding-audit/escalations-csv')
+@vetting_bp.route('/screening/embedding-audit/escalations-csv')
 @login_required
 def export_escalations_csv():
     """Export escalations as CSV."""
