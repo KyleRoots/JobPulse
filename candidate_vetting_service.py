@@ -3410,7 +3410,14 @@ CRITICAL RULES:
         ).order_by(CandidateJobMatch.match_score.desc()).all()
         
         # Build note content
-        threshold = self.get_threshold()
+        # Use the per-job threshold for the applied position (or global fallback)
+        # so the note displays the threshold actually used for scoring
+        global_threshold = self.get_threshold()
+        applied_job_id = vetting_log.applied_job_id
+        if applied_job_id:
+            threshold = self.get_job_threshold(applied_job_id)
+        else:
+            threshold = global_threshold
         qualified_matches = [m for m in matches if m.is_qualified] if matches else []
         
         # Handle case where no jobs were analyzed (no matches recorded)
