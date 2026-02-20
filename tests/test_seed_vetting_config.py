@@ -193,7 +193,7 @@ class TestSeedVettingConfigKeyCompleteness:
     """Verify the seed dict stays in sync with what the app reads."""
 
     def test_global_custom_requirements_key_exists(self, app, vetting_config_model):
-        """global_custom_requirements key is seeded so UI can read/write it."""
+        """global_custom_requirements is seeded from config/global_screening_prompt.txt."""
         from app import db
         from seed_database import seed_vetting_config
 
@@ -203,7 +203,8 @@ class TestSeedVettingConfigKeyCompleteness:
                 setting_key='global_custom_requirements'
             ).first()
             assert setting is not None
-            assert setting.setting_value == ''
+            # Prompt is loaded from config file; verify it contains the expected header
+            assert 'WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES' in setting.setting_value
 
     def test_vetting_cutoff_date_key_exists(self, app, vetting_config_model):
         """vetting_cutoff_date key is seeded so the vetting cycle respects it."""

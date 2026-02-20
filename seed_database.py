@@ -454,6 +454,29 @@ def seed_bullhorn_monitors(db, BullhornMonitor):
         raise
 
 
+def _load_global_screening_prompt():
+    """
+    Load the global screening prompt from the version-controlled config file.
+    Falls back to empty string if the file is missing — never crashes the seed process.
+    """
+    prompt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config', 'global_screening_prompt.txt')
+    try:
+        with open(prompt_path, 'r') as f:
+            prompt = f.read().strip()
+        if prompt:
+            logger.info(f"✅ Loaded global screening prompt from {prompt_path} ({len(prompt)} chars)")
+            return prompt
+        else:
+            logger.warning(f"⚠️ Global screening prompt file exists but is empty: {prompt_path}")
+            return ''
+    except FileNotFoundError:
+        logger.warning(f"⚠️ Global screening prompt file not found: {prompt_path} — seeding empty string")
+        return ''
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to read global screening prompt: {str(e)} — seeding empty string")
+        return ''
+
+
 def seed_vetting_config(db, VettingConfig):
     """
     Seed AI Vetting configuration settings
@@ -493,8 +516,9 @@ def seed_vetting_config(db, VettingConfig):
             'layer2_model': 'gpt-4o',
             # Cutoff date: only process candidates received after this timestamp
             'vetting_cutoff_date': '2026-02-12 07:00:00' if is_prod else '',
-            # Global screening instructions (set via UI; seed empty so key exists)
-            'global_custom_requirements': '',
+            # Global screening instructions — loaded from version-controlled config file
+            # so a DB reset restores the full prompt instead of wiping it.
+            'global_custom_requirements': _load_global_screening_prompt(),
         }
         
         settings_created = []
