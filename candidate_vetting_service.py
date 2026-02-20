@@ -3410,15 +3410,25 @@ CRITICAL RULES:
         ).order_by(CandidateJobMatch.match_score.desc()).all()
         
         # Build note content
-        # Use the per-job threshold for the applied position (or global fallback)
-        # so the note displays the threshold actually used for scoring
+        # Header shows global threshold; inline annotations show per-job custom thresholds
         global_threshold = self.get_threshold()
-        applied_job_id = vetting_log.applied_job_id
-        if applied_job_id:
-            threshold = self.get_job_threshold(applied_job_id)
-        else:
-            threshold = global_threshold
+        threshold = global_threshold
         qualified_matches = [m for m in matches if m.is_qualified] if matches else []
+        
+        # Pre-fetch per-job thresholds for matched jobs to annotate inline
+        job_ids = [m.bullhorn_job_id for m in matches if m.bullhorn_job_id]
+        job_threshold_map = {}
+        if job_ids:
+            try:
+                from models import JobVettingRequirements
+                custom_reqs = JobVettingRequirements.query.filter(
+                    JobVettingRequirements.bullhorn_job_id.in_(job_ids),
+                    JobVettingRequirements.vetting_threshold.isnot(None)
+                ).all()
+                for req in custom_reqs:
+                    job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
+            except Exception as e:
+                logging.warning(f"Could not fetch per-job thresholds for note: {str(e)}")
         
         # Handle case where no jobs were analyzed (no matches recorded)
         if not matches:
@@ -3487,7 +3497,11 @@ CRITICAL RULES:
                 note_lines.append(f"APPLIED POSITION (QUALIFIED):")
                 note_lines.append(f"")
                 note_lines.append(f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}")
-                note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
+                applied_custom = job_threshold_map.get(applied_match.bullhorn_job_id)
+                if applied_custom:
+                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%  |  Threshold: {applied_custom:.0f}% (custom)")
+                else:
+                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
                 note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
                 note_lines.append(f"  Summary: {applied_match.match_summary}")
                 note_lines.append(f"  Skills: {applied_match.skills_match}")
@@ -3501,7 +3515,11 @@ CRITICAL RULES:
             for match in other_qualified:
                 note_lines.append(f"")
                 note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
-                note_lines.append(f"  Match Score: {match.match_score:.0f}%")
+                match_custom = job_threshold_map.get(match.bullhorn_job_id)
+                if match_custom:
+                    note_lines.append(f"  Match Score: {match.match_score:.0f}%  |  Threshold: {match_custom:.0f}% (custom)")
+                else:
+                    note_lines.append(f"  Match Score: {match.match_score:.0f}%")
                 note_lines.append(f"  Summary: {match.match_summary}")
                 note_lines.append(f"  Skills: {match.skills_match}")
         else:
@@ -3535,7 +3553,11 @@ CRITICAL RULES:
                 note_lines.append(f"APPLIED POSITION:")
                 note_lines.append(f"")
                 note_lines.append(f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}")
-                note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
+                applied_custom = job_threshold_map.get(applied_match.bullhorn_job_id)
+                if applied_custom:
+                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%  |  Threshold: {applied_custom:.0f}% (custom)")
+                else:
+                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
                 note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
                 if applied_match.gaps_identified:
                     note_lines.append(f"  Gaps: {self._normalize_gaps_text(applied_match.gaps_identified, vetting_log.bullhorn_candidate_id)}")
@@ -3548,7 +3570,11 @@ CRITICAL RULES:
             for match in other_matches[:5]:
                 note_lines.append(f"")
                 note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
-                note_lines.append(f"  Match Score: {match.match_score:.0f}%")
+                match_custom = job_threshold_map.get(match.bullhorn_job_id)
+                if match_custom:
+                    note_lines.append(f"  Match Score: {match.match_score:.0f}%  |  Threshold: {match_custom:.0f}% (custom)")
+                else:
+                    note_lines.append(f"  Match Score: {match.match_score:.0f}%")
                 if match.gaps_identified:
                     note_lines.append(f"  Gaps: {self._normalize_gaps_text(match.gaps_identified, vetting_log.bullhorn_candidate_id)}")
         
