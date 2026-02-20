@@ -1588,11 +1588,17 @@ Format as a bullet-point list. Be specific and concise."""
             cutoff_dt = None
             cutoff_raw = VettingConfig.get_value('vetting_cutoff_date')
             if cutoff_raw:
-                try:
-                    cutoff_dt = datetime.strptime(cutoff_raw.strip(), '%Y-%m-%d %H:%M:%S')
+                # Accept both 'YYYY-MM-DD HH:MM:SS' and ISO 'YYYY-MM-DDTHH:MM:SS'
+                for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
+                    try:
+                        cutoff_dt = datetime.strptime(cutoff_raw.strip(), fmt)
+                        break
+                    except ValueError:
+                        continue
+                if cutoff_dt:
                     logging.info(f"📅 Vetting cutoff active: only processing applicants received after {cutoff_dt} UTC")
-                except ValueError:
-                    logging.warning(f"⚠️ Invalid vetting_cutoff_date format: '{cutoff_raw}' — expected 'YYYY-MM-DD HH:MM:SS', ignoring cutoff")
+                else:
+                    logging.error(f"❌ Invalid vetting_cutoff_date format: '{cutoff_raw}' — expected 'YYYY-MM-DD HH:MM:SS' or ISO format. Cutoff DISABLED — entire backlog will be processed!")
             
             filters = [
                 ParsedEmail.status == 'completed',
