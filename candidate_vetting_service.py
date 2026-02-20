@@ -2083,6 +2083,24 @@ Format as a bullet-point list. Be specific and concise."""
         
         logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
         
+        # Filter out jobs with ineligible statuses (Archive, Filled, etc.)
+        # Uses the canonical INELIGIBLE_STATUSES list from the monitoring service
+        # (lazy import to avoid circular dependency).
+        try:
+            from incremental_monitoring_service import IncrementalMonitoringService
+            blocked = {s.strip().lower() for s in IncrementalMonitoringService.INELIGIBLE_STATUSES}
+        except ImportError:
+            blocked = {'archive', 'filled', 'canceled'}  # fallback
+        
+        pre_filter_count = len(all_jobs)
+        all_jobs = [
+            job for job in all_jobs
+            if job.get('status', '').strip().lower() not in blocked
+        ]
+        filtered_out = pre_filter_count - len(all_jobs)
+        if filtered_out > 0:
+            logging.info(f"Filtered {filtered_out} ineligible jobs (status in INELIGIBLE_STATUSES). Active: {len(all_jobs)}")
+        
         # Persist lightweight job snapshots to BullhornMonitor.last_job_snapshot
         # so the ATS Monitoring page shows accurate, up-to-date job counts.
         try:
