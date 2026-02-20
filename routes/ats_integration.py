@@ -24,9 +24,8 @@ ats_integration_bp = Blueprint('ats_integration', __name__)
 @login_required
 def ats_integration_dashboard():
     """ATS monitoring dashboard"""
-    from app import db, ensure_background_services, get_bullhorn_service
-    from models import BullhornMonitor, BullhornActivity, GlobalSettings
-    from bullhorn_service import BullhornService
+    from app import ensure_background_services
+    from models import BullhornMonitor, BullhornActivity
     
     # Ensure scheduler is running when accessing the dashboard
     ensure_background_services()
@@ -39,61 +38,32 @@ def ats_integration_dashboard():
         monitors = []
         recent_activities = []
     
-    # Check if Bullhorn is connected and get job counts
-    bullhorn_connected = False
+    # Read job counts from cached last_job_snapshot (maintained by background scheduler)
+    # This avoids synchronous Bullhorn API calls that previously blocked page load for 20-65s
     monitor_job_counts = {}
-    
-    try:
-        # Load Bullhorn credentials from GlobalSettings
-        credentials = {}
-        for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+    for monitor in monitors:
+        if monitor.last_job_snapshot:
             try:
-                setting = GlobalSettings.query.filter_by(setting_key=key).first()
-                if setting and setting.setting_value:
-                    credentials[key] = setting.setting_value.strip()
-            except Exception as e:
-                current_app.logger.error(f"Error loading credential {key}: {str(e)}")
-        
-        # Initialize BullhornService with credentials
-        bullhorn_service = BullhornService(
-            client_id=credentials.get('bullhorn_client_id'),
-            client_secret=credentials.get('bullhorn_client_secret'),
-            username=credentials.get('bullhorn_username'),
-            password=credentials.get('bullhorn_password')
-        )
-        bullhorn_connected = bullhorn_service.test_connection()
-        
-        # Get job counts for each monitor
-        for monitor in monitors:
-            try:
-                if bullhorn_connected:
-                    if monitor.tearsheet_id == 0:
-                        jobs = bullhorn_service.get_jobs_by_query(monitor.tearsheet_name)
-                    else:
-                        jobs = bullhorn_service.get_tearsheet_jobs(monitor.tearsheet_id)
-                    
-                    monitor_job_counts[monitor.id] = len(jobs)
-                    
-                    # Update the stored snapshot with fresh data
-                    monitor.last_job_snapshot = json.dumps(jobs)
-                    monitor.last_check = datetime.utcnow()
-                    db.session.commit()
-                else:
-                    if monitor.last_job_snapshot:
-                        try:
-                            stored_jobs = json.loads(monitor.last_job_snapshot)
-                            monitor_job_counts[monitor.id] = len(stored_jobs)
-                        except (json.JSONDecodeError, TypeError):
-                            monitor_job_counts[monitor.id] = None
-                    else:
-                        monitor_job_counts[monitor.id] = None
-                    
-            except Exception as e:
-                current_app.logger.warning(f"Could not get job count for monitor {monitor.name}: {str(e)}")
+                stored_jobs = json.loads(monitor.last_job_snapshot)
+                monitor_job_counts[monitor.id] = len(stored_jobs)
+            except (json.JSONDecodeError, TypeError):
                 monitor_job_counts[monitor.id] = None
-                    
+        else:
+            monitor_job_counts[monitor.id] = None
+    
+    # Derive connection status from recent successful activity
+    # instead of a live test_connection() call (saves ~2-5s OAuth roundtrip)
+    bullhorn_connected = False
+    try:
+        if recent_activities:
+            from datetime import timedelta
+            cutoff = datetime.utcnow() - timedelta(hours=2)
+            bullhorn_connected = any(
+                a.created_at > cutoff and a.activity_type != 'error'
+                for a in recent_activities
+            )
     except Exception as e:
-        current_app.logger.info(f"Bullhorn connection check failed: {str(e)}")
+        current_app.logger.info(f"Bullhorn connection status check failed: {str(e)}")
     
     return render_template('ats_integration.html', 
                          monitors=monitors, 
