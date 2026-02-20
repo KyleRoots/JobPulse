@@ -784,21 +784,18 @@ class BullhornService:
             # Apply job exclusion filter
             filtered_jobs = self._filter_excluded_jobs(all_jobs)
             
-            # Handle discrepancies between Entity API and Search API
+            # Log discrepancies between Entity API and Search API
+            # NOTE: Search API's tearsheets.id index is the authoritative source
+            # of tearsheet membership. Entity API frequently under-reports job
+            # counts due to Bullhorn consistency lag, causing valid jobs to be
+            # dropped if used for filtering. We log discrepancies but always
+            # trust the Search API results.
             if entity_total > 0 and len(all_jobs) != entity_total:
-                if entity_total < len(all_jobs):
-                    # Entity API shows FEWER jobs → Jobs were removed from tearsheet
-                    # Trust Entity API (authoritative source) and filter out orphaned jobs
-                    if entity_job_ids:
-                        orphaned_jobs = [j for j in filtered_jobs if j.get('id') not in entity_job_ids]
-                        filtered_jobs = [j for j in filtered_jobs if j.get('id') in entity_job_ids]
-                        logging.info(f"Tearsheet {tearsheet_id}: Entity API shows {entity_total} jobs but Search API returned {len(all_jobs)}. Removed {len(orphaned_jobs)} orphaned jobs. Using Entity API as source of truth.")
-                    else:
-                        logging.warning(f"Tearsheet {tearsheet_id}: Entity API shows {entity_total} jobs but Search API returned {len(all_jobs)}. No Entity job IDs available for filtering.")
-                else:
-                    # Entity API shows MORE jobs → Search API pagination issue
-                    # Trust Search API results (more complete due to full field retrieval)
-                    logging.info(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs while Entity API indicates {entity_total}. Using Search API results (more complete field data).")
+                logging.warning(
+                    f"Tearsheet {tearsheet_id}: Entity API reports {entity_total} jobs "
+                    f"but Search API returned {len(all_jobs)}. "
+                    f"Using Search API results (authoritative for tearsheet membership)."
+                )
             
             # Normalize addresses - parse city/state from address1 if nested fields are empty
             for job in filtered_jobs:
