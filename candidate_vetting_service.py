@@ -2082,6 +2082,31 @@ Format as a bullet-point list. Be specific and concise."""
                         user['email'] = user_email_map[user_id].get('email', '')
         
         logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
+        
+        # Persist lightweight job snapshots to BullhornMonitor.last_job_snapshot
+        # so the ATS Monitoring page shows accurate, up-to-date job counts.
+        try:
+            from collections import defaultdict
+            jobs_by_tearsheet = defaultdict(list)
+            for job in all_jobs:
+                ts_id = job.get('tearsheet_id')
+                if ts_id:
+                    jobs_by_tearsheet[ts_id].append({
+                        'id': job.get('id'),
+                        'title': job.get('title', ''),
+                        'status': job.get('status', ''),
+                        'isOpen': job.get('isOpen')
+                    })
+            
+            for monitor in monitors:
+                snapshot_jobs = jobs_by_tearsheet.get(monitor.tearsheet_id, [])
+                monitor.last_job_snapshot = json.dumps(snapshot_jobs)
+            
+            db.session.commit()
+        except Exception as e:
+            logging.warning(f"Failed to persist job snapshots: {str(e)}")
+            db.session.rollback()
+        
         return all_jobs
     
     def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None, model_override: Optional[str] = None, prefetched_global_requirements: Optional[str] = None) -> Dict:
