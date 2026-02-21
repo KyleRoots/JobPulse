@@ -310,9 +310,16 @@ def test_ats_monitor(monitor_id):
 @ats_integration_bp.route('/api/ats-integration/monitor/<int:monitor_id>/jobs')
 @login_required
 def get_monitor_jobs(monitor_id):
-    """Get current jobs from Bullhorn for a specific monitor"""
+    """Get current jobs from Bullhorn for a specific monitor (filtered by eligibility)"""
     from app import get_bullhorn_service
     from models import BullhornMonitor
+    
+    # Statuses that indicate a job should NOT be in the sponsored job feed
+    INELIGIBLE_STATUSES = {
+        'qualifying', 'hold - covered', 'hold - client hold', 'offer out',
+        'filled', 'lost - competition', 'lost - filled internally',
+        'lost - funding', 'canceled', 'placeholder/ mpc', 'archive'
+    }
     
     try:
         monitor = BullhornMonitor.query.get_or_404(monitor_id)
@@ -348,7 +355,19 @@ def get_monitor_jobs(monitor_id):
                 })
         
         formatted_jobs = []
+        filtered_count = 0
         for job in jobs:
+            # Filter out ineligible jobs (Archive, Filled, Canceled, etc.)
+            status = job.get('status', '').strip()
+            is_open = job.get('isOpen')
+            
+            if is_open == False or str(is_open).lower() in ('closed', 'false'):
+                filtered_count += 1
+                continue
+            if status.lower() in INELIGIBLE_STATUSES:
+                filtered_count += 1
+                continue
+            
             formatted_job = {
                 'id': job.get('id'),
                 'title': job.get('title', 'No Title'),
@@ -357,12 +376,15 @@ def get_monitor_jobs(monitor_id):
                 'country': job.get('address', {}).get('countryName', '') if job.get('address') else '',
                 'employmentType': job.get('employmentType', ''),
                 'onSite': job.get('onSite', ''),
-                'status': job.get('status', ''),
+                'status': status,
                 'isPublic': job.get('isPublic', False),
                 'dateLastModified': job.get('dateLastModified', ''),
                 'owner': job.get('owner', {}).get('firstName', '') + ' ' + job.get('owner', {}).get('lastName', '') if job.get('owner') else ''
             }
             formatted_jobs.append(formatted_job)
+        
+        if filtered_count > 0:
+            current_app.logger.info(f"Monitor {monitor.name}: filtered {filtered_count} ineligible jobs from display")
         
         formatted_jobs.sort(key=lambda x: int(x['id']) if x['id'] else 0, reverse=True)
         
@@ -370,6 +392,7 @@ def get_monitor_jobs(monitor_id):
             'success': True,
             'jobs': formatted_jobs,
             'total_count': len(formatted_jobs),
+            'filtered_count': filtered_count,
             'monitor_name': monitor.name,
             'monitor_type': 'Query' if monitor.tearsheet_id == 0 else 'Tearsheet'
         })

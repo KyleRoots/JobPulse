@@ -133,6 +133,14 @@ class SimplifiedXMLGenerator:
             password=credentials.get('bullhorn_password')
         )
     
+    # Statuses that indicate a job should NOT be in the sponsored XML feed
+    # Must match the INELIGIBLE_STATUSES in IncrementalMonitoringService
+    INELIGIBLE_STATUSES = {
+        'qualifying', 'hold - covered', 'hold - client hold', 'offer out',
+        'filled', 'lost - competition', 'lost - filled internally',
+        'lost - funding', 'canceled', 'placeholder/ mpc', 'archive'
+    }
+
     def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int]) -> List[Dict]:
         """
         Pull jobs from all tearsheets using the same proven method as main monitoring system
@@ -142,10 +150,11 @@ class SimplifiedXMLGenerator:
             tearsheet_ids: List of tearsheet IDs to process
             
         Returns:
-            List of job dictionaries with tearsheet_context added
+            List of job dictionaries with tearsheet_context added (ineligible jobs filtered out)
         """
         all_jobs = []
         seen_job_ids = set()
+        total_filtered = 0
         
         for tearsheet_id in tearsheet_ids:
             try:
@@ -160,9 +169,26 @@ class SimplifiedXMLGenerator:
                 
                 self.logger.info(f"Found {len(jobs)} jobs in tearsheet {tearsheet_id}")
                 
+                filtered_count = 0
                 for job in jobs:
                     job_id = job.get('id')
                     if job_id and job_id not in seen_job_ids:
+                        # Filter out ineligible jobs (Archive, Filled, Canceled, etc.)
+                        status = job.get('status', '').strip()
+                        is_open = job.get('isOpen')
+                        
+                        # Check isOpen flag
+                        if is_open == False or str(is_open).lower() in ('closed', 'false'):
+                            self.logger.info(f"  Filtered job {job_id}: {job.get('title', '?')[:50]} (isOpen={is_open})")
+                            filtered_count += 1
+                            continue
+                        
+                        # Check status against ineligible list (case-insensitive)
+                        if status.lower() in self.INELIGIBLE_STATUSES:
+                            self.logger.info(f"  Filtered job {job_id}: {job.get('title', '?')[:50]} (status={status})")
+                            filtered_count += 1
+                            continue
+                        
                         # Add tearsheet context to job data
                         monitor_name = self.tearsheet_monitor_mapping.get(tearsheet_id, 'default')
                         job['tearsheet_context'] = {
@@ -172,15 +198,20 @@ class SimplifiedXMLGenerator:
                         all_jobs.append(job)
                         seen_job_ids.add(job_id)
                         
-                        status = job.get('status', 'Unknown')
-                        is_open = job.get('isOpen', False)
                         self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')} from {monitor_name} [isOpen={is_open}, status={status}]")
                 
+                if filtered_count > 0:
+                    self.logger.info(f"  ⚠️ Filtered out {filtered_count} ineligible jobs from tearsheet {tearsheet_id}")
+                    total_filtered += filtered_count
+                    
             except Exception as e:
                 self.logger.error(f"Error processing tearsheet {tearsheet_id}: {str(e)}")
                 continue
         
-        self.logger.info(f"Total unique jobs found: {len(all_jobs)}")
+        if total_filtered > 0:
+            self.logger.info(f"📊 Total: {len(all_jobs)} eligible jobs (filtered {total_filtered} ineligible)")
+        else:
+            self.logger.info(f"Total unique jobs found: {len(all_jobs)}")
         return all_jobs
     
     def _build_clean_xml(self, jobs: List[Dict], existing_references: Dict) -> tuple[str, Dict]:
