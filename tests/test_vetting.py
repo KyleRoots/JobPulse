@@ -69,16 +69,16 @@ class TestVettingRun:
 
 
 class TestVettingResetRecent:
-    """Test vetting reset recent endpoint."""
+    """Test vetting rescreen recent endpoint."""
     
     def test_reset_recent_requires_auth(self, client):
-        """Test that reset recent requires authentication."""
-        response = client.post('/screening/reset-recent', follow_redirects=False)
+        """Test that rescreen recent requires authentication."""
+        response = client.post('/screening/rescreen-recent', follow_redirects=False)
         assert response.status_code in [302, 401, 403]
     
     def test_reset_recent_executes(self, authenticated_client, app):
-        """Test reset recent endpoint."""
-        response = authenticated_client.post('/screening/reset-recent')
+        """Test rescreen recent endpoint."""
+        response = authenticated_client.post('/screening/rescreen-recent')
         assert response.status_code in [200, 302, 400, 500]
 
 

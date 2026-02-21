@@ -278,18 +278,63 @@ def run_vetting_now():
     return redirect(url_for('vetting.vetting_settings'))
 
 
-@vetting_bp.route('/screening/reset-recent', methods=['POST'])
+@vetting_bp.route('/screening/rescreen-count', methods=['POST'])
 @login_required
-def reset_recent_vetting():
-    """Reset vetted_at for recent applications to allow re-vetting"""
-    from models import ParsedEmail
+def rescreen_count():
+    """Return count of candidates that would be re-screened for the given time window"""
+    from models import ParsedEmail, CandidateVettingLog, CandidateJobMatch
+    
+    try:
+        hours = int(request.form.get('hours', 6))
+        hours = max(1, min(24, hours))
+        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        
+        db = get_db()
+        
+        # Count vetted candidates in the time window
+        vetted_count = ParsedEmail.query.filter(
+            ParsedEmail.received_at >= cutoff,
+            ParsedEmail.vetted_at.isnot(None),
+            ParsedEmail.status == 'completed',
+            ParsedEmail.bullhorn_candidate_id.isnot(None)
+        ).count()
+        
+        # Count zero-score candidates (all job matches = 0) in the time window
+        zero_score_ids = db.session.query(CandidateVettingLog.id).join(
+            ParsedEmail,
+            ParsedEmail.bullhorn_candidate_id == CandidateVettingLog.bullhorn_candidate_id
+        ).filter(
+            ParsedEmail.received_at >= cutoff,
+            CandidateVettingLog.highest_match_score == 0,
+            CandidateVettingLog.status == 'completed'
+        ).all()
+        zero_count = len(zero_score_ids)
+        
+        return jsonify({
+            'success': True,
+            'hours': hours,
+            'vetted_count': vetted_count,
+            'zero_score_count': zero_count,
+            'total': vetted_count + zero_count
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@vetting_bp.route('/screening/rescreen-recent', methods=['POST'])
+@login_required
+def rescreen_recent():
+    """Reset vetted_at for candidates in the selected time window who haven't been vetted OR received 0% scores"""
+    from models import ParsedEmail, CandidateVettingLog, CandidateJobMatch
     
     db = get_db()
     
     try:
-        # Reset vetted_at for records from the last 6 hours
-        cutoff = datetime.utcnow() - timedelta(hours=6)
+        hours = int(request.form.get('hours', 6))
+        hours = max(1, min(24, hours))
+        cutoff = datetime.utcnow() - timedelta(hours=hours)
         
+        # 1. Reset vetted_at for all completed candidates in the window
         reset_count = ParsedEmail.query.filter(
             ParsedEmail.received_at >= cutoff,
             ParsedEmail.vetted_at.isnot(None),
@@ -297,18 +342,83 @@ def reset_recent_vetting():
             ParsedEmail.bullhorn_candidate_id.isnot(None)
         ).update({'vetted_at': None}, synchronize_session=False)
         
+        # 2. Also include zero-score candidates: delete their vetting logs
+        #    so duplicate-prevention won't skip them on the next cycle
+        zero_score_logs = CandidateVettingLog.query.join(
+            ParsedEmail,
+            ParsedEmail.bullhorn_candidate_id == CandidateVettingLog.bullhorn_candidate_id
+        ).filter(
+            ParsedEmail.received_at >= cutoff,
+            CandidateVettingLog.highest_match_score == 0,
+            CandidateVettingLog.status == 'completed'
+        ).all()
+        
+        zero_count = len(zero_score_logs)
+        for log in zero_score_logs:
+            CandidateJobMatch.query.filter_by(vetting_log_id=log.id).delete()
+            db.session.delete(log)
+        
         db.session.commit()
         
-        if reset_count > 0:
-            flash(f'Reset vetting status for {reset_count} recent applications. They will be processed in the next vetting cycle.', 'success')
-            current_app.logger.info(f"Reset vetted_at for {reset_count} ParsedEmail records from last 24 hours")
+        total = reset_count + zero_count
+        if total > 0:
+            flash(f'Re-screening {total} candidates from the last {hours}h ({reset_count} reset + {zero_count} zero-score). Processing will begin shortly.', 'success')
+            current_app.logger.info(f"Re-screen: reset {reset_count} vetted_at + {zero_count} zero-score logs from last {hours}h")
+            
+            # Trigger immediate vetting cycle
+            try:
+                from candidate_vetting_service import CandidateVettingService
+                vetting_service = CandidateVettingService()
+                vetting_service.run_vetting_cycle()
+            except Exception as e:
+                current_app.logger.warning(f"Auto-trigger after rescreen failed: {e}")
         else:
-            flash('No recent applications found to reset.', 'info')
+            flash(f'No candidates found to re-screen in the last {hours}h.', 'info')
             
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error resetting recent vetting: {str(e)}")
-        flash(f'Error resetting vetting: {str(e)}', 'error')
+        current_app.logger.error(f"Error during rescreen: {str(e)}")
+        flash(f'Error during rescreen: {str(e)}', 'error')
+    
+    return redirect(url_for('vetting.vetting_settings'))
+
+
+@vetting_bp.route('/screening/start-fresh', methods=['POST'])
+@login_required
+def start_fresh():
+    """Set vetting_cutoff_date to now and trigger an immediate vetting cycle"""
+    from models import VettingConfig
+    
+    db = get_db()
+    
+    try:
+        now_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        
+        cutoff_config = VettingConfig.query.filter_by(setting_key='vetting_cutoff_date').first()
+        if cutoff_config:
+            cutoff_config.setting_value = now_utc
+        else:
+            cutoff_config = VettingConfig(setting_key='vetting_cutoff_date', setting_value=now_utc)
+            db.session.add(cutoff_config)
+        
+        db.session.commit()
+        current_app.logger.info(f"Start Fresh: set vetting_cutoff_date to {now_utc}")
+        
+        # Trigger immediate vetting cycle
+        try:
+            from candidate_vetting_service import CandidateVettingService
+            vetting_service = CandidateVettingService()
+            summary = vetting_service.run_vetting_cycle()
+            processed = summary.get('candidates_processed', 0)
+            flash(f'Started fresh at {now_utc} UTC. Cutoff set — only new candidates will be screened. {processed} candidates processed.', 'success')
+        except Exception as e:
+            current_app.logger.warning(f"Auto-trigger after start fresh failed: {e}")
+            flash(f'Cutoff set to {now_utc} UTC. Vetting cycle will begin on the next scheduled run.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error during start fresh: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
     
     return redirect(url_for('vetting.vetting_settings'))
 
