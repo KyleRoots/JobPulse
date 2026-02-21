@@ -2517,8 +2517,44 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
 6. A candidate whose background is completely different from the job (e.g., DBA applying to FPGA role) should score BELOW 30.
 7. LOCATION CHECK: If the job has a location requirement, verify candidate location matches. For remote jobs, same country is required. For on-site/hybrid, proximity to job location matters.
 
+MANDATORY EVIDENCE EXTRACTION (you MUST complete this before assigning a score):
+1. List EACH mandatory job requirement in the "requirement_evidence" array below.
+2. For EACH requirement, search the ENTIRE resume for matching evidence — check all roles, skills sections, summary, certifications, and education.
+3. Quote the EXACT resume text that satisfies each requirement, or state "No evidence found after full resume search".
+4. The overall match_score MUST be mathematically consistent with the per-requirement evidence — if most requirements are met with strong evidence, the score must reflect that; if you cite a gap, the score must reflect the penalty.
+5. If you claim a gap exists, you MUST have searched for ALL synonyms, dollar amounts, quantified achievements, and related terms for that requirement. For example, "budget management" evidence includes dollar amounts ("$8M budget"), revenue figures, P&L ownership, financial planning mentions, etc.
+6. DO NOT flag a requirement as "No evidence found" if the resume contains clear evidence under different wording or in a different section.
+
+WORK AUTHORIZATION EVIDENCE EXTRACTION (when applicable):
+If the job description contains US work authorization language ("US citizen", "W2 only", "no sponsorship", etc.):
+1. You MUST populate the "work_authorization_analysis" section below.
+2. You MUST enumerate ALL US-based roles from the resume with dates and locations.
+3. You MUST sum total months and apply the inference tier from the Global Screening Instructions.
+4. DO NOT flag "US citizenship not mentioned" as a gap if the candidate has 5+ years of US work experience — instead apply the inference tier (no penalty for 5+ years).
+5. If the candidate has an explicit authorization statement on their resume (e.g., "Green Card", "US Citizen"), note it and apply no penalty per Rule 0.
+
 Respond in JSON format with these exact fields:
 {{
+    "requirement_evidence": [
+        {{
+            "requirement": "<the specific job requirement being evaluated>",
+            "evidence_found": "<EXACT quoted text from resume that matches this requirement, or 'No evidence found after full resume search'>",
+            "meets_requirement": true/false,
+            "score_impact": "<'no penalty', 'minor gap (-3 to -5 pts)', 'significant gap (-10 to -15 pts)', or 'critical gap (-20+ pts)'>"
+        }}
+    ],
+    "work_authorization_analysis": {{
+        "triggered": true/false,
+        "trigger_reason": "<which rule was triggered and why, or 'No work authorization language in job description'>",
+        "explicit_statement": "<quote exact authorization text from resume if found, or 'None found'>",
+        "roles_enumerated": [
+            {{"title": "<role title>", "company": "<company>", "dates": "<start - end>", "location": "<city, state/country>", "months": <N>}}
+        ],
+        "total_months": <N>,
+        "total_years": <N.N>,
+        "inference_tier": "<e.g. '5+ years - strong likelihood, no penalty' or '3-4 years - minor penalty (3-5 pts)' or 'Under 3 years - standard gap scoring' or 'N/A - not triggered'>",
+        "score_adjustment": "<e.g. 'No penalty applied per Rule 1 Tier 1' or 'Minor reduction (3-5 pts) applied' or 'N/A'>"
+    }},
     "match_score": <integer 0-100>,
     "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say 'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.' Do NOT use contradictory phrasing like 'mismatch which matches'.>",
     "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
@@ -2570,7 +2606,9 @@ CRITICAL RULES:
    - Only flag an education gap if the candidate's highest degree is LOWER than what the job requires.
    - If the job specifies a field (e.g., "Bachelor's in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap.
 9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
-10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement."""
+10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement.
+11. WORK AUTHORIZATION EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST populate the work_authorization_analysis section with ALL US roles enumerated from the resume. DO NOT simply flag "citizenship not mentioned" as a gap without first performing the mandatory work history enumeration from the Global Screening Instructions. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. The same applies to Canadian security clearance — enumerate Canadian roles before flagging clearance gaps.
+12. EVIDENCE-FIRST SCORING: You MUST complete the requirement_evidence array BEFORE determining the match_score. Your score must be mathematically derivable from the evidence you cited — do not assign a holistic impression score that contradicts the per-requirement evidence."""
 
             response = self.openai_client.chat.completions.create(
                 model=model_override or self.model,
@@ -2580,7 +2618,7 @@ CRITICAL RULES:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.1,  # Lower temperature for more deterministic/accurate responses
-                max_tokens=1500  # Increased to accommodate years_analysis in response
+                max_tokens=2500  # Increased to accommodate requirement_evidence + work_authorization_analysis in response
             )
             
             result = json.loads(response.choices[0].message.content)
