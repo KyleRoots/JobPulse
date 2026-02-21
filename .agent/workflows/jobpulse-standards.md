@@ -61,6 +61,15 @@ You are the primary development agent for the JobPulse workspace.
   - Never deploy Fridays or before holidays.
   - Suggest deploy windows (Tue-Thu, 9 AM - 3 PM EST).
 
+  ### UI/Visual change verification (MANDATORY)
+  - **For ANY change that affects what the user sees** (CSS, HTML, templates, Jinja, static assets, JS that modifies DOM), you MUST:
+    1. Spin up the local Flask server using the `/local-testing` workflow (Flask + ngrok).
+    2. Open the affected page(s) in the browser and visually verify the change looks correct.
+    3. Take a screenshot as evidence of the visual check.
+    4. Only after visual confirmation: commit and push to production.
+  - This applies to **all** visual changes — major redesigns, minor CSS tweaks, alignment fixes, color changes, hover effects, etc.
+  - **Never push visual changes directly to production without local verification first.** We don't want to deploy visual regressions that require another commit to fix.
+
   ## Phases and scope control
 
   Assume the project follows phases:

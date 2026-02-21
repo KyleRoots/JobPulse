@@ -591,11 +591,61 @@
                 <i class="fas fa-chevron-down ms-3 vetting-toggle-icon"
                     style="transition: transform 0.3s ease; font-size: 0.8rem;"></i>
             </h5>
+            <style>
+                .screening-action-btn {
+                    background: linear-gradient(135deg, #e63956 0%, #d42e4a 100%);
+                    color: #fff;
+                    border: none;
+                    height: 31px;
+                    line-height: 1;
+                    padding: 0 12px;
+                    transition: all 0.2s ease;
+                    cursor: pointer;
+                }
+
+                .screening-action-btn:hover {
+                    background: linear-gradient(135deg, #ff4d6d 0%, #e63956 100%);
+                    color: #fff;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(230, 57, 86, 0.4);
+                }
+
+                .screening-action-btn:active {
+                    transform: translateY(0);
+                    box-shadow: 0 2px 6px rgba(230, 57, 86, 0.3);
+                }
+
+                .screening-time-select {
+                    width: auto;
+                    min-width: 55px;
+                    height: 31px;
+                    border-radius: 0 0.25rem 0.25rem 0;
+                    border: 1px solid #e63956;
+                    border-left: 1px solid rgba(255, 255, 255, 0.2);
+                    background-color: #1a1a2e;
+                    color: #fff;
+                    padding: 0 8px;
+                    font-size: 0.8rem;
+                    transition: all 0.2s ease;
+                    cursor: pointer;
+                }
+
+                .screening-time-select:hover {
+                    border-color: #ff4d6d;
+                    background-color: #252545;
+                }
+
+                .screening-time-select:focus {
+                    border-color: #ff4d6d;
+                    box-shadow: 0 0 0 2px rgba(230, 57, 86, 0.25);
+                    background-color: #252545;
+                    color: #fff;
+                }
+            </style>
             <div class="d-flex align-items-center gap-3" onclick="event.stopPropagation();">
                 <form action="{{ url_for('vetting.start_fresh') }}" method="POST" class="d-inline m-0">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-sm"
-                        style="background: linear-gradient(135deg, #e63956 0%, #d42e4a 100%); color: #fff; border: none; height: 31px; line-height: 1; padding: 0 12px;"
+                    <button type="submit" class="btn btn-sm screening-action-btn"
                         onclick="return confirm('This will skip all unvetted candidates before now and begin screening new candidates immediately.\n\nProceed?')">
                         <i class="fas fa-bolt me-1"></i>Start Fresh
                     </button>
@@ -605,13 +655,11 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="hours" id="rescreenHours" value="6">
                     <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-sm"
-                            style="background: linear-gradient(135deg, #e63956 0%, #d42e4a 100%); color: #fff; border: none; border-radius: 0.25rem 0 0 0.25rem; height: 31px; line-height: 1; padding: 0 12px;"
-                            onclick="confirmRescreen()">
+                        <button type="button" class="btn btn-sm screening-action-btn"
+                            style="border-radius: 0.25rem 0 0 0.25rem;" onclick="confirmRescreen()">
                             <i class="fas fa-redo me-1"></i>Re-screen Last
                         </button>
-                        <select id="rescreenHoursSelect" class="form-select form-select-sm"
-                            style="width: auto; min-width: 55px; height: 31px; border-radius: 0 0.25rem 0.25rem 0; border: 1px solid #e63956; border-left: 1px solid rgba(255,255,255,0.2); background-color: #1a1a2e; color: #fff; padding: 0 8px; font-size: 0.8rem;"
+                        <select id="rescreenHoursSelect" class="form-select form-select-sm screening-time-select"
                             onchange="document.getElementById('rescreenHours').value = this.value;">
                             <option value="1">1h</option>
                             <option value="3">3h</option>
