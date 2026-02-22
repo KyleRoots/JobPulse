@@ -360,7 +360,10 @@ JOB TITLE: {job_title}
 JOB DESCRIPTION:
 {clean_description}
 
-Extract and list the TOP 5-7 MANDATORY requirements from this job.
+You MUST output EXACTLY 5-7 requirements. No more, no less.
+If the JD lists more than 7 qualifications, prioritize the most critical mandatory qualifications and CONSOLIDATE related items into a single requirement (e.g. merge "Python" + "SQL" + "data pipelines" into one "Technical skills" requirement).
+Do NOT list every bullet point as a separate requirement.
+
 Focus on requirements that are EXPLICITLY STATED in the job description:
 1. Required technical skills (programming languages, tools, technologies)
 2. Required years of experience — ONLY if the JD explicitly states a specific NUMBER (e.g., "5+ years", "3 years of experience", "10 or more years")
@@ -2527,7 +2530,7 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
 7. LOCATION CHECK: If the job has a location requirement, verify candidate location matches. For remote jobs, same country is required. For on-site/hybrid, proximity to job location matters.
 
 MANDATORY EVIDENCE EXTRACTION (you MUST complete this before assigning a score):
-1. List EACH mandatory job requirement in the "requirement_evidence" array below.
+1. Identify the TOP 5-7 most critical MANDATORY requirements from the job description. If the JD lists more than 7, consolidate related items (e.g. merge multiple similar bullet points into one requirement). Do NOT create more than 7 entries in requirement_evidence.
 2. For EACH requirement, search the ENTIRE resume for matching evidence — check all roles, skills sections, summary, certifications, and education.
 3. Quote the EXACT resume text that satisfies each requirement, or state "No evidence found after full resume search".
 4. The overall match_score MUST be mathematically consistent with the per-requirement evidence — if most requirements are met with strong evidence, the score must reflect that; if you cite a gap, the score must reflect the penalty.
@@ -2617,7 +2620,13 @@ CRITICAL RULES:
 9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
 10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement.
 11. WORK AUTHORIZATION EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST populate the work_authorization_analysis section with ALL US roles enumerated from the resume. DO NOT simply flag "citizenship not mentioned" as a gap without first performing the mandatory work history enumeration from the Global Screening Instructions. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. The same applies to Canadian security clearance — enumerate Canadian roles before flagging clearance gaps.
-12. EVIDENCE-FIRST SCORING: You MUST complete the requirement_evidence array BEFORE determining the match_score. Your score must be mathematically derivable from the evidence you cited — do not assign a holistic impression score that contradicts the per-requirement evidence."""
+12. EVIDENCE-FIRST SCORING: You MUST complete the requirement_evidence array BEFORE determining the match_score. Your score must be mathematically derivable from the evidence you cited — do not assign a holistic impression score that contradicts the per-requirement evidence.
+13. EXPERIENCE DEPTH & DOMAIN RELEVANCE: When evaluating whether a candidate's experience satisfies a requirement, assess the NATURE of the experience, not just keyword overlap. Specifically:
+   - AUDIT/ASSESSMENT experience (e.g., "audited cybersecurity controls using NIST") does NOT satisfy a requirement for HANDS-ON DELIVERY/OPERATIONS (e.g., "ensure reliable, secure delivery of IT systems"). Auditing a system ≠ building or operating that system.
+   - GOVERNANCE/COMPLIANCE/STANDARDS experience does NOT satisfy a requirement for TECHNOLOGY IMPLEMENTATION/OPERATIONS. Setting conformance standards ≠ delivering technology solutions.
+   - A candidate who EVALUATED, ASSESSED, or REVIEWED a system is NOT equivalent to one who BUILT, OPERATED, MANAGED, or DELIVERED that system.
+   - When citing evidence in requirement_evidence, explicitly note whether the experience is ADVISORY/AUDIT or DELIVERY/OPERATIONAL — and apply a score penalty (10-15 pts per affected requirement) when advisory experience is cited against a delivery requirement.
+   - Budget experience from audit engagements (managing engagement budgets at a consulting firm) is NOT equivalent to owning a technology department budget ($5M+). Note the distinction."""
 
             response = self.openai_client.chat.completions.create(
                 model=model_override or self.model,
