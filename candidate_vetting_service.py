@@ -360,14 +360,23 @@ JOB TITLE: {job_title}
 JOB DESCRIPTION:
 {clean_description}
 
-Extract and list the TOP 5-7 MANDATORY requirements from this job. Focus on:
+Extract and list the TOP 5-7 MANDATORY requirements from this job.
+Focus on requirements that are EXPLICITLY STATED in the job description:
 1. Required technical skills (programming languages, tools, technologies)
-2. Required years of experience
+2. Required years of experience — ONLY if the JD explicitly states a specific NUMBER (e.g., "5+ years", "3 years of experience", "10 or more years")
 3. Required certifications or licenses
 4. Required education level
 5. Required industry-specific knowledge
+6. Required location or work authorization
 
-DO NOT include:
+CRITICAL ANTI-HALLUCINATION RULES:
+- ONLY list requirements that are EXPLICITLY written in the job description text above.
+- Do NOT infer or fabricate years-of-experience requirements — if the JD does not state a specific number of years, do NOT add one based on the job title, seniority level, or your assumptions about the role.
+- Do NOT add requirements based on what you think the role "should" need — only what the JD actually says.
+- If the JD says "experience with X" without specifying years, list it as "Experience with X" — NOT "X+ years of X".
+- If the JD uses vague phrases like "significant experience" or "proven track record", quote that phrase directly — do NOT convert it to a specific number of years.
+
+Also DO NOT include:
 - "Nice to have" or "preferred" qualifications
 - Soft skills (communication, teamwork, etc.)
 - Generic requirements that apply to any job
@@ -378,10 +387,10 @@ Format as a bullet-point list. Be specific and concise."""
             response = self.openai_client.chat.completions.create(
                 model="gpt-4.1-mini",  # Cost-optimized: structured extraction (not main vetting)
                 messages=[
-                    {"role": "system", "content": "You are a technical recruiter extracting key mandatory requirements from job descriptions. Be concise and specific."},
+                    {"role": "system", "content": "You are a technical recruiter extracting ONLY explicitly stated mandatory requirements from job descriptions. You must NEVER infer, fabricate, or add requirements that are not directly written in the job description. If the job description does not mention a specific number of years, do NOT add one. Be concise and specific."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.2,
+                temperature=0.1,
                 max_tokens=500
             )
             
