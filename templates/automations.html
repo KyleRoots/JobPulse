@@ -430,10 +430,10 @@
             <h5><i class="fas fa-list-check me-2"></i>Automations</h5>
         </div>
 
-        <div id="scheduledJobsPanel" style="padding:0.6rem 0.75rem;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(10,18,14,0.4);">
-            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(224,220,216,0.4);margin-bottom:0.4rem;font-weight:600;">Scheduled Jobs</div>
-            <div id="scheduledJobsList" style="font-size:0.78rem;">
-                <div style="color:rgba(224,220,216,0.3);font-size:0.75rem;">Loading...</div>
+        <div id="automationStatusPanel" style="padding:0.6rem 0.75rem;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(10,18,14,0.4);">
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(224,220,216,0.4);margin-bottom:0.4rem;font-weight:600;">Status</div>
+            <div id="automationStatusList" style="font-size:0.78rem;">
+                <div style="color:rgba(224,220,216,0.3);font-size:0.75rem;">No custom automations yet</div>
             </div>
         </div>
 
@@ -628,6 +628,7 @@
                     </div>
                 </div>
             `).join('');
+            loadAutomationStatus();
         } catch (err) {
             console.error('Failed to refresh task list:', err);
         }
@@ -711,75 +712,64 @@
         }
     }
 
-    const HIGHLIGHT_JOBS = [
-        'salesrep_sync',
-        'automated_upload',
-        'candidate_vetting_cycle',
-        'process_bullhorn_monitors',
-        'vetting_health_check'
-    ];
+    function renderAutomationStatus(tasks) {
+        const container = document.getElementById('automationStatusList');
+        if (!tasks || tasks.length === 0) {
+            container.innerHTML = '<div style="color:rgba(224,220,216,0.3);font-size:0.75rem;">No custom automations yet</div>';
+            return;
+        }
 
-    const JOB_LABELS = {
-        'salesrep_sync': 'Sales Rep Sync',
-        'automated_upload': 'Automated Upload',
-        'candidate_vetting_cycle': 'AI Vetting Cycle',
-        'process_bullhorn_monitors': 'Tearsheet Monitor',
-        'vetting_health_check': 'Vetting Health Check'
-    };
+        let html = '';
+        tasks.forEach(t => {
+            const isActive = t.status === 'active';
+            const isCompleted = t.status === 'completed';
+            const isFailed = t.status === 'failed';
+            let dot, statusLabel;
 
-    async function loadSchedulerStatus() {
-        const container = document.getElementById('scheduledJobsList');
+            if (isActive) {
+                dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;margin-right:6px;box-shadow:0 0 4px rgba(40,167,69,0.5);flex-shrink:0;"></span>';
+                statusLabel = t.schedule ? `<span style="color:rgba(40,167,69,0.7);margin-left:4px;font-size:0.7rem;">scheduled</span>` : '';
+            } else if (isCompleted) {
+                dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#17a2b8;margin-right:6px;box-shadow:0 0 4px rgba(23,162,184,0.5);flex-shrink:0;"></span>';
+                statusLabel = '';
+            } else if (isFailed) {
+                dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc3545;margin-right:6px;box-shadow:0 0 4px rgba(220,53,69,0.5);flex-shrink:0;"></span>';
+                statusLabel = '';
+            } else {
+                dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6c757d;margin-right:6px;box-shadow:0 0 3px rgba(108,117,125,0.4);flex-shrink:0;"></span>';
+                statusLabel = '';
+            }
+
+            let lastRunText = '';
+            if (t.last_run) {
+                const ago = Math.round((Date.now() - new Date(t.last_run).getTime()) / 60000);
+                if (ago < 1) lastRunText = '<span style="color:rgba(224,220,216,0.35);margin-left:4px;font-size:0.7rem;">just now</span>';
+                else if (ago < 60) lastRunText = `<span style="color:rgba(224,220,216,0.35);margin-left:4px;font-size:0.7rem;">${ago}m ago</span>`;
+                else if (ago < 1440) lastRunText = `<span style="color:rgba(224,220,216,0.35);margin-left:4px;font-size:0.7rem;">${Math.round(ago/60)}h ago</span>`;
+                else lastRunText = `<span style="color:rgba(224,220,216,0.35);margin-left:4px;font-size:0.7rem;">${Math.round(ago/1440)}d ago</span>`;
+            }
+
+            const name = t.name.length > 22 ? t.name.substring(0, 20) + '...' : t.name;
+            html += `<div style="display:flex;align-items:center;padding:2px 0;">${dot}<span style="color:#e0dcd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(t.name)}">${escapeHtml(name)}</span>${statusLabel}${lastRunText}</div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    async function loadAutomationStatus() {
         try {
-            const resp = await fetch('/automations/scheduler-status', {
+            const resp = await fetch('/automations/list', {
                 headers: { 'X-CSRFToken': csrfToken }
             });
-            const jobs = await resp.json();
-
-            if (!jobs || jobs.length === 0) {
-                container.innerHTML = '<div style="color:rgba(224,220,216,0.3);font-size:0.75rem;">No scheduler data</div>';
-                return;
-            }
-
-            const highlighted = jobs.filter(j => HIGHLIGHT_JOBS.includes(j.id));
-            const others = jobs.filter(j => !HIGHLIGHT_JOBS.includes(j.id));
-
-            let html = '';
-            const renderJob = (job) => {
-                const active = job.active;
-                const dot = active
-                    ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;margin-right:6px;box-shadow:0 0 4px rgba(40,167,69,0.5);"></span>'
-                    : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc3545;margin-right:6px;box-shadow:0 0 4px rgba(220,53,69,0.5);"></span>';
-                const label = JOB_LABELS[job.id] || job.name;
-                let nextText = '';
-                if (job.next_run) {
-                    const next = new Date(job.next_run);
-                    const diffMs = next - new Date();
-                    const diffMin = Math.round(diffMs / 60000);
-                    nextText = diffMin > 0
-                        ? `<span style="color:rgba(224,220,216,0.35);margin-left:4px;">${diffMin}m</span>`
-                        : '<span style="color:rgba(40,167,69,0.6);margin-left:4px;">due</span>';
-                }
-                return `<div style="display:flex;align-items:center;padding:2px 0;">${dot}<span style="color:#e0dcd8;">${label}</span>${nextText}</div>`;
-            };
-
-            highlighted.forEach(j => { html += renderJob(j); });
-
-            if (others.length > 0) {
-                html += `<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.04);">`;
-                html += `<div style="font-size:0.68rem;color:rgba(224,220,216,0.3);cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.nextElementSibling.style.display==='none'?'+ ${others.length} more jobs':'- collapse'">+ ${others.length} more jobs</div>`;
-                html += `<div style="display:none;">`;
-                others.forEach(j => { html += renderJob(j); });
-                html += `</div></div>`;
-            }
-
-            container.innerHTML = html;
+            const tasks = await resp.json();
+            renderAutomationStatus(tasks);
         } catch (err) {
-            container.innerHTML = '<div style="color:rgba(220,53,69,0.6);font-size:0.75rem;">Failed to load</div>';
+            document.getElementById('automationStatusList').innerHTML = '<div style="color:rgba(220,53,69,0.6);font-size:0.75rem;">Failed to load</div>';
         }
     }
 
-    loadSchedulerStatus();
-    setInterval(loadSchedulerStatus, 60000);
+    loadAutomationStatus();
+    setInterval(loadAutomationStatus, 60000);
 
     async function clearChat() {
         if (!confirm('Clear the current conversation?')) return;
