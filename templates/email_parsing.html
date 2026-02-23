@@ -1,404 +1,374 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Resume Parser - JobPulse</title>
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <style>
-        body {
-            background-color: #1a1a1a;
-            color: #ffffff;
-        }
-        .card {
-            background-color: #2d2d2d;
-            border-color: #404040;
-        }
-        .table-dark {
-            --bs-table-bg: #2d2d2d;
-        }
-        .navbar-brand {
-            font-weight: bold;
-        }
-        .status-completed { color: #28a745; }
-        .status-failed { color: #dc3545; }
-        .status-processing { color: #ffc107; }
-        .status-received { color: #17a2b8; }
-        .source-badge {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-        }
-        .source-dice { background-color: #c41230; }
-        .source-linkedin { background-color: #0a66c2; }
-        .source-indeed { background-color: #2164f3; }
-        .source-other { background-color: #6c757d; }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-pulse me-2"></i>JobPulse
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('dashboard_redirect') }}">
-                    <i class="fas fa-home me-1"></i>Dashboard
-                </a>
-                <a class="nav-link" href="/bullhorn">
-                    <i class="fas fa-briefcase me-1"></i>ATS Monitor
-                </a>
-                <a class="nav-link active" href="/email-parsing">
-                    <i class="fas fa-envelope-open-text me-1"></i>Email Parser
-                </a>
-                <a class="nav-link" href="/settings">
-                    <i class="fas fa-cog me-1"></i>Settings
-                </a>
-            </div>
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="inbound"{% endblock %}
+
+{% block title %}Email Resume Parser - JobPulse™{% endblock %}
+
+{% block extra_head %}
+<style>
+    .status-completed {
+        color: #28a745;
+    }
+
+    .status-failed {
+        color: #dc3545;
+    }
+
+    .status-processing {
+        color: #ffc107;
+    }
+
+    .status-received {
+        color: #17a2b8;
+    }
+
+    .source-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .source-dice {
+        background-color: #c41230;
+    }
+
+    .source-linkedin {
+        background-color: #0a66c2;
+    }
+
+    .source-indeed {
+        background-color: #2164f3;
+    }
+
+    .source-other {
+        background-color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}AI Email Resume Parser{% endblock %}
+{% block page_subtitle %}Automatically parse and import resumes from job board emails{% endblock %}
+
+{% block header_actions %}
+<select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
+    <option value="">All Status</option>
+    <option value="completed">Completed</option>
+    <option value="failed">Failed</option>
+    <option value="processing">Processing</option>
+    <option value="received">Received</option>
+</select>
+<select class="form-select form-select-sm" id="sourceFilter" style="width: auto;">
+    <option value="">All Sources</option>
+    <option value="Dice">Dice</option>
+    <option value="LinkedIn Job Board">LinkedIn</option>
+    <option value="Indeed Job Board">Indeed</option>
+    <option value="Other">Other</option>
+</select>
+<button class="btn btn-outline-light btn-sm" onclick="refreshData()">
+    <i class="fas fa-refresh me-1"></i>Refresh
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Metrics Row - Horizontal Cards (matching Dashboard style) -->
+<div class="metrics-row">
+    <div class="metric-card blue">
+        <div class="metric-icon">
+            <i class="fas fa-envelope"></i>
         </div>
-    </nav>
-
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="mb-0">
-                        <i class="fas fa-envelope-open-text me-2"></i>
-                        AI Email Resume Parser
-                    </h2>
-                    <div class="d-flex gap-2">
-                        <select class="form-select" id="statusFilter" style="width: auto;">
-                            <option value="">All Status</option>
-                            <option value="completed">Completed</option>
-                            <option value="failed">Failed</option>
-                            <option value="processing">Processing</option>
-                            <option value="received">Received</option>
-                        </select>
-                        <select class="form-select" id="sourceFilter" style="width: auto;">
-                            <option value="">All Sources</option>
-                            <option value="Dice">Dice</option>
-                            <option value="LinkedIn Job Board">LinkedIn</option>
-                            <option value="Indeed Job Board">Indeed</option>
-                            <option value="Other">Other</option>
-                        </select>
-                        <button class="btn btn-outline-secondary" onclick="refreshData()">
-                            <i class="fas fa-refresh"></i> Refresh
-                        </button>
-                    </div>
-                </div>
-
-                <div class="row mb-4 g-3">
-                    <div class="col">
-                        <div class="card bg-primary text-white h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Total Emails</h6>
-                                        <h3 id="totalCount">{{ stats.total }}</h3>
-                                    </div>
-                                    <i class="fas fa-envelope fa-2x opacity-50"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="card bg-success text-white h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Successfully Processed</h6>
-                                        <h3 id="completedCount">{{ stats.completed }}</h3>
-                                    </div>
-                                    <i class="fas fa-check-circle fa-2x opacity-50"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="card bg-danger text-white h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Failed</h6>
-                                        <h3 id="failedCount">{{ stats.failed }}</h3>
-                                    </div>
-                                    <i class="fas fa-times-circle fa-2x opacity-50"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="card bg-info text-white h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Duplicates Found</h6>
-                                        <h3 id="duplicateCount">{{ stats.duplicates }}</h3>
-                                    </div>
-                                    <i class="fas fa-clone fa-2x opacity-50"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="card text-white h-100" style="background-color: #6f42c1;">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <h6 class="card-title">Duplicate Rate</h6>
-                                        <h3 id="duplicateRate">{{ "%.1f"|format(stats.duplicate_rate) }}%</h3>
-                                    </div>
-                                    <i class="fas fa-percentage fa-2x opacity-50"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-info-circle me-2"></i>Setup Instructions
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-2">Configure SendGrid Inbound Parse to forward emails to this endpoint:</p>
-                        <code class="d-block p-3 bg-dark rounded mb-3">
-                            POST https://jobpulse.lyntrix.ai/api/email/inbound
-                        </code>
-                        <p class="mb-0 text-muted">
-                            <i class="fas fa-lightbulb me-1"></i>
-                            Emails from Dice, LinkedIn, Indeed, and ZipRecruiter are automatically detected and processed.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-list me-2"></i>Processed Emails
-                        </h5>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-dark table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Received</th>
-                                        <th>Source</th>
-                                        <th>Candidate</th>
-                                        <th>Job ID</th>
-                                        <th>Status</th>
-                                        <th>Bullhorn ID</th>
-                                        <th>Resume</th>
-                                        <th>Notes</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="emailsTable">
-                                    {% for email in emails %}
-                                    <tr>
-                                        <td>
-                                            <small>{{ email.received_at.strftime('%Y-%m-%d %H:%M') if email.received_at else 'N/A' }}</small>
-                                        </td>
-                                        <td>
-                                            {% if email.source_platform == 'Dice' %}
-                                            <span class="badge source-badge source-dice">Dice</span>
-                                            {% elif email.source_platform == 'LinkedIn Job Board' %}
-                                            <span class="badge source-badge source-linkedin">LinkedIn</span>
-                                            {% elif email.source_platform == 'Indeed Job Board' %}
-                                            <span class="badge source-badge source-indeed">Indeed</span>
-                                            {% else %}
-                                            <span class="badge source-badge source-other">{{ email.source_platform or 'Unknown' }}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <strong>{{ email.candidate_name or 'N/A' }}</strong>
-                                            {% if email.candidate_email %}
-                                            <br><small class="text-muted">{{ email.candidate_email }}</small>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if email.bullhorn_job_id %}
-                                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ email.bullhorn_job_id }}" target="_blank" class="text-info">
-                                                {{ email.bullhorn_job_id }}
-                                            </a>
-                                            {% else %}
-                                            <span class="text-muted">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <span class="status-{{ email.status }}">
-                                                {% if email.status == 'completed' %}
-                                                <i class="fas fa-check-circle"></i>
-                                                {% elif email.status == 'failed' %}
-                                                <i class="fas fa-times-circle"></i>
-                                                {% elif email.status == 'processing' %}
-                                                <i class="fas fa-spinner fa-spin"></i>
-                                                {% else %}
-                                                <i class="fas fa-clock"></i>
-                                                {% endif %}
-                                                {{ email.status | capitalize }}
-                                            </span>
-                                            {% if email.is_duplicate_candidate %}
-                                            <br><small class="text-warning"><i class="fas fa-clone"></i> Duplicate ({{ (email.duplicate_confidence * 100) | int }}%)</small>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if email.bullhorn_candidate_id %}
-                                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ email.bullhorn_candidate_id }}" target="_blank" class="text-success">
-                                                {{ email.bullhorn_candidate_id }}
-                                            </a>
-                                            {% if email.bullhorn_submission_id %}
-                                            <br><small class="text-muted">Sub: {{ email.bullhorn_submission_id }}</small>
-                                            {% endif %}
-                                            {% else %}
-                                            <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if email.resume_filename %}
-                                            <i class="fas fa-file-alt text-info"></i>
-                                            <small>{{ email.resume_filename[:20] }}{% if email.resume_filename|length > 20 %}...{% endif %}</small>
-                                            {% else %}
-                                            <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if email.processing_notes %}
-                                            <small class="text-muted" title="{{ email.processing_notes }}">
-                                                {{ email.processing_notes[:30] }}{% if email.processing_notes|length > 30 %}...{% endif %}
-                                            </small>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">
-                                            <i class="fas fa-inbox fa-3x mb-3 d-block opacity-50"></i>
-                                            No emails processed yet. Configure SendGrid Inbound Parse to start receiving emails.
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="metric-label">Total Emails</div>
+        <div class="metric-value" id="totalCount">{{ stats.total }}</div>
+        <div class="metric-subtext">Resumes Received</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-inbox"></i>
+            All time
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function refreshData() {
-            const status = document.getElementById('statusFilter').value;
-            const source = document.getElementById('sourceFilter').value;
-            
-            let url = '/api/email/parsed?';
-            if (status) url += `status=${status}&`;
-            if (source) url += `source=${encodeURIComponent(source)}&`;
-            
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    updateTable(data.emails);
-                    updateStats();
-                })
-                .catch(error => console.error('Error:', error));
-        }
-        
-        function updateStats() {
-            fetch('/api/email/stats')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('totalCount').textContent = data.overview.total;
-                    document.getElementById('completedCount').textContent = data.overview.completed;
-                    document.getElementById('failedCount').textContent = data.overview.failed;
-                    document.getElementById('duplicateCount').textContent = data.overview.duplicates;
-                    document.getElementById('duplicateRate').textContent = data.overview.duplicate_rate.toFixed(1) + '%';
-                })
-                .catch(error => console.error('Error:', error));
-        }
-        
-        function updateTable(emails) {
-            const tbody = document.getElementById('emailsTable');
-            if (emails.length === 0) {
-                tbody.innerHTML = `
+    <div class="metric-card green">
+        <div class="metric-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="metric-label">Processed</div>
+        <div class="metric-value" id="completedCount">{{ stats.completed }}</div>
+        <div class="metric-subtext">Successfully Imported</div>
+        <div class="metric-trend up">
+            <i class="fas fa-arrow-up"></i>
+            Complete
+        </div>
+    </div>
+
+    <div class="metric-card orange">
+        <div class="metric-icon">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="metric-label">Failed</div>
+        <div class="metric-value" id="failedCount">{{ stats.failed }}</div>
+        <div class="metric-subtext">Parse Errors</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-exclamation"></i>
+            Check logs
+        </div>
+    </div>
+
+    <div class="metric-card purple">
+        <div class="metric-icon">
+            <i class="fas fa-clone"></i>
+        </div>
+        <div class="metric-label">Duplicates</div>
+        <div class="metric-value" id="duplicateCount">{{ stats.duplicates }}</div>
+        <div class="metric-subtext">{{ "%.1f"|format(stats.duplicate_rate) }}% Rate</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-filter"></i>
+            Filtered
+        </div>
+    </div>
+</div>
+
+
+<div class="card glass-card mb-4">
+    <div class="card-header bg-transparent border-bottom border-secondary">
+        <h5 class="mb-0">
+            <i class="fas fa-info-circle me-2"></i>Setup Instructions
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="mb-2">Configure SendGrid Inbound Parse to forward emails to this endpoint:</p>
+        <code class="d-block p-3 bg-dark rounded mb-3">
+            POST https://jobpulse.lyntrix.ai/api/email/inbound
+        </code>
+        <p class="mb-0 text-muted">
+            <i class="fas fa-lightbulb me-1"></i>
+            Emails from Dice, LinkedIn, Indeed, and ZipRecruiter are automatically detected and processed.
+        </p>
+    </div>
+</div>
+
+<div class="card glass-card">
+    <div class="card-header bg-transparent border-bottom border-secondary">
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>Processed Emails
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Received</th>
+                        <th>Source</th>
+                        <th>Candidate</th>
+                        <th>Job ID</th>
+                        <th>Status</th>
+                        <th>Bullhorn ID</th>
+                        <th>Resume</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="emailsTable">
+                    {% for email in emails %}
+                    <tr>
+                        <td>
+                            <small>{{ email.received_at.strftime('%Y-%m-%d %H:%M') if email.received_at else 'N/A'
+                                }}</small>
+                        </td>
+                        <td>
+                            {% if email.source_platform == 'Dice' %}
+                            <span class="badge source-badge source-dice">Dice</span>
+                            {% elif email.source_platform == 'LinkedIn Job Board' %}
+                            <span class="badge source-badge source-linkedin">LinkedIn</span>
+                            {% elif email.source_platform == 'Indeed Job Board' %}
+                            <span class="badge source-badge source-indeed">Indeed</span>
+                            {% else %}
+                            <span class="badge source-badge source-other">{{ email.source_platform or 'Unknown'
+                                }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ email.candidate_name or 'N/A' }}</strong>
+                            {% if email.candidate_email %}
+                            <br><small class="text-muted">{{ email.candidate_email }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if email.bullhorn_job_id %}
+                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ email.bullhorn_job_id }}"
+                                target="_blank" class="text-info">
+                                {{ email.bullhorn_job_id }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-{{ email.status }}">
+                                {% if email.status == 'completed' %}
+                                <i class="fas fa-check-circle"></i>
+                                {% elif email.status == 'failed' %}
+                                <i class="fas fa-times-circle"></i>
+                                {% elif email.status == 'processing' %}
+                                <i class="fas fa-spinner fa-spin"></i>
+                                {% else %}
+                                <i class="fas fa-clock"></i>
+                                {% endif %}
+                                {{ email.status | capitalize }}
+                            </span>
+                            {% if email.is_duplicate_candidate %}
+                            <br><small class="text-warning"><i class="fas fa-clone"></i> Duplicate ({{
+                                (email.duplicate_confidence * 100) | int }}%)</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if email.bullhorn_candidate_id %}
+                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ email.bullhorn_candidate_id }}"
+                                target="_blank" class="text-success">
+                                {{ email.bullhorn_candidate_id }}
+                            </a>
+                            {% if email.bullhorn_submission_id %}
+                            <br><small class="text-muted">Sub: {{ email.bullhorn_submission_id }}</small>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if email.resume_filename %}
+                            <i class="fas fa-file-alt text-info"></i>
+                            <small>{{ email.resume_filename[:20] }}{% if email.resume_filename|length > 20 %}...{% endif
+                                %}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if email.processing_notes %}
+                            <small class="text-muted" title="{{ email.processing_notes }}">
+                                {{ email.processing_notes[:30] }}{% if email.processing_notes|length > 30 %}...{% endif
+                                %}
+                            </small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
                     <tr>
                         <td colspan="8" class="text-center text-muted py-4">
                             <i class="fas fa-inbox fa-3x mb-3 d-block opacity-50"></i>
-                            No emails match your filters.
+                            No emails processed yet. Configure SendGrid Inbound Parse to start receiving emails.
                         </td>
                     </tr>
-                `;
-                return;
-            }
-            
-            tbody.innerHTML = emails.map(email => `
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function refreshData() {
+        const status = document.getElementById('statusFilter').value;
+        const source = document.getElementById('sourceFilter').value;
+
+        let url = '/api/email/parsed?';
+        if (status) url += `status=${status}&`;
+        if (source) url += `source=${encodeURIComponent(source)}&`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                updateTable(data.emails);
+                updateStats();
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function updateStats() {
+        fetch('/api/email/stats')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('totalCount').textContent = data.overview.total;
+                document.getElementById('completedCount').textContent = data.overview.completed;
+                document.getElementById('failedCount').textContent = data.overview.failed;
+                document.getElementById('duplicateCount').textContent = data.overview.duplicates;
+                document.getElementById('duplicateRate').textContent = data.overview.duplicate_rate.toFixed(1) + '%';
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function updateTable(emails) {
+        const tbody = document.getElementById('emailsTable');
+        if (emails.length === 0) {
+            tbody.innerHTML = `
                 <tr>
-                    <td><small>${email.received_at || 'N/A'}</small></td>
-                    <td>${getSourceBadge(email.source_platform)}</td>
-                    <td>
-                        <strong>${email.candidate_name || 'N/A'}</strong>
-                        ${email.candidate_email ? `<br><small class="text-muted">${email.candidate_email}</small>` : ''}
-                    </td>
-                    <td>
-                        ${email.bullhorn_job_id 
-                            ? `<a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id=${email.bullhorn_job_id}" target="_blank" class="text-info">${email.bullhorn_job_id}</a>` 
-                            : '<span class="text-muted">N/A</span>'}
-                    </td>
-                    <td>
-                        <span class="status-${email.status}">
-                            ${getStatusIcon(email.status)} ${email.status.charAt(0).toUpperCase() + email.status.slice(1)}
-                        </span>
-                        ${email.is_duplicate ? `<br><small class="text-warning"><i class="fas fa-clone"></i> Duplicate (${Math.round(email.duplicate_confidence * 100)}%)</small>` : ''}
-                    </td>
-                    <td>
-                        ${email.bullhorn_candidate_id 
-                            ? `<a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=${email.bullhorn_candidate_id}" target="_blank" class="text-success">${email.bullhorn_candidate_id}</a>
-                               ${email.bullhorn_submission_id ? `<br><small class="text-muted">Sub: ${email.bullhorn_submission_id}</small>` : ''}`
-                            : '<span class="text-muted">-</span>'}
-                    </td>
-                    <td>
-                        ${email.resume_filename 
-                            ? `<i class="fas fa-file-alt text-info"></i> <small>${email.resume_filename.substring(0, 20)}${email.resume_filename.length > 20 ? '...' : ''}</small>` 
-                            : '<span class="text-muted">-</span>'}
-                    </td>
-                    <td>
-                        ${email.processing_notes 
-                            ? `<small class="text-muted" title="${email.processing_notes}">${email.processing_notes.substring(0, 30)}${email.processing_notes.length > 30 ? '...' : ''}</small>` 
-                            : ''}
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block opacity-50"></i>
+                        No emails match your filters.
                     </td>
                 </tr>
-            `).join('');
+            `;
+            return;
         }
-        
-        function getSourceBadge(source) {
-            const classes = {
-                'Dice': 'source-dice',
-                'LinkedIn Job Board': 'source-linkedin',
-                'Indeed Job Board': 'source-indeed'
-            };
-            const cls = classes[source] || 'source-other';
-            const label = source === 'LinkedIn Job Board' ? 'LinkedIn' : (source || 'Unknown');
-            return `<span class="badge source-badge ${cls}">${label}</span>`;
-        }
-        
-        function getStatusIcon(status) {
-            const icons = {
-                'completed': '<i class="fas fa-check-circle"></i>',
-                'failed': '<i class="fas fa-times-circle"></i>',
-                'processing': '<i class="fas fa-spinner fa-spin"></i>',
-                'received': '<i class="fas fa-clock"></i>'
-            };
-            return icons[status] || '<i class="fas fa-question-circle"></i>';
-        }
-        
-        document.getElementById('statusFilter').addEventListener('change', refreshData);
-        document.getElementById('sourceFilter').addEventListener('change', refreshData);
-        
-        setInterval(refreshData, 30000);
-    </script>
-</body>
-</html>
+        tbody.innerHTML = emails.map(email => `
+            <tr>
+                <td><small>${email.received_at || 'N/A'}</small></td>
+                <td>${getSourceBadge(email.source_platform)}</td>
+                <td>
+                    <strong>${email.candidate_name || 'N/A'}</strong>
+                    ${email.candidate_email ? `<br><small class="text-muted">${email.candidate_email}</small>` : ''}
+                </td>
+                <td>
+                    ${email.bullhorn_job_id
+                ? `<a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id=${email.bullhorn_job_id}" target="_blank" class="text-info">${email.bullhorn_job_id}</a>`
+                : '<span class="text-muted">N/A</span>'}
+                </td>
+                <td>
+                    <span class="status-${email.status}">
+                        ${getStatusIcon(email.status)} ${email.status.charAt(0).toUpperCase() + email.status.slice(1)}
+                    </span>
+                    ${email.is_duplicate ? `<br><small class="text-warning"><i class="fas fa-clone"></i> Duplicate (${Math.round(email.duplicate_confidence * 100)}%)</small>` : ''}
+                </td>
+                <td>
+                    ${email.bullhorn_candidate_id
+                ? `<a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=${email.bullhorn_candidate_id}" target="_blank" class="text-success">${email.bullhorn_candidate_id}</a>
+                           ${email.bullhorn_submission_id ? `<br><small class="text-muted">Sub: ${email.bullhorn_submission_id}</small>` : ''}`
+                : '<span class="text-muted">-</span>'}
+                </td>
+                <td>
+                    ${email.resume_filename
+                ? `<i class="fas fa-file-alt text-info"></i> <small>${email.resume_filename.substring(0, 20)}${email.resume_filename.length > 20 ? '...' : ''}</small>`
+                : '<span class="text-muted">-</span>'}
+                </td>
+                <td>
+                    ${email.processing_notes
+                ? `<small class="text-muted" title="${email.processing_notes}">${email.processing_notes.substring(0, 30)}${email.processing_notes.length > 30 ? '...' : ''}</small>`
+                : ''}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function getSourceBadge(source) {
+        const classes = {
+            'Dice': 'source-dice',
+            'LinkedIn Job Board': 'source-linkedin',
+            'Indeed Job Board': 'source-indeed'
+        };
+        const cls = classes[source] || 'source-other';
+        const label = source === 'LinkedIn Job Board' ? 'LinkedIn' : (source || 'Unknown');
+        return `<span class="badge source-badge ${cls}">${label}</span>`;
+    }
+
+    function getStatusIcon(status) {
+        const icons = {
+            'completed': '<i class="fas fa-check-circle"></i>',
+            'failed': '<i class="fas fa-times-circle"></i>',
+            'processing': '<i class="fas fa-spinner fa-spin"></i>',
+            'received': '<i class="fas fa-clock"></i>'
+        };
+        return icons[status] || '<i class="fas fa-question-circle"></i>';
+    }
+
+    document.getElementById('statusFilter').addEventListener('change', refreshData);
+    document.getElementById('sourceFilter').addEventListener('change', refreshData);
+    setInterval(refreshData, 30000);
+</script>
+{% endblock %}

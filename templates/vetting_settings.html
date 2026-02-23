@@ -1,1149 +1,1283 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="30">
-    <title>AI Candidate Vetting - JobPulse™</title>
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
-        }
-        
-        .geometric-bg {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
-                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
-            background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
-            animation: drift 30s linear infinite;
-            z-index: -1;
-        }
-        
-        @keyframes drift {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(-60px, -60px) rotate(360deg); }
-        }
-        
-        .settings-card {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            backdrop-filter: blur(15px);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .settings-card:hover {
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.3);
-            transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
-        }
-        
-        .activity-table {
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
-        }
-        
-        .activity-table th {
-            background: rgba(255,255,255,0.1);
-            border-bottom: 1px solid rgba(255,255,255,0.15);
-        }
-        
-        .activity-table td {
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-        }
-        
-        .toggle-switch {
-            position: relative;
-            width: 60px;
-            height: 30px;
-        }
-        
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #6c757d;
-            transition: .4s;
-            border-radius: 30px;
-        }
-        
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 22px;
-            width: 22px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        
-        input:checked + .toggle-slider {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        
-        input:checked + .toggle-slider:before {
-            transform: translateX(30px);
-        }
-        
-        .stat-card {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .badge-qualified {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        }
-        
-        .badge-not-qualified {
-            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
-        }
-        
-        /* Fix modal z-index issues with backdrop-filter */
-        .modal {
-            z-index: 1055;
-        }
-        
-        .modal-backdrop {
-            z-index: 1050;
-        }
-        
-        .modal-content {
-            z-index: 1;
-        }
-        
-        /* Ensure modals render above backdrop-filter elements */
-        .modal-dialog {
-            position: relative;
-            z-index: 1056;
-        }
-        
-        .badge-processing {
-            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-            color: #000;
-        }
-        
-        .nav-tabs .nav-link {
-            color: rgba(255,255,255,0.7);
-            border: none;
-            border-bottom: 2px solid transparent;
-            background: transparent;
-            transition: all 0.3s ease;
-        }
-        
-        .nav-tabs .nav-link:hover {
-            color: white;
-            border-bottom-color: rgba(255,255,255,0.3);
-        }
-        
-        .nav-tabs .nav-link.active {
-            color: white;
-            background: rgba(255,255,255,0.1);
-            border-bottom: 2px solid #667eea;
-        }
-        
-        .accordion-button {
-            padding: 12px 16px;
-        }
-        
-        .accordion-button:not(.collapsed) {
-            background: rgba(255,255,255,0.1);
-            color: white;
-        }
-        
-        .accordion-button:focus {
-            box-shadow: none;
-            border-color: rgba(255,255,255,0.2);
-        }
-        
-        .accordion-button::after {
-            filter: invert(1);
-        }
-        
-        .accordion-body {
-            background: rgba(0,0,0,0.2);
-        }
-    </style>
-</head>
-<body>
-    <div class="geometric-bg"></div>
-    
-    <div class="container-fluid py-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="mb-0">
-                    <i class="fas fa-brain me-2" style="color: #667eea;"></i>
-                    AI Candidate Vetting
-                </h1>
-                <p class="text-muted mb-0">Automated resume-to-job matching for inbound applicants</p>
-            </div>
-            <a href="{{ url_for('dashboard_redirect') }}" class="btn btn-outline-light">
-                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-            </a>
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="screening"{% endblock %}
+
+{% block title %}Scout Screening - Scout Genius™{% endblock %}
+
+{% block extra_head %}
+<meta http-equiv="refresh" content="60">
+<style>
+    .settings-card {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(15px);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .settings-card:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-4px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .activity-table {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+    }
+
+    .activity-table th {
+        background: rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .activity-table td {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .toggle-switch {
+        position: relative;
+        width: 60px;
+        height: 30px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #6c757d;
+        transition: .4s;
+        border-radius: 30px;
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+
+    .toggle-switch input:checked+.toggle-slider {
+        background-color: var(--module-accent, #4a9678);
+    }
+
+    .toggle-switch input:checked+.toggle-slider:before {
+        transform: translateX(30px);
+    }
+
+    /* stat-card styles removed - now using global metric-card from base_layout.html */
+
+    .accordion-button {
+        background-color: transparent !important;
+        color: white !important;
+    }
+
+    .accordion-button:not(.collapsed)::after {
+        filter: brightness(0) invert(1);
+    }
+
+    .accordion-button::after {
+        filter: brightness(0) invert(1);
+    }
+
+    .accordion-body {
+        background: rgba(0, 0, 0, 0.2);
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}AI Candidate Screening{% endblock %}
+{% block page_subtitle %}Automated resume-to-job matching for inbound applicants{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('vetting.embedding_audit') }}" class="btn btn-outline-info btn-sm me-2"
+    title="Embedding filter monitoring">
+    <i class="fas fa-chart-bar me-1"></i>Embedding Audit
+</a>
+<button onclick="location.reload()" class="btn btn-outline-light btn-sm" title="Refresh data">
+    <i class="fas fa-sync-alt me-1"></i>Refresh
+</button>
+{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }} alert-dismissible fade show"
+    role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- Metrics Row - Horizontal Cards (matching Dashboard style) -->
+<div class="metrics-row">
+    <div class="metric-card blue">
+        <div class="metric-icon">
+            <i class="fas fa-clipboard-check"></i>
         </div>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        <div class="row g-4 mb-4">
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-value">{{ stats.total_processed }}</div>
-                    <div class="text-muted">Total Processed</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-value" style="-webkit-text-fill-color: #28a745;">{{ stats.qualified }}</div>
-                    <div class="text-muted">Qualified Matches</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-value" style="-webkit-text-fill-color: #17a2b8;">{{ stats.notifications_sent }}</div>
-                    <div class="text-muted">Notifications Sent</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-value" style="-webkit-text-fill-color: #ffc107;">{{ stats.pending }}</div>
-                    <div class="text-muted">Pending</div>
-                </div>
-            </div>
+        <div class="metric-label">Total Processed</div>
+        <div class="metric-value">{{ stats.total_processed }}</div>
+        <div class="metric-subtext">Candidates Vetted</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-chart-line"></i>
+            All time
         </div>
-        
-        <div class="row g-4">
-            <div class="col-md-6">
-                <div class="card settings-card h-100">
-                    <div class="card-header bg-transparent border-bottom border-secondary">
-                        <h5 class="mb-0">
-                            <i class="fas fa-cog me-2"></i>Vetting Settings
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <form action="{{ url_for('save_vetting_settings') }}" method="POST" id="settingsForm" onsubmit="showSavingIndicator()">
-                            <div class="mb-4">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-1">Enable AI Vetting</h6>
-                                        <small class="text-muted">Automatically analyze new job applicants</small>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" name="vetting_enabled" 
-                                               {% if settings.vetting_enabled %}checked{% endif %}>
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-4">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-1">Send Recruiter Emails</h6>
-                                        <small class="text-muted">
-                                            <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i></span>
-                                            ON: Recruiters receive notifications | OFF: Admin email only (testing mode)
-                                        </small>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" name="send_recruiter_emails" 
-                                               {% if settings.send_recruiter_emails %}checked{% endif %}>
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-4">
-                                <label class="form-label">Match Threshold (%)</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" name="match_threshold" 
-                                           value="{{ settings.match_threshold }}" min="50" max="100" step="5">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                                <small class="text-muted">Candidates scoring above this threshold will trigger notifications</small>
-                            </div>
-                            
-                            <div class="mb-4">
-                                <label class="form-label">Batch Size (per cycle)</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" name="batch_size" 
-                                           value="{{ settings.batch_size }}" min="1" max="100" step="1">
-                                    <span class="input-group-text">candidates</span>
-                                </div>
-                                <small class="text-muted">Maximum candidates to process per 5-minute cycle (1-100)</small>
-                            </div>
-                            
-                            <div class="mb-4">
-                                <label class="form-label">Notification Email (Admin Copy)</label>
-                                <input type="email" class="form-control" name="admin_notification_email" 
-                                       value="{{ settings.admin_notification_email }}" 
-                                       placeholder="Optional: Receive a copy of all notifications">
-                                <small class="text-muted">Leave blank to only notify assigned recruiters</small>
-                            </div>
-                            
-                            <div class="mb-4">
-                                <label class="form-label">Health Alert Email</label>
-                                <input type="email" class="form-control" name="health_alert_email" 
-                                       value="{{ settings.health_alert_email }}" 
-                                       placeholder="Email for system health alerts">
-                                <small class="text-muted">Receive alerts when Bullhorn, OpenAI, or scheduler issues occur</small>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-primary w-100" id="saveBtn">
-                                <span id="saveBtnText"><i class="fas fa-save me-2"></i>Save Settings</span>
-                                <span id="saveBtnLoading" style="display: none;">
-                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                    Saving...
-                                </span>
-                            </button>
-                        </form>
-                        
-                        <hr class="border-secondary my-4">
-                        
-                        <h6 class="mb-3"><i class="fas fa-envelope-open-text me-2"></i>Test Email Preview</h6>
-                        <form action="{{ url_for('send_test_vetting_email') }}" method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Test Scenario</label>
-                                <select class="form-select" name="scenario">
-                                    <option value="1">1 Match: Applied job only (85% match)</option>
-                                    <option value="2" selected>2 Matches: Applied + 1 cross-reference</option>
-                                    <option value="3">3+ Matches: Applied + 2 cross-references</option>
-                                    <option value="cross_only">Cross-reference only (applied job below threshold)</option>
-                                    <option value="multi">Multi-Recruiter: Same email to all recruiters</option>
-                                </select>
-                                <small class="text-muted">Test different notification scenarios</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Recipient Email</label>
-                                <input type="email" class="form-control" name="test_email" 
-                                       value="kyleroots00@gmail.com" 
-                                       placeholder="Enter email to receive test">
-                                <small class="text-muted">See what notification emails look like</small>
-                            </div>
-                            <div class="d-flex gap-2">
-                                <button type="submit" name="action" value="send" class="btn btn-outline-info flex-grow-1">
-                                    <i class="fas fa-paper-plane me-2"></i>Send Test
-                                </button>
-                                <button type="submit" name="action" value="preview" class="btn btn-outline-secondary flex-grow-1">
-                                    <i class="fas fa-eye me-2"></i>Preview
-                                </button>
-                            </div>
-                        </form>
-                        
-                        <div class="mt-3">
-                            <a href="{{ url_for('show_sample_notes') }}" class="btn btn-outline-secondary w-100">
-                                <i class="fas fa-sticky-note me-2"></i>View Sample Candidate Notes
-                            </a>
-                            <small class="text-muted d-block mt-1">See what notes look like in Bullhorn</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6">
-                <div class="card settings-card h-100">
-                    <div class="card-header bg-transparent border-bottom border-secondary">
-                        <h5 class="mb-0">
-                            <i class="fas fa-info-circle me-2"></i>How It Works
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <div class="d-flex align-items-start mb-2">
-                                <span class="badge bg-primary me-3" style="min-width: 30px;">1</span>
-                                <div>
-                                    <strong>Detection</strong>
-                                    <p class="text-muted mb-0 small">Every 1 minute, the system checks for new candidates with "Online Applicant" status</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <div class="d-flex align-items-start mb-2">
-                                <span class="badge bg-primary me-3" style="min-width: 30px;">2</span>
-                                <div>
-                                    <strong>Resume Analysis</strong>
-                                    <p class="text-muted mb-0 small">GPT-4o extracts and analyzes the candidate's resume against all open positions in monitored tearsheets</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <div class="d-flex align-items-start mb-2">
-                                <span class="badge bg-primary me-3" style="min-width: 30px;">3</span>
-                                <div>
-                                    <strong>Match Scoring</strong>
-                                    <p class="text-muted mb-0 small">Each candidate-job pair receives a compatibility score based on skills, experience, and qualifications</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <div class="d-flex align-items-start mb-2">
-                                <span class="badge bg-success me-3" style="min-width: 30px;">4</span>
-                                <div>
-                                    <strong>Note Creation</strong>
-                                    <p class="text-muted mb-0 small">A detailed note is added to every candidate record with the analysis results</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <div class="d-flex align-items-start">
-                                <span class="badge bg-info me-3" style="min-width: 30px;">5</span>
-                                <div>
-                                    <strong>Recruiter Alerts</strong>
-                                    <p class="text-muted mb-0 small">For candidates scoring {{ settings.match_threshold }}%+, the assigned recruiter receives an email notification</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    </div>
+
+    <div class="metric-card green">
+        <div class="metric-icon">
+            <i class="fas fa-check-circle"></i>
         </div>
-        
-        <!-- System Health Panel -->
-        <div class="card settings-card mt-4">
-            <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <div class="metric-label">Qualified Matches</div>
+        <div class="metric-value">{{ stats.qualified }}</div>
+        <div class="metric-subtext">{{ settings.match_threshold }}%+ Score</div>
+        <div class="metric-trend up">
+            <i class="fas fa-arrow-up"></i>
+            Recommended
+        </div>
+    </div>
+
+    <div class="metric-card purple">
+        <div class="metric-icon">
+            <i class="fas fa-envelope"></i>
+        </div>
+        <div class="metric-label">Notifications Sent</div>
+        <div class="metric-value">{{ stats.notifications_sent }}</div>
+        <div class="metric-subtext">Email Alerts</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-paper-plane"></i>
+            Recruiter alerts
+        </div>
+    </div>
+
+    <div class="metric-card orange">
+        <div class="metric-icon">
+            <i class="fas fa-hourglass-half"></i>
+        </div>
+        <div class="metric-label">Pending</div>
+        <div class="metric-value">{{ stats.pending }}</div>
+        <div class="metric-subtext">Awaiting Vetting</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-clock"></i>
+            In queue
+        </div>
+    </div>
+</div>
+
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card settings-card h-100">
+            <div class="card-header bg-transparent border-bottom border-secondary">
                 <h5 class="mb-0">
-                    <i class="fas fa-heartbeat me-2"></i>System Health
-                    {% if latest_health %}
-                        {% if latest_health.is_healthy %}
-                            <span class="badge bg-success ms-2">Healthy</span>
-                        {% else %}
-                            <span class="badge bg-danger ms-2">Issues Detected</span>
-                        {% endif %}
-                    {% else %}
-                        <span class="badge bg-secondary ms-2">No Data</span>
-                    {% endif %}
+                    <i class="fas fa-cog me-2"></i>Vetting Settings
                 </h5>
-                <form action="{{ url_for('run_health_check_now') }}" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-outline-secondary btn-sm" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Checking...'; this.form.submit();">
-                        <i class="fas fa-sync me-1"></i>Check Now
+            </div>
+            <div class="card-body">
+                {% if settings.vetting_cutoff_date %}
+                <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+                    <i class="fas fa-calendar-check me-2"></i>
+                    <div>
+                        <strong>Backlog paused.</strong> Currently vetting only applicants received after
+                        <strong>{{ settings.vetting_cutoff_date }} UTC</strong>.
+                        Clear the cutoff date below to resume processing the full backlog.
+                    </div>
+                </div>
+                {% endif %}
+                <form action="{{ url_for('vetting.save_vetting_settings') }}" method="POST" id="settingsForm"
+                    onsubmit="showSavingIndicator()">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Enable Scout Screening</h6>
+                                <small class="text-muted">Automatically analyze new job applicants</small>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="vetting_enabled" {% if settings.vetting_enabled %}checked{%
+                                    endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Send Recruiter Emails</h6>
+                                <small class="text-muted">
+                                    <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i></span>
+                                    ON: Recruiters receive notifications | OFF: Admin email only (testing mode)
+                                </small>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="send_recruiter_emails" {% if settings.send_recruiter_emails
+                                    %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Match Threshold (%)</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="match_threshold"
+                                value="{{ settings.match_threshold }}" min="50" max="100" step="5">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="text-muted">Candidates scoring above this threshold will trigger
+                            notifications</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Batch Size (per cycle)</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="batch_size"
+                                value="{{ settings.batch_size }}" min="1" max="100" step="1">
+                            <span class="input-group-text">candidates</span>
+                        </div>
+                        <small class="text-muted">Maximum candidates to process per 3-minute cycle
+                            (1-100)</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Embedding Filter Threshold</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="embedding_similarity_threshold"
+                                value="{{ settings.embedding_similarity_threshold }}" min="0.0" max="1.0" step="0.05">
+                        </div>
+                        <small class="text-muted">Cosine similarity threshold for the embedding pre-filter (0.0–1.0).
+                            Resume-job pairs below this score are filtered out before GPT analysis.
+                            Lower = less filtering, higher = more aggressive filtering. Default: 0.25</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Vetting Cutoff Date (UTC)</label>
+                        <input type="text" class="form-control" name="vetting_cutoff_date"
+                            value="{{ settings.vetting_cutoff_date }}"
+                            placeholder="e.g. 2026-02-12 07:00:00 (leave blank for no cutoff)">
+                        <small class="text-muted">Only candidates with received_at after this timestamp will be
+                            vetted. Leave blank to process all unvetted candidates including the backlog.
+                            Format: YYYY-MM-DD HH:MM:SS</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Notification Email (Admin Copy)</label>
+                        <input type="email" class="form-control" name="admin_notification_email"
+                            value="{{ settings.admin_notification_email }}"
+                            placeholder="Optional: Receive a copy of all notifications">
+                        <small class="text-muted">Leave blank to only notify assigned recruiters</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Health Alert Email</label>
+                        <input type="email" class="form-control" name="health_alert_email"
+                            value="{{ settings.health_alert_email }}" placeholder="Email for system health alerts">
+                        <small class="text-muted">Receive alerts when Bullhorn, OpenAI, or scheduler issues
+                            occur</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label"><i class="fas fa-globe me-1"></i>Global Screening Instructions</label>
+                        <textarea class="form-control" name="global_custom_requirements" rows="4"
+                            placeholder="Enter global screening instructions that apply to ALL jobs (e.g., citizenship inference rules). Leave blank if not needed."
+                            style="font-size: 0.9rem;">{{ settings.global_custom_requirements }}</textarea>
+                        <small class="text-muted">These instructions are applied to every candidate screening across all
+                            jobs.
+                            Job-level custom overrides are applied in addition to these global rules.
+                            Example: "If candidates have 6+ years of US professional work experience (excluding
+                            education), infer US citizenship eligibility."</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100" id="saveBtn">
+                        <span id="saveBtnText"><i class="fas fa-save me-2"></i>Save Settings</span>
+                        <span id="saveBtnLoading" style="display: none;">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            Saving...
+                        </span>
                     </button>
                 </form>
-            </div>
-            <div class="card-body">
-                {% if latest_health %}
-                <div class="row g-3 mb-3">
-                    <div class="col-md-3">
-                        <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                            <i class="fas fa-building fa-lg me-3 {% if latest_health.bullhorn_status %}text-success{% else %}text-danger{% endif %}"></i>
-                            <div>
-                                <div class="small text-muted">Bullhorn</div>
-                                <div class="{% if latest_health.bullhorn_status %}text-success{% else %}text-danger{% endif %}">
-                                    {% if latest_health.bullhorn_status %}Connected{% else %}Error{% endif %}
-                                </div>
-                            </div>
-                        </div>
+
+                <hr class="border-secondary my-4">
+
+                <h6 class="mb-3"><i class="fas fa-envelope-open-text me-2"></i>Test Email Preview</h6>
+                <form action="{{ url_for('vetting.send_test_vetting_email') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Test Scenario</label>
+                        <select class="form-select" name="scenario">
+                            <option value="1">1 Match: Applied job only (85% match)</option>
+                            <option value="2" selected>2 Matches: Applied + 1 cross-reference</option>
+                            <option value="3">3+ Matches: Applied + 2 cross-references</option>
+                            <option value="cross_only">Cross-reference only (applied job below threshold)
+                            </option>
+                            <option value="multi">Multi-Recruiter: Same email to all recruiters</option>
+                        </select>
+                        <small class="text-muted">Test different notification scenarios</small>
                     </div>
-                    <div class="col-md-3">
-                        <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                            <i class="fas fa-brain fa-lg me-3 {% if latest_health.openai_status %}text-success{% else %}text-danger{% endif %}"></i>
-                            <div>
-                                <div class="small text-muted">OpenAI</div>
-                                <div class="{% if latest_health.openai_status %}text-success{% else %}text-danger{% endif %}">
-                                    {% if latest_health.openai_status %}Available{% else %}Error{% endif %}
-                                </div>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Recipient Email</label>
+                        <input type="email" class="form-control" name="test_email" value="kyleroots00@gmail.com"
+                            placeholder="Enter email to receive test">
+                        <small class="text-muted">See what notification emails look like</small>
                     </div>
-                    <div class="col-md-3">
-                        <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                            <i class="fas fa-database fa-lg me-3 {% if latest_health.database_status %}text-success{% else %}text-danger{% endif %}"></i>
-                            <div>
-                                <div class="small text-muted">Database</div>
-                                <div class="{% if latest_health.database_status %}text-success{% else %}text-danger{% endif %}">
-                                    {% if latest_health.database_status %}Connected{% else %}Error{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                            <i class="fas fa-clock fa-lg me-3 {% if latest_health.scheduler_status %}text-success{% else %}text-danger{% endif %}"></i>
-                            <div>
-                                <div class="small text-muted">Scheduler</div>
-                                <div class="{% if latest_health.scheduler_status %}text-success{% else %}text-danger{% endif %}">
-                                    {% if latest_health.scheduler_status %}Running{% else %}Stopped{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <div class="small text-muted">Last Check</div>
-                        <div>{{ latest_health.check_time.strftime('%b %d, %Y %I:%M %p') if latest_health.check_time else 'N/A' }}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="small text-muted">Last Successful Cycle</div>
-                        <div>{{ latest_health.last_successful_cycle.strftime('%b %d, %Y %I:%M %p') if latest_health.last_successful_cycle else 'N/A' }}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="small text-muted">Today's Stats</div>
-                        <div>{{ latest_health.candidates_processed_today }} processed, {{ latest_health.emails_sent_today }} emails sent</div>
-                    </div>
-                </div>
-                
-                {% if not latest_health.is_healthy %}
-                <div class="alert alert-danger mb-0">
-                    <strong><i class="fas fa-exclamation-triangle me-2"></i>Issues:</strong>
-                    <ul class="mb-0 mt-2">
-                        {% if not latest_health.bullhorn_status %}
-                        <li>Bullhorn: {{ latest_health.bullhorn_error or 'Connection failed' }}</li>
-                        {% endif %}
-                        {% if not latest_health.openai_status %}
-                        <li>OpenAI: {{ latest_health.openai_error or 'API unavailable' }}</li>
-                        {% endif %}
-                        {% if not latest_health.database_status %}
-                        <li>Database: {{ latest_health.database_error or 'Connection failed' }}</li>
-                        {% endif %}
-                        {% if not latest_health.scheduler_status %}
-                        <li>Scheduler: {{ latest_health.scheduler_error or 'Not running' }}</li>
-                        {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
-                
-                {% if recent_issues %}
-                <div class="mt-3">
-                    <h6 class="text-muted"><i class="fas fa-history me-2"></i>Recent Issues (24h)</h6>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-sm activity-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Issue</th>
-                                    <th>Alert Sent</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for issue in recent_issues %}
-                                <tr>
-                                    <td>{{ issue.check_time.strftime('%b %d %I:%M %p') }}</td>
-                                    <td>
-                                        {% if not issue.bullhorn_status %}<span class="badge bg-danger">Bullhorn</span>{% endif %}
-                                        {% if not issue.openai_status %}<span class="badge bg-danger">OpenAI</span>{% endif %}
-                                        {% if not issue.database_status %}<span class="badge bg-danger">Database</span>{% endif %}
-                                        {% if not issue.scheduler_status %}<span class="badge bg-danger">Scheduler</span>{% endif %}
-                                    </td>
-                                    <td>
-                                        {% if issue.alert_sent %}
-                                            <span class="text-success"><i class="fas fa-check"></i> {{ issue.alert_sent_at.strftime('%I:%M %p') if issue.alert_sent_at else '' }}</span>
-                                        {% else %}
-                                            <span class="text-muted">No</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                {% endif %}
-                
-                {% else %}
-                <div class="text-center text-muted py-4">
-                    <i class="fas fa-heartbeat fa-3x mb-3 opacity-50"></i>
-                    <p class="mb-0">No health check data yet. Click "Check Now" or wait for automated checks (every 10 minutes).</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        
-        <div class="card settings-card mt-4">
-            <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-clipboard-list me-2"></i>Job Requirements Interpretation
-                </h5>
-                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#jobRequirementsSection">
-                    <i class="fas fa-chevron-down"></i>
-                </button>
-            </div>
-            <div id="jobRequirementsSection" class="collapse">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <p class="text-muted mb-0">
-                            <i class="fas fa-info-circle me-1"></i>
-                            The AI extracts and interprets mandatory requirements from each job. If the interpretation is inaccurate, 
-                            you can override it with custom requirements that the AI will use for matching instead.
-                        </p>
-                        <form action="{{ url_for('sync_job_requirements') }}" method="POST" class="ms-3">
-                            <button type="submit" class="btn btn-outline-secondary btn-sm" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Syncing...'; this.form.submit();" title="Remove requirements for jobs no longer in active tearsheets">
-                                <i class="fas fa-sync me-1"></i>Sync with Tearsheets
-                            </button>
-                        </form>
-                        <form action="{{ url_for('extract_all_job_requirements') }}" method="POST" class="ms-2">
-                            <button type="submit" class="btn btn-primary btn-sm" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Extracting...'; this.form.submit();">
-                                <i class="fas fa-magic me-1"></i>Extract All Requirements
-                            </button>
-                        </form>
-                    </div>
-                    {% if job_requirements %}
-                    <div class="table-responsive">
-                        <table class="table table-dark activity-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Job</th>
-                                    <th>Location</th>
-                                    <th>AI Interpreted Requirements</th>
-                                    <th>Custom Override</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for req in job_requirements %}
-                                <tr>
-                                    <td>
-                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ req.bullhorn_job_id }}" 
-                                           target="_blank" class="text-decoration-none">
-                                            {{ req.job_title or 'Job #' ~ req.bullhorn_job_id }}
-                                            <i class="fas fa-external-link-alt ms-1 small"></i>
-                                        </a>
-                                    </td>
-                                    <td>
-                                        {% if req.job_location or req.job_work_type %}
-                                            <small>
-                                                {% if req.job_location %}{{ req.job_location }}{% endif %}
-                                                {% if req.job_work_type %}
-                                                    <span class="badge {% if req.job_work_type == 'Remote' %}bg-success{% elif req.job_work_type == 'Hybrid' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-1">{{ req.job_work_type }}</span>
-                                                {% endif %}
-                                            </small>
-                                        {% else %}
-                                            <small class="text-muted">Not set</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <small class="text-muted" style="white-space: pre-wrap;">{{ req.ai_interpreted_requirements or 'Not yet analyzed' }}</small>
-                                    </td>
-                                    <td>
-                                        {% if req.custom_requirements %}
-                                            <span class="badge bg-info me-1">Custom</span>
-                                            <small style="white-space: pre-wrap;">{{ req.custom_requirements[:100] }}{% if req.custom_requirements|length > 100 %}...{% endif %}</small>
-                                        {% else %}
-                                            <span class="text-muted small">Using AI interpretation</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <form action="{{ url_for('refresh_job_requirements', job_id=req.bullhorn_job_id) }}" method="POST" class="d-inline">
-                                                <button type="submit" class="btn btn-outline-info" title="Re-fetch from Bullhorn and re-interpret with AI">
-                                                    <i class="fas fa-sync-alt"></i>
-                                                </button>
-                                            </form>
-                                            <button class="btn btn-outline-primary" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#editReqModal{{ req.bullhorn_job_id }}"
-                                                    title="Edit custom requirements override">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4 text-muted">
-                        <i class="fas fa-clipboard fa-2x mb-3"></i>
-                        <p>No job requirements recorded yet. Requirements will appear here after analyzing candidates.</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        {% if job_requirements %}
-        {% for req in job_requirements %}
-        <div class="modal fade" id="editReqModal{{ req.bullhorn_job_id }}" tabindex="-1" aria-labelledby="editReqModalLabel{{ req.bullhorn_job_id }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content bg-dark">
-                    <div class="modal-header border-secondary">
-                        <h5 class="modal-title" id="editReqModalLabel{{ req.bullhorn_job_id }}">Edit Requirements: {{ req.job_title or 'Job #' ~ req.bullhorn_job_id }}</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <form action="{{ url_for('save_job_requirements', job_id=req.bullhorn_job_id) }}" method="POST">
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label class="form-label">AI Interpreted Requirements (Read Only)</label>
-                                <textarea class="form-control bg-secondary text-light" rows="4" readonly>{{ req.ai_interpreted_requirements or 'Not yet analyzed' }}</textarea>
-                                <small class="text-muted">This is what the AI extracted from the job description</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Custom Requirements Override</label>
-                                <textarea class="form-control" name="custom_requirements" rows="4" 
-                                          placeholder="Enter custom requirements here to override AI interpretation...">{{ req.custom_requirements or '' }}</textarea>
-                                <small class="text-muted">Leave blank to use AI interpretation. Enter bullet points of mandatory skills/experience to use instead.</small>
-                            </div>
-                        </div>
-                        <div class="modal-footer border-secondary">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-1"></i>Save
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-        {% endif %}
-        
-        <div class="card settings-card mt-4">
-            <div class="card-header bg-transparent border-bottom border-secondary">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">
-                        <i class="fas fa-chart-bar me-2"></i>Vetting Audit Dashboard
-                    </h5>
                     <div class="d-flex gap-2">
-                        <form action="{{ url_for('full_clean_slate') }}" method="POST" class="d-inline">
-                            <button type="submit" class="btn btn-danger btn-sm" 
-                                    onclick="return confirm('⚠️ FULL CLEAN SLATE ⚠️\n\nThis will DELETE ALL vetting data:\n- All vetting logs\n- All job matches\n- Reset timestamp to now\n\nDashboard will show all zeros.\n\nThis cannot be undone. Continue?')">
-                                <i class="fas fa-trash-alt me-1"></i>Full Clean Slate
-                            </button>
-                        </form>
-                        <form action="{{ url_for('reset_recent_vetting') }}" method="POST" class="d-inline">
-                            <button type="submit" class="btn btn-warning btn-sm" 
-                                    onclick="return confirm('This will reset vetting status for all applications from the last 6 hours. They will be re-processed in the next cycle. Continue?')">
-                                <i class="fas fa-undo me-1"></i>Reset Recent (6h)
-                            </button>
-                        </form>
-                        <form action="{{ url_for('run_vetting_now') }}" method="POST" class="d-inline">
-                            <button type="submit" class="btn btn-primary btn-sm" 
-                                    {% if not settings.vetting_enabled %}disabled{% endif %}>
-                                <i class="fas fa-play me-1"></i>Run Vetting Now
-                            </button>
-                        </form>
+                        <button type="submit" name="action" value="send" class="btn btn-outline-info flex-grow-1">
+                            <i class="fas fa-paper-plane me-2"></i>Send Test
+                        </button>
+                        <button type="submit" name="action" value="preview"
+                            class="btn btn-outline-secondary flex-grow-1">
+                            <i class="fas fa-eye me-2"></i>Preview
+                        </button>
                     </div>
+                </form>
+
+                <div class="mt-3">
+                    <a href="{{ url_for('vetting.show_sample_notes') }}" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-sticky-note me-2"></i>View Sample Candidate Notes
+                    </a>
+                    <small class="text-muted d-block mt-1">See what notes look like in Bullhorn</small>
                 </div>
-                <!-- Pipeline Overview -->
-                <div class="row mb-4 g-3">
-                    <div class="col-md-3">
-                        <div class="p-3 rounded" style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
-                                <div>
-                                    <div class="h4 mb-0 text-info">{{ stats.pending }}</div>
-                                    <small class="text-muted">Awaiting Vetting</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="p-3 rounded" style="background: rgba(25, 135, 84, 0.1); border: 1px solid rgba(25, 135, 84, 0.3);">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
-                                <div>
-                                    <div class="h4 mb-0 text-success">{{ stats.qualified }}</div>
-                                    <small class="text-muted">Recommended ({{ settings.match_threshold }}%+)</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="p-3 rounded" style="background: rgba(108, 117, 125, 0.1); border: 1px solid rgba(108, 117, 125, 0.3);">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-times-circle fa-2x text-secondary me-3 opacity-75"></i>
-                                <div>
-                                    <div class="h4 mb-0 text-secondary">{{ stats.total_processed - stats.qualified }}</div>
-                                    <small class="text-muted">Not Recommended</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="p-3 rounded" style="background: rgba(111, 66, 193, 0.1); border: 1px solid rgba(111, 66, 193, 0.3);">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-envelope fa-2x me-3 opacity-75" style="color: #6f42c1;"></i>
-                                <div>
-                                    <div class="h4 mb-0" style="color: #6f42c1;">{{ stats.notifications_sent }}</div>
-                                    <small class="text-muted">Emails Sent</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <ul class="nav nav-tabs card-header-tabs" id="auditTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-candidates" 
-                                type="button" role="tab">
-                            <i class="fas fa-users me-1"></i>All Candidates
-                            <span class="badge bg-secondary ms-1">{{ recent_activity|length if recent_activity else 0 }}</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="recommended-tab" data-bs-toggle="tab" data-bs-target="#recommended-candidates" 
-                                type="button" role="tab">
-                            <i class="fas fa-star me-1 text-success"></i>Recommended
-                            <span class="badge bg-success ms-1">{{ stats.qualified }}</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="not-recommended-tab" data-bs-toggle="tab" data-bs-target="#not-recommended-candidates" 
-                                type="button" role="tab">
-                            <i class="fas fa-times-circle me-1 text-secondary"></i>Not Recommended
-                            <span class="badge bg-secondary ms-1">{{ stats.total_processed - stats.qualified }}</span>
-                        </button>
-                    </li>
-                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card settings-card h-100">
+            <div class="card-header bg-transparent border-bottom border-secondary">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>How It Works
+                </h5>
             </div>
             <div class="card-body">
-                <div class="tab-content" id="auditTabsContent">
-                    <div class="tab-pane fade show active" id="all-candidates" role="tabpanel">
-                        {% if recent_activity %}
-                        <div class="accordion" id="allCandidatesAccordion">
-                            {% for log in recent_activity %}
-                            <div class="accordion-item bg-transparent border-secondary">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed bg-transparent text-white" type="button" 
-                                            data-bs-toggle="collapse" data-bs-target="#candidateAll{{ log.id }}">
-                                        <div class="d-flex w-100 justify-content-between align-items-center pe-3">
-                                            <div class="d-flex align-items-center flex-wrap gap-2">
-                                                {% if log.status == 'pending' %}
-                                                <span class="badge bg-info">
-                                                    <i class="fas fa-clock me-1"></i>Pending
-                                                </span>
-                                                {% elif log.status == 'processing' %}
-                                                <span class="badge bg-warning text-dark">
-                                                    <i class="fas fa-spinner fa-spin me-1"></i>Processing
-                                                </span>
-                                                {% elif log.status == 'completed' %}
-                                                    {% if log.is_qualified %}
-                                                    <span class="badge bg-success">
-                                                        <i class="fas fa-star me-1"></i>Recommended
-                                                    </span>
-                                                    {% else %}
-                                                    <span class="badge bg-secondary">
-                                                        <i class="fas fa-times me-1"></i>Not Recommended
-                                                    </span>
-                                                    {% endif %}
-                                                {% elif log.status == 'failed' %}
-                                                <span class="badge bg-danger">
-                                                    <i class="fas fa-exclamation-triangle me-1"></i>Failed
-                                                </span>
-                                                {% endif %}
-                                                <strong>{{ log.candidate_name or 'Unknown Candidate' }}</strong>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-3">
-                                                {% if log.highest_match_score > 0 %}
-                                                <span class="badge {% if log.highest_match_score >= settings.match_threshold %}bg-success{% elif log.highest_match_score >= 60 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                                                    {{ "%.0f"|format(log.highest_match_score) }}% Best Match
-                                                </span>
-                                                {% elif log.status == 'pending' %}
-                                                <span class="badge bg-dark text-muted">
-                                                    <i class="fas fa-hourglass-half me-1"></i>Awaiting Analysis
-                                                </span>
-                                                {% endif %}
-                                                <small class="text-muted">{{ log.analyzed_at.strftime('%m/%d %H:%M') if log.analyzed_at else log.created_at.strftime('%m/%d %H:%M') }}</small>
-                                            </div>
-                                        </div>
-                                    </button>
-                                </h2>
-                                <div id="candidateAll{{ log.id }}" class="accordion-collapse collapse" data-bs-parent="#allCandidatesAccordion">
-                                    <div class="accordion-body">
-                                        <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
-                                                   target="_blank" class="btn btn-outline-info btn-sm mb-2">
-                                                    <i class="fas fa-external-link-alt me-1"></i>Open in Bullhorn ATS
-                                                </a>
-                                                <p class="mb-1"><strong>Email:</strong> {{ log.candidate_email or 'Not available' }}</p>
-                                                <p class="mb-1"><strong>Applied To:</strong> 
-                                                    {% if log.applied_job_id %}
-                                                    <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}" 
-                                                       target="_blank" class="text-info">
-                                                        {{ log.applied_job_title or 'Job #' ~ log.applied_job_id }}
-                                                        <i class="fas fa-external-link-alt ms-1 small"></i>
-                                                    </a>
-                                                    {% else %}Unknown{% endif %}
-                                                </p>
-                                            </div>
-                                            <div class="col-md-6 text-md-end">
-                                                <p class="mb-1">
-                                                    <strong>Note Created:</strong> 
-                                                    {% if log.note_created %}<span class="text-success"><i class="fas fa-check"></i> Yes</span>
-                                                    {% else %}<span class="text-muted">No</span>{% endif %}
-                                                </p>
-                                                <p class="mb-1">
-                                                    <strong>Recruiters Notified:</strong> 
-                                                    {% if log.notifications_sent %}<span class="text-success">{{ log.notification_count }}</span>
-                                                    {% else %}<span class="text-muted">0</span>{% endif %}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <h6 class="border-bottom border-secondary pb-2 mb-3">
-                                            <i class="fas fa-briefcase me-1"></i>Job Match Analysis ({{ log.job_matches.count() }} jobs)
-                                        </h6>
-                                        {% for match in log.job_matches|sort(attribute='match_score', reverse=True) %}
-                                        {% if loop.index <= 5 %}
-                                        <div class="card bg-dark mb-2 border-{% if match.is_qualified %}success{% else %}secondary{% endif %}">
-                                            <div class="card-body py-2 px-3">
-                                                <div class="d-flex justify-content-between align-items-start">
-                                                    <div>
-                                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ match.bullhorn_job_id }}" 
-                                                           target="_blank" class="text-decoration-none">
-                                                            <strong>{{ match.job_title or 'Job #' ~ match.bullhorn_job_id }}</strong>
-                                                            <i class="fas fa-external-link-alt ms-1 small"></i>
-                                                        </a>
-                                                        {% if match.is_applied_job %}<span class="badge bg-info ms-2">Applied</span>{% endif %}
-                                                        <p class="small text-muted mb-1">{{ match.job_location or 'Location not specified' }}</p>
-                                                    </div>
-                                                    <span class="badge {% if match.is_qualified %}bg-success{% elif match.match_score >= 60 %}bg-warning text-dark{% else %}bg-secondary{% endif %} fs-6">
-                                                        {{ "%.0f"|format(match.match_score) }}%
-                                                    </span>
-                                                </div>
-                                                {% if match.match_summary %}
-                                                <p class="small mb-1"><strong>Summary:</strong> {{ match.match_summary }}</p>
-                                                {% endif %}
-                                                {% if match.skills_match %}
-                                                <p class="small mb-1 text-success"><strong>Skills:</strong> {{ match.skills_match }}</p>
-                                                {% endif %}
-                                                {% if match.gaps_identified %}
-                                                <p class="small mb-0 text-warning"><strong>Gaps:</strong> {{ match.gaps_identified }}</p>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                        {% else %}
-                                        <p class="text-muted small">No job matches recorded yet.</p>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
+                <div class="mb-3">
+                    <div class="d-flex align-items-start mb-2">
+                        <span class="badge bg-primary me-3" style="min-width: 30px;">1</span>
+                        <div>
+                            <strong>Detection</strong>
+                            <p class="text-muted mb-0 small">Every 3 minutes, the system checks for new
+                                applicants — new candidates are typically vetted within minutes of applying</p>
                         </div>
-                        {% else %}
-                        <div class="text-center py-5 text-muted">
-                            <i class="fas fa-inbox fa-3x mb-3"></i>
-                            <p>No vetting activity yet. Enable AI vetting and new applicants will appear here.</p>
-                        </div>
-                        {% endif %}
                     </div>
-                    
-                    <div class="tab-pane fade" id="recommended-candidates" role="tabpanel">
-                        {% if recommended_candidates %}
-                        <div class="accordion" id="recommendedAccordion">
-                            {% for log in recommended_candidates %}
-                            <div class="accordion-item bg-transparent border-success">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed bg-transparent text-white" type="button" 
-                                            data-bs-toggle="collapse" data-bs-target="#candidateRec{{ log.id }}">
-                                        <div class="d-flex w-100 justify-content-between align-items-center pe-3">
-                                            <div class="d-flex align-items-center">
-                                                <span class="badge bg-success me-2"><i class="fas fa-star"></i></span>
-                                                <strong>{{ log.candidate_name or 'Unknown Candidate' }}</strong>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-3">
-                                                <span class="badge bg-success">{{ "%.0f"|format(log.highest_match_score) }}% Best Match</span>
-                                                <span class="badge bg-info">{{ log.total_jobs_matched }} Qualified Position{% if log.total_jobs_matched != 1 %}s{% endif %}</span>
-                                                <small class="text-muted">{{ log.analyzed_at.strftime('%m/%d %H:%M') if log.analyzed_at else 'Pending' }}</small>
-                                            </div>
-                                        </div>
-                                    </button>
-                                </h2>
-                                <div id="candidateRec{{ log.id }}" class="accordion-collapse collapse" data-bs-parent="#recommendedAccordion">
-                                    <div class="accordion-body">
-                                        <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
-                                                   target="_blank" class="btn btn-success btn-sm mb-2">
-                                                    <i class="fas fa-external-link-alt me-1"></i>Review Candidate in Bullhorn
-                                                </a>
-                                                <p class="mb-1"><strong>Email:</strong> {{ log.candidate_email or 'Not available' }}</p>
-                                            </div>
-                                            <div class="col-md-6 text-md-end">
-                                                <p class="mb-1"><strong>Recruiters Notified:</strong> {{ log.notification_count }}</p>
-                                            </div>
-                                        </div>
-                                        <h6 class="border-bottom border-success pb-2 mb-3 text-success">
-                                            <i class="fas fa-check-circle me-1"></i>Qualified Positions
-                                        </h6>
-                                        {% for match in log.job_matches|selectattr('is_qualified')|sort(attribute='match_score', reverse=true)|list %}
-                                        <div class="card bg-dark mb-2 border-success">
-                                            <div class="card-body py-2 px-3">
-                                                <div class="d-flex justify-content-between align-items-start">
-                                                    <div>
-                                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ match.bullhorn_job_id }}" 
-                                                           target="_blank" class="text-decoration-none text-success">
-                                                            <strong>{{ match.job_title or 'Job #' ~ match.bullhorn_job_id }}</strong>
-                                                            <i class="fas fa-external-link-alt ms-1 small"></i>
-                                                        </a>
-                                                        {% if match.is_applied_job %}<span class="badge bg-info ms-2">Applied To</span>{% endif %}
-                                                    </div>
-                                                    <span class="badge bg-success fs-6">{{ "%.0f"|format(match.match_score) }}%</span>
-                                                </div>
-                                                {% if match.match_summary %}<p class="small mb-1">{{ match.match_summary }}</p>{% endif %}
-                                                {% if match.skills_match %}<p class="small mb-0 text-success">{{ match.skills_match }}</p>{% endif %}
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-start mb-2">
+                        <span class="badge bg-primary me-3" style="min-width: 30px;">2</span>
+                        <div>
+                            <strong>Resume Analysis</strong>
+                            <p class="text-muted mb-0 small">GPT-4o extracts and analyzes the candidate's resume
+                                against all open positions in monitored tearsheets</p>
                         </div>
-                        {% else %}
-                        <div class="text-center py-5 text-muted">
-                            <i class="fas fa-user-check fa-3x mb-3 text-success opacity-50"></i>
-                            <p>No recommended candidates yet. Candidates scoring {{ settings.match_threshold }}%+ on any position will appear here.</p>
-                        </div>
-                        {% endif %}
                     </div>
-                    
-                    <div class="tab-pane fade" id="not-recommended-candidates" role="tabpanel">
-                        {% if not_recommended_candidates %}
-                        <div class="accordion" id="notRecommendedAccordion">
-                            {% for log in not_recommended_candidates %}
-                            <div class="accordion-item bg-transparent border-secondary">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed bg-transparent text-white" type="button" 
-                                            data-bs-toggle="collapse" data-bs-target="#candidateNotRec{{ log.id }}">
-                                        <div class="d-flex w-100 justify-content-between align-items-center pe-3">
-                                            <div class="d-flex align-items-center">
-                                                <span class="badge bg-secondary me-2"><i class="fas fa-times"></i></span>
-                                                <strong>{{ log.candidate_name or 'Unknown Candidate' }}</strong>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-3">
-                                                <span class="badge bg-warning text-dark">{{ "%.0f"|format(log.highest_match_score) }}% Best Match</span>
-                                                <small class="text-muted">{{ log.analyzed_at.strftime('%m/%d %H:%M') if log.analyzed_at else 'Pending' }}</small>
-                                            </div>
-                                        </div>
-                                    </button>
-                                </h2>
-                                <div id="candidateNotRec{{ log.id }}" class="accordion-collapse collapse" data-bs-parent="#notRecommendedAccordion">
-                                    <div class="accordion-body">
-                                        <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}" 
-                                                   target="_blank" class="btn btn-outline-secondary btn-sm mb-2">
-                                                    <i class="fas fa-external-link-alt me-1"></i>View Candidate in Bullhorn
-                                                </a>
-                                                <p class="mb-1"><strong>Email:</strong> {{ log.candidate_email or 'Not available' }}</p>
-                                            </div>
-                                            <div class="col-md-6 text-md-end">
-                                                <p class="mb-1 text-muted"><i class="fas fa-info-circle me-1"></i>Below threshold ({{ settings.match_threshold }}%)</p>
-                                            </div>
-                                        </div>
-                                        <h6 class="border-bottom border-secondary pb-2 mb-3">
-                                            <i class="fas fa-search me-1"></i>Closest Matches (Top 3)
-                                        </h6>
-                                        {% for match in log.job_matches|sort(attribute='match_score', reverse=True) %}
-                                        {% if loop.index <= 3 %}
-                                        <div class="card bg-dark mb-2 border-secondary">
-                                            <div class="card-body py-2 px-3">
-                                                <div class="d-flex justify-content-between align-items-start">
-                                                    <div>
-                                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ match.bullhorn_job_id }}" 
-                                                           target="_blank" class="text-decoration-none">
-                                                            <strong>{{ match.job_title or 'Job #' ~ match.bullhorn_job_id }}</strong>
-                                                            <i class="fas fa-external-link-alt ms-1 small"></i>
-                                                        </a>
-                                                        {% if match.is_applied_job %}<span class="badge bg-info ms-2">Applied To</span>{% endif %}
-                                                    </div>
-                                                    <span class="badge bg-warning text-dark fs-6">{{ "%.0f"|format(match.match_score) }}%</span>
-                                                </div>
-                                                {% if match.gaps_identified %}
-                                                <p class="small mb-0 text-warning"><strong>Gaps:</strong> {{ match.gaps_identified }}</p>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-start mb-2">
+                        <span class="badge bg-primary me-3" style="min-width: 30px;">3</span>
+                        <div>
+                            <strong>Match Scoring</strong>
+                            <p class="text-muted mb-0 small">Each candidate-job pair receives a compatibility
+                                score based on skills, experience, and qualifications</p>
                         </div>
-                        {% else %}
-                        <div class="text-center py-5 text-muted">
-                            <i class="fas fa-clipboard-check fa-3x mb-3 opacity-50"></i>
-                            <p>No rejected candidates to review. Candidates below the {{ settings.match_threshold }}% threshold will appear here for quality audit.</p>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-start mb-2">
+                        <span class="badge bg-primary me-3" style="min-width: 30px;">4</span>
+                        <div>
+                            <strong>Note Creation</strong>
+                            <p class="text-muted mb-0 small">A detailed note is added to every candidate record
+                                with the analysis results</p>
                         </div>
-                        {% endif %}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="d-flex align-items-start">
+                        <span class="badge bg-info me-3" style="min-width: 30px;">5</span>
+                        <div>
+                            <strong>Recruiter Alerts</strong>
+                            <p class="text-muted mb-0 small">For candidates scoring {{ settings.match_threshold
+                                }}%+, the assigned recruiter receives an email notification</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</div>
+
+<!-- Job Requirements Drill-Down -->
+<div class="card settings-card mt-4">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center"
+        style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#jobRequirementsPanel" aria-expanded="true">
+        <h5 class="mb-0 d-flex align-items-center">
+            <i class="fas fa-briefcase me-2"></i>Job Requirements
+            {% if job_requirements %}
+            <span class="badge bg-info ms-2">{{ job_requirements|length }} Active Jobs</span>
+            {% endif %}
+            <i class="fas fa-chevron-down ms-3 section-toggle-icon"
+                style="transition: transform 0.3s ease; font-size: 0.8rem;"></i>
+        </h5>
+        <div class="d-flex gap-2" onclick="event.stopPropagation();">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllAccordions(true)"
+                title="Expand all job requirements">
+                <i class="fas fa-expand-alt me-1"></i>Expand All
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllAccordions(false)"
+                title="Collapse all job requirements">
+                <i class="fas fa-compress-alt me-1"></i>Collapse All
+            </button>
+            <form action="{{ url_for('vetting.sync_job_requirements') }}" method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-primary btn-sm"
+                    onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Syncing...'; this.form.submit();">
+                    <i class="fas fa-sync me-1"></i>Sync Jobs
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="collapse show" id="jobRequirementsPanel">
+        <div class="card-body">
+            {% if job_requirements %}
+            <p class="text-muted small mb-3">
+                <i class="fas fa-info-circle me-1"></i>
+                AI interprets requirements from job descriptions. Adjust per-job thresholds to override the global
+                default
+                ({{ settings.match_threshold }}%).
+            </p>
+            <div class="accordion" id="jobRequirementsAccordion">
+                {% for job in job_requirements %}
+                <div class="accordion-item"
+                    style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                    <h2 class="accordion-header" id="heading{{ job.bullhorn_job_id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse{{ job.bullhorn_job_id }}" aria-expanded="false"
+                            aria-controls="collapse{{ job.bullhorn_job_id }}"
+                            style="background: rgba(20, 20, 30, 0.9); color: #f1f5f9; border-radius: 6px;">
+                            <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                <div>
+                                    <strong style="color: #ffffff; font-size: 1rem;">{{ job.job_title or 'Untitled Job'
+                                        }}</strong>
+                                    <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">ID: {{
+                                        job.bullhorn_job_id }}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if job.job_location %}
+                                    <span class="badge" style="background: rgba(255,255,255,0.15); color: #e2e8f0;">{{
+                                        job.job_location }}</span>
+                                    {% endif %}
+                                    {% if job.vetting_threshold %}
+                                    <span class="badge bg-warning text-dark">{{ job.vetting_threshold }}%
+                                        threshold</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse{{ job.bullhorn_job_id }}" class="accordion-collapse collapse"
+                        aria-labelledby="heading{{ job.bullhorn_job_id }}" data-bs-parent="#jobRequirementsAccordion">
+                        <div class="accordion-body"
+                            style="background: var(--module-bg, rgba(15, 23, 42, 0.6)); border-top: 1px solid var(--module-border, rgba(255,255,255,0.1));">
+                            <!-- Job header reminder when expanded -->
+                            <div
+                                class="mb-3 pb-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-0 text-white">{{ job.job_title or 'Untitled Job' }}</h5>
+                                    <small class="text-muted">ID: {{ job.bullhorn_job_id }} {% if job.job_location %}•
+                                        {{
+                                        job.job_location }}{% endif %}</small>
+                                </div>
+                                {% if job.job_work_type %}
+                                <span class="badge bg-info">{{ job.job_work_type }}</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-7">
+                                    <h6 class="text-info mb-2"><i class="fas fa-robot me-1"></i>AI-Interpreted
+                                        Requirements
+                                    </h6>
+                                    {% if job.ai_interpreted_requirements %}
+                                    <div class="p-3 rounded mb-3"
+                                        style="background: var(--module-bg, rgba(74, 150, 120, 0.1)); border: 1px solid var(--module-border, rgba(74, 150, 120, 0.2));">
+                                        <pre
+                                            style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.ai_interpreted_requirements }}</pre>
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted"><i class="fas fa-exclamation-circle me-1"></i>No AI
+                                        interpretation
+                                        yet. Click "Sync Jobs" to extract requirements.</p>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-5">
+                                    <h6 class="text-success mb-2"><i class="fas fa-user-edit me-1"></i>Custom Override
+                                    </h6>
+                                    <form class="job-override-form" data-job-id="{{ job.bullhorn_job_id }}">
+                                        <textarea class="form-control form-control-sm mb-2 custom-requirements-input"
+                                            rows="5"
+                                            placeholder="Enter custom requirements to override AI interpretation..."
+                                            style="background: var(--module-bg, rgba(85, 124, 91, 0.1)); border: 1px solid var(--module-border, rgba(85, 124, 91, 0.3)); color: #e2e8f0; font-size: 0.85rem;">{{ job.custom_requirements or '' }}</textarea>
+                                        <small class="text-muted d-block mb-2">Custom requirements take priority over
+                                            AI-interpreted ones during vetting.</small>
+
+                                        <div class="d-flex gap-2 align-items-center mb-3">
+                                            <div class="input-group input-group-sm" style="max-width: 150px;">
+                                                <span class="input-group-text"><i class="fas fa-percentage"></i></span>
+                                                <input type="number" class="form-control job-threshold-input"
+                                                    data-job-id="{{ job.bullhorn_job_id }}"
+                                                    value="{{ job.vetting_threshold or '' }}"
+                                                    placeholder="{{ settings.match_threshold }}" min="0" max="100">
+                                            </div>
+                                            <small class="text-muted">Threshold (blank = global {{
+                                                settings.match_threshold
+                                                }}%)</small>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="fas fa-save me-1"></i>Save Changes
+                                        </button>
+                                    </form>
+
+                                    {% if job.last_ai_interpretation %}
+                                    <div class="text-muted small mt-3">
+                                        <i class="fas fa-clock me-1"></i>
+                                        Last AI interpretation: {{ job.last_ai_interpretation.strftime('%b %d, %Y') }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                <h5>No Job Requirements Data</h5>
+                <p class="text-muted">Click "Sync Jobs" to extract requirements from active tearsheet jobs.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Vetting Audit Dashboard -->
+    <div class="card settings-card mt-4">
+        <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center"
+            style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#vettingAuditPanel" aria-expanded="true">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-chart-bar me-2"></i>Vetting Audit Dashboard
+                <i class="fas fa-chevron-down ms-3 vetting-toggle-icon"
+                    style="transition: transform 0.3s ease; font-size: 0.8rem;"></i>
+            </h5>
+            <style>
+                .screening-action-btn {
+                    background: linear-gradient(135deg, #e63956 0%, #d42e4a 100%);
+                    color: #fff;
+                    border: none;
+                    height: 31px;
+                    line-height: 1;
+                    padding: 0 12px;
+                    transition: all 0.2s ease;
+                    cursor: pointer;
+                }
+
+                .screening-action-btn:hover {
+                    background: linear-gradient(135deg, #ff4d6d 0%, #e63956 100%);
+                    color: #fff;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(230, 57, 86, 0.4);
+                }
+
+                .screening-action-btn:active {
+                    transform: translateY(0);
+                    box-shadow: 0 2px 6px rgba(230, 57, 86, 0.3);
+                }
+
+                .screening-time-select {
+                    width: auto;
+                    min-width: 55px;
+                    height: 31px;
+                    border-radius: 0 0.25rem 0.25rem 0;
+                    border: 1px solid #e63956;
+                    border-left: 1px solid rgba(255, 255, 255, 0.2);
+                    background-color: #1a1a2e;
+                    color: #fff;
+                    padding: 0 8px;
+                    font-size: 0.8rem;
+                    transition: all 0.2s ease;
+                    cursor: pointer;
+                }
+
+                .screening-time-select:hover {
+                    border-color: #ff4d6d;
+                    background-color: #252545;
+                }
+
+                .screening-time-select:focus {
+                    border-color: #ff4d6d;
+                    box-shadow: 0 0 0 2px rgba(230, 57, 86, 0.25);
+                    background-color: #252545;
+                    color: #fff;
+                }
+            </style>
+            <div class="d-flex align-items-center gap-3" onclick="event.stopPropagation();">
+                <form action="{{ url_for('vetting.start_fresh') }}" method="POST" class="d-inline m-0">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm screening-action-btn"
+                        onclick="return confirm('This will skip all unvetted candidates before now and begin screening new candidates immediately.\n\nProceed?')">
+                        <i class="fas fa-bolt me-1"></i>Start Fresh
+                    </button>
+                </form>
+                <form id="rescreenForm" action="{{ url_for('vetting.rescreen_recent') }}" method="POST"
+                    class="d-inline m-0">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="hours" id="rescreenHours" value="6">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm screening-action-btn"
+                            style="border-radius: 0.25rem 0 0 0.25rem;" onclick="confirmRescreen()">
+                            <i class="fas fa-redo me-1"></i>Re-screen Last
+                        </button>
+                        <select id="rescreenHoursSelect" class="form-select form-select-sm screening-time-select"
+                            onchange="document.getElementById('rescreenHours').value = this.value;">
+                            <option value="1">1h</option>
+                            <option value="3">3h</option>
+                            <option value="6" selected>6h</option>
+                            <option value="12">12h</option>
+                            <option value="24">24h</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="collapse show" id="vettingAuditPanel">
+            <!-- Pipeline Overview (Metric Cards) -->
+            <div class="card-header bg-transparent border-bottom border-secondary">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded vetting-filter-card active" data-filter="pending"
+                            style="background: rgba(13, 202, 240, 0.15); border: 2px solid rgba(13, 202, 240, 0.5); cursor: pointer; transition: all 0.3s ease;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-clock fa-2x text-info me-3 opacity-75"></i>
+                                    <div>
+                                        <div class="h3 mb-0 text-info">{{ stats.pending }}</div>
+                                        <small class="text-light">Awaiting Vetting</small>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-right text-info opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded vetting-filter-card" data-filter="recommended"
+                            style="background: rgba(25, 135, 84, 0.1); border: 2px solid rgba(25, 135, 84, 0.3); cursor: pointer; transition: all 0.3s ease;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-check-circle fa-2x text-success me-3 opacity-75"></i>
+                                    <div>
+                                        <div class="h3 mb-0 text-success">{{ stats.qualified }}</div>
+                                        <small class="text-light">Recommended ({{ settings.match_threshold }}%+)</small>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-right text-success opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded vetting-filter-card" data-filter="not-recommended"
+                            style="background: rgba(220, 53, 69, 0.1); border: 2px solid rgba(220, 53, 69, 0.3); cursor: pointer; transition: all 0.3s ease;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-times-circle fa-2x text-danger me-3 opacity-75"></i>
+                                    <div>
+                                        <div class="h3 mb-0 text-danger">{{ stats.total_processed - stats.qualified }}
+                                        </div>
+                                        <small class="text-light">Not Recommended</small>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-right text-danger opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Candidate List - Filtered by Card Selection -->
+            <div class="card-body">
+                <h6 class="mb-3" id="filterTitle">
+                    <i class="fas fa-clock text-info me-2"></i>
+                    <span id="filterTitleText">Awaiting Vetting</span>
+                    <span class="badge bg-info ms-2" id="filterCount">{{ stats.pending }}</span>
+                </h6>
+
+                <!-- Pending Candidates Section -->
+                <div id="pending-section" class="candidate-filter-section">
+                    {% if pending_candidates and pending_candidates|length > 0 %}
+                    <div class="accordion" id="pendingAccordion">
+                        {% for candidate in pending_candidates[:30] %}
+                        <div class="accordion-item candidate-item" data-status="pending"
+                            style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#pendingCandidate{{ loop.index }}"
+                                    style="background: rgba(20, 20, 30, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                        <div>
+                                            <strong>{{ candidate.candidate_name or 'Unknown' }}</strong>
+                                            <span class="badge bg-info ms-2" style="font-size: 0.7rem;">ID: {{
+                                                candidate.bullhorn_candidate_id }}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-info">Pending</span>
+                                            <small class="text-muted">{{ candidate.detected_at.strftime('%b %d, %H:%M')
+                                                if candidate.detected_at else '' }}</small>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="pendingCandidate{{ loop.index }}" class="accordion-collapse collapse">
+                                <div class="accordion-body"
+                                    style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2"><i class="fas fa-briefcase me-1"></i>Applied Job
+                                            </h6>
+                                            {% if candidate.applied_job_id %}
+                                            <p class="mb-2">
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ candidate.applied_job_id }}"
+                                                    target="_blank" class="text-info text-decoration-none">
+                                                    {{ candidate.applied_job_title or 'N/A' }} <i
+                                                        class="fas fa-external-link-alt ms-1 small"></i>
+                                                </a>
+                                                <small class="text-muted">(ID: {{ candidate.applied_job_id }})</small>
+                                            </p>
+                                            {% else %}
+                                            <p class="mb-2">{{ candidate.applied_job_title or 'N/A' }}</p>
+                                            {% endif %}
+
+                                            <h6 class="text-info mb-2 mt-3"><i
+                                                    class="fas fa-info-circle me-1"></i>Status</h6>
+                                            <p class="text-muted mb-0">Awaiting AI analysis</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2"><i class="fas fa-calendar me-1"></i>Detected</h6>
+                                            <p class="mb-0">{{ candidate.detected_at.strftime('%B %d, %Y at %I:%M %p')
+                                                if candidate.detected_at else 'N/A' }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-top border-secondary">
+                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ candidate.bullhorn_candidate_id }}"
+                                            target="_blank" class="btn btn-outline-info btn-sm">
+                                            <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if pending_candidates|length > 30 %}
+                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{ pending_candidates|length }}
+                            pending candidates</small></p>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No candidates currently awaiting vetting</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Recommended Candidates Section -->
+                <div id="recommended-section" class="candidate-filter-section" style="display: none;">
+                    {% if recommended_candidates and recommended_candidates|length > 0 %}
+                    <div class="accordion" id="recommendedAccordion">
+                        {% for log in recommended_candidates[:30] %}
+                        <div class="accordion-item candidate-item" data-status="recommended"
+                            style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#recommendedCandidate{{ loop.index }}"
+                                    style="background: rgba(20, 20, 30, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                        <div>
+                                            <strong>{{ log.candidate_name or 'Unknown' }}</strong>
+                                            <span class="badge bg-success ms-2" style="font-size: 0.7rem;">ID: {{
+                                                log.bullhorn_candidate_id }}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-success">{{ log.highest_match_score|int }}%</span>
+                                            <small class="text-muted">{{ log.analyzed_at.strftime('%b %d, %H:%M') if
+                                                log.analyzed_at else '' }}</small>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="recommendedCandidate{{ loop.index }}" class="accordion-collapse collapse">
+                                <div class="accordion-body"
+                                    style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2"><i class="fas fa-briefcase me-1"></i>Applied Job
+                                            </h6>
+                                            {% if log.applied_job_id %}
+                                            <p class="mb-2">
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}"
+                                                    target="_blank" class="text-success text-decoration-none">
+                                                    {{ log.applied_job_title or 'N/A' }} <i
+                                                        class="fas fa-external-link-alt ms-1 small"></i>
+                                                </a>
+                                                <small class="text-muted">(ID: {{ log.applied_job_id }})</small>
+                                            </p>
+                                            {% else %}
+                                            <p class="mb-2">{{ log.applied_job_title or 'N/A' }}</p>
+                                            {% endif %}
+
+                                            <h6 class="text-info mb-2 mt-3"><i class="fas fa-chart-line me-1"></i>Match
+                                                Score</h6>
+                                            <div class="progress mb-2"
+                                                style="height: 20px; background: rgba(255,255,255,0.1);">
+                                                <div class="progress-bar bg-success" role="progressbar"
+                                                    style="width: {{ log.highest_match_score or 0 }}%;">
+                                                    {{ log.highest_match_score|int if log.highest_match_score else 0 }}%
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">Threshold: {{ settings.match_threshold }}%</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-success mb-2"><i class="fas fa-robot me-1"></i>AI Summary
+                                            </h6>
+                                            {% set best_match = log.job_matches|sort(attribute='match_score',
+                                            reverse=true)|first %}
+                                            {% if best_match and best_match.match_summary %}
+                                            <div class="p-2 rounded"
+                                                style="background: var(--module-bg, rgba(85, 124, 91, 0.1)); border: 1px solid var(--module-border, rgba(85, 124, 91, 0.2)); max-height: 150px; overflow-y: auto;">
+                                                <small style="white-space: pre-wrap;">{{ best_match.match_summary[:500]
+                                                    }}{% if best_match.match_summary|length > 500 %}...{% endif
+                                                    %}</small>
+                                            </div>
+                                            {% else %}
+                                            <p class="text-muted"><small>No AI summary available</small></p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-top border-secondary">
+                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
+                                            target="_blank" class="btn btn-outline-success btn-sm">
+                                            <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if recommended_candidates|length > 30 %}
+                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{ recommended_candidates|length }}
+                            recommended candidates</small></p>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No recommended candidates to display</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Not Recommended Candidates Section -->
+                <div id="not-recommended-section" class="candidate-filter-section" style="display: none;">
+                    {% if not_recommended_candidates and not_recommended_candidates|length > 0 %}
+                    <div class="accordion" id="notRecommendedAccordion">
+                        {% for log in not_recommended_candidates[:30] %}
+                        <div class="accordion-item candidate-item" data-status="not-recommended"
+                            style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#notRecommendedCandidate{{ loop.index }}"
+                                    style="background: rgba(20, 20, 30, 0.7); color: #f1f5f9; border-radius: 6px; padding: 0.75rem 1rem;">
+                                    <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                                        <div>
+                                            <strong>{{ log.candidate_name or 'Unknown' }}</strong>
+                                            <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">ID: {{
+                                                log.bullhorn_candidate_id }}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-danger">{{ log.highest_match_score|int if
+                                                log.highest_match_score else 0 }}%</span>
+                                            <small class="text-muted">{{ log.analyzed_at.strftime('%b %d, %H:%M') if
+                                                log.analyzed_at else '' }}</small>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="notRecommendedCandidate{{ loop.index }}" class="accordion-collapse collapse">
+                                <div class="accordion-body"
+                                    style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2"><i class="fas fa-briefcase me-1"></i>Applied Job
+                                            </h6>
+                                            {% if log.applied_job_id %}
+                                            <p class="mb-2">
+                                                <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}"
+                                                    target="_blank" class="text-danger text-decoration-none">
+                                                    {{ log.applied_job_title or 'N/A' }} <i
+                                                        class="fas fa-external-link-alt ms-1 small"></i>
+                                                </a>
+                                                <small class="text-muted">(ID: {{ log.applied_job_id }})</small>
+                                            </p>
+                                            {% else %}
+                                            <p class="mb-2">{{ log.applied_job_title or 'N/A' }}</p>
+                                            {% endif %}
+
+                                            <h6 class="text-info mb-2 mt-3"><i class="fas fa-chart-line me-1"></i>Match
+                                                Score</h6>
+                                            <div class="progress mb-2"
+                                                style="height: 20px; background: rgba(255,255,255,0.1);">
+                                                <div class="progress-bar bg-danger" role="progressbar"
+                                                    style="width: {{ log.highest_match_score or 0 }}%;">
+                                                    {{ log.highest_match_score|int if log.highest_match_score else 0 }}%
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">Threshold: {{ settings.match_threshold }}%</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-warning mb-2"><i class="fas fa-robot me-1"></i>AI Summary
+                                            </h6>
+                                            {% set best_match = log.job_matches|sort(attribute='match_score',
+                                            reverse=true)|first %}
+                                            {% if best_match and best_match.match_summary %}
+                                            <div class="p-2 rounded"
+                                                style="background: rgba(220, 53, 69, 0.1); border: 1px solid rgba(220, 53, 69, 0.2); max-height: 150px; overflow-y: auto;">
+                                                <small style="white-space: pre-wrap;">{{ best_match.match_summary[:500]
+                                                    }}{% if best_match.match_summary|length > 500 %}...{% endif
+                                                    %}</small>
+                                            </div>
+                                            {% else %}
+                                            <p class="text-muted"><small>No AI summary available</small></p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-top border-secondary">
+                                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
+                                            target="_blank" class="btn btn-outline-danger btn-sm">
+                                            <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if not_recommended_candidates|length > 30 %}
+                    <p class="text-muted text-center mt-2 mb-0"><small>Showing 30 of {{
+                            not_recommended_candidates|length }} not
+                            recommended candidates</small></p>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-times-circle fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No candidates below threshold to display</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <p class="text-muted text-center mt-3 mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Click on a candidate to view details. Click the metric cards above to filter.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block extra_scripts %}
     <script>
-        // Fix modal backdrop cleanup - only clean up if no other modals are visible
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.modal').forEach(function(modal) {
-                modal.addEventListener('hidden.bs.modal', function() {
-                    // Only clean up if no other modals are visible
-                    var visibleModals = document.querySelectorAll('.modal.show');
-                    if (visibleModals.length === 0) {
-                        // Clean up any leftover backdrops
-                        document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
-                            backdrop.remove();
-                        });
-                        // Restore body scrolling
-                        document.body.classList.remove('modal-open');
-                        document.body.style.overflow = '';
-                        document.body.style.paddingRight = '';
+        // Re-screen confirmation: fetch count then show confirmation dialog
+        function confirmRescreen() {
+            const hours = document.getElementById('rescreenHoursSelect').value;
+            const csrf = document.querySelector('#rescreenForm input[name="csrf_token"]').value;
+
+            const formData = new FormData();
+            formData.append('hours', hours);
+            formData.append('csrf_token', csrf);
+
+            fetch('{{ url_for("vetting.rescreen_count") }}', {
+                method: 'POST',
+                body: formData
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        alert('Error checking re-screen count: ' + (data.error || 'Unknown'));
+                        return;
+                    }
+                    var msg = 'Re-screen ' + data.total + ' candidates from the last ' + hours + 'h:\n\n' +
+                        '\u2022 ' + data.vetted_count + ' previously vetted candidates\n' +
+                        '\u2022 ' + data.zero_score_count + ' zero-score candidates\n\n' +
+                        'A vetting cycle will start immediately after. Proceed?';
+                    if (data.total === 0) {
+                        alert('No candidates found to re-screen in the last ' + hours + 'h.');
+                    } else if (confirm(msg)) {
+                        document.getElementById('rescreenForm').submit();
+                    }
+                })
+                .catch(function (err) {
+                    if (confirm('Re-screen candidates from the last ' + hours + 'h?\n\n(Could not fetch exact count)\n\nProceed?')) {
+                        document.getElementById('rescreenForm').submit();
                     }
                 });
+        }
+
+        // Vetting filter card click handling
+        document.addEventListener('DOMContentLoaded', function () {
+            const filterCards = document.querySelectorAll('.vetting-filter-card');
+            const pendingSection = document.getElementById('pending-section');
+            const recommendedSection = document.getElementById('recommended-section');
+            const notRecommendedSection = document.getElementById('not-recommended-section');
+            const filterTitleIcon = document.querySelector('#filterTitle i');
+            const filterTitleText = document.getElementById('filterTitleText');
+            const filterCount = document.getElementById('filterCount');
+
+            const filterConfig = {
+                'pending': {
+                    section: pendingSection,
+                    title: 'Awaiting Vetting',
+                    iconClass: 'fas fa-clock text-info',
+                    badgeClass: 'bg-info',
+                    count: {{ stats.pending }}
+                },
+            'recommended': {
+            section: recommendedSection,
+            title: 'Recommended ({{ settings.match_threshold }}%+)',
+            iconClass: 'fas fa-check-circle text-success',
+            badgeClass: 'bg-success',
+            count: {{ stats.qualified }}
+                },
+            'not-recommended': {
+            section: notRecommendedSection,
+            title: 'Not Recommended',
+            iconClass: 'fas fa-times-circle text-danger',
+            badgeClass: 'bg-danger',
+            count: {{ stats.total_processed - stats.qualified }}
+                }
+            };
+        filterCards.forEach(card => {
+            card.addEventListener('click', function () {
+                const filter = this.dataset.filter;
+                const config = filterConfig[filter];
+
+                // Update active state
+                filterCards.forEach(c => {
+                    c.classList.remove('active');
+                    c.style.transform = 'scale(1)';
+                });
+                this.classList.add('active');
+                this.style.transform = 'scale(1.02)';
+
+                // Update title
+                filterTitleIcon.className = config.iconClass + ' me-2';
+                filterTitleText.textContent = config.title;
+                filterCount.className = 'badge ms-2 ' + config.badgeClass;
+                filterCount.textContent = config.count;
+
+                // Show/hide sections
+                pendingSection.style.display = filter === 'pending' ? 'block' : 'none';
+                recommendedSection.style.display = filter === 'recommended' ? 'block' : 'none';
+                notRecommendedSection.style.display = filter === 'not-recommended' ? 'block' : 'none';
             });
-            
+
+            // Add hover effects
+            card.addEventListener('mouseenter', function () {
+                if (!this.classList.contains('active')) {
+                    this.style.transform = 'scale(1.02)';
+                }
+            });
+            card.addEventListener('mouseleave', function () {
+                if (!this.classList.contains('active')) {
+                    this.style.transform = 'scale(1)';
+                }
+            });
         });
-        
+        });
+
         // Show loading indicator when saving settings
         function showSavingIndicator() {
             var saveBtn = document.getElementById('saveBtn');
             var saveBtnText = document.getElementById('saveBtnText');
             var saveBtnLoading = document.getElementById('saveBtnLoading');
-            
+
             saveBtn.disabled = true;
             saveBtnText.style.display = 'none';
             saveBtnLoading.style.display = 'inline';
         }
+
+        // Auto-save job threshold changes
+        document.querySelectorAll('.job-threshold-input').forEach(function (input) {
+            let originalValue = input.value;
+            input.addEventListener('change', function () {
+                const jobId = this.dataset.jobId;
+                const threshold = this.value.trim();
+                const inputEl = this;
+
+                if (threshold === originalValue) return;
+
+                inputEl.classList.add('is-warning');
+                inputEl.style.borderColor = '#ffc107';
+
+                fetch(`/screening/job/${jobId}/threshold`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ threshold: threshold || null })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            originalValue = threshold;
+                            inputEl.classList.remove('is-warning');
+                            inputEl.classList.add('is-valid');
+                            inputEl.style.borderColor = '#198754';
+                            setTimeout(() => {
+                                inputEl.classList.remove('is-valid');
+                                inputEl.style.borderColor = '';
+                            }, 2000);
+                        } else {
+                            inputEl.classList.add('is-invalid');
+                            inputEl.style.borderColor = '#dc3545';
+                            alert('Error saving threshold: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        inputEl.classList.add('is-invalid');
+                        inputEl.style.borderColor = '#dc3545';
+                        console.error('Error:', error);
+                    });
+            });
+        });
+
+        // Toggle all accordions expand/collapse
+        function toggleAllAccordions(expand) {
+            const accordion = document.getElementById('jobRequirementsAccordion');
+            const collapses = accordion.querySelectorAll('.accordion-collapse');
+            const buttons = accordion.querySelectorAll('.accordion-button');
+
+            collapses.forEach((collapse, index) => {
+                if (expand) {
+                    collapse.classList.add('show');
+                    buttons[index].classList.remove('collapsed');
+                    buttons[index].setAttribute('aria-expanded', 'true');
+                } else {
+                    collapse.classList.remove('show');
+                    buttons[index].classList.add('collapsed');
+                    buttons[index].setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        // Handle job override form submissions
+        document.querySelectorAll('.job-override-form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const jobId = this.dataset.jobId;
+                const customRequirements = this.querySelector('.custom-requirements-input').value.trim();
+                const threshold = this.querySelector('.job-threshold-input').value.trim();
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnHTML = submitBtn.innerHTML;
+
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+
+                fetch(`/screening/job/${jobId}/requirements`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                    },
+                    body: JSON.stringify({
+                        custom_requirements: customRequirements || null,
+                        threshold: threshold || null
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        submitBtn.disabled = false;
+                        if (data.success) {
+                            submitBtn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
+                            submitBtn.classList.remove('btn-success');
+                            submitBtn.classList.add('btn-outline-success');
+                            setTimeout(() => {
+                                submitBtn.innerHTML = originalBtnHTML;
+                                submitBtn.classList.remove('btn-outline-success');
+                                submitBtn.classList.add('btn-success');
+                            }, 2000);
+                        } else {
+                            submitBtn.innerHTML = '<i class="fas fa-times me-1"></i>Error';
+                            submitBtn.classList.remove('btn-success');
+                            submitBtn.classList.add('btn-danger');
+                            alert('Error saving: ' + data.error);
+                            setTimeout(() => {
+                                submitBtn.innerHTML = originalBtnHTML;
+                                submitBtn.classList.remove('btn-danger');
+                                submitBtn.classList.add('btn-success');
+                            }, 2000);
+                        }
+                    })
+                    .catch(error => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHTML;
+                        alert('Error saving requirements. Please try again.');
+                        console.error('Error:', error);
+                    });
+            });
+        });
+
+        // Handle parent-level collapse chevron rotation
+        const jobRequirementsPanel = document.getElementById('jobRequirementsPanel');
+        if (jobRequirementsPanel) {
+            jobRequirementsPanel.addEventListener('hide.bs.collapse', function () {
+                const icon = document.querySelector('[data-bs-target="#jobRequirementsPanel"] .section-toggle-icon');
+                if (icon) icon.style.transform = 'rotate(-90deg)';
+            });
+            jobRequirementsPanel.addEventListener('show.bs.collapse', function () {
+                const icon = document.querySelector('[data-bs-target="#jobRequirementsPanel"] .section-toggle-icon');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            });
+        }
+
+        // Handle Vetting Audit Dashboard collapse chevron rotation
+        const vettingAuditPanel = document.getElementById('vettingAuditPanel');
+        if (vettingAuditPanel) {
+            vettingAuditPanel.addEventListener('hide.bs.collapse', function () {
+                const icon = document.querySelector('[data-bs-target="#vettingAuditPanel"] .vetting-toggle-icon');
+                if (icon) icon.style.transform = 'rotate(-90deg)';
+            });
+            vettingAuditPanel.addEventListener('show.bs.collapse', function () {
+                const icon = document.querySelector('[data-bs-target="#vettingAuditPanel"] .vetting-toggle-icon');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            });
+        }
     </script>
-</body>
-</html>
+    {% endblock %}

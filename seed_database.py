@@ -54,10 +54,19 @@ def is_production_environment():
     """
     Detect if running in production environment
     
+    Detection priority:
+    1. APP_ENV=production (preferred for custom deployments)
+    2. ENVIRONMENT=production (alternative)
+    3. REPLIT_DEPLOYMENT exists (Replit-specific)
+    
     Returns:
-        bool: True if in production (REPLIT_DEPLOYMENT exists), False otherwise
+        bool: True if in production, False otherwise
     """
-    return os.environ.get('REPLIT_DEPLOYMENT') is not None
+    app_env = os.environ.get('APP_ENV', '').lower()
+    environment = os.environ.get('ENVIRONMENT', '').lower()
+    replit_deployment = os.environ.get('REPLIT_DEPLOYMENT')
+    
+    return app_env == 'production' or environment == 'production' or replit_deployment is not None
 
 
 def get_admin_config():
@@ -281,9 +290,10 @@ def seed_global_settings(db, GlobalSettings):
                     settings_created.append(key)
         
         # Process automation toggles separately - NEVER overwrite existing values
+        # Defaults are always conservative (off) — user enables via UI
         automation_toggles = {
-            'sftp_enabled': 'true' if is_production_environment() else 'false',
-            'automated_uploads_enabled': 'true' if is_production_environment() else 'false'
+            'sftp_enabled': 'false',
+            'automated_uploads_enabled': 'false'
         }
         
         for key, default_value in automation_toggles.items():
@@ -445,6 +455,29 @@ def seed_bullhorn_monitors(db, BullhornMonitor):
         raise
 
 
+def _load_global_screening_prompt():
+    """
+    Load the global screening prompt from the version-controlled config file.
+    Falls back to empty string if the file is missing — never crashes the seed process.
+    """
+    prompt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config', 'global_screening_prompt.txt')
+    try:
+        with open(prompt_path, 'r') as f:
+            prompt = f.read().strip()
+        if prompt:
+            logger.info(f"✅ Loaded global screening prompt from {prompt_path} ({len(prompt)} chars)")
+            return prompt
+        else:
+            logger.warning(f"⚠️ Global screening prompt file exists but is empty: {prompt_path}")
+            return ''
+    except FileNotFoundError:
+        logger.warning(f"⚠️ Global screening prompt file not found: {prompt_path} — seeding empty string")
+        return ''
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to read global screening prompt: {str(e)} — seeding empty string")
+        return ''
+
+
 def seed_vetting_config(db, VettingConfig):
     """
     Seed AI Vetting configuration settings
@@ -458,15 +491,36 @@ def seed_vetting_config(db, VettingConfig):
         db: SQLAlchemy database instance
         VettingConfig: VettingConfig model class
     """
+    is_prod = is_production_environment()
+    
     try:
         # Define vetting settings with production-aware defaults
+        # IMPORTANT: Every VettingConfig key that the app reads MUST be listed here
+        # so it is recreated with a sensible default if the DB is ever reset.
+        # Production defaults reflect actual operational values; dev defaults are
+        # conservative to prevent accidental emails or processing.
+        # Defaults are always conservative — user configures via UI.
+        # No environment-conditional values for operational toggles.
         vetting_settings = {
-            'vetting_enabled': 'true' if is_production_environment() else 'false',
+            'vetting_enabled': 'false',           # Always off by default; user enables via UI
             'match_threshold': '80',
-            'batch_size': '25',  # Default batch size per 5-minute cycle
+            'batch_size': '25',                    # Default batch size per 5-minute cycle
             'admin_notification_email': 'kroots@myticas.com',
-            'health_alert_email': 'kroots@myticas.com',  # Email for system health alerts
-            'send_recruiter_emails': 'false'  # Kill switch for recruiter notifications
+            'health_alert_email': 'kroots@myticas.com',
+            'send_recruiter_emails': 'false',      # Always off by default; user enables via UI
+            # Embedding pre-filter settings (Layer 1)
+            'embedding_filter_enabled': 'true',    # Killswitch: set to 'false' to bypass filter
+            'embedding_similarity_threshold': '0.25',  # Conservative default; user tightens via UI
+            # Escalation settings (Layer 3)
+            'escalation_low': '60',
+            'escalation_high': '85',
+            # Layer 2 model (revertible to 'gpt-4o' via UI if quality drop detected)
+            'layer2_model': 'gpt-4o',
+            # Cutoff date: only process candidates received after this timestamp
+            'vetting_cutoff_date': '',             # Empty by default; user sets via UI
+            # Global screening instructions — loaded from version-controlled config file
+            # so a DB reset restores the full prompt instead of wiping it.
+            'global_custom_requirements': _load_global_screening_prompt(),
         }
         
         settings_created = []
@@ -486,7 +540,7 @@ def seed_vetting_config(db, VettingConfig):
                 )
                 db.session.add(new_setting)
                 settings_created.append(key)
-                logger.info(f"✅ Created vetting setting: {key}={default_value} (production={is_production_environment()})")
+                logger.info(f"✅ Created vetting setting: {key}={default_value} (production={is_prod})")
         
         if settings_created:
             db.session.commit()
@@ -549,10 +603,12 @@ def seed_reference_refresh_log(db):
     """
     try:
         from models import RefreshLog
-        from datetime import date
+        from datetime import date, timedelta
         
-        baseline_date = date(2025, 10, 14)
-        baseline_time = datetime(2025, 10, 14, 10, 4, 0)  # Oct 14, 2025 at 10:04 UTC
+        # Use current time minus 120h so the scheduler will fire the first
+        # refresh ~120h from deploy, not show a stale historical date.
+        baseline_time = datetime.utcnow() - timedelta(hours=120)
+        baseline_date = baseline_time.date()
         
         # Check if any refresh log entries exist
         existing_count = RefreshLog.query.count()
@@ -600,6 +656,7 @@ def seed_recruiter_mappings(db, RecruiterMapping):
         ('Daniel Sifer', '#LI-DS1'),
         ('Dawn Geistert-Dixon', '#LI-DG1'),
         ('Dominic Scaletta', '#LI-DS2'),
+        ('Innocent Nangoma', '#LI-IN1'),
         ('Jayne Kritschgau', '#LI-JK1'),
         ('Julie Johnson', '#LI-JJ1'),
         ('Kaniz Abedin', '#LI-KA1'),
@@ -735,6 +792,8 @@ def run_schema_migrations(db):
         # Add location columns to job_vetting_requirements (added Jan 2026)
         ("job_vetting_requirements", "job_location", "VARCHAR(255)"),
         ("job_vetting_requirements", "job_work_type", "VARCHAR(50)"),
+        # Add years_analysis_json to candidate_job_match for auditability (added Feb 2026)
+        ("candidate_job_match", "years_analysis_json", "TEXT"),
     ]
     
     for table, column, col_type in migrations:
@@ -754,6 +813,64 @@ def run_schema_migrations(db):
         except Exception as e:
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")
+    
+    # Drop UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id
+    # (Feb 2026 - allow multiple vetting logs per candidate for re-applications)
+    try:
+        # Check if the unique constraint still exists (PostgreSQL only)
+        check_sql = text("""
+            SELECT constraint_name FROM information_schema.table_constraints
+            WHERE table_name = 'candidate_vetting_log'
+              AND constraint_type = 'UNIQUE'
+              AND constraint_name LIKE '%bullhorn_candidate_id%'
+        """)
+        result = db.session.execute(check_sql)
+        constraint = result.fetchone()
+        if constraint:
+            constraint_name = constraint[0]
+            drop_sql = text(f'ALTER TABLE candidate_vetting_log DROP CONSTRAINT {constraint_name}')
+            db.session.execute(drop_sql)
+            db.session.commit()
+            logger.info(f"✅ Dropped UNIQUE constraint {constraint_name} on candidate_vetting_log.bullhorn_candidate_id")
+        else:
+            logger.info("ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for dropping unique constraint: {str(e)}")
+
+
+def log_critical_settings_state(db):
+    """
+    Log the current DB values of all admin-controlled settings at startup.
+    
+    This runs at the END of seed_database() so every deploy produces a single,
+    easy-to-audit snapshot proving no setting was silently changed.
+    """
+    from models import VettingConfig, GlobalSettings
+    
+    try:
+        vetting_keys = [
+            'vetting_enabled', 'send_recruiter_emails',
+            'embedding_filter_enabled', 'embedding_similarity_threshold',
+            'vetting_cutoff_date', 'match_threshold', 'batch_size',
+            'layer2_model',
+        ]
+        global_keys = [
+            'sftp_enabled', 'automated_uploads_enabled',
+        ]
+        
+        parts = []
+        for key in vetting_keys:
+            s = VettingConfig.query.filter_by(setting_key=key).first()
+            parts.append(f"{key}={s.setting_value if s else 'MISSING'}")
+        for key in global_keys:
+            s = GlobalSettings.query.filter_by(setting_key=key).first()
+            parts.append(f"{key}={s.setting_value if s else 'MISSING'}")
+        
+        logger.info(f"🔒 STARTUP AUDIT — critical settings: {' | '.join(parts)}")
+    except Exception as e:
+        logger.warning(f"⚠️ Startup audit logging failed: {str(e)}")
+
 
 
 def seed_database(db, User):
@@ -852,6 +969,49 @@ def seed_database(db, User):
             run_vetting_clean_slate(db)
         except Exception as e:
             logger.warning(f"⚠️ Vetting clean slate check failed: {str(e)}")
+        
+        # Startup audit: log current values of all critical flags
+        # This runs AFTER all seeding is complete, so any unexpected changes
+        # would be visible in logs for every deploy.
+        log_critical_settings_state(db)
+        
+        # AUTO-RELEASE: Release any stuck vetting lock on deploy
+        # When Render restarts the service, the previous lock becomes stale
+        try:
+            lock = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
+            if lock and lock.setting_value == 'true':
+                lock.setting_value = 'false'
+                db.session.commit()
+                logger.info("🔓 Auto-released stuck vetting lock on deploy")
+            else:
+                logger.debug("ℹ️ No stuck vetting lock found")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to check vetting lock: {str(e)}")
+        
+        # ONE-TIME: Upgrade layer2_model from gpt-4o-mini to gpt-4o (Feb 2026)
+        # Improves arithmetic accuracy for years-of-experience calculations
+        try:
+            upgrade_flag = VettingConfig.query.filter_by(setting_key='layer2_model_upgraded_to_4o').first()
+            if not upgrade_flag or upgrade_flag.setting_value != 'true':
+                model_setting = VettingConfig.query.filter_by(setting_key='layer2_model').first()
+                if model_setting and model_setting.setting_value == 'gpt-4o-mini':
+                    model_setting.setting_value = 'gpt-4o'
+                    model_setting.updated_at = datetime.utcnow()
+                    logger.info("🔄 Upgraded layer2_model from gpt-4o-mini → gpt-4o")
+                
+                # Set flag so this never runs again
+                if upgrade_flag:
+                    upgrade_flag.setting_value = 'true'
+                else:
+                    db.session.add(VettingConfig(
+                        setting_key='layer2_model_upgraded_to_4o',
+                        setting_value='true',
+                        description='One-time upgrade to GPT-4o for better arithmetic (Feb 2026)'
+                    ))
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"⚠️ Failed to upgrade layer2_model: {str(e)}")
         
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         

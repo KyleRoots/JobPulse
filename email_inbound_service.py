@@ -9,7 +9,7 @@ import json
 import tempfile
 import os
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple, List, Any
 from email import message_from_string
 from email.utils import parseaddr
@@ -341,8 +341,9 @@ Resume text:
 {resume_text[:8000]}
 """
 
+            # gpt-4.1-mini: cost-optimized for structured JSON extraction from resumes
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4.1-mini",
                 messages=[
                     {"role": "system", "content": "You are an expert resume parser. Extract structured data accurately. Return only valid JSON."},
                     {"role": "user", "content": prompt}
@@ -463,8 +464,9 @@ Return only a number between 0.0 and 1.0 representing the probability these are 
 Consider: name spelling variations, nicknames, contact info matches.
 """
 
+            # gpt-4.1-mini: cost-optimized for simple deduplication confidence scoring
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4.1-mini",
                 messages=[
                     {"role": "system", "content": "You are a deduplication expert. Return only a decimal number."},
                     {"role": "user", "content": prompt}
@@ -570,6 +572,87 @@ Consider: name spelling variations, nicknames, contact info matches.
             candidate['customText9'] = resume_data['linkedin_url']
         
         return candidate
+    
+    def _check_existing_resume_summary(self, bullhorn, candidate_id: int,
+                                         current_resume_filename: str = None) -> bool:
+        """
+        Check if an AI Resume Summary note already exists for this candidate
+        within the last 24 hours for the same resume.
+        
+        Mirrors the proven vetting dedup pattern in candidate_vetting_service.py
+        (create_candidate_note, lines 2746-2771): query get_candidate_notes()
+        with action_filter + 24h window.
+        
+        Rules:
+        1. If no AI Resume Summary exists in last 24h → allow creation (return False)
+        2. If one exists and current_resume_filename matches a recently processed
+           ParsedEmail for this candidate → skip (return True, duplicate)
+        3. If one exists but resume filename differs → allow (new resume)
+        4. If no filename available → enforce simple 24h rule (skip)
+        5. Fail-safe: if the check itself errors → allow creation (return False)
+        
+        Args:
+            bullhorn: Authenticated BullhornService instance
+            candidate_id: Bullhorn candidate ID
+            current_resume_filename: Filename of the resume being processed
+            
+        Returns:
+            True if a duplicate exists (should skip), False if safe to create.
+        """
+        try:
+            existing_notes = bullhorn.get_candidate_notes(
+                candidate_id,
+                action_filter=["AI Resume Summary"],
+                since=datetime.utcnow() - timedelta(hours=24)
+            )
+            
+            if not existing_notes:
+                return False  # No existing summary — safe to create
+            
+            # If we can't compare filenames, enforce simple 24h fallback rule
+            if not current_resume_filename:
+                self.logger.info(
+                    f"⚠️ RESUME SUMMARY DEDUP: Candidate {candidate_id} already has "
+                    f"{len(existing_notes)} AI Resume Summary note(s) in last 24h. "
+                    f"No filename to compare — skipping (24h fallback rule)."
+                )
+                return True
+            
+            # Check if the existing summary was for a different resume
+            # by looking at ParsedEmail records for this candidate in the same window
+            from app import db
+            from models import ParsedEmail as PE
+            recent_emails = PE.query.filter(
+                PE.bullhorn_candidate_id == candidate_id,
+                PE.status == 'completed',
+                PE.processed_at >= datetime.utcnow() - timedelta(hours=24),
+                PE.resume_filename.isnot(None)
+            ).order_by(PE.processed_at.desc()).all()
+            
+            previous_filenames = {pe.resume_filename for pe in recent_emails}
+            
+            if current_resume_filename in previous_filenames:
+                # Same resume already processed — duplicate
+                self.logger.info(
+                    f"⚠️ RESUME SUMMARY DEDUP: Candidate {candidate_id} already has "
+                    f"AI Resume Summary for resume '{current_resume_filename}' in last 24h. Skipping."
+                )
+                return True
+            else:
+                # Different resume — allow new summary
+                self.logger.info(
+                    f"✅ RESUME SUMMARY DEDUP: Candidate {candidate_id} has new resume "
+                    f"'{current_resume_filename}' (previous: {previous_filenames}). Allowing new summary."
+                )
+                return False
+                
+        except Exception as e:
+            # Fail-safe: if the duplicate check itself errors, allow creation
+            # (better to create a potential extra note than silently drop a legitimate one)
+            self.logger.warning(
+                f"Resume summary duplicate check failed (proceeding with creation): {e}"
+            )
+            return False
     
     def process_email(self, sendgrid_payload: Dict) -> Dict[str, Any]:
         """
@@ -804,23 +887,37 @@ Consider: name spelling variations, nicknames, contact info matches.
                 
                 # First try: AI-generated summary note (preferred)
                 if resume_data.get('summary'):
-                    summary = resume_data.get('summary')
-                    note_text = f"📋 AI-Generated Resume Summary:\n\n{summary}"
-                    if resume_data.get('skills'):
-                        skills_preview = ', '.join(resume_data['skills'][:10])
-                        note_text += f"\n\n🔧 Key Skills: {skills_preview}"
-                    if resume_data.get('years_experience'):
-                        note_text += f"\n\n📅 Experience: {resume_data['years_experience']} years"
-                    
-                    note_id = bullhorn.create_candidate_note(candidate_id, note_text, "AI Resume Summary")
-                    if note_id:
-                        self.logger.info(f"✅ Created AI summary note {note_id} for candidate {candidate_id}")
+                    # ── DEDUP CHECK: Prevent duplicate AI Resume Summary notes ──
+                    # Uses the same pattern as vetting dedup (24h window + action filter).
+                    # Compares resume filenames to allow new summaries when the resume changes.
+                    resume_filename = resume_file['filename'] if resume_file else None
+                    if self._check_existing_resume_summary(bullhorn, candidate_id, resume_filename):
+                        self.logger.info(f"⏭️ Skipped duplicate AI Resume Summary for candidate {candidate_id}")
+                        # NOTE: We set note_created = True even though no new Bullhorn note was
+                        # created. This is intentional — it indicates that an existing AI Resume
+                        # Summary already exists within the 24h dedup window, so the fallback
+                        # "Application Received" note should NOT be created either. Without this
+                        # flag, the fallback block below would fire and create an unnecessary note.
                         note_created = True
-                        note_status = "ai_summary_created"
-                        note_id_created = note_id
+                        note_status = "ai_summary_dedup_skipped"
                     else:
-                        self.logger.warning(f"⚠️ Failed to create AI summary note for candidate {candidate_id}")
-                        note_status = "ai_summary_failed"
+                        summary = resume_data.get('summary')
+                        note_text = f"📋 AI-Generated Resume Summary:\n\n{summary}"
+                        if resume_data.get('skills'):
+                            skills_preview = ', '.join(resume_data['skills'][:10])
+                            note_text += f"\n\n🔧 Key Skills: {skills_preview}"
+                        if resume_data.get('years_experience'):
+                            note_text += f"\n\n📅 Experience: {resume_data['years_experience']} years"
+                        
+                        note_id = bullhorn.create_candidate_note(candidate_id, note_text, "AI Resume Summary")
+                        if note_id:
+                            self.logger.info(f"✅ Created AI summary note {note_id} for candidate {candidate_id}")
+                            note_created = True
+                            note_status = "ai_summary_created"
+                            note_id_created = note_id
+                        else:
+                            self.logger.warning(f"⚠️ Failed to create AI summary note for candidate {candidate_id}")
+                            note_status = "ai_summary_failed"
                 
                 # Fallback: Create basic application note if AI summary wasn't available or failed
                 if not note_created:

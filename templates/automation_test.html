@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Automation - JobPulse™</title>
+    <title>Test Automation - Scout Genius™</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -13,25 +14,31 @@
             position: relative;
             overflow-x: hidden;
         }
-        
+
         .geometric-bg {
             position: fixed;
             width: 100%;
             height: 100%;
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
-                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 49%, rgba(255, 255, 255, 0.02) 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(255, 255, 255, 0.02) 50%, transparent 51%);
             background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
             animation: drift 30s linear infinite;
             z-index: -1;
         }
-        
+
         @keyframes drift {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(-60px, -60px) rotate(360deg); }
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-60px, -60px) rotate(360deg);
+            }
         }
+
         .log-output {
             background: #1e1e1e;
             color: #e0e0e0;
@@ -44,6 +51,7 @@
             white-space: pre-wrap;
             margin: 10px 0;
         }
+
         .test-card {
             border: 1px solid #444;
             border-radius: 8px;
@@ -51,6 +59,7 @@
             margin: 15px 0;
             background: #2a2a2a;
         }
+
         .step-indicator {
             display: inline-block;
             width: 30px;
@@ -63,22 +72,27 @@
             margin-right: 10px;
             font-weight: bold;
         }
+
         .step-indicator.completed {
             background: #28a745;
         }
+
         .step-indicator.running {
             background: #ffc107;
             color: #000;
         }
+
         .step-indicator.failed {
             background: #dc3545;
         }
+
         .job-list {
             background: #3a3a3a;
             padding: 10px;
             border-radius: 5px;
             margin: 10px 0;
         }
+
         .job-item {
             padding: 5px;
             margin: 2px 0;
@@ -86,29 +100,32 @@
             border-radius: 3px;
             font-size: 14px;
         }
+
         .job-item.added {
             border-left: 4px solid #28a745;
         }
+
         .job-item.removed {
             border-left: 4px solid #dc3545;
         }
+
         .job-item.updated {
             border-left: 4px solid #ffc107;
         }
-        
+
         .jobpulse-header {
             text-align: center;
             margin-bottom: 3rem;
         }
-        
+
         .jobpulse-logo {
             font-size: 2.5rem;
             font-weight: 700;
             color: #ffffff;
-            text-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
             margin-bottom: 0.5rem;
         }
-        
+
         .lyntrix-attribution {
             font-family: 'Kalam', cursive;
             font-size: 0.9rem;
@@ -116,20 +133,20 @@
             font-style: italic;
             margin-bottom: 1rem;
         }
-        
+
         .page-title {
             font-size: 1.8rem;
             font-weight: 600;
             color: #E8F0FF;
             margin-bottom: 0.5rem;
         }
-        
+
         .jobpulse-footer {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(10px);
             text-align: center;
             padding: 15px 0;
@@ -138,30 +155,30 @@
             pointer-events: none;
             z-index: 1000;
         }
-        
+
         .content-container {
             margin-bottom: 80px;
         }
-        
+
         .nav-pills .nav-link {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: #ffffff;
             margin: 0 0.25rem;
             transition: all 0.3s ease;
         }
-        
+
         .nav-pills .nav-link:hover {
-            background: rgba(255,255,255,0.15);
-            border-color: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-2px);
         }
-        
+
         .nav-pills .nav-link.active {
             background: linear-gradient(135deg, #e74c3c, #c0392b);
             border-color: #e74c3c;
         }
-        
+
         /* Standard logout button styling with light red background */
         .btn-outline-danger {
             background: rgba(220, 53, 69, 0.8) !important;
@@ -172,7 +189,7 @@
             padding: 0.5rem 1rem !important;
             transition: all 0.3s ease !important;
         }
-        
+
         .btn-outline-danger:hover {
             background: rgba(165, 42, 42, 1) !important;
             border-color: rgba(220, 20, 60, 1) !important;
@@ -180,32 +197,34 @@
             transform: translateY(-1px) !important;
             box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5) !important;
         }
-        
-        .test-card, .card {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
+
+        .test-card,
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(15px);
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        
-        .test-card:hover, .card:hover {
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.3);
+
+        .test-card:hover,
+        .card:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
         }
-    
+
         /* Resume with pulse line effect */
         .jobpulse-logo {
             position: relative;
             display: inline-block;
         }
-        
+
         .jobpulse-logo i {
             position: relative;
             z-index: 2;
         }
-        
+
 
 
         /* Mobile Responsive Styles */
@@ -213,23 +232,31 @@
             .jobpulse-logo {
                 font-size: 2rem !important;
             }
+
             .page-title {
                 font-size: 1.5rem !important;
             }
+
             .container-fluid {
                 padding-left: 15px;
                 padding-right: 15px;
             }
+
             .card-body {
                 padding: 1rem;
             }
+
             .btn {
                 font-size: 0.875rem;
                 padding: 0.5rem 0.75rem;
             }
-            .form-control, .form-select, .form-check-input {
+
+            .form-control,
+            .form-select,
+            .form-check-input {
                 font-size: 0.875rem;
             }
+
             .modal-dialog {
                 margin: 0.5rem;
             }
@@ -239,27 +266,37 @@
             .jobpulse-logo {
                 font-size: 1.8rem !important;
             }
+
             .page-title {
                 font-size: 1.3rem !important;
             }
+
             .btn {
                 font-size: 0.8rem;
                 padding: 0.4rem 0.6rem;
                 width: 100%;
                 margin-bottom: 0.5rem;
             }
-            .form-control, .form-select, .form-check-input {
+
+            .form-control,
+            .form-select,
+            .form-check-input {
                 font-size: 0.8rem;
             }
+
             .card-header h5 {
                 font-size: 1.1rem;
             }
-            .row .col-md-6, .row .col-md-4 {
+
+            .row .col-md-6,
+            .row .col-md-4 {
                 margin-bottom: 1rem;
             }
+
             .modal-dialog {
                 margin: 0.25rem;
             }
+
             .table-responsive {
                 font-size: 0.8rem;
             }
@@ -267,6 +304,7 @@
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="geometric-bg"></div>
     <div class="container py-5 content-container">
@@ -275,34 +313,35 @@
                 <!-- JobPulse™ Header -->
                 <div class="jobpulse-header">
                     <div class="jobpulse-logo">
-                        <i class="fas fa-file-alt me-2" style="animation: spin 4s linear infinite;"></i>
-                        JobPulse™
+                        <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
+                            style="max-width: 250px; height: auto;">
                     </div>
-                    <div class="lyntrix-attribution">powered by Lyntrix AI</div>
+
                     <div class="page-title">Test Automation</div>
-                    <p class="lead text-muted">Test the complete XML automation system with simulated Bullhorn job changes</p>
+                    <p class="lead text-muted">Test the complete XML automation system with simulated Bullhorn job
+                        changes</p>
                 </div>
-                
+
                 <!-- Navigation -->
                 <div class="text-center mb-4">
                     <ul class="nav nav-pills justify-content-center">
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('dashboard_redirect') }}">
+                            <a class="nav-link" href="{{ url_for('dashboard.dashboard_redirect') }}">
                                 <i class="fas fa-home me-2"></i>Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('scheduler_dashboard') }}">
+                            <a class="nav-link" href="{{ url_for('scheduler.scheduler_dashboard') }}">
                                 <i class="fas fa-clock me-2"></i>Schedule
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('bullhorn_dashboard') }}">
+                            <a class="nav-link" href="{{ url_for('ats_integration.ats_integration_dashboard') }}">
                                 <i class="fas fa-building me-2"></i>ATS Monitor
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('settings') }}">
+                            <a class="nav-link" href="{{ url_for('settings.settings') }}">
                                 <i class="fas fa-cog me-2"></i>Settings
                             </a>
                         </li>
@@ -313,7 +352,7 @@
                         </li>
                     </ul>
                 </div>
-                
+
                 <!-- User Info and Logout -->
                 <div class="d-flex justify-content-center align-items-center gap-3 mb-4">
                     <div class="d-flex align-items-center">
@@ -321,7 +360,7 @@
                         <span>Logged in as</span>
                         <span class="badge bg-primary ms-2">{{ current_user.username }}</span>
                     </div>
-                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger btn-sm">
                         <i class="fas fa-sign-out-alt me-1"></i>
                         Logout
                     </a>
@@ -342,7 +381,7 @@
                 <div class="test-card">
                     <h3><i class="fas fa-step-forward"></i> Step-by-Step Testing</h3>
                     <p>Test individual automation steps:</p>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <button id="testAddJobs" class="btn btn-success btn-block mb-2">
@@ -501,39 +540,39 @@
                     this.updateProgress(1, 'running');
                     this.log('📝 Step 1: Initializing test environment...', 'info');
                     await this.simulateDelay(1000);
-                    
+
                     const response = await fetch('/automation_test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'complete_demo' })
                     });
-                    
+
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    
+
                     const result = await response.json();
-                    
+
                     if (result.success) {
                         this.updateProgress(1, 'completed');
                         this.log('✅ Complete demo finished successfully!', 'success');
                         this.log(`📊 Results: ${result.summary}`, 'info');
-                        
+
                         // Update all progress indicators
                         for (let i = 1; i <= 5; i++) {
                             this.updateProgress(i, 'completed');
                         }
-                        
+
                         // Update stats
-                        this.updateStats(result.jobs_added || 0, result.jobs_removed || 0, 
-                                       result.jobs_updated || 0, result.total_jobs || 0);
-                        
+                        this.updateStats(result.jobs_added || 0, result.jobs_removed || 0,
+                            result.jobs_updated || 0, result.total_jobs || 0);
+
                         this.log('🎉 Demo completed! This shows exactly how the system works in production.', 'success');
                     } else {
                         this.updateProgress(1, 'failed');
                         this.log(`❌ Demo failed: ${result.error}`, 'error');
                     }
-                    
+
                 } catch (error) {
                     this.updateProgress(1, 'failed');
                     this.log(`❌ Error running demo: ${error.message}`, 'error');
@@ -567,9 +606,9 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action })
                     });
-                    
+
                     const result = await response.json();
-                    
+
                     if (result.success) {
                         this.log(`✅ ${successMessage}`, 'success');
                         if (result.details) {
@@ -602,9 +641,9 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'show_xml' })
                     });
-                    
+
                     const result = await response.json();
-                    
+
                     if (result.success) {
                         const xmlContentDiv = document.getElementById('xmlContent');
                         xmlContentDiv.textContent = result.xml_content;
@@ -628,10 +667,11 @@
             new AutomationTester();
         });
     </script>
-    
+
     <!-- JobPulse™ Footer -->
     <div class="jobpulse-footer">
-        © 2025 Lyntrix Solutions
+        © 2025 Scout Genius. All rights reserved.
     </div>
 </body>
+
 </html>

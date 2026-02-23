@@ -1,0 +1,410 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Embedding Filter Audit - Scout Genius™{% endblock %}
+
+{% block extra_head %}
+<style>
+    .audit-tabs .nav-link {
+        color: rgba(255, 255, 255, 0.6);
+        border: 1px solid transparent;
+        padding: 10px 20px;
+        transition: all 0.3s ease;
+    }
+
+    .audit-tabs .nav-link:hover {
+        color: rgba(255, 255, 255, 0.9);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .audit-tabs .nav-link.active {
+        background: rgba(102, 126, 234, 0.2);
+        color: #667eea;
+        border-color: #667eea;
+    }
+
+    .summary-card {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        padding: 18px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .summary-card:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .summary-value {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .summary-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.5);
+        margin-top: 4px;
+    }
+
+    .audit-table {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .audit-table th {
+        background: rgba(255, 255, 255, 0.08);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 10px 12px;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .audit-table td {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 10px 12px;
+        font-size: 0.87rem;
+    }
+
+    .audit-table th a {
+        color: rgba(255, 255, 255, 0.7);
+        text-decoration: none;
+    }
+
+    .audit-table th a:hover {
+        color: #667eea;
+    }
+
+    .borderline-row {
+        background: rgba(255, 193, 7, 0.08) !important;
+        border-left: 3px solid #ffc107;
+    }
+
+    .filter-panel {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+
+    .sim-score {
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+    }
+
+    .delta-positive {
+        color: #28a745;
+    }
+
+    .delta-negative {
+        color: #dc3545;
+    }
+
+    .crossed-yes {
+        background: rgba(220, 53, 69, 0.15);
+        color: #dc3545;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+
+    .crossed-no {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .range-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.15);
+        outline: none;
+    }
+
+    .range-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #667eea;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Embedding Filter Audit{% endblock %}
+{% block page_subtitle %}Monitor filtered pairs, escalations, and cost savings from the embedding pre-filter{% endblock
+%}
+
+{% block header_actions %}
+<a href="{{ url_for('vetting.vetting_settings') }}" class="btn btn-outline-light btn-sm me-2">
+    <i class="fas fa-arrow-left me-1"></i>Back to Vetting
+</a>
+<form action="{{ url_for('vetting.send_embedding_digest') }}" method="POST" class="d-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-outline-info btn-sm"
+        onclick="return confirm('Send the daily digest email now?')">
+        <i class="fas fa-envelope me-1"></i>Send Digest Email
+    </button>
+</form>
+{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }} alert-dismissible fade show"
+    role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- Summary Banner -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="summary-card">
+            <div class="summary-value" style="color: #e94560;">{{ summary.today_filtered }}</div>
+            <div class="summary-label">Filtered Today</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="summary-card">
+            <div class="summary-value" style="color: var(--brand-secondary);">{{ summary.today_escalated }}</div>
+            <div class="summary-label">Escalated Today</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="summary-card">
+            <div class="summary-value" style="color: #667eea;">{{ summary.today_rate }}%</div>
+            <div class="summary-label">Filter Rate</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="summary-card">
+            <div class="summary-value" style="color: #28a745;">${{ '%.2f'|format(summary.today_savings) }}</div>
+            <div class="summary-label">Est. Savings Today</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-pills audit-tabs mb-3" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link {{ 'active' if active_tab == 'filtered' }}" id="filtered-tab" data-bs-toggle="tab"
+            href="#filtered-panel" role="tab">
+            <i class="fas fa-filter me-2"></i>Filtered Pairs
+            <span class="badge bg-secondary ms-2">{{ filtered_pairs|length }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{ 'active' if active_tab == 'escalations' }}" id="escalations-tab" data-bs-toggle="tab"
+            href="#escalations-panel" role="tab">
+            <i class="fas fa-arrow-up me-2"></i>Escalations
+            <span class="badge bg-secondary ms-2">{{ escalations|length }}</span>
+        </a>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- ═══════════ FILTERED PAIRS TAB ═══════════ -->
+    <div class="tab-pane fade {{ 'show active' if active_tab == 'filtered' }}" id="filtered-panel" role="tabpanel">
+        <!-- Filters -->
+        <div class="filter-panel">
+            <form method="GET" action="{{ url_for('vetting.embedding_audit') }}" class="row g-3 align-items-end">
+                <input type="hidden" name="tab" value="filtered">
+                <div class="col-md-2">
+                    <label class="form-label small">From</label>
+                    <input type="date" class="form-control form-control-sm" name="date_from" value="{{ date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">To</label>
+                    <input type="date" class="form-control form-control-sm" name="date_to" value="{{ date_to }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Min Similarity</label>
+                    <input type="number" step="0.01" min="0" max="1" class="form-control form-control-sm" name="sim_min"
+                        value="{{ sim_min }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Max Similarity</label>
+                    <input type="number" step="0.01" min="0" max="1" class="form-control form-control-sm" name="sim_max"
+                        value="{{ sim_max }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Sort By</label>
+                    <select class="form-select form-select-sm" name="sort">
+                        <option value="date" {{ 'selected' if sort=='date' }}>Date (newest)</option>
+                        <option value="similarity" {{ 'selected' if sort=='similarity' }}>Similarity (highest)</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                        <i class="fas fa-search me-1"></i>Filter
+                    </button>
+                    <a href="{{ url_for('vetting.export_filtered_csv', date_from=date_from, date_to=date_to) }}"
+                        class="btn btn-outline-secondary btn-sm" title="Export CSV">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Filtered Pairs Table -->
+        {% if filtered_pairs %}
+        <div class="table-responsive">
+            <table class="table audit-table mb-0">
+                <thead>
+                    <tr>
+                        <th><a href="?tab=filtered&sort=date&date_from={{ date_from }}&date_to={{ date_to }}">Date</a>
+                        </th>
+                        <th>Candidate</th>
+                        <th>Job Title</th>
+                        <th><a
+                                href="?tab=filtered&sort=similarity&date_from={{ date_from }}&date_to={{ date_to }}">Similarity</a>
+                        </th>
+                        <th>Resume Snippet</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pair in filtered_pairs %}
+                    <tr
+                        class="{{ 'borderline-row' if pair.similarity_score >= 0.20 and pair.similarity_score <= 0.25 }}">
+                        <td><small>{{ pair.filtered_at.strftime('%b %d, %H:%M') if pair.filtered_at else '' }}</small>
+                        </td>
+                        <td>{{ pair.candidate_name or 'Unknown' }}</td>
+                        <td>{{ pair.job_title or 'Unknown' }}</td>
+                        <td class="sim-score">{{ '%.4f'|format(pair.similarity_score) if pair.similarity_score else '—'
+                            }}</td>
+                        <td><small class="text-muted">{{ (pair.resume_snippet or '')[:100] }}{% if pair.resume_snippet
+                                and pair.resume_snippet|length > 100 %}...{% endif %}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if filtered_pairs|length >= 500 %}
+        <p class="text-muted text-center mt-2"><small>Showing first 500 results. Use date filters to narrow.</small></p>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-filter fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No filtered pairs in this period</h5>
+            <p class="text-muted small">The embedding pre-filter hasn't filtered any candidate-job pairs yet, or adjust
+                your date range.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ═══════════ ESCALATIONS TAB ═══════════ -->
+    <div class="tab-pane fade {{ 'show active' if active_tab == 'escalations' }}" id="escalations-panel"
+        role="tabpanel">
+        <!-- Filters -->
+        <div class="filter-panel">
+            <form method="GET" action="{{ url_for('vetting.embedding_audit') }}" class="row g-3 align-items-end">
+                <input type="hidden" name="tab" value="escalations">
+                <div class="col-md-2">
+                    <label class="form-label small">From</label>
+                    <input type="date" class="form-control form-control-sm" name="date_from" value="{{ date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">To</label>
+                    <input type="date" class="form-control form-control-sm" name="date_to" value="{{ date_to }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Score Band</label>
+                    <select class="form-select form-select-sm" name="score_band">
+                        <option value="all" {{ 'selected' if score_band=='all' }}>All Bands</option>
+                        <option value="60-69" {{ 'selected' if score_band=='60-69' }}>60–69%</option>
+                        <option value="70-79" {{ 'selected' if score_band=='70-79' }}>70–79%</option>
+                        <option value="80-85" {{ 'selected' if score_band=='80-85' }}>80–85%</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Sort By</label>
+                    <select class="form-select form-select-sm" name="esc_sort">
+                        <option value="date" {{ 'selected' if esc_sort=='date' }}>Date (newest)</option>
+                        <option value="delta" {{ 'selected' if esc_sort=='delta' }}>Delta (highest)</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                        <i class="fas fa-search me-1"></i>Filter
+                    </button>
+                    <a href="{{ url_for('vetting.export_escalations_csv', date_from=date_from, date_to=date_to) }}"
+                        class="btn btn-outline-secondary btn-sm" title="Export CSV">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Escalations Table -->
+        {% if escalations %}
+        <div class="table-responsive">
+            <table class="table audit-table mb-0">
+                <thead>
+                    <tr>
+                        <th><a
+                                href="?tab=escalations&esc_sort=date&date_from={{ date_from }}&date_to={{ date_to }}">Date</a>
+                        </th>
+                        <th>Candidate</th>
+                        <th>Job Title</th>
+                        <th>GPT-4o-mini</th>
+                        <th>GPT-4o</th>
+                        <th><a
+                                href="?tab=escalations&esc_sort=delta&date_from={{ date_from }}&date_to={{ date_to }}">Delta</a>
+                        </th>
+                        <th>Crossed Threshold</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for esc in escalations %}
+                    <tr>
+                        <td><small>{{ esc.escalated_at.strftime('%b %d, %H:%M') if esc.escalated_at else '' }}</small>
+                        </td>
+                        <td>{{ esc.candidate_name or 'Unknown' }}</td>
+                        <td>{{ esc.job_title or 'Unknown' }}</td>
+                        <td class="text-center">{{ '%.0f'|format(esc.mini_score) if esc.mini_score else '—' }}%</td>
+                        <td class="text-center">{{ '%.0f'|format(esc.gpt4o_score) if esc.gpt4o_score else '—' }}%</td>
+                        <td
+                            class="text-center {{ 'delta-positive' if esc.score_delta and esc.score_delta > 0 else 'delta-negative' if esc.score_delta and esc.score_delta < 0 else '' }}">
+                            <strong>{{ '%+.0f'|format(esc.score_delta) if esc.score_delta else '—' }}</strong>
+                        </td>
+                        <td class="text-center">
+                            {% if esc.crossed_threshold %}
+                            <span class="crossed-yes">Yes</span>
+                            {% else %}
+                            <span class="crossed-no">No</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if escalations|length >= 500 %}
+        <p class="text-muted text-center mt-2"><small>Showing first 500 results. Use date filters to narrow.</small></p>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-arrow-up fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No escalations in this period</h5>
+            <p class="text-muted small">No borderline candidates (60–85%) were escalated to GPT-4o, or adjust your date
+                range.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

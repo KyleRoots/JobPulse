@@ -2,7 +2,7 @@ modules = ["python-3.11", "python3", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["freetype", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "libjpeg_turbo", "mupdf", "openjpeg", "openssl", "postgresql", "swig", "xcbuild", "xcodebuild", "zlib"]
+packages = ["cacert", "cargo", "freetype", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "libffi", "libiconv", "libjpeg_turbo", "libxcrypt", "mupdf", "openjpeg", "openssl", "pkg-config", "postgresql", "rustc", "swig", "xcbuild", "xcodebuild", "zlib"]
 
 [deployment]
 deploymentTarget = "gce"

@@ -1,321 +1,208 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JobPulse™ - Home</title>
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(125deg, #2c3e50 0%, #34495e 25%, #2980b9 50%, #3498db 75%, #5dade2 100%);
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
-        }
-        
-        .geometric-bg {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%),
-                linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%),
-                linear-gradient(-45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
-            background-size: 200px 200px, 300px 300px, 60px 60px, 60px 60px;
-            animation: drift 30s linear infinite;
-            z-index: -1;
-        }
-        
-        @keyframes drift {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            100% { transform: translate(-60px, -60px) rotate(360deg); }
-        }
-        
-        .welcome-container {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-        }
-        
-        .welcome-card {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            backdrop-filter: blur(15px);
-            border-radius: 20px;
-            padding: 3rem 2rem;
-            text-align: center;
-            max-width: 600px;
-            width: 100%;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        
-        .welcome-card:hover {
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.3);
-            transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
-        }
-        
-        .jobpulse-logo {
-            font-size: 3rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-shadow: 0 4px 15px rgba(0,0,0,0.7);
-            margin-bottom: 1rem;
-            position: relative;
-            display: inline-block;
-        }
-        
-        .jobpulse-logo i {
-            position: relative;
-            z-index: 2;
-            animation: spin 4s linear infinite;
-        }
-        
-        .lyntrix-attribution {
-            font-family: 'Kalam', cursive;
-            font-size: 1rem;
-            color: #A8B8C8;
-            font-style: italic;
-            margin-bottom: 2rem;
-        }
-        
-        .welcome-message {
-            font-size: 1.3rem;
-            color: #E8F0FF;
-            margin-bottom: 1rem;
-        }
-        
-        .system-status {
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 1rem;
-            margin: 2rem 0;
-        }
-        
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        
-        .status-active { background-color: #28a745; }
-        .status-inactive { background-color: #dc3545; }
-        
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-        
-        .action-btn {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #ffffff;
-            padding: 1rem;
-            border-radius: 10px;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .action-btn:hover {
-            background: rgba(255,255,255,0.15);
-            border-color: rgba(255,255,255,0.3);
-            color: #ffffff;
-            transform: translateY(-2px);
-        }
-        
-        .action-btn i {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .logout-section {
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .user-info {
-            margin-bottom: 1rem;
-            color: #A8B8C8;
-        }
-        
-        .btn-logout {
-            background: rgba(220, 53, 69, 0.8);
-            border: 2px solid rgba(220, 53, 69, 0.9);
-            color: #ffffff;
-            font-weight: 600;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-        }
-        
-        .btn-logout:hover {
-            background: rgba(165, 42, 42, 1);
-            border-color: rgba(220, 20, 60, 1);
-            color: #ffffff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5);
-        }
-        
-        @media (max-width: 768px) {
-            .jobpulse-logo {
-                font-size: 2.5rem;
-            }
-            .welcome-message {
-                font-size: 1.1rem;
-            }
-            .welcome-card {
-                padding: 2rem 1rem;
-            }
-            .quick-actions {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
-</head>
-<body>
-    <div class="geometric-bg"></div>
-    
-    <div class="welcome-container">
-        <div class="welcome-card">
-            <!-- JobPulse™ Header -->
-            <div class="jobpulse-logo">
-                <i class="fas fa-tachometer-alt me-2"></i>
-                JobPulse™
-            </div>
-            <div class="lyntrix-attribution">powered by Lyntrix AI</div>
-            
-            <!-- Welcome Message -->
-            <div class="welcome-message">
-                Welcome to your XML job feed automation system
-            </div>
-            <p class="lead text-muted">
-                Monitor ATS tearsheets, generate XML feeds, and automate job publishing
-            </p>
-            
-            <!-- System Status -->
-            <div class="system-status">
-                <h6 class="mb-2">
-                    <i class="fas fa-heartbeat me-2"></i>System Status
-                </h6>
-                
-                <!-- Automation Status -->
-                <div class="mb-2">
-                    <span class="status-indicator status-{{ 'active' if automation_active else 'inactive' }}"></span>
-                    <strong>Automation:</strong> 
-                    <span class="badge bg-{{ 'success' if automation_active else 'danger' }}">
-                        {{ 'Active' if automation_active else 'Inactive' }}
-                    </span>
-                </div>
-                
-                <!-- Environment Monitoring Status -->
-                <div class="mb-2">
-                    {% if environment_status %}
-                        <span class="status-indicator status-{{ 'active' if environment_status.is_up else 'inactive' }}"></span>
-                        <strong>Production Environment:</strong> 
-                        <span class="badge bg-{{ 'success' if environment_status.is_up else 'danger' }}">
-                            {{ environment_status.current_status.title() }}
-                        </span>
-                        {% if environment_status.last_check_time %}
-                            <small class="text-muted d-block">
-                                Last checked: {{ environment_status.last_check_time | eastern_time('%I:%M %p %Z') }}
-                                {% if environment_status.consecutive_failures > 0 %}
-                                    | {{ environment_status.consecutive_failures }} consecutive failures
-                                {% endif %}
-                            </small>
-                        {% endif %}
-                        {% if environment_status.uptime_percentage is defined %}
-                            <small class="text-muted d-block">
-                                Uptime: {{ environment_status.uptime_percentage }}%
-                            </small>
-                        {% endif %}
-                    {% else %}
-                        <span class="status-indicator" style="background-color: #6c757d;"></span>
-                        <strong>Production Environment:</strong> 
-                        <span class="badge bg-secondary">Setting up...</span>
-                        <small class="text-muted d-block">Environment monitoring is initializing</small>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Quick Actions -->
-            <div class="quick-actions">
-                <a href="{{ url_for('bullhorn_dashboard') }}" class="action-btn">
+{% extends "base_layout.html" %}
+
+{% block title %}Dashboard - Scout Genius™{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Your AI-powered recruitment command center</p>{% endblock %}
+
+{% block page_actions %}
+{# Download XML and other actions reserved for admin screens #}
+{% endblock %}
+
+{% block extra_styles %}
+{# Styles for metric-card, action-tile, etc. are inherited from base_layout.html #}
+{% endblock %}
+
+{% block content %}
+<!-- Metrics Row - Horizontal Cards -->
+<div class="metrics-row">
+    <div class="metric-card blue">
+        <div class="metric-icon">
+            <i class="fas fa-briefcase"></i>
+        </div>
+        <div class="metric-label">Active Jobs</div>
+        <div class="metric-value">{{ active_jobs|default(0) }}</div>
+        <div class="metric-subtext">Total Open Positions</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-chart-line"></i>
+            From tearsheets
+        </div>
+    </div>
+
+    <div class="metric-card green">
+        <div class="metric-icon">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <div class="metric-label">Candidates Vetted</div>
+        <div class="metric-value">{{ candidates_vetted|default(0) }}</div>
+        <div class="metric-subtext">Processed by AI</div>
+        <div class="metric-trend up">
+            <i class="fas fa-arrow-up"></i>
+            All time
+        </div>
+    </div>
+
+    <div class="metric-card orange">
+        <div class="metric-icon">
+            <i class="fas fa-wrench"></i>
+        </div>
+        <div class="metric-label">Auto-Fixed Issues</div>
+        <div class="metric-value">{{ auto_fixed|default(0) }}</div>
+        <div class="metric-subtext">System Resolved</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-check-circle"></i>
+            Automated
+        </div>
+    </div>
+
+    <div class="metric-card purple">
+        <div class="metric-icon">
+            <i class="fas fa-envelope"></i>
+        </div>
+        <div class="metric-label">Emails Sent</div>
+        <div class="metric-value">{{ emails_sent|default(0) }}</div>
+        <div class="metric-subtext">Communication Log</div>
+        <div class="metric-trend up">
+            <i class="fas fa-paper-plane"></i>
+            Notifications
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Quick Actions -->
+    <div class="col-lg-8 mb-4">
+        <div class="section-header">
+            <i class="fas fa-bolt"></i>
+            <h3>Quick Actions</h3>
+        </div>
+        <div class="actions-grid">
+            <a href="{{ url_for('ats_integration.ats_integration_dashboard') }}" class="action-tile">
+                <div class="action-tile-icon" style="background: rgba(74, 150, 120, 0.15); color: #4a9678;">
                     <i class="fas fa-building"></i>
-                    <span>ATS Monitoring</span>
-                    <small class="text-muted">Monitor job changes</small>
-                </a>
-                
-                <a href="{{ url_for('scheduler_dashboard') }}" class="action-btn">
-                    <i class="fas fa-clock"></i>
-                    <span>Schedule Jobs</span>
-                    <small class="text-muted">Automate processing</small>
-                </a>
-                
-                <a href="{{ url_for('automation_test') }}" class="action-btn">
-                    <i class="fas fa-play"></i>
-                    <span>Test Upload</span>
-                    <small class="text-muted">Test XML upload</small>
-                </a>
-                
-                <a href="{{ url_for('download_current_xml') }}" class="action-btn">
-                    <i class="fas fa-download"></i>
-                    <span>Download XML</span>
-                    <small class="text-muted">Get current feed</small>
-                </a>
-                
-                <a href="{{ url_for('settings') }}" class="action-btn">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                    <small class="text-muted">Configure system</small>
-                </a>
-                
-                <a href="{{ url_for('email_logs') }}" class="action-btn">
-                    <i class="fas fa-envelope"></i>
-                    <span>Email Logs</span>
-                    <small class="text-muted">View notifications</small>
-                </a>
-                
-                <a href="{{ url_for('email_parsing_dashboard') }}" class="action-btn">
-                    <i class="fas fa-inbox"></i>
-                    <span>Email Parsing</span>
-                    <small class="text-muted">Inbound email monitor</small>
-                </a>
-                
-                <a href="{{ url_for('vetting_settings') }}" class="action-btn">
-                    <i class="fas fa-brain"></i>
-                    <span>AI Vetting</span>
-                    <small class="text-muted">Candidate matching</small>
-                </a>
-            </div>
-            
-            <!-- User Info and Logout -->
-            <div class="logout-section">
-                <div class="user-info">
-                    <i class="fas fa-user me-1"></i>
-                    Logged in as <strong>{{ current_user.username }}</strong>
                 </div>
-                <a href="{{ url_for('logout') }}" class="btn-logout">
-                    <i class="fas fa-sign-out-alt me-1"></i>Logout
-                </a>
+                <div class="action-tile-title">ATS Monitoring</div>
+                <div class="action-tile-desc">Monitor Bullhorn jobs</div>
+            </a>
+
+            <a href="{{ url_for('vetting.vetting_settings') }}" class="action-tile">
+                <div class="action-tile-icon" style="background: rgba(168, 85, 247, 0.15); color: #a855f7;">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div class="action-tile-title">Scout Screening</div>
+                <div class="action-tile-desc">Configure AI matching</div>
+            </a>
+
+            <a href="{{ url_for('scheduler.scheduler_dashboard') }}" class="action-tile">
+                <div class="action-tile-icon" style="background: rgba(85, 124, 91, 0.15); color: #557C5B;">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="action-tile-title">Scheduler</div>
+                <div class="action-tile-desc">Automate processing</div>
+            </a>
+
+            <a href="{{ url_for('log_monitoring_page') }}" class="action-tile">
+                <div class="action-tile-icon" style="background: rgba(74, 150, 120, 0.15); color: #4a9678;">
+                    <i class="fas fa-heartbeat"></i>
+                </div>
+                <div class="action-tile-title">Log Monitoring</div>
+                <div class="action-tile-desc">System health & logs</div>
+            </a>
+
+            <a href="{{ url_for('email_logs') }}" class="action-tile">
+                <div class="action-tile-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <div class="action-tile-title">Email Logs</div>
+                <div class="action-tile-desc">View notifications</div>
+            </a>
+
+            <a href="{{ url_for('email_parsing_dashboard') }}" class="action-tile">
+                <div class="action-tile-icon" style="background: rgba(249, 115, 22, 0.15); color: #f97316;">
+                    <i class="fas fa-inbox"></i>
+                </div>
+                <div class="action-tile-title">Email Parsing</div>
+                <div class="action-tile-desc">Inbound email monitor</div>
+            </a>
+
+            <a href="{{ url_for('automation_test') }}" class="action-tile">
+                <div class="action-tile-icon" style="background: rgba(236, 72, 153, 0.15); color: #ec4899;">
+                    <i class="fas fa-play"></i>
+                </div>
+                <div class="action-tile-title">Test Upload</div>
+                <div class="action-tile-desc">Test XML upload</div>
+            </a>
+
+            <a href="{{ url_for('settings.settings') }}" class="action-tile">
+                <div class="action-tile-icon" style="background: rgba(100, 116, 139, 0.15); color: #94a3b8;">
+                    <i class="fas fa-cog"></i>
+                </div>
+                <div class="action-tile-title">Settings</div>
+                <div class="action-tile-desc">Configure system</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- System Status Panel -->
+    <div class="col-lg-4 mb-4">
+        <div class="section-header">
+            <i class="fas fa-heartbeat"></i>
+            <h3>System Status</h3>
+        </div>
+        <div class="status-panel">
+            <div class="status-item">
+                <div class="status-indicator {{ 'active' if automation_active else 'inactive' }}"></div>
+                <div class="status-info">
+                    <div class="status-name">Automation Engine</div>
+                    <div class="status-meta">{{ 'Running every 30 min' if automation_active else 'Paused' }}</div>
+                </div>
+                <span class="status-badge {{ 'success' if automation_active else 'danger' }}">
+                    {{ 'Active' if automation_active else 'Off' }}
+                </span>
+            </div>
+
+            <div class="status-item">
+                {% if environment_status %}
+                <div class="status-indicator {{ 'active' if environment_status.is_up else 'inactive' }}"></div>
+                <div class="status-info">
+                    <div class="status-name">Production</div>
+                    <div class="status-meta">
+                        {% if environment_status.last_check_time %}
+                        {{ environment_status.last_check_time | eastern_time('%I:%M %p') }}
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="status-badge {{ 'success' if environment_status.is_up else 'danger' }}">
+                    {{ environment_status.current_status.title() }}
+                </span>
+                {% else %}
+                <div class="status-indicator pending"></div>
+                <div class="status-info">
+                    <div class="status-name">Production</div>
+                    <div class="status-meta">Initializing...</div>
+                </div>
+                <span class="status-badge warning">Setting up</span>
+                {% endif %}
+            </div>
+
+            <div class="status-item">
+                <div class="status-indicator active"></div>
+                <div class="status-info">
+                    <div class="status-name">Bullhorn API</div>
+                    <div class="status-meta">Connected</div>
+                </div>
+                <span class="status-badge success">Online</span>
+            </div>
+
+            <div class="status-item">
+                <div class="status-indicator active"></div>
+                <div class="status-info">
+                    <div class="status-name">OpenAI</div>
+                    <div class="status-meta">GPT-4 Active</div>
+                </div>
+                <span class="status-badge success">Ready</span>
             </div>
         </div>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}

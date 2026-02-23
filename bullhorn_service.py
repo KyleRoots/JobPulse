@@ -21,6 +21,7 @@ class BullhornService:
     def __init__(self, client_id=None, client_secret=None, username=None, password=None):
         self.base_url = None
         self.rest_token = None
+        self.access_token = None  # OAuth access token (set during _direct_login)
         self.user_id = None  # Corporate user ID for note creation
         self.client_id = client_id
         self.client_secret = client_secret
@@ -134,6 +135,171 @@ class BullhornService:
             logging.info(f"🚫 Excluded {self.excluded_count} jobs from processing: {excluded_ids}")
         
         return filtered_jobs
+    
+    @staticmethod
+    def parse_address_string(address_str: str) -> Dict[str, str]:
+        """
+        Parse a street address string to extract city, state, zip, and country.
+        
+        This handles cases where Bullhorn's address object has empty city/state 
+        fields but a full address in address1 like:
+        "2755 N Michigan Ave, Greensburg, Indiana 47240, United States"
+        
+        Args:
+            address_str: Full address string from address1 field
+            
+        Returns:
+            Dict with city, state, zip, country keys (empty string if not found)
+        """
+        import re
+        
+        result = {'city': '', 'state': '', 'zip': '', 'country': ''}
+        
+        if not address_str or not address_str.strip():
+            return result
+        
+        # Clean the address string
+        address_str = address_str.strip()
+        
+        # Common country names to detect
+        countries = ['United States', 'USA', 'US', 'Canada', 'Mexico']
+        
+        # Check for country at the end
+        for country in countries:
+            if address_str.lower().endswith(country.lower()):
+                result['country'] = 'United States' if country in ['USA', 'US'] else country
+                address_str = address_str[:-len(country)].rstrip(', ')
+                break
+        
+        # US state abbreviations
+        state_abbrevs = {
+            'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',
+            'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware',
+            'FL': 'Florida', 'GA': 'Georgia', 'HI': 'Hawaii', 'ID': 'Idaho',
+            'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa', 'KS': 'Kansas',
+            'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+            'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi',
+            'MO': 'Missouri', 'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada',
+            'NH': 'New Hampshire', 'NJ': 'New Jersey', 'NM': 'New Mexico', 'NY': 'New York',
+            'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio', 'OK': 'Oklahoma',
+            'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+            'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah',
+            'VT': 'Vermont', 'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
+            'WI': 'Wisconsin', 'WY': 'Wyoming', 'DC': 'District of Columbia'
+        }
+        
+        # Try pattern: "City, State ZIP" or "City, State"
+        # Pattern handles: "Greensburg, Indiana 47240" or "Greensburg, IN 47240"
+        pattern = r',\s*([^,]+?)[,\s]+([A-Za-z]{2,}(?:\s[A-Za-z]+)?)\s*(\d{5}(?:-\d{4})?)?$'
+        match = re.search(pattern, address_str)
+        
+        if match:
+            city_candidate = match.group(1).strip()
+            state_candidate = match.group(2).strip()
+            zip_code = match.group(3) if match.group(3) else ''
+            
+            # Check if state_candidate is a valid state name or abbreviation
+            state_upper = state_candidate.upper()
+            if state_upper in state_abbrevs:
+                result['state'] = state_abbrevs[state_upper]
+                result['city'] = city_candidate
+                result['zip'] = zip_code
+            elif state_candidate in state_abbrevs.values():
+                result['state'] = state_candidate
+                result['city'] = city_candidate
+                result['zip'] = zip_code
+        
+        # FALLBACK: Handle space-separated addresses with NO commas
+        # Example: "333 Centennial Pkwy Louisville Colorado 80027 United States"
+        if not result['city'] and not result['state']:
+            # Look for state name or abbreviation in the address
+            words = address_str.split()
+            
+            # Try to find state name (could be multi-word like "New York")
+            for i, word in enumerate(words):
+                word_upper = word.upper()
+                
+                # Check for state abbreviation (2 letters)
+                if word_upper in state_abbrevs:
+                    result['state'] = state_abbrevs[word_upper]
+                    # City is likely the word(s) before the state
+                    # Skip street address parts (numbers, common street suffixes)
+                    street_suffixes = ['st', 'street', 'ave', 'avenue', 'blvd', 'boulevard', 
+                                      'dr', 'drive', 'rd', 'road', 'ln', 'lane', 'way', 
+                                      'ct', 'court', 'pkwy', 'parkway', 'pl', 'place', 'cir', 'circle']
+                    
+                    # Find the city by looking for a word before state that's not a street suffix
+                    for j in range(i - 1, -1, -1):
+                        candidate = words[j].lower().rstrip(',.')
+                        # Skip numbers and street suffixes
+                        if not candidate.isdigit() and candidate not in street_suffixes:
+                            result['city'] = words[j].rstrip(',.')
+                            break
+                    break
+                
+                # Check for full state name (e.g., "Colorado")
+                if word in state_abbrevs.values():
+                    result['state'] = word
+                    # City is likely the word before
+                    street_suffixes = ['st', 'street', 'ave', 'avenue', 'blvd', 'boulevard', 
+                                      'dr', 'drive', 'rd', 'road', 'ln', 'lane', 'way', 
+                                      'ct', 'court', 'pkwy', 'parkway', 'pl', 'place', 'cir', 'circle']
+                    for j in range(i - 1, -1, -1):
+                        candidate = words[j].lower().rstrip(',.')
+                        if not candidate.isdigit() and candidate not in street_suffixes:
+                            result['city'] = words[j].rstrip(',.')
+                            break
+                    break
+            
+            # Try to find ZIP code (5-digit number optionally followed by -4 digits)
+            zip_pattern = r'\b(\d{5}(?:-\d{4})?)\b'
+            zip_match = re.search(zip_pattern, address_str)
+            if zip_match:
+                result['zip'] = zip_match.group(1)
+        
+        # Set default country if we found a valid US state
+        if result['state'] and not result['country']:
+            result['country'] = 'United States'
+        
+        return result
+    
+    def normalize_job_address(self, job: Dict) -> Dict:
+        """
+        Normalize a job's address fields, filling in missing city/state from address1 if needed.
+        
+        Args:
+            job: Job dictionary from Bullhorn API
+            
+        Returns:
+            The same job dictionary with normalized address data
+        """
+        address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+        
+        city = address.get('city', '').strip() if address.get('city') else ''
+        state = address.get('state', '').strip() if address.get('state') else ''
+        country = (address.get('countryName', '') or address.get('country', '')).strip()
+        
+        # If city/state are empty but we have address1, try to parse it
+        if (not city or not state) and address.get('address1'):
+            parsed = self.parse_address_string(address.get('address1', ''))
+            if parsed['city'] and not city:
+                city = parsed['city']
+            if parsed['state'] and not state:
+                state = parsed['state']
+            if parsed['country'] and not country:
+                country = parsed['country']
+            
+            logging.debug(f"Parsed address for job {job.get('id')}: city={city}, state={state}")
+        
+        # Update the address dict with normalized values
+        if 'address' not in job or not isinstance(job['address'], dict):
+            job['address'] = {}
+        
+        job['address']['city'] = city
+        job['address']['state'] = state
+        job['address']['countryName'] = country
+        
+        return job
         
     def authenticate(self) -> bool:
         """
@@ -304,7 +470,7 @@ class BullhornService:
             
             auth_response = self.session.get(auth_endpoint, params=auth_params, allow_redirects=False, timeout=30)
             logging.info(f"Auth response status: {auth_response.status_code}")
-            logging.info(f"Auth response headers: {dict(auth_response.headers)}")
+            logging.info(f"Auth response headers: [redacted for security]")
             
             if auth_response.status_code == 302:
                 # Check for authorization code in redirect
@@ -365,11 +531,12 @@ class BullhornService:
             logging.info(f"Exchanging auth code at token endpoint: {token_endpoint}")
             token_response = self.session.post(token_endpoint, data=token_data, headers=headers, timeout=30)
             if token_response.status_code != 200:
-                logging.error(f"Failed to get access token: {token_response.status_code} - {token_response.text}")
+                logging.error(f"Failed to get access token: HTTP {token_response.status_code}")
                 return False
             
             token_info = self._safe_json_parse(token_response)
             access_token = token_info.get('access_token')
+            self.access_token = access_token  # Persist as instance attribute for health checks
             
             if not access_token:
                 logging.error("No access token in response")
@@ -385,7 +552,7 @@ class BullhornService:
             logging.info(f"Getting REST token from: {rest_login_url}")
             rest_response = self.session.post(rest_login_url, params=rest_params, timeout=30)
             if rest_response.status_code != 200:
-                logging.error(f"Failed to get REST token: {rest_response.status_code} - {rest_response.text}")
+                logging.error(f"Failed to get REST token: HTTP {rest_response.status_code}")
                 return False
             
             rest_data = self._safe_json_parse(rest_response)
@@ -404,7 +571,7 @@ class BullhornService:
                 return False
             
             logging.info(f"Bullhorn authentication successful. Base URL: {self.base_url}")
-            logging.info(f"REST Token (first 20 chars): {self.rest_token[:20]}...")
+            logging.info(f"REST Token: ***{self.rest_token[-4:]}")
             
             # If user ID not in login response, try to fetch it
             if not self.user_id:
@@ -506,7 +673,7 @@ class BullhornService:
             # First get the entity API count for validation
             entity_url = f"{self.base_url}entity/Tearsheet/{tearsheet_id}"
             entity_params = {
-                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),description,publicDescription,address(city,state,countryName),employmentType,onSite,assignedUsers(id,firstName,lastName,email),responseUser(firstName,lastName),owner(firstName,lastName))',
+                'fields': 'id,name,jobOrders(id,title,isOpen,status,dateAdded,dateLastModified,clientCorporation(name),description,publicDescription,address(address1,city,state,countryName),employmentType,onSite,assignedUsers(id,firstName,lastName,email),responseUser(firstName,lastName),owner(firstName,lastName))',
                 'BhRestToken': self.rest_token
             }
             
@@ -571,7 +738,7 @@ class BullhornService:
                 "dateLastModified", "clientCorporation(id,name)",
                 "clientContact(firstName,lastName)", "description",
                 "publicDescription", "numOpenings", "isPublic",
-                "address(city,state,countryName)", "employmentType",
+                "address(address1,city,state,countryName)", "employmentType",
                 "salary", "salaryUnit", "isDeleted",
                 "categories(id,name)", "onSite", "benefits", "bonusPackage",
                 "degreeList", "skillList", "certificationList",
@@ -617,21 +784,22 @@ class BullhornService:
             # Apply job exclusion filter
             filtered_jobs = self._filter_excluded_jobs(all_jobs)
             
-            # Handle discrepancies between Entity API and Search API
+            # Log discrepancies between Entity API and Search API
+            # NOTE: Search API's tearsheets.id index is the authoritative source
+            # of tearsheet membership. Entity API frequently under-reports job
+            # counts due to Bullhorn consistency lag, causing valid jobs to be
+            # dropped if used for filtering. We log discrepancies but always
+            # trust the Search API results.
             if entity_total > 0 and len(all_jobs) != entity_total:
-                if entity_total < len(all_jobs):
-                    # Entity API shows FEWER jobs → Jobs were removed from tearsheet
-                    # Trust Entity API (authoritative source) and filter out orphaned jobs
-                    if entity_job_ids:
-                        orphaned_jobs = [j for j in filtered_jobs if j.get('id') not in entity_job_ids]
-                        filtered_jobs = [j for j in filtered_jobs if j.get('id') in entity_job_ids]
-                        logging.info(f"Tearsheet {tearsheet_id}: Entity API shows {entity_total} jobs but Search API returned {len(all_jobs)}. Removed {len(orphaned_jobs)} orphaned jobs. Using Entity API as source of truth.")
-                    else:
-                        logging.warning(f"Tearsheet {tearsheet_id}: Entity API shows {entity_total} jobs but Search API returned {len(all_jobs)}. No Entity job IDs available for filtering.")
-                else:
-                    # Entity API shows MORE jobs → Search API pagination issue
-                    # Trust Search API results (more complete due to full field retrieval)
-                    logging.info(f"Tearsheet {tearsheet_id}: Search API returned {len(all_jobs)} jobs while Entity API indicates {entity_total}. Using Search API results (more complete field data).")
+                logging.warning(
+                    f"Tearsheet {tearsheet_id}: Entity API reports {entity_total} jobs "
+                    f"but Search API returned {len(all_jobs)}. "
+                    f"Using Search API results (authoritative for tearsheet membership)."
+                )
+            
+            # Normalize addresses - parse city/state from address1 if nested fields are empty
+            for job in filtered_jobs:
+                self.normalize_job_address(job)
             
             return filtered_jobs
                 
@@ -660,7 +828,7 @@ class BullhornService:
                 "dateLastModified", "clientCorporation(id,name)",
                 "clientContact(firstName,lastName)", "description",
                 "publicDescription", "numOpenings", "isPublic",
-                "address(city,state,countryName)",
+                "address(address1,city,state,countryName)",
                 "employmentType", "onSite",
                 "assignedUsers(firstName,lastName)",
                 "responseUser(firstName,lastName)",
@@ -706,7 +874,13 @@ class BullhornService:
                     logging.error(f"Failed to get jobs by query: {response.status_code} - {response.text}")
                     break
             
-            return self._filter_excluded_jobs(all_jobs)
+            filtered_jobs = self._filter_excluded_jobs(all_jobs)
+            
+            # Normalize addresses - parse city/state from address1 if nested fields are empty
+            for job in filtered_jobs:
+                self.normalize_job_address(job)
+            
+            return filtered_jobs
                 
         except Exception as e:
             logging.error(f"Error getting jobs by query: {str(e)}")
@@ -731,7 +905,7 @@ class BullhornService:
             # Use the entity endpoint to get a specific job
             url = f"{self.base_url}entity/JobOrder/{job_id}"
             params = {
-                'fields': 'id,title,description,publicDescription,employmentType,onSite,address(city,state,countryName),assignedUsers(id,firstName,lastName,email),responseUser(firstName,lastName),owner(firstName,lastName),dateLastModified,customText1,customText2,customText3',
+                'fields': 'id,title,description,publicDescription,employmentType,onSite,address(address1,city,state,countryName),assignedUsers(id,firstName,lastName,email),responseUser(firstName,lastName),owner(firstName,lastName),dateLastModified,customText1,customText2,customText3',
                 'BhRestToken': self.rest_token
             }
             
@@ -741,8 +915,11 @@ class BullhornService:
             if response.status_code == 200:
                 data = response.json()
                 if 'data' in data:
-                    logging.info(f"Successfully retrieved job {job_id}: {data['data'].get('title', 'No title')}")
-                    return data['data']
+                    job = data['data']
+                    # Normalize address - parse city/state from address1 if nested fields are empty
+                    self.normalize_job_address(job)
+                    logging.info(f"Successfully retrieved job {job_id}: {job.get('title', 'No title')}")
+                    return job
                 else:
                     logging.warning(f"Job {job_id} not found in response")
                     return None
@@ -1103,7 +1280,7 @@ class BullhornService:
             fields = [
                 "id", "title", "status", "isOpen", "dateAdded", 
                 "dateLastModified", "clientCorporation(name)", "publicDescription", 
-                "description", "address(city,state,countryName)", "employmentType",
+                "description", "address(address1,city,state,countryName)", "employmentType",
                 "onSite", "assignedUsers(firstName,lastName)", 
                 "responseUser(firstName,lastName)", "owner(firstName,lastName)",
                 "salary", "salaryUnit", "categories(name)", "skillList", 
@@ -1508,7 +1685,7 @@ class BullhornService:
         try:
             url = f"{self.base_url}entity/Candidate/{candidate_id}"
             params = {
-                'fields': 'id,firstName,lastName,email,phone,mobile,address(city,state,countryName),status,source,occupation,companyName,skillSet,description',
+                'fields': 'id,firstName,lastName,email,phone,mobile,address(address1,city,state,countryName),status,source,occupation,companyName,skillSet,description',
                 'BhRestToken': self.rest_token
             }
             
@@ -1645,6 +1822,68 @@ class BullhornService:
                 logging.error(f"Error creating education record: {str(e)}")
         
         return created_ids
+    
+    def get_candidate_notes(self, candidate_id: int, action_filter: list = None,
+                            since: 'datetime' = None, count: int = 10) -> list:
+        """
+        Retrieve notes for a candidate, optionally filtered by action and date.
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            action_filter: List of action strings to filter by (e.g., ["AI Vetting - Qualified"])
+            since: Only return notes created after this datetime
+            count: Maximum number of notes to retrieve
+            
+        Returns:
+            List of note dicts with id, action, dateAdded fields, or empty list on failure
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                logging.error(f"get_candidate_notes failed: Could not authenticate with Bullhorn")
+                return []
+        
+        try:
+            url = f"{self.base_url}entity/Candidate/{candidate_id}/notes"
+            params = {
+                'fields': 'id,action,dateAdded',
+                'count': count,
+                'orderBy': '-dateAdded',
+                'BhRestToken': self.rest_token
+            }
+            
+            response = self.session.get(url, params=params, timeout=15)
+            
+            if response.status_code == 401:
+                # Token expired, re-authenticate and retry
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    url = f"{self.base_url}entity/Candidate/{candidate_id}/notes"
+                    response = self.session.get(url, params=params, timeout=15)
+                else:
+                    return []
+            
+            if response.status_code != 200:
+                logging.warning(f"get_candidate_notes failed: HTTP {response.status_code}")
+                return []
+            
+            data = self._safe_json_parse(response)
+            notes = data.get('data', [])
+            
+            # Filter by action if specified
+            if action_filter:
+                notes = [n for n in notes if n.get('action') in action_filter]
+            
+            # Filter by date if specified
+            if since:
+                since_ms = int(since.timestamp() * 1000)
+                notes = [n for n in notes if n.get('dateAdded', 0) >= since_ms]
+            
+            return notes
+            
+        except Exception as e:
+            logging.error(f"Error retrieving notes for candidate {candidate_id}: {str(e)}")
+            return []
     
     def create_candidate_note(self, candidate_id: int, note_text: str, 
                                action: str = "AI Resume Summary") -> Optional[int]:

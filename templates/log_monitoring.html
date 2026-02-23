@@ -1,0 +1,683 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Log Monitoring - JobPulse™{% endblock %}
+
+{% block page_title %}System Health Monitor{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Real-time log analysis and automated issue resolution</p>{% endblock
+%}
+
+{% block page_actions %}
+<button id="runNowBtn" class="btn btn-primary me-2" onclick="runMonitoringNow()">
+    <i class="fas fa-play me-1"></i>Run Now
+</button>
+<button class="btn btn-outline-light" onclick="refreshStatus()">
+    <i class="fas fa-sync-alt me-1"></i>Refresh
+</button>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+
+    .status-healthy {
+        color: #557C5B;
+    }
+
+    .status-issues {
+        color: #f59e0b;
+    }
+
+    .status-critical {
+        color: #ef4444;
+    }
+
+    .status-pending {
+        color: #64748b;
+    }
+
+    .config-table td {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(74, 150, 120, 0.1);
+    }
+
+    .config-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .section-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .section-title i {
+        color: #4a9678;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Metrics Row - Horizontal Cards (matching Dashboard style) -->
+<div class="metrics-row">
+    <div class="metric-card blue" id="statusCard">
+        <div class="metric-icon" id="statusIndicator">
+            <i class="fas fa-circle-notch fa-spin"></i>
+        </div>
+        <div class="metric-label">System Status</div>
+        <div class="metric-value" id="statusText" style="font-size: 1.2rem; max-width: 80%;">Loading...</div>
+        <div class="metric-subtext">Health Check</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-clock"></i>
+            <span id="lastRunTime">--</span>
+        </div>
+    </div>
+
+    <div class="metric-card green">
+        <div class="metric-icon">
+            <i class="fas fa-play-circle"></i>
+        </div>
+        <div class="metric-label">Total Runs</div>
+        <div class="metric-value" id="totalRuns">--</div>
+        <div class="metric-subtext">Monitoring Cycles</div>
+        <div class="metric-trend up">
+            <i class="fas fa-chart-line"></i>
+            Active
+        </div>
+    </div>
+
+    <div class="metric-card purple">
+        <div class="metric-icon">
+            <i class="fas fa-wrench"></i>
+        </div>
+        <div class="metric-label">Auto-Fixed</div>
+        <div class="metric-value" id="totalAutoFixed">--</div>
+        <div class="metric-subtext">Issues Resolved</div>
+        <div class="metric-trend up">
+            <i class="fas fa-check"></i>
+            Automated
+        </div>
+    </div>
+
+    <div class="metric-card orange">
+        <div class="metric-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="metric-label">Escalated</div>
+        <div class="metric-value" id="totalEscalated">--</div>
+        <div class="metric-subtext">Needs Attention</div>
+        <div class="metric-trend neutral">
+            <i class="fas fa-bell"></i>
+            Alerted
+        </div>
+    </div>
+</div>
+
+
+<!-- Configuration & Service Info -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="section-title">
+            <i class="fas fa-cog"></i>
+            Configuration
+        </div>
+        <div class="glass-card p-3">
+            <table class="table table-borderless config-table mb-0">
+                <tr>
+                    <td><strong>Monitoring Interval</strong></td>
+                    <td id="intervalMinutes">-- minutes</td>
+                </tr>
+                <tr>
+                    <td><strong>Escalation Email</strong></td>
+                    <td id="escalationEmail">--</td>
+                </tr>
+                <tr>
+                    <td><strong>Patterns Configured</strong></td>
+                    <td id="patternsConfigured">--</td>
+                </tr>
+                <tr>
+                    <td><strong>API Connected</strong></td>
+                    <td id="apiConfigured">--</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="section-title">
+            <i class="fas fa-info-circle"></i>
+            Service Info
+        </div>
+        <div class="glass-card p-3">
+            <table class="table table-borderless config-table mb-0">
+                <tr>
+                    <td><strong>Service ID</strong></td>
+                    <td><code id="serviceId">--</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Service Started</strong></td>
+                    <td id="serviceStartTime">--</td>
+                </tr>
+                <tr>
+                    <td><strong>Last Log Fetched</strong></td>
+                    <td id="lastLogTimestamp">--</td>
+                </tr>
+                <tr>
+                    <td><strong>Issues Detected (Total)</strong></td>
+                    <td id="totalIssuesFound">--</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="section-title">
+    <i class="fas fa-history"></i>
+    Recent Monitoring Runs
+</div>
+<div class="glass-card">
+    <div class="table-responsive">
+        <table class="table data-table mb-0" id="historyTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Logs Analyzed</th>
+                    <th>Issues Found</th>
+                    <th>Auto-Fixed</th>
+                    <th>Escalated</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody">
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-clock me-2"></i>No monitoring runs yet. The first run will occur in a few
+                        minutes.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Issue Registry Section -->
+<div class="section-title mt-4">
+    <i class="fas fa-shield-alt"></i>
+    Issue Registry
+    <span class="badge bg-secondary ms-2" id="totalIssuesBadge">0</span>
+</div>
+
+<!-- Filtering Controls -->
+<div class="glass-card p-3 mb-3">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label small">Filter by Status</label>
+            <select class="form-select form-select-sm" id="issueStatusFilter" onchange="loadIssues()">
+                <option value="all">All Issues</option>
+                <option value="auto_fixed">✅ Auto-Fixed</option>
+                <option value="escalated">⚠️ Escalated</option>
+                <option value="resolved">✓ Resolved</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Filter by Severity</label>
+            <select class="form-select form-select-sm" id="issueSeverityFilter" onchange="loadIssues()">
+                <option value="all">All Severities</option>
+                <option value="critical">🔴 Critical</option>
+                <option value="major">🟠 Major</option>
+                <option value="minor">🟢 Minor</option>
+            </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div class="d-flex gap-2">
+                <span class="badge" style="background-color: #769D7D;" id="autoFixedCount">0 auto-fixed</span>
+                <span class="badge bg-warning" id="escalatedCount">0 escalated</span>
+                <span class="badge bg-info" id="resolvedCount">0 resolved</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="table-responsive">
+        <table class="table data-table mb-0" id="issuesTable">
+            <thead>
+                <tr>
+                    <th>Detected</th>
+                    <th>Issue</th>
+                    <th>Severity</th>
+                    <th>Occurrences</th>
+                    <th>Status</th>
+                    <th>Resolution</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="issuesBody">
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-check-circle me-2"></i>No issues detected yet. The system is healthy.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <!-- Pagination -->
+    <div class="d-flex justify-content-between align-items-center p-3" id="issuesPagination"
+        style="display: none !important;">
+        <span id="paginationInfo" class="small text-muted">Showing 0 of 0 issues</span>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-light" id="prevPageBtn" onclick="changePage(-1)" disabled>
+                <i class="fas fa-chevron-left"></i> Prev
+            </button>
+            <button class="btn btn-outline-light" id="nextPageBtn" onclick="changePage(1)" disabled>
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Issue Detail Modal -->
+<div class="modal fade" id="issueDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: var(--card-bg); border: 1px solid var(--card-border);">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title">
+                    <i class="fas fa-bug me-2"></i>Issue Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="small text-muted">Issue Type</label>
+                        <p class="mb-0" id="modalPatternName"><strong>--</strong></p>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small text-muted">Severity</label>
+                        <p class="mb-0" id="modalSeverity">--</p>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small text-muted">Status</label>
+                        <p class="mb-0" id="modalStatus">--</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="small text-muted">Detected At</label>
+                        <p class="mb-0" id="modalDetectedAt">--</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small text-muted">Occurrences</label>
+                        <p class="mb-0" id="modalOccurrences">--</p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted">Resolution Summary</label>
+                    <div class="alert alert-secondary" id="modalResolution">--</div>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted">Sample Log Entry</label>
+                    <pre class="bg-dark p-3 rounded" style="max-height: 200px; overflow: auto; font-size: 0.8rem;"
+                        id="modalSampleLog">--</pre>
+                </div>
+                <!-- Resolution Form for Escalated Issues -->
+                <div id="resolveSection" style="display: none;">
+                    <hr>
+                    <h6><i class="fas fa-check-circle me-2"></i>Mark as Resolved</h6>
+                    <div class="mb-3">
+                        <label class="form-label">Resolution Notes</label>
+                        <textarea class="form-control" id="resolutionNotes" rows="2"
+                            placeholder="Describe how this issue was resolved..."></textarea>
+                    </div>
+                    <button class="btn btn-success" onclick="resolveIssue()">
+                        <i class="fas fa-check me-1"></i>Mark Resolved
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+    function formatTime(isoString) {
+        if (!isoString) return '--';
+        const date = new Date(isoString);
+        return date.toLocaleString();
+    }
+
+    function formatTimeAgo(isoString) {
+        if (!isoString) return '--';
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} min ago`;
+        if (diffHours < 24) return `${diffHours} hours ago`;
+        return formatTime(isoString);
+    }
+
+    function updateStatus(data) {
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const statusCard = document.getElementById('statusCard');
+
+        if (data.current_status === 'healthy') {
+            statusIndicator.innerHTML = '<i class="fas fa-check-circle fa-3x text-success"></i>';
+            statusText.textContent = 'System Healthy';
+        } else if (data.current_status === 'issues_detected') {
+            statusIndicator.innerHTML = '<i class="fas fa-exclamation-triangle fa-3x text-warning"></i>';
+            statusText.textContent = 'Issues Detected';
+        } else {
+            statusIndicator.innerHTML = '<i class="fas fa-clock fa-3x text-muted"></i>';
+            statusText.textContent = 'Awaiting First Run';
+        }
+
+        if (data.last_run) {
+            document.getElementById('lastRunTime').textContent = formatTimeAgo(data.last_run.timestamp);
+        }
+
+        document.getElementById('totalRuns').textContent = data.total_runs || 0;
+        document.getElementById('totalAutoFixed').textContent = data.total_auto_fixed || 0;
+        document.getElementById('totalEscalated').textContent = data.total_escalated || 0;
+        document.getElementById('totalIssuesFound').textContent = data.total_issues_found || 0;
+
+        document.getElementById('intervalMinutes').textContent = (data.interval_minutes || '--') + ' minutes';
+        document.getElementById('escalationEmail').textContent = data.escalation_email || '--';
+        document.getElementById('patternsConfigured').textContent = data.patterns_configured || '--';
+        document.getElementById('apiConfigured').innerHTML = data.api_configured
+            ? '<span class="badge-status success">Connected</span>'
+            : '<span class="badge-status danger">Not Configured</span>';
+
+        document.getElementById('serviceId').textContent = data.service_id || '--';
+        document.getElementById('serviceStartTime').textContent = formatTime(data.service_start_time);
+        document.getElementById('lastLogTimestamp').textContent = formatTime(data.last_log_timestamp);
+    }
+
+    function updateHistory(history) {
+        const tbody = document.getElementById('historyBody');
+
+        if (!history || history.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-clock me-2"></i>No monitoring runs yet. The first run will occur in a few minutes.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = history.map(run => {
+            const statusBadge = run.status === 'healthy'
+                ? '<span class="badge-status success">Healthy</span>'
+                : '<span class="badge-status warning">Issues</span>';
+
+            const details = run.issue_details && run.issue_details.length > 0
+                ? run.issue_details.map(i => `${i.name} (${i.occurrences}x)`).join(', ')
+                : '--';
+
+            return `
+                <tr>
+                    <td>${formatTime(run.timestamp)}</td>
+                    <td>${statusBadge}</td>
+                    <td>${run.logs_analyzed}</td>
+                    <td>${run.issues_found}</td>
+                    <td class="text-success">${run.auto_fixed}</td>
+                    <td class="text-danger">${run.escalated}</td>
+                    <td><small class="text-muted">${details}</small></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function refreshStatus() {
+        fetch('/api/log-monitoring/status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateStatus(data.status);
+                }
+            })
+            .catch(err => console.error('Error fetching status:', err));
+
+        fetch('/api/log-monitoring/history')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateHistory(data.history);
+                }
+            })
+            .catch(err => console.error('Error fetching history:', err));
+    }
+
+    function runMonitoringNow() {
+        const btn = document.getElementById('runNowBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
+
+        fetch('/api/log-monitoring/run', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    setTimeout(() => {
+                        refreshStatus();
+                        loadIssues();  // Refresh issues after run
+                    }, 1000);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Error running monitoring:', err);
+                alert('Error running monitoring cycle');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play me-1"></i>Run Now';
+            });
+    }
+
+    // ========== Issue Registry Functions ==========
+
+    let currentPage = 1;
+    let currentIssueId = null;
+
+    function getSeverityBadge(severity) {
+        const badges = {
+            'critical': '<span class="badge bg-danger">🔴 Critical</span>',
+            'major': '<span class="badge bg-warning text-dark">🟠 Major</span>',
+            'minor': '<span class="badge bg-success">🟢 Minor</span>'
+        };
+        return badges[severity] || '<span class="badge bg-secondary">Unknown</span>';
+    }
+
+    function getStatusBadge(status) {
+        const badges = {
+            'auto_fixed': '<span class="badge-status" style="background-color: #769D7D;">✅ Auto-Fixed</span>',
+            'escalated': '<span class="badge-status warning">⚠️ Escalated</span>',
+            'resolved': '<span class="badge-status info">✓ Resolved</span>',
+            'detected': '<span class="badge-status secondary">⏳ Detected</span>',
+            'ignored': '<span class="badge-status secondary">— Ignored</span>'
+        };
+        return badges[status] || '<span class="badge-status secondary">Unknown</span>';
+    }
+
+    function loadIssues() {
+        const status = document.getElementById('issueStatusFilter').value;
+        const severity = document.getElementById('issueSeverityFilter').value;
+
+        const params = new URLSearchParams({
+            page: currentPage,
+            per_page: 15,
+            status: status,
+            severity: severity
+        });
+
+        fetch(`/api/log-monitoring/issues?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateIssuesTable(data.issues);
+                    updateIssueCounts(data.counts);
+                    updatePagination(data.pagination);
+                }
+            })
+            .catch(err => {
+                console.error('Error loading issues:', err);
+            });
+    }
+
+    function updateIssuesTable(issues) {
+        const tbody = document.getElementById('issuesBody');
+
+        if (!issues || issues.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-check-circle me-2"></i>No issues match the current filter.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = issues.map(issue => {
+            const truncatedSummary = issue.resolution_summary
+                ? (issue.resolution_summary.length > 60
+                    ? issue.resolution_summary.substring(0, 60) + '...'
+                    : issue.resolution_summary)
+                : '--';
+
+            return `
+                <tr>
+                    <td><small>${formatTime(issue.detected_at)}</small></td>
+                    <td><strong>${issue.pattern_name}</strong></td>
+                    <td>${getSeverityBadge(issue.severity)}</td>
+                    <td>${issue.occurrences}x</td>
+                    <td>${getStatusBadge(issue.status)}</td>
+                    <td><small class="text-muted">${truncatedSummary}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-light" onclick="viewIssueDetail(${issue.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function updateIssueCounts(counts) {
+        document.getElementById('totalIssuesBadge').textContent = counts.total || 0;
+        document.getElementById('autoFixedCount').textContent = `${counts.auto_fixed || 0} auto-fixed`;
+        document.getElementById('escalatedCount').textContent = `${counts.escalated || 0} escalated`;
+        document.getElementById('resolvedCount').textContent = `${counts.resolved || 0} resolved`;
+    }
+
+    function updatePagination(pagination) {
+        const paginationDiv = document.getElementById('issuesPagination');
+
+        if (pagination.total > 0) {
+            paginationDiv.style.display = 'flex';
+
+            const start = (pagination.page - 1) * pagination.per_page + 1;
+            const end = Math.min(pagination.page * pagination.per_page, pagination.total);
+            document.getElementById('paginationInfo').textContent =
+                `Showing ${start}-${end} of ${pagination.total} issues`;
+
+            document.getElementById('prevPageBtn').disabled = !pagination.has_prev;
+            document.getElementById('nextPageBtn').disabled = !pagination.has_next;
+        } else {
+            paginationDiv.style.display = 'none';
+        }
+    }
+
+    function changePage(delta) {
+        currentPage += delta;
+        loadIssues();
+    }
+
+    function viewIssueDetail(issueId) {
+        currentIssueId = issueId;
+
+        fetch(`/api/log-monitoring/issues/${issueId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const issue = data.issue;
+
+                    document.getElementById('modalPatternName').innerHTML = `<strong>${issue.pattern_name}</strong>`;
+                    document.getElementById('modalSeverity').innerHTML = getSeverityBadge(issue.severity);
+                    document.getElementById('modalStatus').innerHTML = getStatusBadge(issue.status);
+                    document.getElementById('modalDetectedAt').textContent = formatTime(issue.detected_at);
+                    document.getElementById('modalOccurrences').textContent = `${issue.occurrences}x`;
+                    document.getElementById('modalResolution').textContent = issue.resolution_summary || 'No resolution recorded';
+                    document.getElementById('modalSampleLog').textContent = issue.sample_log || 'No sample log available';
+
+                    // Show resolve section for escalated issues
+                    const resolveSection = document.getElementById('resolveSection');
+                    resolveSection.style.display = (issue.status === 'escalated') ? 'block' : 'none';
+
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('issueDetailModal'));
+                    modal.show();
+                }
+            })
+            .catch(err => {
+                console.error('Error loading issue detail:', err);
+                alert('Error loading issue details');
+            });
+    }
+
+    function resolveIssue() {
+        if (!currentIssueId) return;
+
+        const notes = document.getElementById('resolutionNotes').value || 'Manually resolved';
+
+        fetch(`/api/log-monitoring/issues/${currentIssueId}/resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resolution_notes: notes })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal and refresh
+                    bootstrap.Modal.getInstance(document.getElementById('issueDetailModal')).hide();
+                    loadIssues();
+                    document.getElementById('resolutionNotes').value = '';
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Error resolving issue:', err);
+                alert('Error resolving issue');
+            });
+    }
+
+    // Initial load
+    refreshStatus();
+    loadIssues();
+
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+        refreshStatus();
+        loadIssues();
+    }, 30000);
+</script>
+{% endblock %}

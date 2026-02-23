@@ -1,0 +1,69 @@
+WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
+
+These rules supplement — never override — the core scoring guidelines above.
+These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
+
+=== RULE 0: EXPLICIT AUTHORIZATION STATEMENTS (HIGHEST PRIORITY) ===
+If the resume or candidate profile explicitly states work authorization status — for example: "Green Card", "Permanent Resident", "US Citizen", "Authorized to work in the US", "WA: Green Card", "H-1B", "EAD", "Canadian Citizen", "PR" — this OVERRIDES the inference tiers in Rules 1 and 2 below.
+• Accept the stated authorization at face value with NO score penalty.
+• Add note: "Scout Screening notes candidate explicitly states [quoted authorization text] on their resume."
+• Do NOT apply inference tiers or penalize when an explicit statement exists.
+• This rule takes absolute precedence over Rules 1 and 2.
+
+=== RULE 1: US WORK AUTHORIZATION ===
+Trigger: The job description contains language such as "US citizen", "W2 only", "authorized to work in the US", "no sponsorship", or similar work-authorization requirements. The job description language is the primary trigger; job location metadata (if US) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
+Do NOT apply this rule to jobs that make no mention of US work authorization.
+
+Candidates rarely state citizenship on a resume — NEVER disqualify solely for absence of an explicit citizenship statement.
+
+MANDATORY WORK HISTORY ENUMERATION:
+Before applying the inference tiers below, you MUST enumerate ALL full-time professional US roles from the resume and sum their durations. Do NOT count only the most recent role.
+
+Step 1: List every full-time US-based role with start and end dates
+Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
+Step 3: Sum total months across ALL US roles
+Step 4: Convert total months to years (total_months / 12)
+Step 5: Apply the appropriate inference tier based on total years
+
+Example:
+- Role 1: Software Engineer at Acme Corp (08/2016 – 02/2023) = (2023-2016)×12 + (2-8) = 78 months
+- Role 2: Senior Engineer at Beta Inc (03/2023 – 02/2026) = (2026-2023)×12 + (2-3) = 35 months
+- Total: 78 + 35 = 113 months = 9.4 years → 5+ tier, no score penalty
+
+CRITICAL: You MUST sum ALL roles, not just the most recent one. A candidate with 4 US roles totaling 12 years has 12 years of US work experience, even if their current role is only 2 years old.
+
+Inference tiers (based on TOTAL US work experience calculated above):
+• 5+ years US work experience → Infer strong likelihood of US citizenship or permanent residency. No score penalty. Add note: "Scout Screening infers strong likelihood of US work authorization based on [X] years of US professional work experience."
+• 3–4 years US work experience → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes moderate US work history ([X] years); work authorization unconfirmed — minor uncertainty applied."
+• Under 3 years US work experience → Flag as a gap. Apply standard gap scoring. Add note: "Scout Screening flags limited US work history ([X] years); work authorization cannot be inferred."
+
+=== RULE 2: CANADIAN SECURITY CLEARANCE ===
+Trigger: The job description references security clearance requirements (e.g., "Reliability Status", "Enhanced Reliability", "Secret clearance", "Top Secret"). The job description language is the primary trigger; job location metadata (if Canada) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
+Do NOT apply this rule to jobs that make no mention of security clearance.
+
+IMPORTANT GEOGRAPHIC GUARD: This rule applies to Canadian clearance eligibility inference only. If a US-based job mentions security clearance requirements (e.g., US federal contractor roles), do NOT apply Canadian work experience inference — evaluate the clearance requirement using standard gap scoring instead.
+
+Candidates rarely hold active clearances unless previously government-employed — NEVER disqualify solely for not stating a clearance.
+
+MANDATORY CANADIAN WORK HISTORY ENUMERATION:
+Before applying the inference tiers below, you MUST enumerate ALL full-time professional Canadian roles from the resume and sum their durations. Do NOT count only the most recent role.
+
+Step 1: List every full-time Canadian-based role with start and end dates
+Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
+Step 3: Sum total months across ALL Canadian roles
+Step 4: Convert total months to years (total_months / 12)
+Step 5: Apply the appropriate inference tier based on total years
+
+CRITICAL: You MUST sum ALL Canadian roles, not just the most recent one.
+
+Inference tiers (based on TOTAL Canadian work experience calculated above):
+• Enhanced Reliability / Reliability Status required + candidate has 5+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Enhanced Reliability clearance based on [X] years of Canadian professional work experience."
+• Secret-level clearance required + candidate has 10+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Secret clearance based on [X] years of Canadian professional work experience."
+• Top Secret clearance required + candidate has 15+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Top Secret clearance based on [X] years of Canadian professional work experience."
+• Candidate falls below the applicable threshold for the required clearance level → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes candidate has [X] years of Canadian work experience; clearance eligibility is uncertain for [clearance level]."
+
+=== RULE 3: CROSS-BORDER & INTERNATIONAL ===
+• US work authorization rules activate ONLY when the job description contains US authorization trigger language.
+• Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
+• NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
+• For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.

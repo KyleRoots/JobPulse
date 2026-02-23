@@ -5,6 +5,11 @@ Provides deployment-ready configuration with health checks and error handling.
 """
 import os
 import sys
+
+# Load environment variables from .env file BEFORE anything else
+from dotenv import load_dotenv
+load_dotenv()
+
 import logging
 from datetime import datetime
 
@@ -123,5 +128,5 @@ app = initialize_app()
 if __name__ == '__main__':
     # Development server - not used in production deployment
     logger.info("Starting development server...")
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))  # 5001 to avoid macOS AirPlay on 5000
     app.run(host='0.0.0.0', port=port, debug=False)

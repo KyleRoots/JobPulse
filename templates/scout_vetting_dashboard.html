@@ -1,0 +1,193 @@
+{% extends 'base_layout.html' %}
+{% block body_attrs %}data-module="vetting"{% endblock %}
+
+{% block title %}AI Candidate Vetting — Scout Genius™{% endblock %}
+
+{% block page_title %}Scout Vetting{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Conversational AI follow-up for qualified candidates</p>{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+
+    <!-- Summary Metrics -->
+    <div class="metrics-row mb-4">
+        <div class="metric-card">
+            <div class="metric-icon" style="--accent-color: #4a9678;"><i class="fas fa-comments"></i></div>
+            <div class="metric-label text-secondary">Active Sessions</div>
+            <div class="metric-value">{{ stats.active }}</div>
+            <div class="metric-subtext">In progress conversations</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="--accent-color: #f59e0b;"><i class="fas fa-hourglass-half"></i></div>
+            <div class="metric-label text-secondary">Awaiting Reply</div>
+            <div class="metric-value">{{ stats.awaiting_reply }}</div>
+            <div class="metric-subtext">Outreach sent, waiting</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="--accent-color: #3b82f6;"><i class="fas fa-check-circle"></i></div>
+            <div class="metric-label text-secondary">Completed</div>
+            <div class="metric-value">{{ stats.completed }}</div>
+            <div class="metric-subtext">Finalized sessions</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="--accent-color: #ef4444;"><i class="fas fa-clock"></i></div>
+            <div class="metric-label text-secondary">Unresponsive</div>
+            <div class="metric-value">{{ stats.unresponsive }}</div>
+            <div class="metric-subtext">Closed — no reply</div>
+        </div>
+    </div>
+
+    <!-- Feature Status & Toggle -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="settings-card h-100">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <span><i class="fas fa-toggle-on me-2"></i>Feature Status</span>
+                    <span class="badge {{ 'bg-success' if is_enabled else 'bg-secondary' }}">
+                        {{ 'Enabled' if is_enabled else 'Disabled' }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    {% if is_enabled %}
+                    <p class="text-success mb-2"><i class="fas fa-check-circle me-1"></i> Scout Vetting is active.</p>
+                    <p class="text-secondary small mb-0">
+                        Qualified candidates will automatically receive conversational follow-up emails
+                        powered by Claude Opus. Completed sessions are handed off to recruiters.
+                    </p>
+                    {% else %}
+                    <p class="text-warning mb-2"><i class="fas fa-info-circle me-1"></i> Scout Vetting is currently
+                        disabled.</p>
+                    <p class="text-secondary small mb-0">
+                        Enable via <strong>Settings → Vetting Config</strong> to begin AI-driven follow-up
+                        conversations with qualified candidates.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="settings-card h-100">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie me-2"></i>Session Breakdown
+                </div>
+                <div class="card-body">
+                    {% if stats.total > 0 %}
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <div class="text-info fs-4 fw-bold">{{ stats.pending }}</div>
+                            <small class="text-secondary">Pending</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-warning fs-4 fw-bold">{{ stats.in_progress }}</div>
+                            <small class="text-secondary">In Progress</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-success fs-4 fw-bold">{{ stats.qualified }}</div>
+                            <small class="text-secondary">Qualified</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-danger fs-4 fw-bold">{{ stats.declined }}</div>
+                            <small class="text-secondary">Declined</small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-inbox fa-2x text-secondary mb-2"></i>
+                        <p class="text-secondary mb-0">No sessions yet — waiting for first qualified candidate.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Sessions Table -->
+    <div class="settings-card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <span><i class="fas fa-list me-2"></i>Recent Sessions</span>
+            <span class="badge bg-info">{{ sessions|length }} shown</span>
+        </div>
+        <div class="card-body p-0">
+            {% if sessions %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0" id="sessionsTable">
+                    <thead>
+                        <tr>
+                            <th style="padding-left: 1.5rem;">ID</th>
+                            <th>Candidate</th>
+                            <th>Job</th>
+                            <th>Status</th>
+                            <th>Turns</th>
+                            <th>Score</th>
+                            <th>Last Activity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in sessions %}
+                        <tr>
+                            <td style="padding-left: 1.5rem;">
+                                <span class="badge bg-dark border border-secondary">SV-{{ s.id }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ s.candidate_name or 'Unknown' }}</strong>
+                                <br><small class="text-secondary">{{ s.candidate_email }}</small>
+                            </td>
+                            <td>{{ s.job_title or '—' }}</td>
+                            <td>
+                                {% set status_colors = {
+                                'pending': 'secondary',
+                                'queued': 'secondary',
+                                'outreach_sent': 'info',
+                                'in_progress': 'warning',
+                                'qualified': 'success',
+                                'not_qualified': 'danger',
+                                'declined': 'danger',
+                                'unresponsive': 'dark'
+                                } %}
+                                <span class="badge bg-{{ status_colors.get(s.status, 'secondary') }}">
+                                    {{ s.status.replace('_', ' ').title() }}
+                                </span>
+                            </td>
+                            <td class="text-center">{{ s.current_turn }}/{{ s.max_turns }}</td>
+                            <td>
+                                {% if s.outcome_score is not none %}
+                                <span
+                                    class="fw-bold {{ 'text-success' if s.outcome_score >= 70 else 'text-warning' if s.outcome_score >= 50 else 'text-danger' }}">
+                                    {{ s.outcome_score|round(0)|int }}%
+                                </span>
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-secondary">
+                                    {{ s.updated_at.strftime('%b %d, %H:%M') if s.updated_at else '—' }}
+                                </small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5">
+                <i class="fas fa-comments fa-3x text-secondary mb-3" style="opacity: 0.5;"></i>
+                <h5 class="text-white mb-2">No Vetting Sessions Yet</h5>
+                <p class="text-secondary mb-3" style="max-width: 500px; margin: 0 auto;">
+                    Scout Vetting sessions are created automatically when candidates are qualified
+                    by AI Candidate Screening. Once a candidate passes screening, they'll appear here.
+                </p>
+                {% if not is_enabled %}
+                <div class="alert alert-warning bg-opacity-10 border-warning d-inline-block mt-2">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Scout Vetting is <strong>disabled</strong>. Enable it in Settings to begin.
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -22,6 +22,7 @@ from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
 from tearsheet_config import TearsheetConfig
 from email_service import EmailService
+from utils.field_mappers import map_employment_type, map_remote_type
 
 class IncrementalMonitoringService:
     """Simplified incremental monitoring service"""
@@ -308,6 +309,31 @@ class IncrementalMonitoringService:
                     self.logger.info(f"  ✅ Refreshed AI requirements for {refresh_results['jobs_refreshed']} modified jobs")
                 else:
                     self.logger.info("  ✅ No job modifications detected requiring AI refresh")
+                
+                # Also sync recruiter assignments for existing candidate matches
+                # This ensures recruiters added after initial vetting still receive notifications
+                recruiter_sync_results = vetting_service.sync_job_recruiter_assignments(jobs_list)
+                if recruiter_sync_results.get('matches_updated', 0) > 0:
+                    self.logger.info(f"  ✅ Synced recruiter assignments: {recruiter_sync_results['matches_updated']} matches updated")
+                    cycle_results['recruiter_matches_synced'] = recruiter_sync_results['matches_updated']
+                
+                # Cleanup stale requirements for jobs no longer in tearsheets
+                # This keeps the dashboard count accurate and AI Vetting page clean
+                cleanup_results = vetting_service.sync_requirements_with_active_jobs()
+                if cleanup_results.get('removed', 0) > 0:
+                    self.logger.info(f"  🧹 Cleaned up {cleanup_results['removed']} orphaned job requirements")
+                    cycle_results['requirements_cleaned'] = cleanup_results['removed']
+                
+                # Refresh locations for jobs with empty location fields (one-time fix)
+                location_refresh = vetting_service.refresh_empty_job_locations(jobs_list)
+                if location_refresh.get('locations_updated', 0) > 0:
+                    self.logger.info(f"  📍 Updated locations for {location_refresh['locations_updated']} jobs")
+                    cycle_results['locations_refreshed'] = location_refresh['locations_updated']
+                
+                # CLEANUP REMOVED (2026-02-07): Duplicate AI vetting notes cleanup completed
+                # - All 1,398 candidates scanned, 0 duplicates remaining
+                # - Prevention logic in candidate_vetting_service.py prevents new duplicates
+                # - See: create_candidate_note() checks note_created flag before creating
             except Exception as e:
                 self.logger.error(f"  ⚠️ Job change detection failed: {str(e)}")
                 cycle_results['errors'].append(f"Job change detection: {str(e)}")
@@ -360,7 +386,7 @@ class IncrementalMonitoringService:
                 try:
                     activity = BullhornActivity(
                         monitor_id=None,  # System-level monitoring activity
-                        activity_type='monitoring_cycle_completed',
+                        activity_type='cycle_complete',  # Shortened to fit VARCHAR(20)
                         job_id=None,
                         job_title=None,
                         details=json.dumps(activity_details),
@@ -790,32 +816,12 @@ This alert was triggered by the zero-job detection safeguard.
         }
     
     def _map_employment_type(self, employment_type: str) -> str:
-        """Map Bullhorn employment type to XML jobtype"""
-        if not employment_type:
-            return 'Contract'
-        
-        employment_type_lower = employment_type.lower()
-        if 'direct' in employment_type_lower or 'perm' in employment_type_lower:
-            return 'Direct Hire'
-        elif 'contract' in employment_type_lower:
-            return 'Contract'
-        else:
-            return employment_type
+        """Map Bullhorn employment type to XML jobtype (delegates to shared module)"""
+        return map_employment_type(employment_type)
     
     def _map_remote_type(self, on_site: str) -> str:
-        """Map Bullhorn onSite field to remotetype"""
-        if not on_site:
-            return 'Hybrid'
-        
-        on_site_lower = on_site.lower()
-        if 'remote' in on_site_lower:
-            return 'Remote'
-        elif 'hybrid' in on_site_lower:
-            return 'Hybrid'
-        elif 'onsite' in on_site_lower or 'on-site' in on_site_lower:
-            return 'On-site'
-        else:
-            return 'Hybrid'
+        """Map Bullhorn onSite field to remotetype (delegates to shared module)"""
+        return map_remote_type(on_site)
     
     def _extract_recruiter(self, bullhorn_job: Dict) -> str:
         """Extract recruiter information using tag-only LinkedIn format (no names)"""
@@ -914,6 +920,17 @@ This alert was triggered by the zero-job detection safeguard.
     def _add_job_to_xml(self, xml_file: str, job_data: Dict) -> bool:
         """Add job to XML file with atomic write"""
         try:
+            # Bootstrap empty XML scaffold if file doesn't exist
+            # (Render's ephemeral filesystem wipes it on every deploy)
+            if not os.path.exists(xml_file):
+                self.logger.info(f"Creating XML scaffold: {xml_file}")
+                root = etree.Element('source')
+                etree.SubElement(root, 'title').text = 'Myticas Consulting'
+                etree.SubElement(root, 'link').text = 'https://www.myticas.com'
+                etree.SubElement(root, 'publisherurl').text = 'https://www.myticas.com'
+                tree = etree.ElementTree(root)
+                self._write_xml_atomically(xml_file, tree)
+
             # Read current XML
             tree = etree.parse(xml_file, self.parser)
             root = tree.getroot()

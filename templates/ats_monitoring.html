@@ -1,415 +1,305 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ATS Monitoring - Job Feed Portal</title>
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        .monitor-card {
-            transition: all 0.3s ease;
-            border: 1px solid var(--bs-border-color);
-        }
-        .monitor-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-        .monitor-card.inactive {
-            opacity: 0.6;
-            border-color: var(--bs-warning);
-        }
-        .job-count-badge {
-            font-size: 1.1em;
-            padding: 0.5em 0.8em;
-        }
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-        }
-        .status-active { background-color: var(--bs-success); }
-        .status-inactive { background-color: var(--bs-warning); }
-        .status-error { background-color: var(--bs-danger); }
-        .activity-table {
-            max-height: 750px;
-            overflow-y: auto;
-        }
-        .activity-timestamp {
-            font-size: 0.9em;
-            color: var(--bs-secondary);
-        }
-        .activity-type {
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        .type-check_completed { background-color: var(--bs-success); color: white; }
-        .type-job_added { background-color: var(--bs-info); color: white; }
-        .type-job_removed { background-color: var(--bs-warning); color: white; }
-        .type-job_modified { background-color: var(--bs-primary); color: white; }
-        .type-error { background-color: var(--bs-danger); color: white; }
-        .type-xml_sync_completed { background-color: var(--bs-success); color: white; }
-        .type-orphan_cleanup { background-color: var(--bs-secondary); color: white; }
-        .loading-spinner {
-            display: none;
-        }
-        .btn-group-sm .btn {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
-        }
-        .navbar-nav {
-            flex-direction: row;
-            gap: 1rem;
-        }
-        .navbar-nav .nav-link {
-            color: var(--bs-gray-300) !important;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            transition: all 0.2s ease;
-        }
-        .navbar-nav .nav-link:hover {
-            color: white !important;
-            background-color: var(--bs-gray-700);
-        }
-        .navbar-nav .nav-link.active {
-            color: var(--bs-primary) !important;
-            background-color: var(--bs-primary-bg-subtle);
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('bullhorn_dashboard') }}">
-                <i class="fas fa-file-code"></i> Job Feed Portal
-            </a>
-            
-            <ul class="navbar-nav me-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('dashboard_redirect') }}">
-                        <i class="fas fa-home"></i> Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('scheduler_dashboard') }}">
-                        <i class="fas fa-clock"></i> Schedule Automation
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link active" href="{{ url_for('ats_monitoring') }}">
-                        <i class="fas fa-chart-line"></i> ATS Monitoring
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('settings') }}">
-                        <i class="fas fa-cog"></i> Global Settings
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('automation_test') }}">
-                        <i class="fas fa-flask"></i> Test Automation
-                    </a>
-                </li>
-            </ul>
-            
-            <div class="navbar-nav">
-                <a class="nav-link" href="{{ url_for('logout') }}">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
-        </div>
-    </nav>
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="inbound"{% endblock %}
 
-    <div class="container mt-4">
-        <div class="row mb-4">
-            <div class="col">
-                <h1><i class="fas fa-chart-line"></i> ATS Monitoring Dashboard</h1>
-                <p class="text-muted">Monitor Bullhorn tearsheets and job changes in real-time</p>
-            </div>
-            <div class="col-auto">
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createMonitorModal">
-                    <i class="fas fa-plus"></i> Add Monitor
-                </button>
-            </div>
-        </div>
+{% block title %}ATS Monitoring - Scout Inbound™{% endblock %}
 
-        <!-- System Status -->
-        <div class="row mb-4">
-            <div class="col">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="fas fa-heartbeat"></i> System Status</h5>
-                        <div id="systemStatus" class="d-flex align-items-center">
-                            <div class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></div>
-                            <span>Loading system status...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+{% block extra_head %}
+<style>
+    /* Button sizing override (page-specific) */
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
 
-        <!-- Active Monitors -->
-        <div class="row mb-4">
-            <div class="col">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-eye"></i> Active Monitors</h5>
-                        <button class="btn btn-sm btn-secondary" onclick="refreshMonitors()">
-                            <i class="fas fa-refresh"></i> Refresh
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <div id="monitorsContainer" class="row">
-                            <div class="col-12 text-center py-4">
-                                <div class="loading-spinner spinner-border" role="status"></div>
-                                <div>Loading monitors...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+{% block page_title %}ATS Monitoring Dashboard{% endblock %}
+{% block page_subtitle %}Monitor Bullhorn tearsheets and job changes in real-time{% endblock %}
 
-        <!-- Recent Activity -->
-        <div class="row">
-            <div class="col">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-history"></i> Recent Activity</h5>
-                        <button class="btn btn-sm btn-secondary" onclick="refreshActivities()">
-                            <i class="fas fa-refresh"></i> Refresh
-                        </button>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="activity-table">
-                            <table class="table table-striped table-hover mb-0">
-                                <thead class="table-dark sticky-top">
-                                    <tr>
-                                        <th>Time</th>
-                                        <th>Monitor</th>
-                                        <th>Type</th>
-                                        <th>Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="activitiesTableBody">
-                                    <tr>
-                                        <td colspan="4" class="text-center py-4">
-                                            <div class="loading-spinner spinner-border" role="status"></div>
-                                            <div>Loading activities...</div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+{% block header_actions %}
+<button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createMonitorModal">
+    <i class="fas fa-plus me-1"></i>Add Monitor
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- System Status -->
+<div class="card glass-card mb-4">
+    <div class="card-body">
+        <h5 class="card-title"><i class="fas fa-heartbeat me-2"></i>System Status</h5>
+        <div id="systemStatus" class="d-flex align-items-center">
+            <div class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Loading system status...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Active Monitors -->
+<div class="card glass-card mb-4">
+    <div
+        class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-eye me-2"></i>Active Monitors<span id="totalJobCount"
+                class="ms-2 badge bg-primary" style="font-size: 0.75rem; vertical-align: middle; display: none;"></span>
+        </h5>
+        <button class="btn btn-sm btn-outline-info" onclick="refreshMonitors()">
+            <i class="fas fa-refresh me-1"></i>Refresh
+        </button>
+    </div>
+    <div class="card-body">
+        <div id="monitorsContainer" class="row">
+            <div class="col-12 text-center py-4">
+                <div class="loading-spinner spinner-border" role="status"></div>
+                <div>Loading monitors...</div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Create Monitor Modal -->
-    <div class="modal fade" id="createMonitorModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Monitor</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="createMonitorForm">
-                        <div class="mb-3">
-                            <label for="monitorName" class="form-label">Monitor Name</label>
-                            <input type="text" class="form-control" id="monitorName" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="tearsheetName" class="form-label">Tearsheet/Query</label>
-                            <input type="text" class="form-control" id="tearsheetName" required>
-                            <div class="form-text">Enter tearsheet name or Bullhorn query (e.g., "status:Open AND isPublic:1")</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="tearsheetId" class="form-label">Tearsheet ID (Optional)</label>
-                            <input type="number" class="form-control" id="tearsheetId" value="0">
-                            <div class="form-text">Leave as 0 for query-based monitoring</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="intervalMinutes" class="form-label">Check Interval (minutes)</label>
-                            <select class="form-control" id="intervalMinutes">
-                                <option value="5" selected>5 minutes</option>
-                                <option value="10">10 minutes</option>
-                                <option value="15">15 minutes</option>
-                                <option value="30">30 minutes</option>
-                                <option value="60">60 minutes</option>
-                            </select>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="createMonitor()">Create Monitor</button>
-                </div>
+<!-- Recent Activity -->
+<div class="card glass-card mb-4">
+    <div
+        class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h5>
+        <button class="btn btn-sm btn-outline-info" onclick="refreshActivities()">
+            <i class="fas fa-refresh me-1"></i>Refresh
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="activity-table">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th>Time</th>
+                        <th>Monitor</th>
+                        <th>Type</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody id="activitiesTableBody">
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <div class="loading-spinner spinner-border" role="status"></div>
+                            <div>Loading activities...</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create Monitor Modal -->
+<div class="modal fade" id="createMonitorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content feedback-modal-content">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title">Add New Monitor</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createMonitorForm">
+                    <div class="mb-3">
+                        <label for="monitorName" class="form-label">Monitor Name</label>
+                        <input type="text" class="form-control" id="monitorName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tearsheetName" class="form-label">Tearsheet/Query</label>
+                        <input type="text" class="form-control" id="tearsheetName" required>
+                        <div class="form-text">Enter tearsheet name or Bullhorn query (e.g., "status:Open AND
+                            isPublic:1")</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tearsheetId" class="form-label">Tearsheet ID (Optional)</label>
+                        <input type="number" class="form-control" id="tearsheetId" value="0">
+                        <div class="form-text">Leave as 0 for query-based monitoring</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="intervalMinutes" class="form-label">Check Interval (minutes)</label>
+                        <select class="form-control" id="intervalMinutes">
+                            <option value="5" selected>5 minutes</option>
+                            <option value="10">10 minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createMonitor()">Create Monitor</button>
             </div>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        let refreshInterval;
-        
-        document.addEventListener('DOMContentLoaded', function() {
+{% block extra_scripts %}
+<script>
+    let refreshInterval;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        loadSystemStatus();
+        loadMonitors();
+        loadActivities();
+
+        // Set up auto-refresh every 5 minutes
+        refreshInterval = setInterval(function () {
             loadSystemStatus();
             loadMonitors();
             loadActivities();
-            
-            // Set up auto-refresh every 5 minutes
-            refreshInterval = setInterval(function() {
-                loadSystemStatus();
-                loadMonitors();
-                loadActivities();
-            }, 300000); // 5 minutes
-        });
+        }, 300000); // 5 minutes
+    });
 
-        function loadSystemStatus() {
-            fetch('/api/system/health')
-                .then(response => response.json())
-                .then(data => {
-                    const statusDiv = document.getElementById('systemStatus');
-                    const statusClass = data.status === 'healthy' ? 'text-success' : 
-                                      data.status === 'warning' ? 'text-warning' : 'text-danger';
-                    const statusIcon = data.status === 'healthy' ? 'fas fa-check-circle' : 
-                                     data.status === 'warning' ? 'fas fa-exclamation-triangle' : 'fas fa-times-circle';
-                    
-                    statusDiv.innerHTML = `
-                        <i class="${statusIcon} ${statusClass} me-2"></i>
-                        <span class="${statusClass}">
-                            ${data.status.charAt(0).toUpperCase() + data.status.slice(1)} - 
-                            ${data.healthy_monitors}/${data.total_monitors} monitors healthy
-                        </span>
+    function loadSystemStatus() {
+        fetch('/api/system/health')
+            .then(response => response.json())
+            .then(data => {
+                const statusDiv = document.getElementById('systemStatus');
+                const status = data.health_status || data.status || 'unknown';
+                const healthy = (data.timing_accuracy && data.timing_accuracy.healthy_monitors) ??
+                    data.healthy_monitors ?? 0;
+                const total = (data.timing_accuracy && data.timing_accuracy.total_monitors) ??
+                    data.total_monitors ?? 0;
+                const statusClass = status === 'healthy' ? 'text-success' :
+                    status === 'warning' ? 'text-warning' : 'text-danger';
+                const statusIcon = status === 'healthy' ? 'fas fa-check-circle' :
+                    status === 'warning' ? 'fas fa-exclamation-triangle' : 'fas fa-times-circle';
+
+                statusDiv.innerHTML = `
+                    <i class="${statusIcon} ${statusClass} me-2"></i>
+                    <span class="${statusClass}">
+                        ${status.charAt(0).toUpperCase() + status.slice(1)} - 
+                        ${healthy}/${total} monitors healthy
+                    </span>
+                `;
+            })
+            .catch(error => {
+                document.getElementById('systemStatus').innerHTML =
+                    '<i class="fas fa-times-circle text-danger me-2"></i><span class="text-danger">Error loading status</span>';
+            });
+    }
+
+    function loadMonitors() {
+        fetch('/api/monitors')
+            .then(response => response.json())
+            .then(monitors => {
+                const container = document.getElementById('monitorsContainer');
+
+                if (monitors.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-12 text-center py-4">
+                            <i class="fas fa-eye-slash fa-3x text-muted mb-3"></i>
+                            <p>No monitors configured</p>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createMonitorModal">
+                                <i class="fas fa-plus"></i> Add First Monitor
+                            </button>
+                        </div>
                     `;
-                })
-                .catch(error => {
-                    document.getElementById('systemStatus').innerHTML = 
-                        '<i class="fas fa-times-circle text-danger me-2"></i><span class="text-danger">Error loading status</span>';
-                });
-        }
+                    document.getElementById('totalJobCount').style.display = 'none';
+                    return;
+                }
 
-        function loadMonitors() {
-            fetch('/api/monitors')
-                .then(response => response.json())
-                .then(monitors => {
-                    const container = document.getElementById('monitorsContainer');
-                    
-                    if (monitors.length === 0) {
-                        container.innerHTML = `
-                            <div class="col-12 text-center py-4">
-                                <i class="fas fa-eye-slash fa-3x text-muted mb-3"></i>
-                                <p>No monitors configured</p>
-                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createMonitorModal">
-                                    <i class="fas fa-plus"></i> Add First Monitor
-                                </button>
-                            </div>
-                        `;
-                        return;
-                    }
-                    
-                    container.innerHTML = monitors.map(monitor => `
-                        <div class="col-lg-6 col-xl-4 mb-3">
-                            <div class="card monitor-card ${monitor.is_active ? '' : 'inactive'}">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <h6 class="card-title mb-0">${monitor.name}</h6>
-                                        <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-secondary" onclick="toggleMonitor(${monitor.id})" 
-                                                    title="${monitor.is_active ? 'Deactivate' : 'Activate'}">
-                                                <i class="fas fa-${monitor.is_active ? 'pause' : 'play'}"></i>
-                                            </button>
-                                            <button class="btn btn-outline-danger" onclick="deleteMonitor(${monitor.id})" 
-                                                    title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                container.innerHTML = monitors.map(monitor => `
+                    <div class="col-lg-6 col-xl-4 mb-3">
+                        <div class="card monitor-card ${monitor.is_active ? '' : 'inactive'}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">${monitor.name}</h6>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-secondary" onclick="toggleMonitor(${monitor.id})" 
+                                                title="${monitor.is_active ? 'Deactivate' : 'Activate'}">
+                                            <i class="fas fa-${monitor.is_active ? 'pause' : 'play'}"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteMonitor(${monitor.id})" 
+                                                title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="small text-muted mb-2">
+                                    <div><i class="fas fa-list"></i> ${monitor.tearsheet_name}</div>
+                                    <div><i class="fas fa-clock"></i> Every ${monitor.interval_minutes} minutes</div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-primary job-count-badge">
+                                        ${monitor.job_count} jobs
+                                    </span>
+                                    <div class="text-end small">
+                                        <div class="d-flex align-items-center">
+                                            <span class="status-indicator status-${monitor.is_active ? 'active' : 'inactive'}"></span>
+                                            ${monitor.is_active ? 'Active' : 'Inactive'}
                                         </div>
-                                    </div>
-                                    <div class="small text-muted mb-2">
-                                        <div><i class="fas fa-list"></i> ${monitor.tearsheet_name}</div>
-                                        <div><i class="fas fa-clock"></i> Every ${monitor.interval_minutes} minutes</div>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span class="badge bg-primary job-count-badge">
-                                            ${monitor.job_count} jobs
-                                        </span>
-                                        <div class="text-end small">
-                                            <div class="d-flex align-items-center">
-                                                <span class="status-indicator status-${monitor.is_active ? 'active' : 'inactive'}"></span>
-                                                ${monitor.is_active ? 'Active' : 'Inactive'}
-                                            </div>
-                                            <div class="text-muted">
-                                                Next check: ${monitor.next_check ? new Date(monitor.next_check).toLocaleTimeString() : 'N/A'}
-                                            </div>
+                                        <div class="text-muted">
+                                            Next check: ${monitor.next_check ? new Date(monitor.next_check).toLocaleTimeString() : 'N/A'}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    `).join('');
-                })
-                .catch(error => {
-                    document.getElementById('monitorsContainer').innerHTML = 
-                        '<div class="col-12 text-center py-4 text-danger">Error loading monitors</div>';
-                });
-        }
+                    </div>
+                `).join('');
 
-        function loadActivities() {
-            fetch('/api/activities')
-                .then(response => response.json())
-                .then(activities => {
-                    const tbody = document.getElementById('activitiesTableBody');
-                    
-                    if (activities.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4">No recent activity</td></tr>';
-                        return;
-                    }
-                    
-                    tbody.innerHTML = activities.map(activity => `
-                        <tr>
-                            <td class="activity-timestamp">${new Date(activity.timestamp).toLocaleString()}</td>
-                            <td>${activity.monitor_name}</td>
-                            <td><span class="activity-type type-${activity.activity_type}">${activity.activity_type.replace('_', ' ')}</span></td>
-                            <td>${activity.details}</td>
-                        </tr>
-                    `).join('');
-                })
-                .catch(error => {
-                    document.getElementById('activitiesTableBody').innerHTML = 
-                        '<tr><td colspan="4" class="text-center py-4 text-danger">Error loading activities</td></tr>';
-                });
-        }
-
-        function refreshMonitors() {
-            loadMonitors();
-        }
-
-        function refreshActivities() {
-            loadActivities();
-        }
-
-        function createMonitor() {
-            const form = document.getElementById('createMonitorForm');
-            const data = {
-                name: document.getElementById('monitorName').value,
-                tearsheet_name: document.getElementById('tearsheetName').value,
-                tearsheet_id: parseInt(document.getElementById('tearsheetId').value) || 0,
-                interval_minutes: parseInt(document.getElementById('intervalMinutes').value)
-            };
-            
-            fetch('/api/monitors', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
+                // Update total job count badge in header
+                const totalJobs = monitors.reduce((sum, m) => sum + (m.job_count || 0), 0);
+                const badge = document.getElementById('totalJobCount');
+                badge.textContent = `${totalJobs} jobs total`;
+                badge.style.display = 'inline-block';
             })
+            .catch(error => {
+                document.getElementById('monitorsContainer').innerHTML =
+                    '<div class="col-12 text-center py-4 text-danger">Error loading monitors</div>';
+            });
+    }
+
+    function loadActivities() {
+        fetch('/api/activities')
+            .then(response => response.json())
+            .then(activities => {
+                const tbody = document.getElementById('activitiesTableBody');
+
+                if (activities.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4">No recent activity</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = activities.map(activity => `
+                    <tr>
+                        <td class="activity-timestamp">${new Date(activity.timestamp).toLocaleString()}</td>
+                        <td>${activity.monitor_name}</td>
+                        <td><span class="activity-type type-${activity.activity_type}">${activity.activity_type.replace('_', ' ')}</span></td>
+                        <td>${activity.details}</td>
+                    </tr>
+                `).join('');
+            })
+            .catch(error => {
+                document.getElementById('activitiesTableBody').innerHTML =
+                    '<tr><td colspan="4" class="text-center py-4 text-danger">Error loading activities</td></tr>';
+            });
+    }
+
+    function refreshMonitors() {
+        loadMonitors();
+    }
+
+    function refreshActivities() {
+        loadActivities();
+    }
+
+    function createMonitor() {
+        const form = document.getElementById('createMonitorForm');
+        const data = {
+            name: document.getElementById('monitorName').value,
+            tearsheet_name: document.getElementById('tearsheetName').value,
+            tearsheet_id: parseInt(document.getElementById('tearsheetId').value) || 0,
+            interval_minutes: parseInt(document.getElementById('intervalMinutes').value)
+        };
+
+        fetch('/api/monitors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
@@ -422,10 +312,25 @@
                 }
             })
             .catch(error => alert('Error creating monitor'));
-        }
+    }
 
-        function toggleMonitor(monitorId) {
-            fetch(`/api/monitors/${monitorId}/toggle`, {method: 'POST'})
+    function toggleMonitor(monitorId) {
+        fetch(`/api/monitors/${monitorId}/toggle`, { method: 'POST' })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    loadMonitors();
+                    loadSystemStatus();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            })
+            .catch(error => alert('Error toggling monitor'));
+    }
+
+    function deleteMonitor(monitorId) {
+        if (confirm('Are you sure you want to delete this monitor?')) {
+            fetch(`/api/monitors/${monitorId}`, { method: 'DELETE' })
                 .then(response => response.json())
                 .then(result => {
                     if (result.success) {
@@ -435,24 +340,8 @@
                         alert('Error: ' + result.error);
                     }
                 })
-                .catch(error => alert('Error toggling monitor'));
+                .catch(error => alert('Error deleting monitor'));
         }
-
-        function deleteMonitor(monitorId) {
-            if (confirm('Are you sure you want to delete this monitor?')) {
-                fetch(`/api/monitors/${monitorId}`, {method: 'DELETE'})
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success) {
-                            loadMonitors();
-                            loadSystemStatus();
-                        } else {
-                            alert('Error: ' + result.error);
-                        }
-                    })
-                    .catch(error => alert('Error deleting monitor'));
-            }
-        }
-    </script>
-</body>
-</html>
+    }
+</script>
+{% endblock %}

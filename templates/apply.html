@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,30 +14,30 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: white;
         }
-        
+
         .application-container {
             max-width: 700px;
             margin: 2rem auto;
             padding: 0 1rem;
         }
-        
+
         .application-card {
             background: rgba(0, 0, 0, 0.4);
             border-radius: 20px;
-            box-shadow: 
+            box-shadow:
                 0 25px 50px rgba(0, 0, 0, 0.3),
                 0 0 0 1px rgba(255, 255, 255, 0.1);
             overflow: hidden;
             backdrop-filter: blur(20px) saturate(180%);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .application-header {
             padding: 2.5rem 2rem 1.5rem 2rem;
             text-align: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .myticas-brand {
             display: flex;
             flex-direction: column;
@@ -44,37 +45,37 @@
             justify-content: center;
             margin-bottom: 1.5rem;
         }
-        
+
         .myticas-logo {
             height: 60px;
             margin-bottom: 1rem;
         }
-        
+
         .myticas-brand h1 {
             margin: 0;
             font-size: 1.8rem;
             font-weight: 600;
             color: white;
         }
-        
+
         .application-header h2 {
             margin: 0;
             font-size: 1.3rem;
             font-weight: 500;
             color: white;
         }
-        
+
         .application-header p {
             margin: 0.5rem 0 0 0;
             opacity: 0.8;
             font-size: 0.95rem;
         }
-        
+
         .application-body {
             padding: 2rem;
             color: white;
         }
-        
+
         .job-info {
             background: rgba(255, 255, 255, 0.08);
             border-radius: 12px;
@@ -83,19 +84,20 @@
             border-left: 4px solid #4FC3F7;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .form-section {
             margin-bottom: 2rem;
         }
-        
+
         .form-section h3 {
             color: white;
             margin-bottom: 1rem;
             font-size: 1.2rem;
             font-weight: 600;
         }
-        
-        .form-control, .form-select {
+
+        .form-control,
+        .form-select {
             border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.15);
             padding: 0.9rem 1.2rem;
@@ -104,8 +106,9 @@
             color: white;
             font-size: 1rem;
         }
-        
-        .form-control:focus, .form-select:focus {
+
+        .form-control:focus,
+        .form-select:focus {
             background: rgba(255, 255, 255, 0.12);
             border-color: #4FC3F7;
             box-shadow: 0 0 0 0.25rem rgba(79, 195, 247, 0.15);
@@ -113,11 +116,11 @@
             transform: translateY(-1px);
             outline: 0;
         }
-        
+
         .form-control::placeholder {
             color: rgba(255, 255, 255, 0.5);
         }
-        
+
         .file-upload-area {
             border: 2px dashed rgba(255, 255, 255, 0.15);
             border-radius: 12px;
@@ -128,27 +131,27 @@
             background: rgba(255, 255, 255, 0.05);
             color: white;
         }
-        
+
         .file-upload-area:hover {
             border-color: #4FC3F7;
             background: rgba(79, 195, 247, 0.08);
         }
-        
+
         .file-upload-area.dragover {
             border-color: #4FC3F7;
             background: rgba(79, 195, 247, 0.12);
         }
-        
+
         .file-upload-icon {
             font-size: 3rem;
             color: rgba(255, 255, 255, 0.7);
             margin-bottom: 1rem;
         }
-        
+
         .text-muted {
             color: rgba(255, 255, 255, 0.7) !important;
         }
-        
+
         .file-info {
             background: rgba(92, 179, 253, 0.1);
             border: 1px solid rgba(92, 179, 253, 0.3);
@@ -159,7 +162,7 @@
             color: white;
             backdrop-filter: blur(5px);
         }
-        
+
         .validation-warning {
             background: rgba(255, 193, 7, 0.1);
             border: 1px solid rgba(255, 193, 7, 0.3);
@@ -170,7 +173,7 @@
             color: white;
             backdrop-filter: blur(5px);
         }
-        
+
         .parsed-info {
             background: rgba(40, 167, 69, 0.1);
             border: 1px solid rgba(40, 167, 69, 0.3);
@@ -181,7 +184,7 @@
             color: white;
             backdrop-filter: blur(5px);
         }
-        
+
         .submit-btn {
             background: linear-gradient(135deg, #5cb3fd 0%, #4dabf7 100%);
             border: none;
@@ -194,28 +197,28 @@
             width: 100%;
             box-shadow: 0 4px 15px rgba(92, 179, 253, 0.3);
         }
-        
+
         .submit-btn:hover {
             transform: translateY(-2px);
             color: white;
             background: linear-gradient(135deg, #4dabf7 0%, #339af0 100%);
             box-shadow: 0 8px 25px rgba(92, 179, 253, 0.4);
         }
-        
+
         .submit-btn:disabled {
             opacity: 0.6;
             transform: none;
         }
-        
+
         .loading-spinner {
             display: none;
         }
-        
+
         /* Success Modal Styling - Override Bootstrap defaults */
         #successModal.modal .modal-backdrop {
             background-color: rgba(0, 0, 0, 0.8);
         }
-        
+
         #successModal .modal-content {
             background: rgba(0, 0, 0, 0.4) !important;
             border: 1px solid rgba(255, 255, 255, 0.2) !important;
@@ -223,42 +226,42 @@
             backdrop-filter: blur(10px);
             color: white !important;
         }
-        
+
         #successModal .modal-header {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
             border-radius: 15px 15px 0 0 !important;
             border: none !important;
         }
-        
+
         #successModal .modal-header h5 {
             color: white !important;
         }
-        
+
         #successModal .modal-body {
             background: transparent !important;
             color: white !important;
         }
-        
+
         #successModal .modal-body p {
             color: white !important;
         }
-        
+
         #successModal .modal-footer {
             background: transparent !important;
             border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
             border: none !important;
         }
-        
+
         #successModal .btn-close {
             filter: invert(1) !important;
             opacity: 0.8 !important;
         }
-        
+
         #successModal .btn-close:hover {
             opacity: 1 !important;
         }
-        
+
         .btn-custom {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
             border: none !important;
@@ -269,14 +272,14 @@
             transition: all 0.3s ease !important;
             box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3) !important;
         }
-        
+
         .btn-custom:hover {
             color: white !important;
             background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%) !important;
             transform: translateY(-2px) !important;
             box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4) !important;
         }
-        
+
         /* Footer - same as login page */
         .footer {
             position: fixed;
@@ -293,14 +296,16 @@
 
         /* Responsive spacing - comfortable for larger screens, tight for mobile */
         .application-container {
-            margin-bottom: 2.5rem; /* Reduced gap for desktop */
+            margin-bottom: 2.5rem;
+            /* Reduced gap for desktop */
         }
-        
+
         .submit-button-area {
-            margin-bottom: 1rem; /* Tighter space for desktop */
+            margin-bottom: 1rem;
+            /* Tighter space for desktop */
             padding-bottom: 0.5rem;
         }
-        
+
         .footer {
             padding: 1.2rem 1rem;
             font-size: 0.9rem;
@@ -309,61 +314,70 @@
             height: auto;
             min-height: 3rem;
         }
-        
+
         body {
-            padding-bottom: 3.5rem; /* Reduced clearance for desktop */
+            padding-bottom: 3.5rem;
+            /* Reduced clearance for desktop */
         }
 
         /* Tablet spacing - tighter */
         @media (max-width: 992px) and (min-width: 769px) {
             .application-container {
-                margin-bottom: 2rem; /* Reduced from 3rem */
+                margin-bottom: 2rem;
+                /* Reduced from 3rem */
             }
-            
+
             .submit-button-area {
-                margin-bottom: 0.75rem; /* Reduced from 1.5rem */
+                margin-bottom: 0.75rem;
+                /* Reduced from 1.5rem */
                 padding-bottom: 0.5rem;
             }
-            
+
             .footer {
                 padding: 1rem 1rem;
                 min-height: 2.5rem;
             }
-            
+
             body {
-                padding-bottom: 3rem; /* Reduced from 4rem */
+                padding-bottom: 3rem;
+                /* Reduced from 4rem */
             }
         }
 
         /* Mobile spacing - ultra tight for professional look */
         @media (max-width: 768px) {
             .application-container {
-                margin: 1rem auto 1.5rem auto; /* Ultra tight bottom margin */
+                margin: 1rem auto 1.5rem auto;
+                /* Ultra tight bottom margin */
                 padding: 0 0.5rem;
             }
-            
+
             .application-body {
-                padding: 1.5rem 1.5rem 0.5rem 1.5rem; /* Very compact bottom padding */
+                padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+                /* Very compact bottom padding */
             }
-            
+
             .application-header {
                 padding: 1.5rem;
             }
-            
+
             .submit-button-area {
-                margin-bottom: 0.5rem; /* Ultra minimal on mobile */
+                margin-bottom: 0.5rem;
+                /* Ultra minimal on mobile */
                 padding-bottom: 0.25rem;
             }
-            
+
             .footer {
-                padding: 0.6rem 1rem; /* Ultra compact footer */
+                padding: 0.6rem 1rem;
+                /* Ultra compact footer */
                 font-size: 0.8rem;
                 position: fixed;
                 bottom: 0;
                 height: auto;
-                min-height: 2rem; /* Even smaller footer */
+                min-height: 2rem;
+                /* Even smaller footer */
             }
-            
+
             /* Ultra minimal body padding */
             body {
                 padding-bottom: 2.5rem;
@@ -371,21 +385,23 @@
         }
     </style>
 </head>
+
 <body>
     <div class="application-container">
         <div class="application-card">
             <div class="application-header">
                 <div class="myticas-brand">
-                    <img src="{{ url_for('static', filename='myticas-logo-bw-revised.png') }}" alt="Myticas Consulting" class="myticas-logo">
+                    <img src="{{ url_for('static', filename='myticas-logo-bw-revised.png') }}" alt="Myticas Consulting"
+                        class="myticas-logo">
                     <h1>Myticas Job Application</h1>
                 </div>
                 <p>Apply below to the role of {{ job_title.replace('-', ' ') }}</p>
             </div>
-            
+
             <div class="application-body">
                 <!-- Alert Container for messages -->
                 <div id="alertContainer"></div>
-                
+
                 <!-- Job Information -->
                 <div class="job-info">
                     <h3><i class="fas fa-info-circle me-2"></i>Position Details</h3>
@@ -399,7 +415,8 @@
                 <!-- Resume Parsing Results -->
                 <div id="parsedInfo" class="parsed-info">
                     <h5><i class="fas fa-magic me-2"></i>Information Extracted from Resume</h5>
-                    <p>We've automatically filled in some fields from your resume. Please verify the information below is correct.</p>
+                    <p>We've automatically filled in some fields from your resume. Please verify the information below
+                        is correct.</p>
                 </div>
 
                 <!-- Application Form -->
@@ -408,12 +425,13 @@
                     <input type="hidden" name="jobId" value="{{ job_id }}">
                     <input type="hidden" name="jobTitle" value="{{ job_title }}">
                     <input type="hidden" name="source" value="{{ source }}">
-                    
+
                     <!-- Resume Upload -->
                     <div class="form-section">
                         <h3><i class="fas fa-file-alt me-2"></i>Resume *</h3>
                         <p class="mb-3" style="color: rgba(255, 255, 255, 0.8); font-size: 0.95rem;">
-                            <i class="fas fa-info-circle me-2"></i>Upload your resume and our system will do its best to parse your information into the fields below.
+                            <i class="fas fa-info-circle me-2"></i>Upload your resume and our system will do its best to
+                            parse your information into the fields below.
                         </p>
                         <div class="file-upload-area" id="resumeUploadArea">
                             <div class="file-upload-icon">
@@ -421,16 +439,20 @@
                             </div>
                             <h5>Drag & drop your resume here</h5>
                             <p class="mb-3" style="color: rgba(255, 255, 255, 0.7);">or click to browse files</p>
-                            <input type="file" id="resumeFile" name="resumeFile" accept=".pdf,.doc,.docx" required style="display: none;">
-                            <button type="button" class="btn btn-outline-light" onclick="document.getElementById('resumeFile').click(); event.stopPropagation();">
+                            <input type="file" id="resumeFile" name="resumeFile" accept=".pdf,.doc,.docx" required
+                                style="display: none;">
+                            <button type="button" class="btn btn-outline-light"
+                                onclick="document.getElementById('resumeFile').click(); event.stopPropagation();">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
-                            <small class="d-block mt-2" style="color: rgba(255, 255, 255, 0.7);">Supported formats: PDF, DOC, DOCX (Max 10MB)</small>
+                            <small class="d-block mt-2" style="color: rgba(255, 255, 255, 0.7);">Supported formats: PDF,
+                                DOC, DOCX (Max 10MB)</small>
                         </div>
                         <div id="resumeFileInfo" class="file-info">
                             <i class="fas fa-file-alt me-2"></i>
                             <span id="resumeFileName"></span>
-                            <button type="button" class="btn btn-sm btn-outline-danger float-end" onclick="removeResumeFile()">
+                            <button type="button" class="btn btn-sm btn-outline-danger float-end"
+                                onclick="removeResumeFile()">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -439,7 +461,7 @@
                     <!-- Personal Information -->
                     <div class="form-section">
                         <h3><i class="fas fa-user me-2"></i>Personal Information</h3>
-                        
+
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="firstName" class="form-label">First Name *</label>
@@ -450,7 +472,7 @@
                                 <input type="text" class="form-control" id="lastName" name="lastName" required>
                             </div>
                         </div>
-                        
+
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="email" class="form-label">Email Address *</label>
@@ -466,7 +488,8 @@
                     <!-- Validation Warning -->
                     <div id="validationWarning" class="validation-warning">
                         <h6><i class="fas fa-exclamation-triangle me-2"></i>Please Verify Your Information</h6>
-                        <p class="mb-0">Please validate that the information pulled from your resume into the form fields is accurate. If not, please make corrections before submitting your application.</p>
+                        <p class="mb-0">Please validate that the information pulled from your resume into the form
+                            fields is accurate. If not, please make corrections before submitting your application.</p>
                     </div>
 
                     <!-- Submit Button -->
@@ -497,7 +520,8 @@
                 </div>
                 <div class="modal-body">
                     <p>Thank you for your application! We have received your information and will review it shortly.</p>
-                    <p class="mb-0"><strong>What's next?</strong> Our team will review your application and contact you if your qualifications match our requirements.</p>
+                    <p class="mb-0"><strong>What's next?</strong> Our team will review your application and contact you
+                        if your qualifications match our requirements.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-custom" data-bs-dismiss="modal">Close</button>
@@ -508,29 +532,29 @@
 
     <!-- Footer -->
     <div class="footer">
-        Powered by JobPulse™
+        Powered by Scout Genius™
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let selectedFile = null;
-        
+
         // File upload handling - using correct element IDs
         const resumeUploadArea = document.getElementById('resumeUploadArea');
         const resumeFile = document.getElementById('resumeFile');
         const resumeFileInfo = document.getElementById('resumeFileInfo');
         const resumeFileName = document.getElementById('resumeFileName');
-        
+
         // Handle drag and drop
         resumeUploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             resumeUploadArea.classList.add('dragover');
         });
-        
+
         resumeUploadArea.addEventListener('dragleave', () => {
             resumeUploadArea.classList.remove('dragover');
         });
-        
+
         resumeUploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             resumeUploadArea.classList.remove('dragover');
@@ -539,127 +563,127 @@
                 handleFileSelect(files[0]);
             }
         });
-        
+
         resumeFile.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 handleFileSelect(e.target.files[0]);
             }
         });
-        
+
         function handleFileSelect(file) {
             const maxSize = 5 * 1024 * 1024; // 5MB
             const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-            
+
             if (!allowedTypes.includes(file.type)) {
                 showAlert('Please upload a PDF, DOC, or DOCX file.', 'danger');
                 return;
             }
-            
+
             if (file.size > maxSize) {
                 showAlert('File size must be less than 5MB.', 'danger');
                 return;
             }
-            
+
             selectedFile = file;
             displaySelectedFile(file);
-            
+
             // Auto-parse resume immediately
             parseResume(file);
         }
-        
+
         function displaySelectedFile(file) {
             const fileSize = (file.size / 1024).toFixed(2) + ' KB';
             resumeFileName.textContent = file.name + ' (' + fileSize + ')';
             resumeFileInfo.style.display = 'block';
             resumeUploadArea.style.display = 'none';
         }
-        
+
         function removeResumeFile() {
             selectedFile = null;
             resumeFile.value = '';
             resumeFileInfo.style.display = 'none';
             resumeUploadArea.style.display = 'block';
         }
-        
+
         function parseResume(file) {
             const formData = new FormData();
             formData.append('resume', file);
-            
+
             fetch('/parse-resume', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.parsed_info) {
-                    // The actual parsed data is nested in parsed_info.parsed_data
-                    const parsedData = data.parsed_info.parsed_data || data.parsed_info;
-                    
-                    // Auto-fill form fields
-                    if (parsedData.first_name) {
-                        document.getElementById('firstName').value = parsedData.first_name;
-                    }
-                    if (parsedData.last_name) {
-                        document.getElementById('lastName').value = parsedData.last_name;
-                    }
-                    if (parsedData.email) {
-                        document.getElementById('email').value = parsedData.email;
-                    }
-                    if (parsedData.phone) {
-                        document.getElementById('phone').value = parsedData.phone;
-                    }
-                    
-                    // Show the extracted data in the alert
-                    let extractedInfo = [];
-                    if (parsedData.first_name) extractedInfo.push(`First: ${parsedData.first_name}`);
-                    if (parsedData.last_name) extractedInfo.push(`Last: ${parsedData.last_name}`);
-                    if (parsedData.email) extractedInfo.push(`Email: ${parsedData.email}`);
-                    if (parsedData.phone) extractedInfo.push(`Phone: ${parsedData.phone}`);
-                    
-                    if (extractedInfo.length > 0) {
-                        showAlert('Resume parsed successfully! Please review the auto-filled information.', 'success');
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.parsed_info) {
+                        // The actual parsed data is nested in parsed_info.parsed_data
+                        const parsedData = data.parsed_info.parsed_data || data.parsed_info;
+
+                        // Auto-fill form fields
+                        if (parsedData.first_name) {
+                            document.getElementById('firstName').value = parsedData.first_name;
+                        }
+                        if (parsedData.last_name) {
+                            document.getElementById('lastName').value = parsedData.last_name;
+                        }
+                        if (parsedData.email) {
+                            document.getElementById('email').value = parsedData.email;
+                        }
+                        if (parsedData.phone) {
+                            document.getElementById('phone').value = parsedData.phone;
+                        }
+
+                        // Show the extracted data in the alert
+                        let extractedInfo = [];
+                        if (parsedData.first_name) extractedInfo.push(`First: ${parsedData.first_name}`);
+                        if (parsedData.last_name) extractedInfo.push(`Last: ${parsedData.last_name}`);
+                        if (parsedData.email) extractedInfo.push(`Email: ${parsedData.email}`);
+                        if (parsedData.phone) extractedInfo.push(`Phone: ${parsedData.phone}`);
+
+                        if (extractedInfo.length > 0) {
+                            showAlert('Resume parsed successfully! Please review the auto-filled information.', 'success');
+                        } else {
+                            showAlert('Resume uploaded but no information could be extracted.', 'warning');
+                        }
                     } else {
-                        showAlert('Resume uploaded but no information could be extracted.', 'warning');
+                        // Don't show error messages, just silently continue
+                        // Form can still be submitted manually
                     }
-                } else {
-                    // Don't show error messages, just silently continue
-                    // Form can still be submitted manually
-                }
-            })
-            .catch(error => {
-                // Silent error - form can still be submitted manually
-                console.log('Resume parsing encountered an issue, manual entry required');
-            });
+                })
+                .catch(error => {
+                    // Silent error - form can still be submitted manually
+                    console.log('Resume parsing encountered an issue, manual entry required');
+                });
         }
-        
+
         // Form submission
         document.getElementById('applicationForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             if (!selectedFile) {
                 showAlert('Please upload your resume.', 'danger');
                 return;
             }
-            
+
             const submitBtn = document.getElementById('submitBtn');
             const submitText = document.getElementById('submitText');
             const loadingSpinner = document.getElementById('loadingSpinner');
-            
+
             submitBtn.disabled = true;
             submitText.style.display = 'none';
             loadingSpinner.style.display = 'inline-block';
-            
+
             const formData = new FormData(e.target);
             formData.append('resume', selectedFile);
-            
+
             try {
                 const response = await fetch('/submit-application', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     // Show success modal
                     const modal = new bootstrap.Modal(document.getElementById('successModal'));
@@ -682,7 +706,7 @@
                 loadingSpinner.style.display = 'none';
             }
         });
-        
+
         function showAlert(message, type) {
             const alertContainer = document.getElementById('alertContainer');
             const alertDiv = document.createElement('div');
@@ -693,7 +717,7 @@
             `;
             alertContainer.innerHTML = '';
             alertContainer.appendChild(alertDiv);
-            
+
             // Auto-dismiss after 5 seconds
             setTimeout(() => {
                 alertDiv.remove();
@@ -701,4 +725,5 @@
         }
     </script>
 </body>
+
 </html>

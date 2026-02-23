@@ -32,7 +32,7 @@ class ScheduleConfig(db.Model):
     schedule_days = db.Column(db.Integer, nullable=False, default=7)  # Days between runs
     last_run = db.Column(db.DateTime, nullable=True)
     next_run = db.Column(db.DateTime, nullable=False)
-    is_active = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True, index=True)
     
     # Email notification settings
     notification_email = db.Column(db.String(255), nullable=True)  # Email for notifications
@@ -117,6 +117,10 @@ class ProcessingLog(db.Model):
     # Relationship
     schedule_config = db.relationship('ScheduleConfig', backref='processing_logs')
     
+    __table_args__ = (
+        db.Index('idx_processing_log_processed_at', 'processed_at'),
+    )
+    
     def __repr__(self):
         return f'<ProcessingLog {self.file_path} - {self.processing_type}>'
 
@@ -199,6 +203,11 @@ class BullhornActivity(db.Model):
     
     monitor = db.relationship('BullhornMonitor', backref='activities')  # Can be None for system-level activities
     
+    __table_args__ = (
+        db.Index('idx_activity_type_job_created', 'activity_type', 'job_id', 'created_at'),
+        db.Index('idx_activity_created_at', 'created_at'),
+    )
+    
     @classmethod
     def check_duplicate_activity(cls, activity_type: str, job_id: int, minutes_threshold: int = 5):
         """
@@ -254,7 +263,7 @@ class TearsheetJobHistory(db.Model):
 class EmailDeliveryLog(db.Model):
     """Log of email notifications sent for job changes"""
     id = db.Column(db.Integer, primary_key=True)
-    notification_type = db.Column(db.String(50), nullable=False)  # 'job_added', 'job_removed', 'job_modified', 'scheduled_processing'
+    notification_type = db.Column(db.String(50), nullable=False, index=True)  # 'job_added', 'job_removed', 'job_modified', 'scheduled_processing'
     job_id = db.Column(db.String(20), nullable=True)  # Bullhorn job ID (null for scheduled processing)
     job_title = db.Column(db.String(255), nullable=True)  # Job title for reference
     recipient_email = db.Column(db.String(255), nullable=False)  # Email address notification was sent to
@@ -396,7 +405,7 @@ class SchedulerLock(db.Model):
 class EnvironmentStatus(db.Model):
     """Track production environment up/down status for monitoring and alerting"""
     id = db.Column(db.Integer, primary_key=True)
-    environment_name = db.Column(db.String(100), nullable=False, default='production')  # Environment being monitored
+    environment_name = db.Column(db.String(100), nullable=False, default='production', index=True)  # Environment being monitored
     environment_url = db.Column(db.String(500), nullable=False)  # URL to monitor
     current_status = db.Column(db.String(20), nullable=False, default='unknown')  # 'up', 'down', 'unknown'
     last_check_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -503,6 +512,10 @@ class ParsedEmail(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     vetted_at = db.Column(db.DateTime, nullable=True)  # Tracks when AI vetting was completed
     
+    __table_args__ = (
+        db.Index('idx_parsed_email_unvetted', 'status', 'vetted_at', 'bullhorn_candidate_id'),
+    )
+    
     def __repr__(self):
         return f'<ParsedEmail {self.id} from {self.source_platform} - {self.status}>'
 
@@ -522,11 +535,12 @@ class EmailParsingConfig(db.Model):
 class CandidateVettingLog(db.Model):
     """Tracks candidates that have been analyzed by the AI vetting system"""
     id = db.Column(db.Integer, primary_key=True)
-    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, unique=True, index=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)  # Not unique: multiple logs per candidate (one per application)
     candidate_name = db.Column(db.String(255), nullable=True)
     candidate_email = db.Column(db.String(255), nullable=True)
     applied_job_id = db.Column(db.Integer, nullable=True)  # Job they originally applied to
     applied_job_title = db.Column(db.String(500), nullable=True)
+    parsed_email_id = db.Column(db.Integer, nullable=True, index=True)  # Links to specific ParsedEmail that triggered vetting
     
     # Resume data
     resume_text = db.Column(db.Text, nullable=True)  # Extracted resume content
@@ -555,6 +569,10 @@ class CandidateVettingLog(db.Model):
     analyzed_at = db.Column(db.DateTime, nullable=True)  # When AI analysis completed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_vetting_log_status_created', 'status', 'created_at'),
+    )
     
     # Relationship to match results
     job_matches = db.relationship('CandidateJobMatch', backref='vetting_log', lazy='dynamic',
@@ -591,6 +609,7 @@ class CandidateJobMatch(db.Model):
     skills_match = db.Column(db.Text, nullable=True)  # Skills alignment details
     experience_match = db.Column(db.Text, nullable=True)  # Experience alignment details
     gaps_identified = db.Column(db.Text, nullable=True)  # What's missing
+    years_analysis_json = db.Column(db.Text, nullable=True)  # GPT's years-of-experience calculation (JSON for auditing)
     
     # Notification tracking
     notification_sent = db.Column(db.Boolean, default=False)
@@ -612,6 +631,8 @@ class JobVettingRequirements(db.Model):
     job_work_type = db.Column(db.String(50), nullable=True)  # On-site, Hybrid, Remote
     custom_requirements = db.Column(db.Text, nullable=True)  # User-editable requirements text
     ai_interpreted_requirements = db.Column(db.Text, nullable=True)  # What AI extracted from job
+    vetting_threshold = db.Column(db.Integer, nullable=True)  # Custom threshold for this job (null = use global default)
+    scout_vetting_enabled = db.Column(db.Boolean, nullable=True)  # null = follow global, True/False = per-job override
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -690,3 +711,332 @@ class VettingHealthCheck(db.Model):
     
     def __repr__(self):
         return f'<VettingHealthCheck {self.check_time} healthy={self.is_healthy}>'
+
+
+class LogMonitoringRun(db.Model):
+    """Persists each log monitoring cycle run for transparency and audit trail"""
+    id = db.Column(db.Integer, primary_key=True)
+    run_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    logs_analyzed = db.Column(db.Integer, default=0)
+    issues_found = db.Column(db.Integer, default=0)
+    issues_auto_fixed = db.Column(db.Integer, default=0)
+    issues_escalated = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(50), nullable=False, default='completed')  # 'healthy', 'issues_detected', 'error'
+    time_range_start = db.Column(db.DateTime, nullable=True)
+    time_range_end = db.Column(db.DateTime, nullable=True)
+    
+    # Tracking
+    was_manual = db.Column(db.Boolean, default=False)  # True if triggered by "Run Now" button
+    execution_time_ms = db.Column(db.Integer, nullable=True)  # How long the cycle took
+    
+    # Relationship to issues
+    issues = db.relationship('LogMonitoringIssue', backref='run', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<LogMonitoringRun {self.id} at {self.run_time} - {self.status}>'
+
+
+class LogMonitoringIssue(db.Model):
+    """Persists all detected issues with resolution details for full transparency"""
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey('log_monitoring_run.id'), nullable=False, index=True)
+    detected_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Issue classification
+    pattern_name = db.Column(db.String(200), nullable=False)  # e.g., "API rate limit hit"
+    category = db.Column(db.String(50), nullable=False)  # 'auto_fix', 'auto_fix_notify', 'escalate', 'ignore'
+    severity = db.Column(db.String(20), nullable=False, default='minor')  # 'minor', 'major', 'critical'
+    description = db.Column(db.Text, nullable=True)
+    occurrences = db.Column(db.Integer, default=1)
+    sample_log = db.Column(db.Text, nullable=True)  # Sample log content for context
+    
+    # Resolution tracking
+    status = db.Column(db.String(50), nullable=False, default='detected')  # 'detected', 'auto_fixed', 'escalated', 'resolved', 'ignored'
+    resolution_action = db.Column(db.Text, nullable=True)  # Human-readable description of fix taken
+    resolution_summary = db.Column(db.Text, nullable=True)  # AI-generated summary of what happened
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    resolved_by = db.Column(db.String(100), nullable=True)  # 'system' or user email for manual resolutions
+    
+    # Index for efficient filtering
+    __table_args__ = (
+        db.Index('idx_issue_status_severity', 'status', 'severity'),
+        db.Index('idx_issue_detected_at', 'detected_at'),
+    )
+    
+    def __repr__(self):
+        return f'<LogMonitoringIssue {self.pattern_name} - {self.status}>'
+    
+    @classmethod
+    def get_severity_for_category(cls, category):
+        """Determine severity based on issue category"""
+        severity_map = {
+            'auto_fix': 'minor',
+            'auto_fix_notify': 'major',
+            'escalate': 'critical',
+            'ignore': 'minor'
+        }
+        return severity_map.get(category, 'minor')
+    
+    def mark_auto_fixed(self, action_description):
+        """Mark this issue as auto-fixed with the action taken"""
+        self.status = 'auto_fixed'
+        self.resolution_action = action_description
+        self.resolution_summary = f"Automatically resolved: {action_description}"
+        self.resolved_at = datetime.utcnow()
+        self.resolved_by = 'system'
+    
+    def mark_escalated(self, escalation_details=None):
+        """Mark this issue as escalated for human review"""
+        self.status = 'escalated'
+        self.resolution_summary = escalation_details or "Escalated for human review"
+    
+    def mark_resolved(self, resolver_email, resolution_notes=None):
+        """Mark an escalated issue as resolved by a human"""
+        self.status = 'resolved'
+        self.resolved_at = datetime.utcnow()
+        self.resolved_by = resolver_email
+        if resolution_notes:
+            self.resolution_action = resolution_notes
+            self.resolution_summary = f"Manually resolved by {resolver_email}: {resolution_notes}"
+
+
+class ParsedResumeCache(db.Model):
+    """Cache for parsed resume results to reduce OpenAI API costs.
+    
+    Uses content-based hashing (SHA-256) to identify duplicate resumes.
+    Same resume content = cache hit = skip GPT-4o call.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    content_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)  # SHA-256 hash
+    candidate_id = db.Column(db.Integer, nullable=True, index=True)  # Optional Bullhorn candidate ID
+    
+    # Parsed results
+    parsed_data_json = db.Column(db.Text, nullable=False)  # JSON: {first_name, last_name, email, phone}
+    raw_text = db.Column(db.Text, nullable=True)  # Extracted plain text
+    formatted_html = db.Column(db.Text, nullable=True)  # AI-formatted HTML
+    
+    # Cache metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_accessed = db.Column(db.DateTime, default=datetime.utcnow)  # For LRU tracking
+    access_count = db.Column(db.Integer, default=1)  # Track cache hits
+    
+    # TTL: 90 days default, entries older than this are considered stale
+    CACHE_TTL_DAYS = 90
+    
+    def __repr__(self):
+        return f'<ParsedResumeCache {self.content_hash[:16]}... accessed {self.access_count}x>'
+    
+    @classmethod
+    def get_cached(cls, content_hash):
+        """Retrieve cached result by content hash, update access stats if found."""
+        cached = cls.query.filter_by(content_hash=content_hash).first()
+        if cached:
+            # Check TTL
+            age_days = (datetime.utcnow() - cached.created_at).days
+            if age_days > cls.CACHE_TTL_DAYS:
+                # Cache entry expired, delete it
+                db.session.delete(cached)
+                db.session.commit()
+                return None
+            # Update access stats
+            cached.last_accessed = datetime.utcnow()
+            cached.access_count += 1
+            db.session.commit()
+        return cached
+    
+    @classmethod
+    def store(cls, content_hash, parsed_data, raw_text, formatted_html, candidate_id=None):
+        """Store parsed result in cache."""
+        import json
+        cached = cls(
+            content_hash=content_hash,
+            candidate_id=candidate_id,
+            parsed_data_json=json.dumps(parsed_data),
+            raw_text=raw_text,
+            formatted_html=formatted_html
+        )
+        db.session.add(cached)
+        db.session.commit()
+        return cached
+
+
+class JobEmbedding(db.Model):
+    """Cached job description embeddings for the embedding pre-filter (Layer 1)"""
+    __tablename__ = 'job_embedding'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    bullhorn_job_id = db.Column(db.Integer, unique=True, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    description_hash = db.Column(db.String(64), nullable=False)  # SHA-256 of description text
+    embedding_vector = db.Column(db.Text, nullable=False)  # JSON-serialized float array (1536 dims)
+    embedding_model = db.Column(db.String(50), nullable=False, default='text-embedding-3-small')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<JobEmbedding job_id={self.bullhorn_job_id}>'
+
+
+class EmbeddingFilterLog(db.Model):
+    """Audit trail of candidate-job pairs filtered by the embedding pre-filter (Layer 1)"""
+    __tablename__ = 'embedding_filter_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
+    candidate_name = db.Column(db.String(255), nullable=True)
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    similarity_score = db.Column(db.Float, nullable=False)  # Cosine similarity (0.0-1.0)
+    threshold_used = db.Column(db.Float, nullable=False)  # Threshold at time of filtering
+    resume_snippet = db.Column(db.Text, nullable=True)  # First 500 chars of resume
+    filtered_at = db.Column(db.DateTime, default=datetime.utcnow)
+    vetting_log_id = db.Column(db.Integer, db.ForeignKey('candidate_vetting_log.id'), nullable=True, index=True)
+    
+    __table_args__ = (
+        db.Index('idx_filter_log_filtered_at', 'filtered_at'),
+        db.Index('idx_filter_log_similarity', 'similarity_score'),
+    )
+    
+    def __repr__(self):
+        return f'<EmbeddingFilterLog candidate={self.bullhorn_candidate_id} job={self.bullhorn_job_id} sim={self.similarity_score}>'
+
+
+class EscalationLog(db.Model):
+    """Tracks Layer 2 → Layer 3 escalation events for effectiveness analysis"""
+    __tablename__ = 'escalation_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    vetting_log_id = db.Column(db.Integer, db.ForeignKey('candidate_vetting_log.id'), nullable=True, index=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
+    candidate_name = db.Column(db.String(255), nullable=True)
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    mini_score = db.Column(db.Float, nullable=False)  # GPT-4o-mini score (Layer 2)
+    gpt4o_score = db.Column(db.Float, nullable=False)  # GPT-4o score (Layer 3)
+    score_delta = db.Column(db.Float, nullable=False)  # gpt4o_score - mini_score
+    material_change = db.Column(db.Boolean, nullable=False, default=False)  # |delta| >= 5 points
+    threshold_used = db.Column(db.Float, nullable=False)  # Job-specific or global threshold
+    crossed_threshold = db.Column(db.Boolean, nullable=False, default=False)  # Recommendation changed
+    escalated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_escalation_log_escalated_at', 'escalated_at'),
+        db.Index('idx_escalation_log_crossed', 'crossed_threshold'),
+    )
+    
+    def __repr__(self):
+        return f'<EscalationLog candidate={self.bullhorn_candidate_id} job={self.bullhorn_job_id} delta={self.score_delta}>'
+
+
+class ScoutVettingSession(db.Model):
+    """Tracks a conversational AI vetting session for a qualified candidate on a specific job.
+    
+    Created after Scout Screening qualifies a candidate. Uses multi-turn email
+    conversations via Claude Opus to verify skills, experience, and availability
+    before recruiter handoff.
+    """
+    __tablename__ = 'scout_vetting_session'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    vetting_log_id = db.Column(db.Integer, db.ForeignKey('candidate_vetting_log.id'), nullable=False, index=True)
+    candidate_job_match_id = db.Column(db.Integer, db.ForeignKey('candidate_job_match.id'), nullable=True, index=True)
+    
+    # Candidate info (denormalized for query efficiency)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
+    candidate_email = db.Column(db.String(255), nullable=False)
+    candidate_name = db.Column(db.String(255), nullable=True)
+    
+    # Job info (denormalized)
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    
+    # Recruiter info (for handoff)
+    recruiter_email = db.Column(db.String(255), nullable=True)
+    recruiter_name = db.Column(db.String(255), nullable=True)
+    
+    # Session state
+    # pending: created, waiting to send outreach
+    # queued: waiting for slot (max 3 concurrent per candidate)
+    # outreach_sent: initial email sent, awaiting reply
+    # in_progress: candidate has replied, conversation active
+    # qualified: vetting complete, candidate passed
+    # not_qualified: vetting complete, candidate did not pass
+    # unresponsive: no reply after follow-ups exhausted
+    # declined: candidate declined to participate
+    status = db.Column(db.String(50), nullable=False, default='pending')
+    
+    # Vetting content
+    vetting_questions_json = db.Column(db.Text, nullable=True)  # JSON array of generated questions
+    answered_questions_json = db.Column(db.Text, nullable=True)  # JSON dict of question→answer
+    current_turn = db.Column(db.Integer, nullable=False, default=0)
+    max_turns = db.Column(db.Integer, nullable=False, default=5)  # Safety cap
+    
+    # Email cadence
+    last_outreach_at = db.Column(db.DateTime, nullable=True)
+    last_reply_at = db.Column(db.DateTime, nullable=True)
+    follow_up_count = db.Column(db.Integer, nullable=False, default=0)  # 0/1/2 then unresponsive
+    
+    # Outcome
+    outcome_summary = db.Column(db.Text, nullable=True)  # AI-generated final assessment
+    outcome_score = db.Column(db.Float, nullable=True)  # 0-100 confidence
+    
+    # Bullhorn integration
+    bullhorn_note_id = db.Column(db.Integer, nullable=True)
+    note_created = db.Column(db.Boolean, nullable=False, default=False)
+    handoff_sent = db.Column(db.Boolean, nullable=False, default=False)
+    
+    # Email threading
+    last_message_id = db.Column(db.String(255), nullable=True)  # For In-Reply-To header
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_svs_candidate_job_status', 'bullhorn_candidate_id', 'bullhorn_job_id', 'status'),
+        db.Index('idx_svs_status_outreach', 'status', 'last_outreach_at'),
+        db.Index('idx_svs_status_updated', 'status', 'updated_at'),
+    )
+    
+    # Relationships
+    vetting_log = db.relationship('CandidateVettingLog', backref=db.backref('scout_vetting_sessions', lazy='dynamic'))
+    candidate_job_match = db.relationship('CandidateJobMatch', backref=db.backref('scout_vetting_session', uselist=False))
+    conversation_turns = db.relationship('VettingConversationTurn', backref='session', lazy='dynamic',
+                                          cascade='all, delete-orphan',
+                                          order_by='VettingConversationTurn.turn_number')
+    
+    def __repr__(self):
+        return f'<ScoutVettingSession {self.id} candidate={self.bullhorn_candidate_id} job={self.bullhorn_job_id} status={self.status}>'
+
+
+class VettingConversationTurn(db.Model):
+    """Individual email exchange in a Scout Vetting conversation.
+    
+    Stores both outbound (system→candidate) and inbound (candidate→system) messages,
+    along with AI classification of intent and extracted answers.
+    """
+    __tablename__ = 'vetting_conversation_turn'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('scout_vetting_session.id'), nullable=False, index=True)
+    turn_number = db.Column(db.Integer, nullable=False)
+    direction = db.Column(db.String(10), nullable=False)  # 'outbound' or 'inbound'
+    
+    # Email content
+    email_subject = db.Column(db.String(500), nullable=True)
+    email_body = db.Column(db.Text, nullable=True)
+    
+    # AI analysis (for inbound messages)
+    ai_intent = db.Column(db.String(50), nullable=True)  # answer, question, decline, unrelated, etc.
+    ai_reasoning = db.Column(db.Text, nullable=True)
+    questions_asked_json = db.Column(db.Text, nullable=True)  # Questions posed in this turn
+    answers_extracted_json = db.Column(db.Text, nullable=True)  # Answers extracted from candidate reply
+    
+    # Email threading
+    message_id = db.Column(db.String(255), nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<VettingConversationTurn session={self.session_id} turn={self.turn_number} dir={self.direction}>'

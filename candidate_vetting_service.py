@@ -12,6 +12,7 @@ import base64
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
 
@@ -71,7 +72,11 @@ class CandidateVettingService:
         # Default settings
         self.match_threshold = 80.0  # Minimum match percentage for notifications
         self.check_interval_minutes = 5
-        self.model = "gpt-4o"  # Using GPT-4o for accuracy
+        self.model = self._get_layer2_model()  # Default GPT-4o-mini, revertible via VettingConfig
+        
+        # Embedding pre-filter (Layer 1)
+        from embedding_service import EmbeddingService
+        self.embedding_service = EmbeddingService()
         
     def _init_openai(self):
         """Initialize OpenAI client"""
@@ -115,11 +120,57 @@ class CandidateVettingService:
         return self.get_config_value('vetting_enabled', 'false').lower() == 'true'
     
     def get_threshold(self) -> float:
-        """Get match threshold percentage"""
+        """Get global match threshold percentage"""
         try:
             return float(self.get_config_value('match_threshold', '80'))
         except (ValueError, TypeError):
             return 80.0
+    
+    def get_job_threshold(self, job_id: int) -> float:
+        """Get match threshold for a specific job (returns job-specific if set, otherwise global default)"""
+        try:
+            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            if job_req and job_req.vetting_threshold is not None:
+                return float(job_req.vetting_threshold)
+            return self.get_threshold()  # Fall back to global default
+        except Exception as e:
+            logging.warning(f"Error getting job threshold for {job_id}: {e}")
+            return self.get_threshold()
+    
+    def _get_layer2_model(self) -> str:
+        """Get the Layer 2 model from VettingConfig (supports live revert)."""
+        try:
+            value = self.get_config_value('layer2_model', 'gpt-4o')
+            if value and value.strip():
+                return value.strip()
+        except Exception:
+            pass
+        return 'gpt-4o'
+    
+    def _get_escalation_range(self) -> tuple:
+        """Get escalation score range from VettingConfig.
+        
+        Returns:
+            Tuple of (low, high) — scores within this range trigger GPT-4o re-analysis.
+        """
+        try:
+            low = float(self.get_config_value('escalation_low', '60'))
+            high = float(self.get_config_value('escalation_high', '85'))
+            return (low, high)
+        except (ValueError, TypeError):
+            return (60.0, 85.0)
+    
+    def should_escalate_to_gpt4o(self, match_score: float) -> bool:
+        """Check if a match score falls in the escalation range for GPT-4o re-analysis.
+        
+        Args:
+            match_score: Layer 2 (GPT-4o-mini) match score.
+            
+        Returns:
+            True if score is within [escalation_low, escalation_high].
+        """
+        low, high = self._get_escalation_range()
+        return low <= match_score <= high
     
     def _get_job_custom_requirements(self, job_id: int) -> Optional[str]:
         """Get custom requirements for a job if user has specified any"""
@@ -132,12 +183,146 @@ class CandidateVettingService:
             logging.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
             return None
     
+    def _get_global_custom_requirements(self) -> Optional[str]:
+        """Get global screening instructions that apply to ALL jobs."""
+        try:
+            config = VettingConfig.query.filter_by(setting_key='global_custom_requirements').first()
+            if config and config.setting_value and config.setting_value.strip():
+                return config.setting_value.strip()
+            return None
+        except Exception as e:
+            logging.error(f"Error getting global custom requirements: {str(e)}")
+            return None
+    
+    def _recheck_years_calculation(self, resume_text: str, original_years_analysis: dict,
+                                    job_id: int, job_title: str) -> Optional[dict]:
+        """Re-check years-of-experience calculation when a >2yr shortfall is detected.
+        
+        Uses a focused prompt that asks GPT-4o to verify the arithmetic from the original
+        analysis. This catches false negatives from model arithmetic errors (e.g., 
+        miscounting 3.75yr as 1.8yr).
+        
+        Args:
+            resume_text: The candidate's cleaned resume text
+            original_years_analysis: The years_analysis dict from the initial analysis
+            job_id: Bullhorn job ID for logging
+            job_title: Job title for logging
+            
+        Returns:
+            Corrected years_analysis dict if corrections were made, None if re-check
+            confirms the original or if the re-check fails.
+        """
+        from datetime import datetime
+        _today = datetime.utcnow()
+        _today_str = _today.strftime('%B %d, %Y')
+        _today_month = _today.month
+        _today_year = _today.year
+        
+        # Build a summary of what needs re-checking
+        skills_to_check = []
+        for skill, data in original_years_analysis.items():
+            if not isinstance(data, dict):
+                continue
+            if not data.get('meets_requirement', True):
+                required = data.get('required_years', 0)
+                estimated = data.get('estimated_years', 0)
+                calculation = data.get('calculation', 'N/A')
+                skills_to_check.append(
+                    f"- {skill}: required {required}yr, initial estimate {estimated}yr, "
+                    f"calculation: {calculation}"
+                )
+        
+        if not skills_to_check:
+            return None
+        
+        skills_summary = "\n".join(skills_to_check)
+        
+        prompt = f"""You are verifying a years-of-experience calculation. An initial AI analysis 
+found the following shortfalls for Job "{job_title}" (ID: {job_id}):
+
+{skills_summary}
+
+TODAY'S DATE: {_today_str} (month {_today_month} of {_today_year}).
+
+CANDIDATE RESUME:
+{resume_text[:8000]}
+
+INSTRUCTIONS:
+1. For EACH skill listed above, re-scan the resume for ALL roles where the candidate performed 
+   relevant work (focus on responsibilities, not just titles).
+2. Calculate total months using the EXACT formula:
+   Duration = (end_year - start_year) × 12 + (end_month - start_month)
+   For "Present"/"Current" roles, use today: month {_today_month} of {_today_year}.
+3. Show your step-by-step arithmetic.
+4. Internships/part-time = 50% weight. University projects = 0.
+5. Return the CORRECTED years_analysis.
+
+Respond in JSON format:
+{{
+    "<skill_name>": {{
+        "required_years": <N>,
+        "estimated_years": <M>,
+        "meets_requirement": true/false,
+        "calculation": "<step-by-step month arithmetic>"
+    }}
+}}"""
+        
+        try:
+            logging.info(f"🔄 Years re-check: verifying {len(skills_to_check)} skill(s) for job {job_id}")
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o",  # Always use GPT-4o for re-checks (better arithmetic)
+                messages=[
+                    {"role": "system", "content": "You are a precise arithmetic calculator. "
+                     "Your ONLY job is to verify years-of-experience calculations by counting "
+                     "months between dates on a resume. Be exact. Show your work."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.0,  # Maximum determinism for arithmetic
+                max_tokens=800
+            )
+            
+            recheck = json.loads(response.choices[0].message.content)
+            
+            # Check if the re-check differs materially from the original
+            any_correction = False
+            for skill, data in recheck.items():
+                if not isinstance(data, dict):
+                    continue
+                original = original_years_analysis.get(skill, {})
+                if not isinstance(original, dict):
+                    continue
+                    
+                orig_est = float(original.get('estimated_years', 0))
+                new_est = float(data.get('estimated_years', 0))
+                
+                if abs(new_est - orig_est) >= 0.5:
+                    any_correction = True
+                    logging.info(
+                        f"🔄 Years re-check CORRECTION for '{skill}' on job {job_id}: "
+                        f"{orig_est:.1f}yr → {new_est:.1f}yr "
+                        f"(calc: {data.get('calculation', 'N/A')})"
+                    )
+            
+            if any_correction:
+                logging.info(f"✅ Years re-check found corrections for job {job_id} — using updated values")
+                return recheck
+            else:
+                logging.info(f"✅ Years re-check CONFIRMS original values for job {job_id}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"❌ Years re-check failed for job {job_id}: {str(e)}")
+            return None
+    
     def extract_job_requirements(self, job_id: int, job_title: str, job_description: str,
                                   job_location: str = None, job_work_type: str = None) -> Optional[str]:
         """
         Extract mandatory requirements from a job description using AI.
         Called during monitoring when new jobs are indexed so requirements
         are available for review BEFORE any candidates are vetted.
+        Also called for REFRESH when job is modified in Bullhorn.
         
         Args:
             job_id: Bullhorn job ID
@@ -152,12 +337,10 @@ class CandidateVettingService:
         if not self.openai_client:
             logging.warning("OpenAI client not initialized - cannot extract requirements")
             return None
-            
-        # Check if requirements already exist
-        existing = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
-        if existing and existing.ai_interpreted_requirements:
-            logging.debug(f"Job {job_id} already has requirements extracted")
-            return existing.ai_interpreted_requirements
+        
+        # NOTE: Removed early return check for existing requirements
+        # This function is now called specifically for refresh when job is modified
+        # So we always want to re-extract from the updated job description
         
         # Clean job description (remove HTML)
         import re
@@ -177,14 +360,26 @@ JOB TITLE: {job_title}
 JOB DESCRIPTION:
 {clean_description}
 
-Extract and list the TOP 5-7 MANDATORY requirements from this job. Focus on:
+You MUST output EXACTLY 5-7 requirements. No more, no less.
+If the JD lists more than 7 qualifications, prioritize the most critical mandatory qualifications and CONSOLIDATE related items into a single requirement (e.g. merge "Python" + "SQL" + "data pipelines" into one "Technical skills" requirement).
+Do NOT list every bullet point as a separate requirement.
+
+Focus on requirements that are EXPLICITLY STATED in the job description:
 1. Required technical skills (programming languages, tools, technologies)
-2. Required years of experience
+2. Required years of experience — ONLY if the JD explicitly states a specific NUMBER (e.g., "5+ years", "3 years of experience", "10 or more years")
 3. Required certifications or licenses
 4. Required education level
 5. Required industry-specific knowledge
+6. Required location or work authorization
 
-DO NOT include:
+CRITICAL ANTI-HALLUCINATION RULES:
+- ONLY list requirements that are EXPLICITLY written in the job description text above.
+- Do NOT infer or fabricate years-of-experience requirements — if the JD does not state a specific number of years, do NOT add one based on the job title, seniority level, or your assumptions about the role.
+- Do NOT add requirements based on what you think the role "should" need — only what the JD actually says.
+- If the JD says "experience with X" without specifying years, list it as "Experience with X" — NOT "X+ years of X".
+- If the JD uses vague phrases like "significant experience" or "proven track record", quote that phrase directly — do NOT convert it to a specific number of years.
+
+Also DO NOT include:
 - "Nice to have" or "preferred" qualifications
 - Soft skills (communication, teamwork, etc.)
 - Generic requirements that apply to any job
@@ -193,12 +388,12 @@ Format as a bullet-point list. Be specific and concise."""
 
         try:
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",  # Use cheaper model for requirements extraction
+                model="gpt-4.1-mini",  # Cost-optimized: structured extraction (not main vetting)
                 messages=[
-                    {"role": "system", "content": "You are a technical recruiter extracting key mandatory requirements from job descriptions. Be concise and specific."},
+                    {"role": "system", "content": "You are a technical recruiter extracting ONLY explicitly stated mandatory requirements from job descriptions. You must NEVER infer, fabricate, or add requirements that are not directly written in the job description. If the job description does not mention a specific number of years, do NOT add one. Be concise and specific."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.2,
+                temperature=0.1,
                 max_tokens=500
             )
             
@@ -270,6 +465,369 @@ Format as a bullet-point list. Be specific and concise."""
             results['error'] = str(e)
             logging.error(f"Error syncing AI requirements: {str(e)}")
             
+        return results
+    
+    def refresh_empty_job_locations(self, jobs: list = None) -> dict:
+        """
+        One-time refresh of job locations for existing JobVettingRequirements 
+        records that have empty job_location fields.
+        
+        This fetches the current address from Bullhorn and updates the database.
+        
+        Args:
+            jobs: Optional list of job dicts from tearsheets. If None, fetches from tearsheets.
+            
+        Returns:
+            Summary dict with refresh counts
+        """
+        results = {
+            'jobs_checked': 0,
+            'locations_updated': 0,
+            'already_have_location': 0,
+            'errors': []
+        }
+        
+        try:
+            # Get jobs if not provided
+            if jobs is None:
+                jobs = self.get_active_jobs_from_tearsheets()
+            
+            results['jobs_checked'] = len(jobs)
+            
+            if not jobs:
+                return results
+            
+            # Build a lookup of job_id -> job data
+            job_lookup = {int(job.get('id')): job for job in jobs if job.get('id')}
+            
+            # Find all requirements with empty locations
+            empty_location_reqs = JobVettingRequirements.query.filter(
+                (JobVettingRequirements.job_location == None) | 
+                (JobVettingRequirements.job_location == '')
+            ).all()
+            
+            updates_made = 0
+            for req in empty_location_reqs:
+                job = job_lookup.get(req.bullhorn_job_id)
+                if not job:
+                    continue
+                
+                # Extract location from job address
+                job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+                job_city = job_address.get('city', '')
+                job_state = job_address.get('state', '')
+                job_country = job_address.get('countryName', '') or job_address.get('country', '')
+                job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
+                
+                if job_location:
+                    req.job_location = job_location
+                    updates_made += 1
+                    logging.info(f"📍 Updated location for job {req.bullhorn_job_id}: {job_location}")
+            
+            if updates_made > 0:
+                db.session.commit()
+                results['locations_updated'] = updates_made
+                logging.info(f"📍 Location refresh complete: updated {updates_made} jobs with empty locations")
+            
+            # Count jobs that already have locations
+            results['already_have_location'] = results['jobs_checked'] - len(empty_location_reqs)
+            
+        except Exception as e:
+            db.session.rollback()
+            results['errors'].append(str(e))
+            logging.error(f"Error refreshing job locations: {str(e)}")
+        
+        return results
+    
+    def get_candidates_with_duplicates(self, sample_size: int = 5) -> dict:
+        """
+        Query Bullhorn to find candidates with duplicate AI Vetting notes.
+        Returns a sample of candidate IDs for manual verification.
+        
+        Args:
+            sample_size: Number of candidate IDs to return
+            
+        Returns:
+            Dict with candidate IDs that have duplicates and their duplicate counts
+        """
+        from bullhorn_service import BullhornService
+        from models import GlobalSettings, CandidateVettingLog
+        
+        logging.info(f"🔍 Querying for candidates with duplicate AI Vetting notes...")
+        
+        results = {
+            'candidates_with_duplicates': [],
+            'total_checked': 0,
+            'errors': []
+        }
+        
+        try:
+            # Get Bullhorn credentials
+            credentials = {}
+            for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+                setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                if setting and setting.setting_value:
+                    credentials[key] = setting.setting_value.strip()
+            
+            bullhorn = BullhornService(
+                client_id=credentials.get('bullhorn_client_id'),
+                client_secret=credentials.get('bullhorn_client_secret'),
+                username=credentials.get('bullhorn_username'),
+                password=credentials.get('bullhorn_password')
+            )
+            
+            if not bullhorn.authenticate():
+                results['errors'].append("Failed to authenticate with Bullhorn")
+                return results
+            
+            # Get candidate IDs from our vetting logs
+            candidate_rows = db.session.query(
+                CandidateVettingLog.bullhorn_candidate_id
+            ).filter(
+                CandidateVettingLog.note_created == True,
+                CandidateVettingLog.bullhorn_candidate_id.isnot(None)
+            ).distinct().order_by(
+                CandidateVettingLog.bullhorn_candidate_id.desc()  # Most recent first
+            ).limit(50).all()
+            
+            candidate_ids = [row[0] for row in candidate_rows]
+            
+            for candidate_id in candidate_ids:
+                if not candidate_id:
+                    continue
+                
+                results['total_checked'] += 1
+                
+                # Fetch notes for this candidate
+                notes_url = f"{bullhorn.base_url}entity/Candidate/{candidate_id}/notes"
+                notes_params = {
+                    'fields': 'id,action,dateAdded,isDeleted',
+                    'count': 200,
+                    'BhRestToken': bullhorn.rest_token
+                }
+                
+                try:
+                    notes_response = bullhorn.session.get(notes_url, params=notes_params, timeout=15)
+                    if notes_response.status_code != 200:
+                        continue
+                    
+                    notes_data = notes_response.json()
+                    notes = notes_data.get('data', [])
+                    
+                    # Filter for AI Vetting notes
+                    ai_vetting_notes = [
+                        n for n in notes 
+                        if n.get('action') and 'AI Vetting' in n.get('action', '') and not n.get('isDeleted')
+                    ]
+                    
+                    # If more than 1 AI Vetting note, this has duplicates
+                    if len(ai_vetting_notes) > 1:
+                        results['candidates_with_duplicates'].append({
+                            'candidate_id': candidate_id,
+                            'duplicate_count': len(ai_vetting_notes),
+                            'note_timestamps': [n.get('dateAdded') for n in ai_vetting_notes[:5]]
+                        })
+                        
+                        # Stop once we have enough samples
+                        if len(results['candidates_with_duplicates']) >= sample_size:
+                            break
+                            
+                except Exception as e:
+                    logging.warning(f"Error checking candidate {candidate_id}: {e}")
+                    continue
+            
+            logging.info(f"🔍 Found {len(results['candidates_with_duplicates'])} candidates with duplicates out of {results['total_checked']} checked")
+            return results
+            
+        except Exception as e:
+            results['errors'].append(str(e))
+            logging.error(f"Error querying candidates with duplicates: {e}")
+            return results
+    
+    def cleanup_duplicate_notes_batch(self, batch_size: int = 10) -> dict:
+        """
+        DEPRECATED (2026-02-07): This cleanup method has completed its work.
+        - All 1,398 candidates were scanned and duplicates removed
+        - Prevention logic in create_candidate_note() prevents new duplicates
+        - This stub remains for compatibility but does nothing
+        """
+        return {
+            'candidates_processed': 0,
+            'notes_deleted': 0,
+            'cleanup_complete': True,
+            'deprecated': True,
+            'errors': []
+        }
+    
+    # The following 160+ lines of the original cleanup_duplicate_notes_batch method
+    # have been removed since cleanup is complete. See git history for original code.
+        from models import GlobalSettings, CandidateVettingLog
+        from sqlalchemy import func
+        
+        logging.info(f"🧹 Starting duplicate notes cleanup batch (batch_size={batch_size})")
+        
+        results = {
+            'candidates_processed': 0,
+            'notes_deleted': 0,
+            'cleanup_complete': False,
+            'errors': []
+        }
+        
+        try:
+            # Get Bullhorn credentials
+            credentials = {}
+            for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
+                setting = GlobalSettings.query.filter_by(setting_key=key).first()
+                if setting and setting.setting_value:
+                    credentials[key] = setting.setting_value.strip()
+            
+            bullhorn = BullhornService(
+                client_id=credentials.get('bullhorn_client_id'),
+                client_secret=credentials.get('bullhorn_client_secret'),
+                username=credentials.get('bullhorn_username'),
+                password=credentials.get('bullhorn_password')
+            )
+            
+            if not bullhorn.authenticate():
+                results['errors'].append("Failed to authenticate with Bullhorn")
+                return results
+            
+            # OPTIMIZED: Query local database for candidates with AI vetting notes
+            # This targets only the ~233 affected candidates instead of 958K from Bullhorn
+            # Get unique candidate IDs that have notes created (note_created=True)
+            
+            # Get offset from database (persists across server restarts/deployments)
+            offset_setting = GlobalSettings.query.filter_by(setting_key='cleanup_notes_offset').first()
+            current_offset = int(offset_setting.setting_value) if offset_setting and offset_setting.setting_value else 0
+            
+            # Get distinct candidate IDs from our vetting logs where notes were created
+            candidate_ids_query = db.session.query(
+                CandidateVettingLog.bullhorn_candidate_id
+            ).filter(
+                CandidateVettingLog.note_created == True,
+                CandidateVettingLog.bullhorn_candidate_id.isnot(None)
+            ).distinct().order_by(
+                CandidateVettingLog.bullhorn_candidate_id
+            ).offset(current_offset).limit(batch_size)
+            
+            candidate_rows = candidate_ids_query.all()
+            candidate_ids = [row[0] for row in candidate_rows]
+            
+            # Count total candidates with notes (for progress tracking)
+            total_count = db.session.query(
+                func.count(func.distinct(CandidateVettingLog.bullhorn_candidate_id))
+            ).filter(
+                CandidateVettingLog.note_created == True,
+                CandidateVettingLog.bullhorn_candidate_id.isnot(None)
+            ).scalar() or 0
+            
+            logging.info(f"🧹 Note cleanup: Found {len(candidate_ids)} candidates from local DB (offset={current_offset}, total={total_count})")
+            
+            if not candidate_ids:
+                # Reset offset for next cycle since we've processed all
+                self._save_cleanup_offset(0)
+                results['cleanup_complete'] = True
+                logging.info("🧹 Note cleanup: Completed full scan of all vetted candidates, resetting offset")
+                return results
+            
+            # Advance offset for next cycle
+            new_offset = current_offset + len(candidate_ids)
+            
+            # If we've gone through all candidates, reset for next cycle
+            if new_offset >= total_count:
+                new_offset = 0
+                logging.info(f"🧹 Note cleanup: Reached end of {total_count} vetted candidates, will restart next cycle")
+            
+            # Save offset to database (persists across restarts)
+            self._save_cleanup_offset(new_offset)
+            
+            for candidate_id in candidate_ids:
+                if not candidate_id:
+                    continue
+                
+                results['candidates_processed'] += 1
+                
+                # Fetch notes for this candidate
+                notes_url = f"{bullhorn.base_url}entity/Candidate/{candidate_id}/notes"
+                notes_params = {
+                    'fields': 'id,action,dateAdded,isDeleted',
+                    'count': 200,
+                    'BhRestToken': bullhorn.rest_token
+                }
+                
+                try:
+                    notes_response = bullhorn.session.get(notes_url, params=notes_params, timeout=15)
+                    if notes_response.status_code != 200:
+                        continue
+                    
+                    notes_data = notes_response.json()
+                    all_notes = notes_data.get('data', [])
+                    
+                    # Filter for screening notes (backward-compat: match old, intermediate, and new action strings)
+                    screening_actions = {
+                        'AI Vetting - Not Recommended',
+                        'Scout Screening - Not Recommended',  # Legacy (>30 chars, never created successfully)
+                        'Scout Screen - Not Qualified',        # Current format (≤30 chars)
+                    }
+                    vetting_notes = [
+                        n for n in all_notes 
+                        if n.get('action') in screening_actions
+                        and not n.get('isDeleted', False)
+                    ]
+                    
+                    if len(vetting_notes) <= 1:
+                        continue
+                    
+                    # Sort by dateAdded (oldest first)
+                    vetting_notes.sort(key=lambda x: x.get('dateAdded', 0))
+                    
+                    # Identify duplicates
+                    last_kept_time = None
+                    notes_to_delete = []
+                    
+                    for note in vetting_notes:
+                        note_time = note.get('dateAdded', 0)
+                        if isinstance(note_time, int):
+                            note_datetime = datetime.utcfromtimestamp(note_time / 1000)
+                        else:
+                            continue
+                        
+                        if last_kept_time is None:
+                            last_kept_time = note_datetime
+                        else:
+                            time_diff = (note_datetime - last_kept_time).total_seconds() / 60
+                            if time_diff >= 60:
+                                last_kept_time = note_datetime
+                            else:
+                                notes_to_delete.append(note)
+                    
+                    # Delete duplicates
+                    for note in notes_to_delete:
+                        note_id = note.get('id')
+                        try:
+                            delete_url = f"{bullhorn.base_url}entity/Note/{note_id}"
+                            delete_data = {'isDeleted': True}
+                            delete_response = bullhorn.session.post(
+                                delete_url, 
+                                json=delete_data,
+                                params={'BhRestToken': bullhorn.rest_token},
+                                timeout=5
+                            )
+                            if delete_response.status_code == 200:
+                                results['notes_deleted'] += 1
+                        except Exception as e:
+                            pass  # Continue with other notes
+                            
+                except Exception as e:
+                    continue
+            
+            if results['notes_deleted'] > 0:
+                logging.info(f"🧹 Note cleanup: Deleted {results['notes_deleted']} duplicate notes from {results['candidates_processed']} candidates")
+            
+        except Exception as e:
+            results['errors'].append(str(e))
+            logging.error(f"Error in duplicate notes cleanup: {str(e)}")
+        
         return results
     
     def check_and_refresh_changed_jobs(self, jobs: list = None) -> dict:
@@ -348,22 +906,16 @@ Format as a bullet-point list. Be specific and concise."""
                         existing.job_location = job_location
                         existing.job_work_type = job_work_type
                         
-                        # Only re-extract AI interpretation if no custom override
-                        if not existing.custom_requirements:
-                            # Re-extract requirements
-                            extracted = self.extract_job_requirements(
-                                int(job_id), job_title, job_description,
-                                job_location, job_work_type
-                            )
-                            if extracted:
-                                logging.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
-                            else:
-                                logging.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
+                        # ALWAYS re-extract AI interpretation, even with custom override
+                        # Custom Override supplements AI interpretation, doesn't replace it
+                        extracted = self.extract_job_requirements(
+                            int(job_id), job_title, job_description,
+                            job_location, job_work_type
+                        )
+                        if extracted:
+                            logging.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
                         else:
-                            # Has custom override - just update metadata, not AI interpretation
-                            existing.updated_at = datetime.utcnow()
-                            db.session.commit()
-                            logging.info(f"  ℹ️ Job {job_id} has custom requirements - updated metadata only")
+                            logging.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
                         
                         results['jobs_refreshed'] += 1
                     else:
@@ -384,14 +936,157 @@ Format as a bullet-point list. Be specific and concise."""
             
         return results
     
+    def sync_job_recruiter_assignments(self, jobs: list = None) -> dict:
+        """
+        Sync recruiter assignments from Bullhorn to existing CandidateJobMatch records.
+        This ensures that recruiters added to jobs AFTER initial vetting still receive notifications.
+        
+        Should be called periodically (alongside job change detection) to pick up recruiter changes.
+        
+        Args:
+            jobs: Optional list of job dicts from tearsheets. If None, fetches from tearsheets.
+            
+        Returns:
+            Summary dict with sync counts
+        """
+        results = {
+            'jobs_checked': 0,
+            'matches_updated': 0,
+            'recruiters_added': 0,
+            'errors': []
+        }
+        
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            results['errors'].append("Could not connect to Bullhorn")
+            return results
+        
+        try:
+            # Get jobs if not provided
+            if jobs is None:
+                jobs = self.get_active_jobs_from_tearsheets()
+            
+            results['jobs_checked'] = len(jobs)
+            
+            if not jobs:
+                return results
+            
+            # Build job ID -> current recruiters mapping
+            job_recruiters = {}
+            for job in jobs:
+                job_id = job.get('id')
+                if not job_id:
+                    continue
+                    
+                # Extract all recruiter emails from assignedUsers
+                assigned_users = job.get('assignedUsers', {})
+                if isinstance(assigned_users, dict):
+                    assigned_users_list = assigned_users.get('data', [])
+                elif isinstance(assigned_users, list):
+                    assigned_users_list = assigned_users
+                else:
+                    assigned_users_list = []
+                
+                recruiter_emails = []
+                recruiter_names = []
+                recruiter_ids = []
+                
+                for user in assigned_users_list:
+                    if isinstance(user, dict):
+                        email = user.get('email', '')
+                        name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+                        user_id = user.get('id')
+                        if email:
+                            recruiter_emails.append(email)
+                        if name:
+                            recruiter_names.append(name)
+                        if user_id:
+                            recruiter_ids.append(str(user_id))
+                
+                if recruiter_emails:
+                    job_recruiters[int(job_id)] = {
+                        'emails': ', '.join(recruiter_emails),
+                        'names': ', '.join(recruiter_names),
+                        'primary_id': int(recruiter_ids[0]) if recruiter_ids else None
+                    }
+            
+            # Find all CandidateJobMatch records for these jobs that might need updating
+            job_ids = list(job_recruiters.keys())
+            if not job_ids:
+                return results
+            
+            matches = CandidateJobMatch.query.filter(
+                CandidateJobMatch.bullhorn_job_id.in_(job_ids)
+            ).all()
+            
+            # Update matches where recruiter info has changed
+            for match in matches:
+                current_data = job_recruiters.get(match.bullhorn_job_id)
+                if not current_data:
+                    continue
+                
+                current_emails = set(e.strip() for e in current_data['emails'].split(',') if e.strip())
+                stored_emails = set(e.strip() for e in (match.recruiter_email or '').split(',') if e.strip())
+                
+                # Check if any new recruiters were added
+                new_recruiters = current_emails - stored_emails
+                
+                if new_recruiters:
+                    # Update the match record with current recruiter info
+                    old_emails = match.recruiter_email
+                    match.recruiter_email = current_data['emails']
+                    match.recruiter_name = current_data['names']
+                    # Keep primary ID for backward compatibility
+                    if current_data['primary_id']:
+                        match.recruiter_bullhorn_id = current_data['primary_id']
+                    
+                    results['matches_updated'] += 1
+                    results['recruiters_added'] += len(new_recruiters)
+                    
+                    logging.info(f"🔄 Updated job {match.bullhorn_job_id} match #{match.id}: "
+                                f"added {len(new_recruiters)} recruiter(s) - {', '.join(new_recruiters)}")
+            
+            if results['matches_updated'] > 0:
+                db.session.commit()
+                logging.info(f"✅ Recruiter sync complete: {results['matches_updated']} matches updated, "
+                            f"{results['recruiters_added']} recruiters added")
+            
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error in recruiter assignment sync: {str(e)}")
+            results['errors'].append(str(e))
+        
+        return results
+    
+    # TTL cache for get_active_job_ids — avoids 7+ Bullhorn API calls per page load
+    _active_job_ids_cache: set = None
+    _active_job_ids_cache_time: float = 0
+    _ACTIVE_JOB_IDS_TTL = 300  # 5 minutes
+
+    # OpenAI quota exhaustion tracking (class-level, shared across instances)
+    _consecutive_quota_errors: int = 0
+    _quota_alert_sent: bool = False
+
     def get_active_job_ids(self) -> set:
-        """Get set of active job IDs from tearsheets (for filtering)"""
+        """Get set of active job IDs from tearsheets (for filtering).
+        
+        Results are cached for 5 minutes to avoid expensive Bullhorn API
+        calls on every /screening page load.
+        """
+        import time
+        now = time.time()
+        if (CandidateVettingService._active_job_ids_cache is not None
+                and now - CandidateVettingService._active_job_ids_cache_time < self._ACTIVE_JOB_IDS_TTL):
+            return CandidateVettingService._active_job_ids_cache
         try:
             active_jobs = self.get_active_jobs_from_tearsheets()
-            return set(int(job.get('id')) for job in active_jobs if job.get('id'))
+            result = set(int(job.get('id')) for job in active_jobs if job.get('id'))
+            CandidateVettingService._active_job_ids_cache = result
+            CandidateVettingService._active_job_ids_cache_time = now
+            return result
         except Exception as e:
             logging.error(f"Error getting active job IDs: {str(e)}")
-            return set()
+            return CandidateVettingService._active_job_ids_cache or set()
     
     def extract_requirements_for_jobs(self, jobs: list) -> dict:
         """
@@ -410,6 +1105,15 @@ Format as a bullet-point list. Be specific and concise."""
             'skipped': 0,
             'failed': 0
         }
+        
+        # BATCH: Pre-fetch all existing requirements in one query instead of per-job
+        job_ids = [int(j.get('id')) for j in jobs if j.get('id')]
+        existing_reqs = {}
+        if job_ids:
+            existing_rows = JobVettingRequirements.query.filter(
+                JobVettingRequirements.bullhorn_job_id.in_(job_ids)
+            ).all()
+            existing_reqs = {r.bullhorn_job_id: r for r in existing_rows}
         
         for job in jobs:
             job_id = job.get('id')
@@ -435,8 +1139,8 @@ Format as a bullet-point list. Be specific and concise."""
                 results['skipped'] += 1
                 continue
                 
-            # Check if already exists
-            existing = JobVettingRequirements.query.filter_by(bullhorn_job_id=int(job_id)).first()
+            # Check pre-fetched requirements (no per-job query)
+            existing = existing_reqs.get(int(job_id))
             if existing and existing.ai_interpreted_requirements:
                 results['skipped'] += 1
                 continue
@@ -582,17 +1286,91 @@ Format as a bullet-point list. Be specific and concise."""
     def _release_vetting_lock(self):
         """Release the vetting lock"""
         try:
+            # Always rollback first in case session is in a bad state from errors
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             config = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
             if config:
                 config.setting_value = 'false'
                 db.session.commit()
         except Exception as e:
             logging.error(f"Error releasing vetting lock: {str(e)}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+    
+    def _should_skip_candidate(self, candidate_id: int, applied_job_id: int = None) -> bool:
+        """
+        Job-aware dedup: decide whether to skip a candidate based on their vetting history.
+        
+        Rules:
+        - Different job → always rescreen (return False)
+        - Same job within 24h → skip (return True)
+        - Same job 3+ times within 7 days → skip (return True)
+        - No applied_job_id context → fall back to 24h global dedup
+        
+        Args:
+            candidate_id: Bullhorn candidate ID
+            applied_job_id: The job ID the candidate applied to (None if unknown)
+            
+        Returns:
+            True if candidate should be skipped, False if they should be rescreened
+        """
+        from datetime import timedelta
+        
+        if not applied_job_id:
+            # No job context — fall back to 24h global dedup (cross-path safety)
+            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+            recent = CandidateVettingLog.query.filter(
+                CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                CandidateVettingLog.status.in_(['completed', 'processing']),
+                CandidateVettingLog.created_at >= recent_cutoff
+            ).first()
+            if recent:
+                logging.debug(
+                    f"Candidate {candidate_id} vetted within 24h (no job context), skipping"
+                )
+            return recent is not None
+        
+        # Rule 1: Same job within 24h → skip
+        recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+        same_job_recent = CandidateVettingLog.query.filter(
+            CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+            CandidateVettingLog.applied_job_id == applied_job_id,
+            CandidateVettingLog.status.in_(['completed', 'processing']),
+            CandidateVettingLog.created_at >= recent_cutoff
+        ).first()
+        if same_job_recent:
+            logging.debug(
+                f"Candidate {candidate_id} vetted for job {applied_job_id} within 24h, skipping"
+            )
+            return True
+        
+        # Rule 2: Same job 3+ times in 7 days → skip
+        week_cutoff = datetime.utcnow() - timedelta(days=7)
+        same_job_week_count = CandidateVettingLog.query.filter(
+            CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+            CandidateVettingLog.applied_job_id == applied_job_id,
+            CandidateVettingLog.status.in_(['completed', 'processing']),
+            CandidateVettingLog.created_at >= week_cutoff
+        ).count()
+        if same_job_week_count >= 3:
+            logging.debug(
+                f"Candidate {candidate_id} vetted for job {applied_job_id} "
+                f"{same_job_week_count} times in 7 days, skipping (soft cap)"
+            )
+            return True
+        
+        # Different job or under caps → allow rescreening
+        return False
     
     def detect_new_applicants(self, since_minutes: int = 5) -> List[Dict]:
         """
         Find new candidates with "Online Applicant" status that haven't been processed yet.
-        Uses dateAdded filter in Bullhorn query to only fetch recent candidates.
+        Uses dateLastModified filter to catch both new and returning candidates.
         
         Args:
             since_minutes: Only look at candidates created/updated in the last N minutes
@@ -621,13 +1399,14 @@ Format as a bullet-point list. Be specific and concise."""
             
             since_timestamp = int(since_time.timestamp() * 1000)  # Bullhorn uses milliseconds
             
-            # Build search query with date filter to prevent historical processing
+            # Use dateLastModified to catch returning candidates who reapply to new jobs
+            # (dateAdded only reflects candidate creation, not new applications)
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
-                'query': f'status:"Online Applicant" AND dateAdded:[{since_timestamp} TO *]',
-                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(city,state,countryName)',
+                'query': f'status:"Online Applicant" AND dateLastModified:[{since_timestamp} TO *]',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName)',
                 'count': 50,  # Limit batch size for performance
-                'sort': '-dateAdded',  # Most recent first
+                'sort': '-dateLastModified',  # Most recently modified first
                 'BhRestToken': bullhorn.rest_token
             }
             
@@ -642,24 +1421,19 @@ Format as a bullet-point list. Be specific and concise."""
             
             logging.info(f"Bullhorn returned {len(candidates)} candidates since {since_time}")
             
-            # Filter to only candidates not already processed
+            # Job-aware dedup: allow rescreening for different jobs
             new_candidates = []
             for candidate in candidates:
                 candidate_id = candidate.get('id')
                 if not candidate_id:
                     continue
-                    
-                # Check if RECENTLY vetted (within last hour) to prevent duplicate processing
-                # But allow re-vetting for candidates who apply again days/weeks later
-                from datetime import timedelta
-                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
                 
-                recent_vetting = CandidateVettingLog.query.filter(
-                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.created_at >= recent_cutoff
-                ).first()
-                
-                if not recent_vetting:
+                # For Online Applicants detected via Bullhorn search, we don't have the
+                # applied job ID at this stage. Use global 24h dedup as a safety net.
+                # The ParsedEmail path (primary) already handles job-aware dedup properly.
+                if self._should_skip_candidate(candidate_id):
+                    logging.debug(f"Candidate {candidate_id} vetted recently, skipping")
+                else:
                     new_candidates.append(candidate)
                     logging.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
             
@@ -670,11 +1444,122 @@ Format as a bullet-point list. Be specific and concise."""
             logging.error(f"Error detecting new applicants: {str(e)}")
             return []
     
+    def detect_pandologic_candidates(self, since_minutes: int = 5) -> List[Dict]:
+        """
+        Find candidates from Pandologic API that haven't been vetted recently.
+        Pandologic feeds candidates directly into Bullhorn with owner='Pandologic API'.
+        
+        Uses dateLastModified to catch returning candidates who reapply to new jobs
+        (dateAdded only reflects candidate creation, not new applications).
+        
+        Job-aware dedup: candidates applying to different jobs are always rescreened.
+        
+        Args:
+            since_minutes: Only look at candidates modified in the last N minutes (fallback)
+            
+        Returns:
+            List of candidate dictionaries from Bullhorn
+        """
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            return []
+        
+        if not bullhorn.authenticate():
+            logging.error("Failed to authenticate with Bullhorn for Pandologic detection")
+            return []
+        
+        try:
+            # Use same timestamp logic as detect_new_applicants
+            last_run = self._get_last_run_timestamp()
+            if last_run:
+                since_time = last_run
+            else:
+                since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
+            
+            since_timestamp = int(since_time.timestamp() * 1000)
+            
+            # Use dateLastModified to catch returning candidates who reapply to new jobs
+            # (dateAdded only reflects candidate creation, not new applications)
+            url = f"{bullhorn.base_url}search/Candidate"
+            params = {
+                'query': f'owner.name:"Pandologic API" AND dateLastModified:[{since_timestamp} TO *]',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName),owner(name)',
+                'count': 50,
+                'sort': '-dateLastModified',
+                'BhRestToken': bullhorn.rest_token
+            }
+            
+            response = bullhorn.session.get(url, params=params, timeout=30)
+            
+            if response.status_code != 200:
+                logging.error(f"Failed to search for Pandologic candidates: {response.status_code}")
+                return []
+            
+            data = response.json()
+            candidates = data.get('data', [])
+            
+            logging.info(f"🔍 Pandologic: Found {len(candidates)} candidates since {since_time}")
+            
+            # Job-aware dedup: get latest JobSubmission for each candidate to check
+            # if they were already vetted for THIS specific job
+            new_candidates = []
+            for candidate in candidates:
+                candidate_id = candidate.get('id')
+                if not candidate_id:
+                    continue
+                
+                # Get latest job submission to determine which job they applied to
+                applied_job_id = None
+                try:
+                    sub_url = f"{bullhorn.base_url}search/JobSubmission"
+                    sub_params = {
+                        'query': f'candidate.id:{candidate_id}',
+                        'fields': 'id,jobOrder(id,title),dateAdded',
+                        'count': 1,
+                        'sort': '-dateAdded',
+                        'BhRestToken': bullhorn.rest_token
+                    }
+                    sub_response = bullhorn.session.get(sub_url, params=sub_params, timeout=15)
+                    if sub_response.status_code == 200:
+                        submissions = sub_response.json().get('data', [])
+                        if submissions:
+                            job_order = submissions[0].get('jobOrder', {})
+                            applied_job_id = job_order.get('id')
+                            candidate['_applied_job_id'] = applied_job_id
+                            candidate['_applied_job_title'] = job_order.get('title', '')
+                except Exception as e:
+                    logging.debug(f"Could not fetch JobSubmission for candidate {candidate_id}: {str(e)}")
+                
+                # Job-aware dedup: different job = always allow; same job = apply caps
+                if self._should_skip_candidate(candidate_id, applied_job_id):
+                    logging.debug(
+                        f"Pandologic candidate {candidate_id} skipped by job-aware dedup "
+                        f"(applied_job={applied_job_id})"
+                    )
+                else:
+                    new_candidates.append(candidate)
+                    job_info = f" for job {applied_job_id}" if applied_job_id else ""
+                    logging.info(
+                        f"🔵 Pandologic candidate detected: "
+                        f"{candidate.get('firstName')} {candidate.get('lastName')} "
+                        f"(ID: {candidate_id}{job_info})"
+                    )
+            
+            logging.info(f"🔍 Pandologic: {len(new_candidates)} candidates to vet out of {len(candidates)} total")
+            return new_candidates
+            
+        except Exception as e:
+            logging.error(f"Error detecting Pandologic candidates: {str(e)}")
+            return []
+    
     def detect_unvetted_applications(self, limit: int = 25) -> List[Dict]:
         """
         Find candidates from ParsedEmail records that have been successfully processed
         but not yet vetted. This captures ALL inbound applicants (both new and existing
         candidates) since email parsing is the entry point for all applications.
+        
+        Database query runs FIRST (no external API needed), and Bullhorn auth is only
+        attempted when there are actual candidates to fetch details for.
         
         Args:
             limit: Maximum number of candidates to return (configurable batch size)
@@ -682,47 +1567,61 @@ Format as a bullet-point list. Be specific and concise."""
         Returns:
             List of candidate dictionaries ready for vetting
         """
-        bullhorn = self._get_bullhorn_service()
-        if not bullhorn:
-            return []
-        
-        if not bullhorn.authenticate():
-            logging.error("Failed to authenticate with Bullhorn for candidate detection")
-            return []
-        
         try:
-            # Diagnostic: Log ParsedEmail table stats for debugging
-            from sqlalchemy import func
-            total_emails = db.session.query(func.count(ParsedEmail.id)).scalar() or 0
-            completed_emails = db.session.query(func.count(ParsedEmail.id)).filter(
-                ParsedEmail.status == 'completed'
-            ).scalar() or 0
-            with_candidate_id = db.session.query(func.count(ParsedEmail.id)).filter(
-                ParsedEmail.status == 'completed',
-                ParsedEmail.bullhorn_candidate_id.isnot(None)
-            ).scalar() or 0
-            already_vetted = db.session.query(func.count(ParsedEmail.id)).filter(
-                ParsedEmail.status == 'completed',
-                ParsedEmail.bullhorn_candidate_id.isnot(None),
-                ParsedEmail.vetted_at.isnot(None)
-            ).scalar() or 0
+            # ── Step 1: Query local database FIRST (no API call needed) ──
+            from sqlalchemy import func, case
+            stats = db.session.query(
+                func.count(ParsedEmail.id).label('total'),
+                func.count(case((ParsedEmail.status == 'completed', 1))).label('completed'),
+                func.count(case((
+                    (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)),
+                    1
+                ))).label('with_candidate'),
+                func.count(case((
+                    (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)) & (ParsedEmail.vetted_at.isnot(None)),
+                    1
+                ))).label('already_vetted'),
+            ).first()
             
-            logging.info(f"📊 ParsedEmail stats: total={total_emails}, completed={completed_emails}, "
-                        f"with_candidate_id={with_candidate_id}, already_vetted={already_vetted}, "
-                        f"pending_vetting={with_candidate_id - already_vetted}")
+            logging.info(f"📊 ParsedEmail stats: total={stats.total}, completed={stats.completed}, "
+                        f"with_candidate_id={stats.with_candidate}, already_vetted={stats.already_vetted}, "
+                        f"pending_vetting={stats.with_candidate - stats.already_vetted}")
             
-            # DEBUG: Show most recent 5 ParsedEmail records for troubleshooting
-            recent_emails = ParsedEmail.query.order_by(ParsedEmail.received_at.desc()).limit(5).all()
-            for pe in recent_emails:
-                logging.info(f"  📧 Recent ParsedEmail id={pe.id}: candidate='{pe.candidate_name}', "
-                            f"status={pe.status}, bh_id={pe.bullhorn_candidate_id}, "
-                            f"vetted_at={'SET' if pe.vetted_at else 'NULL'}, received={pe.received_at}")
+            # DEBUG: Show most recent 5 ParsedEmail records (only at DEBUG level)
+            if logging.getLogger().isEnabledFor(logging.DEBUG):
+                recent_emails = ParsedEmail.query.order_by(ParsedEmail.received_at.desc()).limit(5).all()
+                for pe in recent_emails:
+                    logging.debug(f"  📧 Recent ParsedEmail id={pe.id}: candidate='{pe.candidate_name}', "
+                                f"status={pe.status}, bh_id={pe.bullhorn_candidate_id}, "
+                                f"vetted_at={'SET' if pe.vetted_at else 'NULL'}, received={pe.received_at}")
             
             # Query ParsedEmail for completed applications that haven't been vetted
-            unvetted_emails = ParsedEmail.query.filter(
+            # Apply cutoff date if configured (skip historical backlog)
+            cutoff_dt = None
+            cutoff_raw = VettingConfig.get_value('vetting_cutoff_date')
+            if cutoff_raw:
+                # Accept both 'YYYY-MM-DD HH:MM:SS' and ISO 'YYYY-MM-DDTHH:MM:SS'
+                for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
+                    try:
+                        cutoff_dt = datetime.strptime(cutoff_raw.strip(), fmt)
+                        break
+                    except ValueError:
+                        continue
+                if cutoff_dt:
+                    logging.info(f"📅 Vetting cutoff active: only processing applicants received after {cutoff_dt} UTC")
+                else:
+                    logging.error(f"❌ Invalid vetting_cutoff_date format: '{cutoff_raw}' — expected 'YYYY-MM-DD HH:MM:SS' or ISO format. Cutoff DISABLED — entire backlog will be processed!")
+            
+            filters = [
                 ParsedEmail.status == 'completed',
                 ParsedEmail.vetted_at.is_(None),
-                ParsedEmail.bullhorn_candidate_id.isnot(None)
+                ParsedEmail.bullhorn_candidate_id.isnot(None),
+            ]
+            if cutoff_dt:
+                filters.append(ParsedEmail.received_at >= cutoff_dt)
+            
+            unvetted_emails = ParsedEmail.query.filter(
+                *filters
             ).order_by(
                 ParsedEmail.processed_at.asc()  # Process oldest first (FIFO)
             ).limit(limit).all()
@@ -737,56 +1636,33 @@ Format as a bullet-point list. Be specific and concise."""
             candidates_to_vet = []
             already_vetted_ids = []
             
+            # BATCH: Pre-fetch vetting logs linked to these specific ParsedEmail IDs
+            batch_email_ids = [pe.id for pe in unvetted_emails]
+            
+            vetted_email_ids = set()
+            if batch_email_ids:
+                # Check if a vetting log already exists for these specific ParsedEmail IDs
+                # This is the key dedup: same ParsedEmail.id = duplicate loop, different = valid re-application
+                existing_logs = CandidateVettingLog.query.filter(
+                    CandidateVettingLog.parsed_email_id.in_(batch_email_ids),
+                    CandidateVettingLog.status.in_(['completed', 'failed', 'processing'])
+                ).all()
+                vetted_email_ids = {log.parsed_email_id for log in existing_logs}
+                if vetted_email_ids:
+                    logging.info(f"Found {len(vetted_email_ids)} ParsedEmails already linked to vetting logs")
+            
+            # Filter out already-vetted before making any Bullhorn API calls
+            candidates_needing_details = []
             for parsed_email in unvetted_emails:
                 candidate_id = parsed_email.bullhorn_candidate_id
                 
-                # Check if there's a RECENT vetting log for this candidate (within last hour)
-                # This prevents duplicate processing of the same application cycle
-                # But allows re-vetting for new applications (days/weeks later)
-                from datetime import timedelta
-                recent_cutoff = datetime.utcnow() - timedelta(hours=1)
+                # Dedup: skip if a vetting log already exists for THIS specific ParsedEmail
+                if parsed_email.id in vetted_email_ids:
+                    already_vetted_ids.append(parsed_email.id)
+                    logging.info(f"Candidate {candidate_id} already vetted for ParsedEmail {parsed_email.id}, skipping (duplicate loop prevention)")
+                    continue
                 
-                existing_log = CandidateVettingLog.query.filter(
-                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-                    CandidateVettingLog.created_at >= recent_cutoff
-                ).first()
-                
-                if existing_log:
-                    # Only skip if recently completed or failed (within the hour)
-                    if existing_log.status in ('completed', 'failed'):
-                        already_vetted_ids.append(parsed_email.id)
-                        logging.info(f"Candidate {candidate_id} recently vetted (status={existing_log.status}), marking for skip")
-                        continue
-                    
-                    # Reset stuck 'processing' candidates (older than 10 minutes)
-                    if existing_log.status == 'processing':
-                        processing_age = (datetime.utcnow() - existing_log.created_at).total_seconds()
-                        if processing_age > 600:  # 10 minutes
-                            logging.warning(f"Resetting stuck candidate {candidate_id} (processing for {processing_age:.0f}s)")
-                            existing_log.status = 'pending'
-                            existing_log.error_message = f"Reset from stuck processing state after {processing_age:.0f}s"
-                            db.session.commit()
-                        else:
-                            # Still processing recently, skip
-                            logging.info(f"Candidate {candidate_id} still processing (started {processing_age:.0f}s ago), skipping")
-                            continue
-                    
-                    # Pending status - delete old log and reprocess
-                    if existing_log.status == 'pending':
-                        logging.info(f"Candidate {candidate_id} has pending log, will reprocess")
-                        db.session.delete(existing_log)
-                        db.session.commit()
-                
-                # Fetch full candidate data from Bullhorn
-                candidate_data = self._fetch_candidate_details(bullhorn, candidate_id)
-                
-                if candidate_data:
-                    # Attach the ParsedEmail ID for tracking
-                    candidate_data['_parsed_email_id'] = parsed_email.id
-                    candidate_data['_applied_job_id'] = parsed_email.bullhorn_job_id
-                    candidate_data['_is_duplicate'] = parsed_email.is_duplicate_candidate
-                    candidates_to_vet.append(candidate_data)
-                    logging.info(f"Queued for vetting: {candidate_data.get('firstName')} {candidate_data.get('lastName')} (ID: {candidate_id}, Applied to Job: {parsed_email.bullhorn_job_id})")
+                candidates_needing_details.append(parsed_email)
             
             # Batch update already-vetted records in single transaction
             if already_vetted_ids:
@@ -800,6 +1676,37 @@ Format as a bullet-point list. Be specific and concise."""
                 except Exception as e:
                     db.session.rollback()
                     logging.error(f"Error updating already-vetted applications: {str(e)}")
+            
+            # ── Step 2: Only authenticate with Bullhorn if we have candidates to fetch ──
+            if not candidates_needing_details:
+                logging.info("All unvetted candidates were already processed or skipped")
+                return []
+            
+            logging.info(f"Need Bullhorn details for {len(candidates_needing_details)} candidates")
+            
+            bullhorn = self._get_bullhorn_service()
+            if not bullhorn:
+                logging.warning(f"⚠️ Bullhorn service unavailable — {len(candidates_needing_details)} candidates waiting for vetting")
+                return []
+            
+            if not bullhorn.authenticate():
+                logging.warning(f"⚠️ Bullhorn authentication failed (possible rate limit) — "
+                              f"{len(candidates_needing_details)} candidates waiting for vetting. "
+                              f"Will retry next cycle.")
+                return []
+            
+            # ── Step 3: Fetch candidate details from Bullhorn ──
+            for parsed_email in candidates_needing_details:
+                candidate_id = parsed_email.bullhorn_candidate_id
+                candidate_data = self._fetch_candidate_details(bullhorn, candidate_id)
+                
+                if candidate_data:
+                    # Attach the ParsedEmail ID for tracking
+                    candidate_data['_parsed_email_id'] = parsed_email.id
+                    candidate_data['_applied_job_id'] = parsed_email.bullhorn_job_id
+                    candidate_data['_is_duplicate'] = parsed_email.is_duplicate_candidate
+                    candidates_to_vet.append(candidate_data)
+                    logging.info(f"Queued for vetting: {candidate_data.get('firstName')} {candidate_data.get('lastName')} (ID: {candidate_id}, Applied to Job: {parsed_email.bullhorn_job_id})")
             
             logging.info(f"Prepared {len(candidates_to_vet)} candidates for vetting from email parsing")
             return candidates_to_vet
@@ -823,7 +1730,7 @@ Format as a bullet-point list. Be specific and concise."""
         try:
             url = f"{bullhorn.base_url}entity/Candidate/{candidate_id}"
             params = {
-                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description',
+                'fields': 'id,firstName,lastName,email,phone,address,status,dateAdded,dateLastModified,source,occupation,description',
                 'BhRestToken': bullhorn.rest_token
             }
             
@@ -838,6 +1745,90 @@ Format as a bullet-point list. Be specific and concise."""
                 
         except Exception as e:
             logging.error(f"Error fetching candidate {candidate_id}: {str(e)}")
+            return None
+    
+    def _fetch_applied_job(self, bullhorn: 'BullhornService', job_id: int) -> Optional[Dict]:
+        """
+        Fetch a single job by ID from Bullhorn for applied-job injection.
+        
+        Used when the applied job isn't in a monitored tearsheet. Returns the
+        job dict in the same format as get_active_jobs_from_tearsheets() so it
+        can be seamlessly added to the job list.
+        
+        Only returns jobs with status 'Accepting Candidates' or where isOpen=True.
+        Returns None for closed/deleted/invalid jobs.
+        
+        Args:
+            bullhorn: Authenticated Bullhorn service
+            job_id: Bullhorn job order ID
+            
+        Returns:
+            Job dictionary matching tearsheet format, or None if closed/invalid
+        """
+        if not bullhorn or not bullhorn.rest_token:
+            return None
+        
+        try:
+            url = f"{bullhorn.base_url}entity/JobOrder/{job_id}"
+            params = {
+                'fields': (
+                    'id,title,isOpen,status,dateAdded,dateLastModified,'
+                    'clientCorporation(name),description,publicDescription,'
+                    'address(address1,city,state,countryName),'
+                    'employmentType,onSite,'
+                    'assignedUsers(id,firstName,lastName,email),'
+                    'responseUser(firstName,lastName),owner(firstName,lastName)'
+                ),
+                'BhRestToken': bullhorn.rest_token
+            }
+            
+            response = bullhorn.session.get(url, params=params, timeout=30)
+            
+            if response.status_code != 200:
+                logging.warning(
+                    f"Bullhorn returned {response.status_code} for job {job_id}"
+                )
+                return None
+            
+            job_data = response.json().get('data', {})
+            
+            if not job_data or not job_data.get('id'):
+                return None
+            
+            # Only return open jobs
+            is_open = job_data.get('isOpen', False)
+            status = job_data.get('status', '')
+            
+            if not is_open and status != 'Accepting Candidates':
+                logging.info(
+                    f"Applied job {job_id} is closed (isOpen={is_open}, "
+                    f"status={status}) — skipping injection"
+                )
+                return None
+            
+            # Enrich with user emails (same pattern as get_active_jobs_from_tearsheets)
+            assigned_users = job_data.get('assignedUsers', {})
+            if isinstance(assigned_users, dict):
+                users_list = assigned_users.get('data', [])
+            elif isinstance(assigned_users, list):
+                users_list = assigned_users
+            else:
+                users_list = []
+            
+            user_ids = [u.get('id') for u in users_list if isinstance(u, dict) and u.get('id')]
+            if user_ids:
+                user_email_map = bullhorn.get_user_emails(user_ids)
+                for user in users_list:
+                    if isinstance(user, dict) and user.get('id') in user_email_map:
+                        user['email'] = user_email_map[user['id']].get('email', '')
+            
+            # Mark as injected for audit trail
+            job_data['_injected_applied_job'] = True
+            
+            return job_data
+            
+        except Exception as e:
+            logging.error(f"Error fetching applied job {job_id}: {str(e)}")
             return None
     
     def _mark_application_vetted(self, parsed_email_id: int):
@@ -1109,9 +2100,52 @@ Format as a bullet-point list. Be specific and concise."""
                         user['email'] = user_email_map[user_id].get('email', '')
         
         logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
+        
+        # Filter out jobs with ineligible statuses (Archive, Filled, etc.)
+        # Uses the canonical INELIGIBLE_STATUSES list from the monitoring service
+        # (lazy import to avoid circular dependency).
+        try:
+            from incremental_monitoring_service import IncrementalMonitoringService
+            blocked = {s.strip().lower() for s in IncrementalMonitoringService.INELIGIBLE_STATUSES}
+        except ImportError:
+            blocked = {'archive', 'filled', 'canceled'}  # fallback
+        
+        pre_filter_count = len(all_jobs)
+        all_jobs = [
+            job for job in all_jobs
+            if job.get('status', '').strip().lower() not in blocked
+        ]
+        filtered_out = pre_filter_count - len(all_jobs)
+        if filtered_out > 0:
+            logging.info(f"Filtered {filtered_out} ineligible jobs (status in INELIGIBLE_STATUSES). Active: {len(all_jobs)}")
+        
+        # Persist lightweight job snapshots to BullhornMonitor.last_job_snapshot
+        # so the ATS Monitoring page shows accurate, up-to-date job counts.
+        try:
+            from collections import defaultdict
+            jobs_by_tearsheet = defaultdict(list)
+            for job in all_jobs:
+                ts_id = job.get('tearsheet_id')
+                if ts_id:
+                    jobs_by_tearsheet[ts_id].append({
+                        'id': job.get('id'),
+                        'title': job.get('title', ''),
+                        'status': job.get('status', ''),
+                        'isOpen': job.get('isOpen')
+                    })
+            
+            for monitor in monitors:
+                snapshot_jobs = jobs_by_tearsheet.get(monitor.tearsheet_id, [])
+                monitor.last_job_snapshot = json.dumps(snapshot_jobs)
+            
+            db.session.commit()
+        except Exception as e:
+            logging.warning(f"Failed to persist job snapshots: {str(e)}")
+            db.session.rollback()
+        
         return all_jobs
     
-    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None) -> Dict:
+    def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None, model_override: Optional[str] = None, prefetched_global_requirements: Optional[str] = None) -> Dict:
         """
         Use GPT-4o to analyze how well a candidate matches a job.
         
@@ -1170,12 +2204,225 @@ Format as a bullet-point list. Be specific and concise."""
             }
             return country_map.get(country_upper, country_value.strip())
         
+        def smart_correct_country(city: str, state: str, declared_country: str) -> str:
+            """
+            Smart correction for country based on city/state when there's a mismatch.
+            This compensates for human data entry errors where candidates or jobs
+            have the wrong country but correct city/state.
+            
+            Returns the corrected country name, or the original if no correction needed.
+            """
+            if not state and not city:
+                return declared_country
+            
+            state_upper = state.strip().upper() if state else ''
+            city_upper = city.strip().upper() if city else ''
+            
+            # Canadian provinces/territories
+            canadian_provinces = {
+                'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT',
+                'ALBERTA', 'BRITISH COLUMBIA', 'MANITOBA', 'NEW BRUNSWICK', 
+                'NEWFOUNDLAND AND LABRADOR', 'NEWFOUNDLAND', 'NOVA SCOTIA',
+                'NORTHWEST TERRITORIES', 'NUNAVUT', 'ONTARIO', 'PRINCE EDWARD ISLAND',
+                'QUEBEC', 'SASKATCHEWAN', 'YUKON'
+            }
+            
+            # Major Canadian cities (for cases where state might be missing or wrong)
+            canadian_cities = {
+                'TORONTO', 'MONTREAL', 'VANCOUVER', 'CALGARY', 'EDMONTON', 'OTTAWA',
+                'WINNIPEG', 'QUEBEC CITY', 'HAMILTON', 'KITCHENER', 'LONDON', 'VICTORIA',
+                'HALIFAX', 'OSHAWA', 'WINDSOR', 'SASKATOON', 'REGINA', 'ST. CATHARINES',
+                'KELOWNA', 'BARRIE', 'SHERBROOKE', 'GUELPH', 'KANATA', 'RICHMOND',
+                'BURNABY', 'SURREY', 'MARKHAM', 'MISSISSAUGA', 'BRAMPTON', 'SCARBOROUGH',
+                'WATERLOO', 'KINGSTON', 'THUNDER BAY', 'SAINT JOHN', 'MONCTON', 'FREDERICTON'
+            }
+            
+            # UK regions/countries
+            uk_regions = {
+                'ENGLAND', 'SCOTLAND', 'WALES', 'NORTHERN IRELAND',
+                'GREATER LONDON', 'WEST MIDLANDS', 'GREATER MANCHESTER'
+            }
+            
+            # Major UK cities
+            uk_cities = {
+                'LONDON', 'MANCHESTER', 'BIRMINGHAM', 'LEEDS', 'GLASGOW', 'LIVERPOOL',
+                'NEWCASTLE', 'SHEFFIELD', 'BRISTOL', 'EDINBURGH', 'CARDIFF', 'BELFAST',
+                'NOTTINGHAM', 'LEICESTER', 'COVENTRY', 'BRADFORD', 'READING'
+            }
+            
+            # Australian states
+            australian_states = {
+                'NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT',
+                'NEW SOUTH WALES', 'VICTORIA', 'QUEENSLAND', 'WESTERN AUSTRALIA',
+                'SOUTH AUSTRALIA', 'TASMANIA', 'AUSTRALIAN CAPITAL TERRITORY',
+                'NORTHERN TERRITORY'
+            }
+            
+            # Mexican states (common abbreviations and names)
+            mexican_states = {
+                'AGU', 'BCN', 'BCS', 'CAM', 'CHH', 'CHP', 'COA', 'COL', 'DIF', 'DUR',
+                'GRO', 'GUA', 'HID', 'JAL', 'MEX', 'MIC', 'MOR', 'NAY', 'NLE', 'OAX',
+                'PUE', 'QUE', 'ROO', 'SIN', 'SLP', 'SON', 'TAB', 'TAM', 'TLA', 'VER',
+                'YUC', 'ZAC', 'CDMX', 'CIUDAD DE MEXICO', 'JALISCO', 'NUEVO LEON',
+                'QUINTANA ROO', 'BAJA CALIFORNIA'
+            }
+            
+            # Major Mexican cities
+            mexican_cities = {
+                'MEXICO CITY', 'GUADALAJARA', 'MONTERREY', 'PUEBLA', 'TIJUANA',
+                'CANCUN', 'LEON', 'JUAREZ', 'MERIDA', 'CHIHUAHUA', 'AGUASCALIENTES',
+                'MORELIA', 'QUERETARO', 'TOLUCA', 'HERMOSILLO'
+            }
+            
+            # Check for Canada
+            if state_upper in canadian_provinces or city_upper in canadian_cities:
+                # Special case: London exists in both Canada (Ontario) and UK
+                if city_upper == 'LONDON' and state_upper in {'ENGLAND', 'GREATER LONDON', ''}:
+                    return 'United Kingdom'
+                # If it's a Canadian province or known Canadian city, correct to Canada
+                if declared_country != 'Canada':
+                    return 'Canada'
+            
+            # Check for UK (but not if state indicates Canada - e.g., London, ON)
+            if state_upper in uk_regions or (city_upper in uk_cities and state_upper not in canadian_provinces):
+                if declared_country not in ('United Kingdom', 'UK', 'GB'):
+                    return 'United Kingdom'
+            
+            # US state abbreviations — used to disambiguate collisions (e.g. WA = Washington vs Western Australia)
+            us_states = {
+                'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+                'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+                'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+                'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+                'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+            }
+            
+            # Check for Australia (skip if state is a known US abbreviation)
+            if state_upper in australian_states and state_upper not in us_states:
+                if declared_country != 'Australia':
+                    return 'Australia'
+            
+            # Check for Mexico
+            if state_upper in mexican_states or city_upper in mexican_cities:
+                if declared_country != 'Mexico':
+                    return 'Mexico'
+            
+            # Egyptian governorates / major cities
+            egyptian_cities = {
+                'CAIRO', 'ALEXANDRIA', 'GIZA', 'SHUBRA EL KHEIMA', 'PORT SAID',
+                'SUEZ', 'LUXOR', 'MANSOURA', 'TANTA', 'ASYUT', 'ISMAILIA',
+                'FAIYUM', 'ZAGAZIG', 'ASWAN', 'DAMIETTA', 'MINYA', 'BENI SUEF',
+                'HURGHADA', 'SOHAG', '6TH OF OCTOBER CITY', 'NEW CAIRO',
+                'HELIOPOLIS', 'MAADI', 'NASR CITY', 'DOKKI', 'MOHANDESSIN',
+                'SHARM EL SHEIKH'
+            }
+            egyptian_governorates = {
+                'CAIRO', 'ALEXANDRIA', 'GIZA', 'QALYUBIA', 'DAKAHLIA',
+                'SHARQIA', 'GHARBIA', 'MONUFIA', 'BEHEIRA', 'KAFR EL SHEIKH',
+                'DAMIETTA', 'PORT SAID', 'ISMAILIA', 'SUEZ', 'NORTH SINAI',
+                'SOUTH SINAI', 'RED SEA', 'MATROUH', 'FAIYUM', 'BENI SUEF',
+                'MINYA', 'ASYUT', 'SOHAG', 'QENA', 'LUXOR', 'ASWAN',
+                'NEW VALLEY'
+            }
+            
+            # Check for Egypt
+            if city_upper in egyptian_cities or state_upper in egyptian_governorates:
+                if declared_country != 'Egypt':
+                    return 'Egypt'
+            
+            # Indian states/territories and major cities
+            indian_states = {
+                'ANDHRA PRADESH', 'ARUNACHAL PRADESH', 'ASSAM', 'BIHAR',
+                'CHHATTISGARH', 'GOA', 'GUJARAT', 'HARYANA', 'HIMACHAL PRADESH',
+                'JHARKHAND', 'KARNATAKA', 'KERALA', 'MADHYA PRADESH',
+                'MAHARASHTRA', 'MANIPUR', 'MEGHALAYA', 'MIZORAM', 'NAGALAND',
+                'ODISHA', 'PUNJAB', 'RAJASTHAN', 'SIKKIM', 'TAMIL NADU',
+                'TELANGANA', 'TRIPURA', 'UTTAR PRADESH', 'UTTARAKHAND',
+                'WEST BENGAL', 'DELHI', 'NCT OF DELHI', 'NEW DELHI',
+                'JAMMU AND KASHMIR', 'LADAKH', 'PUDUCHERRY', 'CHANDIGARH',
+                'ANDAMAN AND NICOBAR ISLANDS', 'DADRA AND NAGAR HAVELI',
+                'DAMAN AND DIU', 'LAKSHADWEEP'
+            }
+            indian_cities = {
+                'MUMBAI', 'DELHI', 'NEW DELHI', 'BANGALORE', 'BENGALURU',
+                'HYDERABAD', 'CHENNAI', 'KOLKATA', 'PUNE', 'AHMEDABAD',
+                'JAIPUR', 'LUCKNOW', 'KANPUR', 'NAGPUR', 'INDORE', 'THANE',
+                'BHOPAL', 'VISAKHAPATNAM', 'PATNA', 'VADODARA', 'GHAZIABAD',
+                'LUDHIANA', 'AGRA', 'NASHIK', 'FARIDABAD', 'MEERUT',
+                'RAJKOT', 'VARANASI', 'SRINAGAR', 'AURANGABAD', 'DHANBAD',
+                'AMRITSAR', 'ALLAHABAD', 'RANCHI', 'HOWRAH', 'COIMBATORE',
+                'JABALPUR', 'GWALIOR', 'VIJAYAWADA', 'JODHPUR', 'MADURAI',
+                'RAIPUR', 'KOCHI', 'CHANDIGARH', 'MYSORE', 'MYSURU',
+                'NOIDA', 'GREATER NOIDA', 'GURUGRAM', 'GURGAON', 'TRIVANDRUM',
+                'THIRUVANANTHAPURAM', 'NAVI MUMBAI', 'MANGALORE'
+            }
+            
+            # Check for India (skip Hyderabad — exists in both India and Pakistan)
+            if state_upper in indian_states:
+                if declared_country != 'India':
+                    return 'India'
+            if city_upper in indian_cities and city_upper != 'HYDERABAD':
+                if declared_country != 'India':
+                    return 'India'
+            
+            # Pakistani provinces and major cities
+            pakistani_provinces = {
+                'SINDH', 'PUNJAB', 'BALOCHISTAN', 'KHYBER PAKHTUNKHWA', 'KPK',
+                'ISLAMABAD CAPITAL TERRITORY', 'ICT',
+                'GILGIT-BALTISTAN', 'AZAD KASHMIR', 'AJK'
+            }
+            pakistani_cities = {
+                'KARACHI', 'LAHORE', 'ISLAMABAD', 'RAWALPINDI', 'FAISALABAD',
+                'MULTAN', 'PESHAWAR', 'QUETTA', 'SIALKOT', 'GUJRANWALA',
+                'BAHAWALPUR', 'SARGODHA', 'SUKKUR', 'LARKANA', 'ABBOTTABAD',
+                'MARDAN', 'MINGORA', 'DERA GHAZI KHAN', 'MIRPUR', 'NAWABSHAH'
+            }
+            
+            # Check for Pakistan (PUNJAB collision: handled by checking city too)
+            if state_upper in pakistani_provinces and state_upper != 'PUNJAB':
+                if declared_country != 'Pakistan':
+                    return 'Pakistan'
+            if city_upper in pakistani_cities:
+                if declared_country != 'Pakistan':
+                    return 'Pakistan'
+            # Disambiguate PUNJAB: if state is Punjab and city is a known Pakistani city → Pakistan
+            if state_upper == 'PUNJAB' and city_upper in pakistani_cities:
+                if declared_country != 'Pakistan':
+                    return 'Pakistan'
+            
+            # Philippine regions and major cities
+            philippine_regions = {
+                'NCR', 'NATIONAL CAPITAL REGION', 'METRO MANILA',
+                'CALABARZON', 'CENTRAL LUZON', 'WESTERN VISAYAS',
+                'CENTRAL VISAYAS', 'DAVAO REGION', 'NORTHERN MINDANAO',
+                'ILOCOS REGION', 'BICOL REGION', 'EASTERN VISAYAS',
+                'ZAMBOANGA PENINSULA', 'CORDILLERA', 'CAGAYAN VALLEY',
+                'CARAGA', 'MIMAROPA', 'SOCCSKSARGEN', 'BARMM'
+            }
+            philippine_cities = {
+                'MANILA', 'QUEZON CITY', 'DAVAO CITY', 'CEBU CITY', 'CEBU',
+                'MAKATI', 'TAGUIG', 'PASIG', 'MANDALUYONG', 'CALOOCAN',
+                'ZAMBOANGA CITY', 'ANTIPOLO', 'PASAY', 'VALENZUELA',
+                'LAS PINAS', 'PARANAQUE', 'MARIKINA', 'MUNTINLUPA',
+                'SAN JUAN', 'NAVOTAS', 'MALABON', 'BGC', 'BONIFACIO GLOBAL CITY',
+                'ILOILO CITY', 'CAGAYAN DE ORO', 'BACOLOD', 'GENERAL SANTOS',
+                'BAGUIO', 'OLONGAPO', 'ANGELES CITY', 'CLARK'
+            }
+            
+            # Check for Philippines
+            if state_upper in philippine_regions or city_upper in philippine_cities:
+                if declared_country != 'Philippines':
+                    return 'Philippines'
+            
+            return declared_country
+        
         # Extract full job location details
         job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
         job_city = job_address.get('city', '')
         job_state = job_address.get('state', '')
         job_country_raw = job_address.get('countryName', '') or job_address.get('country', '')
-        job_country = normalize_country(job_country_raw)
+        job_country_normalized = normalize_country(job_country_raw)
+        job_country = smart_correct_country(job_city, job_state, job_country_normalized)  # Auto-fix country mismatches
         job_location_full = ', '.join(filter(None, [job_city, job_state, job_country]))
         
         # Get work type using helper that handles both numeric and string values
@@ -1189,13 +2436,27 @@ Format as a bullet-point list. Be specific and concise."""
             candidate_city = candidate_location.get('city', '')
             candidate_state = candidate_location.get('state', '')
             candidate_country_raw = candidate_location.get('countryName', '') or candidate_location.get('country', '')
-            candidate_country = normalize_country(candidate_country_raw)
+            candidate_country_normalized = normalize_country(candidate_country_raw)
+            candidate_country = smart_correct_country(candidate_city, candidate_state, candidate_country_normalized)  # Auto-fix country mismatches
         candidate_location_full = ', '.join(filter(None, [candidate_city, candidate_state, candidate_country]))
+        
+        # Detect low-quality Bullhorn default locations (country-only, no city/state)
+        # These should not prime the AI — demote to "system fallback" so resume takes priority
+        bullhorn_location_is_specific = bool(candidate_city or candidate_state)
+        
+        # Build quality-aware location label for the prompt
+        if candidate_location_full and bullhorn_location_is_specific:
+            candidate_location_label = f'System Address (cross-reference with resume): {candidate_location_full}'
+        elif candidate_location_full:
+            candidate_location_label = f'System Address (UNRELIABLE — Bullhorn default, verify against resume): {candidate_location_full}'
+        else:
+            candidate_location_label = 'Not provided — you MUST extract from resume text (header/contact section first, then work history, then education)'
         
         job_id = job.get('id', 'N/A')
         
         # Check for custom requirements override
-        custom_requirements = self._get_job_custom_requirements(job_id)
+        # Use pre-fetched requirements if provided (for parallel execution outside Flask context)
+        custom_requirements = prefetched_requirements if prefetched_requirements is not None else self._get_job_custom_requirements(job_id)
         
         # Clean up job description (remove HTML tags if present)
         import re
@@ -1208,6 +2469,9 @@ Format as a bullet-point list. Be specific and concise."""
         job_description = job_description[:max_desc_len] if job_description else ''
         
         # Build the requirements section - use custom if available, otherwise let AI extract
+        # Also fetch global screening instructions that apply to ALL jobs
+        # Use pre-fetched value when available (ThreadPoolExecutor threads lack app context)
+        global_requirements = prefetched_global_requirements if prefetched_global_requirements is not None else self._get_global_custom_requirements()
         requirements_instruction = ""
         if custom_requirements:
             requirements_instruction = f"""
@@ -1225,6 +2489,70 @@ IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job descri
 
 DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
 Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
+
+        # Append global screening instructions (apply to ALL jobs, additive)
+        if global_requirements:
+            requirements_instruction += f"""
+
+GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
+{global_requirements}"""
+
+        # Years-of-experience analysis instruction (applies regardless of custom vs AI requirements)
+        # Inject exact current date from Python for accurate ongoing-role calculation
+        from datetime import date as _date
+        _today = _date.today()
+        _today_str = _today.strftime('%B %d, %Y')  # e.g., "February 16, 2026"
+        _today_month = _today.month
+        _today_year = _today.year
+        
+        years_analysis_instruction = f"""
+
+YEARS OF EXPERIENCE ANALYSIS (MANDATORY):
+Before scoring, you MUST perform this analysis for EACH skill or technology that has an
+explicit "X+ years" or "X years" requirement in the job description or requirements:
+
+1. Identify which skills have year-based requirements (e.g., "3+ years of Python", "5 years Java development").
+2. For each such skill, scan the resume for ALL roles where the candidate performed work in that skill area.
+   DISCIPLINE RECOGNITION — count a role if the candidate DID the work, even if their title differs:
+   - "Data Science" experience includes roles titled: Data Scientist, ML Engineer, AI Engineer,
+     Machine Learning Engineer, Research Scientist, Applied Scientist, or any role where
+     responsibilities include predictive/statistical modeling, feature engineering, ML model
+     training/evaluation/deployment, or NLP/CV/deep learning applications.
+   - A "Data Analyst" role ONLY counts toward Data Science if responsibilities demonstrate
+     hands-on work in at least TWO of: predictive/statistical modeling, feature engineering,
+     ML model training/evaluation/deployment, NLP/CV/deep learning. Roles that ONLY involve
+     SQL queries, Excel dashboards, report generation, or KPI tracking do NOT count.
+   - "Machine Learning" experience includes: ML Engineer, AI Engineer, Data Scientist,
+     Deep Learning Engineer, NLP Engineer, Computer Vision Engineer, Research Scientist.
+   - "AI" experience includes: AI Engineer, ML Engineer, Data Scientist, GenAI Engineer.
+   - "Software Engineering" includes: Software Developer, Full-Stack Developer, Backend Engineer.
+   - "Data Engineering" includes: Data Engineer, ETL Developer, Analytics Engineer, Data Architect.
+   - "DevOps" includes: SRE, Platform Engineer, Infrastructure Engineer, Cloud Engineer.
+   CRITICAL: Focus on WHAT THE CANDIDATE DID in each role (responsibilities), not their job title alone.
+   If a job requires "5 years of Data Science" and a candidate was a "Machine Learning Engineer" for
+   7 years doing predictive modeling, NLP, and statistical analysis — that IS Data Science experience.
+3. Calculate the total duration IN MONTHS using this exact formula for each role:
+   - Convert start and end dates to (year, month) pairs.
+   - Duration in months = (end_year - start_year) × 12 + (end_month - start_month).
+   - For "Present", "Current", or ongoing roles, use today's exact date: {_today_str} (month {_today_month} of {_today_year}).
+   - EXAMPLE: "Jan 2024 - {_today_str}" = ({_today_year} - 2024) × 12 + ({_today_month} - 1) = {(_today_year - 2024) * 12 + (_today_month - 1)} months.
+   - EXAMPLE: "Jul 2021 - Aug 2023" = (2023 - 2021) × 12 + (8 - 7) = 25 months.
+   - Internships and part-time roles count at 50% weight (e.g., a 6-month internship = 3 months effective).
+   - University coursework, academic projects, and personal projects do NOT count toward professional years.
+   - Overlapping roles should not be double-counted; use the union of date ranges.
+4. SUM all months across qualifying roles, then divide by 12 to get total years.
+5. Show your step-by-step arithmetic in the "calculation" field (see JSON format below).
+6. Compare the candidate's calculated years against the job's requirement.
+7. If ANY required skill has a candidate shortfall of 2+ years below the minimum,
+   the match_score MUST be capped at 60 (regardless of how well other requirements match).
+   If the shortfall is 1-2 years, reduce the score by at least 15 points from what it would otherwise be.
+
+EXAMPLE: Job requires "3+ years of React". Candidate's resume shows:
+  - Software Engineer at Acme Corp (Jun 2024 - {_today_str}): ({_today_year} - 2024)×12 + ({_today_month} - 6) = {(_today_year - 2024) * 12 + (_today_month - 6)} months
+  - Intern at Beta Inc (Jan 2024 - May 2024): (2024-2024)×12 + (5-1) = 4 months × 50% = 2 months
+  Total: {(_today_year - 2024) * 12 + (_today_month - 6)} + 2 = {(_today_year - 2024) * 12 + (_today_month - 6) + 2} months / 12 = {((_today_year - 2024) * 12 + (_today_month - 6) + 2) / 12:.2f} years
+
+If no skills in the job description have explicit year-based requirements, set years_analysis to an empty object {{}}.\n\nTRANSFERABLE SKILLS — TECHNOLOGY EQUIVALENCY:\nWhen counting years for a SPECIFIC TOOL, also check for equivalent/competing technologies:\n\nEquivalency Groups:\n- BI/Data Visualization: Power BI <-> Tableau <-> Looker <-> QlikView <-> MicroStrategy <-> Sisense\n- Cloud ML Platforms: AWS SageMaker <-> Azure ML <-> Google Vertex AI <-> Databricks ML\n- Data Lakehouse/Warehouse: Microsoft Fabric <-> Databricks <-> Snowflake <-> BigQuery <-> AWS Lake Formation\n- ETL/Data Integration: SSIS <-> Informatica <-> Talend <-> Apache Airflow <-> AWS Glue <-> Azure Data Factory\n- API/Integration: REST API experience in ANY language/framework satisfies \"API literacy\" requirements\n- Cloud Platforms: AWS <-> Azure <-> GCP (core cloud concepts transfer between platforms)\n- Databases/SQL: SQL Server <-> PostgreSQL <-> MySQL <-> Oracle (SQL skills transfer across engines)\n- Low-Code AI/RPA: Copilot Studio <-> Power Automate <-> UiPath <-> Automation Anywhere\n- Containerization: Docker <-> Podman, Kubernetes <-> ECS <-> GKE\n\nCredit Rules (TWO-TIER):\n1. If the job requires a SKILL CATEGORY (e.g., \"5yr data visualization experience\", \"5yr cloud ML\"),\n   sum ALL equivalent tools at 100% credit — the job is asking for category experience.\n2. If the job requires a SPECIFIC TOOL (e.g., \"5yr Power BI\", \"3yr Azure ML\"),\n   sum equivalent tool years and apply 75% credit (accounts for tool-specific features not transferring).\n3. Mark gap as \"TRANSFERABLE\" (not \"CRITICAL\") when equivalent experience exists.\n4. In years_analysis, document the equivalency:\n   e.g., \"Power BI: required 5yr, candidate has ~0yr Power BI but 6yr Tableau (equivalent: 4.5yr credit)\"\n5. In gaps_identified, write:\n   \"Missing [required tool] specifically, but has [equivalent tool] experience (transferable skill)\"\n   NOT \"CRITICAL: [required tool] requires Xyr, candidate has ~0.0yr\""""
         
         # Build location matching instructions based on work type
         location_instruction = ""
@@ -1233,22 +2561,58 @@ Be lenient on soft skills - focus primarily on technical/hard skill requirements
                 location_instruction = f"""
 LOCATION REQUIREMENT (Remote Position):
 - Job Location: {job_location_full} (Work Type: {work_type})
-- Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown - check resume for location clues'}
+- {candidate_location_label}
 - For REMOTE positions: Candidate MUST be in the same COUNTRY as the job location for tax/legal compliance.
 - City and state do NOT need to match for remote roles - only the country matters.
-- If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 15-20 points."""
+- If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 15-20 points.
+
+CRITICAL STATE/PROVINCE RECOGNITION:
+- ANY U.S. STATE (Pennsylvania, California, Texas, New York, Florida, etc.) IS PART OF THE UNITED STATES.
+- If a remote job is in the United States and candidate is in ANY U.S. state, they ARE in the same country - NO location mismatch.
+- Similarly, Canadian provinces (Ontario, British Columbia, etc.) are part of Canada.
+- ONLY flag "Location mismatch: different country" if the candidate is literally in a DIFFERENT country (e.g., candidate in India for a US-based job, or candidate in UK for a Canada-based job).
+- DO NOT flag location mismatch just because candidate is in a different state/city within the same country.
+
+MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
+1. RESUME HEADER/CONTACT SECTION (HIGHEST PRIORITY): Look for city, state/province, zip code, or country near the candidate's name, phone, or email at the TOP of the resume. Formats like "Frisco TX", "Dallas, TX 75033", "New York, NY, USA" etc. all count. This is the MOST RELIABLE source — always check here first.
+2. MOST RECENT WORK HISTORY: If the header/contact section has no location, check the candidate's most recent job for a city/state/country. Use that as their presumed current location.
+3. SYSTEM ADDRESS FIELD (FALLBACK ONLY): Only if the resume provides NO location in either the header or work history, consider the system-provided address above. WARNING: Bullhorn often auto-fills "United States" as a default when no address is entered — a country-only value with no city/state is UNRELIABLE and should be treated as "unknown" for location matching purposes.
+4. EDUCATION LOCATION: If all above are empty, check education institution location.
+5. "UNKNOWN": Only if none of the four sources above provide any usable city, state, or country.
+
+CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults.
+
+INTERNATIONAL/OFFSHORE OVERRIDE:
+- If the job description explicitly mentions international eligibility, offshore work, or specific non-job-address countries/regions (e.g., "open to candidates in Egypt or Spain", "100% Remote, international OK", "offshore resources welcome", "candidates in [Country] welcome"), then the same-country rule above does NOT apply.
+- In this case, match the candidate's country against the countries/regions listed IN THE JOB DESCRIPTION, not the Bullhorn job address field.
+- If the candidate is located in one of the explicitly allowed countries/regions from the description, there is NO location mismatch — do not penalize their score.
+- Example: Job address says "United States" but description says "Must be located in Egypt or Spain" → a candidate in Cairo, Egypt or Madrid, Spain has NO location mismatch."""
             else:  # On-site or Hybrid
                 location_instruction = f"""
 LOCATION REQUIREMENT ({work_type} Position):
 - Job Location: {job_location_full} (Work Type: {work_type})
-- Candidate Location: {candidate_location_full if candidate_location_full else 'Unknown - check resume for location clues'}
+- {candidate_location_label}
 - For ON-SITE/HYBRID positions: Candidate should be in or near the job's city/metro area, or willing to relocate.
-- If candidate is in a completely different region (different state/province) or country, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified and reduce score by 10-15 points.
-- If candidate location is unknown, check their resume for recent work locations or stated location."""
+
+CRITICAL: If candidate is ALREADY in the same city or metro area as the job, they AUTOMATICALLY qualify for on-site/hybrid work.
+- Do NOT flag "location mismatch" or "not willing to work on-site" if candidate lives locally.
+- Local candidates CAN work on-site by default - no explicit statement needed.
+- Only flag location issues if candidate is in a completely different region (different state/province) or country.
+- If candidate is non-local AND doesn't mention relocation willingness, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified.
+
+MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
+1. RESUME HEADER/CONTACT SECTION (HIGHEST PRIORITY): Look for city, state/province, zip code, or country near the candidate's name, phone, or email at the TOP of the resume. Formats like "Frisco TX", "Dallas, TX 75033", "New York, NY, USA" etc. all count. This is the MOST RELIABLE source — always check here first.
+2. MOST RECENT WORK HISTORY: If the header/contact section has no location, check the candidate's most recent job for a city/state/country. Use that as their presumed current location.
+3. SYSTEM ADDRESS FIELD (FALLBACK ONLY): Only if the resume provides NO location in either the header or work history, consider the system-provided address above. WARNING: Bullhorn often auto-fills "United States" as a default when no address is entered — a country-only value with no city/state is UNRELIABLE and should be treated as "unknown" for location matching purposes.
+4. EDUCATION LOCATION: If all above are empty, check education institution location.
+5. "UNKNOWN": Only if none of the four sources above provide any usable city, state, or country.
+
+CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults."""
         
         prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements.
 Provide an objective assessment with a percentage match score (0-100).
 {requirements_instruction}
+{years_analysis_instruction}
 {location_instruction}
 
 JOB DETAILS:
@@ -1258,7 +2622,7 @@ JOB DETAILS:
 - Description: {job_description}
 
 CANDIDATE INFORMATION:
-- Known Location: {candidate_location_full if candidate_location_full else 'Not specified in system - infer from resume if possible'}
+- {candidate_location_label}
 
 CANDIDATE RESUME:
 {resume_text}
@@ -1268,28 +2632,104 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
 2. DO NOT infer, assume, or hallucinate any skills not directly mentioned in the resume.
 3. If a MANDATORY job requirement skill is NOT mentioned in the resume, you MUST list it in gaps_identified.
 4. For skills_match and experience_match, ONLY quote or paraphrase content that actually exists in the resume.
-5. If the job requires specific technologies (e.g., FPGA, Verilog, AWS, Python) and the resume does NOT mention them, the candidate does NOT qualify.
+5. If the job requires specific technologies and the resume mentions NEITHER the exact tool NOR an equivalent/competing technology from the equivalency groups above, the candidate does NOT qualify. However, if the candidate has deep experience with a direct competitor tool in the same category (e.g., Tableau for Power BI, AWS for Azure), apply partial credit rather than marking as zero.
 6. A candidate whose background is completely different from the job (e.g., DBA applying to FPGA role) should score BELOW 30.
 7. LOCATION CHECK: If the job has a location requirement, verify candidate location matches. For remote jobs, same country is required. For on-site/hybrid, proximity to job location matters.
 
+MANDATORY EVIDENCE EXTRACTION (you MUST complete this before assigning a score):
+1. Identify the TOP 5-7 most critical MANDATORY requirements from the job description. If the JD lists more than 7, consolidate related items (e.g. merge multiple similar bullet points into one requirement). Do NOT create more than 7 entries in requirement_evidence.
+2. For EACH requirement, search the ENTIRE resume for matching evidence — check all roles, skills sections, summary, certifications, and education.
+3. Quote the EXACT resume text that satisfies each requirement, or state "No evidence found after full resume search".
+4. The overall match_score MUST be mathematically consistent with the per-requirement evidence — if most requirements are met with strong evidence, the score must reflect that; if you cite a gap, the score must reflect the penalty.
+5. If you claim a gap exists, you MUST have searched for ALL synonyms, dollar amounts, quantified achievements, and related terms for that requirement. For example, "budget management" evidence includes dollar amounts ("$8M budget"), revenue figures, P&L ownership, financial planning mentions, etc.
+6. DO NOT flag a requirement as "No evidence found" if the resume contains clear evidence under different wording or in a different section.
+
+WORK AUTHORIZATION EVIDENCE EXTRACTION (when applicable):
+If the job description contains US work authorization language ("US citizen", "W2 only", "no sponsorship", etc.):
+1. You MUST populate the "work_authorization_analysis" section below.
+2. You MUST enumerate ALL US-based roles from the resume with dates and locations.
+3. You MUST sum total months and apply the inference tier from the Global Screening Instructions.
+4. DO NOT flag "US citizenship not mentioned" as a gap if the candidate has 5+ years of US work experience — instead apply the inference tier (no penalty for 5+ years).
+5. If the candidate has an explicit authorization statement on their resume (e.g., "Green Card", "US Citizen"), note it and apply no penalty per Rule 0.
+
 Respond in JSON format with these exact fields:
 {{
+    "requirement_evidence": [
+        {{
+            "requirement": "<the specific job requirement being evaluated>",
+            "evidence_found": "<EXACT quoted text from resume that matches this requirement, or 'No evidence found after full resume search'>",
+            "meets_requirement": true/false,
+            "score_impact": "<'no penalty', 'minor gap (-3 to -5 pts)', 'significant gap (-10 to -15 pts)', or 'critical gap (-20+ pts)'>"
+        }}
+    ],
+    "work_authorization_analysis": {{
+        "triggered": true/false,
+        "trigger_reason": "<which rule was triggered and why, or 'No work authorization language in job description'>",
+        "explicit_statement": "<quote exact authorization text from resume if found, or 'None found'>",
+        "roles_enumerated": [
+            {{"title": "<role title>", "company": "<company>", "dates": "<start - end>", "location": "<city, state/country>", "months": <N>}}
+        ],
+        "total_months": <N>,
+        "total_years": <N.N>,
+        "inference_tier": "<e.g. '5+ years - strong likelihood, no penalty' or '3-4 years - minor penalty (3-5 pts)' or 'Under 3 years - standard gap scoring' or 'N/A - not triggered'>",
+        "score_adjustment": "<e.g. 'No penalty applied per Rule 1 Tier 1' or 'Minor reduction (3-5 pts) applied' or 'N/A'>"
+    }},
     "match_score": <integer 0-100>,
-    "match_summary": "<2-3 sentence summary of overall fit - be honest about mismatches including location issues>",
+    "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say 'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.' Do NOT use contradictory phrasing like 'mismatch which matches'.>",
     "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
     "experience_match": "<ONLY list experience from the resume that is relevant to the job - be specific>",
-    "gaps_identified": "<List ALL mandatory requirements NOT found in the resume INCLUDING location mismatches - this is critical>",
-    "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>"
+    "gaps_identified": "<Describe in natural prose ALL mandatory requirements NOT found in the resume INCLUDING location mismatches AND years-of-experience shortfalls. Separate multiple gaps with periods or semicolons. Return as a single cohesive string, NOT as a JSON array - this is critical>",
+    "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>",
+    "years_analysis": {{
+        "<skill_name>": {{
+            "required_years": <N>,
+            "estimated_years": <M>,
+            "meets_requirement": true/false,
+            "calculation": "<step-by-step month arithmetic, e.g. 'Role1: (2026-2024)×12+(2-1)=25mo + Role2: (2023-2021)×12+(8-7)=25mo = 50mo/12 = 4.17yr'>"
+        }}
+    }},
+    "recency_analysis": {{
+        "most_recent_role": "<title> at <company> (<start> – <end>)",
+        "most_recent_role_relevant": true/false,
+        "second_recent_role": "<title> at <company> (<start> – <end>)",
+        "second_recent_role_relevant": true/false,
+        "last_relevant_role_ended": "<date or 'current'>",
+        "months_since_relevant_work": <N or 0 if current>,
+        "penalty_applied": <0-25>,
+        "reasoning": "<brief explanation of why roles are or are not relevant>"
+    }},
+    "experience_level_classification": {{
+        "classification": "<FRESH_GRAD | ENTRY | MID | SENIOR>",
+        "total_professional_years": <N.N>,
+        "highest_role_type": "<PROFESSIONAL_FULLTIME | PROFESSIONAL_CONTRACT | INTERNSHIP_ONLY | ACADEMIC_ONLY>"
+    }}
 }}
 
+EXPERIENCE LEVEL CLASSIFICATION (MANDATORY):
+Before scoring, classify the candidate's experience level based on their PROFESSIONAL work history:
+- FRESH_GRAD: Only internships, academic projects, or graduated within the last 12 months with no full-time professional roles.
+- ENTRY: Less than 2 years of professional (non-intern) experience.
+- MID: 2-5 years of professional experience.
+- SENIOR: 6+ years of professional experience.
+total_professional_years counts ONLY paid, non-intern, non-academic roles. Internships count at 50% weight.
+highest_role_type reflects the most senior type of role held (PROFESSIONAL_FULLTIME > PROFESSIONAL_CONTRACT > INTERNSHIP_ONLY > ACADEMIC_ONLY).
+
+
 SCORING GUIDELINES:
-- 85-100: Candidate meets nearly ALL mandatory requirements with explicit evidence in resume AND location matches
-- 70-84: Candidate meets MOST mandatory requirements but has 1-2 minor gaps (may include minor location concerns)
-- 50-69: Candidate meets SOME requirements but is missing key qualifications or has location issues
-- 30-49: Candidate has tangential experience, significant gaps, or major location mismatch
+- 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, location matches, meets or exceeds ALL required years of experience per skill, AND has practiced relevant skills in a recent role (within last 12 months)
+- 70-84: Candidate meets MOST mandatory requirements, may have 1-2 minor gaps or be 1 year short on a non-critical skill
+- 65-75: Candidate has strong equivalent experience with competing tools in the same category — core competencies align but specific tool experience is limited (transferable skills present)
+- 50-69: Candidate has relevant skills but INSUFFICIENT years of professional experience for required skills, OR is missing key qualifications, OR has location issues, OR has equivalent tools but lacks the specific required tool
+- 30-49: Candidate has tangential experience, significant experience/years gaps, or major location mismatch
 - 0-29: Candidate's background does not align with the role (wrong field/specialty or completely wrong location)
 
-BE HONEST. If the resume does not show the required skills OR the candidate location doesn't match, the candidate should NOT score high."""
+CRITICAL SCORING RULES:
+- If a job requires "X+ years" for a skill and the candidate has < (X-2) years, the score MUST be <= 60.
+- University projects, coursework, and hackathons are NOT professional experience and do NOT count toward years.
+- A candidate fresh out of school with only internships CANNOT score 85+ for a role requiring 3+ years of professional experience.
+- If experience_level_classification is FRESH_GRAD or ENTRY and any requirement specifies 3+ years of experience, the match_score MUST NOT exceed 55.
+- "Experience with deployment workflows", "production deployment", or similar deployment/operations requirements are ONLY satisfied by professional (non-academic, non-intern) deployment experience. Coursework deployments (Streamlit, Railway, Heroku, hobby Docker) do NOT satisfy production deployment requirements.
+- BE HONEST. If the resume does not show the required skills, sufficient years, OR the candidate location doesn't match, the candidate should NOT score high."""
 
         try:
             system_message = """You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
@@ -1298,41 +2738,380 @@ CRITICAL RULES:
 1. You MUST only cite skills and experience that are EXPLICITLY written in the candidate's resume.
 2. You MUST NOT infer or hallucinate skills that are not directly stated.
 3. If a job requires FPGA and the resume shows SQL/database experience, they DO NOT match.
-4. If a job requires Python and the resume only mentions Java, that is a GAP.
+4. If a job requires a technology and the resume shows ONLY an unrelated technology (e.g., FPGA job but resume shows SQL/database), that IS a GAP. However, if the resume shows a COMPETING tool in the same category (e.g., Tableau for Power BI, AWS SageMaker for Azure ML), apply partial credit and mark as TRANSFERABLE, not CRITICAL.
 5. Be honest - a mismatched candidate should score LOW even if they have impressive but irrelevant skills.
 6. Your assessment will be used for recruiter decisions - accuracy is critical.
 7. LOCATION MATTERS: Check if the candidate's location is compatible with the job's work type (remote/onsite/hybrid).
    - Remote jobs: Candidate must be in the same COUNTRY for tax/legal compliance.
    - On-site/Hybrid jobs: Candidate should be in or near the job's city/metro area.
-   - If candidate location doesn't match, this is a GAP that should reduce their score."""
+   - If candidate location doesn't match, this is a GAP that should reduce their score.
+8. EDUCATION HIERARCHY (higher degrees satisfy lower requirements):
+   - Doctorate/PhD > Master's (MA, MS, MBA, etc.) > Bachelor's (BA, BS, etc.) > Associate's > High School/GED
+   - If a job requires "Bachelor's degree" and the candidate has a Master's, PhD, or Doctorate, the education requirement is MET (exceeded), NOT a gap.
+   - Only flag an education gap if the candidate's highest degree is LOWER than what the job requires.
+   - If the job specifies a field (e.g., "Bachelor's in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap.
+9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
+10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement.
+11. WORK AUTHORIZATION EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST populate the work_authorization_analysis section with ALL US roles enumerated from the resume. DO NOT simply flag "citizenship not mentioned" as a gap without first performing the mandatory work history enumeration from the Global Screening Instructions. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. The same applies to Canadian security clearance — enumerate Canadian roles before flagging clearance gaps.
+12. EVIDENCE-FIRST SCORING: You MUST complete the requirement_evidence array BEFORE determining the match_score. Your score must be mathematically derivable from the evidence you cited — do not assign a holistic impression score that contradicts the per-requirement evidence.
+13. EXPERIENCE DEPTH & DOMAIN RELEVANCE: When evaluating whether a candidate's experience satisfies a requirement, assess the NATURE of the experience, not just keyword overlap. Specifically:
+   - AUDIT/ASSESSMENT experience (e.g., "audited cybersecurity controls using NIST") does NOT satisfy a requirement for HANDS-ON DELIVERY/OPERATIONS (e.g., "ensure reliable, secure delivery of IT systems"). Auditing a system ≠ building or operating that system.
+   - GOVERNANCE/COMPLIANCE/STANDARDS experience does NOT satisfy a requirement for TECHNOLOGY IMPLEMENTATION/OPERATIONS. Setting conformance standards ≠ delivering technology solutions.
+   - A candidate who EVALUATED, ASSESSED, or REVIEWED a system is NOT equivalent to one who BUILT, OPERATED, MANAGED, or DELIVERED that system.
+   - When citing evidence in requirement_evidence, explicitly note whether the experience is ADVISORY/AUDIT or DELIVERY/OPERATIONAL — and apply a score penalty (10-15 pts per affected requirement) when advisory experience is cited against a delivery requirement.
+   - Budget experience from audit engagements (managing engagement budgets at a consulting firm) is NOT equivalent to owning a technology department budget ($5M+). Note the distinction.
+14. RECENCY OF RELEVANT EXPERIENCE: After evaluating requirements, check whether the candidate's
+    MOST RECENT 2 roles (by date) are relevant to the job requirements being scored.
+    - If the candidate's most recent role is UNRELATED to the job domain and the most recent
+      RELEVANT role ended 12+ months ago, apply a 10-15 point penalty. Note in gaps: "Candidate's most
+      recent professional activity is outside the target domain; relevant experience is not current."
+    - If BOTH of the candidate's two most recent roles are unrelated to the job domain, apply
+      a 15-25 point penalty. Note in gaps: "Candidate has not practiced relevant skills in their last
+      two positions; career trajectory has shifted away from this domain."
+    - Roles with NO bullet points or descriptions provide NO evidence of relevant skills.
+      Do not assume relevance based on job title alone.
+    - "Unrelated" means the role's described responsibilities share NO meaningful overlap with
+      the job's mandatory requirements. A DevOps engineer's role is related to a Cloud Developer
+      job; a real estate consultant's role is not.
+    - Report your finding in the recency_analysis JSON section."""
 
             response = self.openai_client.chat.completions.create(
-                model=self.model,
+                model=model_override or self.model,
                 messages=[
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.1,  # Lower temperature for more deterministic/accurate responses
-                max_tokens=1000
+                max_tokens=2500  # Increased to accommodate requirement_evidence + work_authorization_analysis in response
             )
             
             result = json.loads(response.choices[0].message.content)
             
+            # ── Layer 2: Normalize text fields that GPT may return as arrays ──
+            for field in ['gaps_identified', 'match_summary', 'skills_match', 'experience_match', 'key_requirements']:
+                if isinstance(result.get(field), list):
+                    result[field] = ". ".join(str(item) for item in result[field])
+                    logging.warning(f"Normalized {field} from array to string for job {job_id}")
+            
+            # Diagnostic: log raw GPT response score before integer conversion
+            raw_score = result.get('match_score')
+            logging.info(f"📊 Raw GPT score for job {job_id}: {raw_score} (type: {type(raw_score).__name__})")
+            
             # Ensure match_score is an integer
             result['match_score'] = int(result.get('match_score', 0))
             
+            # ── POST-PROCESSING: Years-of-experience hard gate (Option B defense-in-depth) ──
+            # Even if the AI prompt correctly penalizes for insufficient years,
+            # this code enforces a hard ceiling so inflated scores cannot slip through.
+            years_analysis = result.get('years_analysis', {})
+            if isinstance(years_analysis, dict) and years_analysis:
+                original_score = result['match_score']
+                max_shortfall = 0.0
+                shortfall_details = []
+                
+                for skill, data in years_analysis.items():
+                    if not isinstance(data, dict):
+                        continue
+                    meets = data.get('meets_requirement', True)
+                    if not meets:
+                        required = float(data.get('required_years', 0))
+                        # Skip entries where no years requirement was specified
+                        # (AI sometimes returns 0yr instead of omitting the entry)
+                        if required <= 0:
+                            continue
+                        estimated = float(data.get('estimated_years', 0))
+                        shortfall = required - estimated
+                        if shortfall > max_shortfall:
+                            max_shortfall = shortfall
+                        shortfall_details.append(
+                            f"CRITICAL: {skill} requires {required:.0f}yr, candidate has ~{estimated:.1f}yr"
+                        )
+                
+                if max_shortfall >= 2.0:
+                    # Before capping score, re-check the years calculation to prevent false negatives
+                    # from arithmetic errors (e.g., model miscounting 3.75yr as 1.8yr)
+                    recheck_result = self._recheck_years_calculation(
+                        resume_text, years_analysis, job_id, job_title
+                    )
+                    if recheck_result:
+                        # Re-check returned corrected data — recalculate shortfalls
+                        years_analysis = recheck_result
+                        result['years_analysis'] = recheck_result
+                        max_shortfall = 0.0
+                        shortfall_details = []
+                        for skill, data in years_analysis.items():
+                            if not isinstance(data, dict):
+                                continue
+                            meets = data.get('meets_requirement', True)
+                            if not meets:
+                                required = float(data.get('required_years', 0))
+                                # Skip entries where no years requirement was specified
+                                if required <= 0:
+                                    continue
+                                estimated = float(data.get('estimated_years', 0))
+                                shortfall = required - estimated
+                                if shortfall > max_shortfall:
+                                    max_shortfall = shortfall
+                                shortfall_details.append(
+                                    f"CRITICAL: {skill} requires {required:.0f}yr, candidate has ~{estimated:.1f}yr"
+                                )
+                    
+                    # Apply hard cap only if shortfall is STILL >= 2.0 after re-check
+                    if max_shortfall >= 2.0:
+                        if result['match_score'] > 60:
+                            result['match_score'] = 60
+                            logging.info(
+                                f"📉 Years hard gate: capped score {original_score}→60 for job {job_id} "
+                                f"(shortfall: {max_shortfall:.1f}yr, confirmed by re-check)"
+                            )
+                    elif max_shortfall >= 1.0:
+                        result['match_score'] = max(0, result['match_score'] - 15)
+                        if result['match_score'] != original_score:
+                            logging.info(
+                                f"📉 Years penalty: reduced score {original_score}→{result['match_score']} for job {job_id} "
+                                f"(shortfall: {max_shortfall:.1f}yr, adjusted after re-check)"
+                            )
+                    else:
+                        # Re-check overturned the shortfall — no penalty
+                        logging.info(
+                            f"✅ Years re-check OVERTURNED shortfall for job {job_id}: "
+                            f"now meets requirements (max remaining shortfall: {max_shortfall:.1f}yr). "
+                            f"Score {original_score} preserved."
+                        )
+                elif max_shortfall >= 1.0:
+                    # Significant penalty: 1-2 year shortfall → reduce by 15 points
+                    result['match_score'] = max(0, result['match_score'] - 15)
+                    if result['match_score'] != original_score:
+                        logging.info(
+                            f"📉 Years penalty: reduced score {original_score}→{result['match_score']} for job {job_id} "
+                            f"(shortfall: {max_shortfall:.1f}yr)"
+                        )
+                
+                # Append shortfall details to gaps_identified
+                if shortfall_details:
+                    existing_gaps = result.get('gaps_identified', '') or ''
+                    gap_suffix = ' | '.join(shortfall_details)
+                    if existing_gaps:
+                        result['gaps_identified'] = f"{existing_gaps} | {gap_suffix}"
+                    else:
+                        result['gaps_identified'] = gap_suffix
+            
+            # ── POST-PROCESSING: Recency-of-experience hard gate (Rule 14 defense-in-depth) ──
+            # Penalizes candidates whose most recent roles are unrelated to the job domain.
+            recency_analysis = result.get('recency_analysis', {})
+            if isinstance(recency_analysis, dict) and recency_analysis:
+                recency_original_score = result['match_score']
+                most_recent_relevant = recency_analysis.get('most_recent_role_relevant', True)
+                second_recent_relevant = recency_analysis.get('second_recent_role_relevant', True)
+                months_since = recency_analysis.get('months_since_relevant_work', 0)
+                ai_penalty = recency_analysis.get('penalty_applied', 0)
+                
+                # Determine the correct penalty tier
+                if not most_recent_relevant and not second_recent_relevant:
+                    # Both recent roles unrelated → 15-25 point penalty
+                    target_penalty = 20  # Midpoint of 15-25 range
+                    recency_note = (
+                        "Candidate has not practiced relevant skills in their last two positions; "
+                        "career trajectory has shifted away from this domain."
+                    )
+                elif not most_recent_relevant and months_since >= 12:
+                    # Most recent role unrelated + relevant work ended 12+ months ago → 10-15
+                    target_penalty = 12  # Midpoint of 10-15 range
+                    recency_note = (
+                        "Candidate's most recent professional activity is outside the target domain; "
+                        "relevant experience is not current."
+                    )
+                else:
+                    target_penalty = 0
+                    recency_note = None
+                
+                if target_penalty > 0:
+                    # Apply the larger of AI penalty and hard gate penalty
+                    effective_penalty = max(target_penalty, ai_penalty)
+                    new_score = max(0, recency_original_score - effective_penalty)
+                    
+                    if new_score < result['match_score']:
+                        result['match_score'] = new_score
+                        logging.info(
+                            f"📉 Recency hard gate: reduced score {recency_original_score}→{new_score} "
+                            f"for job {job_id} (penalty: {effective_penalty}pts, "
+                            f"months_since_relevant: {months_since})"
+                        )
+                    
+                    # Append recency note to gaps_identified
+                    if recency_note:
+                        existing_gaps = result.get('gaps_identified', '') or ''
+                        if existing_gaps:
+                            result['gaps_identified'] = f"{existing_gaps} | {recency_note}"
+                        else:
+                            result['gaps_identified'] = recency_note
+            
+            # ── POST-PROCESSING: Experience floor gate (defense-in-depth for fresh-grad profiles) ──
+            # Detects candidates with FRESH_GRAD/ENTRY classification matched against roles
+            # requiring 3+ years, and caps the score. Also cross-checks the AI's years_analysis
+            # to override obviously incorrect meets_requirement flags.
+            import re as _re_exp
+            exp_class = result.get('experience_level_classification', {})
+            if isinstance(exp_class, dict) and exp_class:
+                classification = exp_class.get('classification', '').upper()
+                highest_role = exp_class.get('highest_role_type', '').upper()
+                professional_years = 99.0  # safe default: assume experienced unless proven otherwise
+                try:
+                    professional_years = float(exp_class.get('total_professional_years', 99))
+                except (ValueError, TypeError):
+                    pass
+                
+                # Detect minimum years requirement from available requirements text
+                # Check custom/prefetched requirements, AI key_requirements, and job description
+                requirements_text_combined = ' '.join(filter(None, [
+                    custom_requirements or '',
+                    result.get('key_requirements', ''),
+                    job_description or ''
+                ]))
+                years_match = _re_exp.search(
+                    r'(?:minimum\s+)?(\d+)\+?\s*years?\s*(?:of\s+)?(?:experience|professional)',
+                    requirements_text_combined, _re_exp.IGNORECASE
+                )
+                required_min_years = int(years_match.group(1)) if years_match else 0
+                
+                exp_floor_original_score = result['match_score']
+                
+                # Gate 1: FRESH_GRAD or ENTRY with 3+ years requirement → cap at 55
+                if classification in ('FRESH_GRAD', 'ENTRY') and required_min_years >= 3:
+                    if result['match_score'] > 55:
+                        result['match_score'] = 55
+                        logging.info(
+                            f"📉 Experience floor: capped {exp_floor_original_score}→55 "
+                            f"for job {job_id} (classification={classification}, "
+                            f"professional_years={professional_years:.1f}, "
+                            f"required={required_min_years}yr)"
+                        )
+                        # Append gap note
+                        floor_gap = (
+                            f"Experience floor: candidate classified as {classification} "
+                            f"({professional_years:.1f}yr professional) vs {required_min_years}yr required."
+                        )
+                        existing_gaps = result.get('gaps_identified', '') or ''
+                        if existing_gaps:
+                            result['gaps_identified'] = f"{existing_gaps} | {floor_gap}"
+                        else:
+                            result['gaps_identified'] = floor_gap
+                
+                # Gate 2: Cross-check — override meets_requirement when intern-only
+                # profile claims to meet 3+ year requirements
+                if (highest_role in ('INTERNSHIP_ONLY', 'ACADEMIC_ONLY') or professional_years < 1.0):
+                    years_analysis = result.get('years_analysis', {})
+                    if isinstance(years_analysis, dict):
+                        overridden = False
+                        for skill, data in years_analysis.items():
+                            if not isinstance(data, dict):
+                                continue
+                            required_yrs = float(data.get('required_years', 0))
+                            if data.get('meets_requirement') and required_yrs >= 3:
+                                data['meets_requirement'] = False
+                                data['estimated_years'] = min(
+                                    professional_years,
+                                    float(data.get('estimated_years', 0))
+                                )
+                                overridden = True
+                                logging.warning(
+                                    f"⚠️ Experience floor override: {skill} "
+                                    f"meets_requirement forced to false for job {job_id} "
+                                    f"(intern-only profile, {professional_years:.1f}yr professional)"
+                                )
+                        
+                        # Re-run years gate logic with corrected data
+                        if overridden:
+                            result['years_analysis'] = years_analysis
+                            max_shortfall_recheck = 0.0
+                            shortfall_details_recheck = []
+                            for skill, data in years_analysis.items():
+                                if not isinstance(data, dict):
+                                    continue
+                                if not data.get('meets_requirement', True):
+                                    req_yrs = float(data.get('required_years', 0))
+                                    if req_yrs <= 0:
+                                        continue
+                                    est_yrs = float(data.get('estimated_years', 0))
+                                    shortfall = req_yrs - est_yrs
+                                    if shortfall > max_shortfall_recheck:
+                                        max_shortfall_recheck = shortfall
+                                    shortfall_details_recheck.append(
+                                        f"CRITICAL: {skill} requires {req_yrs:.0f}yr, "
+                                        f"candidate has ~{est_yrs:.1f}yr"
+                                    )
+                            
+                            if max_shortfall_recheck >= 2.0 and result['match_score'] > 60:
+                                result['match_score'] = min(result['match_score'], 60)
+                                logging.info(
+                                    f"📉 Experience floor re-check: capped at 60 for job {job_id} "
+                                    f"(shortfall: {max_shortfall_recheck:.1f}yr after override)"
+                                )
+                            elif max_shortfall_recheck >= 1.0:
+                                new_score = max(0, result['match_score'] - 15)
+                                if new_score < result['match_score']:
+                                    result['match_score'] = new_score
+                            
+                            # Append shortfall details if not already present
+                            if shortfall_details_recheck:
+                                existing_gaps = result.get('gaps_identified', '') or ''
+                                for detail in shortfall_details_recheck:
+                                    if detail not in existing_gaps:
+                                        if existing_gaps:
+                                            existing_gaps = f"{existing_gaps} | {detail}"
+                                        else:
+                                            existing_gaps = detail
+                                result['gaps_identified'] = existing_gaps
+                
+                # Gate 3: Catch-all — INTERNSHIP_ONLY with <1yr professional capped at 65
+                # This fires even when the AI omits year requirements from key_requirements
+                # and years_analysis, preventing the AI from bypassing Gates 1 & 2 entirely.
+                if (highest_role in ('INTERNSHIP_ONLY', 'ACADEMIC_ONLY') and
+                        professional_years < 1.0 and result['match_score'] > 65):
+                    gate3_original = result['match_score']
+                    result['match_score'] = 65
+                    logging.info(
+                        f"📉 Experience floor (catch-all): capped {gate3_original}→65 "
+                        f"for job {job_id} (highest_role={highest_role}, "
+                        f"professional_years={professional_years:.1f})"
+                    )
+                    floor_gap = (
+                        f"Experience floor: candidate has only {highest_role.lower().replace('_', ' ')} "
+                        f"roles ({professional_years:.1f}yr professional)."
+                    )
+                    existing_gaps = result.get('gaps_identified', '') or ''
+                    if 'experience floor' not in existing_gaps.lower():
+                        if existing_gaps:
+                            result['gaps_identified'] = f"{existing_gaps} | {floor_gap}"
+                        else:
+                            result['gaps_identified'] = floor_gap
+
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
-            logging.info(f"📋 AI response for job {job_id}: has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}")
+            logging.info(f"📋 AI response for job {job_id}: score={result['match_score']}%, has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}, years_analysis={bool(years_analysis)}")
+            
+            # Serialize years_analysis for database persistence (auditability)
+            years_analysis_json = json.dumps(years_analysis) if years_analysis else None
+            result['_years_analysis_json'] = years_analysis_json
+            
+            # Store data for deferred saving (to avoid Flask app context issues in parallel threads)
+            # The caller should save these after parallel execution completes
+            # ALWAYS save AI interpretation - custom requirements SUPPLEMENT, not REPLACE
+            result['_deferred_save'] = {
+                'job_id': job_id,
+                'job_title': job_title,
+                'key_requirements': key_requirements,
+                'job_location_full': job_location_full,
+                'work_type': work_type,
+                'should_save': bool(key_requirements)  # Always save when we have requirements
+            }
             
             if not key_requirements:
                 logging.warning(f"⚠️ AI did not return key_requirements for job {job_id} - requirements will not be saved")
             elif custom_requirements:
-                logging.info(f"📝 Job {job_id} has custom requirements - skipping AI interpretation save (expected behavior)")
-            else:
-                # Save the AI-interpreted requirements with location data
-                self._save_ai_interpreted_requirements(job_id, job_title, key_requirements, job_location_full, work_type)
+                logging.info(f"📝 Job {job_id} has custom requirements - AI interpretation will ALSO be saved (custom supplements AI)")
+            # NOTE: Actual save is now deferred to caller to avoid Flask app context issues in parallel threads
             
             return result
             
@@ -1402,20 +3181,58 @@ CRITICAL RULES:
         
         logging.info(f"🔍 Processing candidate: {candidate_name} (ID: {candidate_id})")
         
-        # Create or get vetting log entry
-        vetting_log = CandidateVettingLog.query.filter_by(
-            bullhorn_candidate_id=candidate_id
-        ).first()
+        # Always create a FRESH vetting log for each application
+        # This ensures returning applicants get a new analysis + Bullhorn note
+        parsed_email_id = candidate.get('_parsed_email_id')
+        applied_job_id = candidate.get('_applied_job_id')
         
-        if not vetting_log:
+        try:
             vetting_log = CandidateVettingLog(
                 bullhorn_candidate_id=candidate_id,
                 candidate_name=candidate_name,
                 candidate_email=candidate_email,
-                status='processing'
+                status='processing',
+                applied_job_id=applied_job_id,
+                parsed_email_id=parsed_email_id
             )
             db.session.add(vetting_log)
             db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            # If UniqueViolation, find the existing log and re-analyze if it has 0% scores
+            if 'UniqueViolation' in str(e) or 'unique constraint' in str(e).lower():
+                existing_log = CandidateVettingLog.query.filter_by(
+                    bullhorn_candidate_id=candidate_id
+                ).first()
+                if existing_log:
+                    if existing_log.highest_match_score == 0 and existing_log.status == 'completed':
+                        # Reset stale 0% vetting log for re-analysis
+                        logging.info(
+                            f"🔄 Re-analyzing candidate {candidate_id} ({candidate_name}) — "
+                            f"previous vetting had 0% scores (likely from aggressive filter threshold)"
+                        )
+                        # Delete old match records so they can be regenerated
+                        CandidateJobMatch.query.filter_by(vetting_log_id=existing_log.id).delete()
+                        existing_log.status = 'processing'
+                        existing_log.highest_match_score = 0.0
+                        existing_log.total_jobs_matched = 0
+                        existing_log.is_qualified = False
+                        existing_log.note_created = False
+                        existing_log.bullhorn_note_id = None
+                        existing_log.analyzed_at = None
+                        existing_log.error_message = None
+                        db.session.commit()
+                        vetting_log = existing_log
+                    else:
+                        # Already has real scores — skip
+                        logging.info(f"⏭️ Candidate {candidate_id} already vetted with score {existing_log.highest_match_score}%")
+                        return existing_log
+                else:
+                    logging.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+                    return None
+            else:
+                logging.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+                return None
         
         try:
             # Get which job they applied to
@@ -1430,18 +3247,25 @@ CRITICAL RULES:
             resume_text = None
             
             # First try: Get description field directly from candidate data
-            if candidate and candidate.get('description'):
-                description = candidate.get('description', '').strip()
+            raw_description = candidate.get('description') if candidate else None
+            logging.info(f"📄 Candidate description field present: {bool(raw_description)}, type: {type(raw_description).__name__}, length: {len(str(raw_description)) if raw_description else 0}")
+            
+            if raw_description:
+                description = str(raw_description).strip()
                 # Clean HTML tags if present
                 import re
                 description = re.sub(r'<[^>]+>', ' ', description)
                 description = re.sub(r'\s+', ' ', description).strip()
+                
+                logging.info(f"📄 After cleaning: {len(description)} chars, first 200: {description[:200]}")
                 
                 if len(description) >= 100:  # Minimum viable resume length
                     resume_text = description
                     logging.info(f"📄 Using candidate description field: {len(resume_text)} chars")
                 else:
                     logging.info(f"Description too short ({len(description)} chars), will try file download")
+            else:
+                logging.info(f"📄 No description field in candidate data - will try file download")
             
             # Second try: Fall back to file download if description not available
             if not resume_text:
@@ -1461,6 +3285,40 @@ CRITICAL RULES:
             
             # Get all active jobs from tearsheets
             jobs = self.get_active_jobs_from_tearsheets()
+            
+            # ═══════════════════════════════════════════════════════════════
+            # APPLIED JOB INJECTION
+            # If the candidate applied to a specific job, ensure it is in
+            # the job list even if it's not in a monitored tearsheet.
+            # This guarantees the applied position is always evaluated.
+            # ═══════════════════════════════════════════════════════════════
+            if vetting_log.applied_job_id:
+                applied_in_tearsheets = any(
+                    j.get('id') == vetting_log.applied_job_id for j in jobs
+                )
+                if not applied_in_tearsheets:
+                    try:
+                        applied_job_data = self._fetch_applied_job(
+                            self._get_bullhorn_service(),
+                            vetting_log.applied_job_id
+                        )
+                        if applied_job_data:
+                            jobs.append(applied_job_data)
+                            logging.info(
+                                f"🎯 Injected applied job {vetting_log.applied_job_id} "
+                                f"({applied_job_data.get('title', 'Unknown')}) — "
+                                f"not in monitored tearsheets"
+                            )
+                        else:
+                            logging.warning(
+                                f"⚠️ Applied job {vetting_log.applied_job_id} could not be "
+                                f"fetched (closed/invalid) — will proceed without it"
+                            )
+                    except Exception as e:
+                        logging.warning(
+                            f"⚠️ Failed to fetch applied job {vetting_log.applied_job_id}: "
+                            f"{str(e)} — will proceed without it"
+                        )
             
             if not jobs:
                 vetting_log.status = 'completed'
@@ -1494,39 +3352,303 @@ CRITICAL RULES:
             else:
                 logging.info("📍 No address in Bullhorn record - AI will infer location from resume")
             
-            # Analyze against each job
+            # Analyze against each job - PARALLEL PROCESSING for faster throughput
             threshold = self.get_threshold()
             qualified_matches = []
             all_match_results = []
             
-            for job in jobs:
+            # Pre-check resume validity once
+            if not cached_resume_text or len(cached_resume_text.strip()) < 50:
+                logging.error(f"❌ CRITICAL: Resume text missing or too short for candidate {candidate_id}")
+                logging.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
+                vetting_log.status = 'completed'
+                vetting_log.error_message = 'Resume text too short for analysis'
+                db.session.commit()
+                return vetting_log
+            
+            # Get IDs of jobs already analyzed for this candidate
+            existing_job_ids = set()
+            existing_matches = CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).all()
+            for match in existing_matches:
+                existing_job_ids.add(match.bullhorn_job_id)
+            
+            # Filter to only jobs that need analysis
+            jobs_to_analyze = [job for job in jobs if job.get('id') not in existing_job_ids]
+            
+            if not jobs_to_analyze:
+                logging.info(f"All {len(jobs)} jobs already analyzed for this candidate")
+                vetting_log.status = 'completed'
+                vetting_log.analyzed_at = datetime.utcnow()
+                db.session.commit()
+                return vetting_log
+            
+            # ═══════════════════════════════════════════════════════════════
+            # LAYER 1: EMBEDDING PRE-FILTER
+            # Compare resume embedding against ALL active job embeddings
+            # (across all tearsheets) and filter out clearly irrelevant pairs.
+            # This preserves multi-job vetting — each job is independently
+            # evaluated against the resume. A candidate applied for Job A 
+            # can still be surfaced for Jobs B, C, D if semantically relevant.
+            #
+            # IMPORTANT: The applied job is PROTECTED from filtering.
+            # It is always sent to GPT regardless of cosine similarity.
+            # ═══════════════════════════════════════════════════════════════
+            pre_filter_count = len(jobs_to_analyze)
+            candidate_filter_info = {
+                'id': candidate_id,
+                'name': candidate_name
+            }
+            
+            # Protect the applied job from the embedding pre-filter
+            # It must ALWAYS be evaluated by GPT regardless of similarity
+            applied_job_entry = None
+            if vetting_log.applied_job_id:
+                for j in jobs_to_analyze:
+                    if j.get('id') == vetting_log.applied_job_id:
+                        applied_job_entry = j
+                        break
+            
+            # Run embedding filter on non-applied jobs only
+            non_applied_jobs = (
+                [j for j in jobs_to_analyze if j.get('id') != vetting_log.applied_job_id]
+                if applied_job_entry else jobs_to_analyze
+            )
+            
+            try:
+                filtered_jobs, filtered_count = self.embedding_service.filter_relevant_jobs(
+                    cached_resume_text, non_applied_jobs,
+                    candidate_filter_info, vetting_log.id
+                )
+                
+                # Re-add applied job to the front (guaranteed GPT analysis)
+                if applied_job_entry:
+                    if applied_job_entry not in filtered_jobs:
+                        filtered_jobs.insert(0, applied_job_entry)
+                        logging.info(
+                            f"🎯 Applied job {vetting_log.applied_job_id} "
+                            f"({applied_job_entry.get('title', 'Unknown')}) protected "
+                            f"from embedding pre-filter — guaranteed GPT analysis"
+                        )
+                    else:
+                        logging.info(
+                            f"🎯 Applied job {vetting_log.applied_job_id} passed "
+                            f"embedding filter naturally"
+                        )
+                
+                jobs_to_analyze = filtered_jobs
+                
+                if filtered_count > 0:
+                    logging.info(
+                        f"🔍 Embedding pre-filter: {pre_filter_count} → {len(jobs_to_analyze)} jobs "
+                        f"({filtered_count} filtered out)"
+                    )
+            except Exception as e:
+                logging.error(f"⚠️ Embedding pre-filter error (bypassing filter): {str(e)}")
+                # On error, proceed with all jobs (safe fallback)
+            
+            if not jobs_to_analyze:
+                # SAFEGUARD: Never allow 100% filter rate — fall back to top 5
+                # jobs by similarity so GPT can still produce real scores.
+                # A 100% block likely means the threshold is too aggressive.
+                logging.warning(
+                    f"⚠️ Embedding pre-filter blocked ALL {pre_filter_count} jobs for "
+                    f"candidate {candidate_id} ({candidate_name}). "
+                    f"Falling back to top 5 jobs by similarity to avoid 0% scores."
+                )
+                # Re-run filter with threshold=0 to get similarity-ranked jobs
+                try:
+                    # Get all jobs with their similarities by temporarily using 0 threshold
+                    from models import EmbeddingFilterLog
+                    filter_logs = EmbeddingFilterLog.query.filter_by(
+                        vetting_log_id=vetting_log.id
+                    ).order_by(EmbeddingFilterLog.similarity_score.desc()).limit(5).all()
+                    
+                    if filter_logs:
+                        # Re-include the top 5 most similar jobs
+                        top_job_ids = {log.bullhorn_job_id for log in filter_logs}
+                        jobs_to_analyze = [
+                            job for job in jobs
+                            if job.get('id') in top_job_ids
+                        ]
+                        top_sims = [f"{log.job_title}: {log.similarity_score:.4f}" for log in filter_logs]
+                        logging.info(
+                            f"🔄 Fallback: passing top {len(jobs_to_analyze)} jobs to GPT: "
+                            f"{', '.join(top_sims)}"
+                        )
+                except Exception as fb_e:
+                    logging.error(f"Fallback failed: {str(fb_e)}")
+                
+                if not jobs_to_analyze:
+                    # True fallback: even the similarity lookup failed
+                    logging.info(f"All jobs filtered by embedding pre-filter for candidate {candidate_id} — no GPT calls needed")
+                    vetting_log.status = 'completed'
+                    vetting_log.analyzed_at = datetime.utcnow()
+                    db.session.commit()
+                    return vetting_log
+            
+            logging.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
+            logging.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
+            
+            # PRE-FETCH all custom requirements BEFORE parallel processing
+            # This is critical because parallel threads don't have Flask app context
+            # BATCH: One IN query instead of N individual queries
+            job_requirements_cache = {}
+            batch_job_ids = [job.get('id') for job in jobs_to_analyze if job.get('id')]
+            if batch_job_ids:
+                try:
+                    batch_reqs = JobVettingRequirements.query.filter(
+                        JobVettingRequirements.bullhorn_job_id.in_(batch_job_ids)
+                    ).all()
+                    for req in batch_reqs:
+                        active = req.get_active_requirements()
+                        if active:
+                            job_requirements_cache[req.bullhorn_job_id] = active
+                except Exception as e:
+                    logging.error(f"Error batch-fetching job requirements: {str(e)}")
+            
+            logging.info(f"📋 Pre-fetched requirements for {len(job_requirements_cache)} jobs")
+            
+            # Read Layer 2 model fresh each cycle (supports live revert via VettingConfig)
+            self.model = self._get_layer2_model()
+            logging.info(f"🤖 Layer 2 model: {self.model}")
+            
+            # PRE-FETCH all DB-dependent config BEFORE entering ThreadPoolExecutor
+            # Threads lack Flask app context — any DB access inside them will crash
+            escalation_range = self._get_escalation_range()
+            global_threshold = self.get_threshold()
+            prefetched_global_reqs = self._get_global_custom_requirements() or ''  # '' not None — avoids DB fallback in threads
+            
+            # Pre-fetch per-job thresholds (batch query, not N individual queries)
+            job_threshold_cache = {}
+            try:
+                batch_threshold_reqs = JobVettingRequirements.query.filter(
+                    JobVettingRequirements.bullhorn_job_id.in_(batch_job_ids),
+                    JobVettingRequirements.vetting_threshold.isnot(None)
+                ).all()
+                for req in batch_threshold_reqs:
+                    job_threshold_cache[req.bullhorn_job_id] = float(req.vetting_threshold)
+            except Exception as e:
+                logging.error(f"Error pre-fetching job thresholds: {str(e)}")
+            
+            # Helper function for parallel execution - runs AI analysis for one job
+            def analyze_single_job(job_with_req):
+                """Analyze one job match - called in parallel threads.
+                
+                Layer 2: Uses self.model (GPT-4o-mini by default).
+                Layer 3: If score falls in escalation range, re-analyzes with GPT-4o.
+                
+                IMPORTANT: This runs in a ThreadPoolExecutor thread WITHOUT Flask app context.
+                ALL database access must use pre-fetched values from the main thread.
+                """
+                job = job_with_req['job']
+                prefetched_req = job_with_req['requirements']  # Pre-fetched from main thread
                 job_id = job.get('id')
+                try:
+                    # Layer 2: Main analysis with self.model (GPT-4o-mini default)
+                    analysis = self.analyze_candidate_job_match(
+                        cached_resume_text, job, candidate_location,
+                        prefetched_requirements=prefetched_req,
+                        prefetched_global_requirements=prefetched_global_reqs
+                    )
+                    
+                    mini_score = analysis.get('match_score', 0)
+                    
+                    # Layer 3: Escalation check — re-analyze borderline with GPT-4o
+                    # Uses pre-fetched escalation_range (no DB access needed)
+                    esc_low, esc_high = escalation_range
+                    if esc_low <= mini_score <= esc_high and self.model != 'gpt-4o':
+                        job_title = job.get('title', 'Unknown')
+                        logging.info(
+                            f"⬆️ Escalating {candidate_name} × {job_title}: "
+                            f"Layer 2 score={mini_score}% (in escalation range)"
+                        )
+                        try:
+                            # Thread-safe: pass model_override instead of mutating self.model
+                            escalated_analysis = self.analyze_candidate_job_match(
+                                cached_resume_text, job, candidate_location,
+                                prefetched_requirements=prefetched_req,
+                                model_override='gpt-4o',
+                                prefetched_global_requirements=prefetched_global_reqs
+                            )
+                            
+                            gpt4o_score = escalated_analysis.get('match_score', 0)
+                            
+                            # Defer escalation log save to main thread (needs Flask context)
+                            analysis['_escalation_data'] = {
+                                'mini_score': mini_score,
+                                'gpt4o_score': gpt4o_score,
+                                'job_id': job_id,
+                                'job_title': job_title
+                            }
+                            
+                            # Use the GPT-4o result as the final analysis
+                            analysis = escalated_analysis
+                            # Carry over escalation data to the new analysis dict
+                            analysis['_escalation_data'] = {
+                                'mini_score': mini_score,
+                                'gpt4o_score': gpt4o_score,
+                                'job_id': job_id,
+                                'job_title': job_title
+                            }
+                            
+                        except Exception as esc_e:
+                            logging.error(f"Escalation failed for job {job_id}: {str(esc_e)}")
+                            # Fall back to Layer 2 result (preserved)
+                    
+                    return {
+                        'job': job,
+                        'job_id': job_id,
+                        'analysis': analysis,
+                        'error': None
+                    }
+                except Exception as e:
+                    error_str = str(e)
+                    logging.error(f"Error analyzing job {job_id}: {error_str}")
+                    # Track OpenAI quota exhaustion (429 with 'quota' keyword)
+                    if '429' in error_str and 'quota' in error_str.lower():
+                        CandidateVettingService._consecutive_quota_errors += 1
+                    return {
+                        'job': job,
+                        'job_id': job_id,
+                        'analysis': {'match_score': 0, 'match_summary': f'Analysis failed: {error_str}'},
+                        'error': error_str
+                    }
+            
+            # Prepare jobs with pre-fetched requirements
+            # CRITICAL: Use '' (not None) as default — None triggers a DB fallback query
+            # inside analyze_candidate_job_match, which crashes in ThreadPoolExecutor
+            # threads because they lack Flask app context.
+            jobs_with_requirements = [
+                {'job': job, 'requirements': job_requirements_cache.get(job.get('id'), '')}
+                for job in jobs_to_analyze
+            ]
+            
+            # Run parallel analysis - max 15 concurrent threads to respect API rate limits
+            analysis_results = []
+            max_workers = min(15, len(jobs_to_analyze))
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(analyze_single_job, jwr): jwr for jwr in jobs_with_requirements}
                 
-                # Skip if we've already analyzed this job for this candidate
-                existing_match = CandidateJobMatch.query.filter_by(
-                    vetting_log_id=vetting_log.id,
-                    bullhorn_job_id=job_id
-                ).first()
+                for future in as_completed(futures):
+                    result = future.result()
+                    analysis_results.append(result)
+            
+            logging.info(f"✅ Parallel analysis complete: {len(analysis_results)} jobs processed")
+            
+            # Process results and create match records (single-threaded for DB safety)
+            for result in analysis_results:
+                job = result['job']
+                job_id = result['job_id']
+                analysis = result['analysis']
                 
-                if existing_match:
-                    continue
-                
-                # Analyze the match - verify resume text exists and has content
-                if not cached_resume_text or len(cached_resume_text.strip()) < 50:
-                    logging.error(f"❌ CRITICAL: Resume text missing or too short for candidate {candidate_id}")
-                    logging.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
-                    break  # No point continuing if resume is missing
-                
-                logging.info(f"📄 Analyzing match - Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
-                analysis = self.analyze_candidate_job_match(cached_resume_text, job, candidate_location)
-                
-                # Get recruiter info from job's assignedUsers (assignments field in Bullhorn)
-                recruiter_name = ''
-                recruiter_email = ''
-                recruiter_id = None
+                # Get recruiter info from ALL job assignedUsers (not just first)
+                # Store as comma-separated lists to include all recruiters for notifications
+                recruiter_names = []
+                recruiter_emails = []
+                recruiter_ids = []
                 
                 assigned_users = job.get('assignedUsers', {})
-                # Handle both dict with 'data' key and direct list formats
                 if isinstance(assigned_users, dict):
                     assigned_users_list = assigned_users.get('data', [])
                 elif isinstance(assigned_users, list):
@@ -1534,21 +3656,29 @@ CRITICAL RULES:
                 else:
                     assigned_users_list = []
                 
-                # Use first assigned user as primary recruiter
-                if assigned_users_list and len(assigned_users_list) > 0:
-                    first_user = assigned_users_list[0]
-                    if isinstance(first_user, dict):
-                        recruiter_name = f"{first_user.get('firstName', '')} {first_user.get('lastName', '')}".strip()
-                        recruiter_email = first_user.get('email', '')
-                        recruiter_id = first_user.get('id')
-                        logging.info(f"  📧 Job {job_id} assigned to: {recruiter_name} ({recruiter_email})")
-                else:
-                    logging.warning(f"  ⚠️ Job {job_id} has no assigned users")
+                for user in assigned_users_list:
+                    if isinstance(user, dict):
+                        name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+                        email = user.get('email', '')
+                        user_id = user.get('id')
+                        if name:
+                            recruiter_names.append(name)
+                        if email:
+                            recruiter_emails.append(email)
+                        if user_id:
+                            recruiter_ids.append(str(user_id))
+                
+                # Join as comma-separated for storage (first ID as primary for backward compatibility)
+                recruiter_name = ', '.join(recruiter_names) if recruiter_names else ''
+                recruiter_email = ', '.join(recruiter_emails) if recruiter_emails else ''
+                recruiter_id = int(recruiter_ids[0]) if recruiter_ids else None
                 
                 # Determine if this is the job they applied to
                 is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
                 
-                # Create match record
+                # Create match record - use pre-fetched job-specific threshold if set
+                job_threshold = job_threshold_cache.get(job_id, global_threshold)
+                
                 match_record = CandidateJobMatch(
                     vetting_log_id=vetting_log.id,
                     bullhorn_job_id=job_id,
@@ -1560,22 +3690,61 @@ CRITICAL RULES:
                     recruiter_email=recruiter_email,
                     recruiter_bullhorn_id=recruiter_id,
                     match_score=analysis.get('match_score', 0),
-                    is_qualified=analysis.get('match_score', 0) >= threshold,
+                    is_qualified=analysis.get('match_score', 0) >= job_threshold,
                     is_applied_job=is_applied_job,
                     match_summary=analysis.get('match_summary', ''),
                     skills_match=analysis.get('skills_match', ''),
                     experience_match=analysis.get('experience_match', ''),
-                    gaps_identified=analysis.get('gaps_identified', '')
+                    gaps_identified=analysis.get('gaps_identified', ''),
+                    years_analysis_json=analysis.get('_years_analysis_json')
                 )
                 
                 db.session.add(match_record)
                 all_match_results.append(match_record)
                 
+                # Log with threshold info (show if custom threshold used)
+                threshold_note = f" (threshold: {int(job_threshold)}%)" if job_threshold != threshold else ""
                 if match_record.is_qualified:
                     qualified_matches.append(match_record)
-                    logging.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%")
+                    logging.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                 else:
-                    logging.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%")
+                    logging.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
+                    # Diagnostic: log GPT's reasoning for 0% scores
+                    if analysis.get('match_score', 0) == 0:
+                        summary = analysis.get('match_summary', 'no summary')[:200]
+                        gaps = analysis.get('gaps_identified', 'no gaps')[:200]
+                        logging.warning(f"    🔬 0% diagnostic: summary={summary} | gaps={gaps}")
+                
+                # Handle deferred database save (now in main thread with Flask app context)
+                deferred = analysis.get('_deferred_save')
+                if deferred and deferred.get('should_save'):
+                    try:
+                        self._save_ai_interpreted_requirements(
+                            deferred['job_id'],
+                            deferred['job_title'],
+                            deferred['key_requirements'],
+                            deferred['job_location_full'],
+                            deferred['work_type']
+                        )
+                    except Exception as save_err:
+                        logging.warning(f"Failed to save requirements for job {deferred['job_id']}: {save_err}")
+                
+                # Handle deferred escalation log (needs Flask app context for DB write)
+                esc_data = analysis.get('_escalation_data')
+                if esc_data:
+                    try:
+                        self.embedding_service.save_escalation_log(
+                            vetting_log_id=vetting_log.id,
+                            candidate_id=candidate_id,
+                            candidate_name=candidate_name,
+                            job_id=esc_data['job_id'],
+                            job_title=esc_data['job_title'],
+                            mini_score=esc_data['mini_score'],
+                            gpt4o_score=esc_data['gpt4o_score'],
+                            threshold=job_threshold
+                        )
+                    except Exception as esc_save_err:
+                        logging.warning(f"Failed to save escalation log for job {esc_data['job_id']}: {esc_save_err}")
             
             # Update vetting log summary
             vetting_log.status = 'completed'
@@ -1600,6 +3769,29 @@ CRITICAL RULES:
             db.session.commit()
             return vetting_log
     
+    def _normalize_gaps_text(self, gaps, candidate_id=None):
+        """Layer 3 safety net: normalize gaps_identified to clean prose.
+        
+        Handles:
+        - list type: GPT returned an array that bypassed Layer 2
+        - str starting with '[': legacy JSON array stored as string in DB
+        - str: returned as-is (already clean prose)
+        """
+        if isinstance(gaps, list):
+            logging.warning(f"Render-time array normalization for candidate {candidate_id}")
+            return ". ".join(str(item) for item in gaps)
+        
+        if isinstance(gaps, str) and gaps.startswith('['):
+            try:
+                gaps_list = json.loads(gaps)
+                if isinstance(gaps_list, list):
+                    logging.warning(f"Render-time JSON string normalization for candidate {candidate_id}")
+                    return ". ".join(str(item) for item in gaps_list)
+            except json.JSONDecodeError:
+                pass  # Not valid JSON, keep original
+        
+        return gaps
+    
     def create_candidate_note(self, vetting_log: CandidateVettingLog) -> bool:
         """
         Create a note on the candidate record summarizing the vetting results.
@@ -1608,11 +3800,51 @@ CRITICAL RULES:
             vetting_log: The vetting log with analysis results
             
         Returns:
-            True if note was created successfully
+            True if note was created successfully (or already exists)
         """
+        # DEDUPLICATION SAFETY: Skip if note already created for this vetting log
+        if vetting_log.note_created:
+            logging.info(f"⏭️ Note already exists for vetting log {vetting_log.id} (candidate {vetting_log.bullhorn_candidate_id}), skipping creation")
+            return True  # Return True to indicate note exists
+        
         bullhorn = self._get_bullhorn_service()
         if not bullhorn:
             return False
+        
+        # PRE-CREATION SAFEGUARD: Check Bullhorn for existing AI vetting notes (24h window)
+        # This prevents duplicate notes even if upstream dedup logic has a bug
+        from datetime import timedelta
+        try:
+            existing_notes = bullhorn.get_candidate_notes(
+                vetting_log.bullhorn_candidate_id,
+                action_filter=[
+                    # Current format (≤30 chars for Bullhorn action field)
+                    "Scout Screen - Qualified",
+                    "Scout Screen - Not Qualified",
+                    "Scout Screen - Incomplete",
+                    # Backward compat: match legacy action strings
+                    "Scout Screening - Qualified",
+                    "Scout Screening - Not Recommended",
+                    "Scout Screening - Incomplete",
+                    "AI Vetting - Qualified",
+                    "AI Vetting - Not Recommended",
+                    "AI Vetting - Incomplete"
+                ],
+                since=datetime.utcnow() - timedelta(hours=24)
+            )
+            if existing_notes:
+                logging.warning(
+                    f"⚠️ DUPLICATE SAFEGUARD: Candidate {vetting_log.bullhorn_candidate_id} already has "
+                    f"{len(existing_notes)} AI vetting note(s) in Bullhorn from last 24h. "
+                    f"Skipping duplicate note creation."
+                )
+                vetting_log.note_created = True
+                vetting_log.bullhorn_note_id = existing_notes[0].get('id')
+                db.session.commit()
+                return True
+        except Exception as e:
+            # Don't block note creation if the safety check itself fails
+            logging.warning(f"Pre-note duplicate check failed (proceeding with creation): {str(e)}")
         
         # Get all match results for this candidate
         matches = CandidateJobMatch.query.filter_by(
@@ -1620,15 +3852,32 @@ CRITICAL RULES:
         ).order_by(CandidateJobMatch.match_score.desc()).all()
         
         # Build note content
-        threshold = self.get_threshold()
+        # Header shows global threshold; inline annotations show per-job custom thresholds
+        global_threshold = self.get_threshold()
+        threshold = global_threshold
         qualified_matches = [m for m in matches if m.is_qualified] if matches else []
+        
+        # Pre-fetch per-job thresholds for matched jobs to annotate inline
+        job_ids = [m.bullhorn_job_id for m in matches if m.bullhorn_job_id]
+        job_threshold_map = {}
+        if job_ids:
+            try:
+                from models import JobVettingRequirements
+                custom_reqs = JobVettingRequirements.query.filter(
+                    JobVettingRequirements.bullhorn_job_id.in_(job_ids),
+                    JobVettingRequirements.vetting_threshold.isnot(None)
+                ).all()
+                for req in custom_reqs:
+                    job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
+            except Exception as e:
+                logging.warning(f"Could not fetch per-job thresholds for note: {str(e)}")
         
         # Handle case where no jobs were analyzed (no matches recorded)
         if not matches:
             # Create a note explaining why no analysis was done
             error_reason = vetting_log.error_message or "No job matches could be performed"
             note_lines = [
-                f"📋 AI VETTING SUMMARY - INCOMPLETE ANALYSIS",
+                f"📋 SCOUT SCREENING - INCOMPLETE ANALYSIS",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
                 f"Status: {vetting_log.status}",
@@ -1643,7 +3892,7 @@ CRITICAL RULES:
                 f"Please review manually if needed."
             ]
             note_text = "\n".join(note_lines)
-            action = "AI Vetting - Incomplete"
+            action = "Scout Screen - Incomplete"
             
             note_id = bullhorn.create_candidate_note(
                 vetting_log.bullhorn_candidate_id,
@@ -1664,28 +3913,61 @@ CRITICAL RULES:
         if vetting_log.is_qualified:
             # Qualified candidate note
             note_lines = [
-                f"🎯 AI VETTING SUMMARY - QUALIFIED CANDIDATE",
+                f"🎯 SCOUT SCREENING - QUALIFIED CANDIDATE",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
                 f"Threshold: {threshold}%",
                 f"Qualified Matches: {len(qualified_matches)} of {len(matches)} jobs",
                 f"Highest Match Score: {vetting_log.highest_match_score:.0f}%",
                 f"",
-                f"QUALIFIED POSITIONS:",
             ]
             
+            # Find applied job and separate from others
+            applied_match = None
+            other_qualified = []
             for match in qualified_matches:
+                if match.is_applied_job:
+                    applied_match = match
+                else:
+                    other_qualified.append(match)
+            
+            # Sort other qualified matches by score descending
+            other_qualified.sort(key=lambda m: m.match_score, reverse=True)
+            
+            # Show applied job FIRST if qualified
+            if applied_match:
+                note_lines.append(f"APPLIED POSITION (QUALIFIED):")
+                note_lines.append(f"")
+                note_lines.append(f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}")
+                applied_custom = job_threshold_map.get(applied_match.bullhorn_job_id)
+                if applied_custom:
+                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%  |  Threshold: {applied_custom:.0f}% (custom)")
+                else:
+                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
+                note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
+                note_lines.append(f"  Summary: {applied_match.match_summary}")
+                note_lines.append(f"  Skills: {applied_match.skills_match}")
+                if other_qualified:
+                    note_lines.append(f"")
+                    note_lines.append(f"OTHER QUALIFIED POSITIONS:")
+            else:
+                note_lines.append(f"QUALIFIED POSITIONS:")
+            
+            # Show other qualified matches
+            for match in other_qualified:
                 note_lines.append(f"")
                 note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
-                note_lines.append(f"  Match Score: {match.match_score:.0f}%")
-                if match.is_applied_job:
-                    note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
+                match_custom = job_threshold_map.get(match.bullhorn_job_id)
+                if match_custom:
+                    note_lines.append(f"  Match Score: {match.match_score:.0f}%  |  Threshold: {match_custom:.0f}% (custom)")
+                else:
+                    note_lines.append(f"  Match Score: {match.match_score:.0f}%")
                 note_lines.append(f"  Summary: {match.match_summary}")
                 note_lines.append(f"  Skills: {match.skills_match}")
         else:
             # Not qualified note
             note_lines = [
-                f"📋 AI VETTING SUMMARY - NOT RECOMMENDED",
+                f"📋 SCOUT SCREENING - NOT RECOMMENDED",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
                 f"Threshold: {threshold}%",
@@ -1694,23 +3976,54 @@ CRITICAL RULES:
                 f"",
                 f"This candidate did not meet the {threshold}% match threshold for any current open positions.",
                 f"",
-                f"TOP ANALYSIS RESULTS:",
             ]
             
-            # Show top 3 matches even if not qualified
-            for match in matches[:3]:
+            # Find the applied job (if analyzed)
+            applied_match = None
+            other_matches = []
+            for match in matches:
+                if match.is_applied_job:
+                    applied_match = match
+                else:
+                    other_matches.append(match)
+            
+            # Sort other matches by score descending
+            other_matches.sort(key=lambda m: m.match_score, reverse=True)
+            
+            # Show applied job FIRST if found
+            if applied_match:
+                note_lines.append(f"APPLIED POSITION:")
+                note_lines.append(f"")
+                note_lines.append(f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}")
+                applied_custom = job_threshold_map.get(applied_match.bullhorn_job_id)
+                if applied_custom:
+                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%  |  Threshold: {applied_custom:.0f}% (custom)")
+                else:
+                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
+                note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
+                if applied_match.gaps_identified:
+                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(applied_match.gaps_identified, vetting_log.bullhorn_candidate_id)}")
+                note_lines.append(f"")
+                note_lines.append(f"OTHER TOP MATCHES:")
+            else:
+                note_lines.append(f"TOP ANALYSIS RESULTS:")
+            
+            # Show top 5 other matches (sorted by score)
+            for match in other_matches[:5]:
                 note_lines.append(f"")
                 note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
-                note_lines.append(f"  Match Score: {match.match_score:.0f}%")
-                if match.is_applied_job:
-                    note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
+                match_custom = job_threshold_map.get(match.bullhorn_job_id)
+                if match_custom:
+                    note_lines.append(f"  Match Score: {match.match_score:.0f}%  |  Threshold: {match_custom:.0f}% (custom)")
+                else:
+                    note_lines.append(f"  Match Score: {match.match_score:.0f}%")
                 if match.gaps_identified:
-                    note_lines.append(f"  Gaps: {match.gaps_identified}")
+                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(match.gaps_identified, vetting_log.bullhorn_candidate_id)}")
         
         note_text = "\n".join(note_lines)
         
         # Create the note
-        action = "AI Vetting - Qualified" if vetting_log.is_qualified else "AI Vetting - Not Recommended"
+        action = "Scout Screen - Qualified" if vetting_log.is_qualified else "Scout Screen - Not Qualified"
         note_id = bullhorn.create_candidate_note(
             vetting_log.bullhorn_candidate_id,
             note_text,
@@ -1770,31 +4083,51 @@ CRITICAL RULES:
         logging.info(f"  📨 Found {len(matches)} unsent qualified matches")
         
         # Determine primary recruiter (from applied job) and CC list
+        # Note: recruiter_email may now be comma-separated (multiple recruiters per job)
         primary_recruiter_email = None
         primary_recruiter_name = None
         cc_recruiter_emails = []
         
+        # Helper to parse comma-separated emails
+        def parse_emails(email_str):
+            if not email_str:
+                return []
+            return [e.strip() for e in email_str.split(',') if e.strip()]
+        
+        def parse_names(name_str):
+            if not name_str:
+                return []
+            return [n.strip() for n in name_str.split(',') if n.strip()]
+        
         # First pass: find the applied job recruiter (primary recipient)
         for match in matches:
             if match.is_applied_job and match.recruiter_email:
-                primary_recruiter_email = match.recruiter_email
-                primary_recruiter_name = match.recruiter_name
+                emails = parse_emails(match.recruiter_email)
+                names = parse_names(match.recruiter_name)
+                if emails:
+                    primary_recruiter_email = emails[0]  # First recruiter on applied job is primary
+                    primary_recruiter_name = names[0] if names else ''
                 break
         
-        # Second pass: collect all unique recruiter emails
+        # Second pass: collect all unique recruiter emails from all matches
         # If no applied job recruiter found, first recruiter becomes primary
         seen_emails = set()
         for match in matches:
-            if match.recruiter_email and match.recruiter_email not in seen_emails:
-                seen_emails.add(match.recruiter_email)
-                
-                if not primary_recruiter_email:
-                    # No applied job match - first recruiter becomes primary
-                    primary_recruiter_email = match.recruiter_email
-                    primary_recruiter_name = match.recruiter_name
-                elif match.recruiter_email != primary_recruiter_email:
-                    # Different from primary - add to CC list
-                    cc_recruiter_emails.append(match.recruiter_email)
+            emails = parse_emails(match.recruiter_email)
+            names = parse_names(match.recruiter_name)
+            
+            for i, email in enumerate(emails):
+                if email and email not in seen_emails:
+                    seen_emails.add(email)
+                    name = names[i] if i < len(names) else ''
+                    
+                    if not primary_recruiter_email:
+                        # No applied job match - first recruiter becomes primary
+                        primary_recruiter_email = email
+                        primary_recruiter_name = name
+                    elif email != primary_recruiter_email:
+                        # Different from primary - add to CC list
+                        cc_recruiter_emails.append(email)
         
         # Check email notification kill switch setting
         from models import VettingConfig
@@ -1853,6 +4186,19 @@ CRITICAL RULES:
                 
                 cc_info = f" (CC: {', '.join(cc_recruiter_emails)})" if cc_recruiter_emails else ""
                 logging.info(f"Sent notification to {primary_recruiter_email}{cc_info} for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id}, {len(matches)} positions)")
+                
+                # ── Scout Vetting trigger ──
+                # After recruiter notification, initiate Scout Vetting for qualified matches
+                try:
+                    from scout_vetting_service import ScoutVettingService
+                    sv_service = ScoutVettingService(email_service=self.email_service, bullhorn_service=self.bullhorn)
+                    if sv_service.is_enabled():
+                        sv_result = sv_service.initiate_vetting(vetting_log, matches)
+                        logging.info(f"🔍 Scout Vetting initiated: {sv_result.get('created', 0)} sessions created, "
+                                    f"{sv_result.get('queued', 0)} queued, {sv_result.get('skipped', 0)} skipped")
+                except Exception as sv_err:
+                    logging.error(f"Scout Vetting trigger error (non-blocking): {str(sv_err)}")
+                
                 return 1
             else:
                 logging.error(f"Failed to send notification for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id})")
@@ -1903,7 +4249,7 @@ CRITICAL RULES:
                 {transparency_note}
                 
                 <p style="margin: 0 0 15px 0;">
-                    A new candidate has been analyzed by JobPulse AI and matches 
+                    A new candidate has been analyzed by Scout Screening and matches 
                     <strong>{len(matches)} position(s)</strong>.
                 </p>
                 
@@ -1961,7 +4307,7 @@ CRITICAL RULES:
             
             <div style="background: #343a40; color: #adb5bd; padding: 15px; 
                         border-radius: 0 0 8px 8px; font-size: 12px; text-align: center;">
-                Powered by JobPulse™ AI Vetting • Myticas Consulting
+                Powered by Scout Screening™ • Myticas Consulting
             </div>
         </div>
         """
@@ -1971,7 +4317,7 @@ CRITICAL RULES:
             # Always BCC admin for monitoring/troubleshooting
             admin_bcc_email = 'kroots@myticas.com'
             
-            success = self.email_service.send_html_email(
+            result = self.email_service.send_html_email(
                 to_email=recruiter_email,
                 subject=subject,
                 html_content=html_content,
@@ -1979,11 +4325,203 @@ CRITICAL RULES:
                 cc_emails=cc_emails,  # CC all other recruiters on same thread
                 bcc_emails=[admin_bcc_email]  # BCC admin for transparency
             )
-            return success
+            return result is True or (isinstance(result, dict) and result.get('success', False))
         except Exception as e:
             logging.error(f"Email send error: {str(e)}")
             return False
     
+    def _reset_zero_score_failures(self):
+        """Auto-retry safeguard: detect and reset candidates where ALL job matches
+        scored 0%, indicating an API failure (e.g., OpenAI quota exhaustion) rather
+        than a genuine low score.
+        
+        Called at the start of each vetting cycle to automatically queue failed
+        candidates for re-processing.
+        
+        Safety guards:
+        - Only resets records older than 10 minutes (avoids in-progress interference)
+        - Max 50 records per cycle (prevents thundering herd)
+        - Only resets when ALL job matches are 0% (not legitimate low scores)
+        """
+        try:
+            from models import CandidateVettingLog, CandidateJobMatch, ParsedEmail
+            from sqlalchemy import func
+            
+            cutoff = datetime.utcnow() - timedelta(minutes=10)
+            
+            # Find completed vetting logs with highest_match_score = 0
+            # that are old enough to not be in-progress
+            zero_logs = CandidateVettingLog.query.filter(
+                CandidateVettingLog.highest_match_score == 0,
+                CandidateVettingLog.status == 'completed',
+                CandidateVettingLog.created_at < cutoff
+            ).limit(50).all()
+            
+            if not zero_logs:
+                return
+            
+            reset_count = 0
+            for log in zero_logs:
+                # Verify ALL job matches scored 0 (not a legitimate low score)
+                non_zero = db.session.query(func.count(CandidateJobMatch.id)).filter(
+                    CandidateJobMatch.vetting_log_id == log.id,
+                    CandidateJobMatch.match_score > 0
+                ).scalar()
+                
+                if non_zero > 0:
+                    continue  # Has some non-zero scores — legitimate result
+                
+                candidate_id = log.bullhorn_candidate_id
+                log_id = log.id
+                
+                # Delete child records (FK constraints)
+                CandidateJobMatch.query.filter_by(vetting_log_id=log_id).delete()
+                
+                from models import EmbeddingFilterLog, EscalationLog
+                EmbeddingFilterLog.query.filter_by(vetting_log_id=log_id).delete()
+                EscalationLog.query.filter_by(vetting_log_id=log_id).delete()
+                
+                # Delete the vetting log
+                db.session.delete(log)
+                
+                # Reset vetted_at on ParsedEmail to re-queue
+                ParsedEmail.query.filter_by(
+                    bullhorn_candidate_id=candidate_id
+                ).update({'vetted_at': None})
+                
+                reset_count += 1
+            
+            if reset_count > 0:
+                db.session.commit()
+                logging.info(f"🔄 Auto-retry: Reset {reset_count} candidates with 0% scores (API failure recovery)")
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error in zero-score auto-retry: {str(e)}")
+    
+    def _reset_stuck_processing(self):
+        """Reset vetting logs stuck in 'processing' status.
+        
+        When a deployment restart or worker timeout kills a vetting cycle
+        mid-analysis, CandidateVettingLog records get orphaned in 'processing'
+        status with 0 job matches. The candidate's ParsedEmail.vetted_at is
+        already set, so they never get re-queued.
+        
+        This method detects and resets those orphaned records:
+        - Only resets 'processing' logs older than 10 minutes
+        - Only resets logs with 0 job matches (never started analysis)
+        - Max 50 per cycle
+        """
+        try:
+            from models import CandidateVettingLog, CandidateJobMatch, ParsedEmail
+            from sqlalchemy import func
+            
+            cutoff = datetime.utcnow() - timedelta(minutes=10)
+            
+            stuck_logs = CandidateVettingLog.query.filter(
+                CandidateVettingLog.status == 'processing',
+                CandidateVettingLog.created_at < cutoff
+            ).limit(50).all()
+            
+            if not stuck_logs:
+                return
+            
+            reset_count = 0
+            for log in stuck_logs:
+                # Only reset if no job matches were created (cycle died before analysis)
+                match_count = db.session.query(func.count(CandidateJobMatch.id)).filter(
+                    CandidateJobMatch.vetting_log_id == log.id
+                ).scalar()
+                
+                if match_count > 0:
+                    continue  # Has job matches — may be partially complete, skip
+                
+                candidate_id = log.bullhorn_candidate_id
+                log_id = log.id
+                
+                # Delete child records (FK constraints)
+                from models import EmbeddingFilterLog, EscalationLog
+                EmbeddingFilterLog.query.filter_by(vetting_log_id=log_id).delete()
+                EscalationLog.query.filter_by(vetting_log_id=log_id).delete()
+                
+                # Delete the stuck log
+                db.session.delete(log)
+                
+                # Reset vetted_at to re-queue
+                ParsedEmail.query.filter_by(
+                    bullhorn_candidate_id=candidate_id
+                ).update({'vetted_at': None})
+                
+                reset_count += 1
+            
+            if reset_count > 0:
+                db.session.commit()
+                logging.info(f"🔄 Auto-retry: Reset {reset_count} candidates stuck in 'processing' (deployment restart recovery)")
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error in stuck-processing reset: {str(e)}")
+    
+    def _handle_quota_exhaustion(self):
+        """Handle OpenAI quota exhaustion: auto-disable vetting and send alert email.
+        
+        Called when 3+ consecutive quota errors are detected in a single vetting cycle.
+        Prevents the system from creating further 0% notes in Bullhorn.
+        """
+        if CandidateVettingService._quota_alert_sent:
+            return  # Already alerted this outage
+        
+        try:
+            # Auto-disable vetting
+            config = VettingConfig.query.filter_by(setting_key='vetting_enabled').first()
+            if config:
+                config.setting_value = 'false'
+                db.session.commit()
+                logging.warning("⛔ Scout Screening auto-disabled due to OpenAI quota exhaustion")
+            
+            # Send alert email
+            try:
+                email_svc = EmailService()
+                alert_email = self._get_admin_notification_email() or 'kroots@myticas.com'
+                
+                subject = "⚠️ Scout Screening Auto-Disabled — OpenAI Quota Exhausted"
+                message = (
+                    "ALERT: Scout Screening has been automatically disabled.\n\n"
+                    "WHAT'S HAPPENING:\n"
+                    f"  {CandidateVettingService._consecutive_quota_errors} consecutive OpenAI API calls "
+                    "returned '429 - You exceeded your current quota'.\n"
+                    "  All vetting scores are returning 0%, creating incorrect notes in Bullhorn.\n"
+                    "  To prevent further damage, Scout Screening has been disabled.\n\n"
+                    "ACTION REQUIRED:\n"
+                    "  1. Top up OpenAI credits at https://platform.openai.com/account/billing\n"
+                    "  2. Re-enable Scout Screening from the /screening settings page\n"
+                    "  3. Any candidates vetted with 0% during this outage will be automatically\n"
+                    "     re-processed on the next vetting cycle (auto-retry safeguard)\n\n"
+                    "This is an automated alert from Scout Screening."
+                )
+                email_svc.send_notification_email(
+                    to_email=alert_email,
+                    subject=subject,
+                    message=message,
+                    notification_type='openai_quota_alert'
+                )
+                logging.info(f"📧 Quota exhaustion alert sent to {alert_email}")
+            except Exception as email_err:
+                logging.error(f"Failed to send quota alert email: {str(email_err)}")
+            
+            CandidateVettingService._quota_alert_sent = True
+            
+        except Exception as e:
+            logging.error(f"Error handling quota exhaustion: {str(e)}")
+    
+    def _get_admin_notification_email(self) -> str:
+        """Get the admin notification email from VettingConfig."""
+        try:
+            config = VettingConfig.query.filter_by(setting_key='admin_notification_email').first()
+            if config and config.setting_value:
+                return config.setting_value.strip()
+        except Exception:
+            pass
+        return ''
+
     def _get_batch_size(self) -> int:
         """Get configured batch size from database, default 25"""
         try:
@@ -2027,6 +4565,17 @@ CRITICAL RULES:
         logging.info("🚀 Starting candidate vetting cycle")
         cycle_start = datetime.utcnow()
         
+        # Auto-retry: reset candidates that failed with 0% on all jobs
+        # (e.g., from a previous OpenAI quota outage)
+        self._reset_zero_score_failures()
+        
+        # Auto-retry: reset candidates stuck in 'processing' status
+        # (e.g., from deployment restarts killing cycles mid-analysis)
+        self._reset_stuck_processing()
+        
+        # Reset quota error counter at cycle start
+        CandidateVettingService._consecutive_quota_errors = 0
+        
         # Get configurable batch size
         batch_size = self._get_batch_size()
         logging.info(f"Using batch size: {batch_size}")
@@ -2056,6 +4605,25 @@ CRITICAL RULES:
                     candidates = candidates[:batch_size]
                 summary['detection_method'] = 'bullhorn_search'
             
+            # ALSO detect Pandologic API candidates (they don't come through ParsedEmail)
+            # These are fed directly into Bullhorn by Pandologic's integration
+            pandologic_candidates = self.detect_pandologic_candidates(since_minutes=10)
+            if pandologic_candidates:
+                logging.info(f"🔵 Adding {len(pandologic_candidates)} Pandologic candidates to vetting queue")
+                
+                # Merge with existing candidates, dedupe by candidate ID
+                existing_ids = {c.get('id') for c in candidates}
+                for pando_candidate in pandologic_candidates:
+                    if pando_candidate.get('id') not in existing_ids:
+                        candidates.append(pando_candidate)
+                        existing_ids.add(pando_candidate.get('id'))
+                
+                # Update detection method if we added Pandologic candidates
+                if summary['detection_method'] == 'parsed_email':
+                    summary['detection_method'] = 'parsed_email+pandologic'
+                else:
+                    summary['detection_method'] = 'bullhorn_search+pandologic'
+            
             summary['candidates_detected'] = len(candidates)
             
             if not candidates:
@@ -2075,9 +4643,12 @@ CRITICAL RULES:
                         if vetting_log.is_qualified:
                             summary['candidates_qualified'] += 1
                         
-                        # Create note
-                        if self.create_candidate_note(vetting_log):
-                            summary['notes_created'] += 1
+                        # Create note (only if not already created)
+                        if not vetting_log.note_created:
+                            if self.create_candidate_note(vetting_log):
+                                summary['notes_created'] += 1
+                        else:
+                            logging.info(f"⏭️ Skipping note creation - already exists for candidate {vetting_log.bullhorn_candidate_id}")
                         
                         # Send notifications for qualified candidates
                         if vetting_log.is_qualified:
@@ -2090,6 +4661,7 @@ CRITICAL RULES:
                         self._mark_application_vetted(parsed_email_id)
                             
                 except Exception as e:
+                    db.session.rollback()
                     error_msg = f"Error processing candidate {candidate.get('id')}: {str(e)}"
                     logging.error(error_msg)
                     summary['errors'].append(error_msg)
@@ -2097,10 +4669,18 @@ CRITICAL RULES:
             # Update last run timestamp
             self._set_last_run_timestamp(cycle_start)
             
+            # Check for OpenAI quota exhaustion at end of cycle
+            if CandidateVettingService._consecutive_quota_errors >= 3:
+                self._handle_quota_exhaustion()
+            elif CandidateVettingService._consecutive_quota_errors == 0:
+                # Reset alert flag when quota is healthy
+                CandidateVettingService._quota_alert_sent = False
+            
             logging.info(f"✅ Vetting cycle complete: {summary}")
             return summary
             
         except Exception as e:
+            db.session.rollback()
             error_msg = f"Vetting cycle error: {str(e)}"
             logging.error(error_msg)
             summary['errors'].append(error_msg)

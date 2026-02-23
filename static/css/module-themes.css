@@ -1,0 +1,1110 @@
+/**
+ * Module Themes – Dynamic per-page theming
+ *
+ * Uses data-module="inbound|screening|vetting" on <body> to swap
+ * the active accent color across all themed components.
+ * System pages omit data-module and stay Scout Genius green.
+ *
+ * Loaded AFTER theme-variables.css so module overrides cascade.
+ *
+ * SCOPING: All overrides are under body[data-module] so non-module
+ * pages (dashboard, settings, logs, audit) keep their green theme.
+ */
+
+/* ============================================
+   MODULE VARIABLE OVERRIDES
+   ============================================ */
+
+body[data-module="inbound"] {
+    --module-accent: var(--module-inbound-accent);
+    --module-bg: var(--module-inbound-bg);
+    --module-border: var(--module-inbound-border);
+    --module-text: var(--module-inbound-text);
+    --module-glow: var(--module-inbound-glow);
+    --module-gradient: var(--module-inbound-gradient);
+    --module-subtle: var(--module-inbound-subtle);
+    --module-border-strong: var(--module-inbound-border-strong);
+    --module-card-bg: var(--module-inbound-card-bg);
+    --module-card-hover-bg: var(--module-inbound-card-hover-bg);
+    --content-bg: linear-gradient(135deg, #1a1308 0%, #231a0a 50%, #151008 100%);
+    --sidebar-bg: #120e08;
+    /* Override Bootstrap semantic colors for module consistency */
+    --bs-success: #d97706;
+    --bs-success-rgb: 217, 119, 6;
+    --bs-info: #d97706;
+    --bs-info-rgb: 217, 119, 6;
+}
+
+body[data-module="screening"] {
+    --module-accent: var(--module-screening-accent);
+    --module-bg: var(--module-screening-bg);
+    --module-border: var(--module-screening-border);
+    --module-text: var(--module-screening-text);
+    --module-glow: var(--module-screening-glow);
+    --module-gradient: var(--module-screening-gradient);
+    --module-subtle: var(--module-screening-subtle);
+    --module-border-strong: var(--module-screening-border-strong);
+    --module-card-bg: var(--module-screening-card-bg);
+    --module-card-hover-bg: var(--module-screening-card-hover-bg);
+    --content-bg: linear-gradient(135deg, #1a0c14 0%, #2a1520 50%, #140a10 100%);
+    --sidebar-bg: #140a10;
+    /* Override Bootstrap semantic colors for module consistency */
+    --bs-success: #f43f5e;
+    --bs-success-rgb: 244, 63, 94;
+    --bs-info: #f43f5e;
+    --bs-info-rgb: 244, 63, 94;
+}
+
+body[data-module="vetting"] {
+    --module-accent: var(--module-vetting-accent);
+    --module-bg: var(--module-vetting-bg);
+    --module-border: var(--module-vetting-border);
+    --module-text: var(--module-vetting-text);
+    --module-glow: var(--module-vetting-glow);
+    --module-gradient: var(--module-vetting-gradient);
+    --module-subtle: var(--module-vetting-subtle);
+    --module-border-strong: var(--module-vetting-border-strong);
+    --module-card-bg: var(--module-vetting-card-bg);
+    --module-card-hover-bg: var(--module-vetting-card-hover-bg);
+    --content-bg: linear-gradient(135deg, #0a1620 0%, #0e1e2a 50%, #081218 100%);
+    --sidebar-bg: #081218;
+    /* Override Bootstrap semantic colors for module consistency */
+    --bs-success: #06b6d4;
+    --bs-success-rgb: 6, 182, 212;
+    --bs-info: #06b6d4;
+    --bs-info-rgb: 6, 182, 212;
+}
+
+/* ============================================
+   PAGE HEADER – Module-tinted background + border
+   ============================================ */
+body[data-module] .page-header {
+    background: linear-gradient(135deg, var(--module-bg), var(--module-bg)) !important;
+    border-bottom: 2px solid var(--module-accent);
+}
+
+/* ============================================
+   GLASS CARDS – Module-colored borders, strip, glow
+   ============================================ */
+body[data-module] .glass-card,
+body[data-module] .settings-card {
+    border-color: var(--module-border);
+}
+
+body[data-module] .glass-card::before,
+body[data-module] .settings-card::before {
+    background: var(--module-gradient) !important;
+}
+
+body[data-module] .glass-card:hover,
+body[data-module] .settings-card:hover {
+    border-color: var(--module-accent);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25), 0 0 30px var(--module-glow);
+}
+
+/* ============================================
+   USER HEADER AVATAR – Module accent
+   ============================================ */
+body[data-module] .user-header-avatar {
+    border-color: var(--module-accent) !important;
+    background: var(--module-gradient) !important;
+}
+
+/* ============================================
+   PRIMARY BUTTONS – Follow module color
+   ============================================ */
+body[data-module] .btn-primary {
+    background: var(--module-accent) !important;
+    border-color: var(--module-accent) !important;
+}
+
+body[data-module] .btn-primary:hover {
+    background: color-mix(in srgb, var(--module-accent) 85%, black) !important;
+    border-color: color-mix(in srgb, var(--module-accent) 85%, black) !important;
+}
+
+body[data-module] .btn-outline-primary {
+    color: var(--module-text);
+    border-color: var(--module-accent);
+}
+
+body[data-module] .btn-outline-primary:hover {
+    background-color: var(--module-bg);
+    color: var(--module-text);
+}
+
+/* ============================================
+   INFO BUTTONS – Follow module color
+   ============================================ */
+body[data-module] .btn-info {
+    background: var(--module-gradient) !important;
+    border: none;
+    color: white;
+}
+
+body[data-module] .btn-info:hover {
+    background: color-mix(in srgb, var(--module-accent) 85%, black) !important;
+    color: white;
+}
+
+body[data-module] .btn-outline-info {
+    color: var(--module-text);
+    border-color: var(--module-accent);
+}
+
+body[data-module] .btn-outline-info:hover {
+    background-color: var(--module-bg);
+    color: var(--module-text);
+}
+
+/* ============================================
+   SUCCESS BUTTONS – Follow module color
+   ============================================ */
+body[data-module] .btn-success {
+    background-color: var(--module-accent) !important;
+    border-color: var(--module-accent) !important;
+    color: white;
+}
+
+body[data-module] .btn-success:hover {
+    background-color: color-mix(in srgb, var(--module-accent) 85%, black) !important;
+    border-color: color-mix(in srgb, var(--module-accent) 85%, black) !important;
+    color: white;
+}
+
+/* ============================================
+   BOOTSTRAP SUCCESS OVERRIDES – Module-aware
+   ============================================ */
+body[data-module] .bg-success {
+    background-color: var(--module-accent) !important;
+}
+
+body[data-module] .text-success {
+    color: var(--module-text) !important;
+}
+
+body[data-module] .progress-bar.bg-success {
+    background-color: var(--module-accent) !important;
+}
+
+/* ============================================
+   WARNING BUTTONS – Screening-specific rose tint
+   ============================================ */
+body[data-module="screening"] .btn-warning {
+    background-color: #e11d48 !important;
+    border-color: #e11d48 !important;
+    color: white !important;
+}
+
+body[data-module="screening"] .btn-warning:hover {
+    background-color: #be123c !important;
+    border-color: #be123c !important;
+    color: white !important;
+}
+
+body[data-module="screening"] .btn-outline-warning {
+    color: #fb7185 !important;
+    border-color: #fb7185 !important;
+}
+
+body[data-module="screening"] .btn-outline-warning:hover {
+    background-color: rgba(244, 63, 94, 0.15) !important;
+    color: #fda4af !important;
+}
+
+body[data-module] .btn-outline-success {
+    color: var(--module-text) !important;
+    border-color: var(--module-accent) !important;
+}
+
+body[data-module] .btn-outline-success:hover {
+    background-color: var(--module-bg) !important;
+    color: var(--module-text) !important;
+}
+
+/* ============================================
+   BADGES – Module-tinted
+   ============================================ */
+body[data-module] .badge.bg-primary {
+    background-color: var(--module-accent) !important;
+}
+
+body[data-module] .badge.bg-info {
+    background-color: var(--module-accent) !important;
+}
+
+/* ============================================
+   BOOTSTRAP BACKGROUND UTILITIES – Scoped
+   ============================================ */
+body[data-module] .bg-primary {
+    background-color: var(--module-accent) !important;
+}
+
+body[data-module] .bg-info {
+    background-color: var(--module-accent) !important;
+}
+
+body[data-module] .bg-primary.bg-opacity-10 {
+    background-color: var(--module-bg) !important;
+}
+
+/* ============================================
+   BOOTSTRAP TEXT UTILITIES – Scoped
+   ============================================ */
+body[data-module] .text-primary {
+    color: var(--module-text) !important;
+}
+
+body[data-module] .text-info {
+    color: var(--module-text) !important;
+}
+
+/* ============================================
+   BOOTSTRAP BORDER UTILITIES – Scoped
+   ============================================ */
+body[data-module] .border-primary {
+    border-color: var(--module-accent) !important;
+}
+
+body[data-module] .border-info {
+    border-color: var(--module-accent) !important;
+}
+
+/* ============================================
+   SIDEBAR ACTIVE STATE – Highlight target module
+   ============================================ */
+body[data-module="inbound"] .nav-section[data-section="inbound"] .nav-item.active {
+    background: var(--module-inbound-bg);
+    color: var(--module-inbound-text);
+    border-left: 3px solid var(--module-inbound-accent);
+}
+
+body[data-module="screening"] .nav-section[data-section="screening"] .nav-item.active {
+    background: var(--module-screening-bg);
+    color: var(--module-screening-text);
+    border-left: 3px solid var(--module-screening-accent);
+}
+
+body[data-module="vetting"] .nav-section[data-section="vetting"] .nav-item.active {
+    background: var(--module-vetting-bg);
+    color: var(--module-vetting-text);
+    border-left: 3px solid var(--module-vetting-accent);
+}
+
+/* ============================================
+   NAV SECTION TITLES – Module-colored when active
+   ============================================ */
+body[data-module="inbound"] .nav-section[data-section="inbound"] .nav-section-title {
+    color: var(--module-inbound-accent);
+}
+
+body[data-module="screening"] .nav-section[data-section="screening"] .nav-section-title {
+    color: var(--module-screening-accent);
+}
+
+body[data-module="vetting"] .nav-section[data-section="vetting"] .nav-section-title {
+    color: var(--module-vetting-accent);
+}
+
+/* ============================================
+   MODULE LOGO IN SIDEBAR – Shows module icon
+   ============================================ */
+.module-logo {
+    height: 28px;
+    width: auto;
+    margin-right: 0.5rem;
+    opacity: 0.9;
+    vertical-align: middle;
+}
+
+.nav-section-title .module-logo {
+    height: 20px;
+}
+
+/* ============================================
+   TABLE – Full module theming (background, borders, hovers)
+   ============================================ */
+body[data-module] .table thead th {
+    border-bottom-color: var(--module-border);
+}
+
+/* Table base background & border */
+body[data-module="inbound"] .table {
+    background: linear-gradient(145deg, rgba(35, 26, 10, 0.6), rgba(21, 16, 8, 0.7));
+    border-color: rgba(217, 119, 6, 0.1);
+}
+
+body[data-module="screening"] .table {
+    background: linear-gradient(145deg, rgba(42, 21, 32, 0.6), rgba(23, 10, 18, 0.7));
+    border-color: rgba(244, 63, 94, 0.1);
+}
+
+/* Table cell borders */
+body[data-module="inbound"] .table td {
+    border-bottom-color: rgba(217, 119, 6, 0.08);
+}
+
+body[data-module="screening"] .table td {
+    border-bottom-color: rgba(244, 63, 94, 0.08);
+}
+
+/* Table row hover */
+body[data-module="inbound"] .table tbody tr:hover {
+    background: rgba(217, 119, 6, 0.08);
+}
+
+body[data-module="screening"] .table tbody tr:hover {
+    background: rgba(244, 63, 94, 0.08);
+}
+
+/* Bootstrap table CSS variables override */
+body[data-module="inbound"] .table,
+body[data-module="inbound"] .table thead,
+body[data-module="inbound"] .table tbody,
+body[data-module="inbound"] .table th,
+body[data-module="inbound"] .table td {
+    --bs-table-striped-bg: rgba(217, 119, 6, 0.05);
+    --bs-table-hover-bg: rgba(217, 119, 6, 0.08);
+    --bs-table-border-color: rgba(217, 119, 6, 0.1);
+    --bs-table-active-bg: rgba(217, 119, 6, 0.1);
+}
+
+body[data-module="screening"] .table,
+body[data-module="screening"] .table thead,
+body[data-module="screening"] .table tbody,
+body[data-module="screening"] .table th,
+body[data-module="screening"] .table td {
+    --bs-table-striped-bg: rgba(244, 63, 94, 0.05);
+    --bs-table-hover-bg: rgba(244, 63, 94, 0.08);
+    --bs-table-border-color: rgba(244, 63, 94, 0.1);
+    --bs-table-active-bg: rgba(244, 63, 94, 0.1);
+}
+
+/* Glass-card table borders */
+body[data-module="inbound"] .glass-card .table,
+body[data-module="inbound"] .glass-card .table th,
+body[data-module="inbound"] .glass-card .table td {
+    border-color: rgba(217, 119, 6, 0.1);
+}
+
+body[data-module="screening"] .glass-card .table,
+body[data-module="screening"] .glass-card .table th,
+body[data-module="screening"] .glass-card .table td {
+    border-color: rgba(244, 63, 94, 0.1);
+}
+
+/* Bootstrap table CSS variables override – vetting teal */
+body[data-module="vetting"] .table,
+body[data-module="vetting"] .table thead,
+body[data-module="vetting"] .table tbody,
+body[data-module="vetting"] .table th,
+body[data-module="vetting"] .table td {
+    --bs-table-striped-bg: rgba(6, 182, 212, 0.05);
+    --bs-table-hover-bg: rgba(6, 182, 212, 0.08);
+    --bs-table-border-color: rgba(6, 182, 212, 0.1);
+    --bs-table-active-bg: rgba(6, 182, 212, 0.1);
+}
+
+body[data-module="vetting"] .glass-card .table,
+body[data-module="vetting"] .glass-card .table th,
+body[data-module="vetting"] .glass-card .table td {
+    border-color: rgba(6, 182, 212, 0.1);
+}
+
+/* ============================================
+   FOCUS STATES – Module-colored ring
+   ============================================ */
+body[data-module] .form-control:focus,
+body[data-module] .form-select:focus {
+    border-color: var(--module-accent);
+    box-shadow: 0 0 0 0.2rem var(--module-glow);
+}
+
+body[data-module] .form-check-input:focus {
+    border-color: var(--module-accent);
+    box-shadow: 0 0 0 0.2rem var(--module-glow);
+}
+
+body[data-module] .form-check-input:checked {
+    background-color: var(--module-accent);
+    border-color: var(--module-accent);
+}
+
+/* ============================================
+   LINKS – Module-colored within content
+   ============================================ */
+body[data-module] .content-area a:not(.btn):not(.nav-item):not(.nav-link) {
+    color: var(--module-text);
+}
+
+/* ============================================
+   SPINNERS – Follow module accent when themed
+   ============================================ */
+body[data-module] .spinner-border.text-primary {
+    color: var(--module-accent) !important;
+}
+
+/* ============================================
+   SCOUT SCREENING LOGO – Updated wide banner
+   ============================================ */
+.sidebar-logo-full.screening-logo {
+    width: 180px;
+    height: auto;
+}
+
+/* ============================================
+   FEEDBACK MODAL – Module-aware theming
+   ============================================ */
+body[data-module="inbound"] .feedback-modal-content {
+    background: linear-gradient(145deg, #1e1810 0%, #171210 100%) !important;
+    border: 1px solid var(--module-inbound-border) !important;
+}
+
+body[data-module="inbound"] .feedback-modal-icon {
+    color: var(--module-inbound-accent) !important;
+}
+
+body[data-module="inbound"] .feedback-submit-btn {
+    background: var(--module-inbound-gradient) !important;
+}
+
+body[data-module="screening"] .feedback-modal-content {
+    background: linear-gradient(145deg, #3a1a28 0%, #280d1c 100%) !important;
+    border: 1px solid var(--module-screening-border) !important;
+}
+
+body[data-module="screening"] .feedback-modal-icon {
+    color: var(--module-screening-accent) !important;
+}
+
+body[data-module="screening"] .feedback-submit-btn {
+    background: var(--module-screening-gradient) !important;
+}
+
+body[data-module="vetting"] .feedback-modal-content {
+    background: linear-gradient(145deg, #0a1e26 0%, #061218 100%) !important;
+    border: 1px solid var(--module-vetting-border) !important;
+}
+
+body[data-module="vetting"] .feedback-modal-icon {
+    color: var(--module-vetting-accent) !important;
+}
+
+body[data-module="vetting"] .feedback-submit-btn {
+    background: var(--module-vetting-gradient) !important;
+}
+
+/* ============================================
+   STAT CARD ICONS – Module accent override
+   ============================================ */
+body[data-module] .stat-icon,
+body[data-module] .metric-icon {
+    color: var(--module-accent) !important;
+    background: var(--module-bg) !important;
+}
+
+/* ============================================
+   METRIC CARDS – Module-tinted backgrounds
+   ============================================ */
+body[data-module] .metric-card {
+    border-color: var(--module-border);
+}
+
+body[data-module] .metric-card::before {
+    background: var(--module-gradient) !important;
+    opacity: 0.12;
+}
+
+body[data-module] .metric-card:hover {
+    border-color: var(--module-accent);
+    box-shadow: 0 10px 30px var(--module-glow);
+}
+
+/* Screening-specific: dark rose-tinted card backgrounds */
+body[data-module="screening"] .metric-card {
+    background: linear-gradient(145deg, #2a1520 0%, #1c0d15 50%, #170a12 100%);
+    border-color: var(--module-screening-border-strong);
+}
+
+body[data-module="screening"] .metric-card::before {
+    background: linear-gradient(135deg, var(--module-screening-bg) 0%, transparent 50%);
+}
+
+body[data-module="screening"] .metric-card:hover {
+    box-shadow: 0 10px 30px var(--module-screening-glow);
+    border-color: rgba(244, 63, 94, 0.5);
+}
+
+body[data-module="screening"] .metric-card .metric-label {
+    color: rgba(251, 113, 133, 0.85);
+}
+
+body[data-module="screening"] .metric-card .metric-icon {
+    color: var(--module-screening-text) !important;
+    background: var(--module-screening-bg) !important;
+}
+
+/* Inbound-specific: dark amber-tinted card backgrounds */
+body[data-module="inbound"] .metric-card {
+    background: linear-gradient(145deg, #231a0a 0%, #170f05 50%, #130c04 100%);
+    border-color: var(--module-inbound-border-strong);
+}
+
+body[data-module="inbound"] .metric-card::before {
+    background: linear-gradient(135deg, var(--module-inbound-bg) 0%, transparent 50%);
+}
+
+body[data-module="inbound"] .metric-card:hover {
+    box-shadow: 0 10px 30px var(--module-inbound-glow);
+    border-color: rgba(217, 119, 6, 0.5);
+}
+
+body[data-module="inbound"] .metric-card .metric-label {
+    color: rgba(229, 165, 10, 0.85);
+}
+
+body[data-module="inbound"] .metric-card .metric-icon {
+    color: var(--module-inbound-text) !important;
+    background: var(--module-inbound-bg) !important;
+}
+
+/* Vetting-specific: dark teal/cyan-tinted card backgrounds */
+body[data-module="vetting"] .metric-card {
+    background: linear-gradient(145deg, #0a1e26 0%, #061218 50%, #040e12 100%);
+    border-color: var(--module-vetting-border-strong);
+}
+
+body[data-module="vetting"] .metric-card::before {
+    background: linear-gradient(135deg, var(--module-vetting-bg) 0%, transparent 50%);
+}
+
+body[data-module="vetting"] .metric-card:hover {
+    box-shadow: 0 10px 30px var(--module-vetting-glow);
+    border-color: rgba(6, 182, 212, 0.5);
+}
+
+body[data-module="vetting"] .metric-card .metric-label {
+    color: rgba(34, 211, 238, 0.85);
+}
+
+body[data-module="vetting"] .metric-card .metric-icon {
+    color: var(--module-vetting-text) !important;
+    background: var(--module-vetting-bg) !important;
+}
+
+/* ============================================
+   ACTION TILES – Module accent on icons/borders
+   ============================================ */
+body[data-module] .action-tile {
+    border-color: var(--module-border);
+}
+
+body[data-module] .action-tile:hover {
+    border-color: var(--module-accent);
+    box-shadow: 0 8px 25px var(--module-glow);
+}
+
+body[data-module] .action-tile-icon {
+    background: var(--module-bg) !important;
+    color: var(--module-accent) !important;
+}
+
+/* ============================================
+   SECTION HEADER ICONS – Module colored
+   ============================================ */
+body[data-module] .section-header i {
+    color: var(--module-accent) !important;
+}
+
+/* ============================================
+   MONITOR CARDS – Module borders
+   ============================================ */
+body[data-module] .monitor-card {
+    border-color: var(--module-border);
+}
+
+body[data-module] .monitor-card:hover {
+    border-color: var(--module-accent);
+    box-shadow: 0 10px 30px var(--module-glow);
+}
+
+/* ============================================
+   STATUS PANEL – Module borders
+   ============================================ */
+body[data-module] .status-panel {
+    border-color: var(--module-border);
+}
+
+/* ============================================
+   GLASS CARDS – Module-tinted backgrounds
+   ============================================ */
+body[data-module="screening"] .glass-card {
+    background: var(--module-screening-card-bg);
+    border-color: var(--module-screening-border);
+}
+
+body[data-module="inbound"] .glass-card {
+    background: var(--module-inbound-card-bg);
+    border-color: var(--module-inbound-border);
+}
+
+/* Glass-card card-header backgrounds (override green gradient in base) */
+body[data-module="screening"] .glass-card .card-header {
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.1), rgba(244, 63, 94, 0.05));
+    border-bottom-color: rgba(244, 63, 94, 0.2);
+}
+
+body[data-module="inbound"] .glass-card .card-header {
+    background: linear-gradient(135deg, rgba(217, 119, 6, 0.1), rgba(217, 119, 6, 0.05));
+    border-bottom-color: rgba(217, 119, 6, 0.2);
+}
+
+/* Glass-card hover backgrounds */
+body[data-module="screening"] .glass-card:hover {
+    background: var(--module-screening-card-hover-bg);
+}
+
+body[data-module="inbound"] .glass-card:hover {
+    background: var(--module-inbound-card-hover-bg);
+}
+
+
+
+/* ============================================
+   SETTINGS CARD – Module backgrounds & borders
+   ============================================ */
+body[data-module] .settings-card .card-header {
+    background: var(--module-bg);
+    border-bottom-color: var(--module-border);
+}
+
+body[data-module="screening"] .settings-card {
+    background: linear-gradient(145deg, #2a1520 0%, #1c0d15 50%, #170a12 100%);
+    border-color: var(--module-screening-border);
+}
+
+body[data-module="screening"] .settings-card .card-header {
+    background: var(--module-screening-subtle);
+    border-bottom-color: rgba(244, 63, 94, 0.15);
+}
+
+body[data-module="inbound"] .settings-card {
+    background: linear-gradient(145deg, #231a0a 0%, #1a1308 50%, #151008 100%);
+    border-color: var(--module-inbound-border);
+}
+
+body[data-module="inbound"] .settings-card .card-header {
+    background: var(--module-inbound-subtle);
+    border-bottom-color: rgba(217, 119, 6, 0.15);
+}
+
+body[data-module="vetting"] .settings-card {
+    background: linear-gradient(145deg, #0a1e26 0%, #061218 50%, #040e12 100%);
+    border-color: var(--module-vetting-border);
+}
+
+body[data-module="vetting"] .settings-card .card-header {
+    background: var(--module-vetting-subtle);
+    border-bottom-color: rgba(6, 182, 212, 0.15);
+}
+
+/* Vetting badge override – blue-gray instead of default secondary */
+body[data-module="vetting"] .bg-secondary {
+    background-color: rgb(109, 132, 186) !important;
+}
+
+/* Card header icons follow module accent */
+body[data-module] .settings-card .card-header h5 i,
+body[data-module] .card-header h5 i {
+    color: var(--module-accent) !important;
+}
+
+/* ============================================
+   SCHEDULE/XML FILE CARDS – Module backgrounds & borders
+   ============================================ */
+body[data-module] .schedule-card,
+body[data-module] .xml-file-card {
+    border-color: var(--module-border);
+}
+
+body[data-module="inbound"] .schedule-card,
+body[data-module="inbound"] .xml-file-card {
+    background: var(--module-inbound-card-bg);
+    border-color: rgba(217, 119, 6, 0.15);
+}
+
+body[data-module="screening"] .schedule-card,
+body[data-module="screening"] .xml-file-card {
+    background: var(--module-screening-card-bg);
+    border-color: rgba(244, 63, 94, 0.15);
+}
+
+body[data-module] .schedule-card:hover,
+body[data-module] .xml-file-card:hover {
+    border-color: var(--module-accent);
+    box-shadow: 0 8px 25px var(--module-glow);
+}
+
+body[data-module="inbound"] .schedule-card:hover,
+body[data-module="inbound"] .xml-file-card:hover {
+    background: var(--module-inbound-card-hover-bg);
+}
+
+body[data-module="screening"] .schedule-card:hover,
+body[data-module="screening"] .xml-file-card:hover {
+    background: var(--module-screening-card-hover-bg);
+}
+
+/* ============================================
+   TOGGLE SWITCHES – Module accent color
+   ============================================ */
+body[data-module] .toggle-switch input:checked+.toggle-slider {
+    background-color: var(--module-accent) !important;
+}
+
+/* ============================================
+   TABLE HEADERS – Module-tinted within cards
+   ============================================ */
+body[data-module="screening"] .table thead th {
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.12), rgba(244, 63, 94, 0.06));
+    border-bottom-color: rgba(244, 63, 94, 0.15);
+}
+
+body[data-module="inbound"] .table thead th {
+    background: linear-gradient(135deg, rgba(217, 119, 6, 0.12), rgba(217, 119, 6, 0.06));
+    border-bottom-color: rgba(217, 119, 6, 0.15);
+}
+
+body[data-module="vetting"] .table thead th {
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(6, 182, 212, 0.06));
+    border-bottom-color: rgba(6, 182, 212, 0.15);
+}
+
+/* ============================================
+   NON-.glass-card CARDS – Module backgrounds
+   ============================================ */
+body[data-module="screening"] .card:not(.glass-card):not(.settings-card) {
+    background: var(--module-screening-card-bg);
+    border-color: rgba(244, 63, 94, 0.15);
+}
+
+body[data-module="screening"] .card:not(.glass-card):not(.settings-card) .card-header {
+    background: var(--module-screening-subtle);
+    border-bottom-color: rgba(244, 63, 94, 0.15);
+}
+
+body[data-module="inbound"] .card:not(.glass-card):not(.settings-card) {
+    background: var(--module-inbound-card-bg);
+    border-color: rgba(217, 119, 6, 0.15);
+}
+
+body[data-module="inbound"] .card:not(.glass-card):not(.settings-card) .card-header {
+    background: var(--module-inbound-subtle);
+    border-bottom-color: rgba(217, 119, 6, 0.15);
+}
+
+body[data-module="vetting"] .card:not(.glass-card):not(.settings-card) {
+    background: var(--module-vetting-card-bg);
+    border-color: rgba(6, 182, 212, 0.15);
+}
+
+body[data-module="vetting"] .card:not(.glass-card):not(.settings-card) .card-header {
+    background: var(--module-vetting-subtle);
+    border-bottom-color: rgba(6, 182, 212, 0.15);
+}
+
+/* ============================================
+   ACCORDION – Module-tinted within screening
+   ============================================ */
+body[data-module="screening"] .accordion-body {
+    background: rgba(244, 63, 94, 0.07) !important;
+}
+
+/* Job ID badge in accordion headers */
+body[data-module="screening"] .accordion-button .badge.bg-secondary,
+body[data-module="screening"] .accordion-button .badge.bg-info,
+body[data-module="screening"] .accordion-button .badge.bg-success {
+    background: var(--module-accent) !important;
+    color: #fff;
+}
+
+body[data-module="inbound"] .accordion-body {
+    background: rgba(42, 32, 16, 0.5);
+}
+
+/* ============================================
+   ALERTS/TOASTS – Semantic only (NOT themed)
+   ============================================ */
+/* Keeping standard Bootstrap semantics:
+   green=success, red=error, yellow=warning, blue=info */
+
+/* ============================================
+   MODAL – Dark-themed for inbound module
+   ============================================ */
+body[data-module="inbound"] .modal-content {
+    background: linear-gradient(145deg, #1e1810 0%, #171210 100%);
+    border: 1px solid var(--module-inbound-border);
+    color: #e2e8f0;
+}
+
+body[data-module="inbound"] .modal-header {
+    background: var(--module-inbound-subtle);
+    border-bottom-color: rgba(217, 119, 6, 0.15);
+}
+
+body[data-module="inbound"] .modal-footer {
+    border-top-color: rgba(217, 119, 6, 0.15);
+}
+
+body[data-module="inbound"] .table-striped>tbody>tr:nth-of-type(odd)>* {
+    --bs-table-accent-bg: rgba(217, 119, 6, 0.04);
+    color: #e2e8f0;
+}
+
+body[data-module="inbound"] .table-hover>tbody>tr:hover>* {
+    --bs-table-accent-bg: var(--module-inbound-subtle);
+    color: #e2e8f0;
+}
+
+body[data-module="screening"] .modal-content {
+    background: linear-gradient(145deg, #1e1018 0%, #170d14 100%);
+    border: 1px solid var(--module-screening-border);
+    color: #e2e8f0;
+}
+
+body[data-module="screening"] .modal-header {
+    background: var(--module-screening-subtle);
+    border-bottom-color: rgba(244, 63, 94, 0.15);
+}
+
+body[data-module="screening"] .modal-footer {
+    border-top-color: rgba(244, 63, 94, 0.15);
+}
+
+/* ============================================
+   BTN-WARNING – Toned-down amber for inbound
+   ============================================ */
+body[data-module="inbound"] .btn-warning {
+    background: #b45309 !important;
+    border-color: #92400e !important;
+    color: #fef3c7 !important;
+}
+
+body[data-module="inbound"] .btn-warning:hover {
+    background: #92400e !important;
+    border-color: #78350f !important;
+}
+
+body[data-module="inbound"] .btn-outline-warning {
+    color: #d97706 !important;
+    border-color: #d97706 !important;
+}
+
+body[data-module="inbound"] .btn-outline-warning:hover {
+    background: rgba(217, 119, 6, 0.15) !important;
+    color: #e5a50a !important;
+}
+
+/* ============================================
+   TABLE-DARK – Amber-tinted for inbound
+   ============================================ */
+body[data-module="inbound"] .table-dark {
+    --bs-table-bg: rgba(35, 26, 10, 0.95);
+    --bs-table-border-color: rgba(217, 119, 6, 0.15);
+    --bs-table-striped-bg: rgba(217, 119, 6, 0.04);
+    --bs-table-hover-bg: rgba(217, 119, 6, 0.08);
+    color: #e2e8f0;
+}
+
+body[data-module="screening"] .table-dark {
+    --bs-table-bg: rgba(30, 16, 24, 0.95);
+    --bs-table-border-color: rgba(244, 63, 94, 0.15);
+    --bs-table-striped-bg: rgba(244, 63, 94, 0.04);
+    --bs-table-hover-bg: rgba(244, 63, 94, 0.08);
+    color: #e2e8f0;
+}
+
+/* ============================================
+   ALERT-INFO – Amber-tinted for inbound info banners
+   ============================================ */
+body[data-module="inbound"] .alert-info {
+    background: var(--module-inbound-subtle) !important;
+    border-color: var(--module-inbound-border) !important;
+    color: var(--module-inbound-text) !important;
+}
+
+body[data-module="inbound"] .alert-info .alert-link,
+body[data-module="inbound"] .alert-info i {
+    color: var(--module-inbound-accent) !important;
+}
+
+/* ============================================
+   BTN-OUTLINE-INFO – Amber-tinted for inbound
+   ============================================ */
+body[data-module="inbound"] .btn-outline-info {
+    color: #d97706 !important;
+    border-color: rgba(217, 119, 6, 0.4) !important;
+}
+
+body[data-module="inbound"] .btn-outline-info:hover {
+    background: rgba(217, 119, 6, 0.15) !important;
+    color: #e5a50a !important;
+    border-color: #d97706 !important;
+}
+
+/* ============================================
+   PAGE-SPECIFIC: Scheduler
+   ============================================ */
+
+/* Active/inactive schedule states */
+.schedule-active {
+    border-color: var(--module-border-strong, rgba(217, 119, 6, 0.4));
+    background: linear-gradient(145deg, rgba(217, 119, 6, 0.1), rgba(35, 26, 10, 0.9));
+}
+
+.schedule-inactive {
+    border-color: rgba(100, 116, 139, 0.3);
+    opacity: 0.7;
+}
+
+/* File upload drop zone */
+.file-picker-area {
+    border: 2px dashed var(--module-border, rgba(217, 119, 6, 0.3));
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: linear-gradient(145deg, rgba(35, 26, 10, 0.6), rgba(21, 16, 8, 0.7));
+    backdrop-filter: blur(10px);
+}
+
+.file-picker-area:hover {
+    border-color: var(--module-accent, rgba(217, 119, 6, 0.6));
+    background: linear-gradient(145deg, rgba(217, 119, 6, 0.15), rgba(217, 119, 6, 0.08));
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 0 20px var(--module-glow, rgba(217, 119, 6, 0.1));
+}
+
+/* ============================================
+   PAGE-SPECIFIC: ATS Monitoring
+   ============================================ */
+
+/* Inactive monitor dimming */
+.monitor-card.inactive {
+    opacity: 0.6;
+    border-color: var(--bs-warning);
+}
+
+/* Job count badge sizing */
+.job-count-badge {
+    font-size: 1.1em;
+    padding: 0.5em 0.8em;
+}
+
+/* Status indicator dots (ATS monitoring-specific) */
+.ats-status-indicator,
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.status-active {
+    background-color: var(--bs-success);
+}
+
+.status-inactive {
+    background-color: var(--bs-warning);
+}
+
+.status-error {
+    background-color: var(--bs-danger);
+}
+
+/* Activity log container */
+.activity-table {
+    max-height: 750px;
+    overflow-y: auto;
+}
+
+.activity-timestamp {
+    font-size: 0.9em;
+    color: var(--bs-secondary);
+}
+
+/* Activity type badges – use Bootstrap vars (already module-overridden) */
+.activity-type {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.type-check_completed {
+    background-color: var(--bs-success);
+    color: white;
+}
+
+.type-job_added {
+    background-color: var(--bs-info);
+    color: white;
+}
+
+.type-job_removed {
+    background-color: var(--bs-warning);
+    color: white;
+}
+
+.type-job_modified {
+    background-color: var(--bs-primary);
+    color: white;
+}
+
+.type-error {
+    background-color: var(--bs-danger);
+    color: white;
+}
+
+.type-xml_sync_completed {
+    background-color: var(--bs-success);
+    color: white;
+}
+
+.type-orphan_cleanup {
+    background-color: var(--bs-secondary);
+    color: white;
+}
+
+/* ============================================
+   SIDEBAR FOOTER – Module-colored avatar & border
+   ============================================ */
+body[data-module] .sidebar-footer {
+    border-top-color: var(--module-border);
+}
+
+body[data-module] .user-avatar {
+    background: var(--module-gradient) !important;
+}
+
+body[data-module] .user-info {
+    background: var(--module-bg);
+}
+
+body[data-module] .logout-btn {
+    background: color-mix(in srgb, var(--module-accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--module-accent) 35%, transparent);
+    color: var(--module-text);
+}
+
+body[data-module] .logout-btn:hover {
+    background: color-mix(in srgb, var(--module-accent) 22%, transparent);
+    color: var(--module-text);
+}
+
+/* Loading spinner (hidden by default) */
+.loading-spinner {
+    display: none;
+}

@@ -22,7 +22,8 @@ class EmailService:
         self.EmailDeliveryLog = EmailDeliveryLog
 
     def _check_recent_notification(self, notification_type: str, recipient_email: str, 
-                                 monitor_name: str = None, schedule_name: str = None, 
+                                 monitor_name: str = None, schedule_name: str = None,
+                                 job_id: str = None,
                                  minutes_threshold: int = 5) -> bool:
         """
         Check if a similar notification was sent recently to prevent duplicates
@@ -31,7 +32,8 @@ class EmailService:
             notification_type: Type of notification to check
             recipient_email: Email address to check
             monitor_name: Monitor name for bullhorn notifications
-            schedule_name: Schedule name for processing notifications  
+            schedule_name: Schedule name for processing notifications
+            job_id: Job ID for new_job_notification deduplication
             minutes_threshold: Time window in minutes to check for duplicates
             
         Returns:
@@ -50,7 +52,7 @@ class EmailService:
                 self.EmailDeliveryLog.notification_type == notification_type,
                 self.EmailDeliveryLog.recipient_email == recipient_email,
                 self.EmailDeliveryLog.delivery_status == 'sent',
-                self.EmailDeliveryLog.created_at >= cutoff_time
+                self.EmailDeliveryLog.sent_at >= cutoff_time
             )
             
             # Add specific filters based on notification type
@@ -62,12 +64,16 @@ class EmailService:
                 query = query.filter(
                     self.EmailDeliveryLog.schedule_name == schedule_name
                 )
+            elif notification_type == 'new_job_notification' and job_id:
+                query = query.filter(
+                    self.EmailDeliveryLog.job_id == str(job_id)
+                )
             
             recent_notification = query.first()
             
             if recent_notification:
                 logging.info(f"DUPLICATE PREVENTION: Blocking duplicate {notification_type} notification to {recipient_email} "
-                           f"(last sent: {recent_notification.created_at}, within {minutes_threshold}min threshold)")
+                           f"(last sent: {recent_notification.sent_at}, within {minutes_threshold}min threshold)")
                 return True
             
             return False
@@ -1178,7 +1184,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
     def send_html_email(self, to_email: str, subject: str, html_content: str,
                         notification_type: str = 'html_email',
                         cc_emails: list = None,
-                        bcc_emails: list = None) -> bool:
+                        bcc_emails: list = None,
+                        in_reply_to: str = None,
+                        reply_to: str = None,
+                        from_name: str = None):
         """
         Send an HTML email (for test emails, custom notifications, etc.)
         
@@ -1189,21 +1198,42 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             notification_type: Type of notification for logging purposes
             cc_emails: Optional list of email addresses to CC on the email
             bcc_emails: Optional list of email addresses to BCC on the email
+            in_reply_to: Optional Message-ID for email threading (adds In-Reply-To + References headers)
+            reply_to: Optional Reply-To address (overrides default from_email for replies)
+            from_name: Optional display name for the From field
             
         Returns:
-            bool: True if sent successfully, False otherwise
+            dict: {'success': bool, 'message_id': str or None}  — truthy when success is True
         """
         try:
             if not self.api_key:
                 logging.warning("SendGrid API key not configured - cannot send email")
-                return False
+                return {'success': False, 'message_id': None}
+
+            # Build From field with optional display name
+            from_addr = self.from_email
+            if from_name:
+                from_email_obj = Email(from_addr, from_name)
+            else:
+                from_email_obj = Email(from_addr)
 
             message = Mail(
-                from_email=Email(self.from_email),
+                from_email=from_email_obj,
                 to_emails=To(to_email),
                 subject=subject,
                 html_content=Content("text/html", html_content)
             )
+            
+            # Add Reply-To header (for Scout Vetting inbound routing)
+            if reply_to:
+                from sendgrid.helpers.mail import ReplyTo
+                message.reply_to = ReplyTo(reply_to)
+            
+            # Add In-Reply-To and References headers (for email threading)
+            if in_reply_to:
+                from sendgrid.helpers.mail import Header
+                message.header = Header('In-Reply-To', in_reply_to)
+                message.header = Header('References', in_reply_to)
             
             # Add CC recipients if provided
             if cc_emails:
@@ -1242,10 +1272,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             
             if response.status_code == 202:
                 logging.info(f"HTML email sent successfully to {to_email}")
-                return True
+                return {'success': True, 'message_id': sendgrid_message_id}
             else:
                 logging.error(f"Failed to send HTML email: {response.status_code}")
-                return False
+                return {'success': False, 'message_id': None}
                 
         except Exception as e:
             # Log failed delivery
@@ -1257,7 +1287,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 subject=subject
             )
             logging.error(f"Failed to send HTML email: {str(e)}")
-            return False
+            return {'success': False, 'message_id': None}
 
     def send_new_job_notification(self, to_email: str, job_id: str, job_title: str, 
                                   monitor_name: str = None) -> bool:
@@ -1277,6 +1307,16 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             if not self.api_key:
                 logging.warning("SendGrid API key not configured - cannot send email")
                 return False
+            
+            # Check for duplicate notification within 24 hours (1440 minutes)
+            if self._check_recent_notification(
+                'new_job_notification', 
+                to_email, 
+                job_id=job_id,
+                minutes_threshold=1440  # 24 hours
+            ):
+                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate new job notification for job {job_id}")
+                return True  # Return True since we're intentionally not sending (not an error)
             
             # Create subject line with job ID
             subject = f"🆕 New Job Added - ID: {job_id}"
