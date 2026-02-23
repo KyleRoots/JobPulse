@@ -430,32 +430,32 @@
             <h5><i class="fas fa-list-check me-2"></i>Automations</h5>
         </div>
 
-        <div id="automationStatusPanel" style="padding:0.6rem 0.75rem;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(10,18,14,0.4);">
-            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(224,220,216,0.4);margin-bottom:0.4rem;font-weight:600;">Status</div>
-            <div id="automationStatusList" style="font-size:0.78rem;">
-                <div style="color:rgba(224,220,216,0.3);font-size:0.75rem;">No custom automations yet</div>
-            </div>
-        </div>
-
         <div class="tasks-list" id="tasksList">
             {% if tasks %}
                 {% for task in tasks %}
                     <div class="task-card" data-task-id="{{ task.id }}" onclick="selectTask({{ task.id }})">
-                        <div class="task-card-name">{{ task.name }}</div>
-                        {% if task.description %}
-                            <div class="task-card-desc">{{ task.description[:100] }}{% if task.description|length > 100 %}...{% endif %}</div>
-                        {% endif %}
-                        <div class="task-card-meta">
-                            <span class="task-status {{ task.status }}">{{ task.status }}</span>
-                            {% if task.run_count > 0 %}
-                                <span class="task-runs"><i class="fas fa-play-circle"></i> {{ task.run_count }} runs</span>
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                            {% if task.status == 'active' %}
+                                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;box-shadow:0 0 4px rgba(40,167,69,0.5);flex-shrink:0;"></span>
+                            {% elif task.status == 'completed' %}
+                                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#17a2b8;box-shadow:0 0 4px rgba(23,162,184,0.5);flex-shrink:0;"></span>
+                            {% elif task.status == 'failed' %}
+                                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc3545;box-shadow:0 0 4px rgba(220,53,69,0.5);flex-shrink:0;"></span>
+                            {% else %}
+                                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6c757d;box-shadow:0 0 3px rgba(108,117,125,0.4);flex-shrink:0;"></span>
                             {% endif %}
+                            <div class="task-card-name" style="margin-bottom:0;">{{ task.name }}</div>
+                        </div>
+                        <div class="task-card-meta">
                             {% if task.automation_type %}
                                 <span class="task-runs">{{ task.automation_type }}</span>
                             {% endif %}
+                            {% if task.run_count > 0 %}
+                                <span class="task-runs"><i class="fas fa-play-circle"></i> {{ task.run_count }}</span>
+                            {% endif %}
                         </div>
                         <div class="task-card-actions">
-                            <button onclick="event.stopPropagation(); viewLogs({{ task.id }})" title="View logs">
+                            <button onclick="event.stopPropagation(); viewLogs({{ task.id }})" title="Execution history for this automation">
                                 <i class="fas fa-file-alt"></i> Logs
                             </button>
                             <button class="delete-btn" onclick="event.stopPropagation(); deleteTask({{ task.id }})" title="Delete">
@@ -608,27 +608,34 @@
                 return;
             }
 
-            list.innerHTML = tasks.map(t => `
+            list.innerHTML = tasks.map(t => {
+                let dotColor, dotShadow;
+                if (t.status === 'active') { dotColor = '#28a745'; dotShadow = 'rgba(40,167,69,0.5)'; }
+                else if (t.status === 'completed') { dotColor = '#17a2b8'; dotShadow = 'rgba(23,162,184,0.5)'; }
+                else if (t.status === 'failed') { dotColor = '#dc3545'; dotShadow = 'rgba(220,53,69,0.5)'; }
+                else { dotColor = '#6c757d'; dotShadow = 'rgba(108,117,125,0.4)'; }
+
+                return `
                 <div class="task-card ${currentTaskId === t.id ? 'active' : ''}"
                      data-task-id="${t.id}" onclick="selectTask(${t.id})">
-                    <div class="task-card-name">${escapeHtml(t.name)}</div>
-                    ${t.description ? `<div class="task-card-desc">${escapeHtml(t.description.substring(0, 100))}${t.description.length > 100 ? '...' : ''}</div>` : ''}
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};box-shadow:0 0 4px ${dotShadow};flex-shrink:0;"></span>
+                        <div class="task-card-name" style="margin-bottom:0;">${escapeHtml(t.name)}</div>
+                    </div>
                     <div class="task-card-meta">
-                        <span class="task-status ${t.status}">${t.status}</span>
-                        ${t.run_count > 0 ? `<span class="task-runs"><i class="fas fa-play-circle"></i> ${t.run_count} runs</span>` : ''}
                         ${t.type ? `<span class="task-runs">${t.type}</span>` : ''}
+                        ${t.run_count > 0 ? `<span class="task-runs"><i class="fas fa-play-circle"></i> ${t.run_count}</span>` : ''}
                     </div>
                     <div class="task-card-actions">
-                        <button onclick="event.stopPropagation(); viewLogs(${t.id})" title="View logs">
+                        <button onclick="event.stopPropagation(); viewLogs(${t.id})" title="Execution history for this automation">
                             <i class="fas fa-file-alt"></i> Logs
                         </button>
                         <button class="delete-btn" onclick="event.stopPropagation(); deleteTask(${t.id})" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
-                </div>
-            `).join('');
-            loadAutomationStatus();
+                </div>`;
+            }).join('');
         } catch (err) {
             console.error('Failed to refresh task list:', err);
         }
@@ -711,65 +718,6 @@
             console.error('Failed to load logs:', err);
         }
     }
-
-    function renderAutomationStatus(tasks) {
-        const container = document.getElementById('automationStatusList');
-        if (!tasks || tasks.length === 0) {
-            container.innerHTML = '<div style="color:rgba(224,220,216,0.3);font-size:0.75rem;">No custom automations yet</div>';
-            return;
-        }
-
-        let html = '';
-        tasks.forEach(t => {
-            const isActive = t.status === 'active';
-            const isCompleted = t.status === 'completed';
-            const isFailed = t.status === 'failed';
-            let dot, statusLabel;
-
-            if (isActive) {
-                dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;margin-right:6px;box-shadow:0 0 4px rgba(40,167,69,0.5);flex-shrink:0;"></span>';
-                statusLabel = t.schedule ? `<span style="color:rgba(40,167,69,0.7);margin-left:4px;font-size:0.7rem;">scheduled</span>` : '';
-            } else if (isCompleted) {
-                dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#17a2b8;margin-right:6px;box-shadow:0 0 4px rgba(23,162,184,0.5);flex-shrink:0;"></span>';
-                statusLabel = '';
-            } else if (isFailed) {
-                dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc3545;margin-right:6px;box-shadow:0 0 4px rgba(220,53,69,0.5);flex-shrink:0;"></span>';
-                statusLabel = '';
-            } else {
-                dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6c757d;margin-right:6px;box-shadow:0 0 3px rgba(108,117,125,0.4);flex-shrink:0;"></span>';
-                statusLabel = '';
-            }
-
-            let lastRunText = '';
-            if (t.last_run) {
-                const ago = Math.round((Date.now() - new Date(t.last_run).getTime()) / 60000);
-                if (ago < 1) lastRunText = '<span style="color:rgba(224,220,216,0.35);margin-left:4px;font-size:0.7rem;">just now</span>';
-                else if (ago < 60) lastRunText = `<span style="color:rgba(224,220,216,0.35);margin-left:4px;font-size:0.7rem;">${ago}m ago</span>`;
-                else if (ago < 1440) lastRunText = `<span style="color:rgba(224,220,216,0.35);margin-left:4px;font-size:0.7rem;">${Math.round(ago/60)}h ago</span>`;
-                else lastRunText = `<span style="color:rgba(224,220,216,0.35);margin-left:4px;font-size:0.7rem;">${Math.round(ago/1440)}d ago</span>`;
-            }
-
-            const name = t.name.length > 22 ? t.name.substring(0, 20) + '...' : t.name;
-            html += `<div style="display:flex;align-items:center;padding:2px 0;">${dot}<span style="color:#e0dcd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(t.name)}">${escapeHtml(name)}</span>${statusLabel}${lastRunText}</div>`;
-        });
-
-        container.innerHTML = html;
-    }
-
-    async function loadAutomationStatus() {
-        try {
-            const resp = await fetch('/automations/list', {
-                headers: { 'X-CSRFToken': csrfToken }
-            });
-            const tasks = await resp.json();
-            renderAutomationStatus(tasks);
-        } catch (err) {
-            document.getElementById('automationStatusList').innerHTML = '<div style="color:rgba(220,53,69,0.6);font-size:0.75rem;">Failed to load</div>';
-        }
-    }
-
-    loadAutomationStatus();
-    setInterval(loadAutomationStatus, 60000);
 
     async function clearChat() {
         if (!confirm('Clear the current conversation?')) return;
