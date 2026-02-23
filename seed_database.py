@@ -573,7 +573,7 @@ def seed_environment_monitoring(db):
             # Create production environment monitoring
             prod_env = EnvironmentStatus(
                 environment_name='production',
-                environment_url='https://jobpulse.lyntrix.ai',
+                environment_url='https://app.scoutgenius.ai',
                 is_active=True,
                 check_interval_minutes=5,
                 alert_email='kroots@myticas.com',

@@ -644,7 +644,7 @@ def oauth_start():
         session['oauth_state'] = state
         session['oauth_timestamp'] = int(time.time())
         
-        base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://jobpulse.lyntrix.ai").strip()
+        base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://app.scoutgenius.ai").strip()
         redirect_uri = f"{base_url}/ats-integration/oauth/callback"
         
         logging.info(f"OAuth redirect_uri: {redirect_uri}")
@@ -747,7 +747,7 @@ def oauth_callback():
                 
                 token_endpoint = f"{oauth_url}/token"
             
-            base_url_env = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://jobpulse.lyntrix.ai").strip()
+            base_url_env = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://app.scoutgenius.ai").strip()
             redirect_uri = f"{base_url_env}/ats-integration/oauth/callback"
             
             token_data = {

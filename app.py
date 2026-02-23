@@ -105,7 +105,7 @@ db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 
 # Environment configuration - use explicit environment variables
-PRODUCTION_DOMAINS = {'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'}
+PRODUCTION_DOMAINS = {'app.scoutgenius.ai', 'www.app.scoutgenius.ai', 'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'}
 
 # Set app environment at startup - this will be used for background tasks
 # Priority: APP_ENV > ENVIRONMENT > production (default for safety)
@@ -3314,7 +3314,7 @@ def check_environment_status():
                 # Create initial environment status record with production URL
                 env_status = EnvironmentStatus(
                     environment_name='production',
-                    environment_url='https://jobpulse.lyntrix.ai',  # Production URL
+                    environment_url='https://app.scoutgenius.ai',  # Production URL
                     current_status='unknown',
                     alert_email='kroots@myticas.com'
                 )
@@ -4385,7 +4385,7 @@ def send_vetting_health_alert(health_check):
             
             <p style="color: #666; font-size: 12px;">
                 This is an automated alert from Scout Screening. Only sent for persistent critical issues (3+ consecutive failures with 0 candidates processed).
-                Check the <a href="https://jobpulse.lyntrix.ai/screening">Vetting Dashboard</a> for more details.
+                Check the <a href="https://app.scoutgenius.ai/screening">Vetting Dashboard</a> for more details.
             </p>
         </body>
         </html>
