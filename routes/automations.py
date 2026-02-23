@@ -99,6 +99,26 @@ def automation_run(task_id):
     return jsonify(result)
 
 
+@automations_bp.route('/automations/run-builtin', methods=['POST'])
+@login_required
+def automation_run_builtin():
+    if not _is_dev_only():
+        abort(404)
+    from automation_service import AutomationService
+    service = AutomationService()
+
+    data = request.get_json() or {}
+    name = data.get('name')
+    params = data.get('params', {})
+    task_id = data.get('task_id')
+
+    if not name:
+        return jsonify({'error': 'Automation name is required'}), 400
+
+    result = service.run_builtin(name, params, task_id=task_id)
+    return jsonify(result)
+
+
 @automations_bp.route('/automations/<int:task_id>/status', methods=['POST'])
 @login_required
 def automation_status(task_id):
@@ -173,3 +193,39 @@ def automations_chat_clear():
     service = AutomationService()
     service.clear_chat_history(task_id=task_id)
     return jsonify({'success': True})
+
+
+@automations_bp.route('/automations/scheduler-status')
+@login_required
+def scheduler_status():
+    if not _is_dev_only():
+        abort(404)
+    from flask import current_app
+    jobs = []
+    try:
+        scheduler = current_app.config.get('_scheduler')
+        if not scheduler:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            for obj_name in dir(current_app):
+                obj = getattr(current_app, obj_name, None)
+                if isinstance(obj, BackgroundScheduler):
+                    scheduler = obj
+                    break
+
+        if not scheduler:
+            import app as app_module
+            scheduler = getattr(app_module, 'scheduler', None)
+
+        if scheduler and scheduler.running:
+            for job in scheduler.get_jobs():
+                next_run = job.next_run_time
+                jobs.append({
+                    'id': job.id,
+                    'name': job.name,
+                    'next_run': next_run.isoformat() if next_run else None,
+                    'active': next_run is not None
+                })
+    except Exception as e:
+        logger.error(f"Failed to get scheduler status: {e}")
+
+    return jsonify(jobs)

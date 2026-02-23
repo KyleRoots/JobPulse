@@ -124,7 +124,7 @@ JobPulse/
 - **Zero-Touch Production Deployment**: Environment-aware database seeding from environment secrets.
 - **Scout Vetting (AI Candidate Screening)**: Automated candidate-job matching using GPT-4o with embedding pre-filtering, experience-level classification with 3-gate floor, location-aware scoring, work authorization/security clearance inference rules, and configurable global screening prompts.
 - **Vetting System Health Monitoring**: Automated health checks monitoring Bullhorn, OpenAI, database, and scheduler status.
-- **Product Expert Workbench** (Dev-Only): Claude Opus 4-powered chat interface for building custom Bullhorn automations via natural language. Supports conversation history, automation task tracking, execution logging, and Bullhorn API operations (search, create, update candidates/jobs/notes). Completely hidden in production — routes return 404 and sidebar item is invisible. Database models: `AutomationTask`, `AutomationLog`, `AutomationChat`.
+- **Product Expert Workbench** (Dev-Only): Claude Opus 4-powered chat interface for building custom Bullhorn automations via natural language. Supports conversation history, automation task tracking, execution logging, and Bullhorn API operations (search, create, update candidates/jobs/notes). Completely hidden in production — routes return 404 and sidebar item is invisible. Database models: `AutomationTask`, `AutomationLog`, `AutomationChat`. Includes 6 built-in automations (cleanup_ai_notes, cleanup_duplicate_notes, find_zero_match, export_qualified, resume_reparser, salesrep_sync) executable via chat or API. Scheduled jobs status panel with green/red indicators shows real-time scheduler health.
 
 ## External Dependencies
 

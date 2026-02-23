@@ -429,6 +429,14 @@
         <div class="tasks-header">
             <h5><i class="fas fa-list-check me-2"></i>Automations</h5>
         </div>
+
+        <div id="scheduledJobsPanel" style="padding:0.6rem 0.75rem;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(10,18,14,0.4);">
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(224,220,216,0.4);margin-bottom:0.4rem;font-weight:600;">Scheduled Jobs</div>
+            <div id="scheduledJobsList" style="font-size:0.78rem;">
+                <div style="color:rgba(224,220,216,0.3);font-size:0.75rem;">Loading...</div>
+            </div>
+        </div>
+
         <div class="tasks-list" id="tasksList">
             {% if tasks %}
                 {% for task in tasks %}
@@ -568,6 +576,11 @@
                 addMessage('assistant', 'Error: ' + data.error);
             } else {
                 addMessage('assistant', data.response);
+                if (data.builtin_result && data.builtin_result.result) {
+                    const br = data.builtin_result.result;
+                    let resultText = '**Execution Result:**\n\n' + (br.summary || JSON.stringify(br, null, 2));
+                    addMessage('assistant', resultText);
+                }
                 if (data.task_created) {
                     currentTaskId = data.task_created.id;
                     refreshTaskList();
@@ -697,6 +710,76 @@
             console.error('Failed to load logs:', err);
         }
     }
+
+    const HIGHLIGHT_JOBS = [
+        'salesrep_sync',
+        'automated_upload',
+        'candidate_vetting_cycle',
+        'process_bullhorn_monitors',
+        'vetting_health_check'
+    ];
+
+    const JOB_LABELS = {
+        'salesrep_sync': 'Sales Rep Sync',
+        'automated_upload': 'Automated Upload',
+        'candidate_vetting_cycle': 'AI Vetting Cycle',
+        'process_bullhorn_monitors': 'Tearsheet Monitor',
+        'vetting_health_check': 'Vetting Health Check'
+    };
+
+    async function loadSchedulerStatus() {
+        const container = document.getElementById('scheduledJobsList');
+        try {
+            const resp = await fetch('/automations/scheduler-status', {
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            const jobs = await resp.json();
+
+            if (!jobs || jobs.length === 0) {
+                container.innerHTML = '<div style="color:rgba(224,220,216,0.3);font-size:0.75rem;">No scheduler data</div>';
+                return;
+            }
+
+            const highlighted = jobs.filter(j => HIGHLIGHT_JOBS.includes(j.id));
+            const others = jobs.filter(j => !HIGHLIGHT_JOBS.includes(j.id));
+
+            let html = '';
+            const renderJob = (job) => {
+                const active = job.active;
+                const dot = active
+                    ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;margin-right:6px;box-shadow:0 0 4px rgba(40,167,69,0.5);"></span>'
+                    : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc3545;margin-right:6px;box-shadow:0 0 4px rgba(220,53,69,0.5);"></span>';
+                const label = JOB_LABELS[job.id] || job.name;
+                let nextText = '';
+                if (job.next_run) {
+                    const next = new Date(job.next_run);
+                    const diffMs = next - new Date();
+                    const diffMin = Math.round(diffMs / 60000);
+                    nextText = diffMin > 0
+                        ? `<span style="color:rgba(224,220,216,0.35);margin-left:4px;">${diffMin}m</span>`
+                        : '<span style="color:rgba(40,167,69,0.6);margin-left:4px;">due</span>';
+                }
+                return `<div style="display:flex;align-items:center;padding:2px 0;">${dot}<span style="color:#e0dcd8;">${label}</span>${nextText}</div>`;
+            };
+
+            highlighted.forEach(j => { html += renderJob(j); });
+
+            if (others.length > 0) {
+                html += `<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.04);">`;
+                html += `<div style="font-size:0.68rem;color:rgba(224,220,216,0.3);cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.nextElementSibling.style.display==='none'?'+ ${others.length} more jobs':'- collapse'">+ ${others.length} more jobs</div>`;
+                html += `<div style="display:none;">`;
+                others.forEach(j => { html += renderJob(j); });
+                html += `</div></div>`;
+            }
+
+            container.innerHTML = html;
+        } catch (err) {
+            container.innerHTML = '<div style="color:rgba(220,53,69,0.6);font-size:0.75rem;">Failed to load</div>';
+        }
+    }
+
+    loadSchedulerStatus();
+    setInterval(loadSchedulerStatus, 60000);
 
     async function clearChat() {
         if (!confirm('Clear the current conversation?')) return;
