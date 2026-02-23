@@ -690,6 +690,12 @@ Consider: name spelling variations, nicknames, contact info matches.
             
             self.logger.info(f"Processing inbound email from {sender}: {subject[:50]}...")
             
+            if message_id:
+                existing = ParsedEmail.query.filter_by(message_id=message_id).first()
+                if existing:
+                    self.logger.info(f"⏭️ Skipping duplicate email (message_id already processed): {message_id[:50]}")
+                    return {'success': True, 'message': 'Duplicate email skipped', 'duplicate': True}
+            
             # Create parsed email record
             parsed_email = ParsedEmail(
                 message_id=message_id,
