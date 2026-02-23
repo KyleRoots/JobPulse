@@ -34,10 +34,15 @@ def automations_dashboard():
     service = AutomationService()
     tasks = service.get_tasks()
     chat_history = service.get_chat_history(task_id=None)
-    return render_template('automations.html',
+    from flask import make_response
+    resp = make_response(render_template('automations.html',
                            active_page='automations',
                            tasks=tasks,
-                           chat_history=chat_history)
+                           chat_history=chat_history))
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
 
 
 @automations_bp.route('/automations/chat', methods=['POST'])
