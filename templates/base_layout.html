@@ -1546,6 +1546,17 @@
                 </a>
             </div>
 
+            {% if config.get('ENVIRONMENT', 'production') != 'production' or not request.headers.get('X-Forwarded-Host', request.host or '').split(',')[0].strip().split(':')[0] in ['app.scoutgenius.ai', 'www.app.scoutgenius.ai', 'jobpulse.lyntrix.ai'] %}
+            <div class="nav-section" data-section="product-expert">
+                <div class="nav-section-title" style="color: #e8a87c;">Product Expert</div>
+                <a href="{{ url_for('automations.automations_dashboard') }}"
+                    class="nav-item {% if active_page == 'automations' %}active{% endif %}">
+                    <i class="fas fa-terminal" style="color: #e8a87c;"></i>
+                    <span>Automations Workbench</span>
+                </a>
+            </div>
+            {% endif %}
+
             <!-- System Pages (Scout Genius Green) -->
             <div class="nav-section" data-section="system">
                 <div class="nav-section-title">System</div>

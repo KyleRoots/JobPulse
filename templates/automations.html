@@ -1,0 +1,672 @@
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="automations"{% endblock %}
+
+{% block title %}Product Expert Workbench - Scout Genius™{% endblock %}
+
+{% block extra_head %}
+<style>
+    .workbench-container {
+        display: flex;
+        gap: 1.5rem;
+        height: calc(100vh - var(--header-height) - 3rem);
+        min-height: 500px;
+    }
+
+    .chat-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: rgba(15, 25, 20, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .chat-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(10, 18, 14, 0.8);
+    }
+
+    .chat-header h5 {
+        margin: 0;
+        font-size: 0.95rem;
+        color: #e8a87c;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .chat-message {
+        max-width: 85%;
+        padding: 0.85rem 1.1rem;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        word-wrap: break-word;
+    }
+
+    .chat-message.user {
+        align-self: flex-end;
+        background: rgba(74, 150, 120, 0.2);
+        border: 1px solid rgba(74, 150, 120, 0.3);
+        color: #d4e8df;
+    }
+
+    .chat-message.assistant {
+        align-self: flex-start;
+        background: rgba(232, 168, 124, 0.08);
+        border: 1px solid rgba(232, 168, 124, 0.15);
+        color: #e0dcd8;
+    }
+
+    .chat-message.assistant pre {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 0.75rem;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-size: 0.82rem;
+        margin: 0.5rem 0;
+    }
+
+    .chat-message.assistant code {
+        font-size: 0.82rem;
+    }
+
+    .chat-message.assistant strong {
+        color: #e8a87c;
+    }
+
+    .chat-message.assistant ol,
+    .chat-message.assistant ul {
+        padding-left: 1.25rem;
+        margin: 0.5rem 0;
+    }
+
+    .chat-input-area {
+        padding: 1rem 1.25rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(10, 18, 14, 0.8);
+    }
+
+    .chat-input-wrapper {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .chat-input-wrapper textarea {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        color: #e0dcd8;
+        padding: 0.65rem 0.9rem;
+        font-size: 0.9rem;
+        resize: none;
+        min-height: 44px;
+        max-height: 120px;
+        font-family: inherit;
+    }
+
+    .chat-input-wrapper textarea:focus {
+        outline: none;
+        border-color: rgba(232, 168, 124, 0.4);
+    }
+
+    .chat-input-wrapper button {
+        align-self: flex-end;
+        padding: 0.65rem 1.25rem;
+        background: rgba(232, 168, 124, 0.15);
+        border: 1px solid rgba(232, 168, 124, 0.3);
+        color: #e8a87c;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+
+    .chat-input-wrapper button:hover {
+        background: rgba(232, 168, 124, 0.25);
+    }
+
+    .chat-input-wrapper button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .tasks-panel {
+        width: 360px;
+        display: flex;
+        flex-direction: column;
+        background: rgba(15, 25, 20, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .tasks-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(10, 18, 14, 0.8);
+    }
+
+    .tasks-header h5 {
+        margin: 0;
+        font-size: 0.95rem;
+        color: #e8a87c;
+    }
+
+    .tasks-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.75rem;
+    }
+
+    .task-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 0.85rem;
+        margin-bottom: 0.6rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .task-card:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(232, 168, 124, 0.2);
+    }
+
+    .task-card.active {
+        border-color: rgba(232, 168, 124, 0.4);
+        background: rgba(232, 168, 124, 0.06);
+    }
+
+    .task-card-name {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #e0dcd8;
+        margin-bottom: 0.3rem;
+    }
+
+    .task-card-desc {
+        font-size: 0.78rem;
+        color: rgba(224, 220, 216, 0.6);
+        line-height: 1.4;
+        margin-bottom: 0.5rem;
+    }
+
+    .task-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    .task-status {
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .task-status.draft { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+    .task-status.active { background: rgba(40, 167, 69, 0.15); color: #28a745; }
+    .task-status.paused { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+    .task-status.completed { background: rgba(23, 162, 184, 0.15); color: #17a2b8; }
+    .task-status.failed { background: rgba(220, 53, 69, 0.15); color: #dc3545; }
+
+    .task-runs {
+        color: rgba(224, 220, 216, 0.5);
+    }
+
+    .task-card-actions {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
+    }
+
+    .task-card-actions button {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.72rem;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: transparent;
+        color: rgba(224, 220, 216, 0.6);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .task-card-actions button:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #e0dcd8;
+    }
+
+    .task-card-actions button.delete-btn:hover {
+        background: rgba(220, 53, 69, 0.15);
+        color: #dc3545;
+        border-color: rgba(220, 53, 69, 0.3);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: rgba(224, 220, 216, 0.4);
+        font-size: 0.85rem;
+    }
+
+    .empty-state i {
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+        display: block;
+    }
+
+    .typing-indicator {
+        display: none;
+        align-self: flex-start;
+        padding: 0.85rem 1.1rem;
+        background: rgba(232, 168, 124, 0.08);
+        border: 1px solid rgba(232, 168, 124, 0.15);
+        border-radius: 12px;
+    }
+
+    .typing-indicator.visible {
+        display: flex;
+    }
+
+    .typing-indicator span {
+        width: 8px;
+        height: 8px;
+        background: rgba(232, 168, 124, 0.4);
+        border-radius: 50%;
+        margin: 0 2px;
+        animation: typing 1.2s infinite ease-in-out;
+    }
+
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typing {
+        0%, 60%, 100% { transform: translateY(0); }
+        30% { transform: translateY(-6px); }
+    }
+
+    .dev-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.6rem;
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid rgba(255, 193, 7, 0.2);
+        border-radius: 4px;
+        font-size: 0.7rem;
+        color: #ffc107;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    @media (max-width: 992px) {
+        .workbench-container {
+            flex-direction: column;
+            height: auto;
+        }
+        .tasks-panel {
+            width: 100%;
+            max-height: 300px;
+        }
+        .chat-panel {
+            min-height: 500px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-1" style="color: #e8a87c;">
+            <i class="fas fa-terminal me-2"></i>Product Expert Workbench
+        </h4>
+        <p class="text-muted mb-0" style="font-size: 0.85rem;">
+            Build and execute custom Bullhorn automations through natural language
+        </p>
+    </div>
+    <span class="dev-badge"><i class="fas fa-lock"></i> Dev Only</span>
+</div>
+
+<div class="workbench-container">
+    <div class="chat-panel">
+        <div class="chat-header">
+            <h5><i class="fas fa-robot me-2"></i>Automation Chat</h5>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearChat()" title="Clear conversation">
+                    <i class="fas fa-broom"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            {% if chat_history %}
+                {% for msg in chat_history %}
+                    <div class="chat-message {{ msg.role }}">
+                        {{ msg.content | safe if msg.role == 'assistant' else msg.content }}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-comments"></i>
+                    <p>Describe the automation you want to build.</p>
+                    <p style="font-size: 0.78rem;">Example: "Find all candidates submitted to job 34625 in the last 7 days and add a note tagging them for follow-up"</p>
+                </div>
+            {% endif %}
+
+            <div class="typing-indicator" id="typingIndicator">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <div class="chat-input-wrapper">
+                <textarea id="chatInput" placeholder="Describe your automation..." rows="1"
+                    onkeydown="handleKeyDown(event)"></textarea>
+                <button id="sendBtn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane me-1"></i> Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tasks-panel">
+        <div class="tasks-header">
+            <h5><i class="fas fa-list-check me-2"></i>Automations</h5>
+        </div>
+        <div class="tasks-list" id="tasksList">
+            {% if tasks %}
+                {% for task in tasks %}
+                    <div class="task-card" data-task-id="{{ task.id }}" onclick="selectTask({{ task.id }})">
+                        <div class="task-card-name">{{ task.name }}</div>
+                        {% if task.description %}
+                            <div class="task-card-desc">{{ task.description[:100] }}{% if task.description|length > 100 %}...{% endif %}</div>
+                        {% endif %}
+                        <div class="task-card-meta">
+                            <span class="task-status {{ task.status }}">{{ task.status }}</span>
+                            {% if task.run_count > 0 %}
+                                <span class="task-runs"><i class="fas fa-play-circle"></i> {{ task.run_count }} runs</span>
+                            {% endif %}
+                            {% if task.automation_type %}
+                                <span class="task-runs">{{ task.automation_type }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="task-card-actions">
+                            <button onclick="event.stopPropagation(); viewLogs({{ task.id }})" title="View logs">
+                                <i class="fas fa-file-alt"></i> Logs
+                            </button>
+                            <button class="delete-btn" onclick="event.stopPropagation(); deleteTask({{ task.id }})" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-cogs"></i>
+                    <p>No automations yet</p>
+                    <p style="font-size: 0.78rem;">Start a conversation to create one</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    let currentTaskId = null;
+
+    function autoResize(el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.addEventListener('input', function() { autoResize(this); });
+    }
+
+    function handleKeyDown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    }
+
+    function formatMarkdown(text) {
+        text = text.replace(/```json\n([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        text = text.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+        text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/^\d+\.\s+(.+)/gm, '<li>$1</li>');
+        text = text.replace(/^[-•]\s+(.+)/gm, '<li>$1</li>');
+        text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+        text = text.replace(/\n/g, '<br>');
+        return text;
+    }
+
+    function addMessage(role, content) {
+        const container = document.getElementById('chatMessages');
+        const emptyState = container.querySelector('.empty-state');
+        if (emptyState) emptyState.remove();
+
+        const div = document.createElement('div');
+        div.className = 'chat-message ' + role;
+        div.innerHTML = role === 'assistant' ? formatMarkdown(content) : escapeHtml(content);
+        container.insertBefore(div, document.getElementById('typingIndicator'));
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        if (!message) return;
+
+        const sendBtn = document.getElementById('sendBtn');
+        sendBtn.disabled = true;
+        input.value = '';
+        autoResize(input);
+
+        addMessage('user', message);
+
+        const indicator = document.getElementById('typingIndicator');
+        indicator.classList.add('visible');
+        const container = document.getElementById('chatMessages');
+        container.scrollTop = container.scrollHeight;
+
+        try {
+            const resp = await fetch('/automations/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    message: message,
+                    task_id: currentTaskId
+                })
+            });
+
+            const data = await resp.json();
+            indicator.classList.remove('visible');
+
+            if (data.error) {
+                addMessage('assistant', 'Error: ' + data.error);
+            } else {
+                addMessage('assistant', data.response);
+                if (data.task_created) {
+                    currentTaskId = data.task_created.id;
+                    refreshTaskList();
+                }
+            }
+        } catch (err) {
+            indicator.classList.remove('visible');
+            addMessage('assistant', 'Connection error: ' + err.message);
+        }
+
+        sendBtn.disabled = false;
+        input.focus();
+    }
+
+    async function refreshTaskList() {
+        try {
+            const resp = await fetch('/automations/list', {
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            const tasks = await resp.json();
+            const list = document.getElementById('tasksList');
+
+            if (tasks.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-cogs"></i><p>No automations yet</p></div>';
+                return;
+            }
+
+            list.innerHTML = tasks.map(t => `
+                <div class="task-card ${currentTaskId === t.id ? 'active' : ''}"
+                     data-task-id="${t.id}" onclick="selectTask(${t.id})">
+                    <div class="task-card-name">${escapeHtml(t.name)}</div>
+                    ${t.description ? `<div class="task-card-desc">${escapeHtml(t.description.substring(0, 100))}${t.description.length > 100 ? '...' : ''}</div>` : ''}
+                    <div class="task-card-meta">
+                        <span class="task-status ${t.status}">${t.status}</span>
+                        ${t.run_count > 0 ? `<span class="task-runs"><i class="fas fa-play-circle"></i> ${t.run_count} runs</span>` : ''}
+                        ${t.type ? `<span class="task-runs">${t.type}</span>` : ''}
+                    </div>
+                    <div class="task-card-actions">
+                        <button onclick="event.stopPropagation(); viewLogs(${t.id})" title="View logs">
+                            <i class="fas fa-file-alt"></i> Logs
+                        </button>
+                        <button class="delete-btn" onclick="event.stopPropagation(); deleteTask(${t.id})" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error('Failed to refresh task list:', err);
+        }
+    }
+
+    async function selectTask(taskId) {
+        currentTaskId = taskId;
+
+        document.querySelectorAll('.task-card').forEach(c => c.classList.remove('active'));
+        const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        if (card) card.classList.add('active');
+
+        try {
+            const resp = await fetch(`/automations/${taskId}/chat`, {
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            const history = await resp.json();
+            const container = document.getElementById('chatMessages');
+            const indicator = document.getElementById('typingIndicator');
+
+            container.innerHTML = '';
+            if (history.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>No messages for this automation yet</p></div>';
+            } else {
+                history.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = 'chat-message ' + msg.role;
+                    div.innerHTML = msg.role === 'assistant' ? formatMarkdown(msg.content) : escapeHtml(msg.content);
+                    container.appendChild(div);
+                });
+            }
+            container.appendChild(indicator);
+            container.scrollTop = container.scrollHeight;
+        } catch (err) {
+            console.error('Failed to load chat history:', err);
+        }
+    }
+
+    async function deleteTask(taskId) {
+        if (!confirm('Delete this automation and all its history?')) return;
+
+        try {
+            await fetch(`/automations/${taskId}`, {
+                method: 'DELETE',
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            if (currentTaskId === taskId) {
+                currentTaskId = null;
+                const container = document.getElementById('chatMessages');
+                const indicator = document.getElementById('typingIndicator');
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>Describe the automation you want to build.</p></div>';
+                container.appendChild(indicator);
+            }
+            refreshTaskList();
+        } catch (err) {
+            console.error('Failed to delete task:', err);
+        }
+    }
+
+    async function viewLogs(taskId) {
+        try {
+            const resp = await fetch(`/automations/${taskId}/logs`, {
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            const logs = await resp.json();
+
+            if (logs.length === 0) {
+                addMessage('assistant', 'No execution logs for this automation yet.');
+                return;
+            }
+
+            let logText = '**Execution Logs:**\n\n';
+            logs.forEach(l => {
+                const icon = l.status === 'success' ? '✅' : '❌';
+                logText += `${icon} **${l.status}** - ${l.message}\n`;
+                logText += `   ${l.created_at}\n\n`;
+            });
+            addMessage('assistant', logText);
+        } catch (err) {
+            console.error('Failed to load logs:', err);
+        }
+    }
+
+    async function clearChat() {
+        if (!confirm('Clear the current conversation?')) return;
+        try {
+            await fetch('/automations/chat/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ task_id: currentTaskId })
+            });
+            currentTaskId = null;
+            const container = document.getElementById('chatMessages');
+            const indicator = document.getElementById('typingIndicator');
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>Describe the automation you want to build.</p></div>';
+            container.appendChild(indicator);
+        } catch (err) {
+            console.error('Failed to clear chat:', err);
+        }
+    }
+</script>
+{% endblock %}

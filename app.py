@@ -223,6 +223,7 @@ from routes.ats_integration import ats_integration_bp
 from routes.scheduler import scheduler_bp
 from routes.vetting import vetting_bp
 from routes.triggers import triggers_bp
+from routes.automations import automations_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(health_bp)
 app.register_blueprint(settings_bp)
@@ -231,6 +232,7 @@ app.register_blueprint(ats_integration_bp)
 app.register_blueprint(scheduler_bp)
 app.register_blueprint(vetting_bp)
 app.register_blueprint(triggers_bp)
+app.register_blueprint(automations_bp)
 app.login_manager = login_manager
 
 def get_bullhorn_service():

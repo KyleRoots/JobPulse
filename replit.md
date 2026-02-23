@@ -37,7 +37,8 @@ JobPulse/
 │   ├── settings.py                  # Settings management
 │   ├── triggers.py                  # API trigger endpoints
 │   ├── vetting.py                   # Vetting/screening routes
-│   └── ats_integration.py           # ATS integration routes
+│   ├── ats_integration.py           # ATS integration routes
+│   └── automations.py               # Product Expert Workbench routes (dev-only)
 ├── utils/                           # Utility functions
 │   ├── __init__.py
 │   └── field_mappers.py             # Data field mapping utilities
@@ -78,6 +79,7 @@ JobPulse/
 ├── timezone_utils.py                # Eastern Time utilities
 ├── lightweight_reference_refresh.py # Reference number refresh
 ├── comprehensive_monitoring_service.py # Full monitoring service
+├── automation_service.py            # Product Expert Workbench GPT-4o service
 ├── # Documentation
 ├── JOBPULSE.md                      # Main project documentation
 ├── JOBPULSE_MULTI_TENANT_ROADMAP.md # Multi-tenant SaaS roadmap
@@ -121,6 +123,7 @@ JobPulse/
 - **Zero-Touch Production Deployment**: Environment-aware database seeding from environment secrets.
 - **Scout Vetting (AI Candidate Screening)**: Automated candidate-job matching using GPT-4o with embedding pre-filtering, experience-level classification with 3-gate floor, location-aware scoring, work authorization/security clearance inference rules, and configurable global screening prompts.
 - **Vetting System Health Monitoring**: Automated health checks monitoring Bullhorn, OpenAI, database, and scheduler status.
+- **Product Expert Workbench** (Dev-Only): GPT-4o-powered chat interface for building custom Bullhorn automations via natural language. Supports conversation history, automation task tracking, execution logging, and Bullhorn API operations (search, create, update candidates/jobs/notes). Completely hidden in production — routes return 404 and sidebar item is invisible. Database models: `AutomationTask`, `AutomationLog`, `AutomationChat`.
 
 ## External Dependencies
 
