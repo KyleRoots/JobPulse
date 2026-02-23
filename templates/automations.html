@@ -371,22 +371,22 @@
 {% endblock %}
 
 {% block content %}
-<div class="workbench-header">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
     <div>
-        <h4 style="color: #e8a87c;">
+        <h4 style="color:#e8a87c;font-size:1.05rem;margin:0;">
             <i class="fas fa-terminal me-2"></i>Product Expert Workbench
         </h4>
-        <p class="text-muted">
+        <p class="text-muted" style="font-size:0.78rem;margin:0.25rem 0 0 0;">
             Build and execute custom Bullhorn automations through natural language
         </p>
     </div>
     <span class="dev-badge"><i class="fas fa-lock"></i> Dev Only</span>
 </div>
 
-<div class="workbench-container">
-    <div class="chat-panel">
-        <div class="chat-header">
-            <h5><i class="fas fa-robot me-2"></i>Automation Chat</h5>
+<div class="workbench-container" style="display:flex;flex-direction:row;gap:1rem;height:calc(100vh - 160px);min-height:500px;">
+    <div class="chat-panel" style="flex:1;display:flex;flex-direction:column;background:rgba(15,25,20,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;min-width:0;">
+        <div class="chat-header" style="padding:0.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;background:rgba(10,18,14,0.8);flex-shrink:0;">
+            <h5 style="margin:0;font-size:0.95rem;color:#e8a87c;"><i class="fas fa-robot me-2"></i>Automation Chat</h5>
             <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-secondary" onclick="clearChat()" title="Clear conversation">
                     <i class="fas fa-broom"></i>
@@ -394,7 +394,7 @@
             </div>
         </div>
 
-        <div class="chat-messages" id="chatMessages">
+        <div class="chat-messages" id="chatMessages" style="flex:1;min-height:0;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:1rem;">
             {% if chat_history %}
                 {% for msg in chat_history %}
                     <div class="chat-message {{ msg.role }}">
@@ -414,18 +414,18 @@
             </div>
         </div>
 
-        <div class="chat-input-area">
-            <div class="chat-input-wrapper">
+        <div class="chat-input-area" style="padding:0.75rem 1.25rem;border-top:1px solid rgba(255,255,255,0.08);background:rgba(10,18,14,0.8);flex-shrink:0;">
+            <div class="chat-input-wrapper" style="display:flex;gap:0.75rem;">
                 <textarea id="chatInput" placeholder="Describe your automation..." rows="1"
-                    onkeydown="handleKeyDown(event)"></textarea>
-                <button id="sendBtn" onclick="sendMessage()">
+                    onkeydown="handleKeyDown(event)" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#e0dcd8;padding:0.65rem 0.9rem;font-size:0.9rem;resize:none;min-height:44px;max-height:120px;font-family:inherit;"></textarea>
+                <button id="sendBtn" onclick="sendMessage()" style="align-self:flex-end;padding:0.65rem 1.25rem;background:rgba(232,168,124,0.15);border:1px solid rgba(232,168,124,0.3);color:#e8a87c;border-radius:8px;cursor:pointer;font-size:0.9rem;">
                     <i class="fas fa-paper-plane me-1"></i> Send
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="tasks-panel">
+    <div class="tasks-panel" style="width:300px;min-width:280px;display:flex;flex-direction:column;background:rgba(15,25,20,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
         <div class="tasks-header">
             <h5><i class="fas fa-list-check me-2"></i>Automations</h5>
         </div>
@@ -470,6 +470,17 @@
 
 {% block extra_js %}
 <script>
+    (function() {
+        var ph = document.querySelector('.page-header');
+        if (ph) ph.style.display = 'none';
+        var ca = document.querySelector('.content-area');
+        if (ca) {
+            ca.style.padding = '0.75rem 1rem';
+            ca.style.height = 'calc(100vh - 10px)';
+            ca.style.overflow = 'hidden';
+        }
+    })();
+
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     let currentTaskId = null;
 
