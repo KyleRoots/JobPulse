@@ -3,13 +3,45 @@
 
 {% block title %}Product Expert Workbench - Scout Genius™{% endblock %}
 
+{% block page_title %}{% endblock %}
+{% block page_subtitle %}{% endblock %}
+
 {% block extra_head %}
 <style>
+    [data-module="automations"] .page-header {
+        display: none;
+    }
+
+    [data-module="automations"] .content-area {
+        padding: 0.75rem 1rem;
+        height: calc(100vh - 10px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .workbench-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .workbench-header h4 {
+        font-size: 1.05rem;
+        margin: 0;
+    }
+
+    .workbench-header p {
+        font-size: 0.78rem;
+        margin: 0;
+    }
+
     .workbench-container {
         display: flex;
-        gap: 1.5rem;
-        height: calc(100vh - var(--header-height) - 3rem);
-        min-height: 500px;
+        gap: 1rem;
+        flex: 1;
+        min-height: 0;
     }
 
     .chat-panel {
@@ -144,7 +176,8 @@
     }
 
     .tasks-panel {
-        width: 360px;
+        width: 300px;
+        min-width: 280px;
         display: flex;
         flex-direction: column;
         background: rgba(15, 25, 20, 0.6);
@@ -332,12 +365,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="workbench-header">
     <div>
-        <h4 class="mb-1" style="color: #e8a87c;">
+        <h4 style="color: #e8a87c;">
             <i class="fas fa-terminal me-2"></i>Product Expert Workbench
         </h4>
-        <p class="text-muted mb-0" style="font-size: 0.85rem;">
+        <p class="text-muted">
             Build and execute custom Bullhorn automations through natural language
         </p>
     </div>
