@@ -1,5 +1,6 @@
 import os
 import logging
+import threading
 from datetime import datetime, timedelta
 import json
 import re
@@ -2912,6 +2913,27 @@ def scout_vetting_dashboard():
                            active_page='vetting')
 
 
+def _process_email_in_background(payload, is_scout_vetting=False):
+    """Process an inbound email in a background thread to keep workers free."""
+    with app.app_context():
+        try:
+            if is_scout_vetting:
+                app.logger.info("📧 [BG] Processing Scout Vetting inbound email")
+                _handle_scout_vetting_inbound_bg(payload)
+            else:
+                from email_inbound_service import EmailInboundService
+                service = EmailInboundService()
+                result = service.process_email(payload)
+                if result['success']:
+                    app.logger.info(f"✅ [BG] Email processed successfully: candidate {result.get('candidate_id')}")
+                else:
+                    app.logger.warning(f"⚠️ [BG] Email processing failed: {result.get('message')}")
+        except Exception as e:
+            app.logger.error(f"❌ [BG] Email processing error: {str(e)}")
+            import traceback
+            app.logger.error(traceback.format_exc())
+
+
 @app.route('/api/email/inbound', methods=['GET', 'POST'])
 @csrf.exempt  # SendGrid inbound webhook — external service, no browser session
 def email_inbound_webhook():
@@ -2937,8 +2959,6 @@ def email_inbound_webhook():
         }), 200
     
     try:
-        from email_inbound_service import EmailInboundService
-        
         app.logger.info("📧 Received inbound email webhook")
         
         # SendGrid sends form data, not JSON
@@ -2954,25 +2974,23 @@ def email_inbound_webhook():
                 }
         
         # ── Application-level routing ──
-        # Check if this email is addressed to the Scout Vetting reply-to address.
-        # Since SendGrid only allows one Inbound Parse rule per hostname,
-        # we route based on the 'to' address field.
         to_field = payload.get('to', '')
-        if 'scout-vetting@parse.lyntrix.ai' in to_field.lower():
-            app.logger.info("📧 Routing to Scout Vetting inbound handler")
-            return _handle_scout_vetting_inbound(payload)
+        is_scout = 'scout-vetting@parse.lyntrix.ai' in to_field.lower()
         
-        # ── Default: job board email parsing pipeline ──
-        # Process the email
-        service = EmailInboundService()
-        result = service.process_email(payload)
+        if is_scout:
+            app.logger.info("📧 Routing to Scout Vetting inbound handler (background)")
         
-        if result['success']:
-            app.logger.info(f"✅ Email processed successfully: candidate {result.get('candidate_id')}")
-            return jsonify(result), 200
-        else:
-            app.logger.warning(f"⚠️ Email processing failed: {result.get('message')}")
-            return jsonify(result), 200  # Return 200 to prevent SendGrid retries
+        subject = payload.get('subject', 'unknown')
+        app.logger.info(f"📧 Queuing email for background processing: {subject[:80]}")
+        
+        thread = threading.Thread(
+            target=_process_email_in_background,
+            args=(payload, is_scout),
+            daemon=True
+        )
+        thread.start()
+        
+        return jsonify({'success': True, 'message': 'Email accepted for processing'}), 200
             
     except Exception as e:
         app.logger.error(f"❌ Email inbound webhook error: {str(e)}")
@@ -3043,6 +3061,52 @@ def _handle_scout_vetting_inbound(payload):
         import traceback
         app.logger.error(traceback.format_exc())
         return jsonify({'success': False, 'message': str(e)}), 200
+
+
+def _handle_scout_vetting_inbound_bg(payload):
+    """Background-thread version of Scout Vetting inbound processing."""
+    try:
+        from scout_vetting_service import ScoutVettingService
+        from email_service import EmailService
+
+        sender_email = payload.get('from', '')
+        subject = payload.get('subject', '')
+        text_body = payload.get('text', '')
+        html_body = payload.get('html', '')
+
+        import re
+        email_match = re.search(r'[\w.+-]+@[\w.-]+', sender_email)
+        sender_clean = email_match.group(0) if email_match else sender_email
+
+        body = text_body
+        if not body and html_body:
+            body = re.sub(r'<[^>]+>', '', html_body)
+
+        message_id = payload.get('Message-ID') or payload.get('message-id', '')
+
+        app.logger.info(f"🔍 [BG] Scout Vetting inbound from {sender_clean}, subject: {subject}")
+
+        session = ScoutVettingService.find_session_by_subject_token(subject)
+        if not session:
+            session = ScoutVettingService.find_session_by_email(sender_clean)
+
+        if not session:
+            app.logger.warning(f"⚠️ [BG] Scout Vetting: No active session found for {sender_clean}")
+            return
+
+        svc = ScoutVettingService(email_service=EmailService())
+        svc.process_candidate_reply(
+            session=session,
+            email_body=body,
+            email_subject=subject,
+            message_id=message_id
+        )
+        app.logger.info(f"✅ [BG] Scout Vetting reply processed for session {session.id}")
+
+    except Exception as e:
+        app.logger.error(f"❌ [BG] Scout Vetting inbound error: {str(e)}")
+        import traceback
+        app.logger.error(traceback.format_exc())
 
 
 @app.route('/email-parsing')
