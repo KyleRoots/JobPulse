@@ -123,7 +123,7 @@ JobPulse/
 - **Zero-Touch Production Deployment**: Environment-aware database seeding from environment secrets.
 - **Scout Vetting (AI Candidate Screening)**: Automated candidate-job matching using GPT-4o with embedding pre-filtering, experience-level classification with 3-gate floor, location-aware scoring, work authorization/security clearance inference rules, and configurable global screening prompts.
 - **Vetting System Health Monitoring**: Automated health checks monitoring Bullhorn, OpenAI, database, and scheduler status.
-- **Product Expert Workbench** (Dev-Only): GPT-4o-powered chat interface for building custom Bullhorn automations via natural language. Supports conversation history, automation task tracking, execution logging, and Bullhorn API operations (search, create, update candidates/jobs/notes). Completely hidden in production — routes return 404 and sidebar item is invisible. Database models: `AutomationTask`, `AutomationLog`, `AutomationChat`.
+- **Product Expert Workbench** (Dev-Only): Claude Opus 4-powered chat interface for building custom Bullhorn automations via natural language. Supports conversation history, automation task tracking, execution logging, and Bullhorn API operations (search, create, update candidates/jobs/notes). Completely hidden in production — routes return 404 and sidebar item is invisible. Database models: `AutomationTask`, `AutomationLog`, `AutomationChat`.
 
 ## External Dependencies
 
@@ -148,6 +148,7 @@ JobPulse/
 - `OPENAI_API_KEY` - AI features
 - `BULLHORN_PASSWORD` - Bullhorn OAuth
 - `OAUTH_REDIRECT_BASE_URL` - OAuth callback base URL
+- `ANTHROPIC_API_KEY` - Claude Opus 4 for Product Expert Workbench
 - `SENTRY_DSN` - (Optional) Sentry error tracking
 
 ## Strategic Planning

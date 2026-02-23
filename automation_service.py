@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from datetime import datetime
-from openai import OpenAI
+import anthropic
 from app import db
 from models import AutomationTask, AutomationLog, AutomationChat
 
@@ -63,13 +63,13 @@ Keep responses clear and conversational. The user is a product expert, not a dev
 class AutomationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        api_key = os.environ.get('OPENAI_API_KEY')
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
         if api_key:
-            self.openai_client = OpenAI(api_key=api_key)
-            self.logger.info("AutomationService: OpenAI client initialized")
+            self.anthropic_client = anthropic.Anthropic(api_key=api_key)
+            self.logger.info("AutomationService: Anthropic client initialized (Claude Opus 4)")
         else:
-            self.openai_client = None
-            self.logger.warning("AutomationService: OPENAI_API_KEY not found")
+            self.anthropic_client = None
+            self.logger.warning("AutomationService: ANTHROPIC_API_KEY not found")
         
         self._bullhorn = None
 
@@ -81,8 +81,8 @@ class AutomationService:
         return self._bullhorn
 
     def chat(self, user_message, task_id=None):
-        if not self.openai_client:
-            return {"error": "OpenAI API key not configured"}
+        if not self.anthropic_client:
+            return {"error": "Anthropic API key not configured"}
 
         chat_history = []
         if task_id:
@@ -106,19 +106,19 @@ class AutomationService:
         db.session.add(user_chat)
         db.session.commit()
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        messages.extend(chat_history)
+        messages = list(chat_history)
         messages.append({"role": "user", "content": user_message})
 
         try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4o",
+            response = self.anthropic_client.messages.create(
+                model="claude-opus-4-20250514",
+                system=SYSTEM_PROMPT,
                 messages=messages,
                 temperature=0.3,
                 max_tokens=4096
             )
             
-            assistant_content = response.choices[0].message.content
+            assistant_content = response.content[0].text
 
             assistant_chat = AutomationChat(
                 automation_task_id=task_id,
