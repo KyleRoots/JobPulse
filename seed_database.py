@@ -42,6 +42,7 @@ What Gets Seeded:
 """
 
 import os
+import json
 import logging
 from datetime import datetime
 from werkzeug.security import generate_password_hash
@@ -873,6 +874,86 @@ def log_critical_settings_state(db):
 
 
 
+BUILTIN_AUTOMATIONS = [
+    {
+        "name": "Cleanup AI Notes",
+        "description": "Find and delete AI vetting notes (AI Vetting, AI Resume Summary, AI Vetted) from candidate records. Always runs dry-run first.",
+        "automation_type": "one-time",
+        "builtin_key": "cleanup_ai_notes",
+    },
+    {
+        "name": "Cleanup Duplicate Notes",
+        "description": "Remove duplicate 'AI Vetting - Not Recommended' notes where multiple notes were added within 60 minutes of each other. Keeps the original, deletes chained duplicates.",
+        "automation_type": "one-time",
+        "builtin_key": "cleanup_duplicate_notes",
+    },
+    {
+        "name": "Find Zero Match Candidates",
+        "description": "Search recent vetting notes for candidates with 'Highest Match Score: 0%' that may need review or cleanup.",
+        "automation_type": "query",
+        "builtin_key": "find_zero_match",
+    },
+    {
+        "name": "Export Qualified Candidates",
+        "description": "Fetch all submissions for specified job IDs and identify candidates with qualifying vetting actions (Qualified, Recommended, Accept).",
+        "automation_type": "query",
+        "builtin_key": "export_qualified",
+    },
+    {
+        "name": "Resume Re-Parser",
+        "description": "Find recently added candidates with empty descriptions but attached resume files, and re-parse the resume text into Bullhorn.",
+        "automation_type": "one-time",
+        "builtin_key": "resume_reparser",
+    },
+    {
+        "name": "Sales Rep Sync",
+        "description": "Resolve CorporateUser IDs in customText3 to display names in customText6. Runs automatically every 30 minutes; use this for an immediate manual sync.",
+        "automation_type": "scheduled",
+        "builtin_key": "salesrep_sync",
+    },
+]
+
+
+def seed_builtin_automations(db):
+    try:
+        from models import AutomationTask
+        existing = {t.config_json: t for t in AutomationTask.query.all() if t.config_json}
+        existing_keys = set()
+        for task in AutomationTask.query.all():
+            if task.config_json:
+                try:
+                    cfg = json.loads(task.config_json)
+                    if cfg.get("builtin_key"):
+                        existing_keys.add(cfg["builtin_key"])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        created = 0
+        for auto in BUILTIN_AUTOMATIONS:
+            if auto["builtin_key"] in existing_keys:
+                continue
+            task = AutomationTask(
+                name=auto["name"],
+                description=auto["description"],
+                automation_type=auto["automation_type"],
+                status="active" if auto["automation_type"] == "scheduled" else "draft",
+                config_json=json.dumps({"builtin_key": auto["builtin_key"]}),
+            )
+            db.session.add(task)
+            created += 1
+
+        if created > 0:
+            db.session.commit()
+            logger.info(f"✅ Seeded {created} built-in automations")
+        else:
+            logger.info(f"✅ All {len(BUILTIN_AUTOMATIONS)} built-in automations already exist")
+    except ImportError:
+        logger.debug("ℹ️ AutomationTask model not found - skipping automation seeding")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed built-in automations: {str(e)}")
+
+
 def seed_database(db, User):
     """
     Main seeding function - idempotent database initialization
@@ -1013,6 +1094,8 @@ def seed_database(db, User):
             db.session.rollback()
             logger.warning(f"⚠️ Failed to upgrade layer2_model: {str(e)}")
         
+        seed_builtin_automations(db)
+
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
     except Exception as e:
