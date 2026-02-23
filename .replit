@@ -6,7 +6,7 @@ packages = ["cacert", "cargo", "freetype", "glibcLocales", "gumbo", "harfbuzz", 
 
 [deployment]
 deploymentTarget = "vm"
-run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "main:app"]
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "--timeout=120", "main:app"]
 
 [workflows]
 runButton = "Project"
