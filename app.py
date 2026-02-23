@@ -4961,7 +4961,35 @@ if is_primary_worker:
     except Exception as e:
         print(f"❌ SCHEDULER INIT: Failed to register automated upload job: {e}", flush=True)
         app.logger.error(f"Failed to register automated upload job: {e}")
-    
+
+    def run_salesrep_sync_job():
+        try:
+            with app.app_context():
+                from salesrep_sync_service import run_salesrep_sync
+                bullhorn = get_bullhorn_service()
+                result = run_salesrep_sync(bullhorn)
+                if result.get('updated', 0) > 0:
+                    app.logger.info(
+                        f"🏢 Sales Rep Sync: {result['updated']} companies updated "
+                        f"(scanned {result['scanned']}, {result.get('errors', 0)} errors)"
+                    )
+        except Exception as e:
+            app.logger.error(f"Sales Rep Sync job error: {e}")
+
+    try:
+        scheduler.add_job(
+            func=run_salesrep_sync_job,
+            trigger=IntervalTrigger(minutes=30),
+            id='salesrep_sync',
+            name='Sales Rep Display Name Sync (Every 30 Minutes)',
+            replace_existing=True
+        )
+        print("✅ SCHEDULER INIT: Sales Rep sync job registered (every 30 minutes)", flush=True)
+        app.logger.info("🏢 Scheduled Sales Rep display name sync every 30 minutes")
+    except Exception as e:
+        print(f"❌ SCHEDULER INIT: Failed to register Sales Rep sync job: {e}", flush=True)
+        app.logger.error(f"Failed to register Sales Rep sync job: {e}")
+
     # Schedule reference refresh every 120 hours — NEVER fires inline on startup.
     # On restart, we reconstruct next_run from persisted RefreshLog state.
     # If overdue, we defer to now + 5min so the scheduler handles it, not startup.

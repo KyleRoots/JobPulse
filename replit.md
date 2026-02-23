@@ -79,7 +79,8 @@ JobPulse/
 ├── timezone_utils.py                # Eastern Time utilities
 ├── lightweight_reference_refresh.py # Reference number refresh
 ├── comprehensive_monitoring_service.py # Full monitoring service
-├── automation_service.py            # Product Expert Workbench GPT-4o service
+├── automation_service.py            # Product Expert Workbench Claude Opus 4 service
+├── salesrep_sync_service.py         # Sales Rep display name sync (30-min cycle)
 ├── # Documentation
 ├── JOBPULSE.md                      # Main project documentation
 ├── JOBPULSE_MULTI_TENANT_ROADMAP.md # Multi-tenant SaaS roadmap
