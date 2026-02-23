@@ -93,7 +93,7 @@ JobPulse/
 - **Template Engine**: Jinja2 with Bootstrap 5 (dark theme) for a responsive and modern user interface.
 - **Client-side**: Vanilla JavaScript for interactive elements.
 - **Icons**: Font Awesome 6.0.
-- **Dual-Domain Architecture**: Supports distinct functionalities on `jobpulse.lyntrix.ai` (main app) and `apply.myticas.com` / `apply.stsigroup.com` (job application forms).
+- **Dual-Domain Architecture**: Supports distinct functionalities on `app.scoutgenius.ai` (main app) and `apply.myticas.com` / `apply.stsigroup.com` (job application forms).
 
 ### Technical Implementations
 - **Web Framework**: Flask (Python 3.11) with modular route blueprints.
