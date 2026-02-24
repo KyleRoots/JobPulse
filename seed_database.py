@@ -685,6 +685,7 @@ def seed_recruiter_mappings(db, RecruiterMapping):
         ('Sarah Ferris CSP', '#LI-SF1'),
         ('Shikha Gurung', '#LI-SG1'),
         ('Tarra Dziurman', '#LI-TD1'),
+        ('Tray Prewitt', '#LI-TP1'),
     ]
     
     mappings_created = 0

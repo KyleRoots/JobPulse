@@ -1,10 +1,10 @@
 # Recruiter to LinkedIn Tag Mappings
 
-**Last Updated:** January 29, 2026
+**Last Updated:** February 24, 2026
 
 This file contains the master list of all recruiter name to LinkedIn tag mappings used in the XML job feed generation system. When a job is owned by one of these recruiters in Bullhorn, the system automatically assigns the corresponding LinkedIn tag to the `<assignedrecruiter>` field in the XML output.
 
-## Current Mappings (38 Total)
+## Current Mappings (40 Total)
 
 | Recruiter Name | LinkedIn Tag | Notes |
 |----------------|--------------|-------|
@@ -46,6 +46,7 @@ This file contains the master list of all recruiter name to LinkedIn tag mapping
 | Sarah Ferris CSP | #LI-SF1 | Name variant |
 | Shikha Gurung | #LI-SG1 | |
 | Tarra Dziurman | #LI-TD1 | |
+| **Tray Prewitt** | **#LI-TP1** | **Added Feb 24, 2026** |
 
 ## XML Output Format
 
@@ -78,5 +79,6 @@ To add a new recruiter mapping:
 
 ## Recent Changes
 
+- **February 24, 2026**: Added "Tray Prewitt" → "#LI-TP1" mapping for new team member
 - **January 29, 2026**: Added "Kellie Miller" → "#LI-KM1" mapping for new team member (kmiller@stsigroup.com)
 - **November 5, 2025**: Added "Lisa Keirsted" → "#LI-DS1" mapping to assign Dan Sifer's LinkedIn tag to jobs owned by Lisa Keirsted in Bullhorn (Jobs 34522, 34523)
