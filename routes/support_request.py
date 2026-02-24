@@ -65,6 +65,8 @@ RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX = 5
 
 
+_MYTICAS_FINANCE_EMAIL = 'accounting@myticas.com'
+
 def get_routing_info(category, department=''):
     cc = [_CC_ALWAYS]
     dept = (department or '').strip()
@@ -73,11 +75,13 @@ def get_routing_info(category, department=''):
         return _TECH_SUPPORT_EMAIL, cc
 
     if category == 'backoffice_onboarding':
+        if dept == 'MYT-Ottawa':
+            return _ANITA_BARKER_EMAIL, cc
         return _ANASTASIYA_IVANOVA_EMAIL, cc
 
     if category == 'backoffice_finance':
         if dept == 'MYT-Ottawa':
-            return _ANITA_BARKER_EMAIL, cc
+            return _MYTICAS_FINANCE_EMAIL, cc
         return _ANASTASIYA_IVANOVA_EMAIL, cc
 
     return _DAN_SIFER_EMAIL, cc
