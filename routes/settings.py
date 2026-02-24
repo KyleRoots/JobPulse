@@ -276,18 +276,18 @@ def create_user():
         
         selected_modules = request.form.getlist('modules')
         
-        if not username or not email or not password:
-            flash('Username, email, and password are required.', 'error')
+        if not username or not email:
+            flash('Username and email are required.', 'error')
             return redirect(url_for('settings.settings') + '#user-management')
-        
+
         if User.query.filter_by(username=username).first():
             flash(f'Username "{username}" already exists.', 'error')
             return redirect(url_for('settings.settings') + '#user-management')
-        
+
         if User.query.filter_by(email=email).first():
             flash(f'Email "{email}" already exists.', 'error')
             return redirect(url_for('settings.settings') + '#user-management')
-        
+
         user = User(
             username=username,
             email=email,
@@ -296,13 +296,17 @@ def create_user():
             display_name=display_name,
             bullhorn_user_id=int(bullhorn_user_id) if bullhorn_user_id else None,
         )
-        user.set_password(password)
+        if password:
+            user.set_password(password)
+        else:
+            import secrets as _secrets
+            user.set_password(_secrets.token_hex(32))
         user.set_modules(selected_modules)
-        
+
         db.session.add(user)
         db.session.commit()
-        
-        flash(f'User "{username}" created successfully.', 'success')
+
+        flash(f'User "{username}" created. Send them a welcome email to let them set their password.', 'success')
         return redirect(url_for('settings.settings') + '#user-management')
         
     except Exception as e:
@@ -408,3 +412,53 @@ def impersonate_user(user_id):
 
     from routes import _get_user_landing
     return redirect(_get_user_landing())
+
+
+@settings_bp.route('/settings/users/<int:user_id>/send-welcome', methods=['POST'])
+@login_required
+def send_welcome_email_route(user_id):
+    """Send a welcome / set-password email to the specified user. Admin-only."""
+    from models import User
+    from routes.auth import generate_reset_token, send_welcome_email
+    from flask import url_for
+
+    if not current_user.is_admin:
+        flash('Only administrators can send welcome emails.', 'error')
+        return redirect(url_for('settings.settings') + '#user-management')
+
+    user = User.query.get_or_404(user_id)
+    token = generate_reset_token(user, expiry_hours=48)
+    set_password_url = url_for('auth.reset_password', token=token, _external=True)
+    success = send_welcome_email(user, set_password_url)
+
+    if success:
+        flash(f'Welcome email sent to {user.email}.', 'success')
+    else:
+        flash(f'Failed to send welcome email to {user.email}. Check SendGrid configuration.', 'error')
+
+    return redirect(url_for('settings.settings') + '#user-management')
+
+
+@settings_bp.route('/settings/users/<int:user_id>/send-reset', methods=['POST'])
+@login_required
+def send_reset_email_route(user_id):
+    """Send a password reset email to the specified user. Admin-only."""
+    from models import User
+    from routes.auth import generate_reset_token, send_password_reset_email
+    from flask import url_for
+
+    if not current_user.is_admin:
+        flash('Only administrators can send password reset emails.', 'error')
+        return redirect(url_for('settings.settings') + '#user-management')
+
+    user = User.query.get_or_404(user_id)
+    token = generate_reset_token(user, expiry_hours=1)
+    reset_url = url_for('auth.reset_password', token=token, _external=True)
+    success = send_password_reset_email(user, reset_url)
+
+    if success:
+        flash(f'Password reset email sent to {user.email}.', 'success')
+    else:
+        flash(f'Failed to send reset email to {user.email}. Check SendGrid configuration.', 'error')
+
+    return redirect(url_for('settings.settings') + '#user-management')

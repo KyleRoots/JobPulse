@@ -416,8 +416,8 @@
                     <input type="email" class="form-control" name="email" required placeholder="john@company.com">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Password <span class="text-danger">*</span></label>
-                    <input type="password" class="form-control" name="password" required placeholder="Minimum 8 characters">
+                    <label class="form-label">Password <span class="text-muted small">(optional — leave blank to require email activation)</span></label>
+                    <input type="password" class="form-control" name="password" placeholder="Leave blank to send welcome email instead">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Display Name</label>
@@ -531,7 +531,21 @@
                 </div>
                 {% endif %}
             </form>
-            <div class="mt-1" style="padding-left: 48px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <div class="mt-1" style="padding-left: 48px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <form action="{{ url_for('settings.send_welcome_email_route', user_id=user.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm" title="Send welcome email with a Set Password link (48-hour link)"
+                        style="background: rgba(74,150,120,0.15); border: 1px solid rgba(74,150,120,0.4); color: #4a9678;">
+                        <i class="fas fa-envelope me-1"></i> Send Welcome
+                    </button>
+                </form>
+                <form action="{{ url_for('settings.send_reset_email_route', user_id=user.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm" title="Send a password reset link (1-hour link)"
+                        style="background: rgba(100,140,200,0.12); border: 1px solid rgba(100,140,200,0.3); color: #7aadde;">
+                        <i class="fas fa-key me-1"></i> Send Reset
+                    </button>
+                </form>
                 {% if user.id != current_user.id %}
                 <form action="{{ url_for('settings.impersonate_user', user_id=user.id) }}" method="POST" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
