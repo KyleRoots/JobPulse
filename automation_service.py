@@ -6,7 +6,7 @@ import requests
 from datetime import datetime, timedelta
 from collections import defaultdict
 import anthropic
-from app import db
+from extensions import db
 from models import AutomationTask, AutomationLog, AutomationChat
 
 logger = logging.getLogger(__name__)

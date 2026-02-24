@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import os
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from app import db
+from extensions import db
 
 class User(UserMixin, db.Model):
     """User model for authentication"""
@@ -171,7 +171,7 @@ class GlobalSettings(db.Model):
     @classmethod
     def set_value(cls, key, value, description=None, category=None):
         """Set a setting value, creating if it doesn't exist"""
-        from app import db
+        from extensions import db
         setting = cls.query.filter_by(setting_key=key).first()
         if setting:
             setting.setting_value = str(value)
@@ -682,7 +682,7 @@ class VettingConfig(db.Model):
     @classmethod
     def set_value(cls, key, value, description=None):
         """Set a config value, creating if it doesn't exist"""
-        from app import db
+        from extensions import db
         config = cls.query.filter_by(setting_key=key).first()
         if config:
             config.setting_value = str(value)

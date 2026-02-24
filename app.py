@@ -14,13 +14,9 @@ import requests
 from datetime import datetime, timedelta
 from functools import wraps
 
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context, session, abort
-from flask_wtf.csrf import CSRFProtect
-from flask_login import LoginManager, current_user, login_required, UserMixin, login_user, logout_user
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
+from flask import render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context, session, abort
+from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.utils import secure_filename
-from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -95,33 +91,9 @@ def with_timeout(seconds=110):
         return wrapper
     return decorator
 
-class Base(DeclarativeBase):
-    pass
+from extensions import db, login_manager, csrf, PRODUCTION_DOMAINS, scheduler_started, scheduler_lock, create_app
 
-# Create database instance
-db = SQLAlchemy(model_class=Base)
-
-# Create the app
-app = Flask(__name__)
-
-# Environment configuration - use explicit environment variables
-PRODUCTION_DOMAINS = {'app.scoutgenius.ai', 'www.app.scoutgenius.ai', 'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'}
-
-# Set app environment at startup - this will be used for background tasks
-# Priority: APP_ENV > ENVIRONMENT > production (default for safety)
-env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
-app.config['ENVIRONMENT'] = env
-
-# Log the chosen environment for debugging
-print(f"App environment set to: {env}")  # Use print for startup visibility
-
-# Initialize Sentry error tracking & performance monitoring (production only)
-from sentry_config import init_sentry
-init_sentry(app)
-
-# Global scheduler state management
-scheduler_started = False
-scheduler_lock = threading.Lock()
+app = create_app()
 
 def is_production_request():
     """Detect if current request is from production domain with hardened detection"""
@@ -178,40 +150,10 @@ def get_xml_filename():
 
 # Simple automated upload scheduling - no complex environment detection needed
 
-app.secret_key = os.environ.get("SESSION_SECRET")
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Production session optimization - Extended for better user experience
-app.config['SESSION_COOKIE_SECURE'] = True
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # 30 days instead of 1 hour
-app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)  # Remember me lasts 30 days
-app.config['REMEMBER_COOKIE_SECURE'] = True
-app.config['REMEMBER_COOKIE_HTTPONLY'] = True
-
-# Database configuration with fallback
-database_url = os.environ.get("DATABASE_URL")
-if database_url:
-    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_recycle": 300,
-        "pool_pre_ping": True,
-        "pool_size": 20,
-        "max_overflow": 30
-    }
-else:
-    # Fallback for development without failing startup
-    app.logger.warning("DATABASE_URL not set, using default SQLite for development")
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///fallback.db"
 
 # Company-specific URL generation - no global override needed
 # Each service will determine URLs based on company context
-
-# Initialize Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'auth.login'
 
 # Register blueprints
 from routes.auth import auth_bp
@@ -232,10 +174,8 @@ app.register_blueprint(scheduler_bp)
 app.register_blueprint(vetting_bp)
 app.register_blueprint(triggers_bp)
 app.register_blueprint(automations_bp)
-app.login_manager = login_manager
 
 from utils.bullhorn_helpers import get_bullhorn_service, get_email_service
-login_manager.login_message = 'Please log in to access the Job Feed Portal.'
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -274,10 +214,6 @@ def set_security_headers(response):
     )
     return response
 
-# Initialize database
-db.init_app(app)
-
-
 # Configuration
 UPLOAD_FOLDER = tempfile.gettempdir()
 ALLOWED_EXTENSIONS = {'xml'}
@@ -288,8 +224,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 app.config['WTF_CSRF_TIME_LIMIT'] = None  # No token expiry (avoids issues with long-open tabs)
 
-# Initialize CSRF protection (validates on every POST/PUT/DELETE by default)
-csrf = CSRFProtect(app)
+csrf.init_app(app)
 
 # Exempt cron job API endpoints from CSRF (they use bearer token auth via CRON_SECRET)
 from routes.health import cron_send_digest, cron_scout_vetting_followups
