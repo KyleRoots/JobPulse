@@ -110,6 +110,9 @@ JobPulse/
 - **Web Framework**: Flask (Python 3.11) with modular route blueprints.
 - **Database**: PostgreSQL (Neon-hosted) with SQLAlchemy ORM and Alembic migrations.
 - **Authentication**: Flask-Login for secure user management and session persistence.
+- **Module Permissions**: Granular module-based access control (`subscribed_modules` JSON field on User model). Three modules: `scout_inbound`, `scout_screening`, `scout_vetting`. Route guards via `module_required` decorator and `register_module_guard`. Admin users auto-inherit all modules.
+- **User Management**: Admin Settings page includes user CRUD with module subscription toggles, Bullhorn User ID assignment, and password management.
+- **Admin Impersonation**: "View As" feature allows admins to view the app as any user (Settings > User Management). Session-based with gold banner and "Return to Admin" button. Stop route on auth blueprint (`/stop-impersonation`) ensures accessibility during impersonation.
 - **Background Processing**: APScheduler manages automated tasks (5-min monitoring, health checks, environment monitoring).
 - **XML Processing**: Custom `lxml` processor for data handling, reference number generation, and HTML consistency within XML.
 - **Email Service**: SendGrid for notifications and delivery logging.

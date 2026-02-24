@@ -7,8 +7,8 @@ and user management (create/edit users, toggle module subscriptions).
 
 import json
 from datetime import datetime
-from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, current_app
-from flask_login import login_required
+from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, current_app, session
+from flask_login import login_required, login_user, current_user
 from routes import register_admin_guard
 
 
@@ -370,3 +370,35 @@ def delete_user(user_id):
         current_app.logger.error(f"Error deleting user: {str(e)}")
         flash(f'Error deleting user: {str(e)}', 'error')
         return redirect(url_for('settings.settings') + '#user-management')
+
+
+@settings_bp.route('/settings/users/<int:user_id>/impersonate', methods=['POST'])
+@login_required
+def impersonate_user(user_id):
+    """Start impersonating another user. Admin-only."""
+    from app import db
+    from models import User
+
+    if not current_user.is_admin:
+        flash('Only administrators can impersonate users.', 'error')
+        return redirect(url_for('settings.settings'))
+
+    if session.get('impersonating_admin_id'):
+        flash('You are already impersonating a user. Return to your admin account first.', 'warning')
+        return redirect(url_for('settings.settings'))
+
+    target_user = User.query.get_or_404(user_id)
+
+    if target_user.id == current_user.id:
+        flash('You cannot impersonate yourself.', 'warning')
+        return redirect(url_for('settings.settings') + '#user-management')
+
+    session['impersonating_admin_id'] = current_user.id
+    session['impersonating_admin_username'] = current_user.username
+    login_user(target_user, remember=False)
+
+    current_app.logger.info(f"Admin started impersonating user: {target_user.username} (id={target_user.id})")
+    flash(f'Now viewing as {target_user.display_name or target_user.username}.', 'info')
+
+    from routes import _get_user_landing
+    return redirect(_get_user_landing())

@@ -450,15 +450,25 @@
                 </div>
                 {% endif %}
             </form>
-            {% if not user.is_admin or users|selectattr('is_admin')|list|length > 1 %}
-            <form action="{{ url_for('settings.delete_user', user_id=user.id) }}" method="POST" class="d-inline"
-                  onsubmit="return confirm('Are you sure you want to delete user {{ user.username }}? This cannot be undone.');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-outline-danger btn-sm mt-1" style="margin-left: 48px;">
-                    <i class="fas fa-trash me-1"></i> Delete
-                </button>
-            </form>
-            {% endif %}
+            <div class="mt-1" style="padding-left: 48px; display: flex; gap: 8px; flex-wrap: wrap;">
+                {% if user.id != current_user.id %}
+                <form action="{{ url_for('settings.impersonate_user', user_id=user.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-warning btn-sm" title="View the app as this user">
+                        <i class="fas fa-user-secret me-1"></i> View As
+                    </button>
+                </form>
+                {% endif %}
+                {% if not user.is_admin or users|selectattr('is_admin')|list|length > 1 %}
+                <form action="{{ url_for('settings.delete_user', user_id=user.id) }}" method="POST" class="d-inline"
+                      onsubmit="return confirm('Are you sure you want to delete user {{ user.username }}? This cannot be undone.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-trash me-1"></i> Delete
+                    </button>
+                </form>
+                {% endif %}
+            </div>
         </div>
         {% endfor %}
     </div>

@@ -79,10 +79,38 @@ def login():
     return render_template('login.html')
 
 
+@auth_bp.route('/stop-impersonation')
+@login_required
+def stop_impersonation():
+    """Stop impersonating a user and return to admin account."""
+    from app import db
+    from models import User
+
+    admin_id = session.pop('impersonating_admin_id', None)
+    session.pop('impersonating_admin_username', None)
+
+    if not admin_id:
+        flash('No active impersonation session.', 'warning')
+        return redirect(_get_user_landing())
+
+    admin_user = User.query.get(admin_id)
+    if not admin_user or not admin_user.is_admin:
+        flash('Could not restore admin session.', 'error')
+        logout_user()
+        return redirect(url_for('auth.login'))
+
+    login_user(admin_user, remember=True)
+    session.permanent = True
+    flash('Returned to your admin account.', 'success')
+    return redirect(url_for('settings.settings') + '#user-management')
+
+
 @auth_bp.route('/logout')
 @login_required
 def logout():
     """User logout"""
+    session.pop('impersonating_admin_id', None)
+    session.pop('impersonating_admin_username', None)
     logout_user()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
