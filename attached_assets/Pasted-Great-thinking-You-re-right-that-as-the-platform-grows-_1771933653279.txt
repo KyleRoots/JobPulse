@@ -1,0 +1,27 @@
+Great thinking. You're right that as the platform grows, you'll have customers subscribing to different combinations of modules — maybe one customer gets Scout Inbound only, another gets Scout Inbound + Scout Screening, and your power users get the full suite.
+
+Here's what I'd suggest as the most optimal approach:
+
+Module-based permissions on the User model
+
+Instead of a simple admin/non-admin toggle, we add a modules field to each user that stores which modules they're subscribed to — something like ["scout_inbound"] or ["scout_inbound", "scout_screening", "scout_vetting"]. The sidebar and route guards then check this list instead of just the admin flag.
+
+Admin management via the existing Settings page
+
+Since the Product Expert Workbench is your internal dev tool and you're the one managing customer access, I'd recommend adding a simple user management section to the existing admin Settings page. From there you can:
+
+Create/edit customer accounts
+Toggle which modules each user has access to (checkboxes for each module)
+Set their Bullhorn user ID for job matching
+Reset passwords
+This keeps it within the admin tools you already use daily, rather than building a separate interface. The Product Expert Workbench stays focused on automations, and user management lives where you'd naturally look for it — in Settings.
+
+The module list would be:
+
+scout_inbound — My Jobs & Candidates
+scout_screening — AI Candidate Screening
+scout_vetting — AI Candidate Vetting
+Admin users would automatically have access to everything, so your own experience stays unchanged.
+
+This approach scales cleanly to multi-tenant later (per your SaaS roadmap) since the permission model is already modular. Want me to go ahead and build this out?
+Okay I agree with the plan. The only thing I would say is to do this in small steps just to make sure that nothing is missed, and to come to me for further validation if needed, but after each step perform a comprehensive regression test to make sure that nothing has been broken during the process as per usual best practices.
