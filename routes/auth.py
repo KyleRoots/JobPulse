@@ -54,14 +54,18 @@ def login():
         return redirect(_get_user_landing())
     
     if request.method == 'POST':
-        username = request.form.get('username')
+        identifier = request.form.get('username', '').strip()
         password = request.form.get('password')
         
-        if not username or not password:
-            flash('Please enter both username and password.', 'error')
+        if not identifier or not password:
+            flash('Please enter your username or email and password.', 'error')
             return render_template('login.html')
         
-        user = User.query.filter_by(username=username).first()
+        from extensions import db as _db
+        user = User.query.filter(
+            (User.username == identifier) |
+            (_db.func.lower(User.email) == identifier.lower())
+        ).first()
         if user and user.check_password(password):
             # Update last login
             user.last_login = datetime.utcnow()
@@ -199,6 +203,62 @@ def reset_password(token):
     return render_template('reset_password.html', token=token)
 
 
+@auth_bp.route('/dev/email-preview/reset')
+def dev_email_preview():
+    """Dev-only: preview the password reset email in the browser."""
+    import os as _os
+    env = (_os.environ.get('APP_ENV') or _os.environ.get('ENVIRONMENT') or 'production').lower()
+    if env == 'production':
+        from flask import abort
+        abort(404)
+
+    preview_url = '#your-reset-link-would-appear-here'
+    html_body = f'''
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 580px; margin: 40px auto; background: #0a1f16; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+        <div style="background: linear-gradient(135deg, #1e3a2a 0%, #0d2817 100%); padding: 32px 36px; border-bottom: 1px solid rgba(74,150,120,0.3);">
+            <div style="text-align: center;">
+                <div style="color: #ffffff; font-size: 22px; font-weight: 700; letter-spacing: -0.02em;">
+                    <span style="color: #4a9678;">&#9679;</span> Scout Genius<span style="color: #4a9678;">&#8482;</span>
+                </div>
+                <div style="color: rgba(255,255,255,0.5); font-size: 12px; margin-top: 4px; letter-spacing: 0.5px; text-transform: uppercase;">Password Reset</div>
+            </div>
+        </div>
+        <div style="padding: 36px; background: #0f2318;">
+            <p style="color: rgba(255,255,255,0.85); font-size: 15px; margin: 0 0 12px 0;">Hi Kyle Roots,</p>
+            <p style="color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1.6; margin: 0 0 28px 0;">
+                We received a request to reset the password for your Scout Genius account. Click the button below to set a new password. This link expires in <strong style="color: #4a9678;">1 hour</strong>.
+            </p>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 32px auto;">
+                <tr>
+                    <td style="border-radius: 10px; background-color: #4a9678;">
+                        <a href="{preview_url}" style="display: inline-block; background-color: #4a9678; color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 10px; font-weight: 700; font-size: 15px; letter-spacing: 0.4px; font-family: Arial, sans-serif;">
+                            Reset My Password
+                        </a>
+                    </td>
+                </tr>
+            </table>
+            <p style="color: rgba(255,255,255,0.45); font-size: 13px; line-height: 1.6; margin: 28px 0 0 0;">
+                If you didn't request this, you can safely ignore this email &mdash; your password will remain unchanged.
+            </p>
+            <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(74,150,120,0.2);">
+                <p style="color: rgba(255,255,255,0.3); font-size: 12px; margin: 0; word-break: break-all;">
+                    Or copy this link into your browser:<br>
+                    <span style="color: rgba(74,150,120,0.7);">{preview_url}</span>
+                </p>
+            </div>
+        </div>
+        <div style="background: #0a1a10; padding: 16px 36px; text-align: center; border-top: 1px solid rgba(74,150,120,0.15);">
+            <p style="color: rgba(255,255,255,0.3); font-size: 11px; margin: 0;">
+                &copy; 2026 Scout Genius. All rights reserved.
+            </p>
+        </div>
+    </div>
+    '''
+    from flask import Response
+    page = f'<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Email Preview</title><style>body{{background:#1a1a2e;margin:0;padding:20px;}}</style></head><body>{html_body}</body></html>'
+    return Response(page, mimetype='text/html')
+
+
 def _send_reset_email(user, reset_url):
     """Send a Scout Genius branded password reset email via SendGrid."""
     try:
@@ -230,11 +290,15 @@ def _send_reset_email(user, reset_url):
                     We received a request to reset the password for your Scout Genius account. Click the button below to set a new password. This link expires in <strong style="color: #4a9678;">1 hour</strong>.
                 </p>
 
-                <div style="text-align: center; margin: 32px 0;">
-                    <a href="{reset_url}" style="display: inline-block; background: linear-gradient(135deg, #4a9678, #2c4c3b); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-weight: 600; font-size: 15px; letter-spacing: 0.3px;">
-                        Reset My Password
-                    </a>
-                </div>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 32px auto;">
+                    <tr>
+                        <td style="border-radius: 10px; background-color: #4a9678;">
+                            <a href="{reset_url}" style="display: inline-block; background-color: #4a9678; color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 10px; font-weight: 700; font-size: 15px; letter-spacing: 0.4px; font-family: Arial, sans-serif; mso-padding-alt: 14px 40px;">
+                                Reset My Password
+                            </a>
+                        </td>
+                    </tr>
+                </table>
 
                 <p style="color: rgba(255,255,255,0.45); font-size: 13px; line-height: 1.6; margin: 28px 0 0 0;">
                     If you didn't request this, you can safely ignore this email — your password will remain unchanged.
