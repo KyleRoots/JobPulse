@@ -92,6 +92,59 @@ class EmailInboundService:
         else:
             self.logger.warning("OPENAI_API_KEY not set - AI resume parsing disabled")
     
+    def _notify_admin_parse_failure(self, parsed_email, error_msg: str):
+        """Send email notification to admin when a candidate fails to parse."""
+        try:
+            from email_service import EmailService
+            from models import User
+            
+            admin_users = User.query.filter_by(is_admin=True).all()
+            admin_emails = [u.email for u in admin_users if u.email]
+            
+            if not admin_emails:
+                self.logger.warning("No admin emails found for parse failure notification")
+                return
+            
+            email_svc = EmailService()
+            candidate_name = parsed_email.candidate_name or 'Unknown'
+            candidate_email = parsed_email.candidate_email or 'N/A'
+            source = parsed_email.source_platform or 'Unknown'
+            job_id = parsed_email.bullhorn_job_id or 'N/A'
+            received = parsed_email.received_at.strftime('%Y-%m-%d %H:%M UTC') if parsed_email.received_at else 'N/A'
+            resume = parsed_email.resume_filename or 'None'
+            
+            subject = f"[Scout Genius] Candidate Parse Failure — {candidate_name}"
+            body = (
+                f"A candidate application has failed to parse inside the ATS.\n\n"
+                f"--- Failure Details ---\n"
+                f"Candidate Name: {candidate_name}\n"
+                f"Candidate Email: {candidate_email}\n"
+                f"Source Platform: {source}\n"
+                f"Bullhorn Job ID: {job_id}\n"
+                f"Resume File: {resume}\n"
+                f"Received At: {received}\n"
+                f"Processed At: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n\n"
+                f"--- Error ---\n"
+                f"{error_msg}\n\n"
+                f"--- Notes ---\n"
+                f"{parsed_email.processing_notes or 'N/A'}\n\n"
+                f"This candidate profile did not make it through the parsing workflow. "
+                f"Please review and take corrective action if needed.\n\n"
+                f"— Scout Genius Automation"
+            )
+            
+            for admin_email in admin_emails:
+                email_svc.send_notification_email(
+                    to_email=admin_email,
+                    subject=subject,
+                    message=body,
+                    notification_type='parse_failure'
+                )
+            
+            self.logger.info(f"📧 Parse failure notification sent to {len(admin_emails)} admin(s) for candidate: {candidate_name}")
+        except Exception as e:
+            self.logger.error(f"Failed to send parse failure notification: {e}")
+    
     def detect_source(self, sender: str, subject: str, body: str) -> str:
         """
         Detect the source platform from email metadata
@@ -787,6 +840,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                     parsed_email.processed_at = datetime.utcnow()
                     parsed_email.processing_notes = f"Resume parsing timed out and no candidate info in email body"
                     db.session.commit()
+                    self._notify_admin_parse_failure(parsed_email, timeout_error)
                     result['success'] = False
                     result['message'] = timeout_error
                     return result
@@ -813,6 +867,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                 parsed_email.processed_at = datetime.utcnow()
                 parsed_email.processing_notes = error_msg
                 db.session.commit()
+                self._notify_admin_parse_failure(parsed_email, error_msg)
                 result['success'] = False
                 result['message'] = error_msg
                 return result
@@ -1019,6 +1074,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                         parsed_email.status = 'failed'
                         parsed_email.processing_notes = str(e)
                         db.session.commit()
+                        self._notify_admin_parse_failure(parsed_email, str(e))
                 except:
                     pass
         

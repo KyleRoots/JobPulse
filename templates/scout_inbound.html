@@ -111,6 +111,25 @@
     @media (max-width: 768px) {
         .jobs-grid { grid-template-columns: 1fr; }
     }
+    .metric-filter {
+        transition: all 0.3s ease, outline 0.2s ease;
+    }
+    .metric-filter:hover {
+        outline: 2px solid rgba(232, 168, 124, 0.5);
+        outline-offset: 2px;
+    }
+    .metric-filter.active {
+        outline: 2px solid #e8a87c;
+        outline-offset: 2px;
+        box-shadow: 0 10px 30px rgba(217, 119, 6, 0.2);
+    }
+    .candidate-row-hidden {
+        display: none !important;
+    }
+    #active-filter-label {
+        font-size: 0.8rem;
+        color: #e8a87c;
+    }
 </style>
 {% endblock %}
 
@@ -128,7 +147,7 @@
 <div class="section-header">
     <div>
         <h5><i class="fas fa-briefcase me-2" style="color: #e8a87c;"></i>My Jobs</h5>
-        <div class="section-subtitle">Jobs assigned to you across your tearsheets</div>
+        <div class="section-subtitle">Jobs assigned to you across your inbound tearsheets</div>
     </div>
     <div>
         {% for ts in job_stats.tearsheets %}
@@ -145,78 +164,75 @@
         <div class="metric-subtext">Assigned to You</div>
         <div class="metric-trend neutral"><i class="fas fa-layer-group"></i> {{ job_stats.tearsheet_count }} Tearsheet{{ 's' if job_stats.tearsheet_count != 1 }}</div>
     </div>
-    <div class="metric-card green">
-        <div class="metric-icon"><i class="fas fa-users"></i></div>
-        <div class="metric-label">Total Applicants</div>
-        <div class="metric-value">{{ candidate_stats.total }}</div>
-        <div class="metric-subtext">Across Your Jobs</div>
-        <div class="metric-trend neutral"><i class="fas fa-inbox"></i> All time</div>
-    </div>
-    <div class="metric-card orange">
-        <div class="metric-icon"><i class="fas fa-check-circle"></i></div>
-        <div class="metric-label">Applicants Processed</div>
-        <div class="metric-value">{{ candidate_stats.processed }}</div>
-        <div class="metric-subtext">Successfully Imported</div>
-        <div class="metric-trend up"><i class="fas fa-arrow-up"></i> Complete</div>
-    </div>
-    <div class="metric-card purple">
-        <div class="metric-icon"><i class="fas fa-clone"></i></div>
-        <div class="metric-label">Duplicate Applicants</div>
-        <div class="metric-value">{{ candidate_stats.duplicates }}</div>
-        <div class="metric-subtext">{{ "%.1f"|format(candidate_stats.duplicate_rate) }}% Rate</div>
-        <div class="metric-trend neutral"><i class="fas fa-filter"></i> Filtered</div>
-    </div>
 </div>
 
-{% if user_jobs %}
-<div class="jobs-grid mb-4">
-    {% for job in user_jobs %}
-    <div class="job-card">
-        <div class="d-flex justify-content-between align-items-start mb-2">
-            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job.id }}"
-               target="_blank" class="job-title-link">
-                {{ job.title }}
-                <i class="fas fa-external-link-alt ms-1" style="font-size: 0.7rem; opacity: 0.5;"></i>
-            </a>
-            {% if job.isOpen %}
-            <span class="badge badge-status-open">Open</span>
-            {% else %}
-            <span class="badge badge-status-closed">Closed</span>
-            {% endif %}
-        </div>
-        <div class="job-meta mb-1">
-            {% if job.clientName %}
-            <i class="fas fa-building"></i> {{ job.clientName }}
-            {% endif %}
-        </div>
-        <div class="job-meta mb-1">
-            {% if job.location %}
-            <i class="fas fa-map-marker-alt"></i> {{ job.location.city }}{% if job.location.city and job.location.state %}, {% endif %}{{ job.location.state }}
-            {% endif %}
-            {% if job.employmentType %}
-            <span class="ms-2"><i class="fas fa-clock"></i> {{ job.employmentType }}</span>
-            {% endif %}
-        </div>
-        <div class="d-flex align-items-center justify-content-between mt-2">
-            <span class="badge badge-tearsheet"><i class="fas fa-layer-group me-1"></i>{{ job.tearsheet_name }}</span>
-            {% if job.assignedUsers %}
-            <div>
-                {% for u in job.assignedUsers %}
-                <span class="recruiter-tag"><i class="fas fa-user me-1"></i>{{ u.firstName }} {{ u.lastName }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
+<div class="card glass-card mb-4">
+    <div class="card-header bg-transparent border-bottom border-secondary">
+        <h6 class="mb-0"><i class="fas fa-briefcase me-2"></i>Assigned Jobs</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0 candidate-table">
+                <thead>
+                    <tr>
+                        <th>Bullhorn Job ID</th>
+                        <th>Job Title</th>
+                        <th>Client</th>
+                        <th>Location</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Tearsheet</th>
+                        <th>Assigned To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in user_jobs %}
+                    <tr>
+                        <td>
+                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job.id }}"
+                               target="_blank" class="text-info">{{ job.id }} <i class="fas fa-external-link-alt ms-1" style="font-size: 0.6rem; opacity: 0.5;"></i></a>
+                        </td>
+                        <td>
+                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job.id }}"
+                               target="_blank" class="job-title-link">{{ job.title }}</a>
+                        </td>
+                        <td>{{ job.clientName or '-' }}</td>
+                        <td>
+                            {% if job.location %}
+                            {{ job.location.city }}{% if job.location.city and job.location.state %}, {% endif %}{{ job.location.state }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{{ job.employmentType or '-' }}</td>
+                        <td>
+                            {% if job.isOpen %}
+                            <span class="badge badge-status-open">Open</span>
+                            {% else %}
+                            <span class="badge badge-status-closed">Closed</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge badge-tearsheet"><i class="fas fa-layer-group me-1"></i>{{ job.tearsheet_name }}</span></td>
+                        <td>
+                            {% if job.assignedUsers %}
+                            {% for u in job.assignedUsers %}
+                            <span class="recruiter-tag"><i class="fas fa-user me-1"></i>{{ u.firstName }} {{ u.lastName }}</span>
+                            {% endfor %}
+                            {% else %}-{% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="fas fa-briefcase fa-3x mb-3 d-block opacity-50"></i>
+                            No jobs are currently assigned to you.<br>
+                            <small>Jobs will appear here when you are listed as a recruiter on a job in Bullhorn.</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-    {% endfor %}
 </div>
-{% else %}
-<div class="empty-state mb-4">
-    <i class="fas fa-briefcase d-block"></i>
-    <p>No jobs are currently assigned to you.</p>
-    <small>Jobs will appear here when you are listed as a recruiter on a job in Bullhorn.</small>
-</div>
-{% endif %}
 
 <!-- ===== SECTION 2: CANDIDATES APPLIED ===== -->
 <div class="section-divider"></div>
@@ -229,28 +245,28 @@
 </div>
 
 <div class="metrics-row mb-4">
-    <div class="metric-card blue">
+    <div id="filter-all" class="metric-card blue metric-filter active" data-filter="all" style="cursor: pointer;" onclick="filterCandidates('all')">
         <div class="metric-icon"><i class="fas fa-user-plus"></i></div>
         <div class="metric-label">Total Applicants</div>
         <div class="metric-value">{{ candidate_stats.total }}</div>
         <div class="metric-subtext">Applied to Your Jobs</div>
         <div class="metric-trend neutral"><i class="fas fa-inbox"></i> All time</div>
     </div>
-    <div class="metric-card green">
+    <div class="metric-card green metric-filter" data-filter="completed" style="cursor: pointer;" onclick="filterCandidates('completed')">
         <div class="metric-icon"><i class="fas fa-check-circle"></i></div>
         <div class="metric-label">Applicants Processed</div>
         <div class="metric-value">{{ candidate_stats.processed }}</div>
         <div class="metric-subtext">Successfully Imported</div>
         <div class="metric-trend up"><i class="fas fa-arrow-up"></i> Complete</div>
     </div>
-    <div class="metric-card orange">
+    <div class="metric-card orange metric-filter" data-filter="failed" style="cursor: pointer;" onclick="filterCandidates('failed')">
         <div class="metric-icon"><i class="fas fa-times-circle"></i></div>
         <div class="metric-label">Failed Processes</div>
         <div class="metric-value">{{ candidate_stats.failed }}</div>
-        <div class="metric-subtext">Parse Errors</div>
-        <div class="metric-trend neutral"><i class="fas fa-exclamation"></i> Check logs</div>
+        <div class="metric-subtext">Candidates who have failed to parse inside the ATS</div>
+        <div class="metric-trend neutral"><i class="fas fa-exclamation-triangle"></i> Escalated</div>
     </div>
-    <div class="metric-card purple">
+    <div class="metric-card purple metric-filter" data-filter="duplicate" style="cursor: pointer;" onclick="filterCandidates('duplicate')">
         <div class="metric-icon"><i class="fas fa-clone"></i></div>
         <div class="metric-label">Duplicate Applicants</div>
         <div class="metric-value">{{ candidate_stats.duplicates }}</div>
@@ -258,10 +274,16 @@
         <div class="metric-trend neutral"><i class="fas fa-filter"></i> Filtered</div>
     </div>
 </div>
+<div class="mb-3" id="failed-escalation-note" style="display: none;">
+    <div class="alert alert-warning py-2 px-3 mb-0" style="background: rgba(217, 119, 6, 0.1); border-color: rgba(217, 119, 6, 0.3); color: #e8a87c; font-size: 0.85rem;">
+        <i class="fas fa-info-circle me-2"></i>Any failed candidate profiles that did not make it through have already been escalated to support.
+    </div>
+</div>
 
 <div class="card glass-card">
-    <div class="card-header bg-transparent border-bottom border-secondary">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
         <h6 class="mb-0"><i class="fas fa-list me-2"></i>Processed Applicants</h6>
+        <span id="active-filter-label"><i class="fas fa-filter me-1"></i>Showing: All</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -278,9 +300,9 @@
                         <th>Notes</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="candidates-tbody">
                     {% for c in candidates %}
-                    <tr>
+                    <tr data-status="{{ c.status }}" data-duplicate="{{ 'true' if c.is_duplicate_candidate else 'false' }}">
                         <td><small>{{ c.received_at.strftime('%Y-%m-%d %H:%M') if c.received_at else 'N/A' }}</small></td>
                         <td>
                             {% if c.source_platform == 'Dice' %}
@@ -294,7 +316,12 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if c.bullhorn_candidate_id %}
+                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ c.bullhorn_candidate_id }}"
+                               target="_blank" class="job-title-link"><strong>{{ c.candidate_name or 'N/A' }}</strong> <i class="fas fa-external-link-alt ms-1" style="font-size: 0.6rem; opacity: 0.5;"></i></a>
+                            {% else %}
                             <strong>{{ c.candidate_name or 'N/A' }}</strong>
+                            {% endif %}
                             {% if c.candidate_email %}
                             <br><small class="text-muted">{{ c.candidate_email }}</small>
                             {% endif %}
@@ -364,5 +391,52 @@
 {% block extra_scripts %}
 <script>
     setInterval(function() { location.reload(); }, 60000);
+
+    function filterCandidates(filter) {
+        var rows = document.querySelectorAll('#candidates-tbody tr[data-status]');
+        var cards = document.querySelectorAll('.metric-filter');
+        var label = document.getElementById('active-filter-label');
+        var escalationNote = document.getElementById('failed-escalation-note');
+
+        cards.forEach(function(card) {
+            card.classList.remove('active');
+            if (card.getAttribute('data-filter') === filter) {
+                card.classList.add('active');
+            }
+        });
+
+        var filterLabels = {
+            'all': 'All',
+            'completed': 'Processed',
+            'failed': 'Failed',
+            'duplicate': 'Duplicates'
+        };
+        label.innerHTML = '<i class="fas fa-filter me-1"></i>Showing: ' + (filterLabels[filter] || 'All');
+
+        if (escalationNote) {
+            escalationNote.style.display = (filter === 'failed') ? 'block' : 'none';
+        }
+
+        rows.forEach(function(row) {
+            var status = row.getAttribute('data-status');
+            var isDuplicate = row.getAttribute('data-duplicate') === 'true';
+
+            if (filter === 'all') {
+                row.classList.remove('candidate-row-hidden');
+            } else if (filter === 'completed') {
+                row.classList.toggle('candidate-row-hidden', status !== 'completed');
+            } else if (filter === 'failed') {
+                row.classList.toggle('candidate-row-hidden', status !== 'failed');
+            } else if (filter === 'duplicate') {
+                row.classList.toggle('candidate-row-hidden', !isDuplicate);
+            }
+        });
+
+        var visibleRows = document.querySelectorAll('#candidates-tbody tr[data-status]:not(.candidate-row-hidden)');
+        var emptyRow = document.querySelector('#candidates-tbody tr:not([data-status])');
+        if (emptyRow) {
+            emptyRow.style.display = (rows.length === 0 || visibleRows.length === 0) ? '' : 'none';
+        }
+    }
 </script>
 {% endblock %}
