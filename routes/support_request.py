@@ -81,14 +81,31 @@ def check_rate_limit(ip):
     return True
 
 
-@support_request_bp.route('/support')
-@csrf.exempt
-def support_form():
+def _serve_support_form():
     response = make_response(render_template('support_request.html'))
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
+
+@support_request_bp.route('/support')
+@csrf.exempt
+def support_form():
+    return _serve_support_form()
+
+
+@support_request_bp.before_app_request
+def redirect_support_domain():
+    host = request.host.lower()
+    if 'support.myticas.com' in host:
+        path = request.path
+        if path == '/' or path == '':
+            return _serve_support_form()
+        if path.startswith('/static/') or path.startswith('/support'):
+            return None
+        from flask import abort
+        abort(404)
 
 
 @support_request_bp.route('/support/submit', methods=['POST'])
