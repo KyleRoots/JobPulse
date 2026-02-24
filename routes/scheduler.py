@@ -5,6 +5,7 @@ Extracted from app.py for cleaner codebase organization.
 
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app, flash
 from flask_login import login_required, current_user
+from routes import register_admin_guard
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import os
@@ -16,6 +17,7 @@ import threading
 import json
 
 scheduler_bp = Blueprint('scheduler', __name__)
+register_admin_guard(scheduler_bp)
 
 # Progress tracker for manual operations (module-level for thread access)
 progress_tracker = {}

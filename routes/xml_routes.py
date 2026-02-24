@@ -10,11 +10,13 @@ import logging
 from datetime import datetime, timedelta, date
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, send_file, after_this_request, session, current_app
 from flask_login import login_required, current_user
+from routes import register_admin_guard
 from werkzeug.utils import secure_filename
 from extensions import db
 
 logger = logging.getLogger(__name__)
 xml_routes_bp = Blueprint('xml_routes', __name__)
+register_admin_guard(xml_routes_bp)
 
 progress_tracker = {}
 

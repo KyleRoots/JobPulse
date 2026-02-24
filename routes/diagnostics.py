@@ -4,10 +4,12 @@ import os
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
+from routes import register_admin_guard
 from extensions import db
 
 logger = logging.getLogger(__name__)
 diagnostics_bp = Blueprint('diagnostics', __name__)
+register_admin_guard(diagnostics_bp)
 
 
 @diagnostics_bp.route('/test-reference-refresh-notification')

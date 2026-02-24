@@ -5,10 +5,12 @@ import threading
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
+from routes import register_admin_guard
 from extensions import db, csrf
 
 logger = logging.getLogger(__name__)
 email_bp = Blueprint('email', __name__)
+register_admin_guard(email_bp)
 
 
 @email_bp.route('/vetting')

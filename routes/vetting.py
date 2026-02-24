@@ -4,10 +4,12 @@ AI Candidate Vetting settings, operations, and job requirements management
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required
+from routes import register_admin_guard
 from datetime import datetime, timedelta
 import logging
 
 vetting_bp = Blueprint('vetting', __name__)
+register_admin_guard(vetting_bp)
 
 
 def get_db():

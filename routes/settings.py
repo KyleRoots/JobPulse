@@ -7,9 +7,11 @@ Handles global settings for SFTP, email notifications, and automation configurat
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, current_app
 from flask_login import login_required
+from routes import register_admin_guard
 
 
 settings_bp = Blueprint('settings', __name__)
+register_admin_guard(settings_bp)
 
 
 @settings_bp.route('/settings')

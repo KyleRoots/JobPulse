@@ -15,9 +15,11 @@ from urllib.parse import urlencode
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, session, current_app
 from flask_login import login_required, current_user
+from routes import register_admin_guard
 
 
 ats_integration_bp = Blueprint('ats_integration', __name__)
+register_admin_guard(ats_integration_bp)
 
 
 @ats_integration_bp.route('/ats-integration')

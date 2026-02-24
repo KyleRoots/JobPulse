@@ -1540,7 +1540,8 @@
                 {% endif %}
             </div>
 
-            <!-- Scout Screening Module (Pink) -->
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            <!-- Scout Screening Module (Pink) - Admin Only -->
             <div class="nav-section" data-section="screening">
                 <div class="nav-section-title">Scout Screening</div>
                 <a href="{{ url_for('vetting.vetting_settings') }}"
@@ -1550,7 +1551,7 @@
                 </a>
             </div>
 
-            <!-- Scout Vetting Module (Teal/Cyan) -->
+            <!-- Scout Vetting Module (Teal/Cyan) - Admin Only -->
             <div class="nav-section" data-section="vetting">
                 <div class="nav-section-title">Scout Vetting</div>
                 <a href="{{ url_for('email.scout_vetting_dashboard') }}"
@@ -1569,6 +1570,7 @@
                     <span>Automations Workbench</span>
                 </a>
             </div>
+            {% endif %}
             {% endif %}
 
             {% if current_user.is_authenticated and current_user.is_admin %}

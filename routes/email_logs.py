@@ -1,10 +1,12 @@
 import logging
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
+from routes import register_admin_guard
 from extensions import db
 
 logger = logging.getLogger(__name__)
 email_logs_bp = Blueprint('email_logs', __name__)
+register_admin_guard(email_logs_bp)
 
 
 @email_logs_bp.route('/email-logs')

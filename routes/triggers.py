@@ -4,9 +4,11 @@ API trigger endpoints for manual operations and system health checks
 """
 from flask import Blueprint, jsonify, render_template, request, current_app
 from flask_login import login_required
+from routes import register_admin_guard
 from datetime import datetime, timedelta
 
 triggers_bp = Blueprint('triggers', __name__)
+register_admin_guard(triggers_bp)
 
 
 def get_db():

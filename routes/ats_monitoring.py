@@ -3,10 +3,12 @@ import logging
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
+from routes import register_admin_guard
 from extensions import db
 
 logger = logging.getLogger(__name__)
 ats_monitoring_bp = Blueprint('ats_monitoring', __name__)
+register_admin_guard(ats_monitoring_bp)
 
 
 @ats_monitoring_bp.route('/ats-monitoring')

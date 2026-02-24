@@ -4,10 +4,12 @@ import os
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
+from routes import register_admin_guard
 from extensions import db
 
 logger = logging.getLogger(__name__)
 log_monitoring_bp = Blueprint('log_monitoring', __name__)
+register_admin_guard(log_monitoring_bp)
 
 
 @log_monitoring_bp.route('/log-monitoring')

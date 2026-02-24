@@ -6,6 +6,7 @@ Handles the main dashboard and root redirect.
 
 from flask import Blueprint, render_template, redirect, url_for, current_app
 from flask_login import login_required, current_user
+from routes import admin_required
 
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -17,15 +18,18 @@ def root():
     from app import ensure_background_services
     
     if current_user.is_authenticated:
-        # Ensure scheduler is running for authenticated users
         ensure_background_services()
-        return redirect(url_for('dashboard.dashboard_redirect'))
+        if current_user.is_admin:
+            return redirect(url_for('dashboard.dashboard_redirect'))
+        else:
+            return redirect(url_for('scout_inbound.scout_inbound_dashboard'))
     else:
         return redirect(url_for('auth.login'))
 
 
 @dashboard_bp.route('/dashboard')
 @login_required
+@admin_required
 def dashboard_redirect():
     """Main dashboard home page"""
     from app import db, ensure_background_services, get_automation_status
