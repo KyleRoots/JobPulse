@@ -1,46 +1,45 @@
 import os
 import logging
 import threading
-from datetime import datetime, timedelta
+import time
+import signal
+import atexit
+import shutil
+import tempfile
+import uuid
+import traceback
 import json
 import re
 import requests
+from datetime import datetime, timedelta
+from functools import wraps
+
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context, session, abort
 from flask_wtf.csrf import CSRFProtect
-from werkzeug.utils import secure_filename
-from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_login import LoginManager, current_user, login_required, UserMixin, login_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
-import tempfile
-import uuid
+from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+
+try:
+    from lxml import etree
+except ImportError:
+    etree = None
+    logging.warning("lxml not available, some XML features disabled")
+
 from xml_processor import XMLProcessor
 from email_service import EmailService
 from ftp_service import FTPService
 from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
-# Use simplified incremental monitoring instead of comprehensive monitoring
 from incremental_monitoring_service import IncrementalMonitoringService
 from job_application_service import JobApplicationService
 from xml_change_monitor import create_xml_monitor
-import json
-import traceback
-try:
-    from lxml import etree
-except ImportError:
-    etree = None
-    import logging
-    logging.warning("lxml not available, some XML features disabled")
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from datetime import datetime, timedelta
-import atexit
-import shutil
-import threading
-import time
-import signal
-from functools import wraps
-from flask_login import LoginManager, current_user, login_required, UserMixin, login_user, logout_user
-from werkzeug.security import generate_password_hash, check_password_hash
 
 # Configure logging for debugging account manager extraction
 logging.basicConfig(

@@ -150,15 +150,40 @@ class RefreshLog(db.Model):
         return f'<RefreshLog {self.refresh_date}>'
 
 class GlobalSettings(db.Model):
-    """Global application settings including SFTP credentials"""
+    """Global application settings including SFTP credentials and general configuration"""
     id = db.Column(db.Integer, primary_key=True)
     setting_key = db.Column(db.String(100), unique=True, nullable=False)
     setting_value = db.Column(db.Text, nullable=True)
+    description = db.Column(db.String(500), nullable=True)
+    category = db.Column(db.String(50), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __repr__(self):
         return f'<GlobalSettings {self.setting_key}: {self.setting_value}>'
+
+    @classmethod
+    def get_value(cls, key, default=None):
+        """Get a setting value by key"""
+        setting = cls.query.filter_by(setting_key=key).first()
+        return setting.setting_value if setting else default
+
+    @classmethod
+    def set_value(cls, key, value, description=None, category=None):
+        """Set a setting value, creating if it doesn't exist"""
+        from app import db
+        setting = cls.query.filter_by(setting_key=key).first()
+        if setting:
+            setting.setting_value = str(value)
+            if description:
+                setting.description = description
+            if category:
+                setting.category = category
+        else:
+            setting = cls(setting_key=key, setting_value=str(value), description=description, category=category)
+            db.session.add(setting)
+        db.session.commit()
+        return setting
 
 class BullhornMonitor(db.Model):
     """Configuration for Bullhorn tearsheet monitoring"""
@@ -520,16 +545,7 @@ class ParsedEmail(db.Model):
         return f'<ParsedEmail {self.id} from {self.source_platform} - {self.status}>'
 
 
-class EmailParsingConfig(db.Model):
-    """Configuration for email parsing service"""
-    id = db.Column(db.Integer, primary_key=True)
-    setting_key = db.Column(db.String(100), unique=True, nullable=False)
-    setting_value = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<EmailParsingConfig {self.setting_key}>'
+EmailParsingConfig = GlobalSettings
 
 
 class CandidateVettingLog(db.Model):
