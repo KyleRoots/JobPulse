@@ -41,7 +41,8 @@ JobPulse/
 │   └── automations.py               # Product Expert Workbench routes (dev-only)
 ├── utils/                           # Utility functions
 │   ├── __init__.py
-│   └── field_mappers.py             # Data field mapping utilities
+│   ├── field_mappers.py             # Data field mapping utilities
+│   └── bullhorn_helpers.py          # Centralized BullhornService/EmailService factory helpers
 ├── scripts/                         # Management and testing scripts
 ├── tests/                           # Test suite (pytest, 40+ test files)
 │   ├── conftest.py

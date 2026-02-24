@@ -128,7 +128,7 @@ class JobReferenceNumber(db.Model):
     """Store job reference numbers for preservation across automated uploads"""
     id = db.Column(db.Integer, primary_key=True)
     bullhorn_job_id = db.Column(db.String(50), unique=True, nullable=False)  # bhatsid from XML
-    reference_number = db.Column(db.String(50), nullable=False)  # The reference number to preserve
+    reference_number = db.Column(db.String(50), nullable=False, index=True)  # The reference number to preserve
     job_title = db.Column(db.String(500), nullable=True)  # For identification purposes
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -291,7 +291,7 @@ class EmailDeliveryLog(db.Model):
     notification_type = db.Column(db.String(50), nullable=False, index=True)  # 'job_added', 'job_removed', 'job_modified', 'scheduled_processing'
     job_id = db.Column(db.String(20), nullable=True)  # Bullhorn job ID (null for scheduled processing)
     job_title = db.Column(db.String(255), nullable=True)  # Job title for reference
-    recipient_email = db.Column(db.String(255), nullable=False)  # Email address notification was sent to
+    recipient_email = db.Column(db.String(255), nullable=False, index=True)  # Email address notification was sent to
     sent_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)  # When email was sent
     delivery_status = db.Column(db.String(20), default='sent', nullable=False)  # 'sent', 'failed', 'pending'
     sendgrid_message_id = db.Column(db.String(255), nullable=True)  # SendGrid message ID for tracking
@@ -514,7 +514,7 @@ class ParsedEmail(db.Model):
     
     # Candidate info extracted from email
     candidate_name = db.Column(db.String(255), nullable=True)
-    candidate_email = db.Column(db.String(255), nullable=True)
+    candidate_email = db.Column(db.String(255), nullable=True, index=True)
     candidate_phone = db.Column(db.String(50), nullable=True)
     
     # Processing status
@@ -553,7 +553,7 @@ class CandidateVettingLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)  # Not unique: multiple logs per candidate (one per application)
     candidate_name = db.Column(db.String(255), nullable=True)
-    candidate_email = db.Column(db.String(255), nullable=True)
+    candidate_email = db.Column(db.String(255), nullable=True, index=True)
     applied_job_id = db.Column(db.Integer, nullable=True)  # Job they originally applied to
     applied_job_title = db.Column(db.String(500), nullable=True)
     parsed_email_id = db.Column(db.Integer, nullable=True, index=True)  # Links to specific ParsedEmail that triggered vetting
@@ -959,7 +959,7 @@ class ScoutVettingSession(db.Model):
     
     # Candidate info (denormalized for query efficiency)
     bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
-    candidate_email = db.Column(db.String(255), nullable=False)
+    candidate_email = db.Column(db.String(255), nullable=False, index=True)
     candidate_name = db.Column(db.String(255), nullable=True)
     
     # Job info (denormalized)

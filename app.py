@@ -234,28 +234,7 @@ app.register_blueprint(triggers_bp)
 app.register_blueprint(automations_bp)
 app.login_manager = login_manager
 
-def get_bullhorn_service():
-    """Helper function to create BullhornService with credentials from GlobalSettings"""
-    credentials = {}
-    for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
-        try:
-            setting = GlobalSettings.query.filter_by(setting_key=key).first()
-            if setting and setting.setting_value:
-                credentials[key] = setting.setting_value.strip()
-        except Exception as e:
-            app.logger.error(f"Error loading credential {key}: {str(e)}")
-    
-    return BullhornService(
-        client_id=credentials.get('bullhorn_client_id'),
-        client_secret=credentials.get('bullhorn_client_secret'),
-        username=credentials.get('bullhorn_username'),
-        password=credentials.get('bullhorn_password')
-    )
-
-def get_email_service():
-    """Helper function to create EmailService with database logging support"""
-    from email_service import EmailService
-    return EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
+from utils.bullhorn_helpers import get_bullhorn_service, get_email_service
 login_manager.login_message = 'Please log in to access the Job Feed Portal.'
 
 @login_manager.user_loader
