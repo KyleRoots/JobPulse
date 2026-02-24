@@ -304,6 +304,67 @@
             padding-bottom: 3.5rem;
         }
 
+        .autocomplete-wrapper {
+            position: relative;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(20, 40, 80, 0.97);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .autocomplete-dropdown.show {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 0.7rem 1.2rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.active {
+            background: rgba(79, 195, 247, 0.15);
+        }
+
+        .autocomplete-item .contact-name {
+            font-weight: 500;
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        .autocomplete-item .contact-email {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+
+        .autocomplete-item .contact-name mark {
+            background: rgba(79, 195, 247, 0.3);
+            color: white;
+            padding: 0 1px;
+            border-radius: 2px;
+        }
+
         @media (max-width: 768px) {
             .support-container {
                 margin: 1rem auto 1.5rem auto;
@@ -362,8 +423,11 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="requesterName" class="form-label">Full Name *</label>
-                                <input type="text" class="form-control" id="requesterName" name="requesterName" required
-                                    placeholder="Your full name">
+                                <div class="autocomplete-wrapper">
+                                    <input type="text" class="form-control" id="requesterName" name="requesterName" required
+                                        placeholder="Start typing your name..." autocomplete="off">
+                                    <div id="nameDropdown" class="autocomplete-dropdown"></div>
+                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="requesterEmail" class="form-label">Email Address *</label>
@@ -630,6 +694,118 @@
                 loadingSpinner.style.display = 'none';
             }
         });
+
+        const nameInput = document.getElementById('requesterName');
+        const emailInput = document.getElementById('requesterEmail');
+        const nameDropdown = document.getElementById('nameDropdown');
+        let debounceTimer = null;
+        let activeIndex = -1;
+        let currentResults = [];
+
+        nameInput.addEventListener('input', function () {
+            const query = this.value.trim();
+            clearTimeout(debounceTimer);
+            if (query.length < 1) {
+                hideDropdown();
+                return;
+            }
+            debounceTimer = setTimeout(() => fetchContacts(query), 200);
+        });
+
+        nameInput.addEventListener('keydown', function (e) {
+            if (!nameDropdown.classList.contains('show')) return;
+            const items = nameDropdown.querySelectorAll('.autocomplete-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                updateActive(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIndex = Math.max(activeIndex - 1, 0);
+                updateActive(items);
+            } else if (e.key === 'Enter' && activeIndex >= 0) {
+                e.preventDefault();
+                selectContact(currentResults[activeIndex]);
+            } else if (e.key === 'Escape') {
+                hideDropdown();
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.autocomplete-wrapper')) {
+                hideDropdown();
+            }
+        });
+
+        async function fetchContacts(query) {
+            try {
+                const resp = await fetch(`/support/contacts/search?q=${encodeURIComponent(query)}&brand=Myticas`);
+                const data = await resp.json();
+                currentResults = data;
+                if (data.length > 0) {
+                    renderDropdown(data, query);
+                } else {
+                    hideDropdown();
+                }
+            } catch (err) {
+                hideDropdown();
+            }
+        }
+
+        function renderDropdown(contacts, query) {
+            activeIndex = -1;
+            nameDropdown.innerHTML = '';
+            contacts.forEach((contact, idx) => {
+                const item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                const highlighted = highlightMatch(contact.full_name, query);
+                item.innerHTML = `
+                    <span class="contact-name">${highlighted}</span>
+                    <span class="contact-email">${contact.email}</span>
+                `;
+                item.addEventListener('click', () => selectContact(contact));
+                item.addEventListener('mouseenter', () => {
+                    activeIndex = idx;
+                    updateActive(nameDropdown.querySelectorAll('.autocomplete-item'));
+                });
+                nameDropdown.appendChild(item);
+            });
+            nameDropdown.classList.add('show');
+        }
+
+        function highlightMatch(text, query) {
+            const idx = text.toLowerCase().indexOf(query.toLowerCase());
+            if (idx === -1) return escapeHtml(text);
+            return escapeHtml(text.substring(0, idx)) +
+                '<mark>' + escapeHtml(text.substring(idx, idx + query.length)) + '</mark>' +
+                escapeHtml(text.substring(idx + query.length));
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function selectContact(contact) {
+            nameInput.value = contact.full_name;
+            emailInput.value = contact.email;
+            hideDropdown();
+            emailInput.dispatchEvent(new Event('input'));
+        }
+
+        function hideDropdown() {
+            nameDropdown.classList.remove('show');
+            nameDropdown.innerHTML = '';
+            activeIndex = -1;
+            currentResults = [];
+        }
+
+        function updateActive(items) {
+            items.forEach((item, idx) => {
+                item.classList.toggle('active', idx === activeIndex);
+            });
+        }
 
         function showAlert(message, type) {
             const alertContainer = document.getElementById('alertContainer');

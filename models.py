@@ -1132,3 +1132,35 @@ class AutomationChat(db.Model):
 
     def __repr__(self):
         return f'<AutomationChat {self.id}: {self.role}>'
+
+
+class SupportContact(db.Model):
+    __tablename__ = 'support_contact'
+    id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    brand = db.Column(db.String(100), nullable=False, default='Myticas')
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('email', 'brand', name='uq_support_contact_email_brand'),
+    )
+
+    @property
+    def full_name(self):
+        return f'{self.first_name} {self.last_name}'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'full_name': self.full_name,
+            'email': self.email,
+            'brand': self.brand,
+        }
+
+    def __repr__(self):
+        return f'<SupportContact {self.id}: {self.full_name} ({self.brand})>'

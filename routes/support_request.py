@@ -108,6 +108,32 @@ def redirect_support_domain():
         abort(404)
 
 
+@support_request_bp.route('/support/contacts/search')
+@csrf.exempt
+def search_support_contacts():
+    query = request.args.get('q', '').strip()
+    brand = request.args.get('brand', 'Myticas').strip()
+    if len(query) < 1:
+        return jsonify([])
+    try:
+        from models import SupportContact
+        from sqlalchemy import or_, func
+        q_lower = query.lower()
+        contacts = SupportContact.query.filter(
+            SupportContact.is_active == True,
+            SupportContact.brand == brand,
+            or_(
+                func.lower(SupportContact.first_name).like(f'{q_lower}%'),
+                func.lower(SupportContact.last_name).like(f'{q_lower}%'),
+                func.lower(SupportContact.first_name + ' ' + SupportContact.last_name).like(f'{q_lower}%'),
+            )
+        ).order_by(SupportContact.first_name, SupportContact.last_name).limit(10).all()
+        return jsonify([c.to_dict() for c in contacts])
+    except Exception as e:
+        logger.error(f"Error searching support contacts: {e}", exc_info=True)
+        return jsonify([])
+
+
 @support_request_bp.route('/support/submit', methods=['POST'])
 @csrf.exempt
 def submit_support_request():
