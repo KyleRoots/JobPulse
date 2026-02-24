@@ -2001,12 +2001,37 @@ Format as a bullet-point list. Be specific and concise."""
             for job in all_jobs:
                 ts_id = job.get('tearsheet_id')
                 if ts_id:
-                    jobs_by_tearsheet[ts_id].append({
+                    snapshot_entry = {
                         'id': job.get('id'),
                         'title': job.get('title', ''),
                         'status': job.get('status', ''),
                         'isOpen': job.get('isOpen')
-                    })
+                    }
+                    assigned = job.get('assignedUsers', {})
+                    if isinstance(assigned, dict):
+                        assigned_data = assigned.get('data', [])
+                    elif isinstance(assigned, list):
+                        assigned_data = assigned
+                    else:
+                        assigned_data = []
+                    if assigned_data:
+                        snapshot_entry['assignedUsers'] = [
+                            {'id': u.get('id'), 'firstName': u.get('firstName', ''), 'lastName': u.get('lastName', '')}
+                            for u in assigned_data if isinstance(u, dict)
+                        ]
+                    addr = job.get('address', {})
+                    if isinstance(addr, dict) and (addr.get('city') or addr.get('state')):
+                        snapshot_entry['location'] = {
+                            'city': addr.get('city', ''),
+                            'state': addr.get('state', ''),
+                        }
+                    client = job.get('clientCorporation', {})
+                    if isinstance(client, dict) and client.get('name'):
+                        snapshot_entry['clientName'] = client['name']
+                    emp_type = job.get('employmentType')
+                    if emp_type:
+                        snapshot_entry['employmentType'] = emp_type
+                    jobs_by_tearsheet[ts_id].append(snapshot_entry)
             
             for monitor in monitors:
                 snapshot_jobs = jobs_by_tearsheet.get(monitor.tearsheet_id, [])
