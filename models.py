@@ -1134,6 +1134,25 @@ class AutomationChat(db.Model):
         return f'<AutomationChat {self.id}: {self.role}>'
 
 
+class PasswordResetToken(db.Model):
+    __tablename__ = 'password_reset_token'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, nullable=False, default=False)
+
+    user = db.relationship('User', backref='reset_tokens')
+
+    @property
+    def is_valid(self):
+        return not self.used and datetime.utcnow() < self.expires_at
+
+    def __repr__(self):
+        return f'<PasswordResetToken user_id={self.user_id} used={self.used}>'
+
+
 class SupportContact(db.Model):
     __tablename__ = 'support_contact'
     id = db.Column(db.Integer, primary_key=True)
