@@ -44,6 +44,7 @@ JobPulse/
 │   ├── email.py                     # Email inbound webhook, vetting dashboard, email parsing
 │   ├── log_monitoring.py            # Log monitoring page and API
 │   ├── job_application.py           # Public job application form (CSRF exempt)
+│   ├── support_request.py           # Internal support request form (public, CSRF exempt)
 │   └── diagnostics.py               # Diagnostic and test endpoints
 ├── utils/                           # Utility functions
 │   ├── __init__.py

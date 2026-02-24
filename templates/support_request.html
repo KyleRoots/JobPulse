@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Support Request - Myticas Consulting</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
+        .support-container {
+            max-width: 700px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .support-card {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 20px;
+            box-shadow:
+                0 25px 50px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .support-header {
+            padding: 2.5rem 2rem 1.5rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .myticas-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .myticas-logo {
+            height: 60px;
+            margin-bottom: 1rem;
+        }
+
+        .myticas-brand h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .support-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.8;
+            font-size: 0.95rem;
+        }
+
+        .support-body {
+            padding: 2rem;
+            color: white;
+        }
+
+        .form-section {
+            margin-bottom: 2rem;
+        }
+
+        .form-section h3 {
+            color: white;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .form-control,
+        .form-select {
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 0.9rem 1.2rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            font-size: 1rem;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: #4FC3F7;
+            box-shadow: 0 0 0 0.25rem rgba(79, 195, 247, 0.15);
+            color: white;
+            transform: translateY(-1px);
+            outline: 0;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .form-select option {
+            background: #1e3c72;
+            color: white;
+        }
+
+        .form-label {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .text-muted {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+
+        .file-upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .file-upload-area:hover {
+            border-color: #4FC3F7;
+            background: rgba(79, 195, 247, 0.08);
+        }
+
+        .file-upload-area.dragover {
+            border-color: #4FC3F7;
+            background: rgba(79, 195, 247, 0.12);
+        }
+
+        .file-upload-icon {
+            font-size: 2.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 0.75rem;
+        }
+
+        .file-list {
+            margin-top: 1rem;
+        }
+
+        .file-item {
+            background: rgba(92, 179, 253, 0.1);
+            border: 1px solid rgba(92, 179, 253, 0.3);
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: white;
+        }
+
+        .file-item .file-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 0.5rem;
+        }
+
+        .file-item .btn-remove {
+            border: none;
+            background: rgba(255, 100, 100, 0.2);
+            color: #ff6b6b;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .file-item .btn-remove:hover {
+            background: rgba(255, 100, 100, 0.4);
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #5cb3fd 0%, #4dabf7 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 0.75rem 2rem;
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(92, 179, 253, 0.3);
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            color: white;
+            background: linear-gradient(135deg, #4dabf7 0%, #339af0 100%);
+            box-shadow: 0 8px 25px rgba(92, 179, 253, 0.4);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            transform: none;
+        }
+
+        .loading-spinner {
+            display: none;
+        }
+
+        .priority-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .priority-low { background: rgba(40, 167, 69, 0.2); color: #51cf66; }
+        .priority-medium { background: rgba(255, 193, 7, 0.2); color: #ffd43b; }
+        .priority-high { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+
+        #successModal .modal-content {
+            background: rgba(0, 0, 0, 0.4) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 15px !important;
+            backdrop-filter: blur(10px);
+            color: white !important;
+        }
+
+        #successModal .modal-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 15px 15px 0 0 !important;
+            border: none !important;
+        }
+
+        #successModal .modal-header h5 { color: white !important; }
+        #successModal .modal-body { background: transparent !important; color: white !important; }
+        #successModal .modal-body p { color: white !important; }
+        #successModal .modal-footer { background: transparent !important; border: none !important; }
+        #successModal .btn-close { filter: invert(1) !important; opacity: 0.8 !important; }
+
+        .btn-custom {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+            border: none !important;
+            border-radius: 25px !important;
+            padding: 10px 25px !important;
+            color: white !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3) !important;
+        }
+
+        .btn-custom:hover {
+            color: white !important;
+            background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%) !important;
+            transform: translateY(-2px) !important;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            text-align: center;
+            padding: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+
+        .support-container {
+            margin-bottom: 2.5rem;
+        }
+
+        .submit-button-area {
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .footer {
+            padding: 1.2rem 1rem;
+            font-size: 0.9rem;
+            position: fixed;
+            bottom: 0;
+            height: auto;
+            min-height: 3rem;
+        }
+
+        body {
+            padding-bottom: 3.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .support-container {
+                margin: 1rem auto 1.5rem auto;
+                padding: 0 0.5rem;
+            }
+
+            .support-body {
+                padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+            }
+
+            .support-header {
+                padding: 1.5rem;
+            }
+
+            .submit-button-area {
+                margin-bottom: 0.5rem;
+                padding-bottom: 0.25rem;
+            }
+
+            .footer {
+                padding: 0.6rem 1rem;
+                font-size: 0.8rem;
+                min-height: 2rem;
+            }
+
+            body {
+                padding-bottom: 2.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="support-container">
+        <div class="support-card">
+            <div class="support-header">
+                <div class="myticas-brand">
+                    <img src="{{ url_for('static', filename='myticas-logo-bw-revised.png') }}" alt="Myticas Consulting"
+                        class="myticas-logo">
+                    <h1>Internal Support Request</h1>
+                </div>
+                <p>Submit a support request to the appropriate team for assistance</p>
+            </div>
+
+            <div class="support-body">
+                <div id="alertContainer"></div>
+
+                <form id="supportForm" enctype="multipart/form-data">
+                    <div style="position: absolute; left: -9999px;" aria-hidden="true">
+                        <label for="website_url">Website</label>
+                        <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off">
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-user me-2"></i>Your Information</h3>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="requesterName" class="form-label">Full Name *</label>
+                                <input type="text" class="form-control" id="requesterName" name="requesterName" required
+                                    placeholder="Your full name">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="requesterEmail" class="form-label">Email Address *</label>
+                                <input type="email" class="form-control" id="requesterEmail" name="requesterEmail" required
+                                    placeholder="Your email address">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-tag me-2"></i>Issue Details</h3>
+
+                        <div class="mb-3">
+                            <label for="issueCategory" class="form-label">Issue Category *</label>
+                            <select class="form-select" id="issueCategory" name="issueCategory" required>
+                                <option value="">Select a category...</option>
+                                <option value="ats_issue">ATS / Bullhorn Issue</option>
+                                <option value="candidate_parsing">Candidate Parsing Error</option>
+                                <option value="job_posting">Job Posting Issue</option>
+                                <option value="account_access">Account / Access Request</option>
+                                <option value="email_notifications">Email / Notification Issue</option>
+                                <option value="data_correction">Data Correction Request</option>
+                                <option value="feature_request">Feature Request</option>
+                                <option value="general_inquiry">General Inquiry</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="priority" class="form-label">Priority Level *</label>
+                            <select class="form-select" id="priority" name="priority" required>
+                                <option value="">Select priority...</option>
+                                <option value="low">Low — General question or minor issue</option>
+                                <option value="medium">Medium — Impacts workflow but has a workaround</option>
+                                <option value="high">High — Blocking issue, needs immediate attention</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">Subject *</label>
+                            <input type="text" class="form-control" id="subject" name="subject" required
+                                placeholder="Brief summary of the issue">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description *</label>
+                            <textarea class="form-control" id="description" name="description" rows="5" required
+                                placeholder="Please describe the issue in detail. Include any steps to reproduce, expected behavior, and what actually happened."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-paperclip me-2"></i>Attachments</h3>
+                        <p class="mb-3" style="color: rgba(255, 255, 255, 0.8); font-size: 0.95rem;">
+                            <i class="fas fa-info-circle me-2"></i>Attach screenshots or files to help illustrate the issue (optional).
+                        </p>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="file-upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h5>Drag & drop files here</h5>
+                            <p class="mb-3" style="color: rgba(255, 255, 255, 0.7);">or click to browse files</p>
+                            <input type="file" id="fileInput" name="attachments" multiple
+                                accept=".png,.jpg,.jpeg,.gif,.pdf,.doc,.docx,.xlsx,.csv,.txt"
+                                style="display: none;">
+                            <button type="button" class="btn btn-outline-light"
+                                onclick="document.getElementById('fileInput').click(); event.stopPropagation();">
+                                <i class="fas fa-folder-open me-2"></i>Browse Files
+                            </button>
+                            <small class="d-block mt-2" style="color: rgba(255, 255, 255, 0.7);">
+                                Supported: PNG, JPG, GIF, PDF, DOC, DOCX, XLSX, CSV, TXT (Max 10MB each, up to 5 files)
+                            </small>
+                        </div>
+                        <div id="fileList" class="file-list"></div>
+                    </div>
+
+                    <div class="text-center submit-button-area">
+                        <button type="submit" class="submit-btn" id="submitBtn">
+                            <span id="submitText">
+                                <i class="fas fa-paper-plane me-2"></i>Submit Support Request
+                            </span>
+                            <span id="loadingSpinner" class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin me-2"></i>Submitting...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="successModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-check-circle me-2"></i>Support Request Submitted
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Your support request has been submitted and sent to the appropriate team.</p>
+                    <p class="mb-0"><strong>What's next?</strong> The support team will review your request and respond directly to your email address. Please allow a reasonable response time based on the priority level selected.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-custom" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Powered by Scout Genius™
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedFiles = [];
+        const MAX_FILES = 5;
+        const MAX_FILE_SIZE = 10 * 1024 * 1024;
+        const ALLOWED_TYPES = [
+            'image/png', 'image/jpeg', 'image/gif',
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/csv', 'text/plain'
+        ];
+
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+
+        fileUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', () => {
+            fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            handleFiles(Array.from(e.dataTransfer.files));
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(Array.from(e.target.files));
+            fileInput.value = '';
+        });
+
+        function handleFiles(files) {
+            for (const file of files) {
+                if (selectedFiles.length >= MAX_FILES) {
+                    showAlert('Maximum of 5 files allowed.', 'warning');
+                    break;
+                }
+                if (file.size > MAX_FILE_SIZE) {
+                    showAlert(`"${file.name}" exceeds the 10MB limit.`, 'danger');
+                    continue;
+                }
+                if (!ALLOWED_TYPES.includes(file.type) && file.type !== '') {
+                    showAlert(`"${file.name}" is not a supported file type.`, 'danger');
+                    continue;
+                }
+                if (selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                    continue;
+                }
+                selectedFiles.push(file);
+            }
+            renderFileList();
+        }
+
+        function renderFileList() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const fileSize = file.size < 1024 * 1024
+                    ? (file.size / 1024).toFixed(1) + ' KB'
+                    : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+
+                const iconClass = file.type.startsWith('image/') ? 'fa-image' :
+                    file.type.includes('pdf') ? 'fa-file-pdf' :
+                    file.type.includes('word') ? 'fa-file-word' :
+                    file.type.includes('sheet') || file.type.includes('csv') ? 'fa-file-excel' :
+                    'fa-file';
+
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.innerHTML = `
+                    <i class="fas ${iconClass} me-2" style="color: #4FC3F7;"></i>
+                    <span class="file-name">${file.name} (${fileSize})</span>
+                    <button type="button" class="btn-remove" onclick="removeFile(${index})">
+                        <i class="fas fa-times" style="font-size: 0.75rem;"></i>
+                    </button>
+                `;
+                fileList.appendChild(item);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderFileList();
+        }
+
+        document.getElementById('supportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const requesterName = document.getElementById('requesterName').value.trim();
+            const requesterEmail = document.getElementById('requesterEmail').value.trim();
+            const category = document.getElementById('issueCategory').value;
+            const priority = document.getElementById('priority').value;
+            const subject = document.getElementById('subject').value.trim();
+            const description = document.getElementById('description').value.trim();
+
+            if (!requesterName || !requesterEmail || !category || !priority || !subject || !description) {
+                showAlert('Please fill in all required fields.', 'danger');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const submitText = document.getElementById('submitText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+
+            submitBtn.disabled = true;
+            submitText.style.display = 'none';
+            loadingSpinner.style.display = 'inline-block';
+
+            const formData = new FormData();
+            formData.append('requesterName', requesterName);
+            formData.append('requesterEmail', requesterEmail);
+            formData.append('issueCategory', category);
+            formData.append('priority', priority);
+            formData.append('subject', subject);
+            formData.append('description', description);
+
+            selectedFiles.forEach((file) => {
+                formData.append('attachments', file);
+            });
+
+            try {
+                const response = await fetch('/support/submit', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const modal = new bootstrap.Modal(document.getElementById('successModal'));
+                    modal.show();
+                    document.getElementById('supportForm').reset();
+                    selectedFiles = [];
+                    renderFileList();
+                } else {
+                    showAlert(result.error || 'Failed to submit request. Please try again.', 'danger');
+                }
+            } catch (error) {
+                showAlert('An error occurred while submitting your request. Please try again.', 'danger');
+            } finally {
+                submitBtn.disabled = false;
+                submitText.style.display = 'inline-block';
+                loadingSpinner.style.display = 'none';
+            }
+        });
+
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alertDiv);
+
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+
+</html>
