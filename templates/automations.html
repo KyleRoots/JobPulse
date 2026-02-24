@@ -440,7 +440,7 @@
         <div class="tasks-list" id="tasksList">
             {% if tasks %}
                 {% for task in tasks %}
-                    <div class="task-card" data-task-id="{{ task.id }}" onclick="selectTask({{ task.id }})">
+                    <div class="task-card" data-task-id="{{ task.id }}" onclick="selectTask({{ task.id }})" style="{% if not loop.first %}margin-top:15px;{% endif %}">
                         <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
                             {% if task.status == 'active' %}
                                 <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;box-shadow:0 0 4px rgba(40,167,69,0.5);flex-shrink:0;"></span>
@@ -615,7 +615,7 @@
                 return;
             }
 
-            list.innerHTML = tasks.map(t => {
+            list.innerHTML = tasks.map((t, idx) => {
                 let dotColor, dotShadow;
                 if (t.status === 'active') { dotColor = '#28a745'; dotShadow = 'rgba(40,167,69,0.5)'; }
                 else if (t.status === 'completed') { dotColor = '#17a2b8'; dotShadow = 'rgba(23,162,184,0.5)'; }
@@ -624,7 +624,7 @@
 
                 return `
                 <div class="task-card ${currentTaskId === t.id ? 'active' : ''}"
-                     data-task-id="${t.id}" onclick="selectTask(${t.id})">
+                     data-task-id="${t.id}" onclick="selectTask(${t.id})" style="${idx > 0 ? 'margin-top:15px;' : ''}">
                     <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
                         <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};box-shadow:0 0 4px ${dotShadow};flex-shrink:0;"></span>
                         <div class="task-card-name" style="margin-bottom:0;">${escapeHtml(t.name)}</div>
