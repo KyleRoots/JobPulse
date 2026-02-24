@@ -314,6 +314,155 @@
         </ul>
     </div>
 </div>
+
+<!-- User Management Section -->
+<div id="user-management" class="mt-5">
+    <h4 class="mb-3"><i class="fas fa-users-cog me-2"></i>User Management</h4>
+    <p class="text-muted mb-4">Create and manage user accounts. Control which modules each user can access.</p>
+    
+    <!-- Create New User -->
+    <div class="settings-card p-4 mb-4">
+        <h5 class="mb-3"><i class="fas fa-user-plus me-2 text-success"></i>Create New User</h5>
+        <form action="{{ url_for('settings.create_user') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Username <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="username" required placeholder="e.g. john.doe">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                    <input type="email" class="form-control" name="email" required placeholder="john@company.com">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Password <span class="text-danger">*</span></label>
+                    <input type="password" class="form-control" name="password" required placeholder="Minimum 8 characters">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Display Name</label>
+                    <input type="text" class="form-control" name="display_name" placeholder="John Doe (for Bullhorn matching)">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Bullhorn User ID</label>
+                    <input type="number" class="form-control" name="bullhorn_user_id" placeholder="e.g. 12345">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Admin</label>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" name="is_admin" id="new_user_admin">
+                        <label class="form-check-label" for="new_user_admin">Full admin access</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Module Subscriptions</label>
+                    <div class="d-flex gap-4 flex-wrap">
+                        {% for mod in available_modules %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="modules" value="{{ mod }}" id="new_{{ mod }}">
+                            <label class="form-check-label" for="new_{{ mod }}">
+                                {% if mod == 'scout_inbound' %}
+                                <i class="fas fa-satellite-dish text-warning me-1"></i> Scout Inbound
+                                {% elif mod == 'scout_screening' %}
+                                <i class="fas fa-brain text-info me-1"></i> Scout Screening
+                                {% elif mod == 'scout_vetting' %}
+                                <i class="fas fa-comments me-1" style="color: #7cc5c5;"></i> Scout Vetting
+                                {% else %}
+                                {{ mod }}
+                                {% endif %}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-plus me-1"></i> Create User
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Existing Users -->
+    <div class="settings-card no-hover p-4">
+        <h5 class="mb-3"><i class="fas fa-users me-2"></i>Existing Users ({{ users|length }})</h5>
+        {% for user in users %}
+        <div class="border rounded p-3 mb-3" style="border-color: rgba(74, 150, 120, 0.2) !important; background: rgba(10, 22, 16, 0.5);">
+            <form action="{{ url_for('settings.update_user', user_id=user.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center" 
+                                 style="width: 36px; height: 36px; background: {% if user.is_admin %}rgba(74, 150, 120, 0.3){% else %}rgba(200, 160, 60, 0.3){% endif %}; font-weight: 600; font-size: 0.85rem;">
+                                {{ user.username[0]|upper }}
+                            </div>
+                            <div>
+                                <strong>{{ user.username }}</strong>
+                                <div class="small text-muted">{{ user.email }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" class="form-control form-control-sm" name="display_name" 
+                               value="{{ user.display_name or '' }}" placeholder="Display name">
+                    </div>
+                    <div class="col-md-1">
+                        <input type="number" class="form-control form-control-sm" name="bullhorn_user_id" 
+                               value="{{ user.bullhorn_user_id or '' }}" placeholder="BH ID">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="password" class="form-control form-control-sm" name="password" placeholder="New password (optional)">
+                    </div>
+                    <div class="col-md-1">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_admin" 
+                                   id="admin_{{ user.id }}" {% if user.is_admin %}checked{% endif %}>
+                            <label class="form-check-label small" for="admin_{{ user.id }}">Admin</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% for mod in available_modules %}
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="modules" value="{{ mod }}" 
+                                       id="mod_{{ user.id }}_{{ mod }}"
+                                       {% if mod in user.get_modules() and not user.is_admin %}checked{% endif %}
+                                       {% if user.is_admin %}checked disabled{% endif %}>
+                                <label class="form-check-label small" for="mod_{{ user.id }}_{{ mod }}">
+                                    {% if mod == 'scout_inbound' %}Inbound{% elif mod == 'scout_screening' %}Screening{% elif mod == 'scout_vetting' %}Vetting{% else %}{{ mod }}{% endif %}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-1 text-end">
+                        <div class="btn-group btn-group-sm">
+                            <button type="submit" class="btn btn-outline-primary btn-sm" title="Save changes">
+                                <i class="fas fa-save"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% if user.last_login %}
+                <div class="small text-muted mt-1" style="padding-left: 48px;">
+                    Last login: {{ user.last_login.strftime('%b %d, %Y %H:%M') }}
+                </div>
+                {% endif %}
+            </form>
+            {% if not user.is_admin or users|selectattr('is_admin')|list|length > 1 %}
+            <form action="{{ url_for('settings.delete_user', user_id=user.id) }}" method="POST" class="d-inline"
+                  onsubmit="return confirm('Are you sure you want to delete user {{ user.username }}? This cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm mt-1" style="margin-left: 48px;">
+                    <i class="fas fa-trash me-1"></i> Delete
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}

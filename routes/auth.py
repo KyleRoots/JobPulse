@@ -8,6 +8,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 from flask_login import login_user, logout_user, current_user, login_required
+from routes import _get_user_landing
 
 
 auth_bp = Blueprint('auth', __name__)
@@ -45,7 +46,7 @@ def login():
     from app import db, User, ensure_background_services
     
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard.dashboard_redirect'))
+        return redirect(_get_user_landing())
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -68,12 +69,10 @@ def login():
             # Start scheduler on successful login
             ensure_background_services()
             
-            # Redirect to originally requested page or dashboard (safe URLs only)
             next_page = request.args.get('next')
             if next_page and _is_safe_redirect_url(next_page):
                 return redirect(next_page)
-            # Force scroll to top by adding fragment
-            return redirect(url_for('dashboard.dashboard_redirect') + '#top')
+            return redirect(_get_user_landing())
         else:
             flash('Invalid username or password.', 'error')
     

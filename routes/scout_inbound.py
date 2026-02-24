@@ -12,9 +12,11 @@ from datetime import datetime
 
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
+from routes import register_module_guard
 
 
 scout_inbound_bp = Blueprint('scout_inbound', __name__)
+register_module_guard(scout_inbound_bp, 'scout_inbound')
 logger = logging.getLogger(__name__)
 
 

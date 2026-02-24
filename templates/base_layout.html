@@ -1501,22 +1501,16 @@
         </div>
 
         <nav class="sidebar-nav">
+            {% if current_user.is_authenticated and current_user.has_module('scout_inbound') %}
             <!-- Scout Inbound Module (Gold) -->
             <div class="nav-section" data-section="inbound">
                 <div class="nav-section-title">Scout Inbound</div>
-                {% if current_user.is_authenticated and not current_user.is_admin %}
                 <a href="{{ url_for('scout_inbound.scout_inbound_dashboard') }}"
                     class="nav-item {% if active_page == 'scout_inbound' %}active{% endif %}">
                     <i class="fas fa-satellite-dish"></i>
-                    <span>My Jobs & Candidates</span>
+                    <span>{% if current_user.is_admin %}Scout Inbound Portal{% else %}My Jobs & Candidates{% endif %}</span>
                 </a>
-                {% endif %}
-                {% if current_user.is_authenticated and current_user.is_admin %}
-                <a href="{{ url_for('scout_inbound.scout_inbound_dashboard') }}"
-                    class="nav-item {% if active_page == 'scout_inbound' %}active{% endif %}">
-                    <i class="fas fa-satellite-dish"></i>
-                    <span>Scout Inbound Portal</span>
-                </a>
+                {% if current_user.is_admin %}
                 <a href="{{ url_for('ats_integration.ats_integration_dashboard') }}"
                     class="nav-item {% if active_page == 'ats' %}active{% endif %}">
                     <i class="fas fa-building"></i>
@@ -1539,9 +1533,10 @@
                 </a>
                 {% endif %}
             </div>
+            {% endif %}
 
-            {% if current_user.is_authenticated and current_user.is_admin %}
-            <!-- Scout Screening Module (Pink) - Admin Only -->
+            {% if current_user.is_authenticated and current_user.has_module('scout_screening') %}
+            <!-- Scout Screening Module (Pink) -->
             <div class="nav-section" data-section="screening">
                 <div class="nav-section-title">Scout Screening</div>
                 <a href="{{ url_for('vetting.vetting_settings') }}"
@@ -1550,8 +1545,10 @@
                     <span>AI Candidate Screening</span>
                 </a>
             </div>
+            {% endif %}
 
-            <!-- Scout Vetting Module (Teal/Cyan) - Admin Only -->
+            {% if current_user.is_authenticated and current_user.has_module('scout_vetting') %}
+            <!-- Scout Vetting Module (Teal/Cyan) -->
             <div class="nav-section" data-section="vetting">
                 <div class="nav-section-title">Scout Vetting</div>
                 <a href="{{ url_for('email.scout_vetting_dashboard') }}"
@@ -1560,7 +1557,9 @@
                     <span>AI Candidate Vetting</span>
                 </a>
             </div>
+            {% endif %}
 
+            {% if current_user.is_authenticated and current_user.is_admin %}
             {% if config.get('ENVIRONMENT', 'production') != 'production' or not request.headers.get('X-Forwarded-Host', request.host or '').split(',')[0].strip().split(':')[0] in ['app.scoutgenius.ai', 'www.app.scoutgenius.ai', 'jobpulse.lyntrix.ai'] %}
             <div class="nav-section" data-section="product-expert">
                 <div class="nav-section-title" style="color: #e8a87c;">Product Expert</div>

@@ -1,9 +1,11 @@
 """
 Settings routes for JobPulse.
 
-Handles global settings for SFTP, email notifications, and automation configuration.
+Handles global settings for SFTP, email notifications, automation configuration,
+and user management (create/edit users, toggle module subscriptions).
 """
 
+import json
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, current_app
 from flask_login import login_required
@@ -22,7 +24,8 @@ def settings():
     from models import GlobalSettings
     
     try:
-        # Get current settings
+        from models import User, AVAILABLE_MODULES
+        
         settings_data = {}
         setting_keys = [
             'sftp_hostname', 'sftp_username', 'sftp_directory', 'sftp_port', 'sftp_enabled',
@@ -33,7 +36,13 @@ def settings():
             setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
             settings_data[key] = setting.setting_value if setting else ''
         
-        return render_template('settings.html', settings=settings_data, active_page='settings')
+        users = User.query.order_by(User.is_admin.desc(), User.username).all()
+        
+        return render_template('settings.html',
+                             settings=settings_data,
+                             users=users,
+                             available_modules=AVAILABLE_MODULES,
+                             active_page='settings')
         
     except Exception as e:
         current_app.logger.error(f"Error loading settings: {str(e)}")
@@ -242,3 +251,122 @@ def test_sftp_connection():
             'success': False,
             'error': f'Connection test failed: {str(e)}'
         })
+
+
+@settings_bp.route('/settings/users/create', methods=['POST'])
+@login_required
+def create_user():
+    """Create a new user account with module subscriptions."""
+    from app import db
+    from models import User, AVAILABLE_MODULES
+    
+    try:
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        display_name = request.form.get('display_name', '').strip() or None
+        bullhorn_user_id = request.form.get('bullhorn_user_id', '').strip()
+        is_admin = request.form.get('is_admin') == 'on'
+        
+        selected_modules = request.form.getlist('modules')
+        
+        if not username or not email or not password:
+            flash('Username, email, and password are required.', 'error')
+            return redirect(url_for('settings.settings') + '#user-management')
+        
+        if User.query.filter_by(username=username).first():
+            flash(f'Username "{username}" already exists.', 'error')
+            return redirect(url_for('settings.settings') + '#user-management')
+        
+        if User.query.filter_by(email=email).first():
+            flash(f'Email "{email}" already exists.', 'error')
+            return redirect(url_for('settings.settings') + '#user-management')
+        
+        user = User(
+            username=username,
+            email=email,
+            is_admin=is_admin,
+            role='admin' if is_admin else 'recruiter',
+            display_name=display_name,
+            bullhorn_user_id=int(bullhorn_user_id) if bullhorn_user_id else None,
+        )
+        user.set_password(password)
+        user.set_modules(selected_modules)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash(f'User "{username}" created successfully.', 'success')
+        return redirect(url_for('settings.settings') + '#user-management')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating user: {str(e)}")
+        flash(f'Error creating user: {str(e)}', 'error')
+        return redirect(url_for('settings.settings') + '#user-management')
+
+
+@settings_bp.route('/settings/users/<int:user_id>/update', methods=['POST'])
+@login_required
+def update_user(user_id):
+    """Update an existing user's modules, display name, and Bullhorn ID."""
+    from app import db
+    from models import User, AVAILABLE_MODULES
+    
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        display_name = request.form.get('display_name', '').strip() or None
+        bullhorn_user_id = request.form.get('bullhorn_user_id', '').strip()
+        is_admin = request.form.get('is_admin') == 'on'
+        selected_modules = request.form.getlist('modules')
+        new_password = request.form.get('password', '').strip()
+        
+        user.display_name = display_name
+        user.bullhorn_user_id = int(bullhorn_user_id) if bullhorn_user_id else None
+        user.is_admin = is_admin
+        user.role = 'admin' if is_admin else 'recruiter'
+        user.set_modules(selected_modules)
+        
+        if new_password:
+            user.set_password(new_password)
+        
+        db.session.commit()
+        
+        flash(f'User "{user.username}" updated successfully.', 'success')
+        return redirect(url_for('settings.settings') + '#user-management')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating user: {str(e)}")
+        flash(f'Error updating user: {str(e)}', 'error')
+        return redirect(url_for('settings.settings') + '#user-management')
+
+
+@settings_bp.route('/settings/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    """Delete a user account."""
+    from app import db
+    from models import User
+    from flask_login import current_user
+    
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        if user.id == current_user.id:
+            flash('You cannot delete your own account.', 'error')
+            return redirect(url_for('settings.settings') + '#user-management')
+        
+        username = user.username
+        db.session.delete(user)
+        db.session.commit()
+        
+        flash(f'User "{username}" deleted.', 'success')
+        return redirect(url_for('settings.settings') + '#user-management')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting user: {str(e)}")
+        flash(f'Error deleting user: {str(e)}', 'error')
+        return redirect(url_for('settings.settings') + '#user-management')
