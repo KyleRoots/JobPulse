@@ -1,8 +1,11 @@
 from datetime import datetime, timedelta
+import json
 import os
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import db
+
+AVAILABLE_MODULES = ['scout_inbound', 'scout_screening', 'scout_vetting']
 
 class User(UserMixin, db.Model):
     """User model for authentication"""
@@ -14,6 +17,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), default='admin')
     bullhorn_user_id = db.Column(db.Integer, nullable=True)
     display_name = db.Column(db.String(255), nullable=True)
+    subscribed_modules = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
     
@@ -22,6 +26,28 @@ class User(UserMixin, db.Model):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def get_modules(self):
+        """Return list of subscribed modules. Admins get all modules."""
+        if self.is_admin:
+            return AVAILABLE_MODULES[:]
+        if not self.subscribed_modules:
+            return []
+        try:
+            return json.loads(self.subscribed_modules)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    
+    def set_modules(self, modules):
+        """Set subscribed modules from a list."""
+        valid = [m for m in modules if m in AVAILABLE_MODULES]
+        self.subscribed_modules = json.dumps(valid)
+    
+    def has_module(self, module_name):
+        """Check if user has access to a specific module. Admins always have access."""
+        if self.is_admin:
+            return True
+        return module_name in self.get_modules()
     
     def __repr__(self):
         return f'<User {self.username}>'
