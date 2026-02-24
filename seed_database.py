@@ -954,6 +954,61 @@ def seed_builtin_automations(db):
         logger.warning(f"⚠️ Failed to seed built-in automations: {str(e)}")
 
 
+SUPPORT_CONTACTS_MYTICAS = [
+    {"first_name": "Kyle", "last_name": "Roots", "email": "kroots@myticas.com"},
+    {"first_name": "Innocent", "last_name": "Nangoma", "email": "inangoma@myticas.com"},
+    {"first_name": "Reem", "last_name": "Kouseibati", "email": "rkouseibati@myticas.com"},
+    {"first_name": "Michael", "last_name": "Theodossiou", "email": "michael.theodossiou@myticas.com"},
+    {"first_name": "Mike", "last_name": "Palermo", "email": "mpalermo@myticas.com"},
+    {"first_name": "Dominic", "last_name": "Scaletta", "email": "dscaletta@myticas.com"},
+    {"first_name": "Matheo", "last_name": "Theodossiou", "email": "matheo.theodossiou@myticas.com"},
+    {"first_name": "Adam", "last_name": "Gebara", "email": "agebara@myticas.com"},
+    {"first_name": "Amanda", "last_name": "Messina", "email": "amessina@myticas.com"},
+    {"first_name": "Dean", "last_name": "Theodossiou", "email": "dtheodossiou@myticas.com"},
+    {"first_name": "Nick", "last_name": "Theodossiou", "email": "ntheodossiou@myticas.com"},
+    {"first_name": "Runa", "last_name": "Parmar", "email": "rparmar@myticas.com"},
+    {"first_name": "Sam", "last_name": "Osman", "email": "sosman@myticas.com"},
+    {"first_name": "Chris", "last_name": "Halkai", "email": "chalkai@myticas.com"},
+    {"first_name": "Jen", "last_name": "Jones", "email": "jjones@myticas.com"},
+    {"first_name": "Lisa", "last_name": "Keirsted", "email": "lisa@myticas.com"},
+    {"first_name": "Bryan", "last_name": "Chinzorig", "email": "bryanc@myticas.com"},
+    {"first_name": "Michael", "last_name": "Wujciak", "email": "mw@myticas.com"},
+    {"first_name": "Reena", "last_name": "Setya", "email": "rs@myticas.com"},
+    {"first_name": "Doug", "last_name": "Billot", "email": "dbillot@myticas.com"},
+    {"first_name": "Dan", "last_name": "Sifer", "email": "dsifer@myticas.com"},
+    {"first_name": "Anastasiya", "last_name": "Ivanova", "email": "ai@myticas.com"},
+    {"first_name": "Celine", "last_name": "Blattman", "email": "cblattman@myticas.com"},
+    {"first_name": "Anita", "last_name": "Barker", "email": "abarker@myticas.com"},
+]
+
+
+def seed_support_contacts(db):
+    try:
+        from models import SupportContact
+        existing_emails = {c.email for c in SupportContact.query.filter_by(brand='Myticas').all()}
+        added = 0
+        for contact_data in SUPPORT_CONTACTS_MYTICAS:
+            if contact_data['email'] not in existing_emails:
+                contact = SupportContact(
+                    first_name=contact_data['first_name'],
+                    last_name=contact_data['last_name'],
+                    email=contact_data['email'],
+                    brand='Myticas'
+                )
+                db.session.add(contact)
+                added += 1
+        if added > 0:
+            db.session.commit()
+            logger.info(f"✅ Seeded {added} Myticas support contacts")
+        else:
+            logger.info(f"✅ All {len(SUPPORT_CONTACTS_MYTICAS)} Myticas support contacts already exist")
+    except ImportError:
+        logger.debug("ℹ️ SupportContact model not found - skipping support contact seeding")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed support contacts: {str(e)}")
+
+
 def seed_database(db, User):
     """
     Main seeding function - idempotent database initialization
@@ -1095,6 +1150,8 @@ def seed_database(db, User):
             logger.warning(f"⚠️ Failed to upgrade layer2_model: {str(e)}")
         
         seed_builtin_automations(db)
+
+        seed_support_contacts(db)
 
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
