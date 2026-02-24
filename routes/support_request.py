@@ -134,23 +134,32 @@ def search_support_contacts():
         return jsonify({'error': str(e)}), 500
 
 
-@support_request_bp.route('/support/test')
+@support_request_bp.route('/support/test/')
 @csrf.exempt
 def support_form_test():
-    from models import SupportContact
-    contact_count = SupportContact.query.filter_by(brand='Myticas', is_active=True).count()
-    test_query = SupportContact.query.filter(
-        SupportContact.is_active == True,
-        SupportContact.brand == 'Myticas',
-        func.lower(SupportContact.first_name).like('ky%')
-    ).all()
-    test_results = [c.to_dict() for c in test_query]
-    return jsonify({
-        'status': 'ok',
-        'total_contacts': contact_count,
-        'test_search_ky': test_results,
-        'table_exists': True
-    })
+    try:
+        from models import SupportContact
+        raw_count = db.session.execute(db.text("SELECT COUNT(*) FROM support_contact")).scalar()
+        contact_count = SupportContact.query.filter_by(brand='Myticas', is_active=True).count()
+        all_contacts = SupportContact.query.limit(5).all()
+        sample = [c.to_dict() for c in all_contacts]
+        test_query = SupportContact.query.filter(
+            SupportContact.is_active == True,
+            SupportContact.brand == 'Myticas',
+            func.lower(SupportContact.first_name).like('ky%')
+        ).all()
+        test_results = [c.to_dict() for c in test_query]
+        return jsonify({
+            'status': 'ok',
+            'raw_sql_count': raw_count,
+            'orm_count': contact_count,
+            'sample_5': sample,
+            'test_search_ky': test_results,
+            'table_exists': True,
+            'db_url_prefix': os.environ.get('DATABASE_URL', '')[:30]
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e), 'type': type(e).__name__}), 500
 
 
 @support_request_bp.route('/support/submit', methods=['POST'])
