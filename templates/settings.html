@@ -315,6 +315,87 @@
     </div>
 </div>
 
+<!-- Support Directory Section -->
+<div id="support-directory" class="mt-5">
+    <h4 class="mb-1"><i class="fas fa-address-book me-2"></i>Support Form Directory</h4>
+    <p class="text-muted mb-2">These are the people who can submit support requests via the internal support form at <code>support.myticas.com</code>. This registry is separate from Scout Genius platform users below — support contacts do not have login access to this application.</p>
+    <div class="alert alert-secondary mb-3 py-2 px-3" style="font-size: 0.85rem; background: rgba(74,150,120,0.08); border-color: rgba(74,150,120,0.2); color: rgba(255,255,255,0.7);">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>How it works:</strong> When someone visits the support form and types their name, they are matched against this directory. Their email and department auto-populate based on their profile here. Department is used for smart email routing.
+    </div>
+
+    <div class="settings-card no-hover p-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="mb-0"><i class="fas fa-users me-2"></i>Myticas Support Directory ({{ support_contacts|length }})</h5>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="badge" style="background: rgba(74,150,120,0.2); color: #4a9678; font-size: 0.78rem; padding: 5px 10px;">{{ support_contacts|selectattr('is_active')|list|length }} Active</span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm mb-0" style="color: rgba(255,255,255,0.85); font-size: 0.875rem;">
+                <thead>
+                    <tr style="border-color: rgba(74,150,120,0.2);">
+                        <th style="color: #4a9678; font-weight: 600; padding: 10px 12px;">Name</th>
+                        <th style="color: #4a9678; font-weight: 600; padding: 10px 12px;">Email</th>
+                        <th style="color: #4a9678; font-weight: 600; padding: 10px 12px;">Department</th>
+                        <th style="color: #4a9678; font-weight: 600; padding: 10px 12px; text-align: center;">Status</th>
+                        <th style="color: #4a9678; font-weight: 600; padding: 10px 12px;">Scout Genius Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set platform_emails = users | map(attribute='email') | list %}
+                    {% for contact in support_contacts %}
+                    <tr style="border-color: rgba(74,150,120,0.1);">
+                        <td style="padding: 9px 12px; vertical-align: middle;">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center" 
+                                     style="width: 30px; height: 30px; background: rgba(74,150,120,0.2); font-size: 0.75rem; font-weight: 600; flex-shrink: 0;">
+                                    {{ contact.first_name[0] }}{{ contact.last_name[0] }}
+                                </div>
+                                <span>{{ contact.full_name }}</span>
+                            </div>
+                        </td>
+                        <td style="padding: 9px 12px; vertical-align: middle; color: rgba(255,255,255,0.6);">{{ contact.email }}</td>
+                        <td style="padding: 9px 12px; vertical-align: middle;">
+                            {% if contact.department %}
+                            <span class="badge" style="background: rgba(42,82,152,0.3); color: #4FC3F7; font-weight: 500;">{{ contact.department }}</span>
+                            {% else %}
+                            <span style="color: rgba(255,255,255,0.3); font-style: italic; font-size: 0.8rem;">Not set</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 9px 12px; vertical-align: middle; text-align: center;">
+                            {% if contact.is_active %}
+                            <span class="badge bg-success" style="font-size: 0.72rem;">Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary" style="font-size: 0.72rem;">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 9px 12px; vertical-align: middle;">
+                            {% if contact.email in platform_emails %}
+                            {% set platform_user = users | selectattr('email', 'equalto', contact.email) | first %}
+                            <div class="d-flex gap-1 flex-wrap">
+                                {% if platform_user.is_admin %}
+                                <span class="badge" style="background: rgba(74,150,120,0.25); color: #4a9678; font-size: 0.7rem;">Admin</span>
+                                {% endif %}
+                                {% for mod in platform_user.get_modules() %}
+                                <span class="badge" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: 0.7rem;">
+                                    {% if mod == 'scout_inbound' %}Scout Inbound{% elif mod == 'scout_screening' %}Scout Screening{% elif mod == 'scout_vetting' %}Scout Vetting{% else %}{{ mod }}{% endif %}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span style="color: rgba(255,255,255,0.3); font-size: 0.8rem; font-style: italic;">Support form only</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <!-- User Management Section -->
 <div id="user-management" class="mt-5">
     <h4 class="mb-3"><i class="fas fa-users-cog me-2"></i>User Management</h4>

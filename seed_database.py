@@ -955,53 +955,61 @@ def seed_builtin_automations(db):
 
 
 SUPPORT_CONTACTS_MYTICAS = [
-    {"first_name": "Kyle", "last_name": "Roots", "email": "kroots@myticas.com"},
-    {"first_name": "Innocent", "last_name": "Nangoma", "email": "inangoma@myticas.com"},
-    {"first_name": "Reem", "last_name": "Kouseibati", "email": "rkouseibati@myticas.com"},
-    {"first_name": "Michael", "last_name": "Theodossiou", "email": "michael.theodossiou@myticas.com"},
-    {"first_name": "Mike", "last_name": "Palermo", "email": "mpalermo@myticas.com"},
-    {"first_name": "Dominic", "last_name": "Scaletta", "email": "dscaletta@myticas.com"},
-    {"first_name": "Matheo", "last_name": "Theodossiou", "email": "matheo.theodossiou@myticas.com"},
-    {"first_name": "Adam", "last_name": "Gebara", "email": "agebara@myticas.com"},
-    {"first_name": "Amanda", "last_name": "Messina", "email": "amessina@myticas.com"},
-    {"first_name": "Dean", "last_name": "Theodossiou", "email": "dtheodossiou@myticas.com"},
-    {"first_name": "Nick", "last_name": "Theodossiou", "email": "ntheodossiou@myticas.com"},
-    {"first_name": "Runa", "last_name": "Parmar", "email": "rparmar@myticas.com"},
-    {"first_name": "Sam", "last_name": "Osman", "email": "sosman@myticas.com"},
-    {"first_name": "Chris", "last_name": "Halkai", "email": "chalkai@myticas.com"},
-    {"first_name": "Jen", "last_name": "Jones", "email": "jjones@myticas.com"},
-    {"first_name": "Lisa", "last_name": "Keirsted", "email": "lisa@myticas.com"},
-    {"first_name": "Bryan", "last_name": "Chinzorig", "email": "bryanc@myticas.com"},
-    {"first_name": "Michael", "last_name": "Wujciak", "email": "mw@myticas.com"},
-    {"first_name": "Reena", "last_name": "Setya", "email": "rs@myticas.com"},
-    {"first_name": "Doug", "last_name": "Billot", "email": "dbillot@myticas.com"},
-    {"first_name": "Dan", "last_name": "Sifer", "email": "dsifer@myticas.com"},
-    {"first_name": "Anastasiya", "last_name": "Ivanova", "email": "ai@myticas.com"},
-    {"first_name": "Celine", "last_name": "Blattman", "email": "cblattman@myticas.com"},
-    {"first_name": "Anita", "last_name": "Barker", "email": "abarker@myticas.com"},
+    {"first_name": "Kyle", "last_name": "Roots", "email": "kroots@myticas.com", "department": "Management"},
+    {"first_name": "Innocent", "last_name": "Nangoma", "email": "inangoma@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Reem", "last_name": "Kouseibati", "email": "rkouseibati@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Michael", "last_name": "Theodossiou", "email": "michael.theodossiou@myticas.com", "department": "Management"},
+    {"first_name": "Mike", "last_name": "Palermo", "email": "mpalermo@myticas.com", "department": "MYT-Chicago"},
+    {"first_name": "Dominic", "last_name": "Scaletta", "email": "dscaletta@myticas.com", "department": "MYT-Chicago"},
+    {"first_name": "Matheo", "last_name": "Theodossiou", "email": "matheo.theodossiou@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Adam", "last_name": "Gebara", "email": "agebara@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Amanda", "last_name": "Messina", "email": "amessina@myticas.com", "department": "MYT-Ohio"},
+    {"first_name": "Dean", "last_name": "Theodossiou", "email": "dtheodossiou@myticas.com", "department": "Management"},
+    {"first_name": "Nick", "last_name": "Theodossiou", "email": "ntheodossiou@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Runa", "last_name": "Parmar", "email": "rparmar@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Sam", "last_name": "Osman", "email": "sosman@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Chris", "last_name": "Halkai", "email": "chalkai@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Jen", "last_name": "Jones", "email": "jjones@myticas.com", "department": "MYT-Chicago"},
+    {"first_name": "Lisa", "last_name": "Keirsted", "email": "lisa@myticas.com", "department": "MYT-Ohio"},
+    {"first_name": "Bryan", "last_name": "Chinzorig", "email": "bryanc@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Michael", "last_name": "Wujciak", "email": "mw@myticas.com", "department": "MYT-Chicago"},
+    {"first_name": "Reena", "last_name": "Setya", "email": "rs@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Doug", "last_name": "Billot", "email": "dbillot@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Dan", "last_name": "Sifer", "email": "dsifer@myticas.com", "department": "Management"},
+    {"first_name": "Anastasiya", "last_name": "Ivanova", "email": "ai@myticas.com", "department": "Management"},
+    {"first_name": "Celine", "last_name": "Blattman", "email": "cblattman@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Anita", "last_name": "Barker", "email": "abarker@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Christine", "last_name": "Carter", "email": "ccarter@cloverit.com", "department": "MYT-Clover"},
 ]
 
 
 def seed_support_contacts(db):
     try:
         from models import SupportContact
-        existing_emails = {c.email for c in SupportContact.query.filter_by(brand='Myticas').all()}
+        existing_by_email = {c.email: c for c in SupportContact.query.filter_by(brand='Myticas').all()}
         added = 0
+        updated = 0
         for contact_data in SUPPORT_CONTACTS_MYTICAS:
-            if contact_data['email'] not in existing_emails:
+            if contact_data['email'] not in existing_by_email:
                 contact = SupportContact(
                     first_name=contact_data['first_name'],
                     last_name=contact_data['last_name'],
                     email=contact_data['email'],
-                    brand='Myticas'
+                    brand='Myticas',
+                    department=contact_data.get('department')
                 )
                 db.session.add(contact)
                 added += 1
-        if added > 0:
+            else:
+                existing = existing_by_email[contact_data['email']]
+                if existing.department is None and contact_data.get('department'):
+                    existing.department = contact_data['department']
+                    updated += 1
+        if added > 0 or updated > 0:
             db.session.commit()
-            logger.info(f"✅ Seeded {added} Myticas support contacts")
+            logger.info(f"✅ Support contacts: {added} added, {updated} updated with department")
         else:
-            logger.info(f"✅ All {len(SUPPORT_CONTACTS_MYTICAS)} Myticas support contacts already exist")
+            logger.info(f"✅ All {len(SUPPORT_CONTACTS_MYTICAS)} Myticas support contacts already up to date")
     except ImportError:
         logger.debug("ℹ️ SupportContact model not found - skipping support contact seeding")
     except Exception as e:

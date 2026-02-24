@@ -434,6 +434,15 @@
                                 <input type="email" class="form-control" id="requesterEmail" name="requesterEmail" required
                                     placeholder="Your email address">
                             </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="internalDepartment" class="form-label">Internal Department</label>
+                                <input type="text" class="form-control" id="internalDepartment" name="internalDepartment"
+                                    placeholder="e.g. MYT-Ottawa" autocomplete="off" readonly
+                                    style="background: rgba(255,255,255,0.05); cursor: default;">
+                                <div class="form-text" style="color: rgba(255,255,255,0.45); font-size: 0.78rem;">
+                                    Auto-populated from your Bullhorn profile
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -451,8 +460,9 @@
                                 <option value="email_notifications">Email / Notification Issue</option>
                                 <option value="data_correction">Data Correction Request</option>
                                 <option value="feature_request">Feature Request</option>
-                                <option value="general_inquiry">General Inquiry</option>
                                 <option value="other">Other</option>
+                                <option value="backoffice_onboarding">Back-Office: Onboarding</option>
+                                <option value="backoffice_finance">Back-Office: Finance (BTE)</option>
                             </select>
                         </div>
 
@@ -657,6 +667,8 @@
             submitText.style.display = 'none';
             loadingSpinner.style.display = 'inline-block';
 
+            const internalDepartment = document.getElementById('internalDepartment').value.trim();
+
             const formData = new FormData();
             formData.append('requesterName', requesterName);
             formData.append('requesterEmail', requesterEmail);
@@ -664,6 +676,7 @@
             formData.append('priority', priority);
             formData.append('subject', subject);
             formData.append('description', description);
+            formData.append('internalDepartment', internalDepartment);
 
             selectedFiles.forEach((file) => {
                 formData.append('attachments', file);
@@ -790,6 +803,10 @@
         function selectContact(contact) {
             nameInput.value = contact.full_name;
             emailInput.value = contact.email;
+            const deptInput = document.getElementById('internalDepartment');
+            if (deptInput) {
+                deptInput.value = contact.department || '';
+            }
             hideDropdown();
             emailInput.dispatchEvent(new Event('input'));
         }

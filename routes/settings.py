@@ -37,11 +37,17 @@ def settings():
             settings_data[key] = setting.setting_value if setting else ''
         
         users = User.query.order_by(User.is_admin.desc(), User.username).all()
-        
+
+        from models import SupportContact
+        support_contacts = SupportContact.query.filter_by(brand='Myticas').order_by(
+            SupportContact.first_name, SupportContact.last_name
+        ).all()
+
         return render_template('settings.html',
                              settings=settings_data,
                              users=users,
                              available_modules=AVAILABLE_MODULES,
+                             support_contacts=support_contacts,
                              active_page='settings')
         
     except Exception as e:

@@ -20,8 +20,9 @@ CATEGORY_LABELS = {
     'email_notifications': 'Email / Notification Issue',
     'data_correction': 'Data Correction Request',
     'feature_request': 'Feature Request',
-    'general_inquiry': 'General Inquiry',
     'other': 'Other',
+    'backoffice_onboarding': 'Back-Office: Onboarding',
+    'backoffice_finance': 'Back-Office: Finance (BTE)',
 }
 
 CATEGORY_ICONS = {
@@ -32,8 +33,9 @@ CATEGORY_ICONS = {
     'email_notifications': '📧',
     'data_correction': '📝',
     'feature_request': '💡',
-    'general_inquiry': '❓',
     'other': '📌',
+    'backoffice_onboarding': '📁',
+    'backoffice_finance': '💼',
 }
 
 PRIORITY_LABELS = {
@@ -48,9 +50,13 @@ PRIORITY_COLORS = {
     'high': '#dc3545',
 }
 
-SUPPORT_ROUTING = {
-    'default': 'kroots@myticas.com',
-}
+_DAN_SIFER_EMAIL = 'dsifer@myticas.com'
+_ANITA_BARKER_EMAIL = 'abarker@myticas.com'
+_ANASTASIYA_IVANOVA_EMAIL = 'ai@myticas.com'
+_TECH_SUPPORT_EMAIL = 'techsupport@myticas.com'
+_CC_ALWAYS = 'kroots@myticas.com'
+
+_BACKOFFICE_FINANCE_DEPTS = {'MYT-Ottawa', 'MYT-Chicago', 'MYT-Ohio', 'MYT-Clover'}
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xlsx', 'csv', 'txt'}
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -61,8 +67,24 @@ RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX = 5
 
 
-def get_route_email(category):
-    return SUPPORT_ROUTING.get(category, SUPPORT_ROUTING['default'])
+def get_routing_info(category, department=''):
+    cc = [_CC_ALWAYS]
+    dept = (department or '').strip()
+
+    if category == 'email_notifications':
+        return _TECH_SUPPORT_EMAIL, cc
+
+    if category == 'backoffice_onboarding':
+        if dept == 'MYT-Ottawa':
+            return _ANITA_BARKER_EMAIL, cc
+        return _DAN_SIFER_EMAIL, cc
+
+    if category == 'backoffice_finance':
+        if dept in _BACKOFFICE_FINANCE_DEPTS:
+            return _ANASTASIYA_IVANOVA_EMAIL, cc
+        return _DAN_SIFER_EMAIL, cc
+
+    return _DAN_SIFER_EMAIL, cc
 
 
 def allowed_file(filename):
@@ -152,6 +174,35 @@ def search_support_contacts():
         return jsonify({'version': 'v2', 'error': str(e), 'type': type(e).__name__}), 500
 
 
+@support_request_bp.route('/support/send-test-email')
+@csrf.exempt
+def send_test_email():
+    html_content = build_support_email_html(
+        requester_name='Innocent Nangoma',
+        requester_email='inangoma@myticas.com',
+        internal_department='MYT-Ottawa',
+        category_label='Back-Office: Onboarding',
+        category_icon='📁',
+        priority_label='Medium',
+        priority_color='#ffc107',
+        subject='Test Support Request — Please Ignore',
+        description='This is a test email to preview the updated support request template. It demonstrates the new email layout including the Internal Department field and routing logic.',
+        attachments=[]
+    )
+    success = send_support_email(
+        to_email='kroots@myticas.com',
+        cc_emails=[],
+        reply_to_email='inangoma@myticas.com',
+        subject='[TEST] Support Request Template Preview — Back-Office: Onboarding',
+        html_content=html_content,
+        attachments=[]
+    )
+    if success:
+        return jsonify({'success': True, 'message': 'Test email sent to kroots@myticas.com'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send test email'}), 500
+
+
 @support_request_bp.route('/support/test/')
 @csrf.exempt
 def support_form_test():
@@ -198,6 +249,7 @@ def submit_support_request():
         priority = request.form.get('priority', '').strip()
         subject = request.form.get('subject', '').strip()
         description = request.form.get('description', '').strip()
+        internal_department = request.form.get('internalDepartment', '').strip()
 
         if not all([requester_name, requester_email, category, priority, subject, description]):
             return jsonify({'success': False, 'error': 'All required fields must be filled in.'}), 400
@@ -217,7 +269,7 @@ def submit_support_request():
                         'content_type': file.content_type or 'application/octet-stream'
                     })
 
-        route_email = get_route_email(category)
+        route_email, cc_emails = get_routing_info(category, internal_department)
         category_label = CATEGORY_LABELS.get(category, category)
         category_icon = CATEGORY_ICONS.get(category, '📌')
         priority_label = PRIORITY_LABELS.get(priority, priority)
@@ -226,6 +278,7 @@ def submit_support_request():
         html_content = build_support_email_html(
             requester_name=requester_name,
             requester_email=requester_email,
+            internal_department=internal_department,
             category_label=category_label,
             category_icon=category_icon,
             priority_label=priority_label,
@@ -239,6 +292,7 @@ def submit_support_request():
 
         success = send_support_email(
             to_email=route_email,
+            cc_emails=cc_emails,
             reply_to_email=requester_email,
             subject=email_subject,
             html_content=html_content,
@@ -256,7 +310,7 @@ def submit_support_request():
         return jsonify({'success': False, 'error': 'An unexpected error occurred. Please try again.'}), 500
 
 
-def build_support_email_html(requester_name, requester_email, category_label, category_icon,
+def build_support_email_html(requester_name, requester_email, internal_department, category_label, category_icon,
                               priority_label, priority_color, subject, description, attachments):
     attachment_section = ''
     if attachments:
@@ -300,12 +354,16 @@ def build_support_email_html(requester_name, requester_email, category_label, ca
         <div style="background: #ffffff; padding: 24px 28px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
                 <tr>
-                    <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; width: 100px; vertical-align: top;">Subject</td>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; width: 130px; vertical-align: top;">Subject</td>
                     <td style="padding: 8px 0; color: #1e293b; font-size: 14px; font-weight: 600;">{subject}</td>
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">From</td>
                     <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">{requester_name} &lt;<a href="mailto:{requester_email}" style="color: #2a5298; text-decoration: none;">{requester_email}</a>&gt;</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">Department</td>
+                    <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">{internal_department if internal_department else '<span style="color: #94a3b8; font-style: italic;">Not specified</span>'}</td>
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">Priority</td>
@@ -337,12 +395,12 @@ def build_support_email_html(requester_name, requester_email, category_label, ca
     '''
 
 
-def send_support_email(to_email, reply_to_email, subject, html_content, attachments=None):
+def send_support_email(to_email, reply_to_email, subject, html_content, attachments=None, cc_emails=None):
     try:
         from sendgrid import SendGridAPIClient
         from sendgrid.helpers.mail import (
             Mail, Email, To, Content, Attachment,
-            FileContent, FileName, FileType, Disposition
+            FileContent, FileName, FileType, Disposition, Cc
         )
 
         sg_api_key = os.environ.get('SENDGRID_API_KEY')
@@ -364,6 +422,11 @@ def send_support_email(to_email, reply_to_email, subject, html_content, attachme
 
         mail.reply_to = Email(reply_to_email)
 
+        if cc_emails:
+            for cc_addr in cc_emails:
+                if cc_addr and cc_addr != to_email:
+                    mail.add_cc(Cc(cc_addr))
+
         if attachments:
             for att in attachments:
                 encoded = base64.b64encode(att['data']).decode('utf-8')
@@ -378,7 +441,8 @@ def send_support_email(to_email, reply_to_email, subject, html_content, attachme
         response = sg.client.mail.send.post(request_body=mail.get())
 
         if response.status_code == 202:
-            logger.info(f"Support request email sent to {to_email}: {subject}")
+            cc_str = ', '.join(cc_emails) if cc_emails else 'none'
+            logger.info(f"Support request email sent to {to_email} (CC: {cc_str}): {subject}")
             return True
         else:
             logger.error(f"Failed to send support email: status {response.status_code}")

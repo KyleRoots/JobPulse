@@ -1141,6 +1141,7 @@ class SupportContact(db.Model):
     last_name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(255), nullable=False)
     brand = db.Column(db.String(100), nullable=False, default='Myticas')
+    department = db.Column(db.String(100), nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -1160,6 +1161,7 @@ class SupportContact(db.Model):
             'full_name': self.full_name,
             'email': self.email,
             'brand': self.brand,
+            'department': self.department or '',
         }
 
     def __repr__(self):
