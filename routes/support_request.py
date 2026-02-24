@@ -177,59 +177,60 @@ def build_support_email_html(requester_name, requester_email, category_label, ca
             for att in attachments
         )
         attachment_section = f'''
-        <div style="margin-top: 20px;">
-            <h3 style="color: #1e3c72; font-size: 16px; margin-bottom: 8px;">
-                📎 Attachments ({len(attachments)} file{"s" if len(attachments) > 1 else ""})
-            </h3>
-            <ul style="margin: 0; padding-left: 20px;">{file_list}</ul>
-            <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">Files are attached to this email.</p>
+        <div style="margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+            <div style="color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px;">Attachments ({len(attachments)})</div>
+            <ul style="margin: 0; padding-left: 20px; list-style: none;">
+                {file_list}
+            </ul>
         </div>
         '''
 
     description_html = description.replace('\n', '<br>')
 
     return f'''
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 650px; margin: 0 auto; background: #f8fafc;">
-        <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 24px 30px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">
-                🎫 Internal Support Request
-            </h1>
-            <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0 0; font-size: 14px;">
-                Submitted via Myticas Internal Support Form
-            </p>
-        </div>
-
-        <div style="background: white; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
-            <div style="display: flex; margin-bottom: 20px;">
-                <div style="background: {priority_color}15; border: 1px solid {priority_color}40; border-radius: 8px; padding: 3px 12px; display: inline-block;">
-                    <span style="color: {priority_color}; font-weight: 600; font-size: 13px;">● {priority_label} Priority</span>
-                </div>
-            </div>
-
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 620px; margin: 0 auto;">
+        <div style="background: #1e3c72; padding: 20px 28px; border-radius: 8px 8px 0 0;">
+            <table style="width: 100%; border-collapse: collapse;">
                 <tr>
-                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #f1f5f9; width: 140px;">From</td>
-                    <td style="padding: 10px 12px; color: #1e293b; font-size: 14px; border-bottom: 1px solid #f1f5f9;">
-                        {requester_name} &lt;<a href="mailto:{requester_email}" style="color: #2563eb; text-decoration: none;">{requester_email}</a>&gt;
+                    <td style="vertical-align: middle;">
+                        <span style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">MYTICAS</span>
+                        <span style="color: #4FC3F7; font-size: 18px; font-weight: 300; letter-spacing: 0.3px;"> CONSULTING</span>
+                    </td>
+                    <td style="text-align: right; vertical-align: middle;">
+                        <span style="color: rgba(255,255,255,0.6); font-size: 12px;">Internal Support</span>
                     </td>
                 </tr>
+            </table>
+        </div>
+
+        <div style="background: #2a5298; padding: 14px 28px;">
+            <span style="color: #ffffff; font-size: 15px; font-weight: 600;">Support Request</span>
+            <span style="color: rgba(255,255,255,0.7); font-size: 13px; margin-left: 8px;">— {category_icon} {category_label}</span>
+        </div>
+
+        <div style="background: #ffffff; padding: 24px 28px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
                 <tr>
-                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #f1f5f9;">Category</td>
-                    <td style="padding: 10px 12px; color: #1e293b; font-size: 14px; border-bottom: 1px solid #f1f5f9;">{category_icon} {category_label}</td>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; width: 100px; vertical-align: top;">Subject</td>
+                    <td style="padding: 8px 0; color: #1e293b; font-size: 14px; font-weight: 600;">{subject}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #f1f5f9;">Subject</td>
-                    <td style="padding: 10px 12px; color: #1e293b; font-size: 14px; font-weight: 600; border-bottom: 1px solid #f1f5f9;">{subject}</td>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">From</td>
+                    <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">{requester_name} &lt;<a href="mailto:{requester_email}" style="color: #2a5298; text-decoration: none;">{requester_email}</a>&gt;</td>
                 </tr>
                 <tr>
-                    <td style="padding: 10px 12px; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Submitted</td>
-                    <td style="padding: 10px 12px; color: #1e293b; font-size: 14px;">{datetime.utcnow().strftime('%B %d, %Y at %I:%M %p')} UTC</td>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">Priority</td>
+                    <td style="padding: 8px 0; font-size: 14px;"><span style="color: {priority_color}; font-weight: 600;">●</span> <span style="color: #1e293b;">{priority_label}</span></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">Date</td>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px;">{datetime.utcnow().strftime('%B %d, %Y at %I:%M %p')} UTC</td>
                 </tr>
             </table>
 
-            <div style="margin-top: 20px;">
-                <h3 style="color: #1e3c72; font-size: 16px; margin-bottom: 10px;">📝 Description</h3>
-                <div style="background: #f8fafc; padding: 16px 20px; border-radius: 8px; border: 1px solid #e2e8f0; color: #334155; font-size: 14px; line-height: 1.6;">
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                <div style="color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px;">Description</div>
+                <div style="background: #f8fafc; padding: 14px 18px; border-radius: 6px; border-left: 3px solid #2a5298; color: #334155; font-size: 14px; line-height: 1.65;">
                     {description_html}
                 </div>
             </div>
@@ -237,10 +238,10 @@ def build_support_email_html(requester_name, requester_email, category_label, ca
             {attachment_section}
         </div>
 
-        <div style="background: #f1f5f9; padding: 16px 30px; border-radius: 0 0 12px 12px; border: 1px solid #e2e8f0; border-top: none;">
-            <p style="color: #64748b; font-size: 12px; margin: 0; text-align: center;">
-                Reply directly to this email to respond to the requester ({requester_email}).
-                <br>Powered by Scout Genius™ Internal Support
+        <div style="background: #f1f5f9; padding: 14px 28px; border-radius: 0 0 8px 8px; border: 1px solid #e2e8f0; border-top: none;">
+            <p style="color: #64748b; font-size: 11px; margin: 0; text-align: center; line-height: 1.5;">
+                Reply directly to this email to respond to the requester (<a href="mailto:{requester_email}" style="color: #2a5298; text-decoration: none;">{requester_email}</a>)
+                <br>Myticas Consulting &middot; Powered by Scout Genius™
             </p>
         </div>
     </div>
