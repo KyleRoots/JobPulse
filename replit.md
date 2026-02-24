@@ -17,7 +17,9 @@ Source of Truth: GitHub repository (KyleRoots/JobPulse) — main branch.
 
 ```
 JobPulse/
-├── app.py                           # Main Flask application with route registration
+├── app.py                           # Main Flask application with route registration (~2,768 lines)
+├── extensions.py                    # Shared Flask extensions (db, login_manager, csrf, scheduler)
+├── tasks.py                         # Background scheduler task functions (1,125 lines)
 ├── main.py                          # Entry point with health checks and error handling
 ├── models.py                        # SQLAlchemy database models (21+ tables)
 ├── seed_database.py                 # Production-ready database seeding
@@ -38,11 +40,16 @@ JobPulse/
 │   ├── triggers.py                  # API trigger endpoints
 │   ├── vetting.py                   # Vetting/screening routes
 │   ├── ats_integration.py           # ATS integration routes
-│   └── automations.py               # Product Expert Workbench routes (dev-only)
+│   ├── automations.py               # Product Expert Workbench routes (dev-only)
+│   ├── email.py                     # Email inbound webhook, vetting dashboard, email parsing
+│   ├── log_monitoring.py            # Log monitoring page and API
+│   ├── job_application.py           # Public job application form (CSRF exempt)
+│   └── diagnostics.py               # Diagnostic and test endpoints
 ├── utils/                           # Utility functions
 │   ├── __init__.py
 │   ├── field_mappers.py             # Data field mapping utilities
-│   └── bullhorn_helpers.py          # Centralized BullhornService/EmailService factory helpers
+│   ├── bullhorn_helpers.py          # Centralized BullhornService/EmailService factory helpers
+│   └── filters.py                   # Jinja2 template filters and format helpers
 ├── scripts/                         # Management and testing scripts
 ├── tests/                           # Test suite (pytest, 40+ test files)
 │   ├── conftest.py
