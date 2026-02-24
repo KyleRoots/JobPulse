@@ -1102,7 +1102,7 @@
 
         showNotification('🚀 Generating fresh XML from Bullhorn tearsheets...', 'info');
 
-        fetch('{{ url_for("download_current_xml") }}')
+        fetch('{{ url_for("xml_routes.download_current_xml") }}')
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status}`);
