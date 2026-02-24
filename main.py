@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 
 # Configure logging before importing the app
@@ -19,7 +20,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('app.log', mode='a')
+        RotatingFileHandler('app.log', maxBytes=10*1024*1024, backupCount=3)
     ]
 )
 
