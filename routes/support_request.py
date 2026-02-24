@@ -3,9 +3,10 @@ import logging
 import base64
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, make_response, session
-from extensions import csrf
+from extensions import csrf, db
 from werkzeug.utils import secure_filename
 from functools import wraps
+from sqlalchemy import or_, func
 import time
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,6 @@ def search_support_contacts():
         return jsonify([])
     try:
         from models import SupportContact
-        from sqlalchemy import or_, func
         q_lower = query.lower()
         contacts = SupportContact.query.filter(
             SupportContact.is_active == True,
@@ -131,7 +131,26 @@ def search_support_contacts():
         return jsonify([c.to_dict() for c in contacts])
     except Exception as e:
         logger.error(f"Error searching support contacts: {e}", exc_info=True)
-        return jsonify([])
+        return jsonify({'error': str(e)}), 500
+
+
+@support_request_bp.route('/support/test')
+@csrf.exempt
+def support_form_test():
+    from models import SupportContact
+    contact_count = SupportContact.query.filter_by(brand='Myticas', is_active=True).count()
+    test_query = SupportContact.query.filter(
+        SupportContact.is_active == True,
+        SupportContact.brand == 'Myticas',
+        func.lower(SupportContact.first_name).like('ky%')
+    ).all()
+    test_results = [c.to_dict() for c in test_query]
+    return jsonify({
+        'status': 'ok',
+        'total_contacts': contact_count,
+        'test_search_ky': test_results,
+        'table_exists': True
+    })
 
 
 @support_request_bp.route('/support/submit', methods=['POST'])
