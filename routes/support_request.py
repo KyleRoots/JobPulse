@@ -114,11 +114,26 @@ def redirect_support_domain():
 def search_support_contacts():
     query = request.args.get('q', '').strip()
     brand = request.args.get('brand', 'Myticas').strip()
+    debug = request.args.get('debug', '') == '1'
     if len(query) < 1:
         return jsonify([])
     try:
         from models import SupportContact
         q_lower = query.lower()
+
+        if debug:
+            raw = db.session.execute(
+                db.text("SELECT id, first_name, last_name, email, brand, is_active FROM support_contact LIMIT 5")
+            ).fetchall()
+            raw_count = db.session.execute(db.text("SELECT COUNT(*) FROM support_contact")).scalar()
+            return jsonify({
+                'debug': True,
+                'raw_count': raw_count,
+                'sample': [{'id': r[0], 'first_name': r[1], 'last_name': r[2], 'email': r[3], 'brand': r[4], 'is_active': r[5]} for r in raw],
+                'query': q_lower,
+                'brand': brand
+            })
+
         contacts = SupportContact.query.filter(
             SupportContact.is_active == True,
             SupportContact.brand == brand,
@@ -131,7 +146,7 @@ def search_support_contacts():
         return jsonify([c.to_dict() for c in contacts])
     except Exception as e:
         logger.error(f"Error searching support contacts: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e), 'type': type(e).__name__}), 500
 
 
 @support_request_bp.route('/support/test/')
