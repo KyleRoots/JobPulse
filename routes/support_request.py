@@ -56,8 +56,6 @@ _ANASTASIYA_IVANOVA_EMAIL = 'ai@myticas.com'
 _TECH_SUPPORT_EMAIL = 'techsupport@myticas.com'
 _CC_ALWAYS = 'kroots@myticas.com'
 
-_BACKOFFICE_FINANCE_DEPTS = {'MYT-Ottawa', 'MYT-Chicago', 'MYT-Ohio', 'MYT-Clover'}
-
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xlsx', 'csv', 'txt'}
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_FILES = 5
@@ -75,14 +73,12 @@ def get_routing_info(category, department=''):
         return _TECH_SUPPORT_EMAIL, cc
 
     if category == 'backoffice_onboarding':
-        if dept == 'MYT-Ottawa':
-            return _ANITA_BARKER_EMAIL, cc
-        return _DAN_SIFER_EMAIL, cc
+        return _ANASTASIYA_IVANOVA_EMAIL, cc
 
     if category == 'backoffice_finance':
-        if dept in _BACKOFFICE_FINANCE_DEPTS:
-            return _ANASTASIYA_IVANOVA_EMAIL, cc
-        return _DAN_SIFER_EMAIL, cc
+        if dept == 'MYT-Ottawa':
+            return _ANITA_BARKER_EMAIL, cc
+        return _ANASTASIYA_IVANOVA_EMAIL, cc
 
     return _DAN_SIFER_EMAIL, cc
 
