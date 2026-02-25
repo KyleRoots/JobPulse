@@ -42,12 +42,16 @@ def settings():
         support_contacts = SupportContact.query.filter_by(brand='Myticas').order_by(
             SupportContact.first_name, SupportContact.last_name
         ).all()
+        stsi_contacts = SupportContact.query.filter_by(brand='STSI').order_by(
+            SupportContact.first_name, SupportContact.last_name
+        ).all()
 
         return render_template('settings.html',
                              settings=settings_data,
                              users=users,
                              available_modules=AVAILABLE_MODULES,
                              support_contacts=support_contacts,
+                             stsi_contacts=stsi_contacts,
                              active_page='settings')
         
     except Exception as e:
