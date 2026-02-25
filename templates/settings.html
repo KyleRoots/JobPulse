@@ -595,7 +595,8 @@
                     <button class="user-filter-btn nav-link" data-filter="Myticas Consulting"
                             style="font-size: 0.8rem; padding: 5px 14px; border: 1px solid rgba(42,82,152,0.4); color: rgba(255,255,255,0.5); background: rgba(42,82,152,0.1);">
                         <i class="fas fa-building me-1"></i>Myticas
-                        <span class="badge ms-1" style="background: rgba(79,195,247,0.15); color: #4FC3F7; font-size: 0.68rem;">{{ users|selectattr('company','equalto','Myticas Consulting')|list|length }}</span>
+                        {% set myticas_count = [] %}{% for u in users %}{% if u.company == 'Myticas Consulting' or not u.company %}{% if myticas_count.append(1) %}{% endif %}{% endif %}{% endfor %}
+                        <span class="badge ms-1" style="background: rgba(79,195,247,0.15); color: #4FC3F7; font-size: 0.68rem;">{{ myticas_count|length }}</span>
                     </button>
                 </li>
                 <li class="nav-item">
@@ -629,7 +630,7 @@
         {% endif %}
 
         {% for user in users %}
-        <div class="border rounded p-3 mb-3 d-flex align-items-start gap-2 user-card" data-company="{{ user.company }}" style="border-color: rgba(74, 150, 120, 0.2) !important; background: rgba(10, 22, 16, 0.5);">
+        <div class="border rounded p-3 mb-3 d-flex align-items-start gap-2 user-card" data-company="{{ user.company or 'Myticas Consulting' }}" style="border-color: rgba(74, 150, 120, 0.2) !important; background: rgba(10, 22, 16, 0.5);">
             <div class="flex-shrink-0 pt-1">
                 <input type="checkbox" class="form-check-input user-select-check" value="{{ user.id }}">
             </div>

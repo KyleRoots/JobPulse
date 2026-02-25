@@ -1130,6 +1130,17 @@ def seed_database(db, User):
     except Exception as e:
         logger.warning(f"⚠️ Schema migrations failed: {str(e)}")
     
+    try:
+        null_company_count = db.session.execute(
+            db.text("UPDATE \"user\" SET company = 'Myticas Consulting' WHERE company IS NULL")
+        ).rowcount
+        if null_company_count > 0:
+            db.session.commit()
+            logger.info(f"🔄 Backfilled company='Myticas Consulting' for {null_company_count} user(s) with NULL company")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Company backfill failed: {str(e)}")
+
     env_type = "production" if is_production_environment() else "development"
     logger.info(f"🌱 Starting database seeding for {env_type} environment...")
     
