@@ -1059,6 +1059,60 @@ def seed_support_contacts(db):
         logger.warning(f"⚠️ Failed to seed support contacts: {str(e)}")
 
 
+def seed_stsi_users(db, User):
+    """
+    Create locked login accounts for all STSI support contacts.
+    Idempotent — skips contacts whose email already has a User account.
+    All accounts are subscribed to scout_inbound and locked until a welcome
+    email is sent by the admin.
+    """
+    try:
+        from datetime import datetime
+        existing_emails = {u.email for u in User.query.all()}
+        existing_usernames = {u.username for u in User.query.all()}
+
+        created = 0
+        for c in SUPPORT_CONTACTS_STSI:
+            if c['email'] in existing_emails:
+                continue
+
+            first = c['first_name'][0].lower()
+            last = c['last_name'].lower().replace(' ', '').replace('-', '')
+            base_username = f'{first}{last}.stsi'
+            username = base_username
+            suffix = 2
+            while username in existing_usernames:
+                username = f'{base_username}{suffix}'
+                suffix += 1
+
+            full_name = f"{c['first_name']} {c['last_name']}"
+            user = User(
+                username=username,
+                email=c['email'],
+                display_name=full_name,
+                company='STSI Group',
+                is_admin=False,
+                is_company_admin=False,
+                password_hash='!locked',
+                created_at=datetime.utcnow(),
+            )
+            user.set_modules(['scout_inbound'])
+            db.session.add(user)
+            existing_usernames.add(username)
+            existing_emails.add(c['email'])
+            created += 1
+
+        if created > 0:
+            db.session.commit()
+            logger.info(f"✅ STSI users: created {created} locked login accounts")
+        else:
+            logger.info(f"✅ All STSI user accounts already exist")
+
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed STSI users: {str(e)}")
+
+
 def seed_database(db, User):
     """
     Main seeding function - idempotent database initialization
@@ -1202,6 +1256,8 @@ def seed_database(db, User):
         seed_builtin_automations(db)
 
         seed_support_contacts(db)
+
+        seed_stsi_users(db, User)
 
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
