@@ -539,12 +539,12 @@
 <div class="modal fade" id="notesModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width:600px;">
         <div class="modal-content">
-            <div class="modal-header">
-                <div>
+            <div class="modal-header" style="display:flex; align-items:flex-start; justify-content:space-between; padding:1.1rem 1.4rem 0.9rem; border-bottom:1px solid rgba(255,255,255,0.08);">
+                <div style="flex:1; min-width:0;">
                     <div class="modal-title">AI Match Analysis</div>
                     <div style="font-size:0.78rem; color:rgba(255,255,255,0.35); margin-top:0.15rem;" id="notesModalSubtitle"></div>
                 </div>
-                <button type="button" class="btn-close-modal" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
+                <button type="button" data-bs-dismiss="modal" style="margin-left:1rem; flex-shrink:0; align-self:flex-start; background:transparent; border:none; color:#9b7fd4; font-size:1.1rem; cursor:pointer; padding:0; line-height:1; transition:color 0.15s;" onmouseover="this.style.color='#c4a8f0'" onmouseout="this.style.color='#9b7fd4'"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <div class="col-label mb-2"><i class="fas fa-brain"></i> Scout AI Assessment</div>
