@@ -500,7 +500,7 @@
                     <div class="modal-title">Configure Screening</div>
                     <div style="font-size:0.78rem; color:rgba(255,255,255,0.35); margin-top:0.15rem;" id="modalJobSubtitle"></div>
                 </div>
-                <button type="button" class="btn-close-modal" data-bs-dismiss="modal" style="margin-left:1rem; flex-shrink:0; background:transparent; border:none; color:rgba(255,255,255,0.4); font-size:1.1rem; cursor:pointer; padding:0; line-height:1; align-self:flex-start;"><i class="fas fa-times"></i></button>
+                <button type="button" data-bs-dismiss="modal" style="margin-left:1rem; flex-shrink:0; align-self:flex-start; background:transparent; border:none; color:#9b7fd4; font-size:1.1rem; cursor:pointer; padding:0; line-height:1; transition:color 0.15s;" onmouseover="this.style.color='#c4a8f0'" onmouseout="this.style.color='#9b7fd4'"><i class="fas fa-times"></i></button>
             </div>
             <form id="overrideModalForm" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
