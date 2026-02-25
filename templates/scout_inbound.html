@@ -126,10 +126,6 @@
     .candidate-row-hidden {
         display: none !important;
     }
-    #active-filter-label {
-        font-size: 0.8rem;
-        color: #e8a87c;
-    }
 </style>
 {% endblock %}
 
@@ -281,9 +277,8 @@
 </div>
 
 <div class="card glass-card">
-    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+    <div class="card-header bg-transparent border-bottom border-secondary">
         <h6 class="mb-0"><i class="fas fa-list me-2"></i>Processed Applicants</h6>
-        <span id="active-filter-label"><i class="fas fa-filter me-1"></i>Showing: All</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -395,7 +390,6 @@
     function filterCandidates(filter) {
         var rows = document.querySelectorAll('#candidates-tbody tr[data-status]');
         var cards = document.querySelectorAll('.metric-filter');
-        var label = document.getElementById('active-filter-label');
         var escalationNote = document.getElementById('failed-escalation-note');
 
         cards.forEach(function(card) {
@@ -404,14 +398,6 @@
                 card.classList.add('active');
             }
         });
-
-        var filterLabels = {
-            'all': 'All',
-            'completed': 'Processed',
-            'failed': 'Failed',
-            'duplicate': 'Duplicates'
-        };
-        label.innerHTML = '<i class="fas fa-filter me-1"></i>Showing: ' + (filterLabels[filter] || 'All');
 
         if (escalationNote) {
             escalationNote.style.display = (filter === 'failed') ? 'block' : 'none';
