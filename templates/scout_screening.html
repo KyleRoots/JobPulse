@@ -477,7 +477,8 @@
                                min="50" max="100"
                                placeholder="{{ global_threshold }}"
                                value="{{ req.vetting_threshold if req and req.vetting_threshold else '' }}"
-                               title="Match threshold (50–100). Blank = global {{ global_threshold }}%.">
+                               title="Match threshold (50–100). Blank = global {{ global_threshold }}%."
+                               style="text-align:center; -webkit-appearance:none; -moz-appearance:textfield;">
                         <span class="threshold-feedback" id="tfb-{{ job_id }}"></span>
                     </div>
                 </td>
