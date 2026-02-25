@@ -8,12 +8,11 @@
     :root {
         --sc-accent:        #9b7fd4;
         --sc-accent-dim:    rgba(155, 127, 212, 0.15);
-        --sc-accent-border: rgba(155, 127, 212, 0.25);
+        --sc-accent-border: rgba(155, 127, 212, 0.22);
         --sc-accent-hover:  rgba(155, 127, 212, 0.35);
-        --sc-bg-card:       rgba(22, 14, 38, 0.65);
     }
 
-    /* ── Metric cards (purple overrides) ── */
+    /* ── Metric cards ── */
     .metrics-row .metric-card {
         background: linear-gradient(145deg, #1e1230 0%, #120b22 50%, #0e0819 100%);
         border-color: var(--sc-accent-border);
@@ -25,361 +24,199 @@
         border-color: rgba(155, 127, 212, 0.5);
         box-shadow: 0 10px 30px rgba(155, 127, 212, 0.15);
     }
-    .metrics-row .metric-card.metric-filter {
-        cursor: pointer;
-        transition: all 0.25s ease, outline 0.15s ease;
-    }
+    .metrics-row .metric-card.metric-filter { cursor: pointer; transition: all 0.25s ease; }
     .metrics-row .metric-card.metric-filter.active {
         outline: 2px solid var(--sc-accent);
         outline-offset: 2px;
-        box-shadow: 0 8px 28px rgba(155, 127, 212, 0.25);
+        box-shadow: 0 8px 28px rgba(155, 127, 212, 0.22);
     }
     .metrics-row .metric-value { color: var(--sc-accent); }
     .metrics-row .metric-icon  { color: var(--sc-accent); }
 
-    /* ── Layout ── */
-    .section-header {
-        display: flex;
-        align-items: flex-start;
-        flex-direction: column;
-        margin-bottom: 1.25rem;
-    }
-    .section-header h5 { margin: 0; font-weight: 600; color: rgba(255,255,255,0.9); }
-    .section-subtitle  { font-size: 0.8rem; color: rgba(255,255,255,0.45); margin-top: 0.25rem; }
-    .section-divider   { border-top: 1px solid rgba(255,255,255,0.07); margin: 2.5rem 0; }
+    /* ── Section layout ── */
+    .section-header { margin-bottom: 1.25rem; }
+    .section-header h5 { margin: 0; font-weight: 600; color: rgba(255,255,255,0.9); display: inline; }
+    .section-header .section-subtitle { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 0.3rem; }
+    .section-divider { border-top: 1px solid rgba(255,255,255,0.07); margin: 2.5rem 0; }
 
-    /* ── Glass card wrapper ── */
-    .glass-card {
-        background: var(--sc-bg-card);
+    /* ── Scout Screening card shell ── */
+    .sc-card {
+        background: rgba(18, 10, 30, 0.7);
         border: 1px solid var(--sc-accent-border);
         border-radius: 14px;
         overflow: hidden;
     }
+    .sc-card-header {
+        background: rgba(0,0,0,0.25) !important;
+        border-bottom: 1px solid var(--sc-accent-border) !important;
+        padding: 0.85rem 1.4rem;
+    }
+    .sc-card-header h6 { margin: 0; font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.88); }
 
-    /* ── Candidate table ── */
-    .screening-table { width: 100%; margin: 0; border-collapse: collapse; }
-    .screening-table thead th {
-        font-size: 0.72rem;
+    /* ── Shared table styles (Bootstrap override) ── */
+    .sc-table { --bs-table-bg: transparent; --bs-table-hover-bg: rgba(155,127,212,0.05); margin-bottom: 0; }
+    .sc-table thead th {
+        font-size: 0.71rem;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: rgba(255,255,255,0.45);
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        padding: 0.85rem 1.25rem;
-        background: rgba(0,0,0,0.18);
+        letter-spacing: 0.6px;
+        color: rgba(155, 127, 212, 0.65);
+        border-bottom: 1px solid var(--sc-accent-border) !important;
+        padding: 0.85rem 1.4rem;
+        background: rgba(0,0,0,0.12);
         white-space: nowrap;
+        font-weight: 600;
     }
-    .screening-table tbody td {
-        font-size: 0.85rem;
+    .sc-table tbody td {
+        padding: 1.1rem 1.4rem;
+        border-color: rgba(255,255,255,0.05) !important;
         vertical-align: middle;
-        padding: 0.95rem 1.25rem;
-        border-bottom: 1px solid rgba(255,255,255,0.045);
-        color: rgba(255,255,255,0.8);
+        font-size: 0.85rem;
+        color: rgba(255,255,255,0.78);
     }
-    .screening-table tbody tr:last-child td { border-bottom: none; }
-    .screening-table tbody tr:hover td { background: rgba(155,127,212,0.04); }
+    .sc-table tbody tr:last-child td { border-bottom: none !important; }
+
+    /* ── Shared hyperlink style ── */
+    .sc-link {
+        color: var(--sc-accent);
+        text-decoration: none;
+        font-size: 0.83rem;
+        font-weight: 400;
+    }
+    .sc-link:hover { color: #c4aef0; text-decoration: underline; text-underline-offset: 2px; }
+    .sc-link-sm { font-size: 0.77rem; }
+    .ext-icon { font-size: 0.6rem; opacity: 0.42; margin-left: 2px; }
+
+    /* ── Candidate name link ── */
+    .cand-link { color: var(--sc-accent); text-decoration: none; font-weight: 500; font-size: 0.85rem; }
+    .cand-link:hover { color: #c4aef0; text-decoration: underline; }
 
     /* ── Score badges ── */
     .score-badge {
-        display: inline-block;
-        padding: 0.25rem 0.65rem;
-        border-radius: 6px;
-        font-weight: 700;
-        font-size: 0.82rem;
-        min-width: 52px;
-        text-align: center;
+        display: inline-block; padding: 0.22rem 0.6rem;
+        border-radius: 6px; font-weight: 700; font-size: 0.82rem;
+        min-width: 50px; text-align: center;
     }
-    .score-high  { background: rgba(40,167,69,0.15);   color: #7ec98e; border: 1px solid rgba(40,167,69,0.25); }
-    .score-mid   { background: rgba(255,193,7,0.15);   color: #ffd966; border: 1px solid rgba(255,193,7,0.25); }
-    .score-low   { background: rgba(220,53,69,0.15);   color: #e87c7c; border: 1px solid rgba(220,53,69,0.25); }
-    .score-zero  { background: rgba(108,117,125,0.15); color: #9da5ad; border: 1px solid rgba(108,117,125,0.2); }
+    .score-high  { background: rgba(40,167,69,0.14);   color: #7ec98e; border: 1px solid rgba(40,167,69,0.22); }
+    .score-mid   { background: rgba(255,193,7,0.14);   color: #ffd966; border: 1px solid rgba(255,193,7,0.22); }
+    .score-low   { background: rgba(220,53,69,0.14);   color: #e87c7c; border: 1px solid rgba(220,53,69,0.22); }
+    .score-zero  { background: rgba(108,117,125,0.12); color: #9da5ad; border: 1px solid rgba(108,117,125,0.18); }
 
     /* ── Status badges ── */
-    .status-qualified { background: rgba(40,167,69,0.12);  color: #7ec98e; border: 1px solid rgba(40,167,69,0.2);  font-size: 0.72rem; }
-    .status-not-rec   { background: rgba(220,53,69,0.12);  color: #e87c7c; border: 1px solid rgba(220,53,69,0.2);  font-size: 0.72rem; }
-    .status-pending   { background: rgba(255,193,7,0.12);  color: #ffd966; border: 1px solid rgba(255,193,7,0.2);  font-size: 0.72rem; }
+    .st-qualified { background: rgba(40,167,69,0.12);  color: #7ec98e; border: 1px solid rgba(40,167,69,0.18);  font-size: 0.71rem; }
+    .st-not-rec   { background: rgba(220,53,69,0.12);  color: #e87c7c; border: 1px solid rgba(220,53,69,0.18);  font-size: 0.71rem; }
+    .st-pending   { background: rgba(255,193,7,0.12);  color: #ffd966; border: 1px solid rgba(255,193,7,0.18);  font-size: 0.71rem; }
 
-    /* ── Links ── */
-    .candidate-link { color: var(--sc-accent); text-decoration: none; font-weight: 500; }
-    .candidate-link:hover { color: #b899e8; text-decoration: underline; }
-    .job-link { color: rgba(255,255,255,0.65); text-decoration: none; font-size: 0.82rem; }
-    .job-link:hover { color: rgba(255,255,255,0.95); text-decoration: underline; }
-    .ext-icon { font-size: 0.6rem; opacity: 0.45; margin-left: 3px; }
-
-    /* ── AI Notes cell — view-only link style ── */
-    .notes-view-btn {
-        color: var(--sc-accent);
-        background: none;
-        border: none;
-        font-size: 0.78rem;
-        cursor: pointer;
-        padding: 0;
-        opacity: 0.75;
-        text-decoration: underline;
-        text-underline-offset: 2px;
-        transition: opacity 0.15s;
-    }
-    .notes-view-btn:hover { opacity: 1; }
+    /* ── AI notes snippet ── */
     .notes-snippet {
         font-size: 0.8rem;
         color: rgba(255,255,255,0.45);
-        display: -webkit-box;
-        -webkit-line-clamp: 1;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        max-width: 200px;
-        line-height: 1.4;
-        margin-bottom: 0.2rem;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; max-width: 240px; line-height: 1.45; margin-bottom: 0.25rem;
     }
 
-    /* ── Minimal pagination ── */
-    .pagination-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.7rem 1.25rem;
-        border-top: 1px solid rgba(255,255,255,0.06);
-        background: rgba(0,0,0,0.1);
-        font-size: 0.78rem;
-        color: rgba(255,255,255,0.35);
-    }
-    .pagination-bar .page-info { color: rgba(255,255,255,0.35); }
-    .pagination-controls { display: flex; align-items: center; gap: 0.5rem; }
-    .page-nav {
-        color: var(--sc-accent);
-        background: none;
-        border: none;
-        font-size: 0.78rem;
-        cursor: pointer;
-        padding: 0;
-        opacity: 0.7;
-        transition: opacity 0.15s;
-        text-decoration: none;
-    }
-    .page-nav:hover  { opacity: 1; }
-    .page-nav:disabled { opacity: 0.25; cursor: default; }
-    .page-dots { display: flex; gap: 0.3rem; align-items: center; }
-    .page-dot {
-        width: 6px; height: 6px;
-        border-radius: 50%;
-        background: rgba(155,127,212,0.25);
-        cursor: pointer;
-        transition: all 0.2s;
-        border: none;
-        padding: 0;
-    }
-    .page-dot.active-dot { background: var(--sc-accent); width: 18px; border-radius: 3px; }
-    .page-dot:hover { background: rgba(155,127,212,0.6); }
+    /* ── AI requirement status text ── */
+    .ai-ready-text   { color: rgba(155,127,212,0.75); font-size: 0.8rem; }
+    .ai-pending-text { color: rgba(255,255,255,0.28); font-size: 0.8rem; font-style: italic; }
 
-    /* ── Empty state ── */
-    .empty-state {
-        text-align: center;
-        padding: 3.5rem 1rem;
-        color: rgba(255,255,255,0.35);
-    }
-    .empty-state i { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.22; display: block; }
-
-    /* ── Job settings table ── */
-    .settings-table { width: 100%; border-collapse: collapse; }
-    .settings-table thead th {
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: rgba(255,255,255,0.4);
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        padding: 0.85rem 1.25rem;
-        background: rgba(0,0,0,0.18);
-        white-space: nowrap;
-    }
-    .settings-table tbody td {
-        padding: 1rem 1.25rem;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        vertical-align: middle;
-        font-size: 0.85rem;
-        color: rgba(255,255,255,0.8);
-    }
-    .settings-table tbody tr:last-child td { border-bottom: none; }
-    .settings-table tbody tr:hover td { background: rgba(155,127,212,0.03); }
-    .job-title-cell { font-weight: 600; color: rgba(255,255,255,0.88); font-size: 0.88rem; }
-    .job-id-badge {
-        font-size: 0.7rem;
-        font-weight: 400;
-        color: rgba(255,255,255,0.3);
-        margin-left: 0.4rem;
-    }
-    .ai-status-badge-ready {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.3rem;
-        font-size: 0.72rem;
-        padding: 0.2rem 0.55rem;
-        background: rgba(155,127,212,0.12);
-        color: var(--sc-accent);
-        border: 1px solid var(--sc-accent-border);
-        border-radius: 5px;
-    }
-    .ai-status-badge-pending {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.3rem;
-        font-size: 0.72rem;
-        padding: 0.2rem 0.55rem;
-        background: rgba(100,116,139,0.1);
-        color: rgba(255,255,255,0.3);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 5px;
-        font-style: italic;
-    }
+    /* ── Threshold input ── */
     .threshold-input {
-        background: rgba(0,0,0,0.3);
+        background: rgba(0,0,0,0.35);
         border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 7px;
-        color: rgba(255,255,255,0.75);
-        font-size: 0.85rem;
-        padding: 0.35rem 0.55rem;
-        width: 68px;
-        text-align: center;
+        border-radius: 6px;
+        color: rgba(255,255,255,0.7);
+        font-size: 0.82rem;
+        padding: 0.3rem 0.5rem;
+        width: 64px; text-align: center;
         transition: border-color 0.2s;
     }
     .threshold-input:focus { outline: none; border-color: var(--sc-accent); }
-    .btn-configure {
-        background: transparent;
-        border: none;
-        color: var(--sc-accent);
-        font-size: 0.8rem;
-        cursor: pointer;
-        padding: 0;
-        text-decoration: underline;
-        text-underline-offset: 2px;
-        opacity: 0.8;
-        transition: opacity 0.15s;
-        white-space: nowrap;
-    }
-    .btn-configure:hover { opacity: 1; }
-    .btn-save {
-        background: transparent;
-        border: none;
-        color: var(--sc-accent);
-        font-size: 0.82rem;
-        cursor: pointer;
-        padding: 0;
-        opacity: 0.75;
-        text-decoration: underline;
-        text-underline-offset: 2px;
-        transition: opacity 0.15s;
-    }
-    .btn-save:hover { opacity: 1; }
-    .active-override-dot {
-        display: inline-block;
-        width: 6px; height: 6px;
-        border-radius: 50%;
-        background: var(--sc-accent);
-        margin-left: 0.3rem;
-        vertical-align: middle;
-        opacity: 0.8;
-    }
 
-    /* ── Modal ── */
+    /* ── Save link button ── */
+    .btn-link-save {
+        background: none; border: none; padding: 0;
+        color: var(--sc-accent); font-size: 0.82rem;
+        cursor: pointer; text-decoration: none;
+        transition: color 0.15s;
+    }
+    .btn-link-save:hover { color: #c4aef0; text-decoration: underline; text-underline-offset: 2px; }
+
+    /* ── Pagination footer ── */
+    .sc-footer {
+        background: rgba(0,0,0,0.18) !important;
+        border-top: 1px solid rgba(255,255,255,0.06) !important;
+        padding: 0.65rem 1.4rem;
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.32);
+    }
+    .pg-nav {
+        color: var(--sc-accent); text-decoration: none; font-size: 0.82rem;
+        transition: color 0.15s, opacity 0.15s;
+    }
+    .pg-nav:hover { color: #c4aef0; }
+    .pg-nav.disabled { opacity: 0.28; pointer-events: none; }
+
+    /* ── Empty state ── */
+    .sc-empty {
+        text-align: center; padding: 3.5rem 1rem;
+        color: rgba(255,255,255,0.32);
+    }
+    .sc-empty i { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.2; display: block; }
+
+    /* ── Modal shell ── */
     .modal-content {
         background: #0f0a1c;
         border: 1px solid var(--sc-accent-border);
         border-radius: 14px;
         color: rgba(255,255,255,0.88);
     }
-    .modal-header {
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        padding: 1.1rem 1.4rem 0.9rem;
-    }
-    .modal-title { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.92); }
-    .modal-footer { border-top: 1px solid rgba(255,255,255,0.08); padding: 0.85rem 1.4rem; }
-    .modal-body { padding: 1.25rem 1.4rem; }
+    .modal-header { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 1.1rem 1.4rem 0.9rem; }
+    .modal-footer { border-top:  1px solid rgba(255,255,255,0.08); padding: 0.85rem 1.4rem; }
+    .modal-body   { padding: 1.25rem 1.4rem; }
+    .modal-title  { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.92); }
     .btn-close-modal {
-        background: transparent;
-        border: none;
-        color: rgba(255,255,255,0.4);
-        font-size: 1.15rem;
-        cursor: pointer;
-        padding: 0;
-        line-height: 1;
+        background: transparent; border: none; padding: 0; line-height: 1;
+        color: rgba(255,255,255,0.4); font-size: 1.15rem; cursor: pointer;
         transition: color 0.15s;
     }
     .btn-close-modal:hover { color: rgba(255,255,255,0.85); }
     .col-label {
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--sc-accent);
-        margin-bottom: 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
+        font-size: 0.71rem; text-transform: uppercase; letter-spacing: 0.5px;
+        color: var(--sc-accent); margin-bottom: 0.5rem;
+        display: flex; align-items: center; gap: 0.35rem;
     }
     .ai-req-box {
-        background: rgba(0,0,0,0.25);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 8px;
-        padding: 0.85rem 1rem;
-        font-size: 0.82rem;
-        color: rgba(255,255,255,0.6);
-        min-height: 160px;
-        max-height: 280px;
-        overflow-y: auto;
-        line-height: 1.65;
-        white-space: pre-wrap;
+        background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px; padding: 0.85rem 1rem; font-size: 0.82rem;
+        color: rgba(255,255,255,0.58); min-height: 160px; max-height: 280px;
+        overflow-y: auto; line-height: 1.65; white-space: pre-wrap;
     }
-    .ai-req-box.empty-box { color: rgba(255,255,255,0.25); font-style: italic; }
+    .ai-req-box.empty-box { color: rgba(255,255,255,0.22); font-style: italic; }
     .override-textarea {
-        background: rgba(0,0,0,0.3);
-        border: 1px solid var(--sc-accent-border);
-        border-radius: 8px;
-        color: rgba(255,255,255,0.85);
-        font-size: 0.82rem;
-        resize: vertical;
-        min-height: 160px;
-        max-height: 280px;
-        width: 100%;
-        padding: 0.75rem 0.9rem;
-        line-height: 1.65;
-        transition: border-color 0.2s;
+        background: rgba(0,0,0,0.3); border: 1px solid var(--sc-accent-border);
+        border-radius: 8px; color: rgba(255,255,255,0.85); font-size: 0.82rem;
+        resize: vertical; min-height: 160px; max-height: 280px; width: 100%;
+        padding: 0.75rem 0.9rem; line-height: 1.65; transition: border-color 0.2s;
     }
-    .override-textarea:focus { outline: none; border-color: var(--sc-accent); background: rgba(0,0,0,0.35); }
+    .override-textarea:focus { outline: none; border-color: var(--sc-accent); }
     .override-textarea::placeholder { color: rgba(255,255,255,0.2); }
-    .override-hint { font-size: 0.73rem; color: rgba(255,255,255,0.28); margin-top: 0.4rem; }
+    .override-hint { font-size: 0.72rem; color: rgba(255,255,255,0.27); margin-top: 0.4rem; }
     .threshold-modal-input {
-        background: rgba(0,0,0,0.3);
-        border: 1px solid var(--sc-accent-border);
-        border-radius: 7px;
-        color: rgba(255,255,255,0.85);
-        font-size: 0.85rem;
-        padding: 0.4rem 0.7rem;
-        width: 90px;
-        transition: border-color 0.2s;
+        background: rgba(0,0,0,0.3); border: 1px solid var(--sc-accent-border);
+        border-radius: 7px; color: rgba(255,255,255,0.85); font-size: 0.85rem;
+        padding: 0.4rem 0.7rem; width: 90px; transition: border-color 0.2s;
     }
     .threshold-modal-input:focus { outline: none; border-color: var(--sc-accent); }
     .btn-modal-save {
-        background: var(--sc-accent);
-        border: none;
-        color: #fff;
-        border-radius: 8px;
-        padding: 0.5rem 1.4rem;
-        font-size: 0.88rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
+        background: var(--sc-accent); border: none; color: #fff;
+        border-radius: 8px; padding: 0.5rem 1.4rem; font-size: 0.88rem;
+        font-weight: 600; cursor: pointer; transition: background 0.2s;
     }
     .btn-modal-save:hover { background: #b899e8; }
-
-    /* ── Notes modal ── */
     .notes-full-text {
-        background: rgba(0,0,0,0.2);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 8px;
-        padding: 1rem 1.1rem;
-        font-size: 0.85rem;
-        color: rgba(255,255,255,0.7);
-        line-height: 1.75;
-        white-space: pre-wrap;
-        max-height: 340px;
-        overflow-y: auto;
+        background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px; padding: 1rem 1.1rem; font-size: 0.85rem;
+        color: rgba(255,255,255,0.68); line-height: 1.75; white-space: pre-wrap;
+        max-height: 360px; overflow-y: auto;
     }
 </style>
 {% endblock %}
@@ -397,28 +234,28 @@
 
 <!-- ===== METRIC CARDS ===== -->
 <div class="metrics-row mb-4">
-    <div class="metric-card metric-filter" id="card-qualified" onclick="filterMatches('qualified')" title="Filter: Qualified Matches">
+    <div class="metric-card metric-filter" id="card-qualified" onclick="filterMatches('qualified')">
         <div class="metric-icon"><i class="fas fa-check-circle"></i></div>
         <div class="metric-label">Qualified Matches</div>
         <div class="metric-value">{{ metrics.qualified }}</div>
         <div class="metric-subtext">Above threshold</div>
         <div class="metric-trend neutral"><i class="fas fa-star"></i> Approved</div>
     </div>
-    <div class="metric-card metric-filter" id="card-pending" onclick="filterMatches('pending')" title="Filter: Pending Review">
+    <div class="metric-card metric-filter" id="card-pending" onclick="filterMatches('pending')">
         <div class="metric-icon"><i class="fas fa-clock"></i></div>
         <div class="metric-label">Pending Review</div>
         <div class="metric-value">{{ metrics.pending }}</div>
         <div class="metric-subtext">Awaiting AI analysis</div>
         <div class="metric-trend neutral"><i class="fas fa-hourglass-half"></i> In Queue</div>
     </div>
-    <div class="metric-card metric-filter" id="card-not-rec" onclick="filterMatches('not_recommended')" title="Filter: Not Recommended">
+    <div class="metric-card metric-filter" id="card-not-rec" onclick="filterMatches('not_recommended')">
         <div class="metric-icon"><i class="fas fa-times-circle"></i></div>
         <div class="metric-label">Not Recommended</div>
         <div class="metric-value">{{ metrics.not_recommended }}</div>
         <div class="metric-subtext">Below threshold</div>
         <div class="metric-trend neutral"><i class="fas fa-filter"></i> Filtered</div>
     </div>
-    <div class="metric-card metric-filter" id="card-week" onclick="filterMatches('week')" title="Filter: Screened This Week">
+    <div class="metric-card metric-filter" id="card-week" onclick="filterMatches('week')">
         <div class="metric-icon"><i class="fas fa-calendar-week"></i></div>
         <div class="metric-label">Screened This Week</div>
         <div class="metric-value">{{ metrics.screened_this_week }}</div>
@@ -427,233 +264,236 @@
     </div>
 </div>
 
-<!-- ===== SCREENED CANDIDATES TABLE ===== -->
+<!-- ===== SCREENED CANDIDATES ===== -->
 <div class="section-header">
-    <h5><i class="fas fa-users me-2" style="color: var(--sc-accent);"></i>Screened Candidates</h5>
+    <h5><i class="fas fa-users me-2" style="color:var(--sc-accent);"></i>Screened Candidates</h5>
     <div class="section-subtitle">AI match results for candidates on your active jobs — click a metric card above to filter</div>
 </div>
 
-<div class="glass-card mb-4">
+<div class="sc-card mb-4">
+    <div class="card-body p-0">
 {% if matches or pending_logs %}
-    <div style="overflow-x: auto;">
-    <table class="screening-table" id="matchTable">
-        <thead>
-            <tr>
-                <th style="width:110px;">Date</th>
-                <th style="width:165px;">Candidate</th>
-                <th style="min-width:150px;">Job</th>
-                <th style="width:80px; text-align:center;">Score</th>
-                <th style="width:145px;">Status</th>
-                <th style="min-width:180px;">AI Notes</th>
-            </tr>
-        </thead>
-        <tbody id="tableBody">
-            {% for m in matches %}
-            <tr data-status="{{ 'qualified' if m.is_qualified else 'not_recommended' }}"
-                data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}">
-                <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
-                    {{ m.created_at.strftime('%b %d, %Y') if m.created_at else '—' }}
-                </td>
-                <td>
-                    {% if m.vetting_log and m.vetting_log.bullhorn_candidate_id %}
-                    <a class="candidate-link"
-                       href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ m.vetting_log.bullhorn_candidate_id }}"
-                       target="_blank" rel="noopener">
-                        {{ m.vetting_log.candidate_name or 'Unknown' }}<i class="fas fa-external-link-alt ext-icon"></i>
-                    </a>
-                    {% else %}
-                    <span style="color:rgba(255,255,255,0.6);">{{ m.vetting_log.candidate_name if m.vetting_log else 'Unknown' }}</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <a class="job-link"
-                       href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ m.bullhorn_job_id }}"
-                       target="_blank" rel="noopener">
-                        {{ m.job_title or ('Job #' ~ m.bullhorn_job_id) }}<i class="fas fa-external-link-alt ext-icon"></i>
-                    </a>
-                </td>
-                <td style="text-align:center;">
-                    {% set score = m.match_score|round|int %}
-                    {% if score >= 80 %}<span class="score-badge score-high">{{ score }}%</span>
-                    {% elif score >= 60 %}<span class="score-badge score-mid">{{ score }}%</span>
-                    {% elif score > 0 %}<span class="score-badge score-low">{{ score }}%</span>
-                    {% else %}<span class="score-badge score-zero">—</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if m.is_qualified %}
-                    <span class="badge rounded-pill status-qualified">Qualified</span>
-                    {% else %}
-                    <span class="badge rounded-pill status-not-rec">Not Recommended</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if m.match_summary %}
-                    <div class="notes-snippet">{{ m.match_summary[:80] }}…</div>
-                    <button class="notes-view-btn"
-                            onclick="openNotesModal(
-                                {{ (m.vetting_log.candidate_name if m.vetting_log else 'Unknown')|tojson }},
-                                {{ (m.job_title or ('Job #' ~ m.bullhorn_job_id))|tojson }},
-                                {{ m.match_summary|tojson }},
-                                {{ (m.vetting_log.bullhorn_candidate_id if m.vetting_log else '')|tojson }}
-                            )">View full notes</button>
-                    {% else %}
-                    <span style="color:rgba(255,255,255,0.2); font-size:0.78rem;">—</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-            {% for log in pending_logs %}
-            <tr data-status="pending" data-week="no">
-                <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
-                    {{ log.created_at.strftime('%b %d, %Y') if log.created_at else '—' }}
-                </td>
-                <td>
-                    {% if log.bullhorn_candidate_id %}
-                    <a class="candidate-link"
-                       href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
-                       target="_blank" rel="noopener">
-                        {{ log.candidate_name or 'Unknown' }}<i class="fas fa-external-link-alt ext-icon"></i>
-                    </a>
-                    {% else %}
-                    <span style="color:rgba(255,255,255,0.6);">{{ log.candidate_name or 'Unknown' }}</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if log.applied_job_id %}
-                    <a class="job-link"
-                       href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}"
-                       target="_blank" rel="noopener">
-                        {{ log.applied_job_title or ('Job #' ~ log.applied_job_id) }}<i class="fas fa-external-link-alt ext-icon"></i>
-                    </a>
-                    {% else %}<span style="color:rgba(255,255,255,0.25);">—</span>
-                    {% endif %}
-                </td>
-                <td style="text-align:center;"><span class="score-badge score-zero">—</span></td>
-                <td><span class="badge rounded-pill status-pending">Pending</span></td>
-                <td><span style="color:rgba(255,255,255,0.25); font-size:0.78rem; font-style:italic;">Awaiting AI…</span></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    </div>
-
-    <!-- Filter zero-match state -->
-    <div id="filterEmptyState" style="display:none;">
-        <div class="empty-state">
-            <i class="fas fa-search"></i>
-            <p style="font-size:0.92rem;">No candidates match this filter.</p>
-            <p style="font-size:0.8rem; color:rgba(255,255,255,0.22);">Click the highlighted card again to clear the filter.</p>
+        <div class="table-responsive">
+        <table class="table table-dark table-hover sc-table" id="matchTable">
+            <thead>
+                <tr>
+                    <th style="width:110px;">Date Screened</th>
+                    <th style="width:170px;">Candidate</th>
+                    <th style="min-width:155px;">Job</th>
+                    <th style="width:80px; text-align:center;">Score</th>
+                    <th style="width:150px;">Status</th>
+                    <th>AI Notes</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                {% for m in matches %}
+                <tr data-status="{{ 'qualified' if m.is_qualified else 'not_recommended' }}"
+                    data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}">
+                    <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
+                        {{ m.created_at.strftime('%b %d, %Y') if m.created_at else '—' }}
+                    </td>
+                    <td>
+                        {% if m.vetting_log and m.vetting_log.bullhorn_candidate_id %}
+                        <a class="cand-link"
+                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ m.vetting_log.bullhorn_candidate_id }}"
+                           target="_blank" rel="noopener">
+                            {{ m.vetting_log.candidate_name or 'Unknown' }}<i class="fas fa-external-link-alt ext-icon"></i>
+                        </a>
+                        {% else %}
+                        <span style="color:rgba(255,255,255,0.6);">{{ m.vetting_log.candidate_name if m.vetting_log else 'Unknown' }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a class="sc-link"
+                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ m.bullhorn_job_id }}"
+                           target="_blank" rel="noopener">
+                            {{ m.job_title or ('Job #' ~ m.bullhorn_job_id) }}<i class="fas fa-external-link-alt ext-icon"></i>
+                        </a>
+                    </td>
+                    <td style="text-align:center;">
+                        {% set score = m.match_score|round|int %}
+                        {% if score >= 80 %}<span class="score-badge score-high">{{ score }}%</span>
+                        {% elif score >= 60 %}<span class="score-badge score-mid">{{ score }}%</span>
+                        {% elif score > 0 %}<span class="score-badge score-low">{{ score }}%</span>
+                        {% else %}<span class="score-badge score-zero">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.is_qualified %}
+                        <span class="badge rounded-pill st-qualified">Qualified</span>
+                        {% else %}
+                        <span class="badge rounded-pill st-not-rec">Not Recommended</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.match_summary %}
+                        <div class="notes-snippet">{{ m.match_summary[:100] }}…</div>
+                        <a href="javascript:void(0)" class="sc-link sc-link-sm"
+                           onclick="openNotesModal(
+                               {{ (m.vetting_log.candidate_name if m.vetting_log else 'Unknown')|tojson }},
+                               {{ (m.job_title or ('Job #' ~ m.bullhorn_job_id))|tojson }},
+                               {{ m.match_summary|tojson }},
+                               {{ (m.vetting_log.bullhorn_candidate_id if m.vetting_log else '')|tojson }}
+                           )">View full notes</a>
+                        {% else %}
+                        <span style="color:rgba(255,255,255,0.2); font-size:0.78rem;">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% for log in pending_logs %}
+                <tr data-status="pending" data-week="no">
+                    <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
+                        {{ log.created_at.strftime('%b %d, %Y') if log.created_at else '—' }}
+                    </td>
+                    <td>
+                        {% if log.bullhorn_candidate_id %}
+                        <a class="cand-link"
+                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
+                           target="_blank" rel="noopener">
+                            {{ log.candidate_name or 'Unknown' }}<i class="fas fa-external-link-alt ext-icon"></i>
+                        </a>
+                        {% else %}
+                        <span style="color:rgba(255,255,255,0.6);">{{ log.candidate_name or 'Unknown' }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if log.applied_job_id %}
+                        <a class="sc-link"
+                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}"
+                           target="_blank" rel="noopener">
+                            {{ log.applied_job_title or ('Job #' ~ log.applied_job_id) }}<i class="fas fa-external-link-alt ext-icon"></i>
+                        </a>
+                        {% else %}<span style="color:rgba(255,255,255,0.25);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:center;"><span class="score-badge score-zero">—</span></td>
+                    <td><span class="badge rounded-pill st-pending">Pending</span></td>
+                    <td><span style="color:rgba(255,255,255,0.25); font-size:0.78rem; font-style:italic;">Awaiting AI analysis…</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         </div>
-    </div>
 
-    <!-- Minimal pagination -->
-    <div class="pagination-bar" id="paginationBar" style="display:none;">
-        <span class="page-info" id="pageInfo"></span>
-        <div class="pagination-controls" id="pageControls"></div>
-    </div>
+        <!-- Filter zero-match message -->
+        <div id="filterEmptyState" style="display:none;">
+            <div class="sc-empty">
+                <i class="fas fa-search"></i>
+                <p style="font-size:0.92rem;">No candidates match this filter.</p>
+                <p style="font-size:0.8rem; color:rgba(255,255,255,0.22);">Click the highlighted card again to clear the filter.</p>
+            </div>
+        </div>
+
+        <!-- Pagination footer (only shown when there are rows) -->
+        <div class="sc-footer d-flex justify-content-between align-items-center" id="paginationBar" style="display:none !important;">
+            <span id="pageInfo"></span>
+            <div class="d-flex align-items-center gap-3">
+                <a href="javascript:void(0)" class="pg-nav disabled" id="prevBtn" onclick="changePage(-1)">← Previous</a>
+                <span id="pageIndicator" style="color:rgba(255,255,255,0.35); font-size:0.78rem;"></span>
+                <a href="javascript:void(0)" class="pg-nav disabled" id="nextBtn" onclick="changePage(1)">Next →</a>
+            </div>
+        </div>
 {% else %}
-    <div class="empty-state">
-        <i class="fas fa-brain"></i>
-        <p style="font-size:0.95rem;">No screened candidates yet for your jobs.</p>
-        <p style="font-size:0.82rem; color:rgba(255,255,255,0.22);">Candidates who apply to your open positions will appear here once the AI has screened them.</p>
-    </div>
+        <div class="sc-empty">
+            <i class="fas fa-brain"></i>
+            <p style="font-size:0.95rem;">No screened candidates yet for your jobs.</p>
+            <p style="font-size:0.82rem; color:rgba(255,255,255,0.22);">Candidates who apply to your open positions will appear here once the AI has screened them.</p>
+        </div>
 {% endif %}
+    </div>
 </div>
 
-<!-- ===== JOB LEVEL SETTINGS TABLE ===== -->
+<!-- ===== JOB LEVEL SETTINGS ===== -->
 {% if jobs_map %}
 <div class="section-divider"></div>
 <div class="section-header">
-    <h5><i class="fas fa-sliders-h me-2" style="color: var(--sc-accent);"></i>Job-Level Settings</h5>
+    <h5><i class="fas fa-sliders-h me-2" style="color:var(--sc-accent);"></i>Job-Level Settings</h5>
     <div class="section-subtitle">Refine AI screening per job — custom requirements and thresholds override global defaults</div>
 </div>
 
-<div class="glass-card">
-    <div style="overflow-x: auto;">
-    <table class="settings-table">
-        <thead>
+<div class="sc-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-dark table-hover sc-table">
+            <thead>
+                <tr>
+                    <th style="min-width:200px;">Job</th>
+                    <th style="width:120px; text-align:center;">AI Requirements</th>
+                    <th style="width:130px; text-align:center;">Custom Override</th>
+                    <th style="width:110px; text-align:center;">Threshold</th>
+                    <th style="width:70px; text-align:center;">Save</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for job_id, job in jobs_map.items() %}
+            {% set req = job_requirements.get(job_id) %}
             <tr>
-                <th style="min-width:200px;">Job</th>
-                <th style="width:130px; text-align:center;">AI Requirements</th>
-                <th style="width:150px; text-align:center;">Custom Override</th>
-                <th style="width:110px; text-align:center;">Threshold</th>
-                <th style="width:70px; text-align:center;">Save</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for job_id, job in jobs_map.items() %}
-        {% set req = job_requirements.get(job_id) %}
-        <tr>
-            <td>
-                <div class="job-title-cell">
-                    <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job_id }}"
-                       target="_blank" rel="noopener" class="job-link" style="color:rgba(255,255,255,0.82); font-weight:600; font-size:0.88rem;">
-                        {{ job.title }}<i class="fas fa-external-link-alt ext-icon"></i>
+                <td>
+                    <div>
+                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job_id }}"
+                           target="_blank" rel="noopener" class="sc-link" style="font-weight:600; font-size:0.87rem; color:rgba(255,255,255,0.82);">
+                            {{ job.title }}<i class="fas fa-external-link-alt ext-icon"></i>
+                        </a>
+                        <span style="font-size:0.7rem; color:rgba(255,255,255,0.28); margin-left:0.4rem;">ID: {{ job_id }}</span>
+                    </div>
+                    {% if job.location %}
+                    <div style="font-size:0.74rem; color:rgba(255,255,255,0.3); margin-top:0.2rem;">
+                        <i class="fas fa-map-marker-alt me-1"></i>{{ job.location }}
+                    </div>
+                    {% endif %}
+                </td>
+                <td style="text-align:center;">
+                    {% if req and req.ai_interpreted_requirements %}
+                    <span class="ai-ready-text"><i class="fas fa-robot me-1"></i>Ready</span>
+                    {% else %}
+                    <span class="ai-pending-text"><i class="fas fa-clock me-1"></i>Pending</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:center;">
+                    <a href="javascript:void(0)" class="sc-link"
+                       onclick="openOverrideModal({{ job_id }}, {{ job.title|tojson }}, {{ (req.ai_interpreted_requirements or '')|tojson }}, {{ (req.custom_requirements or '')|tojson }}, {{ (req.vetting_threshold or '')|tojson }})">
+                        Configure{% if req and req.custom_requirements %}&nbsp;<i class="fas fa-circle" style="font-size:0.45rem; color:var(--sc-accent); vertical-align:middle; opacity:0.8;"></i>{% endif %}
                     </a>
-                    <span class="job-id-badge">ID: {{ job_id }}</span>
-                </div>
-                {% if job.location %}
-                <div style="font-size:0.74rem; color:rgba(255,255,255,0.3); margin-top:0.2rem;">
-                    <i class="fas fa-map-marker-alt me-1"></i>{{ job.location }}
-                </div>
-                {% endif %}
-            </td>
-            <td style="text-align:center;">
-                {% if req and req.ai_interpreted_requirements %}
-                <span class="ai-status-badge-ready"><i class="fas fa-robot"></i> AI Ready</span>
-                {% else %}
-                <span class="ai-status-badge-pending"><i class="fas fa-clock"></i> Pending</span>
-                {% endif %}
-            </td>
-            <td style="text-align:center;">
-                <button type="button" class="btn-configure"
-                        onclick="openOverrideModal({{ job_id }}, {{ job.title|tojson }}, {{ (req.ai_interpreted_requirements or '')|tojson }}, {{ (req.custom_requirements or '')|tojson }}, {{ (req.vetting_threshold or '')|tojson }})">
-                    <i class="fas fa-edit me-1"></i>Configure
-                </button>
-                {% if req and req.custom_requirements %}
-                <span class="active-override-dot" title="Custom override active"></span>
-                {% endif %}
-            </td>
-            <td style="text-align:center;">
-                <form id="thresholdForm-{{ job_id }}"
-                      action="{{ url_for('scout_screening.save_job_settings', job_id=job_id) }}"
-                      method="POST" style="display:inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="custom_requirements"
-                           id="hiddenOverride-{{ job_id }}"
-                           value="{{ req.custom_requirements or '' if req else '' }}">
-                    <input type="number"
-                           class="threshold-input"
-                           name="vetting_threshold"
-                           id="thresholdInput-{{ job_id }}"
-                           min="50" max="100"
-                           placeholder="{{ global_threshold }}"
-                           value="{{ req.vetting_threshold if req and req.vetting_threshold else '' }}"
-                           title="Match threshold (50–100). Blank = global {{ global_threshold }}%.">
-                </form>
-            </td>
-            <td style="text-align:center;">
-                <button type="submit" form="thresholdForm-{{ job_id }}" class="btn-save" title="Save threshold">
-                    <i class="fas fa-save"></i> Save
-                </button>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+                </td>
+                <td style="text-align:center;">
+                    <form id="thresholdForm-{{ job_id }}"
+                          action="{{ url_for('scout_screening.save_job_settings', job_id=job_id) }}"
+                          method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="custom_requirements"
+                               id="hiddenOverride-{{ job_id }}"
+                               value="{{ req.custom_requirements or '' if req else '' }}">
+                        <input type="number"
+                               class="threshold-input"
+                               name="vetting_threshold"
+                               id="thresholdInput-{{ job_id }}"
+                               min="50" max="100"
+                               placeholder="{{ global_threshold }}"
+                               value="{{ req.vetting_threshold if req and req.vetting_threshold else '' }}"
+                               title="Match threshold (50–100). Blank = global {{ global_threshold }}%.">
+                    </form>
+                </td>
+                <td style="text-align:center;">
+                    <button type="submit" form="thresholdForm-{{ job_id }}" class="btn-link-save">Save</button>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
     </div>
 </div>
 {% endif %}
 
 <!-- ===== CONFIGURE OVERRIDE MODAL ===== -->
-<div class="modal fade" id="overrideModal" tabindex="-1" aria-labelledby="overrideModalLabel" aria-hidden="true">
+<div class="modal fade" id="overrideModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <div class="modal-title" id="overrideModalLabel">Configure Screening</div>
-                    <div style="font-size:0.78rem; color:rgba(255,255,255,0.38); margin-top:0.15rem;" id="modalJobSubtitle"></div>
+                    <div class="modal-title">Configure Screening</div>
+                    <div style="font-size:0.78rem; color:rgba(255,255,255,0.35); margin-top:0.15rem;" id="modalJobSubtitle"></div>
                 </div>
                 <button type="button" class="btn-close-modal" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
             </div>
@@ -696,27 +536,27 @@
 </div>
 
 <!-- ===== AI NOTES MODAL ===== -->
-<div class="modal fade" id="notesModal" tabindex="-1" aria-labelledby="notesModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:580px;">
+<div class="modal fade" id="notesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:600px;">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <div class="modal-title" id="notesModalLabel">AI Match Analysis</div>
-                    <div style="font-size:0.78rem; color:rgba(255,255,255,0.38); margin-top:0.15rem;" id="notesModalSubtitle"></div>
+                    <div class="modal-title">AI Match Analysis</div>
+                    <div style="font-size:0.78rem; color:rgba(255,255,255,0.35); margin-top:0.15rem;" id="notesModalSubtitle"></div>
                 </div>
                 <button type="button" class="btn-close-modal" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <div class="col-label mb-2"><i class="fas fa-brain"></i> Scout AI Assessment</div>
                 <div class="notes-full-text" id="notesFullText"></div>
-                <div style="margin-top:0.85rem; font-size:0.73rem; color:rgba(255,255,255,0.28);">
+                <div style="margin-top:0.85rem; font-size:0.72rem; color:rgba(255,255,255,0.28);">
                     <i class="fas fa-check-circle me-1" style="color:rgba(155,127,212,0.6);"></i>These notes are generated by Scout AI and are also written directly to the candidate record in Bullhorn — visible under the candidate's Notes tab.
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-sm btn-outline-secondary me-auto" data-bs-dismiss="modal">Close</button>
                 <a id="notesBullhornLink" href="#" target="_blank" rel="noopener"
-                   class="btn btn-sm" style="background:var(--sc-accent-dim); border:1px solid var(--sc-accent-border); color:var(--sc-accent); border-radius:7px;">
+                   style="background:var(--sc-accent-dim); border:1px solid var(--sc-accent-border); color:var(--sc-accent); border-radius:7px; padding:0.35rem 0.9rem; font-size:0.82rem; text-decoration:none;">
                     <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
                 </a>
             </div>
@@ -728,68 +568,50 @@
 
 {% block extra_scripts %}
 <script>
-// ── Pagination ──────────────────────────────────────────────────────────────
+// ── Pagination state ────────────────────────────────────────────────────────
 const PAGE_SIZE = 10;
 let currentPage = 1;
-let visibleRows  = [];
+let visibleRows = [];
 
 function renderPage() {
-    const rows = visibleRows;
-    const total = rows.length;
+    const total = visibleRows.length;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
 
-    rows.forEach((r, i) => {
-        r.style.display = (i >= (currentPage - 1) * PAGE_SIZE && i < currentPage * PAGE_SIZE) ? '' : 'none';
+    // Show/hide rows for current page
+    visibleRows.forEach((r, i) => {
+        const inPage = i >= (currentPage - 1) * PAGE_SIZE && i < currentPage * PAGE_SIZE;
+        r.style.display = inPage ? '' : 'none';
     });
 
     const bar  = document.getElementById('paginationBar');
     const info = document.getElementById('pageInfo');
-    const ctrl = document.getElementById('pageControls');
+    const ind  = document.getElementById('pageIndicator');
+    const prev = document.getElementById('prevBtn');
+    const next = document.getElementById('nextBtn');
+
     if (!bar) return;
 
-    if (total === 0) { bar.style.display = 'none'; return; }
+    if (total === 0) { bar.style.setProperty('display', 'none', 'important'); return; }
+    bar.style.removeProperty('display');
     bar.style.display = 'flex';
 
     const start = (currentPage - 1) * PAGE_SIZE + 1;
     const end   = Math.min(currentPage * PAGE_SIZE, total);
-    if (info) info.textContent = `${start}–${end} of ${total} results`;
+    if (info) info.textContent = `Showing ${start}–${end} of ${total} result${total !== 1 ? 's' : ''}`;
+    if (ind)  ind.textContent  = `Page ${currentPage} of ${totalPages}`;
 
-    if (!ctrl) return;
-    ctrl.innerHTML = '';
+    if (prev) prev.classList.toggle('disabled', currentPage === 1);
+    if (next) next.classList.toggle('disabled', currentPage === totalPages);
+}
 
-    // ← Prev
-    const prev = document.createElement('button');
-    prev.className = 'page-nav';
-    prev.innerHTML = '← Prev';
-    prev.disabled = currentPage === 1;
-    prev.onclick = () => { if (currentPage > 1) { currentPage--; renderPage(); } };
-    ctrl.appendChild(prev);
-
-    // Dot indicators (max 7 dots)
-    const dots = document.createElement('div');
-    dots.className = 'page-dots';
-    const maxDots = 7;
-    let startDot = Math.max(1, currentPage - Math.floor(maxDots / 2));
-    let endDot   = Math.min(totalPages, startDot + maxDots - 1);
-    if (endDot - startDot < maxDots - 1) startDot = Math.max(1, endDot - maxDots + 1);
-
-    for (let p = startDot; p <= endDot; p++) {
-        const dot = document.createElement('button');
-        dot.className = 'page-dot' + (p === currentPage ? ' active-dot' : '');
-        dot.title = `Page ${p}`;
-        dot.onclick = (function(pg) { return () => { currentPage = pg; renderPage(); }; })(p);
-        dots.appendChild(dot);
-    }
-    ctrl.appendChild(dots);
-
-    // Next →
-    const next = document.createElement('button');
-    next.className = 'page-nav';
-    next.innerHTML = 'Next →';
-    next.disabled = currentPage === totalPages;
-    next.onclick = () => { if (currentPage < totalPages) { currentPage++; renderPage(); } };
-    ctrl.appendChild(next);
+function changePage(delta) {
+    const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
+    const newPage = currentPage + delta;
+    if (newPage < 1 || newPage > totalPages) return;
+    currentPage = newPage;
+    renderPage();
 }
 
 // ── Filter ──────────────────────────────────────────────────────────────────
@@ -805,6 +627,7 @@ function filterMatches(filter) {
         week:            document.getElementById('card-week'),
     };
 
+    // Toggle off if already active
     if (activeFilter === filter) {
         activeFilter = null;
         allRows.forEach(r => r.style.display = '');
@@ -823,12 +646,12 @@ function filterMatches(filter) {
     let matched = [];
     allRows.forEach(row => {
         const status = row.dataset.status;
-        const week   = row.dataset.week === 'yes';
+        const isWeek = row.dataset.week === 'yes';
         let show = false;
         if      (filter === 'qualified')       show = status === 'qualified';
         else if (filter === 'pending')         show = status === 'pending';
         else if (filter === 'not_recommended') show = status === 'not_recommended';
-        else if (filter === 'week')            show = week;
+        else if (filter === 'week')            show = isWeek;
         row.style.display = show ? '' : 'none';
         if (show) matched.push(row);
     });
@@ -849,7 +672,6 @@ function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
 
     form.action = '/scout-screening/job/' + jobId + '/save';
     if (subtitle) subtitle.textContent = jobTitle + '  ·  ID: ' + jobId;
-
     if (aiBox) {
         if (aiReq && aiReq.trim()) {
             aiBox.textContent = aiReq;
@@ -861,30 +683,22 @@ function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
     }
     if (textarea) textarea.value = customOverride || '';
     if (thInput)  thInput.value  = threshold || '';
-
-    const modal = new bootstrap.Modal(document.getElementById('overrideModal'));
-    modal.show();
+    new bootstrap.Modal(document.getElementById('overrideModal')).show();
 }
 
-// ── AI Notes modal ──────────────────────────────────────────────────────────
+// ── Notes modal ─────────────────────────────────────────────────────────────
 function openNotesModal(candidateName, jobTitle, notes, bullhornId) {
-    const subtitle   = document.getElementById('notesModalSubtitle');
-    const notesBox   = document.getElementById('notesFullText');
-    const bhLink     = document.getElementById('notesBullhornLink');
+    const subtitle = document.getElementById('notesModalSubtitle');
+    const notesBox = document.getElementById('notesFullText');
+    const bhLink   = document.getElementById('notesBullhornLink');
 
     if (subtitle) subtitle.textContent = candidateName + '  ·  ' + jobTitle;
     if (notesBox) notesBox.textContent = notes || '—';
     if (bhLink) {
-        if (bullhornId) {
-            bhLink.href = 'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=' + bullhornId;
-            bhLink.style.display = '';
-        } else {
-            bhLink.style.display = 'none';
-        }
+        bhLink.style.display = bullhornId ? '' : 'none';
+        if (bullhornId) bhLink.href = 'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=' + bullhornId;
     }
-
-    const modal = new bootstrap.Modal(document.getElementById('notesModal'));
-    modal.show();
+    new bootstrap.Modal(document.getElementById('notesModal')).show();
 }
 
 // ── Init ────────────────────────────────────────────────────────────────────
