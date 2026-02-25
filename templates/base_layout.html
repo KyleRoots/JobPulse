@@ -1641,7 +1641,7 @@
                 </div>
                 <div class="user-details">
                     <div class="user-name">{{ current_user.username if current_user else 'User' }}</div>
-                    <div class="user-role">Administrator</div>
+                    <div class="user-role">{{ current_user.company or 'Scout Genius' }}</div>
                 </div>
             </div>
             <a href="{{ url_for('auth.logout') }}" class="logout-btn">

@@ -36,7 +36,7 @@ def settings():
             setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
             settings_data[key] = setting.setting_value if setting else ''
         
-        users = User.query.order_by(User.is_admin.desc(), User.username).all()
+        users = current_user.get_visible_users()
 
         from models import SupportContact
         support_contacts = SupportContact.query.filter_by(brand='Myticas').order_by(
@@ -272,6 +272,7 @@ def create_user():
         password = request.form.get('password', '').strip()
         display_name = request.form.get('display_name', '').strip() or None
         bullhorn_user_id = request.form.get('bullhorn_user_id', '').strip()
+        company = request.form.get('company', '').strip() or 'Myticas Consulting'
         is_admin = request.form.get('is_admin') == 'on'
         is_company_admin = request.form.get('is_company_admin') == 'on'
         if is_admin:
@@ -297,6 +298,7 @@ def create_user():
             is_admin=is_admin,
             is_company_admin=is_company_admin,
             role='super_admin' if is_admin else ('company_admin' if is_company_admin else 'user'),
+            company=company,
             display_name=display_name,
             bullhorn_user_id=int(bullhorn_user_id) if bullhorn_user_id else None,
         )
@@ -339,11 +341,14 @@ def update_user(user_id):
         selected_modules = request.form.getlist('modules')
         new_password = request.form.get('password', '').strip()
 
+        company = request.form.get('company', '').strip() or user.company
         user.display_name = display_name
         user.bullhorn_user_id = int(bullhorn_user_id) if bullhorn_user_id else None
         user.is_admin = is_admin
         user.is_company_admin = is_company_admin
         user.role = 'super_admin' if is_admin else ('company_admin' if is_company_admin else 'user')
+        if current_user.is_admin:
+            user.company = company
         user.set_modules(selected_modules)
         
         if new_password:
@@ -411,9 +416,13 @@ def impersonate_user(user_id):
         flash('You cannot view as yourself.', 'warning')
         return redirect(url_for('settings.settings') + '#user-management')
 
-    if current_user.is_company_admin and (target_user.is_admin or target_user.is_company_admin):
-        flash('Company admins can only view as standard users.', 'warning')
-        return redirect(url_for('settings.settings') + '#user-management')
+    if current_user.is_company_admin:
+        if target_user.is_admin or target_user.is_company_admin:
+            flash('Company admins can only view as standard users.', 'warning')
+            return redirect(url_for('settings.settings') + '#user-management')
+        if target_user.company != current_user.company:
+            flash('You can only view users within your own company.', 'warning')
+            return redirect(url_for('settings.settings') + '#user-management')
 
     session['impersonating_admin_id'] = current_user.id
     session['impersonating_admin_username'] = current_user.username

@@ -166,6 +166,7 @@ def create_admin_user(db, User):
             username=config['username'],
             email=config['email'],
             is_admin=True,
+            company='Myticas Consulting',
             created_at=datetime.utcnow()
         )
         admin_user.set_password(config['password'])

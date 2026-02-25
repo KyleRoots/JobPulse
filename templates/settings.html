@@ -423,9 +423,16 @@
                     <label class="form-label">Display Name</label>
                     <input type="text" class="form-control" name="display_name" placeholder="John Doe (for Bullhorn matching)">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
                     <label class="form-label">Bullhorn User ID</label>
                     <input type="number" class="form-control" name="bullhorn_user_id" placeholder="e.g. 12345">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Company</label>
+                    <select class="form-select" name="company">
+                        <option value="Myticas Consulting" selected>Myticas Consulting</option>
+                        <option value="STSI Group">STSI Group</option>
+                    </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Super Admin</label>
@@ -518,8 +525,14 @@
                         <input type="number" class="form-control form-control-sm" name="bullhorn_user_id" 
                                value="{{ user.bullhorn_user_id or '' }}" placeholder="BH ID">
                     </div>
-                    <div class="col-md-2">
-                        <input type="password" class="form-control form-control-sm" name="password" placeholder="New password (optional)">
+                    <div class="col-md-1">
+                        <select class="form-select form-select-sm" name="company" {% if not current_user.is_admin %}disabled{% endif %}>
+                            <option value="Myticas Consulting" {% if user.company == 'Myticas Consulting' %}selected{% endif %}>Myticas</option>
+                            <option value="STSI Group" {% if user.company == 'STSI Group' %}selected{% endif %}>STSI</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <input type="password" class="form-control form-control-sm" name="password" placeholder="New pwd">
                     </div>
                     <div class="col-md-1">
                         <div class="form-check form-switch mb-1">

@@ -16,6 +16,7 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     is_company_admin = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), default='user')
+    company = db.Column(db.String(100), default='Myticas Consulting')
     bullhorn_user_id = db.Column(db.Integer, nullable=True)
     display_name = db.Column(db.String(255), nullable=True)
     subscribed_modules = db.Column(db.Text, nullable=True)
@@ -35,8 +36,16 @@ class User(UserMixin, db.Model):
 
     @property
     def can_view_all_users(self):
-        """True for super-admins and company admins — can see all user accounts."""
+        """True for super-admins and company admins — can see user accounts."""
         return self.is_admin or self.is_company_admin
+
+    def get_visible_users(self):
+        """Return users this admin can see. Super-admins see all; company admins see only their company."""
+        if self.is_admin:
+            return User.query.order_by(User.is_admin.desc(), User.username).all()
+        if self.is_company_admin:
+            return User.query.filter_by(company=self.company).order_by(User.is_admin.desc(), User.username).all()
+        return []
 
     @property
     def effective_role(self):

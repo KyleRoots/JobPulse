@@ -23,7 +23,7 @@ from werkzeug.security import generate_password_hash
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_user(db, username, email, is_admin=False, is_company_admin=False, modules=None):
+def _make_user(db, username, email, is_admin=False, is_company_admin=False, modules=None, company='Myticas Consulting'):
     """Create (or fetch) a test user with the given attributes."""
     from models import User
     user = User.query.filter_by(username=username).first()
@@ -33,6 +33,7 @@ def _make_user(db, username, email, is_admin=False, is_company_admin=False, modu
             email=email,
             is_admin=is_admin,
             is_company_admin=is_company_admin,
+            company=company,
         )
         user.password_hash = generate_password_hash('testpass', method='pbkdf2:sha256')
         if modules is not None:
@@ -352,3 +353,58 @@ class TestStatsApi:
                 assert key in data, f"Missing key '{key}' in stats response"
         finally:
             _cleanup(app, 'ts_screener')
+
+
+# ---------------------------------------------------------------------------
+# Company scoping
+# ---------------------------------------------------------------------------
+
+class TestCompanyScoping:
+    """Test that company field and admin scoping work correctly."""
+
+    def test_user_default_company(self, app):
+        """New users default to Myticas Consulting."""
+        with app.app_context():
+            from extensions import db
+            user = _make_user(db, 'ts_defco', 'ts_defco@test.com')
+            assert user.company == 'Myticas Consulting'
+            _cleanup(app, 'ts_defco')
+
+    def test_user_stsi_company(self, app):
+        """Users can be assigned to STSI Group."""
+        with app.app_context():
+            from extensions import db
+            user = _make_user(db, 'ts_stsi', 'ts_stsi@test.com',
+                              company='STSI Group')
+            assert user.company == 'STSI Group'
+            _cleanup(app, 'ts_stsi')
+
+    def test_company_admin_sees_own_company_only(self, app):
+        """Company admin's get_visible_users returns only same-company users."""
+        with app.app_context():
+            from extensions import db
+            ca = _make_user(db, 'ts_ca_myt', 'ts_ca_myt@test.com',
+                            is_company_admin=True, company='Myticas Consulting',
+                            modules=['scout_screening'])
+            stsi_user = _make_user(db, 'ts_stsi_u', 'ts_stsi_u@test.com',
+                                   company='STSI Group', modules=['scout_screening'])
+            myt_user = _make_user(db, 'ts_myt_u', 'ts_myt_u@test.com',
+                                  company='Myticas Consulting', modules=['scout_screening'])
+            visible = ca.get_visible_users()
+            visible_ids = [u.id for u in visible]
+            assert myt_user.id in visible_ids, "Same-company user should be visible"
+            assert ca.id in visible_ids, "Company admin should see themselves"
+            assert stsi_user.id not in visible_ids, "Other-company user should NOT be visible"
+            _cleanup(app, 'ts_ca_myt', 'ts_stsi_u', 'ts_myt_u')
+
+    def test_super_admin_sees_all_companies(self, app):
+        """Super admin's get_visible_users returns users from all companies."""
+        with app.app_context():
+            from extensions import db
+            admin = _make_user(db, 'ts_sa', 'ts_sa@test.com', is_admin=True)
+            stsi_user = _make_user(db, 'ts_stsi2', 'ts_stsi2@test.com',
+                                   company='STSI Group')
+            visible = admin.get_visible_users()
+            visible_ids = [u.id for u in visible]
+            assert stsi_user.id in visible_ids, "Super admin should see all companies"
+            _cleanup(app, 'ts_sa', 'ts_stsi2')
