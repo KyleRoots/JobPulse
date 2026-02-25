@@ -49,8 +49,8 @@ Source of Truth: GitHub repository (KyleRoots/JobPulse) — main branch.
 - **Scout Vetting**: AI-powered candidate screening using GPT-4o with embedding pre-filtering, experience-level classification, location-aware scoring, work authorization/security clearance inference, and configurable global screening prompts.
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
 - **Scout Screening Portal**: Recruiter-facing dashboard displaying AI match results, including scores, qualification status, and AI notes, with per-job threshold and override capabilities.
-- **Module Switcher**: UI component for non-admin users subscribed to multiple modules.
-- **Company Admin Role**: A specialized role with `can_view_all_users` access but restricted module access compared to super-admins.
+- **Module Switcher**: UI component for non-admin users subscribed to multiple modules. Pill navigation in top navbar, visible only when user has 2+ modules.
+- **Company Admin Role**: A specialized role (`is_company_admin=True`) with `is_any_admin`, `can_view_all_users`, and `effective_role` properties. Gets only their own subscribed modules (not all modules like super-admin). Grantable via admin user settings UI. `effective_role` values: `super_admin`, `company_admin`, `user`.
 - **Product Expert Workbench (Dev-Only)**: Claude Opus 4-powered chat interface for building custom Bullhorn automations, including built-in automations and execution logging. Hidden in production.
 
 ## External Dependencies

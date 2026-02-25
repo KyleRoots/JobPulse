@@ -29,6 +29,11 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     @property
+    def is_any_admin(self):
+        """True if the user is a super-admin or a company admin."""
+        return self.is_admin or self.is_company_admin
+
+    @property
     def can_view_all_users(self):
         """True for super-admins and company admins — can see all user accounts."""
         return self.is_admin or self.is_company_admin

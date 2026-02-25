@@ -179,11 +179,19 @@
     .modal-body   { padding: 1.25rem 1.4rem; }
     .modal-title  { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.92); }
     .btn-close-modal {
-        background: transparent; border: none; padding: 0 0 0 1rem; line-height: 1;
-        color: rgba(255,255,255,0.4); font-size: 1.15rem; cursor: pointer;
-        transition: color 0.15s; flex-shrink: 0;
+        background: transparent !important; border: none !important; padding: 0 !important;
+        margin-left: auto !important; line-height: 1; flex-shrink: 0;
+        color: rgba(255,255,255,0.4); font-size: 1.1rem; cursor: pointer;
+        transition: color 0.15s; align-self: flex-start;
     }
     .btn-close-modal:hover { color: rgba(255,255,255,0.85); }
+    /* Remove number input spinners so centering works */
+    input[type=number].threshold-input::-webkit-outer-spin-button,
+    input[type=number].threshold-input::-webkit-inner-spin-button,
+    input[type=number].threshold-modal-input::-webkit-outer-spin-button,
+    input[type=number].threshold-modal-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number].threshold-input,
+    input[type=number].threshold-modal-input { -moz-appearance: textfield; }
     .col-label {
         font-size: 0.71rem; text-transform: uppercase; letter-spacing: 0.5px;
         color: var(--sc-accent); margin-bottom: 0.5rem;
@@ -486,16 +494,16 @@
 <div class="modal fade" id="overrideModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width:640px;">
         <div class="modal-content">
-            <div class="modal-header">
-                <div>
+            <div class="modal-header" style="display:flex; align-items:flex-start; justify-content:space-between; padding:1.1rem 1.4rem 0.9rem; border-bottom:1px solid rgba(255,255,255,0.08);">
+                <div style="flex:1; min-width:0;">
                     <div class="modal-title">Configure Screening</div>
                     <div style="font-size:0.78rem; color:rgba(255,255,255,0.35); margin-top:0.15rem;" id="modalJobSubtitle"></div>
                 </div>
-                <button type="button" class="btn-close-modal" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
+                <button type="button" class="btn-close-modal" data-bs-dismiss="modal" style="margin-left:1rem; flex-shrink:0; background:transparent; border:none; color:rgba(255,255,255,0.4); font-size:1.1rem; cursor:pointer; padding:0; line-height:1; align-self:flex-start;"><i class="fas fa-times"></i></button>
             </div>
             <form id="overrideModalForm" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="modal-body">
+                <div class="modal-body" style="padding:1.25rem 1.4rem;">
 
                     <div class="col-label mb-1"><i class="fas fa-robot"></i> AI-Interpreted Requirements</div>
                     <div class="notes-full-text" id="modalAiReq" style="max-height:180px;"></div>
@@ -504,22 +512,23 @@
                     </div>
 
                     <div class="col-label mb-1"><i class="fas fa-edit"></i> Custom Override</div>
-                    <textarea class="override-textarea" name="custom_requirements" id="modalOverrideText"
+                    <textarea name="custom_requirements" id="modalOverrideText"
                               placeholder="Enter custom requirements to override AI interpretation…"
-                              style="min-height:130px;"></textarea>
-                    <div class="override-hint" style="margin-bottom:1.1rem;">Custom requirements take priority over AI-interpreted ones. Leave blank to use AI interpretation.</div>
+                              style="display:block; width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.22); border-radius:8px; color:rgba(255,255,255,0.85); font-size:0.82rem; resize:vertical; min-height:130px; max-height:280px; padding:0.75rem 0.9rem; line-height:1.65; outline:none; font-family:inherit;"></textarea>
+                    <div style="font-size:0.72rem; color:rgba(255,255,255,0.27); margin-top:0.4rem; margin-bottom:1.1rem;">Custom requirements take priority over AI-interpreted ones. Leave blank to use AI interpretation.</div>
 
                     <div class="col-label mb-1"><i class="fas fa-sliders-h"></i> Match Threshold</div>
-                    <div class="d-flex align-items-center gap-2">
-                        <input type="number" class="threshold-modal-input" name="vetting_threshold"
-                               id="modalThreshold" min="50" max="100" placeholder="{{ global_threshold }}">
-                        <span style="font-size:0.77rem; color:rgba(255,255,255,0.3);">% &nbsp;— blank uses global default ({{ global_threshold }}%)</span>
+                    <div style="display:flex; align-items:center; gap:0.6rem;">
+                        <input type="number" name="vetting_threshold" id="modalThreshold"
+                               min="50" max="100" placeholder="{{ global_threshold }}"
+                               style="width:52px; text-align:center; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.22); border-radius:7px; color:rgba(255,255,255,0.85); font-size:0.85rem; padding:0.35rem 0.4rem; outline:none; -moz-appearance:textfield;">
+                        <span style="font-size:0.77rem; color:rgba(255,255,255,0.3);">% — blank uses global default ({{ global_threshold }}%)</span>
                     </div>
 
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding:0.85rem 1.4rem;">
                     <button type="button" class="btn btn-sm btn-outline-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn-modal-save"><i class="fas fa-save me-1"></i>Save Changes</button>
+                    <button type="submit" style="background-color:#9b7fd4; border:none; color:#fff; border-radius:8px; padding:0.5rem 1.4rem; font-size:0.88rem; font-weight:600; cursor:pointer;"><i class="fas fa-save me-1"></i>Save Changes</button>
                 </div>
             </form>
         </div>
