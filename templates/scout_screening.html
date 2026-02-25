@@ -126,8 +126,8 @@
         border-radius: 6px;
         color: rgba(255,255,255,0.7);
         font-size: 0.82rem;
-        padding: 0.3rem 0.5rem;
-        width: 64px; text-align: center;
+        padding: 0.3rem 0.4rem;
+        width: 52px; text-align: center;
         transition: border-color 0.2s;
     }
     .threshold-input:focus { outline: none; border-color: var(--sc-accent); }
@@ -171,14 +171,17 @@
         border-radius: 14px;
         color: rgba(255,255,255,0.88);
     }
-    .modal-header { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 1.1rem 1.4rem 0.9rem; }
-    .modal-footer { border-top:  1px solid rgba(255,255,255,0.08); padding: 0.85rem 1.4rem; }
+    .modal-header {
+        display: flex; align-items: flex-start; justify-content: space-between;
+        border-bottom: 1px solid rgba(255,255,255,0.08); padding: 1.1rem 1.4rem 0.9rem;
+    }
+    .modal-footer { border-top: 1px solid rgba(255,255,255,0.08); padding: 0.85rem 1.4rem; }
     .modal-body   { padding: 1.25rem 1.4rem; }
     .modal-title  { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.92); }
     .btn-close-modal {
-        background: transparent; border: none; padding: 0; line-height: 1;
+        background: transparent; border: none; padding: 0 0 0 1rem; line-height: 1;
         color: rgba(255,255,255,0.4); font-size: 1.15rem; cursor: pointer;
-        transition: color 0.15s;
+        transition: color 0.15s; flex-shrink: 0;
     }
     .btn-close-modal:hover { color: rgba(255,255,255,0.85); }
     .col-label {
@@ -187,9 +190,10 @@
         display: flex; align-items: center; gap: 0.35rem;
     }
     .override-textarea {
+        display: block; box-sizing: border-box; width: 100%;
         background: rgba(0,0,0,0.3); border: 1px solid var(--sc-accent-border);
         border-radius: 8px; color: rgba(255,255,255,0.85); font-size: 0.82rem;
-        resize: vertical; min-height: 160px; max-height: 280px; width: 100%;
+        resize: vertical; min-height: 130px; max-height: 280px;
         padding: 0.75rem 0.9rem; line-height: 1.65; transition: border-color 0.2s;
     }
     .override-textarea:focus { outline: none; border-color: var(--sc-accent); }
@@ -198,15 +202,16 @@
     .threshold-modal-input {
         background: rgba(0,0,0,0.3); border: 1px solid var(--sc-accent-border);
         border-radius: 7px; color: rgba(255,255,255,0.85); font-size: 0.85rem;
-        padding: 0.4rem 0.7rem; width: 90px; transition: border-color 0.2s;
+        padding: 0.35rem 0.5rem; width: 58px; text-align: center;
+        transition: border-color 0.2s;
     }
     .threshold-modal-input:focus { outline: none; border-color: var(--sc-accent); }
     .btn-modal-save {
-        background: var(--sc-accent); border: none; color: #fff;
+        background-color: var(--sc-accent) !important; border: none; color: #fff !important;
         border-radius: 8px; padding: 0.5rem 1.4rem; font-size: 0.88rem;
-        font-weight: 600; cursor: pointer; transition: background 0.2s;
+        font-weight: 600; cursor: pointer; transition: background-color 0.2s;
     }
-    .btn-modal-save:hover { background: #b899e8; }
+    .btn-modal-save:hover { background-color: #b899e8 !important; }
     .notes-full-text {
         background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.06);
         border-radius: 8px; padding: 1rem 1.1rem; font-size: 0.85rem;
@@ -754,6 +759,30 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-setTimeout(() => location.reload(), 60000);
+// ── Modal-aware auto-refresh ─────────────────────────────────────────────────
+// Reloads after 60s of idle time, but pauses while any modal is open.
+(function () {
+    let reloadTimer = null;
+    let pendingReload = false;
+
+    function startTimer() {
+        clearTimeout(reloadTimer);
+        reloadTimer = setTimeout(() => {
+            if (document.querySelector('.modal.show')) {
+                pendingReload = true; // defer until modal closes
+            } else {
+                location.reload();
+            }
+        }, 60000);
+    }
+
+    document.querySelectorAll('.modal').forEach(function (modal) {
+        modal.addEventListener('hidden.bs.modal', function () {
+            if (pendingReload) { location.reload(); }
+        });
+    });
+
+    startTimer();
+}());
 </script>
 {% endblock %}
