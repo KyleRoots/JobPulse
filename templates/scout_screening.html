@@ -186,13 +186,6 @@
         color: var(--sc-accent); margin-bottom: 0.5rem;
         display: flex; align-items: center; gap: 0.35rem;
     }
-    .ai-req-box {
-        background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 8px; padding: 0.85rem 1rem; font-size: 0.82rem;
-        color: rgba(255,255,255,0.58); min-height: 160px; max-height: 280px;
-        overflow-y: auto; line-height: 1.65; white-space: pre-wrap;
-    }
-    .ai-req-box.empty-box { color: rgba(255,255,255,0.22); font-style: italic; }
     .override-textarea {
         background: rgba(0,0,0,0.3); border: 1px solid var(--sc-accent-border);
         border-radius: 8px; color: rgba(255,255,255,0.85); font-size: 0.82rem;
@@ -486,7 +479,7 @@
 
 <!-- ===== CONFIGURE OVERRIDE MODAL ===== -->
 <div class="modal fade" id="overrideModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:640px;">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
@@ -498,31 +491,26 @@
             <form id="overrideModalForm" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <div class="col-label"><i class="fas fa-robot"></i> AI-Interpreted Requirements</div>
-                            <div class="ai-req-box" id="modalAiReq"></div>
-                            <div style="font-size:0.71rem; color:rgba(255,255,255,0.22); margin-top:0.4rem;">
-                                Read-only — extracted automatically from the Bullhorn job description.
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="col-label"><i class="fas fa-edit"></i> Custom Override</div>
-                            <textarea class="override-textarea" name="custom_requirements" id="modalOverrideText"
-                                      placeholder="Enter custom requirements to override AI interpretation…"></textarea>
-                            <div class="override-hint">Custom requirements take priority over AI-interpreted ones. Leave blank to use AI interpretation.</div>
-                        </div>
+
+                    <div class="col-label mb-1"><i class="fas fa-robot"></i> AI-Interpreted Requirements</div>
+                    <div class="notes-full-text" id="modalAiReq" style="max-height:180px;"></div>
+                    <div style="font-size:0.71rem; color:rgba(255,255,255,0.22); margin-top:0.4rem; margin-bottom:1.1rem;">
+                        Read-only — extracted automatically from the Bullhorn job description.
                     </div>
-                    <div class="row mt-3">
-                        <div class="col-md-6 offset-md-6">
-                            <div class="col-label"><i class="fas fa-sliders-h"></i> Match Threshold</div>
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="number" class="threshold-modal-input" name="vetting_threshold"
-                                       id="modalThreshold" min="50" max="100" placeholder="{{ global_threshold }}">
-                                <span style="font-size:0.77rem; color:rgba(255,255,255,0.3);">% (blank = global {{ global_threshold }}%)</span>
-                            </div>
-                        </div>
+
+                    <div class="col-label mb-1"><i class="fas fa-edit"></i> Custom Override</div>
+                    <textarea class="override-textarea" name="custom_requirements" id="modalOverrideText"
+                              placeholder="Enter custom requirements to override AI interpretation…"
+                              style="min-height:130px;"></textarea>
+                    <div class="override-hint" style="margin-bottom:1.1rem;">Custom requirements take priority over AI-interpreted ones. Leave blank to use AI interpretation.</div>
+
+                    <div class="col-label mb-1"><i class="fas fa-sliders-h"></i> Match Threshold</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="number" class="threshold-modal-input" name="vetting_threshold"
+                               id="modalThreshold" min="50" max="100" placeholder="{{ global_threshold }}">
+                        <span style="font-size:0.77rem; color:rgba(255,255,255,0.3);">% &nbsp;— blank uses global default ({{ global_threshold }}%)</span>
                     </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-sm btn-outline-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
@@ -695,7 +683,8 @@ function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
         const hasReq = aiReq && aiReq.trim();
         aiBox.textContent = hasReq ? aiReq
             : 'No AI interpretation available yet. Requirements are extracted automatically from the Bullhorn job description within 5 minutes of the job being added.';
-        aiBox.classList.toggle('empty-box', !hasReq);
+        aiBox.style.color = hasReq ? '' : 'rgba(255,255,255,0.28)';
+        aiBox.style.fontStyle = hasReq ? '' : 'italic';
     }
     if (textarea) textarea.value = customOverride || '';
     if (thInput)  thInput.value  = threshold || '';
