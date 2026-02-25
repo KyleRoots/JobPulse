@@ -467,8 +467,33 @@
     <!-- Existing Users -->
     <div class="settings-card no-hover p-4">
         <h5 class="mb-3"><i class="fas fa-users me-2"></i>Existing Users ({{ users|length }})</h5>
+
+        {% if users|length > 1 %}
+        <div class="d-flex align-items-center gap-2 mb-3 pb-2" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="selectAllUsers">
+                <label class="form-check-label small text-muted" for="selectAllUsers">Select all</label>
+            </div>
+            <span class="small text-muted ms-1" id="bulkSelectedCount" style="display:none;"></span>
+            <div class="ms-auto d-flex gap-2">
+                <button class="btn btn-sm" id="bulkWelcomeBtn" disabled onclick="bulkSend('welcome')"
+                    style="background: rgba(74,150,120,0.15); border: 1px solid rgba(74,150,120,0.4); color: #4a9678; opacity: 0.5;">
+                    <i class="fas fa-envelope me-1"></i> Send Welcome
+                </button>
+                <button class="btn btn-sm" id="bulkResetBtn" disabled onclick="bulkSend('reset')"
+                    style="background: rgba(100,140,200,0.12); border: 1px solid rgba(100,140,200,0.3); color: #7aadde; opacity: 0.5;">
+                    <i class="fas fa-key me-1"></i> Send Reset
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
         {% for user in users %}
-        <div class="border rounded p-3 mb-3" style="border-color: rgba(74, 150, 120, 0.2) !important; background: rgba(10, 22, 16, 0.5);">
+        <div class="border rounded p-3 mb-3 d-flex align-items-start gap-2" style="border-color: rgba(74, 150, 120, 0.2) !important; background: rgba(10, 22, 16, 0.5);">
+            <div class="flex-shrink-0 pt-1">
+                <input type="checkbox" class="form-check-input user-select-check" value="{{ user.id }}">
+            </div>
+            <div class="flex-grow-1 min-w-0">
             <form action="{{ url_for('settings.update_user', user_id=user.id) }}" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row g-2 align-items-center">
@@ -520,12 +545,12 @@
                     </div>
                 </div>
                 {% if user.last_login %}
-                <div class="small text-muted mt-1" style="padding-left: 48px;">
+                <div class="small text-muted mt-1">
                     Last login: {{ user.last_login.strftime('%b %d, %Y %H:%M') }}
                 </div>
                 {% endif %}
             </form>
-            <div class="mt-1" style="padding-left: 48px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <div class="mt-1" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                 <form action="{{ url_for('settings.send_welcome_email_route', user_id=user.id) }}" method="POST" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm" title="Send welcome email with a Set Password link (48-hour link)"
@@ -557,6 +582,7 @@
                     </button>
                 </form>
                 {% endif %}
+            </div>
             </div>
         </div>
         {% endfor %}
@@ -712,5 +738,85 @@
         updateAutomationStatus();
         setInterval(updateAutomationStatus, 30000);
     });
+
+    const bulkCsrfToken = document.querySelector('meta[name="csrf-token"]') ?
+        document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+
+    function updateBulkUI() {
+        const checked = document.querySelectorAll('.user-select-check:checked');
+        const all = document.querySelectorAll('.user-select-check');
+        const count = checked.length;
+        const welcomeBtn = document.getElementById('bulkWelcomeBtn');
+        const resetBtn = document.getElementById('bulkResetBtn');
+        const countEl = document.getElementById('bulkSelectedCount');
+        const selectAllCb = document.getElementById('selectAllUsers');
+
+        if (welcomeBtn) {
+            const active = count > 0;
+            welcomeBtn.disabled = !active;
+            welcomeBtn.style.opacity = active ? '1' : '0.5';
+            resetBtn.disabled = !active;
+            resetBtn.style.opacity = active ? '1' : '0.5';
+        }
+        if (countEl) {
+            countEl.textContent = count > 0 ? count + ' selected' : '';
+            countEl.style.display = count > 0 ? '' : 'none';
+        }
+        if (selectAllCb) {
+            selectAllCb.checked = count === all.length && all.length > 0;
+            selectAllCb.indeterminate = count > 0 && count < all.length;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.user-select-check').forEach(function (cb) {
+            cb.addEventListener('change', updateBulkUI);
+        });
+        const selectAllCb = document.getElementById('selectAllUsers');
+        if (selectAllCb) {
+            selectAllCb.addEventListener('change', function () {
+                document.querySelectorAll('.user-select-check').forEach(function (cb) {
+                    cb.checked = selectAllCb.checked;
+                });
+                updateBulkUI();
+            });
+        }
+    });
+
+    async function bulkSend(action) {
+        const checked = document.querySelectorAll('.user-select-check:checked');
+        if (!checked.length) return;
+        const userIds = Array.from(checked).map(function (cb) { return cb.value; });
+        const label = action === 'welcome' ? 'welcome' : 'password reset';
+        if (!confirm('Send ' + label + ' email to ' + userIds.length + ' user(s)?')) return;
+
+        const btnId = action === 'welcome' ? 'bulkWelcomeBtn' : 'bulkResetBtn';
+        const btn = document.getElementById(btnId);
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Sending...';
+
+        try {
+            const resp = await fetch('/settings/users/bulk-send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': bulkCsrfToken },
+                body: JSON.stringify({ user_ids: userIds, action: action })
+            });
+            const data = await resp.json();
+            if (data.success !== undefined) {
+                let msg = data.success + ' email(s) sent successfully.';
+                if (data.failed > 0) msg += ' ' + data.failed + ' failed.';
+                alert(msg);
+                document.querySelectorAll('.user-select-check').forEach(function (cb) { cb.checked = false; });
+                updateBulkUI();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Request failed: ' + err.message);
+        }
+        btn.innerHTML = orig;
+        updateBulkUI();
+    }
 </script>
 {% endblock %}

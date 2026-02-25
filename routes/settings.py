@@ -462,3 +462,51 @@ def send_reset_email_route(user_id):
         flash(f'Failed to send reset email to {user.email}. Check SendGrid configuration.', 'error')
 
     return redirect(url_for('settings.settings') + '#user-management')
+
+
+@settings_bp.route('/settings/users/bulk-send', methods=['POST'])
+@login_required
+def bulk_send_emails():
+    """Send welcome or reset emails to a selection of users. Admin-only."""
+    from models import User
+    from routes.auth import generate_reset_token, send_welcome_email, send_password_reset_email
+    from flask import request as req
+
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = req.get_json() or {}
+    user_ids = data.get('user_ids', [])
+    action = data.get('action', 'welcome')
+
+    if not user_ids:
+        return jsonify({'error': 'No users selected'}), 400
+    if action not in ('welcome', 'reset'):
+        return jsonify({'error': 'Invalid action'}), 400
+
+    success_count = 0
+    failed_count = 0
+
+    for uid in user_ids:
+        try:
+            user = User.query.get(int(uid))
+            if not user:
+                failed_count += 1
+                continue
+            if action == 'welcome':
+                token = generate_reset_token(user, expiry_hours=48)
+                send_url = url_for('auth.reset_password', token=token, _external=True)
+                ok = send_welcome_email(user, send_url)
+            else:
+                token = generate_reset_token(user, expiry_hours=1)
+                send_url = url_for('auth.reset_password', token=token, _external=True)
+                ok = send_password_reset_email(user, send_url)
+            if ok:
+                success_count += 1
+            else:
+                failed_count += 1
+        except Exception as e:
+            current_app.logger.error(f"Bulk send error for user {uid}: {e}")
+            failed_count += 1
+
+    return jsonify({'success': success_count, 'failed': failed_count})
