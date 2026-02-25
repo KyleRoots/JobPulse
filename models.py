@@ -276,7 +276,7 @@ class BullhornActivity(db.Model):
     """Log of Bullhorn monitoring activities"""
     id = db.Column(db.Integer, primary_key=True)
     monitor_id = db.Column(db.Integer, db.ForeignKey('bullhorn_monitor.id'), nullable=True)  # Nullable for system-level activities
-    activity_type = db.Column(db.String(20), nullable=False)  # 'job_added', 'job_removed', 'job_modified', 'check_completed', 'error'
+    activity_type = db.Column(db.String(50), nullable=False)  # 'job_added', 'job_removed', 'job_modified', 'check_completed', 'error'
     job_id = db.Column(db.Integer, nullable=True)  # Bullhorn job ID if applicable
     job_title = db.Column(db.String(255), nullable=True)
     account_manager = db.Column(db.String(255), nullable=True)  # Account manager/owner name
