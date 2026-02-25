@@ -473,15 +473,9 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row g-2 align-items-center">
                     <div class="col-md-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center" 
-                                 style="width: 36px; height: 36px; background: {% if user.is_admin %}rgba(74, 150, 120, 0.3){% else %}rgba(200, 160, 60, 0.3){% endif %}; font-weight: 600; font-size: 0.85rem;">
-                                {{ user.username[0]|upper }}
-                            </div>
-                            <div>
-                                <strong>{{ user.username }}</strong>
-                                <div class="small text-muted">{{ user.email }}</div>
-                            </div>
+                        <div>
+                            <strong>{{ user.username }}</strong>
+                            <div class="small text-muted">{{ user.email }}</div>
                         </div>
                     </div>
                     <div class="col-md-2">
