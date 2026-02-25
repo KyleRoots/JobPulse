@@ -14,21 +14,36 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
-    role = db.Column(db.String(20), default='admin')
+    is_company_admin = db.Column(db.Boolean, default=False)
+    role = db.Column(db.String(20), default='user')
     bullhorn_user_id = db.Column(db.Integer, nullable=True)
     display_name = db.Column(db.String(255), nullable=True)
     subscribed_modules = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
-    
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
-    
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-    
+
+    @property
+    def can_view_all_users(self):
+        """True for super-admins and company admins — can see all user accounts."""
+        return self.is_admin or self.is_company_admin
+
+    @property
+    def effective_role(self):
+        """Human-readable role label."""
+        if self.is_admin:
+            return 'super_admin'
+        if self.is_company_admin:
+            return 'company_admin'
+        return 'user'
+
     def get_modules(self):
-        """Return list of subscribed modules. Admins get all modules."""
+        """Return list of subscribed modules. Super-admins get all modules."""
         if self.is_admin:
             return AVAILABLE_MODULES[:]
         if not self.subscribed_modules:
@@ -37,18 +52,18 @@ class User(UserMixin, db.Model):
             return json.loads(self.subscribed_modules)
         except (json.JSONDecodeError, TypeError):
             return []
-    
+
     def set_modules(self, modules):
         """Set subscribed modules from a list."""
         valid = [m for m in modules if m in AVAILABLE_MODULES]
         self.subscribed_modules = json.dumps(valid)
-    
+
     def has_module(self, module_name):
-        """Check if user has access to a specific module. Admins always have access."""
+        """Check if user has access to a specific module. Super-admins always have access."""
         if self.is_admin:
             return True
         return module_name in self.get_modules()
-    
+
     def __repr__(self):
         return f'<User {self.username}>'
 

@@ -816,6 +816,24 @@ def run_schema_migrations(db):
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")
     
+    # Add is_company_admin to user table (added Feb 2026)
+    # Handled separately because 'user' is a PostgreSQL reserved word requiring quoting
+    try:
+        check_sql = text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'user' AND column_name = 'is_company_admin'
+        """)
+        result = db.session.execute(check_sql)
+        if result.fetchone() is None:
+            db.session.execute(text('ALTER TABLE "user" ADD COLUMN is_company_admin BOOLEAN DEFAULT FALSE'))
+            db.session.commit()
+            logger.info("✅ Added column is_company_admin to user table")
+        else:
+            logger.info("ℹ️ Column is_company_admin already exists on user table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for user.is_company_admin: {str(e)}")
+
     # Drop UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id
     # (Feb 2026 - allow multiple vetting logs per candidate for re-applications)
     try:

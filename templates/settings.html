@@ -427,11 +427,18 @@
                     <label class="form-label">Bullhorn User ID</label>
                     <input type="number" class="form-control" name="bullhorn_user_id" placeholder="e.g. 12345">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Admin</label>
+                <div class="col-md-2">
+                    <label class="form-label">Super Admin</label>
                     <div class="form-check form-switch mt-2">
                         <input class="form-check-input" type="checkbox" name="is_admin" id="new_user_admin">
-                        <label class="form-check-label" for="new_user_admin">Full admin access</label>
+                        <label class="form-check-label" for="new_user_admin">Full access</label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Company Admin</label>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" name="is_company_admin" id="new_user_company_admin">
+                        <label class="form-check-label" for="new_user_company_admin">Team visibility</label>
                     </div>
                 </div>
                 <div class="col-12">
@@ -515,10 +522,16 @@
                         <input type="password" class="form-control form-control-sm" name="password" placeholder="New password (optional)">
                     </div>
                     <div class="col-md-1">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="is_admin" 
+                        <div class="form-check form-switch mb-1">
+                            <input class="form-check-input" type="checkbox" name="is_admin"
                                    id="admin_{{ user.id }}" {% if user.is_admin %}checked{% endif %}>
-                            <label class="form-check-label small" for="admin_{{ user.id }}">Admin</label>
+                            <label class="form-check-label small" for="admin_{{ user.id }}">Super</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_company_admin"
+                                   id="cadmin_{{ user.id }}" {% if user.is_company_admin %}checked{% endif %}
+                                   {% if user.is_admin %}disabled{% endif %}>
+                            <label class="form-check-label small" for="cadmin_{{ user.id }}">Co. Admin</label>
                         </div>
                     </div>
                     <div class="col-md-3">

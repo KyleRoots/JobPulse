@@ -1,0 +1,513 @@
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="screening"{% endblock %}
+
+{% block title %}Scout Screening Portal{% endblock %}
+
+{% block extra_head %}
+<style>
+    :root {
+        --sc-accent: #9b7fd4;
+        --sc-accent-dim: rgba(155, 127, 212, 0.15);
+        --sc-accent-border: rgba(155, 127, 212, 0.25);
+        --sc-accent-hover: rgba(155, 127, 212, 0.35);
+        --sc-bg-card: rgba(18, 12, 30, 0.6);
+    }
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+    }
+    .section-header h5 { margin: 0; font-weight: 600; color: rgba(255,255,255,0.9); }
+    .section-subtitle { font-size: 0.8rem; color: rgba(255,255,255,0.45); margin-top: 0.25rem; }
+    .section-divider { border-top: 1px solid rgba(255,255,255,0.07); margin: 2.5rem 0; }
+
+    /* Metric cards */
+    .metric-filter {
+        background: var(--sc-bg-card);
+        border: 1px solid var(--sc-accent-border);
+        border-radius: 12px;
+        padding: 1.1rem 1.25rem;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        user-select: none;
+    }
+    .metric-filter:hover {
+        border-color: var(--sc-accent-hover);
+        background: rgba(155, 127, 212, 0.08);
+    }
+    .metric-filter.active {
+        outline: 2px solid var(--sc-accent);
+        outline-offset: 2px;
+        box-shadow: 0 6px 24px rgba(155, 127, 212, 0.2);
+    }
+    .metric-value {
+        font-size: 1.9rem;
+        font-weight: 700;
+        color: var(--sc-accent);
+        line-height: 1;
+    }
+    .metric-label { font-size: 0.78rem; color: rgba(255,255,255,0.5); margin-top: 0.3rem; }
+
+    /* Match score badges */
+    .score-badge {
+        display: inline-block;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        min-width: 48px;
+        text-align: center;
+    }
+    .score-high  { background: rgba(40,167,69,0.15);  color: #7ec98e; border: 1px solid rgba(40,167,69,0.25); }
+    .score-mid   { background: rgba(255,193,7,0.15);  color: #ffd966; border: 1px solid rgba(255,193,7,0.25); }
+    .score-low   { background: rgba(220,53,69,0.15);  color: #e87c7c; border: 1px solid rgba(220,53,69,0.25); }
+    .score-zero  { background: rgba(108,117,125,0.15); color: #9da5ad; border: 1px solid rgba(108,117,125,0.2); }
+
+    /* Status badges */
+    .status-qualified    { background: rgba(40,167,69,0.12);  color: #7ec98e; border: 1px solid rgba(40,167,69,0.2);   font-size: 0.72rem; }
+    .status-not-rec      { background: rgba(220,53,69,0.12);  color: #e87c7c; border: 1px solid rgba(220,53,69,0.2);   font-size: 0.72rem; }
+    .status-pending      { background: rgba(255,193,7,0.12);  color: #ffd966; border: 1px solid rgba(255,193,7,0.2);   font-size: 0.72rem; }
+
+    /* Candidates table */
+    .screening-table th {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: rgba(255,255,255,0.45);
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        padding-bottom: 0.6rem;
+    }
+    .screening-table td { font-size: 0.85rem; vertical-align: middle; padding: 0.55rem 0.5rem; }
+    .screening-table tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .screening-table tr:last-child { border-bottom: none; }
+    .candidate-link { color: var(--sc-accent); text-decoration: none; font-weight: 500; }
+    .candidate-link:hover { color: #b899e8; text-decoration: underline; }
+    .job-link { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.82rem; }
+    .job-link:hover { color: rgba(255,255,255,0.95); text-decoration: underline; }
+    .notes-preview {
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.4);
+    }
+    .row-hidden { display: none !important; }
+
+    /* Per-job requirements panel */
+    .job-req-card {
+        background: var(--sc-bg-card);
+        border: 1px solid var(--sc-accent-border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    .job-req-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.85rem 1.25rem;
+        cursor: pointer;
+        border-bottom: 1px solid transparent;
+        transition: background 0.2s;
+    }
+    .job-req-header:hover { background: rgba(155,127,212,0.06); }
+    .job-req-header.expanded { border-bottom-color: var(--sc-accent-border); }
+    .job-req-title { font-weight: 600; font-size: 0.95rem; color: rgba(255,255,255,0.88); }
+    .job-req-meta  { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin-top: 0.1rem; }
+    .job-req-body  { padding: 1.25rem; display: none; }
+    .job-req-body.show { display: block; }
+
+    .req-col-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--sc-accent);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .req-col-label i { font-size: 0.75rem; }
+    .ai-req-box {
+        background: rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px;
+        padding: 0.9rem 1rem;
+        font-size: 0.82rem;
+        color: rgba(255,255,255,0.6);
+        min-height: 120px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+    .ai-req-box.empty { color: rgba(255,255,255,0.25); font-style: italic; }
+    .override-textarea {
+        background: rgba(0,0,0,0.25);
+        border: 1px solid var(--sc-accent-border);
+        border-radius: 8px;
+        color: rgba(255,255,255,0.85);
+        font-size: 0.82rem;
+        resize: vertical;
+        min-height: 120px;
+        width: 100%;
+        padding: 0.75rem 0.9rem;
+        line-height: 1.6;
+        transition: border-color 0.2s;
+    }
+    .override-textarea:focus {
+        outline: none;
+        border-color: var(--sc-accent);
+        background: rgba(0,0,0,0.3);
+    }
+    .override-textarea::placeholder { color: rgba(255,255,255,0.2); }
+    .threshold-input {
+        background: rgba(0,0,0,0.25);
+        border: 1px solid var(--sc-accent-border);
+        border-radius: 8px;
+        color: rgba(255,255,255,0.85);
+        font-size: 0.85rem;
+        padding: 0.45rem 0.75rem;
+        width: 90px;
+        transition: border-color 0.2s;
+    }
+    .threshold-input:focus { outline: none; border-color: var(--sc-accent); }
+    .save-btn {
+        background: var(--sc-accent-dim);
+        border: 1px solid var(--sc-accent-border);
+        color: var(--sc-accent);
+        border-radius: 8px;
+        padding: 0.45rem 1.1rem;
+        font-size: 0.82rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .save-btn:hover { background: var(--sc-accent-hover); color: #c4aef0; }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: rgba(255,255,255,0.35);
+    }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.25; display: block; }
+    #active-filter-label { font-size: 0.8rem; color: var(--sc-accent); }
+</style>
+{% endblock %}
+
+{% block page_title %}Scout Screening Portal{% endblock %}
+{% block page_subtitle %}AI-screened candidates for your open positions{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-outline-light btn-sm" onclick="location.reload()">
+    <i class="fas fa-sync-alt me-1"></i>Refresh
+</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- ===== METRIC CARDS ===== -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="metric-filter" onclick="filterMatches('qualified')" id="card-qualified">
+            <div class="metric-value">{{ metrics.qualified }}</div>
+            <div class="metric-label"><i class="fas fa-check-circle me-1" style="color:#7ec98e;"></i>Qualified Matches</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="metric-filter" onclick="filterMatches('pending')" id="card-pending">
+            <div class="metric-value">{{ metrics.pending }}</div>
+            <div class="metric-label"><i class="fas fa-clock me-1" style="color:#ffd966;"></i>Pending Review</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="metric-filter" onclick="filterMatches('not_recommended')" id="card-not-rec">
+            <div class="metric-value">{{ metrics.not_recommended }}</div>
+            <div class="metric-label"><i class="fas fa-times-circle me-1" style="color:#e87c7c;"></i>Not Recommended</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="metric-filter" onclick="filterMatches('week')" id="card-week">
+            <div class="metric-value">{{ metrics.screened_this_week }}</div>
+            <div class="metric-label"><i class="fas fa-calendar-week me-1" style="color: var(--sc-accent);"></i>Screened This Week</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SCREENED CANDIDATES TABLE ===== -->
+<div class="section-header">
+    <div>
+        <h5><i class="fas fa-users me-2" style="color: var(--sc-accent);"></i>Screened Candidates</h5>
+        <div class="section-subtitle">AI match results for candidates on your active jobs</div>
+    </div>
+    <div id="active-filter-label"></div>
+</div>
+
+{% if matches or pending_logs %}
+<div style="overflow-x: auto;">
+<table class="screening-table w-100" id="matchTable">
+    <thead>
+        <tr>
+            <th>Date Screened</th>
+            <th>Candidate</th>
+            <th>Job</th>
+            <th>Match Score</th>
+            <th>Status</th>
+            <th>AI Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in matches %}
+        <tr data-status="{{ 'qualified' if m.is_qualified else 'not_recommended' }}"
+            data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}">
+            <td style="white-space:nowrap; color:rgba(255,255,255,0.45); font-size:0.78rem;">
+                {{ m.created_at.strftime('%b %d, %Y') if m.created_at else '—' }}
+            </td>
+            <td>
+                {% if m.vetting_log and m.vetting_log.bullhorn_candidate_id %}
+                <a class="candidate-link"
+                   href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ m.vetting_log.bullhorn_candidate_id }}"
+                   target="_blank" rel="noopener">
+                    {{ m.vetting_log.candidate_name or 'Unknown' }}
+                    <i class="fas fa-external-link-alt" style="font-size:0.65rem; opacity:0.5; margin-left:3px;"></i>
+                </a>
+                {% else %}
+                <span style="color:rgba(255,255,255,0.6);">{{ m.vetting_log.candidate_name if m.vetting_log else 'Unknown' }}</span>
+                {% endif %}
+            </td>
+            <td>
+                <a class="job-link"
+                   href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ m.bullhorn_job_id }}"
+                   target="_blank" rel="noopener">
+                    {{ m.job_title or ('Job #' ~ m.bullhorn_job_id) }}
+                    <i class="fas fa-external-link-alt" style="font-size:0.62rem; opacity:0.4; margin-left:2px;"></i>
+                </a>
+            </td>
+            <td>
+                {% set score = m.match_score|round|int %}
+                {% if score >= 80 %}
+                <span class="score-badge score-high">{{ score }}%</span>
+                {% elif score >= 60 %}
+                <span class="score-badge score-mid">{{ score }}%</span>
+                {% elif score > 0 %}
+                <span class="score-badge score-low">{{ score }}%</span>
+                {% else %}
+                <span class="score-badge score-zero">—</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if m.is_qualified %}
+                <span class="badge rounded-pill status-qualified">Qualified</span>
+                {% else %}
+                <span class="badge rounded-pill status-not-rec">Not Recommended</span>
+                {% endif %}
+            </td>
+            <td>
+                <span class="notes-preview" title="{{ m.match_summary or '' }}">
+                    {{ m.match_summary or '—' }}
+                </span>
+            </td>
+        </tr>
+        {% endfor %}
+        {% for log in pending_logs %}
+        <tr data-status="pending" data-week="no">
+            <td style="white-space:nowrap; color:rgba(255,255,255,0.45); font-size:0.78rem;">
+                {{ log.created_at.strftime('%b %d, %Y') if log.created_at else '—' }}
+            </td>
+            <td>
+                {% if log.bullhorn_candidate_id %}
+                <a class="candidate-link"
+                   href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
+                   target="_blank" rel="noopener">
+                    {{ log.candidate_name or 'Unknown' }}
+                    <i class="fas fa-external-link-alt" style="font-size:0.65rem; opacity:0.5; margin-left:3px;"></i>
+                </a>
+                {% else %}
+                <span style="color:rgba(255,255,255,0.6);">{{ log.candidate_name or 'Unknown' }}</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if log.applied_job_id %}
+                <a class="job-link"
+                   href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}"
+                   target="_blank" rel="noopener">
+                    {{ log.applied_job_title or ('Job #' ~ log.applied_job_id) }}
+                    <i class="fas fa-external-link-alt" style="font-size:0.62rem; opacity:0.4; margin-left:2px;"></i>
+                </a>
+                {% else %}
+                <span class="job-link">—</span>
+                {% endif %}
+            </td>
+            <td><span class="score-badge score-zero">—</span></td>
+            <td><span class="badge rounded-pill status-pending">Pending</span></td>
+            <td><span class="notes-preview">Awaiting AI analysis…</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-brain"></i>
+    <p style="font-size:0.95rem;">No screened candidates yet for your jobs.</p>
+    <p style="font-size:0.82rem;">Candidates who apply to your open positions will appear here once the AI has screened them.</p>
+</div>
+{% endif %}
+
+<!-- ===== JOB REQUIREMENTS PANEL ===== -->
+{% if jobs_map %}
+<div class="section-divider"></div>
+<div class="section-header">
+    <div>
+        <h5><i class="fas fa-sliders-h me-2" style="color: var(--sc-accent);"></i>Job-Level Settings</h5>
+        <div class="section-subtitle">Refine AI screening per job — custom requirements and thresholds override global defaults</div>
+    </div>
+</div>
+
+{% for job_id, job in jobs_map.items() %}
+{% set req = job_requirements.get(job_id) %}
+<div class="job-req-card">
+    <div class="job-req-header" onclick="toggleJobCard({{ job_id }})">
+        <div>
+            <div class="job-req-title">
+                {{ job.title }}
+                <span style="color:rgba(255,255,255,0.3); font-weight:400; font-size:0.8rem; margin-left:0.5rem;">ID: {{ job_id }}</span>
+                {% if job.work_type %}
+                <span class="badge ms-2" style="background:rgba(155,127,212,0.12); color:var(--sc-accent); font-size:0.68rem; border:1px solid var(--sc-accent-border);">{{ job.work_type }}</span>
+                {% endif %}
+            </div>
+            {% if job.location %}
+            <div class="job-req-meta"><i class="fas fa-map-marker-alt me-1"></i>{{ job.location }}</div>
+            {% endif %}
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            {% if req and req.vetting_threshold %}
+            <span style="font-size:0.78rem; color:var(--sc-accent);">Threshold: {{ req.vetting_threshold }}%</span>
+            {% endif %}
+            {% if req and req.custom_requirements %}
+            <span style="font-size:0.72rem; color:rgba(155,127,212,0.7);">Custom override active</span>
+            {% endif %}
+            <i class="fas fa-chevron-down" id="chevron-{{ job_id }}" style="color:rgba(255,255,255,0.3); transition:transform 0.2s;"></i>
+        </div>
+    </div>
+
+    <div class="job-req-body" id="body-{{ job_id }}">
+        <div class="row g-3">
+            <!-- Left: AI Interpreted Requirements (read-only) -->
+            <div class="col-md-6">
+                <div class="req-col-label">
+                    <i class="fas fa-robot"></i> AI-Interpreted Requirements
+                </div>
+                {% if req and req.ai_interpreted_requirements %}
+                <div class="ai-req-box">{{ req.ai_interpreted_requirements }}</div>
+                {% else %}
+                <div class="ai-req-box empty">No AI interpretation available yet. Requirements are extracted automatically from the Bullhorn job description within 5 minutes of the job being added.</div>
+                {% endif %}
+                {% if req and req.last_ai_interpretation %}
+                <div style="font-size:0.72rem; color:rgba(255,255,255,0.3); margin-top:0.5rem;">
+                    <i class="fas fa-clock me-1"></i>Last AI interpretation: {{ req.last_ai_interpretation.strftime('%b %d, %Y') }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Right: Custom Override + Threshold -->
+            <div class="col-md-6">
+                <form action="{{ url_for('scout_screening.save_job_settings', job_id=job_id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="req-col-label">
+                        <i class="fas fa-edit"></i> Custom Override
+                    </div>
+                    <textarea class="override-textarea"
+                              name="custom_requirements"
+                              placeholder="Enter custom requirements to override AI interpretation…">{{ req.custom_requirements or '' }}</textarea>
+                    <div style="font-size:0.75rem; color:rgba(255,255,255,0.3); margin-top:0.35rem; margin-bottom:0.85rem;">
+                        Custom requirements take priority over AI-interpreted ones during screening.
+                    </div>
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="number"
+                                   class="threshold-input"
+                                   name="vetting_threshold"
+                                   min="50" max="100"
+                                   placeholder="{{ global_threshold }}"
+                                   value="{{ req.vetting_threshold if req and req.vetting_threshold else '' }}"
+                                   title="Match threshold for this job (50–100). Leave blank to use global default ({{ global_threshold }}%).">
+                            <span style="font-size:0.78rem; color:rgba(255,255,255,0.35);">Threshold (blank = global {{ global_threshold }}%)</span>
+                        </div>
+                        <button type="submit" class="save-btn ms-auto">
+                            <i class="fas fa-save me-1"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const now = new Date();
+    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+    let activeFilter = null;
+
+    function filterMatches(filter) {
+        const rows = document.querySelectorAll('#matchTable tbody tr');
+        const label = document.getElementById('active-filter-label');
+        const cards = {
+            qualified: document.getElementById('card-qualified'),
+            pending: document.getElementById('card-pending'),
+            not_recommended: document.getElementById('card-not-rec'),
+            week: document.getElementById('card-week'),
+        };
+
+        if (activeFilter === filter) {
+            activeFilter = null;
+            rows.forEach(r => r.classList.remove('row-hidden'));
+            Object.values(cards).forEach(c => c && c.classList.remove('active'));
+            if (label) label.textContent = '';
+            return;
+        }
+
+        activeFilter = filter;
+        Object.values(cards).forEach(c => c && c.classList.remove('active'));
+        if (cards[filter]) cards[filter].classList.add('active');
+
+        const labels = {
+            qualified: 'Showing: Qualified Matches',
+            pending: 'Showing: Pending Review',
+            not_recommended: 'Showing: Not Recommended',
+            week: 'Showing: Screened This Week',
+        };
+        if (label) label.textContent = labels[filter] || '';
+
+        rows.forEach(row => {
+            const status = row.dataset.status;
+            const week = row.dataset.week === 'yes';
+            let show = false;
+            if (filter === 'qualified')       show = status === 'qualified';
+            else if (filter === 'pending')    show = status === 'pending';
+            else if (filter === 'not_recommended') show = status === 'not_recommended';
+            else if (filter === 'week')       show = week;
+            row.classList.toggle('row-hidden', !show);
+        });
+    }
+
+    function toggleJobCard(jobId) {
+        const body = document.getElementById('body-' + jobId);
+        const chevron = document.getElementById('chevron-' + jobId);
+        const header = body ? body.previousElementSibling : null;
+        if (!body) return;
+        const isOpen = body.classList.toggle('show');
+        if (chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : '';
+        if (header) header.classList.toggle('expanded', isOpen);
+    }
+
+    // Auto-refresh every 60 seconds (same as Scout Inbound)
+    setTimeout(() => location.reload(), 60000);
+</script>
+{% endblock %}

@@ -8,7 +8,7 @@ from flask_login import current_user
 
 MODULE_ROUTES = {
     'scout_inbound': 'scout_inbound.scout_inbound_dashboard',
-    'scout_screening': 'vetting.vetting_settings',
+    'scout_screening': 'scout_screening.dashboard',
     'scout_vetting': 'vetting.vetting_settings',
 }
 

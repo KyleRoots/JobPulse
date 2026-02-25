@@ -103,7 +103,7 @@ def stop_impersonation():
         return redirect(_get_user_landing())
 
     admin_user = User.query.get(admin_id)
-    if not admin_user or not admin_user.is_admin:
+    if not admin_user or not admin_user.can_view_all_users:
         flash('Could not restore admin session.', 'error')
         logout_user()
         return redirect(url_for('auth.login'))

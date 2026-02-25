@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import logging
 
 vetting_bp = Blueprint('vetting', __name__)
-register_module_guard(vetting_bp, 'scout_screening', 'scout_vetting')
+register_module_guard(vetting_bp, 'scout_vetting')
 
 
 def get_db():

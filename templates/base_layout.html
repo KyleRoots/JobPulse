@@ -382,6 +382,39 @@
             gap: 1rem;
         }
 
+        .module-switcher {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 3px;
+        }
+        .module-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 16px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.5);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .module-pill:hover {
+            color: rgba(255,255,255,0.85);
+            background: rgba(255,255,255,0.07);
+        }
+        .module-pill.active {
+            background: rgba(255,255,255,0.12);
+            color: rgba(255,255,255,0.92);
+            font-weight: 600;
+        }
+        .module-pill i { font-size: 0.72rem; }
+
         .user-header-avatar {
             width: 40px;
             height: 40px;
@@ -1536,13 +1569,13 @@
             {% endif %}
 
             {% if current_user.is_authenticated and current_user.has_module('scout_screening') %}
-            <!-- Scout Screening Module (Pink) -->
+            <!-- Scout Screening Module (Purple/Violet) -->
             <div class="nav-section" data-section="screening">
                 <div class="nav-section-title">Scout Screening</div>
-                <a href="{{ url_for('vetting.vetting_settings') }}"
+                <a href="{{ url_for('scout_screening.dashboard') }}"
                     class="nav-item {% if active_page == 'screening' %}active{% endif %}">
                     <i class="fas fa-brain"></i>
-                    <span>AI Candidate Screening</span>
+                    <span>Scout Screening Portal</span>
                 </a>
             </div>
             {% endif %}
@@ -1642,6 +1675,24 @@
                 {% block page_subtitle %}<p class="page-subtitle">Welcome back to Scout Genius</p>{% endblock %}
             </div>
             <div class="page-actions">
+                {% if current_user.is_authenticated and not current_user.is_admin and current_user.get_modules()|length > 1 %}
+                {% set _mod_map = {
+                    'scout_inbound':   {'label': 'Inbound',   'icon': 'fa-inbox',    'url': url_for('scout_inbound.scout_inbound_dashboard'), 'page': 'inbound'},
+                    'scout_screening': {'label': 'Screening', 'icon': 'fa-brain',    'url': url_for('scout_screening.dashboard'),             'page': 'screening'},
+                    'scout_vetting':   {'label': 'Vetting',   'icon': 'fa-comments', 'url': url_for('email.scout_vetting_dashboard'),          'page': 'vetting'}
+                } %}
+                <div class="module-switcher me-2" role="group" aria-label="Module navigation">
+                {% for mod in current_user.get_modules() %}{% if mod in _mod_map %}
+                {% set _m = _mod_map[mod] %}
+                <a href="{{ _m.url }}"
+                   class="module-pill {% if active_page == _m.page %}active{% endif %}"
+                   title="Go to {{ _m.label }}">
+                    <i class="fas {{ _m.icon }}"></i>
+                    <span>{{ _m.label }}</span>
+                </a>
+                {% endif %}{% endfor %}
+                </div>
+                {% endif %}
                 {% block page_actions %}{% endblock %}
                 <!-- Feedback Button -->
                 <button class="btn btn-outline-light btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#feedbackModal"

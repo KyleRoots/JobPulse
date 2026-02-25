@@ -273,9 +273,12 @@ def create_user():
         display_name = request.form.get('display_name', '').strip() or None
         bullhorn_user_id = request.form.get('bullhorn_user_id', '').strip()
         is_admin = request.form.get('is_admin') == 'on'
-        
+        is_company_admin = request.form.get('is_company_admin') == 'on'
+        if is_admin:
+            is_company_admin = False
+
         selected_modules = request.form.getlist('modules')
-        
+
         if not username or not email:
             flash('Username and email are required.', 'error')
             return redirect(url_for('settings.settings') + '#user-management')
@@ -292,7 +295,8 @@ def create_user():
             username=username,
             email=email,
             is_admin=is_admin,
-            role='admin' if is_admin else 'recruiter',
+            is_company_admin=is_company_admin,
+            role='super_admin' if is_admin else ('company_admin' if is_company_admin else 'user'),
             display_name=display_name,
             bullhorn_user_id=int(bullhorn_user_id) if bullhorn_user_id else None,
         )
@@ -329,13 +333,17 @@ def update_user(user_id):
         display_name = request.form.get('display_name', '').strip() or None
         bullhorn_user_id = request.form.get('bullhorn_user_id', '').strip()
         is_admin = request.form.get('is_admin') == 'on'
+        is_company_admin = request.form.get('is_company_admin') == 'on'
+        if is_admin:
+            is_company_admin = False
         selected_modules = request.form.getlist('modules')
         new_password = request.form.get('password', '').strip()
-        
+
         user.display_name = display_name
         user.bullhorn_user_id = int(bullhorn_user_id) if bullhorn_user_id else None
         user.is_admin = is_admin
-        user.role = 'admin' if is_admin else 'recruiter'
+        user.is_company_admin = is_company_admin
+        user.role = 'super_admin' if is_admin else ('company_admin' if is_company_admin else 'user')
         user.set_modules(selected_modules)
         
         if new_password:
@@ -389,25 +397,29 @@ def impersonate_user(user_id):
     from app import db
     from models import User
 
-    if not current_user.is_admin:
-        flash('Only administrators can impersonate users.', 'error')
+    if not current_user.can_view_all_users:
+        flash('Only administrators can use View As.', 'error')
         return redirect(url_for('settings.settings'))
 
     if session.get('impersonating_admin_id'):
-        flash('You are already impersonating a user. Return to your admin account first.', 'warning')
+        flash('You are already viewing as another user. Return to your account first.', 'warning')
         return redirect(url_for('settings.settings'))
 
     target_user = User.query.get_or_404(user_id)
 
     if target_user.id == current_user.id:
-        flash('You cannot impersonate yourself.', 'warning')
+        flash('You cannot view as yourself.', 'warning')
+        return redirect(url_for('settings.settings') + '#user-management')
+
+    if current_user.is_company_admin and (target_user.is_admin or target_user.is_company_admin):
+        flash('Company admins can only view as standard users.', 'warning')
         return redirect(url_for('settings.settings') + '#user-management')
 
     session['impersonating_admin_id'] = current_user.id
     session['impersonating_admin_username'] = current_user.username
     login_user(target_user, remember=False)
 
-    current_app.logger.info(f"Admin started impersonating user: {target_user.username} (id={target_user.id})")
+    current_app.logger.info(f"{current_user.effective_role} started viewing as: {target_user.username} (id={target_user.id})")
     flash(f'Now viewing as {target_user.display_name or target_user.username}.', 'info')
 
     from routes import _get_user_landing
