@@ -135,14 +135,19 @@ def forgot_password():
         return redirect(_get_user_landing())
 
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        if not email:
-            flash('Please enter your email address.', 'error')
+        identifier = request.form.get('email', '').strip()
+        if not identifier:
+            flash('Please enter your username or email address.', 'error')
             return render_template('forgot_password.html')
 
+        identifier_lower = identifier.lower()
         user = User.query.filter(
-            db.func.lower(User.email) == email
+            db.func.lower(User.email) == identifier_lower
         ).first()
+        if not user:
+            user = User.query.filter(
+                db.func.lower(User.username) == identifier_lower
+            ).first()
 
         if user:
             token = generate_reset_token(user, expiry_hours=1)
