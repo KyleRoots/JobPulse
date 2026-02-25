@@ -1173,6 +1173,7 @@
             margin-bottom: 0.5rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            padding-right: 3.5rem;
         }
 
         .metric-value {
@@ -1677,7 +1678,7 @@
             <div class="page-actions">
                 {% if current_user.is_authenticated and not current_user.is_admin and current_user.get_modules()|length > 1 %}
                 {% set _mod_map = {
-                    'scout_inbound':   {'label': 'Inbound',   'icon': 'fa-inbox',    'url': url_for('scout_inbound.scout_inbound_dashboard'), 'page': 'inbound'},
+                    'scout_inbound':   {'label': 'Inbound',   'icon': 'fa-inbox',    'url': url_for('scout_inbound.scout_inbound_dashboard'), 'page': 'scout_inbound'},
                     'scout_screening': {'label': 'Screening', 'icon': 'fa-brain',    'url': url_for('scout_screening.dashboard'),             'page': 'screening'},
                     'scout_vetting':   {'label': 'Vetting',   'icon': 'fa-comments', 'url': url_for('email.scout_vetting_dashboard'),          'page': 'vetting'}
                 } %}
