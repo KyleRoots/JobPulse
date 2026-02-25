@@ -52,7 +52,7 @@ class CandidateVettingService:
         # Default settings
         self.match_threshold = 80.0  # Minimum match percentage for notifications
         self.check_interval_minutes = 5
-        self.model = self._get_layer2_model()  # Default GPT-4o-mini, revertible via VettingConfig
+        self.model = self._get_layer2_model()  # Default GPT-4o, configurable via VettingConfig
         
         # Embedding pre-filter (Layer 1)
         from embedding_service import EmbeddingService
