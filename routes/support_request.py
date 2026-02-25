@@ -56,6 +56,11 @@ _ANASTASIYA_IVANOVA_EMAIL = 'ai@myticas.com'
 _TECH_SUPPORT_EMAIL = 'techsupport@myticas.com'
 _CC_ALWAYS = 'kroots@myticas.com'
 
+_STSI_CC_ALWAYS = ['kroots@myticas.com', 'jbocek@stsigroup.com']
+_STSI_DEFAULT_EMAIL = 'jbocek@stsigroup.com'
+_STSI_EMAIL_NOTIFICATIONS_EMAIL = 'doneil@q-staffing.com'
+_STSI_BACKOFFICE_EMAIL = 'evalentine@stsigroup.com'
+
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xlsx', 'csv', 'txt'}
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_FILES = 5
@@ -67,7 +72,10 @@ RATE_LIMIT_MAX = 5
 
 _MYTICAS_FINANCE_EMAIL = 'accounting@myticas.com'
 
-def get_routing_info(category, department=''):
+def get_routing_info(category, department='', brand='Myticas'):
+    if brand == 'STSI':
+        return _get_stsi_routing(category)
+
     cc = [_CC_ALWAYS]
     dept = (department or '').strip()
 
@@ -85,6 +93,18 @@ def get_routing_info(category, department=''):
         return _ANASTASIYA_IVANOVA_EMAIL, cc
 
     return _DAN_SIFER_EMAIL, cc
+
+
+def _get_stsi_routing(category):
+    cc = list(_STSI_CC_ALWAYS)
+
+    if category == 'email_notifications':
+        return _STSI_EMAIL_NOTIFICATIONS_EMAIL, cc
+
+    if category in ('backoffice_onboarding', 'backoffice_finance'):
+        return _STSI_BACKOFFICE_EMAIL, cc
+
+    return _STSI_DEFAULT_EMAIL, cc
 
 
 def allowed_file(filename):
@@ -112,10 +132,24 @@ def _serve_support_form():
     return response
 
 
+def _serve_stsi_support_form():
+    response = make_response(render_template('support_request_stsi.html'))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
 @support_request_bp.route('/support')
 @csrf.exempt
 def support_form():
     return _serve_support_form()
+
+
+@support_request_bp.route('/support/stsi')
+@csrf.exempt
+def support_form_stsi():
+    return _serve_stsi_support_form()
 
 
 @support_request_bp.before_app_request
@@ -125,6 +159,14 @@ def redirect_support_domain():
         path = request.path
         if path == '/' or path == '':
             return _serve_support_form()
+        if path.startswith('/static/') or path.startswith('/support'):
+            return None
+        from flask import abort
+        abort(404)
+    if 'support.stsigroup.com' in host:
+        path = request.path
+        if path == '/' or path == '':
+            return _serve_stsi_support_form()
         if path.startswith('/static/') or path.startswith('/support'):
             return None
         from flask import abort
@@ -269,12 +311,14 @@ def submit_support_request():
                         'content_type': file.content_type or 'application/octet-stream'
                     })
 
-        route_email, cc_emails = get_routing_info(category, internal_department)
+        brand = request.form.get('brand', 'Myticas').strip()
+        route_email, cc_emails = get_routing_info(category, internal_department, brand=brand)
         category_label = CATEGORY_LABELS.get(category, category)
         category_icon = CATEGORY_ICONS.get(category, '📌')
         priority_label = PRIORITY_LABELS.get(priority, priority)
         priority_color = PRIORITY_COLORS.get(priority, '#ffc107')
 
+        is_stsi = (brand == 'STSI')
         html_content = build_support_email_html(
             requester_name=requester_name,
             requester_email=requester_email,
@@ -285,10 +329,12 @@ def submit_support_request():
             priority_color=priority_color,
             subject=subject,
             description=description,
-            attachments=valid_attachments
+            attachments=valid_attachments,
+            brand=brand,
         )
 
-        email_subject = f"[Support Request] {category_icon} {category_label} — {subject}"
+        brand_prefix = 'STSI' if is_stsi else 'Myticas'
+        email_subject = f"[{brand_prefix} Support] {category_icon} {category_label} — {subject}"
 
         success = send_support_email(
             to_email=route_email,
@@ -296,11 +342,12 @@ def submit_support_request():
             reply_to_email=requester_email,
             subject=email_subject,
             html_content=html_content,
-            attachments=valid_attachments
+            attachments=valid_attachments,
+            brand=brand,
         )
 
         if success:
-            logger.info(f"Support request submitted by {requester_name} ({requester_email}) — Category: {category_label}, Priority: {priority_label}")
+            logger.info(f"[{brand_prefix}] Support request submitted by {requester_name} ({requester_email}) — Category: {category_label}, Priority: {priority_label}")
             return jsonify({'success': True, 'message': 'Support request submitted successfully.'})
         else:
             return jsonify({'success': False, 'error': 'Failed to send support request. Please try again.'}), 500
@@ -311,7 +358,7 @@ def submit_support_request():
 
 
 def build_support_email_html(requester_name, requester_email, internal_department, category_label, category_icon,
-                              priority_label, priority_color, subject, description, attachments):
+                              priority_label, priority_color, subject, description, attachments, brand='Myticas'):
     attachment_section = ''
     if attachments:
         file_list = ''.join(
@@ -330,14 +377,26 @@ def build_support_email_html(requester_name, requester_email, internal_departmen
 
     description_html = description.replace('\n', '<br>')
 
+    if brand == 'STSI':
+        header_bg = '#003d4d'
+        sub_header_bg = '#00807f'
+        accent_color = '#00B5B5'
+        brand_html = '<span style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">STSI</span><span style="color: #00B5B5; font-size: 18px; font-weight: 300; letter-spacing: 0.3px;"> GROUP</span>'
+        footer_brand = 'STSI Group'
+    else:
+        header_bg = '#1e3c72'
+        sub_header_bg = '#2a5298'
+        accent_color = '#2a5298'
+        brand_html = '<span style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">MYTICAS</span><span style="color: #4FC3F7; font-size: 18px; font-weight: 300; letter-spacing: 0.3px;"> CONSULTING</span>'
+        footer_brand = 'Myticas Consulting'
+
     return f'''
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 620px; margin: 0 auto;">
-        <div style="background: #1e3c72; padding: 20px 28px; border-radius: 8px 8px 0 0;">
+        <div style="background: {header_bg}; padding: 20px 28px; border-radius: 8px 8px 0 0;">
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                     <td style="vertical-align: middle;">
-                        <span style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">MYTICAS</span>
-                        <span style="color: #4FC3F7; font-size: 18px; font-weight: 300; letter-spacing: 0.3px;"> CONSULTING</span>
+                        {brand_html}
                     </td>
                     <td style="text-align: right; vertical-align: middle;">
                         <span style="color: rgba(255,255,255,0.6); font-size: 12px;">Internal Support</span>
@@ -346,7 +405,7 @@ def build_support_email_html(requester_name, requester_email, internal_departmen
             </table>
         </div>
 
-        <div style="background: #2a5298; padding: 14px 28px;">
+        <div style="background: {sub_header_bg}; padding: 14px 28px;">
             <span style="color: #ffffff; font-size: 15px; font-weight: 600;">Support Request</span>
             <span style="color: rgba(255,255,255,0.7); font-size: 13px; margin-left: 8px;">— {category_icon} {category_label}</span>
         </div>
@@ -359,7 +418,7 @@ def build_support_email_html(requester_name, requester_email, internal_departmen
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">From</td>
-                    <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">{requester_name} &lt;<a href="mailto:{requester_email}" style="color: #2a5298; text-decoration: none;">{requester_email}</a>&gt;</td>
+                    <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">{requester_name} &lt;<a href="mailto:{requester_email}" style="color: {accent_color}; text-decoration: none;">{requester_email}</a>&gt;</td>
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">Department</td>
@@ -377,7 +436,7 @@ def build_support_email_html(requester_name, requester_email, internal_departmen
 
             <div style="border-top: 1px solid #e2e8f0; padding-top: 16px;">
                 <div style="color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px;">Description</div>
-                <div style="background: #f8fafc; padding: 14px 18px; border-radius: 6px; border-left: 3px solid #2a5298; color: #334155; font-size: 14px; line-height: 1.65;">
+                <div style="background: #f8fafc; padding: 14px 18px; border-radius: 6px; border-left: 3px solid {accent_color}; color: #334155; font-size: 14px; line-height: 1.65;">
                     {description_html}
                 </div>
             </div>
@@ -387,15 +446,15 @@ def build_support_email_html(requester_name, requester_email, internal_departmen
 
         <div style="background: #f1f5f9; padding: 14px 28px; border-radius: 0 0 8px 8px; border: 1px solid #e2e8f0; border-top: none;">
             <p style="color: #64748b; font-size: 11px; margin: 0; text-align: center; line-height: 1.5;">
-                Reply directly to this email to respond to the requester (<a href="mailto:{requester_email}" style="color: #2a5298; text-decoration: none;">{requester_email}</a>)
-                <br>Myticas Consulting &middot; Powered by Scout Genius™
+                Reply directly to this email to respond to the requester (<a href="mailto:{requester_email}" style="color: {accent_color}; text-decoration: none;">{requester_email}</a>)
+                <br>{footer_brand} &middot; Powered by Scout Genius™
             </p>
         </div>
     </div>
     '''
 
 
-def send_support_email(to_email, reply_to_email, subject, html_content, attachments=None, cc_emails=None):
+def send_support_email(to_email, reply_to_email, subject, html_content, attachments=None, cc_emails=None, brand='Myticas'):
     try:
         from sendgrid import SendGridAPIClient
         from sendgrid.helpers.mail import (
@@ -410,7 +469,8 @@ def send_support_email(to_email, reply_to_email, subject, html_content, attachme
 
         sg = SendGridAPIClient(sg_api_key)
 
-        from_email = Email('kroots@myticas.com', 'Myticas Internal Support')
+        sender_name = 'STSI Internal Support' if brand == 'STSI' else 'Myticas Internal Support'
+        from_email = Email('kroots@myticas.com', sender_name)
         to_email_obj = To(to_email)
 
         mail = Mail(

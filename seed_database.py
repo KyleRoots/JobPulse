@@ -1001,34 +1001,57 @@ SUPPORT_CONTACTS_MYTICAS = [
     {"first_name": "Christine", "last_name": "Carter", "email": "ccarter@cloverit.com", "department": "MYT-Clover"},
 ]
 
+SUPPORT_CONTACTS_STSI = [
+    {"first_name": "Kaniz", "last_name": "Abedin", "email": "kabedin@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Kellie", "last_name": "Beveridge", "email": "kbeveridge@q-ptgroup.com", "department": "STS-STSI"},
+    {"first_name": "Josh", "last_name": "Bocek", "email": "jbocek@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Veronica", "last_name": "Connolly", "email": "vconnolly@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Tarra", "last_name": "Dziuman", "email": "tdziurman@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Rachelle", "last_name": "Fite", "email": "rfite@q-staffing.com", "department": "STS-STSI"},
+    {"first_name": "Dawn", "last_name": "Geistert-Dixon", "email": "dgdixon@q-staffing.com", "department": "STS-STSI"},
+    {"first_name": "Julie", "last_name": "Johnson", "email": "jjohnson@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Rachel", "last_name": "Mann", "email": "rmann@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Kellie", "last_name": "Miller", "email": "kmiller@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Samantha", "last_name": "Odeh", "email": "sodeh@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Ryan", "last_name": "Oliver", "email": "roliver@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Tray", "last_name": "Prewitt", "email": "tprewitt@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Michael", "last_name": "Scalzitti", "email": "mscalzitti@stsigroup.com", "department": "STS-STSI"},
+    {"first_name": "Emma", "last_name": "Valentine", "email": "evalentine@stsigroup.com", "department": "STS-STSI"},
+]
+
+
+def _seed_brand_contacts(db, brand, contact_list):
+    from models import SupportContact
+    existing_by_email = {c.email: c for c in SupportContact.query.filter_by(brand=brand).all()}
+    added = 0
+    updated = 0
+    for contact_data in contact_list:
+        if contact_data['email'] not in existing_by_email:
+            contact = SupportContact(
+                first_name=contact_data['first_name'],
+                last_name=contact_data['last_name'],
+                email=contact_data['email'],
+                brand=brand,
+                department=contact_data.get('department')
+            )
+            db.session.add(contact)
+            added += 1
+        else:
+            existing = existing_by_email[contact_data['email']]
+            if contact_data.get('department') and existing.department != contact_data['department']:
+                existing.department = contact_data['department']
+                updated += 1
+    if added > 0 or updated > 0:
+        db.session.commit()
+        logger.info(f"✅ {brand} support contacts: {added} added, {updated} updated")
+    else:
+        logger.info(f"✅ All {len(contact_list)} {brand} support contacts already up to date")
+
 
 def seed_support_contacts(db):
     try:
-        from models import SupportContact
-        existing_by_email = {c.email: c for c in SupportContact.query.filter_by(brand='Myticas').all()}
-        added = 0
-        updated = 0
-        for contact_data in SUPPORT_CONTACTS_MYTICAS:
-            if contact_data['email'] not in existing_by_email:
-                contact = SupportContact(
-                    first_name=contact_data['first_name'],
-                    last_name=contact_data['last_name'],
-                    email=contact_data['email'],
-                    brand='Myticas',
-                    department=contact_data.get('department')
-                )
-                db.session.add(contact)
-                added += 1
-            else:
-                existing = existing_by_email[contact_data['email']]
-                if contact_data.get('department') and existing.department != contact_data['department']:
-                    existing.department = contact_data['department']
-                    updated += 1
-        if added > 0 or updated > 0:
-            db.session.commit()
-            logger.info(f"✅ Support contacts: {added} added, {updated} updated with department")
-        else:
-            logger.info(f"✅ All {len(SUPPORT_CONTACTS_MYTICAS)} Myticas support contacts already up to date")
+        _seed_brand_contacts(db, 'Myticas', SUPPORT_CONTACTS_MYTICAS)
+        _seed_brand_contacts(db, 'STSI', SUPPORT_CONTACTS_STSI)
     except ImportError:
         logger.debug("ℹ️ SupportContact model not found - skipping support contact seeding")
     except Exception as e:
