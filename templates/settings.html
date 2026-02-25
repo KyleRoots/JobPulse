@@ -581,7 +581,32 @@
     
     <!-- Existing Users -->
     <div class="settings-card no-hover p-4">
-        <h5 class="mb-3"><i class="fas fa-users me-2"></i>Existing Users ({{ users|length }})</h5>
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="mb-0"><i class="fas fa-users me-2"></i>Existing Users (<span id="userVisibleCount">{{ users|length }}</span>)</h5>
+            <ul class="nav nav-pills mb-0" id="userCompanyFilter" style="gap: 6px;">
+                <li class="nav-item">
+                    <button class="user-filter-btn nav-link active" data-filter="all"
+                            style="font-size: 0.8rem; padding: 5px 14px; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">
+                        <i class="fas fa-globe me-1"></i>All
+                        <span class="badge ms-1" style="background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); font-size: 0.68rem;">{{ users|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="user-filter-btn nav-link" data-filter="Myticas Consulting"
+                            style="font-size: 0.8rem; padding: 5px 14px; border: 1px solid rgba(42,82,152,0.4); color: rgba(255,255,255,0.5); background: rgba(42,82,152,0.1);">
+                        <i class="fas fa-building me-1"></i>Myticas
+                        <span class="badge ms-1" style="background: rgba(79,195,247,0.15); color: #4FC3F7; font-size: 0.68rem;">{{ users|selectattr('company','equalto','Myticas Consulting')|list|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="user-filter-btn nav-link" data-filter="STSI Group"
+                            style="font-size: 0.8rem; padding: 5px 14px; border: 1px solid rgba(0,181,181,0.3); color: rgba(255,255,255,0.5); background: rgba(0,181,181,0.08);">
+                        <i class="fas fa-building me-1"></i>STSI
+                        <span class="badge ms-1" style="background: rgba(0,181,181,0.15); color: #00B5B5; font-size: 0.68rem;">{{ users|selectattr('company','equalto','STSI Group')|list|length }}</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
 
         {% if users|length > 1 %}
         <div class="d-flex align-items-center gap-2 mb-3 pb-2" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
@@ -604,7 +629,7 @@
         {% endif %}
 
         {% for user in users %}
-        <div class="border rounded p-3 mb-3 d-flex align-items-start gap-2" style="border-color: rgba(74, 150, 120, 0.2) !important; background: rgba(10, 22, 16, 0.5);">
+        <div class="border rounded p-3 mb-3 d-flex align-items-start gap-2 user-card" data-company="{{ user.company }}" style="border-color: rgba(74, 150, 120, 0.2) !important; background: rgba(10, 22, 16, 0.5);">
             <div class="flex-shrink-0 pt-1">
                 <input type="checkbox" class="form-check-input user-select-check" value="{{ user.id }}">
             </div>
@@ -967,5 +992,47 @@
         btn.innerHTML = orig;
         updateBulkUI();
     }
+
+    (function () {
+        const filterBtns = document.querySelectorAll('.user-filter-btn');
+        const allCards   = document.querySelectorAll('.user-card');
+        const countEl    = document.getElementById('userVisibleCount');
+
+        function applyFilter(filter) {
+            let visible = 0;
+            allCards.forEach(function (card) {
+                const company = card.getAttribute('data-company') || '';
+                const show = filter === 'all' || company === filter;
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            if (countEl) countEl.textContent = visible;
+
+            filterBtns.forEach(function (btn) {
+                const isActive = btn.getAttribute('data-filter') === filter;
+                btn.classList.toggle('active', isActive);
+                const f = btn.getAttribute('data-filter');
+                if (f === 'all') {
+                    btn.style.color      = isActive ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.5)';
+                    btn.style.background = isActive ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)';
+                } else if (f === 'Myticas Consulting') {
+                    btn.style.color      = isActive ? '#4FC3F7' : 'rgba(255,255,255,0.5)';
+                    btn.style.background = isActive ? 'rgba(42,82,152,0.22)' : 'rgba(42,82,152,0.08)';
+                } else if (f === 'STSI Group') {
+                    btn.style.color      = isActive ? '#00B5B5' : 'rgba(255,255,255,0.5)';
+                    btn.style.background = isActive ? 'rgba(0,181,181,0.18)' : 'rgba(0,181,181,0.06)';
+                }
+            });
+
+            document.querySelectorAll('.user-select-check').forEach(function (cb) { cb.checked = false; });
+            updateBulkUI();
+        }
+
+        filterBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                applyFilter(btn.getAttribute('data-filter'));
+            });
+        });
+    })();
 </script>
 {% endblock %}
