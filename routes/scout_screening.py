@@ -220,11 +220,15 @@ def save_job_settings(job_id):
             db.session.add(job_req)
 
         db.session.commit()
+        if request.form.get('_ajax') == '1':
+            return ('', 204)
         flash(f'Settings saved for Job #{job_id}.', 'success')
 
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving job settings for job {job_id}: {e}")
+        if request.form.get('_ajax') == '1':
+            return ('', 500)
         flash(f'Error saving settings: {str(e)}', 'error')
 
     return redirect(url_for('scout_screening.dashboard'))

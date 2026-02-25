@@ -55,6 +55,7 @@
 
     /* ── Shared table styles (Bootstrap override) ── */
     .sc-table { --bs-table-bg: transparent; --bs-table-hover-bg: rgba(155,127,212,0.05); margin-bottom: 0; }
+    .sc-table tbody td, .sc-table tbody tr { background-color: transparent !important; }
     .sc-table thead th {
         font-size: 0.71rem;
         text-transform: uppercase;
@@ -131,14 +132,15 @@
     }
     .threshold-input:focus { outline: none; border-color: var(--sc-accent); }
 
-    /* ── Save link button ── */
-    .btn-link-save {
-        background: none; border: none; padding: 0;
-        color: var(--sc-accent); font-size: 0.82rem;
-        cursor: pointer; text-decoration: none;
-        transition: color 0.15s;
+    /* ── Threshold auto-save feedback ── */
+    .threshold-feedback {
+        position: absolute; right: -54px; top: 50%; transform: translateY(-50%);
+        font-size: 0.72rem; white-space: nowrap; pointer-events: none;
+        opacity: 0; transition: opacity 0.3s ease;
     }
-    .btn-link-save:hover { color: #c4aef0; text-decoration: underline; text-underline-offset: 2px; }
+    .threshold-feedback.visible { opacity: 1; }
+    .threshold-feedback.saved   { color: #7ec98e; }
+    .threshold-feedback.error   { color: #e87c7c; }
 
     /* ── Pagination footer ── */
     .sc-footer {
@@ -277,12 +279,12 @@
         <table class="table table-dark table-hover sc-table" id="matchTable">
             <thead>
                 <tr>
-                    <th style="width:110px;">Date Screened</th>
-                    <th style="width:170px;">Candidate</th>
-                    <th style="min-width:155px;">Job</th>
-                    <th style="width:80px; text-align:center;">Score</th>
-                    <th style="width:150px;">Status</th>
-                    <th>AI Notes</th>
+                    <th style="width:100px; white-space:nowrap;">Screened</th>
+                    <th style="white-space:nowrap;">Candidate</th>
+                    <th style="white-space:nowrap;">Job</th>
+                    <th style="width:80px; text-align:center; white-space:nowrap;">Score</th>
+                    <th style="white-space:nowrap;">Status</th>
+                    <th style="white-space:nowrap;">AI Notes</th>
                 </tr>
             </thead>
             <tbody id="tableBody">
@@ -328,13 +330,11 @@
                     <td>
                         {% if m.match_summary %}
                         <div class="notes-snippet">{{ m.match_summary[:100] }}…</div>
-                        <a href="javascript:void(0)" class="sc-link sc-link-sm"
-                           onclick="openNotesModal(
-                               {{ (m.vetting_log.candidate_name if m.vetting_log else 'Unknown')|tojson }},
-                               {{ (m.job_title or ('Job #' ~ m.bullhorn_job_id))|tojson }},
-                               {{ m.match_summary|tojson }},
-                               {{ (m.vetting_log.bullhorn_candidate_id if m.vetting_log else '')|tojson }}
-                           )">View full notes</a>
+                        <a href="javascript:void(0)" class="sc-link sc-link-sm open-notes-link"
+                           data-cname="{{ (m.vetting_log.candidate_name if m.vetting_log else 'Unknown')|e }}"
+                           data-job="{{ (m.job_title or ('Job #' ~ m.bullhorn_job_id))|e }}"
+                           data-notes="{{ m.match_summary|e }}"
+                           data-bhid="{{ (m.vetting_log.bullhorn_candidate_id if m.vetting_log else '')|e }}">View full notes</a>
                         {% else %}
                         <span style="color:rgba(255,255,255,0.2); font-size:0.78rem;">—</span>
                         {% endif %}
@@ -418,11 +418,10 @@
         <table class="table table-dark table-hover sc-table">
             <thead>
                 <tr>
-                    <th style="min-width:200px;">Job</th>
-                    <th style="width:120px; text-align:center;">AI Requirements</th>
-                    <th style="width:130px; text-align:center;">Custom Override</th>
-                    <th style="width:110px; text-align:center;">Threshold</th>
-                    <th style="width:70px; text-align:center;">Save</th>
+                    <th>Job</th>
+                    <th style="text-align:center; white-space:nowrap;">AI Requirements</th>
+                    <th style="text-align:center; white-space:nowrap;">Custom Override</th>
+                    <th style="width:130px; text-align:center; white-space:nowrap;">Threshold</th>
                 </tr>
             </thead>
             <tbody>
@@ -451,31 +450,30 @@
                     {% endif %}
                 </td>
                 <td style="text-align:center;">
-                    <a href="javascript:void(0)" class="sc-link"
-                       onclick="openOverrideModal({{ job_id }}, {{ job.title|tojson }}, {{ (req.ai_interpreted_requirements or '')|tojson }}, {{ (req.custom_requirements or '')|tojson }}, {{ (req.vetting_threshold or '')|tojson }})">
+                    <a href="javascript:void(0)" class="sc-link open-config-link"
+                       data-job-id="{{ job_id }}"
+                       data-job-title="{{ job.title|e }}"
+                       data-ai-req="{{ (req.ai_interpreted_requirements if req and req.ai_interpreted_requirements else '')|e }}"
+                       data-custom="{{ (req.custom_requirements if req and req.custom_requirements else '')|e }}"
+                       data-threshold="{{ (req.vetting_threshold if req and req.vetting_threshold else '')|e }}">
                         Configure{% if req and req.custom_requirements %}&nbsp;<i class="fas fa-circle" style="font-size:0.45rem; color:var(--sc-accent); vertical-align:middle; opacity:0.8;"></i>{% endif %}
                     </a>
                 </td>
                 <td style="text-align:center;">
-                    <form id="thresholdForm-{{ job_id }}"
-                          action="{{ url_for('scout_screening.save_job_settings', job_id=job_id) }}"
-                          method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="custom_requirements"
-                               id="hiddenOverride-{{ job_id }}"
-                               value="{{ req.custom_requirements or '' if req else '' }}">
+                    <input type="hidden" id="hiddenOverride-{{ job_id }}"
+                           value="{{ req.custom_requirements or '' if req else '' }}">
+                    <div style="position:relative; display:inline-block;">
                         <input type="number"
-                               class="threshold-input"
-                               name="vetting_threshold"
-                               id="thresholdInput-{{ job_id }}"
+                               class="threshold-input auto-save-threshold"
+                               data-job-id="{{ job_id }}"
+                               data-save-url="{{ url_for('scout_screening.save_job_settings', job_id=job_id) }}"
+                               data-csrf="{{ csrf_token() }}"
                                min="50" max="100"
                                placeholder="{{ global_threshold }}"
                                value="{{ req.vetting_threshold if req and req.vetting_threshold else '' }}"
                                title="Match threshold (50–100). Blank = global {{ global_threshold }}%.">
-                    </form>
-                </td>
-                <td style="text-align:center;">
-                    <button type="submit" form="thresholdForm-{{ job_id }}" class="btn-link-save">Save</button>
+                        <span class="threshold-feedback" id="tfb-{{ job_id }}"></span>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -568,21 +566,19 @@
 
 {% block extra_scripts %}
 <script>
-// ── Pagination state ────────────────────────────────────────────────────────
+// ── Pagination ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 10;
 let currentPage = 1;
 let visibleRows = [];
 
 function renderPage() {
-    const total = visibleRows.length;
+    const total      = visibleRows.length;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     if (currentPage > totalPages) currentPage = totalPages;
     if (currentPage < 1) currentPage = 1;
 
-    // Show/hide rows for current page
     visibleRows.forEach((r, i) => {
-        const inPage = i >= (currentPage - 1) * PAGE_SIZE && i < currentPage * PAGE_SIZE;
-        r.style.display = inPage ? '' : 'none';
+        r.style.display = (i >= (currentPage-1)*PAGE_SIZE && i < currentPage*PAGE_SIZE) ? '' : 'none';
     });
 
     const bar  = document.getElementById('paginationBar');
@@ -590,35 +586,33 @@ function renderPage() {
     const ind  = document.getElementById('pageIndicator');
     const prev = document.getElementById('prevBtn');
     const next = document.getElementById('nextBtn');
-
     if (!bar) return;
 
-    if (total === 0) { bar.style.setProperty('display', 'none', 'important'); return; }
+    if (total === 0) { bar.style.setProperty('display','none','important'); return; }
     bar.style.removeProperty('display');
     bar.style.display = 'flex';
 
-    const start = (currentPage - 1) * PAGE_SIZE + 1;
-    const end   = Math.min(currentPage * PAGE_SIZE, total);
+    const start = (currentPage-1)*PAGE_SIZE + 1;
+    const end   = Math.min(currentPage*PAGE_SIZE, total);
     if (info) info.textContent = `Showing ${start}–${end} of ${total} result${total !== 1 ? 's' : ''}`;
     if (ind)  ind.textContent  = `Page ${currentPage} of ${totalPages}`;
-
     if (prev) prev.classList.toggle('disabled', currentPage === 1);
     if (next) next.classList.toggle('disabled', currentPage === totalPages);
 }
 
 function changePage(delta) {
-    const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
-    const newPage = currentPage + delta;
-    if (newPage < 1 || newPage > totalPages) return;
-    currentPage = newPage;
+    const tp = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
+    const np = currentPage + delta;
+    if (np < 1 || np > tp) return;
+    currentPage = np;
     renderPage();
 }
 
-// ── Filter ──────────────────────────────────────────────────────────────────
+// ── Filter ───────────────────────────────────────────────────────────────────
 let activeFilter = null;
 
 function filterMatches(filter) {
-    const allRows    = Array.from(document.querySelectorAll('#tableBody tr'));
+    const allRows     = Array.from(document.querySelectorAll('#tableBody tr'));
     const filterEmpty = document.getElementById('filterEmptyState');
     const cards = {
         qualified:       document.getElementById('card-qualified'),
@@ -627,7 +621,6 @@ function filterMatches(filter) {
         week:            document.getElementById('card-week'),
     };
 
-    // Toggle off if already active
     if (activeFilter === filter) {
         activeFilter = null;
         allRows.forEach(r => r.style.display = '');
@@ -643,15 +636,14 @@ function filterMatches(filter) {
     Object.values(cards).forEach(c => c && c.classList.remove('active'));
     if (cards[filter]) cards[filter].classList.add('active');
 
-    let matched = [];
+    const matched = [];
     allRows.forEach(row => {
         const status = row.dataset.status;
         const isWeek = row.dataset.week === 'yes';
-        let show = false;
-        if      (filter === 'qualified')       show = status === 'qualified';
-        else if (filter === 'pending')         show = status === 'pending';
-        else if (filter === 'not_recommended') show = status === 'not_recommended';
-        else if (filter === 'week')            show = isWeek;
+        let show = (filter === 'qualified' && status === 'qualified')
+                || (filter === 'pending'   && status === 'pending')
+                || (filter === 'not_recommended' && status === 'not_recommended')
+                || (filter === 'week'      && isWeek);
         row.style.display = show ? '' : 'none';
         if (show) matched.push(row);
     });
@@ -662,7 +654,34 @@ function filterMatches(filter) {
     renderPage();
 }
 
-// ── Override modal ──────────────────────────────────────────────────────────
+// ── Event delegation — notes + configure links ────────────────────────────────
+document.addEventListener('click', function (e) {
+    const notesLink = e.target.closest('.open-notes-link');
+    if (notesLink) {
+        e.preventDefault();
+        openNotesModal(
+            notesLink.dataset.cname,
+            notesLink.dataset.job,
+            notesLink.dataset.notes,
+            notesLink.dataset.bhid
+        );
+        return;
+    }
+
+    const configLink = e.target.closest('.open-config-link');
+    if (configLink) {
+        e.preventDefault();
+        openOverrideModal(
+            configLink.dataset.jobId,
+            configLink.dataset.jobTitle,
+            configLink.dataset.aiReq,
+            configLink.dataset.custom,
+            configLink.dataset.threshold
+        );
+    }
+});
+
+// ── Override modal ────────────────────────────────────────────────────────────
 function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
     const form     = document.getElementById('overrideModalForm');
     const subtitle = document.getElementById('modalJobSubtitle');
@@ -671,28 +690,25 @@ function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
     const thInput  = document.getElementById('modalThreshold');
 
     form.action = '/scout-screening/job/' + jobId + '/save';
-    if (subtitle) subtitle.textContent = jobTitle + '  ·  ID: ' + jobId;
+    if (subtitle) subtitle.textContent = (jobTitle || '') + '  ·  ID: ' + jobId;
     if (aiBox) {
-        if (aiReq && aiReq.trim()) {
-            aiBox.textContent = aiReq;
-            aiBox.classList.remove('empty-box');
-        } else {
-            aiBox.textContent = 'No AI interpretation available yet. Requirements are extracted automatically from the Bullhorn job description within 5 minutes of the job being added.';
-            aiBox.classList.add('empty-box');
-        }
+        const hasReq = aiReq && aiReq.trim();
+        aiBox.textContent = hasReq ? aiReq
+            : 'No AI interpretation available yet. Requirements are extracted automatically from the Bullhorn job description within 5 minutes of the job being added.';
+        aiBox.classList.toggle('empty-box', !hasReq);
     }
     if (textarea) textarea.value = customOverride || '';
     if (thInput)  thInput.value  = threshold || '';
     new bootstrap.Modal(document.getElementById('overrideModal')).show();
 }
 
-// ── Notes modal ─────────────────────────────────────────────────────────────
+// ── Notes modal ───────────────────────────────────────────────────────────────
 function openNotesModal(candidateName, jobTitle, notes, bullhornId) {
     const subtitle = document.getElementById('notesModalSubtitle');
     const notesBox = document.getElementById('notesFullText');
     const bhLink   = document.getElementById('notesBullhornLink');
 
-    if (subtitle) subtitle.textContent = candidateName + '  ·  ' + jobTitle;
+    if (subtitle) subtitle.textContent = (candidateName || '') + '  ·  ' + (jobTitle || '');
     if (notesBox) notesBox.textContent = notes || '—';
     if (bhLink) {
         bhLink.style.display = bullhornId ? '' : 'none';
@@ -701,10 +717,52 @@ function openNotesModal(candidateName, jobTitle, notes, bullhornId) {
     new bootstrap.Modal(document.getElementById('notesModal')).show();
 }
 
-// ── Init ────────────────────────────────────────────────────────────────────
+// ── Threshold auto-save ───────────────────────────────────────────────────────
+function showThresholdFeedback(jobId, success) {
+    const fb = document.getElementById('tfb-' + jobId);
+    if (!fb) return;
+    fb.textContent = success ? '✓ Saved' : '✗ Error';
+    fb.className   = 'threshold-feedback ' + (success ? 'saved' : 'error');
+    void fb.offsetWidth; // reflow
+    fb.classList.add('visible');
+    setTimeout(() => { fb.classList.remove('visible'); }, 2000);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+    // Pagination init
     visibleRows = Array.from(document.querySelectorAll('#tableBody tr'));
     renderPage();
+
+    // Auto-save threshold on blur
+    document.querySelectorAll('.auto-save-threshold').forEach(function (input) {
+        let originalValue = input.value;
+        input.addEventListener('focus', function () { originalValue = this.value; });
+        input.addEventListener('blur', function () {
+            const jobId  = this.dataset.jobId;
+            const newVal = this.value.trim();
+            if (newVal === originalValue) return; // no change
+
+            const num = parseInt(newVal, 10);
+            if (newVal !== '' && (isNaN(num) || num < 50 || num > 100)) {
+                showThresholdFeedback(jobId, false);
+                this.value = originalValue;
+                return;
+            }
+
+            const fd = new FormData();
+            fd.append('csrf_token',         this.dataset.csrf);
+            fd.append('vetting_threshold',  newVal);
+            fd.append('custom_requirements', (document.getElementById('hiddenOverride-' + jobId) || {}).value || '');
+            fd.append('_ajax',              '1');
+
+            fetch(this.dataset.saveUrl, { method: 'POST', body: fd })
+                .then(r => {
+                    if (r.ok) { originalValue = newVal; showThresholdFeedback(jobId, true); }
+                    else showThresholdFeedback(jobId, false);
+                })
+                .catch(() => showThresholdFeedback(jobId, false));
+        });
+    });
 });
 
 setTimeout(() => location.reload(), 60000);
