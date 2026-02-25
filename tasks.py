@@ -366,7 +366,16 @@ def run_data_retention_cleanup():
             if old_alerts:
                 total_deleted += old_alerts
                 app.logger.info(f"🧹 Data cleanup: Deleted {old_alerts} environment alerts older than 30 days")
-            
+
+            from models import PasswordResetToken
+            expired_tokens = PasswordResetToken.query.filter(
+                (PasswordResetToken.expires_at < datetime.utcnow()) |
+                (PasswordResetToken.used == True)
+            ).delete(synchronize_session=False)
+            if expired_tokens:
+                total_deleted += expired_tokens
+                app.logger.info(f"🧹 Data cleanup: Deleted {expired_tokens} expired/used password reset tokens")
+
             if total_deleted > 0:
                 db.session.commit()
                 app.logger.info(f"🧹 Data retention cleanup complete: {total_deleted} total records cleaned")
