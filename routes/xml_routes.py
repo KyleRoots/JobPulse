@@ -491,50 +491,68 @@ def download_current_xml():
 @xml_routes_bp.route('/automation-status')
 @login_required
 def automation_status():
-    """Get current automation status based on REAL scheduler job state"""
+    """Get current automation status — database-first, scheduler as secondary source"""
     try:
-        from app import scheduler
         from models import GlobalSettings
+        from datetime import datetime, timezone, timedelta
 
-        job_exists = False
-        job_scheduled = False
-        next_upload_time = None
-        next_upload_iso = None
-        next_upload_timestamp = None
-        upload_interval = "30 minutes"
-
-        try:
-            job = scheduler.get_job('automated_upload')
-            if job:
-                job_exists = True
-                if job.next_run_time:
-                    job_scheduled = True
-                    next_upload_time = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S UTC')
-                    next_upload_iso = job.next_run_time.isoformat()
-                    next_upload_timestamp = int(job.next_run_time.timestamp() * 1000)
-        except Exception as e:
-            logger.debug(f"Could not get scheduler job info: {str(e)}")
+        UPLOAD_INTERVAL_MINUTES = 30
+        upload_interval = f"{UPLOAD_INTERVAL_MINUTES} minutes"
 
         automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
         db_setting_enabled = automation_setting and automation_setting.setting_value == 'true'
 
-        if job_exists and job_scheduled:
-            automation_enabled = True
-            status = 'Active'
-        elif job_exists and not job_scheduled:
-            automation_enabled = False
-            status = 'Job exists but not scheduled'
-        else:
-            automation_enabled = False
-            status = 'Not scheduled'
-
         last_upload_setting = GlobalSettings.query.filter_by(setting_key='last_sftp_upload_time').first()
-        last_upload_time = last_upload_setting.setting_value if last_upload_setting else "No uploads yet"
+        last_upload_raw = last_upload_setting.setting_value if last_upload_setting else None
+        last_upload_time = last_upload_raw if last_upload_raw else "No uploads yet"
+
+        next_upload_time = None
+        next_upload_iso = None
+        next_upload_timestamp = None
+
+        if db_setting_enabled:
+            # Try scheduler first — precise, but only works within the primary worker
+            try:
+                from app import scheduler
+                job = scheduler.get_job('automated_upload')
+                if job and job.next_run_time:
+                    next_run = job.next_run_time
+                    next_upload_time = next_run.strftime('%Y-%m-%d %H:%M:%S UTC')
+                    next_upload_iso = next_run.isoformat()
+                    next_upload_timestamp = int(next_run.timestamp() * 1000)
+            except Exception:
+                pass
+
+            # Fall back: calculate from last upload time if scheduler wasn't accessible
+            if not next_upload_time and last_upload_raw:
+                try:
+                    for fmt in ('%Y-%m-%d %H:%M:%S UTC', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+                        try:
+                            last_dt = datetime.strptime(last_upload_raw.strip(), fmt).replace(tzinfo=timezone.utc)
+                            break
+                        except ValueError:
+                            continue
+                    else:
+                        last_dt = None
+                    if last_dt:
+                        next_dt = last_dt + timedelta(minutes=UPLOAD_INTERVAL_MINUTES)
+                        now_utc = datetime.now(timezone.utc)
+                        if next_dt < now_utc:
+                            next_dt = now_utc + timedelta(minutes=1)
+                        next_upload_time = next_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                        next_upload_iso = next_dt.isoformat()
+                        next_upload_timestamp = int(next_dt.timestamp() * 1000)
+                except Exception:
+                    pass
+
+            if not next_upload_time:
+                next_upload_time = 'Pending first run'
+
+        automation_enabled = db_setting_enabled
+        status = 'Active' if db_setting_enabled else 'Disabled'
 
         return jsonify({
             'automation_enabled': automation_enabled,
-            'job_exists': job_exists,
-            'job_scheduled': job_scheduled,
             'db_setting_enabled': db_setting_enabled,
             'next_upload_time': next_upload_time,
             'next_upload_iso': next_upload_iso,
