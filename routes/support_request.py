@@ -323,6 +323,7 @@ def submit_support_request():
 
         brand = request.form.get('brand', 'Myticas').strip()
         route_email, cc_emails = get_routing_info(category, internal_department, brand=brand)
+        cc_emails.append(requester_email)
         category_label = CATEGORY_LABELS.get(category, category)
         category_icon = CATEGORY_ICONS.get(category, '📌')
         priority_label = PRIORITY_LABELS.get(priority, priority)
