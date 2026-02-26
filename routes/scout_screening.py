@@ -132,7 +132,11 @@ def dashboard():
     if job_ids:
         matches = (
             CandidateJobMatch.query
-            .filter(CandidateJobMatch.bullhorn_job_id.in_(job_ids))
+            .join(CandidateVettingLog)
+            .filter(
+                CandidateJobMatch.bullhorn_job_id.in_(job_ids),
+                CandidateVettingLog.is_sandbox != True
+            )
             .order_by(CandidateJobMatch.created_at.desc())
             .limit(200)
             .all()
@@ -141,7 +145,8 @@ def dashboard():
             CandidateVettingLog.query
             .filter(
                 CandidateVettingLog.applied_job_id.in_(job_ids),
-                CandidateVettingLog.status == 'pending'
+                CandidateVettingLog.status == 'pending',
+                CandidateVettingLog.is_sandbox != True
             )
             .order_by(CandidateVettingLog.created_at.desc())
             .limit(50)
@@ -252,7 +257,8 @@ def stats_api():
 
     pending = CandidateVettingLog.query.filter(
         CandidateVettingLog.applied_job_id.in_(job_ids),
-        CandidateVettingLog.status == 'pending'
+        CandidateVettingLog.status == 'pending',
+        CandidateVettingLog.is_sandbox != True
     ).count()
 
     return jsonify({

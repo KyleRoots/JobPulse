@@ -1,0 +1,711 @@
+{% extends "base_layout.html" %}
+{% block title %}Vetting Sandbox{% endblock %}
+
+{% block content %}
+<style>
+    .sandbox-accent { color: #d4a44c; }
+    .sandbox-border { border-color: #d4a44c !important; }
+    .btn-sandbox { background-color: #d4a44c; color: #1a1a2e; border: none; font-weight: 600; }
+    .btn-sandbox:hover { background-color: #c49a3c; color: #1a1a2e; }
+    .btn-sandbox:disabled { background-color: #6b5a2e; color: #888; }
+    .stage-panel { border: 1px solid #2a2a3e; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+    .stage-header { background: #1e1e30; padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+    .stage-header.locked { opacity: 0.5; cursor: not-allowed; }
+    .stage-header .stage-num { background: #2a2a3e; color: #888; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; margin-right: 0.75rem; }
+    .stage-header.active .stage-num { background: #d4a44c; color: #1a1a2e; }
+    .stage-header.completed .stage-num { background: #28a745; color: #fff; }
+    .stage-body { padding: 1.25rem; display: none; }
+    .stage-body.show { display: block; }
+    .score-badge { font-size: 2rem; font-weight: 700; padding: 0.5rem 1.5rem; border-radius: 8px; display: inline-block; }
+    .score-green { background: rgba(40, 167, 69, 0.15); color: #28a745; border: 2px solid #28a745; }
+    .score-amber { background: rgba(212, 164, 76, 0.15); color: #d4a44c; border: 2px solid #d4a44c; }
+    .score-red { background: rgba(220, 53, 69, 0.15); color: #dc3545; border: 2px solid #dc3545; }
+    .result-card { background: #1e1e30; border: 1px solid #2a2a3e; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+    .result-card h6 { color: #d4a44c; margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .chat-bubble { padding: 0.75rem 1rem; border-radius: 12px; margin-bottom: 0.5rem; max-width: 85%; word-wrap: break-word; }
+    .chat-outbound { background: #1e3a5f; color: #e0e0e0; margin-left: auto; border-bottom-right-radius: 4px; }
+    .chat-inbound { background: #2a2a3e; color: #e0e0e0; margin-right: auto; border-bottom-left-radius: 4px; }
+    .chat-meta { font-size: 0.75rem; color: #888; margin-bottom: 0.25rem; }
+    .spinner-overlay { position: relative; }
+    .spinner-overlay .loading-mask { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(20, 20, 35, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; border-radius: 8px; }
+    .loading-mask .spinner-border { width: 2.5rem; height: 2.5rem; color: #d4a44c; }
+    .loading-mask p { color: #ccc; margin-top: 0.75rem; font-size: 0.9rem; }
+    .email-preview { background: #fff; color: #333; border-radius: 8px; padding: 1.25rem; max-height: 400px; overflow-y: auto; font-size: 0.9rem; }
+    .qual-badge { font-size: 0.9rem; padding: 0.35rem 0.75rem; border-radius: 4px; font-weight: 600; }
+    .qual-yes { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+    .qual-no { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+    .intent-badge { font-size: 0.8rem; padding: 0.25rem 0.5rem; border-radius: 4px; }
+    .intent-answer { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+    .intent-question { background: rgba(0, 123, 255, 0.2); color: #007bff; }
+    .intent-decline { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+    .intent-unknown { background: rgba(108, 117, 125, 0.2); color: #6c757d; }
+</style>
+
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex align-items-center mb-3">
+        <i class="fas fa-flask sandbox-accent me-2" style="font-size: 1.5rem;"></i>
+        <h4 class="mb-0">Vetting Sandbox</h4>
+        <span class="badge bg-warning text-dark ms-2">Admin Only</span>
+    </div>
+    <p class="text-muted mb-4" style="font-size: 0.9rem;">Step through the AI vetting pipeline with test inputs. All records are isolated from production.</p>
+
+    <!-- Stage 1: Setup -->
+    <div class="stage-panel" id="stage1-panel">
+        <div class="stage-header active" onclick="toggleStage(1)">
+            <div class="d-flex align-items-center">
+                <div class="stage-num" id="stage1-num">1</div>
+                <strong>Setup &amp; Screening Input</strong>
+            </div>
+            <i class="fas fa-chevron-down" id="stage1-chevron"></i>
+        </div>
+        <div class="stage-body show" id="stage1-body">
+            <div class="row">
+                <div class="col-lg-6">
+                    <h6 class="sandbox-accent mb-3">Job Source</h6>
+                    <div class="btn-group mb-3 w-100" role="group">
+                        <input type="radio" class="btn-check" name="jobSource" id="jobExisting" value="existing" checked>
+                        <label class="btn btn-outline-secondary" for="jobExisting">Use Existing Job</label>
+                        <input type="radio" class="btn-check" name="jobSource" id="jobCustom" value="custom">
+                        <label class="btn btn-outline-secondary" for="jobCustom">Define Custom Job</label>
+                    </div>
+
+                    <div id="existingJobSection">
+                        <div class="mb-3">
+                            <label class="form-label">Select Job</label>
+                            <select class="form-select bg-dark text-light border-secondary" id="jobSelect">
+                                <option value="">Loading jobs...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="customJobSection" style="display: none;">
+                        <div class="mb-2">
+                            <label class="form-label">Job Title</label>
+                            <input type="text" class="form-control bg-dark text-light border-secondary" id="customTitle" placeholder="e.g. Senior Software Engineer">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Job Description</label>
+                            <textarea class="form-control bg-dark text-light border-secondary" id="customDesc" rows="4" placeholder="Full job description..."></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                <label class="form-label">Location</label>
+                                <input type="text" class="form-control bg-dark text-light border-secondary" id="customLocation" placeholder="e.g. Austin, TX">
+                            </div>
+                            <div class="col-6 mb-2">
+                                <label class="form-label">Work Type</label>
+                                <select class="form-select bg-dark text-light border-secondary" id="customWorkType">
+                                    <option value="Remote">Remote</option>
+                                    <option value="Hybrid">Hybrid</option>
+                                    <option value="On-site">On-site</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Custom Requirements <small class="text-muted">(optional)</small></label>
+                            <textarea class="form-control bg-dark text-light border-secondary" id="customReqs" rows="3" placeholder="Additional screening requirements..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <h6 class="sandbox-accent mb-3">Candidate</h6>
+                    <div class="row">
+                        <div class="col-6 mb-2">
+                            <label class="form-label">Candidate Name</label>
+                            <input type="text" class="form-control bg-dark text-light border-secondary" id="candName" value="Test Candidate">
+                        </div>
+                        <div class="col-6 mb-2">
+                            <label class="form-label">Test Email <small class="text-muted">(outreach target)</small></label>
+                            <input type="email" class="form-control bg-dark text-light border-secondary" id="candEmail" placeholder="your-email@example.com">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Resume Text</label>
+                        <textarea class="form-control bg-dark text-light border-secondary" id="resumeText" rows="10" placeholder="Paste candidate resume text here..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-sandbox" id="btnScreen" onclick="runScreening()">
+                    <i class="fas fa-search me-1"></i> Run Screening
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage 2: Screening Results -->
+    <div class="stage-panel" id="stage2-panel">
+        <div class="stage-header locked" id="stage2-header" onclick="toggleStage(2)">
+            <div class="d-flex align-items-center">
+                <div class="stage-num" id="stage2-num">2</div>
+                <strong>Screening Results</strong>
+            </div>
+            <i class="fas fa-chevron-right" id="stage2-chevron"></i>
+        </div>
+        <div class="stage-body" id="stage2-body">
+            <div class="spinner-overlay" id="stage2-loader" style="display:none;">
+                <div class="loading-mask">
+                    <div class="spinner-border"></div>
+                    <p>Running AI screening analysis...</p>
+                </div>
+            </div>
+            <div id="stage2-results"></div>
+        </div>
+    </div>
+
+    <!-- Stage 3: Outreach Preview -->
+    <div class="stage-panel" id="stage3-panel">
+        <div class="stage-header locked" id="stage3-header" onclick="toggleStage(3)">
+            <div class="d-flex align-items-center">
+                <div class="stage-num" id="stage3-num">3</div>
+                <strong>Outreach Preview</strong>
+            </div>
+            <i class="fas fa-chevron-right" id="stage3-chevron"></i>
+        </div>
+        <div class="stage-body" id="stage3-body">
+            <div class="spinner-overlay" id="stage3-loader" style="display:none;">
+                <div class="loading-mask">
+                    <div class="spinner-border"></div>
+                    <p>Generating vetting questions...</p>
+                </div>
+            </div>
+            <div id="stage3-results"></div>
+        </div>
+    </div>
+
+    <!-- Stage 4: Conversation Simulator -->
+    <div class="stage-panel" id="stage4-panel">
+        <div class="stage-header locked" id="stage4-header" onclick="toggleStage(4)">
+            <div class="d-flex align-items-center">
+                <div class="stage-num" id="stage4-num">4</div>
+                <strong>Conversation Simulator</strong>
+            </div>
+            <i class="fas fa-chevron-right" id="stage4-chevron"></i>
+        </div>
+        <div class="stage-body" id="stage4-body">
+            <div id="stage4-results"></div>
+        </div>
+    </div>
+
+    <!-- Stage 5: Final Assessment -->
+    <div class="stage-panel" id="stage5-panel">
+        <div class="stage-header locked" id="stage5-header" onclick="toggleStage(5)">
+            <div class="d-flex align-items-center">
+                <div class="stage-num" id="stage5-num">5</div>
+                <strong>Final Assessment</strong>
+            </div>
+            <i class="fas fa-chevron-right" id="stage5-chevron"></i>
+        </div>
+        <div class="stage-body" id="stage5-body">
+            <div class="spinner-overlay" id="stage5-loader" style="display:none;">
+                <div class="loading-mask">
+                    <div class="spinner-border"></div>
+                    <p>Generating final assessment...</p>
+                </div>
+            </div>
+            <div id="stage5-results"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const state = {
+    currentStage: 1,
+    vettingLogId: null,
+    matchId: null,
+    sessionId: null,
+    score: null,
+    threshold: null,
+    isQualified: false,
+    jobs: []
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadJobs();
+    document.querySelectorAll('input[name="jobSource"]').forEach(r => {
+        r.addEventListener('change', function() {
+            document.getElementById('existingJobSection').style.display = this.value === 'existing' ? 'block' : 'none';
+            document.getElementById('customJobSection').style.display = this.value === 'custom' ? 'block' : 'none';
+        });
+    });
+});
+
+function loadJobs() {
+    fetch('/vetting-sandbox/jobs')
+        .then(r => r.json())
+        .then(data => {
+            state.jobs = data.jobs || [];
+            const sel = document.getElementById('jobSelect');
+            sel.innerHTML = '<option value="">-- Select a job --</option>';
+            state.jobs.forEach(j => {
+                const opt = document.createElement('option');
+                opt.value = j.id;
+                opt.textContent = `[${j.id}] ${j.title}` + (j.location ? ` — ${j.location}` : '');
+                sel.appendChild(opt);
+            });
+        })
+        .catch(() => {
+            document.getElementById('jobSelect').innerHTML = '<option value="">Failed to load jobs</option>';
+        });
+}
+
+function toggleStage(n) {
+    const header = document.getElementById(`stage${n}-header`);
+    if (header.classList.contains('locked')) return;
+    const body = document.getElementById(`stage${n}-body`);
+    const chevron = document.getElementById(`stage${n}-chevron`);
+    body.classList.toggle('show');
+    chevron.classList.toggle('fa-chevron-down');
+    chevron.classList.toggle('fa-chevron-right');
+}
+
+function unlockStage(n) {
+    const header = document.getElementById(`stage${n}-header`);
+    header.classList.remove('locked');
+    header.classList.add('active');
+}
+
+function completeStage(n) {
+    const header = document.getElementById(`stage${n}-header`);
+    header.classList.remove('active');
+    header.classList.add('completed');
+    const num = document.getElementById(`stage${n}-num`);
+    num.innerHTML = '<i class="fas fa-check" style="font-size:0.7rem;"></i>';
+}
+
+function openStage(n) {
+    unlockStage(n);
+    const body = document.getElementById(`stage${n}-body`);
+    body.classList.add('show');
+    const chevron = document.getElementById(`stage${n}-chevron`);
+    chevron.classList.add('fa-chevron-down');
+    chevron.classList.remove('fa-chevron-right');
+    body.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function scoreClass(score) {
+    if (score >= 80) return 'score-green';
+    if (score >= 60) return 'score-amber';
+    return 'score-red';
+}
+
+function intentClass(intent) {
+    if (intent === 'answer') return 'intent-answer';
+    if (intent === 'question') return 'intent-question';
+    if (intent === 'decline') return 'intent-decline';
+    return 'intent-unknown';
+}
+
+function showError(containerId, msg) {
+    document.getElementById(containerId).innerHTML = `
+        <div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${msg}</div>`;
+}
+
+function runScreening() {
+    const btn = document.getElementById('btnScreen');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Screening...';
+
+    const jobSource = document.querySelector('input[name="jobSource"]:checked').value;
+    const payload = {
+        job_source: jobSource,
+        resume_text: document.getElementById('resumeText').value,
+        candidate_name: document.getElementById('candName').value,
+        candidate_email: document.getElementById('candEmail').value,
+    };
+
+    if (jobSource === 'existing') {
+        payload.job_id = document.getElementById('jobSelect').value;
+        if (!payload.job_id) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-search me-1"></i> Run Screening';
+            alert('Please select a job.');
+            return;
+        }
+    } else {
+        payload.job_title = document.getElementById('customTitle').value;
+        payload.job_description = document.getElementById('customDesc').value;
+        payload.job_location = document.getElementById('customLocation').value;
+        payload.job_requirements = document.getElementById('customReqs').value;
+    }
+
+    if (!payload.resume_text.trim()) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search me-1"></i> Run Screening';
+        alert('Please paste a resume.');
+        return;
+    }
+
+    unlockStage(2);
+    openStage(2);
+    document.getElementById('stage2-loader').style.display = 'block';
+    document.getElementById('stage2-results').innerHTML = '';
+
+    fetch('/vetting-sandbox/screen', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('stage2-loader').style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search me-1"></i> Run Screening';
+
+        if (data.error) {
+            showError('stage2-results', data.error);
+            return;
+        }
+
+        state.vettingLogId = data.vetting_log_id;
+        state.matchId = data.match_id;
+        state.score = data.score;
+        state.threshold = data.threshold;
+        state.isQualified = data.is_qualified;
+
+        completeStage(1);
+
+        document.getElementById('stage2-results').innerHTML = `
+            <div class="text-center mb-3">
+                <div class="score-badge ${scoreClass(data.score)}">${data.score}</div>
+                <div class="text-muted mt-1">Threshold: ${data.threshold}</div>
+                <span class="qual-badge mt-2 ${data.is_qualified ? 'qual-yes' : 'qual-no'}">
+                    ${data.is_qualified ? 'QUALIFIED' : 'NOT QUALIFIED'}
+                </span>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="result-card"><h6>Match Summary</h6><p class="mb-0" style="font-size:0.85rem;">${data.match_summary || 'N/A'}</p></div>
+                    <div class="result-card"><h6>Skills Match</h6><p class="mb-0" style="font-size:0.85rem;">${data.skills_match || 'N/A'}</p></div>
+                </div>
+                <div class="col-md-6">
+                    <div class="result-card"><h6>Experience Match</h6><p class="mb-0" style="font-size:0.85rem;">${data.experience_match || 'N/A'}</p></div>
+                    <div class="result-card"><h6>Gaps Identified</h6><p class="mb-0" style="font-size:0.85rem;">${data.gaps_identified || 'None'}</p></div>
+                </div>
+            </div>
+            <div class="mt-3 d-flex gap-2">
+                <button class="btn btn-sandbox" onclick="generateOutreach()" ${!data.is_qualified ? 'title="Score below threshold — outreach still available for testing"' : ''}>
+                    <i class="fas fa-envelope me-1"></i> Generate Outreach
+                </button>
+                <button class="btn btn-outline-secondary" onclick="openStage(1)">
+                    <i class="fas fa-redo me-1"></i> Re-run
+                </button>
+            </div>`;
+    })
+    .catch(err => {
+        document.getElementById('stage2-loader').style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search me-1"></i> Run Screening';
+        showError('stage2-results', 'Network error: ' + err.message);
+    });
+}
+
+function generateOutreach() {
+    unlockStage(3);
+    openStage(3);
+    document.getElementById('stage3-loader').style.display = 'block';
+    document.getElementById('stage3-results').innerHTML = '';
+
+    fetch('/vetting-sandbox/generate-outreach', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            vetting_log_id: state.vettingLogId,
+            match_id: state.matchId
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('stage3-loader').style.display = 'none';
+
+        if (data.error) {
+            showError('stage3-results', data.error);
+            return;
+        }
+
+        state.sessionId = data.session_id;
+        completeStage(2);
+
+        let qList = (data.questions || []).map((q, i) => `<li class="mb-1">${q}</li>`).join('');
+        const testEmail = document.getElementById('candEmail').value || '';
+
+        document.getElementById('stage3-results').innerHTML = `
+            <div class="row">
+                <div class="col-md-5">
+                    <div class="result-card">
+                        <h6>Generated Questions</h6>
+                        <ol style="font-size:0.85rem; padding-left:1.25rem;">${qList}</ol>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Send Outreach To</label>
+                        <input type="email" class="form-control bg-dark text-light border-secondary" id="testEmailAddr" value="${testEmail}" placeholder="test@example.com">
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sandbox" onclick="sendOutreach()">
+                            <i class="fas fa-paper-plane me-1"></i> Send Outreach Email
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="generateOutreach()">
+                            <i class="fas fa-sync me-1"></i> Regenerate
+                        </button>
+                    </div>
+                    <div id="sendStatus" class="mt-2"></div>
+                </div>
+                <div class="col-md-7">
+                    <div class="result-card">
+                        <h6>Email Preview</h6>
+                        <div class="mb-1 text-muted" style="font-size:0.8rem;">Subject: ${data.email_subject || ''}</div>
+                        <div class="email-preview">${data.email_html || '<p>No preview available</p>'}</div>
+                    </div>
+                </div>
+            </div>`;
+    })
+    .catch(err => {
+        document.getElementById('stage3-loader').style.display = 'none';
+        showError('stage3-results', 'Network error: ' + err.message);
+    });
+}
+
+function sendOutreach() {
+    const testEmail = document.getElementById('testEmailAddr').value.trim();
+    if (!testEmail) { alert('Enter a test email address.'); return; }
+
+    const statusEl = document.getElementById('sendStatus');
+    statusEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending...';
+
+    fetch('/vetting-sandbox/send-outreach', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ session_id: state.sessionId, test_email: testEmail })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            statusEl.innerHTML = `<span class="text-success"><i class="fas fa-check me-1"></i>Sent to ${data.sent_to}</span>`;
+            completeStage(3);
+            openStage(4);
+            initConversation();
+        } else {
+            statusEl.innerHTML = `<span class="text-danger"><i class="fas fa-times me-1"></i>${data.error || data.message || 'Send failed'}</span>`;
+        }
+    })
+    .catch(err => {
+        statusEl.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+    });
+}
+
+function initConversation() {
+    unlockStage(4);
+    document.getElementById('stage4-results').innerHTML = `
+        <div class="row">
+            <div class="col-md-7">
+                <div class="result-card" style="min-height:300px; max-height:500px; overflow-y:auto;" id="chatTranscript">
+                    <div class="chat-meta">Outbound — Outreach Sent</div>
+                    <div class="chat-bubble chat-outbound"><i class="fas fa-paper-plane me-1"></i> Initial outreach email sent</div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="result-card">
+                    <h6>Simulate Candidate Reply</h6>
+                    <textarea class="form-control bg-dark text-light border-secondary mb-2" id="replyText" rows="6" placeholder="Type a simulated candidate reply..."></textarea>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sandbox" id="btnReply" onclick="simulateReply()">
+                            <i class="fas fa-reply me-1"></i> Send Reply
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="skipToFinalize()">
+                            <i class="fas fa-forward me-1"></i> Finalize Now
+                        </button>
+                    </div>
+                </div>
+                <div id="replyAnalysis"></div>
+            </div>
+        </div>`;
+}
+
+function simulateReply() {
+    const replyText = document.getElementById('replyText').value.trim();
+    if (!replyText) { alert('Type a reply to simulate.'); return; }
+
+    const btn = document.getElementById('btnReply');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Analyzing...';
+
+    const chat = document.getElementById('chatTranscript');
+    chat.innerHTML += `
+        <div class="chat-meta mt-2">Inbound — Candidate Reply</div>
+        <div class="chat-bubble chat-inbound">${replyText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+
+    fetch('/vetting-sandbox/simulate-reply', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ session_id: state.sessionId, reply_text: replyText })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-reply me-1"></i> Send Reply';
+        document.getElementById('replyText').value = '';
+
+        if (data.error) {
+            showError('replyAnalysis', data.error);
+            return;
+        }
+
+        document.getElementById('replyAnalysis').innerHTML = `
+            <div class="result-card mt-2">
+                <h6>AI Analysis</h6>
+                <p class="mb-1"><strong>Intent:</strong> <span class="intent-badge ${intentClass(data.intent)}">${data.intent}</span></p>
+                <p class="mb-1" style="font-size:0.85rem;"><strong>Reasoning:</strong> ${data.reasoning || 'N/A'}</p>
+                <p class="mb-1" style="font-size:0.85rem;"><strong>Answers Extracted:</strong> ${Object.keys(data.answers_extracted || {}).length}</p>
+                <p class="mb-0" style="font-size:0.85rem;"><strong>Progress:</strong> ${data.total_answered}/${data.total_questions} questions answered</p>
+            </div>`;
+
+        if (data.follow_up_html) {
+            chat.innerHTML += `
+                <div class="chat-meta mt-2">Outbound — AI Follow-up</div>
+                <div class="chat-bubble chat-outbound" style="font-size:0.85rem;">Follow-up sent with ${data.follow_up_questions.length} remaining question(s)</div>`;
+        }
+
+        if (data.session_status === 'ready_to_finalize' || data.session_status === 'declined' || data.all_answered || data.max_turns_reached) {
+            if (data.session_status !== 'declined') {
+                chat.innerHTML += `<div class="text-center mt-2"><span class="badge bg-success">All questions answered or max turns reached</span></div>`;
+                skipToFinalize();
+            } else {
+                chat.innerHTML += `<div class="text-center mt-2"><span class="badge bg-danger">Candidate declined</span></div>`;
+                completeStage(4);
+            }
+        }
+
+        chat.scrollTop = chat.scrollHeight;
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-reply me-1"></i> Send Reply';
+        showError('replyAnalysis', 'Network error: ' + err.message);
+    });
+}
+
+function skipToFinalize() {
+    completeStage(4);
+    unlockStage(5);
+    openStage(5);
+    document.getElementById('stage5-loader').style.display = 'block';
+    document.getElementById('stage5-results').innerHTML = '';
+
+    fetch('/vetting-sandbox/finalize', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ session_id: state.sessionId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('stage5-loader').style.display = 'none';
+
+        if (data.error) {
+            showError('stage5-results', data.error);
+            return;
+        }
+
+        completeStage(5);
+        const recClass = data.recommendation === 'qualified' ? 'qual-yes' : 'qual-no';
+        const recLabel = (data.recommendation || 'unknown').replace(/_/g, ' ').toUpperCase();
+
+        let transcriptHtml = '';
+        (data.transcript || []).forEach(t => {
+            const dir = t.direction === 'outbound' ? 'chat-outbound' : 'chat-inbound';
+            const label = t.direction === 'outbound' ? 'Scout AI' : 'Candidate';
+            transcriptHtml += `<div class="chat-meta mt-1">${label} (Turn ${t.turn})</div>`;
+            const body = (t.body || '').length > 300 ? t.body.substring(0, 300) + '...' : (t.body || '');
+            transcriptHtml += `<div class="chat-bubble ${dir}" style="font-size:0.8rem;">${body}</div>`;
+        });
+
+        document.getElementById('stage5-results').innerHTML = `
+            <div class="text-center mb-3">
+                <div class="score-badge ${scoreClass(data.outcome_score || 0)}">${data.outcome_score || 0}</div>
+                <div class="mt-2"><span class="qual-badge ${recClass}">${recLabel}</span></div>
+            </div>
+            <div class="result-card mb-3">
+                <h6>Outcome Summary</h6>
+                <p class="mb-0" style="font-size:0.9rem;">${data.outcome_summary || 'No summary available'}</p>
+            </div>
+            ${transcriptHtml ? `
+            <div class="result-card mb-3">
+                <h6>Conversation Transcript</h6>
+                <div style="max-height:300px; overflow-y:auto;">${transcriptHtml}</div>
+            </div>` : ''}
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-outline-danger" onclick="cleanupSandbox()">
+                    <i class="fas fa-trash me-1"></i> Clean Up Sandbox Data
+                </button>
+                <button class="btn btn-sandbox" onclick="startNewTest()">
+                    <i class="fas fa-plus me-1"></i> Start New Test
+                </button>
+            </div>
+            <div id="cleanupStatus" class="mt-2"></div>`;
+    })
+    .catch(err => {
+        document.getElementById('stage5-loader').style.display = 'none';
+        showError('stage5-results', 'Network error: ' + err.message);
+    });
+}
+
+function cleanupSandbox() {
+    if (!confirm('Delete all sandbox test data? This cannot be undone.')) return;
+    const statusEl = document.getElementById('cleanupStatus');
+    statusEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Cleaning up...';
+
+    fetch('/vetting-sandbox/cleanup', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const d = data.deleted || {};
+            statusEl.innerHTML = `<span class="text-success"><i class="fas fa-check me-1"></i>
+                Deleted: ${d.vetting_logs || 0} logs, ${d.matches || 0} matches, ${d.sessions || 0} sessions, ${d.conversation_turns || 0} turns</span>`;
+        } else {
+            statusEl.innerHTML = `<span class="text-danger">${data.error || 'Cleanup failed'}</span>`;
+        }
+    })
+    .catch(err => {
+        statusEl.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+    });
+}
+
+function startNewTest() {
+    state.vettingLogId = null;
+    state.matchId = null;
+    state.sessionId = null;
+    state.score = null;
+    state.isQualified = false;
+
+    for (let i = 2; i <= 5; i++) {
+        const header = document.getElementById(`stage${i}-header`);
+        header.classList.remove('active', 'completed');
+        header.classList.add('locked');
+        const num = document.getElementById(`stage${i}-num`);
+        num.innerHTML = i;
+        const body = document.getElementById(`stage${i}-body`);
+        body.classList.remove('show');
+        body.innerHTML = body.querySelector('.spinner-overlay') ? body.innerHTML : '';
+        const chevron = document.getElementById(`stage${i}-chevron`);
+        chevron.classList.remove('fa-chevron-down');
+        chevron.classList.add('fa-chevron-right');
+    }
+
+    const s1header = document.getElementById('stage1-header');
+    s1header.classList.remove('completed');
+    s1header.classList.add('active');
+    document.getElementById('stage1-num').innerHTML = '1';
+
+    document.getElementById('stage2-results').innerHTML = '';
+    document.getElementById('stage3-results').innerHTML = '';
+    document.getElementById('stage4-results').innerHTML = '';
+    document.getElementById('stage5-results').innerHTML = '';
+
+    openStage(1);
+}
+</script>
+{% endblock %}

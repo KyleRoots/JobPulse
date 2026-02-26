@@ -80,20 +80,22 @@ def vetting_settings():
     }
     
     # Get recent activity
-    recent_activity = CandidateVettingLog.query.order_by(
+    recent_activity = CandidateVettingLog.query.filter(
+        CandidateVettingLog.is_sandbox != True
+    ).order_by(
         CandidateVettingLog.created_at.desc()
     ).limit(50).all()
     
-    # Get recommended candidates (limit 30 — template renders max 30)
-    recommended_candidates = CandidateVettingLog.query.filter_by(
-        status='completed', 
-        is_qualified=True
+    recommended_candidates = CandidateVettingLog.query.filter(
+        CandidateVettingLog.status == 'completed',
+        CandidateVettingLog.is_qualified == True,
+        CandidateVettingLog.is_sandbox != True
     ).order_by(CandidateVettingLog.created_at.desc()).limit(30).all()
     
-    # Get not recommended candidates (limit 30 — template renders max 30)
-    not_recommended_candidates = CandidateVettingLog.query.filter_by(
-        status='completed',
-        is_qualified=False
+    not_recommended_candidates = CandidateVettingLog.query.filter(
+        CandidateVettingLog.status == 'completed',
+        CandidateVettingLog.is_qualified == False,
+        CandidateVettingLog.is_sandbox != True
     ).order_by(CandidateVettingLog.created_at.desc()).limit(30).all()
     
     # Get job requirements - filtered to only show active tearsheet jobs
@@ -126,16 +128,16 @@ def vetting_settings():
         VettingHealthCheck.check_time >= day_ago
     ).order_by(VettingHealthCheck.check_time.desc()).limit(10).all()
     
-    # Get pending candidates
     pending_candidates = CandidateVettingLog.query.filter(
-        CandidateVettingLog.status.in_(['pending', 'processing'])
+        CandidateVettingLog.status.in_(['pending', 'processing']),
+        CandidateVettingLog.is_sandbox != True
     ).order_by(CandidateVettingLog.created_at.desc()).limit(50).all()
     
-    # Get recently vetted candidates
     week_ago = datetime.utcnow() - timedelta(days=7)
     recent_vetting = CandidateVettingLog.query.filter(
         CandidateVettingLog.status == 'completed',
-        CandidateVettingLog.updated_at >= week_ago
+        CandidateVettingLog.updated_at >= week_ago,
+        CandidateVettingLog.is_sandbox != True
     ).order_by(CandidateVettingLog.updated_at.desc()).limit(50).all()
     
     return render_template('vetting_settings.html', 
@@ -668,17 +670,18 @@ def retry_failed_notes():
         # Count total failed before applying batch limit
         total_failed = CandidateVettingLog.query.filter(
             CandidateVettingLog.status == 'completed',
-            CandidateVettingLog.note_created == False
+            CandidateVettingLog.note_created == False,
+            CandidateVettingLog.is_sandbox != True
         ).count()
         
         if total_failed == 0:
             flash('No failed notes to retry — all completed vetting logs have notes.', 'info')
             return redirect(url_for('vetting.vetting_settings'))
         
-        # Apply batch limit
         failed_logs = CandidateVettingLog.query.filter(
             CandidateVettingLog.status == 'completed',
-            CandidateVettingLog.note_created == False
+            CandidateVettingLog.note_created == False,
+            CandidateVettingLog.is_sandbox != True
         ).order_by(CandidateVettingLog.analyzed_at.desc()).limit(batch_size).all()
         
         vetting_service = CandidateVettingService()

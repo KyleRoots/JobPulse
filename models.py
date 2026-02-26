@@ -638,6 +638,9 @@ class CandidateVettingLog(db.Model):
     error_message = db.Column(db.Text, nullable=True)
     retry_count = db.Column(db.Integer, default=0)
     
+    # Sandbox flag
+    is_sandbox = db.Column(db.Boolean, default=False, server_default='false')
+    
     # Timestamps
     detected_at = db.Column(db.DateTime, default=datetime.utcnow)  # When candidate was detected
     analyzed_at = db.Column(db.DateTime, nullable=True)  # When AI analysis completed
@@ -1038,6 +1041,9 @@ class ScoutVettingSession(db.Model):
     # unresponsive: no reply after follow-ups exhausted
     # declined: candidate declined to participate
     status = db.Column(db.String(50), nullable=False, default='pending')
+    
+    # Sandbox flag
+    is_sandbox = db.Column(db.Boolean, default=False, server_default='false')
     
     # Vetting content
     vetting_questions_json = db.Column(db.Text, nullable=True)  # JSON array of generated questions

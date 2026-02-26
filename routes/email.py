@@ -23,23 +23,25 @@ def scout_vetting_dashboard():
     svc = ScoutVettingService(email_service=None)
     is_enabled = svc.is_enabled()
 
+    prod_filter = ScoutVettingSession.is_sandbox != True
     stats = {
-        'total': ScoutVettingSession.query.count(),
+        'total': ScoutVettingSession.query.filter(prod_filter).count(),
         'active': ScoutVettingSession.query.filter(
-            ScoutVettingSession.status.in_(['outreach_sent', 'in_progress'])
+            ScoutVettingSession.status.in_(['outreach_sent', 'in_progress']),
+            prod_filter
         ).count(),
-        'awaiting_reply': ScoutVettingSession.query.filter_by(status='outreach_sent').count(),
-        'pending': ScoutVettingSession.query.filter_by(status='pending').count(),
-        'in_progress': ScoutVettingSession.query.filter_by(status='in_progress').count(),
-        'qualified': ScoutVettingSession.query.filter_by(status='qualified').count(),
-        'not_qualified': ScoutVettingSession.query.filter_by(status='not_qualified').count(),
-        'declined': ScoutVettingSession.query.filter_by(status='declined').count(),
-        'unresponsive': ScoutVettingSession.query.filter_by(status='unresponsive').count(),
+        'awaiting_reply': ScoutVettingSession.query.filter_by(status='outreach_sent').filter(prod_filter).count(),
+        'pending': ScoutVettingSession.query.filter_by(status='pending').filter(prod_filter).count(),
+        'in_progress': ScoutVettingSession.query.filter_by(status='in_progress').filter(prod_filter).count(),
+        'qualified': ScoutVettingSession.query.filter_by(status='qualified').filter(prod_filter).count(),
+        'not_qualified': ScoutVettingSession.query.filter_by(status='not_qualified').filter(prod_filter).count(),
+        'declined': ScoutVettingSession.query.filter_by(status='declined').filter(prod_filter).count(),
+        'unresponsive': ScoutVettingSession.query.filter_by(status='unresponsive').filter(prod_filter).count(),
         'completed': 0,
     }
     stats['completed'] = stats['qualified'] + stats['not_qualified']
 
-    sessions = ScoutVettingSession.query.order_by(
+    sessions = ScoutVettingSession.query.filter(prod_filter).order_by(
         ScoutVettingSession.updated_at.desc()
     ).limit(50).all()
 

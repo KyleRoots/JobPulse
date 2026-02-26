@@ -75,7 +75,10 @@ def dashboard_redirect():
     try:
         # Candidates vetted: count from CandidateVettingLog where status='completed'
         from models import CandidateVettingLog
-        candidates_vetted = CandidateVettingLog.query.filter_by(status='completed').count()
+        candidates_vetted = CandidateVettingLog.query.filter(
+            CandidateVettingLog.status == 'completed',
+            CandidateVettingLog.is_sandbox != True
+        ).count()
     except Exception as e:
         current_app.logger.debug(f"Could not count vetted candidates: {e}")
     

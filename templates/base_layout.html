@@ -1590,6 +1590,13 @@
                     <i class="fas fa-comments"></i>
                     <span>AI Candidate Vetting</span>
                 </a>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('vetting_sandbox.sandbox_page') }}"
+                    class="nav-item {% if active_page == 'vetting_sandbox' %}active{% endif %}">
+                    <i class="fas fa-flask" style="color: #d4a44c;"></i>
+                    <span>Vetting Sandbox</span>
+                </a>
+                {% endif %}
             </div>
             {% endif %}
 

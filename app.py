@@ -200,6 +200,9 @@ app.register_blueprint(scout_inbound_bp)
 app.register_blueprint(scout_screening_bp)
 app.register_blueprint(support_request_bp)
 
+from routes.vetting_sandbox import vetting_sandbox_bp
+app.register_blueprint(vetting_sandbox_bp)
+
 from utils.bullhorn_helpers import get_bullhorn_service, get_email_service
 
 @login_manager.user_loader
