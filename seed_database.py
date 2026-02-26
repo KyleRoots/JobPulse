@@ -835,6 +835,42 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for user.is_company_admin: {str(e)}")
 
+    # Add is_sandbox to candidate_vetting_log (added Feb 2026 for Vetting Sandbox feature)
+    try:
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'candidate_vetting_log' AND column_name = 'is_sandbox'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text(
+                'ALTER TABLE candidate_vetting_log ADD COLUMN is_sandbox BOOLEAN NOT NULL DEFAULT FALSE'
+            ))
+            db.session.commit()
+            logger.info("✅ Added column is_sandbox to candidate_vetting_log table")
+        else:
+            logger.info("ℹ️ Column is_sandbox already exists on candidate_vetting_log table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for candidate_vetting_log.is_sandbox: {str(e)}")
+
+    # Add is_sandbox to scout_vetting_session (added Feb 2026 for Vetting Sandbox feature)
+    try:
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'scout_vetting_session' AND column_name = 'is_sandbox'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text(
+                'ALTER TABLE scout_vetting_session ADD COLUMN is_sandbox BOOLEAN NOT NULL DEFAULT FALSE'
+            ))
+            db.session.commit()
+            logger.info("✅ Added column is_sandbox to scout_vetting_session table")
+        else:
+            logger.info("ℹ️ Column is_sandbox already exists on scout_vetting_session table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for scout_vetting_session.is_sandbox: {str(e)}")
+
     # Drop UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id
     # (Feb 2026 - allow multiple vetting logs per candidate for re-applications)
     try:
