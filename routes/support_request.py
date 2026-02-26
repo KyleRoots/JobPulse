@@ -54,9 +54,10 @@ _DAN_SIFER_EMAIL = 'dsifer@myticas.com'
 _ANITA_BARKER_EMAIL = 'abarker@myticas.com'
 _ANASTASIYA_IVANOVA_EMAIL = 'ai@myticas.com'
 _TECH_SUPPORT_EMAIL = 'techsupport@myticas.com'
-_CC_ALWAYS = 'kroots@myticas.com'
+_BCC_ALWAYS = 'kroots@myticas.com'
+_CC_ALWAYS = []
 
-_STSI_CC_ALWAYS = ['kroots@myticas.com', 'jbocek@stsigroup.com']
+_STSI_CC_ALWAYS = ['jbocek@stsigroup.com']
 _STSI_DEFAULT_EMAIL = 'jbocek@stsigroup.com'
 _STSI_EMAIL_NOTIFICATIONS_EMAIL = 'doneil@q-staffing.com'
 _STSI_BACKOFFICE_EMAIL = 'evalentine@stsigroup.com'
@@ -76,7 +77,7 @@ def get_routing_info(category, department='', brand='Myticas'):
     if brand == 'STSI':
         return _get_stsi_routing(category)
 
-    cc = [_CC_ALWAYS]
+    cc = list(_CC_ALWAYS)
     dept = (department or '').strip()
 
     if category == 'email_notifications':
@@ -234,10 +235,12 @@ def send_test_email():
     success = send_support_email(
         to_email='kroots@myticas.com',
         cc_emails=[],
+        bcc_emails=[],
         reply_to_email='inangoma@myticas.com',
         subject='[TEST] Support Request Template Preview — Back-Office: Onboarding',
         html_content=html_content,
-        attachments=[]
+        attachments=[],
+        requester_name='Innocent Nangoma',
     )
     if success:
         return jsonify({'success': True, 'message': 'Test email sent to kroots@myticas.com'})
@@ -339,11 +342,13 @@ def submit_support_request():
         success = send_support_email(
             to_email=route_email,
             cc_emails=cc_emails,
+            bcc_emails=[_BCC_ALWAYS],
             reply_to_email=requester_email,
             subject=email_subject,
             html_content=html_content,
             attachments=valid_attachments,
             brand=brand,
+            requester_name=requester_name,
         )
 
         if success:
@@ -454,12 +459,12 @@ def build_support_email_html(requester_name, requester_email, internal_departmen
     '''
 
 
-def send_support_email(to_email, reply_to_email, subject, html_content, attachments=None, cc_emails=None, brand='Myticas'):
+def send_support_email(to_email, reply_to_email, subject, html_content, attachments=None, cc_emails=None, bcc_emails=None, brand='Myticas', requester_name=''):
     try:
         from sendgrid import SendGridAPIClient
         from sendgrid.helpers.mail import (
             Mail, Email, To, Content, Attachment,
-            FileContent, FileName, FileType, Disposition, Cc
+            FileContent, FileName, FileType, Disposition, Cc, Bcc
         )
 
         sg_api_key = os.environ.get('SENDGRID_API_KEY')
@@ -469,8 +474,9 @@ def send_support_email(to_email, reply_to_email, subject, html_content, attachme
 
         sg = SendGridAPIClient(sg_api_key)
 
-        sender_name = 'STSI Internal Support' if brand == 'STSI' else 'Myticas Internal Support'
-        from_email = Email('kroots@myticas.com', sender_name)
+        sender_label = 'STSI Support' if brand == 'STSI' else 'Myticas Support'
+        display_name = f"{requester_name} via {sender_label}" if requester_name else sender_label
+        from_email = Email('support@myticas.com', display_name)
         to_email_obj = To(to_email)
 
         mail = Mail(
@@ -486,6 +492,11 @@ def send_support_email(to_email, reply_to_email, subject, html_content, attachme
             for cc_addr in cc_emails:
                 if cc_addr and cc_addr != to_email:
                     mail.add_cc(Cc(cc_addr))
+
+        if bcc_emails:
+            for bcc_addr in bcc_emails:
+                if bcc_addr:
+                    mail.add_bcc(Bcc(bcc_addr))
 
         if attachments:
             for att in attachments:
