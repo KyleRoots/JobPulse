@@ -97,6 +97,16 @@
             margin-bottom: 1rem;
         }
     }
+
+    .support-dir-chevron,
+    .users-chevron {
+        transition: transform 0.2s ease;
+    }
+    #supportDirectoryCollapse.show ~ * .support-dir-chevron,
+    [aria-expanded="true"] .support-dir-chevron,
+    [aria-expanded="true"] .users-chevron {
+        transform: rotate(180deg);
+    }
 </style>
 {% endblock %}
 
@@ -317,8 +327,15 @@
 
 <!-- Support Directory Section -->
 <div id="support-directory" class="mt-5">
-    <h4 class="mb-1"><i class="fas fa-address-book me-2"></i>Support Form Directory</h4>
-    <p class="text-muted mb-2">People who can submit support requests via the internal support forms. This registry is separate from Scout Genius platform users — support contacts do not have login access to this application.</p>
+    <h4 class="mb-1" data-bs-toggle="collapse" data-bs-target="#supportDirectoryCollapse"
+        aria-expanded="false" aria-controls="supportDirectoryCollapse"
+        style="cursor: pointer; user-select: none;">
+        <i class="fas fa-address-book me-2"></i>Support Form Directory
+        <i class="fas fa-chevron-down ms-2 support-dir-chevron" style="font-size: 0.8rem; transition: transform 0.2s; color: rgba(255,255,255,0.4);"></i>
+    </h4>
+
+    <div class="collapse" id="supportDirectoryCollapse">
+    <p class="text-muted mb-2 mt-1">People who can submit support requests via the internal support forms. This registry is separate from Scout Genius platform users — support contacts do not have login access to this application.</p>
     <div class="alert alert-secondary mb-3 py-2 px-3" style="font-size: 0.85rem; background: rgba(74,150,120,0.08); border-color: rgba(74,150,120,0.2); color: rgba(255,255,255,0.7);">
         <i class="fas fa-info-circle me-2"></i>
         <strong>How it works:</strong> When someone visits the support form and types their name, they are matched against this directory. Their email and department auto-populate based on their profile here. Department is used for smart email routing.
@@ -495,6 +512,7 @@
         </div>
 
     </div>
+    </div><!-- end #supportDirectoryCollapse -->
 </div>
 
 <!-- User Management Section -->
@@ -582,7 +600,12 @@
     <!-- Existing Users -->
     <div class="settings-card no-hover p-4">
         <div class="d-flex align-items-center justify-content-between mb-3">
-            <h5 class="mb-0"><i class="fas fa-users me-2"></i>Existing Users (<span id="userVisibleCount">{{ users|length }}</span>)</h5>
+            <h5 class="mb-0" data-bs-toggle="collapse" data-bs-target="#existingUsersCollapse"
+                aria-expanded="false" aria-controls="existingUsersCollapse"
+                style="cursor: pointer; user-select: none;">
+                <i class="fas fa-users me-2"></i>Existing Users (<span id="userVisibleCount">{{ users|length }}</span>)
+                <i class="fas fa-chevron-down ms-2 users-chevron" style="font-size: 0.75rem; transition: transform 0.2s; color: rgba(255,255,255,0.4);"></i>
+            </h5>
             <ul class="nav nav-pills mb-0" id="userCompanyFilter" style="gap: 6px;">
                 <li class="nav-item">
                     <button class="user-filter-btn nav-link active" data-filter="all"
@@ -608,6 +631,8 @@
                 </li>
             </ul>
         </div>
+
+        <div class="collapse" id="existingUsersCollapse">
 
         {% if users|length > 1 %}
         <div class="d-flex align-items-center gap-2 mb-3 pb-2" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
@@ -739,6 +764,8 @@
             </div>
         </div>
         {% endfor %}
+
+        </div><!-- end #existingUsersCollapse -->
     </div>
 </div>
 {% endblock %}
@@ -763,6 +790,31 @@
             stsiTab.addEventListener('shown.bs.tab', function () {
                 setActiveTab(stsiTab, myticasTab, '#00B5B5', 'rgba(255,255,255,0.5)');
                 stsiTab.style.color = '#00B5B5';
+            });
+        }
+
+        // Chevron rotation for collapsible sections
+        const supportCollapse = document.getElementById('supportDirectoryCollapse');
+        const supportToggle = document.querySelector('[data-bs-target="#supportDirectoryCollapse"]');
+        if (supportCollapse && supportToggle) {
+            const supportChevron = supportToggle.querySelector('.support-dir-chevron');
+            supportCollapse.addEventListener('show.bs.collapse', function () {
+                if (supportChevron) supportChevron.style.transform = 'rotate(180deg)';
+            });
+            supportCollapse.addEventListener('hide.bs.collapse', function () {
+                if (supportChevron) supportChevron.style.transform = 'rotate(0deg)';
+            });
+        }
+
+        const usersCollapse = document.getElementById('existingUsersCollapse');
+        const usersToggle = document.querySelector('[data-bs-target="#existingUsersCollapse"]');
+        if (usersCollapse && usersToggle) {
+            const usersChevron = usersToggle.querySelector('.users-chevron');
+            usersCollapse.addEventListener('show.bs.collapse', function () {
+                if (usersChevron) usersChevron.style.transform = 'rotate(180deg)';
+            });
+            usersCollapse.addEventListener('hide.bs.collapse', function () {
+                if (usersChevron) usersChevron.style.transform = 'rotate(0deg)';
             });
         }
     });
