@@ -917,9 +917,17 @@
     const bulkCsrfToken = document.querySelector('meta[name="csrf-token"]') ?
         document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
 
+    function getVisibleCheckboxes() {
+        return Array.from(document.querySelectorAll('.user-card')).filter(function (card) {
+            return card.style.display !== 'none';
+        }).map(function (card) {
+            return card.querySelector('.user-select-check');
+        }).filter(Boolean);
+    }
+
     function updateBulkUI() {
-        const checked = document.querySelectorAll('.user-select-check:checked');
-        const all = document.querySelectorAll('.user-select-check');
+        const visibleCbs = getVisibleCheckboxes();
+        const checked = visibleCbs.filter(function (cb) { return cb.checked; });
         const count = checked.length;
         const welcomeBtn = document.getElementById('bulkWelcomeBtn');
         const resetBtn = document.getElementById('bulkResetBtn');
@@ -938,8 +946,8 @@
             countEl.style.display = count > 0 ? '' : 'none';
         }
         if (selectAllCb) {
-            selectAllCb.checked = count === all.length && all.length > 0;
-            selectAllCb.indeterminate = count > 0 && count < all.length;
+            selectAllCb.checked = count === visibleCbs.length && visibleCbs.length > 0;
+            selectAllCb.indeterminate = count > 0 && count < visibleCbs.length;
         }
     }
 
@@ -950,7 +958,7 @@
         const selectAllCb = document.getElementById('selectAllUsers');
         if (selectAllCb) {
             selectAllCb.addEventListener('change', function () {
-                document.querySelectorAll('.user-select-check').forEach(function (cb) {
+                getVisibleCheckboxes().forEach(function (cb) {
                     cb.checked = selectAllCb.checked;
                 });
                 updateBulkUI();
