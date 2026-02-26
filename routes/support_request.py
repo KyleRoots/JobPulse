@@ -160,7 +160,7 @@ def redirect_support_domain():
         path = request.path
         if path == '/' or path == '':
             return _serve_support_form()
-        if path.startswith('/static/') or path.startswith('/support'):
+        if path == '/robots.txt' or path.startswith('/static/') or path.startswith('/support'):
             return None
         from flask import abort
         abort(404)
@@ -168,10 +168,17 @@ def redirect_support_domain():
         path = request.path
         if path == '/' or path == '':
             return _serve_stsi_support_form()
-        if path.startswith('/static/') or path.startswith('/support'):
+        if path == '/robots.txt' or path.startswith('/static/') or path.startswith('/support'):
             return None
         from flask import abort
         abort(404)
+
+
+@support_request_bp.route('/robots.txt')
+@csrf.exempt
+def support_robots_txt():
+    from flask import Response
+    return Response("User-agent: *\nDisallow: /\n", mimetype='text/plain')
 
 
 @support_request_bp.route('/support/contacts/search')
