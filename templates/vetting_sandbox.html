@@ -3,32 +3,32 @@
 
 {% block content %}
 <style>
-    .sandbox-accent { color: #d4a44c; }
-    .sandbox-border { border-color: #d4a44c !important; }
-    .btn-sandbox { background-color: #d4a44c; color: #1a1a2e; border: none; font-weight: 600; }
-    .btn-sandbox:hover { background-color: #c49a3c; color: #1a1a2e; }
-    .btn-sandbox:disabled { background-color: #6b5a2e; color: #888; }
+    .sandbox-accent { color: #7cc5c5; }
+    .sandbox-border { border-color: #7cc5c5 !important; }
+    .btn-sandbox { background-color: #7cc5c5; color: #0d2626; border: none; font-weight: 600; }
+    .btn-sandbox:hover { background-color: #5aadad; color: #0d2626; }
+    .btn-sandbox:disabled { background-color: #2a5a5a; color: #888; }
     .stage-panel { border: 1px solid #2a2a3e; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
     .stage-header { background: #1e1e30; padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
     .stage-header.locked { opacity: 0.5; cursor: not-allowed; }
     .stage-header .stage-num { background: #2a2a3e; color: #888; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; margin-right: 0.75rem; }
-    .stage-header.active .stage-num { background: #d4a44c; color: #1a1a2e; }
+    .stage-header.active .stage-num { background: #7cc5c5; color: #0d2626; }
     .stage-header.completed .stage-num { background: #28a745; color: #fff; }
     .stage-body { padding: 1.25rem; display: none; }
     .stage-body.show { display: block; }
     .score-badge { font-size: 2rem; font-weight: 700; padding: 0.5rem 1.5rem; border-radius: 8px; display: inline-block; }
     .score-green { background: rgba(40, 167, 69, 0.15); color: #28a745; border: 2px solid #28a745; }
-    .score-amber { background: rgba(212, 164, 76, 0.15); color: #d4a44c; border: 2px solid #d4a44c; }
+    .score-amber { background: rgba(124, 197, 197, 0.15); color: #7cc5c5; border: 2px solid #7cc5c5; }
     .score-red { background: rgba(220, 53, 69, 0.15); color: #dc3545; border: 2px solid #dc3545; }
     .result-card { background: #1e1e30; border: 1px solid #2a2a3e; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
-    .result-card h6 { color: #d4a44c; margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .result-card h6 { color: #7cc5c5; margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
     .chat-bubble { padding: 0.75rem 1rem; border-radius: 12px; margin-bottom: 0.5rem; max-width: 85%; word-wrap: break-word; }
     .chat-outbound { background: #1e3a5f; color: #e0e0e0; margin-left: auto; border-bottom-right-radius: 4px; }
     .chat-inbound { background: #2a2a3e; color: #e0e0e0; margin-right: auto; border-bottom-left-radius: 4px; }
     .chat-meta { font-size: 0.75rem; color: #888; margin-bottom: 0.25rem; }
     .spinner-overlay { position: relative; }
     .spinner-overlay .loading-mask { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(20, 20, 35, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; border-radius: 8px; }
-    .loading-mask .spinner-border { width: 2.5rem; height: 2.5rem; color: #d4a44c; }
+    .loading-mask .spinner-border { width: 2.5rem; height: 2.5rem; color: #7cc5c5; }
     .loading-mask p { color: #ccc; margin-top: 0.75rem; font-size: 0.9rem; }
     .email-preview { background: #fff; color: #333; border-radius: 8px; padding: 1.25rem; max-height: 400px; overflow-y: auto; font-size: 0.9rem; }
     .qual-badge { font-size: 0.9rem; padding: 0.35rem 0.75rem; border-radius: 4px; font-weight: 600; }

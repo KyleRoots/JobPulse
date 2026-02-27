@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, abort
 from flask_login import login_required, current_user
@@ -7,8 +8,25 @@ from flask_login import login_required, current_user
 vetting_sandbox_bp = Blueprint('vetting_sandbox', __name__)
 logger = logging.getLogger(__name__)
 
+PRODUCTION_DOMAINS = {
+    'app.scoutgenius.ai', 'www.app.scoutgenius.ai',
+    'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'
+}
 
-def _require_super_admin():
+
+def _is_dev_only():
+    host = request.headers.get('X-Forwarded-Host', request.host or '').split(',')[0].strip()
+    clean_host = host.split(':')[0].lower()
+    if clean_host in PRODUCTION_DOMAINS:
+        return False
+    if os.environ.get('REPLIT_DEPLOYMENT'):
+        return False
+    return True
+
+
+def _require_sandbox_access():
+    if not _is_dev_only():
+        abort(404)
     if not current_user.is_authenticated or not current_user.is_admin:
         abort(403)
 
@@ -16,14 +34,14 @@ def _require_super_admin():
 @vetting_sandbox_bp.route('/vetting-sandbox')
 @login_required
 def sandbox_page():
-    _require_super_admin()
+    _require_sandbox_access()
     return render_template('vetting_sandbox.html', active_page='vetting_sandbox')
 
 
 @vetting_sandbox_bp.route('/vetting-sandbox/jobs')
 @login_required
 def list_jobs():
-    _require_super_admin()
+    _require_sandbox_access()
     from models import JobVettingRequirements
     reqs = JobVettingRequirements.query.order_by(
         JobVettingRequirements.updated_at.desc()
@@ -43,7 +61,7 @@ def list_jobs():
 @vetting_sandbox_bp.route('/vetting-sandbox/screen', methods=['POST'])
 @login_required
 def run_screening():
-    _require_super_admin()
+    _require_sandbox_access()
     from app import db
     from models import CandidateVettingLog, CandidateJobMatch, VettingConfig, JobVettingRequirements
 
@@ -160,7 +178,7 @@ def run_screening():
 @vetting_sandbox_bp.route('/vetting-sandbox/generate-outreach', methods=['POST'])
 @login_required
 def generate_outreach():
-    _require_super_admin()
+    _require_sandbox_access()
     from app import db
     from models import CandidateVettingLog, CandidateJobMatch, ScoutVettingSession
     from scout_vetting_service import ScoutVettingService
@@ -226,7 +244,7 @@ def generate_outreach():
 @vetting_sandbox_bp.route('/vetting-sandbox/send-outreach', methods=['POST'])
 @login_required
 def send_outreach():
-    _require_super_admin()
+    _require_sandbox_access()
     from app import db
     from models import ScoutVettingSession, VettingConversationTurn
     from scout_vetting_service import ScoutVettingService, SCOUT_VETTING_REPLY_TO, SCOUT_VETTING_FROM_NAME
@@ -297,7 +315,7 @@ def send_outreach():
 @vetting_sandbox_bp.route('/vetting-sandbox/simulate-reply', methods=['POST'])
 @login_required
 def simulate_reply():
-    _require_super_admin()
+    _require_sandbox_access()
     from app import db
     from models import ScoutVettingSession, VettingConversationTurn
     from scout_vetting_service import ScoutVettingService
@@ -422,7 +440,7 @@ def simulate_reply():
 @vetting_sandbox_bp.route('/vetting-sandbox/finalize', methods=['POST'])
 @login_required
 def finalize():
-    _require_super_admin()
+    _require_sandbox_access()
     from app import db
     from models import ScoutVettingSession, VettingConversationTurn
     from scout_vetting_service import ScoutVettingService
@@ -482,7 +500,7 @@ def finalize():
 @vetting_sandbox_bp.route('/vetting-sandbox/cleanup', methods=['POST'])
 @login_required
 def cleanup():
-    _require_super_admin()
+    _require_sandbox_access()
     from app import db
     from models import CandidateVettingLog, CandidateJobMatch, ScoutVettingSession, VettingConversationTurn
 

@@ -1591,11 +1591,13 @@
                     <span>AI Candidate Vetting</span>
                 </a>
                 {% if current_user.is_admin %}
+                {% if config.get('ENVIRONMENT', 'production') != 'production' or not request.headers.get('X-Forwarded-Host', request.host or '').split(',')[0].strip().split(':')[0] in ['app.scoutgenius.ai', 'www.app.scoutgenius.ai', 'jobpulse.lyntrix.ai'] %}
                 <a href="{{ url_for('vetting_sandbox.sandbox_page') }}"
                     class="nav-item {% if active_page == 'vetting_sandbox' %}active{% endif %}">
-                    <i class="fas fa-flask" style="color: #d4a44c;"></i>
+                    <i class="fas fa-flask" style="color: #7cc5c5;"></i>
                     <span>Vetting Sandbox</span>
                 </a>
+                {% endif %}
                 {% endif %}
             </div>
             {% endif %}
