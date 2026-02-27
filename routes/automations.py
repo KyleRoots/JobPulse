@@ -1,35 +1,22 @@
 import json
 import logging
 from flask import Blueprint, render_template, request, jsonify, abort
-from flask_login import login_required
+from flask_login import login_required, current_user
 
 logger = logging.getLogger(__name__)
 
 automations_bp = Blueprint('automations', __name__)
 
 
-def _is_dev_only():
-    import os
-    from flask import request as req
-    PRODUCTION_DOMAINS = {
-        'app.scoutgenius.ai', 'www.app.scoutgenius.ai',
-        'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'
-    }
-    host = req.headers.get('X-Forwarded-Host', req.host or '').split(',')[0].strip()
-    clean_host = host.split(':')[0].lower()
-    if clean_host in PRODUCTION_DOMAINS:
-        return False
-    env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
-    if os.environ.get('REPLIT_DEPLOYMENT'):
-        return False
-    return True
+def _require_admin():
+    if not current_user.is_authenticated or not current_user.is_admin:
+        abort(403)
 
 
 @automations_bp.route('/automations')
 @login_required
 def automations_dashboard():
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
     tasks = service.get_tasks()
@@ -48,8 +35,7 @@ def automations_dashboard():
 @automations_bp.route('/automations/chat', methods=['POST'])
 @login_required
 def automations_chat():
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
 
@@ -67,8 +53,7 @@ def automations_chat():
 @automations_bp.route('/automations/list')
 @login_required
 def automations_list():
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
     tasks = service.get_tasks()
@@ -88,8 +73,7 @@ def automations_list():
 @automations_bp.route('/automations/<int:task_id>/run', methods=['POST'])
 @login_required
 def automation_run(task_id):
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
 
@@ -107,8 +91,7 @@ def automation_run(task_id):
 @automations_bp.route('/automations/run-builtin', methods=['POST'])
 @login_required
 def automation_run_builtin():
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
 
@@ -127,8 +110,7 @@ def automation_run_builtin():
 @automations_bp.route('/automations/<int:task_id>/status', methods=['POST'])
 @login_required
 def automation_status(task_id):
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
 
@@ -145,8 +127,7 @@ def automation_status(task_id):
 @automations_bp.route('/automations/<int:task_id>', methods=['DELETE'])
 @login_required
 def automation_delete(task_id):
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
     if service.delete_task(task_id):
@@ -157,8 +138,7 @@ def automation_delete(task_id):
 @automations_bp.route('/automations/<int:task_id>/logs')
 @login_required
 def automation_logs(task_id):
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
     logs = service.get_task_logs(task_id)
@@ -174,8 +154,7 @@ def automation_logs(task_id):
 @automations_bp.route('/automations/<int:task_id>/chat')
 @login_required
 def automation_chat_history(task_id):
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
     history = service.get_chat_history(task_id=task_id)
@@ -190,8 +169,7 @@ def automation_chat_history(task_id):
 @automations_bp.route('/automations/chat/clear', methods=['POST'])
 @login_required
 def automations_chat_clear():
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from automation_service import AutomationService
     data = request.get_json() or {}
     task_id = data.get('task_id')
@@ -203,8 +181,7 @@ def automations_chat_clear():
 @automations_bp.route('/automations/scheduler-status')
 @login_required
 def scheduler_status():
-    if not _is_dev_only():
-        abort(404)
+    _require_admin()
     from flask import current_app
     jobs = []
     try:

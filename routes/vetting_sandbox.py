@@ -8,25 +8,8 @@ from flask_login import login_required, current_user
 vetting_sandbox_bp = Blueprint('vetting_sandbox', __name__)
 logger = logging.getLogger(__name__)
 
-PRODUCTION_DOMAINS = {
-    'app.scoutgenius.ai', 'www.app.scoutgenius.ai',
-    'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'
-}
-
-
-def _is_dev_only():
-    host = request.headers.get('X-Forwarded-Host', request.host or '').split(',')[0].strip()
-    clean_host = host.split(':')[0].lower()
-    if clean_host in PRODUCTION_DOMAINS:
-        return False
-    if os.environ.get('REPLIT_DEPLOYMENT'):
-        return False
-    return True
-
 
 def _require_sandbox_access():
-    if not _is_dev_only():
-        abort(404)
     if not current_user.is_authenticated or not current_user.is_admin:
         abort(403)
 

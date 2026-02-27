@@ -1,5 +1,4 @@
 {% extends "base_layout.html" %}
-{% block body_attrs %}data-module="vetting"{% endblock %}
 {% block title %}Vetting Sandbox — Scout Genius™{% endblock %}
 
 {% block page_title %}Vetting Sandbox{% endblock %}
@@ -7,10 +6,18 @@
 
 {% block content %}
 <style>
-    .sandbox-accent { color: var(--module-text, #7cc5c5); }
-    .sandbox-border { border-color: var(--module-accent, #7cc5c5) !important; }
+    /* Product Expert amber palette */
+    :root {
+        --sb-accent: #e8a87c;
+        --sb-accent-dim: #c4895a;
+        --sb-bg: #1e1208;
+        --sb-card-bg: #1a1008;
+        --sb-border: rgba(232, 168, 124, 0.2);
+        --sb-text: #e8a87c;
+    }
 
-    /* Stage panels use settings-card, this class is kept only for JS state hooks */
+    .sandbox-accent { color: var(--sb-accent); }
+
     .stage-header { cursor: pointer; }
     .stage-header.locked { opacity: 0.5; cursor: not-allowed; }
     .stage-header .stage-num {
@@ -21,10 +28,7 @@
         font-size: 0.8rem; font-weight: 700; margin-right: 0.75rem;
         flex-shrink: 0;
     }
-    .stage-header.active .stage-num {
-        background: var(--module-accent, #7cc5c5);
-        color: var(--module-bg, #0a1620);
-    }
+    .stage-header.active .stage-num { background: var(--sb-accent); color: #1e1208; }
     .stage-header.completed .stage-num { background: #28a745; color: #fff; }
 
     .stage-body { padding: 1.25rem; display: none; }
@@ -32,33 +36,33 @@
 
     .score-badge { font-size: 2rem; font-weight: 700; padding: 0.5rem 1.5rem; border-radius: 8px; display: inline-block; }
     .score-green { background: rgba(40, 167, 69, 0.15); color: #28a745; border: 2px solid #28a745; }
-    .score-amber { background: rgba(124, 197, 197, 0.15); color: var(--module-text, #7cc5c5); border: 2px solid var(--module-accent, #7cc5c5); }
+    .score-amber { background: rgba(232, 168, 124, 0.15); color: var(--sb-accent); border: 2px solid var(--sb-accent); }
     .score-red { background: rgba(220, 53, 69, 0.15); color: #dc3545; border: 2px solid #dc3545; }
 
     .result-card {
-        background: var(--module-card-bg, #0e1e2a);
-        border: 1px solid var(--module-border, #1a3a4a);
+        background: var(--sb-card-bg);
+        border: 1px solid var(--sb-border);
         border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem;
     }
     .result-card h6 {
-        color: var(--module-text, #7cc5c5);
+        color: var(--sb-text);
         margin-bottom: 0.5rem; font-size: 0.85rem;
         text-transform: uppercase; letter-spacing: 0.05em;
     }
 
     .chat-bubble { padding: 0.75rem 1rem; border-radius: 12px; margin-bottom: 0.5rem; max-width: 85%; word-wrap: break-word; }
-    .chat-outbound { background: #1e3a5f; color: #e0e0e0; margin-left: auto; border-bottom-right-radius: 4px; }
-    .chat-inbound { background: var(--module-bg, #0a1620); color: #e0e0e0; margin-right: auto; border-bottom-left-radius: 4px; }
+    .chat-outbound { background: #2a1e10; color: #e0e0e0; margin-left: auto; border-bottom-right-radius: 4px; border: 1px solid rgba(232,168,124,0.15); }
+    .chat-inbound { background: #141008; color: #e0e0e0; margin-right: auto; border-bottom-left-radius: 4px; }
     .chat-meta { font-size: 0.75rem; color: #888; margin-bottom: 0.25rem; }
 
     .spinner-overlay { position: relative; }
     .spinner-overlay .loading-mask {
         position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(8, 18, 24, 0.88);
+        background: rgba(20, 12, 4, 0.88);
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         z-index: 10; border-radius: 8px;
     }
-    .loading-mask .spinner-border { width: 2.5rem; height: 2.5rem; color: var(--module-accent, #7cc5c5); }
+    .loading-mask .spinner-border { width: 2.5rem; height: 2.5rem; color: var(--sb-accent); }
     .loading-mask p { color: #ccc; margin-top: 0.75rem; font-size: 0.9rem; }
 
     .email-preview { background: #fff; color: #333; border-radius: 8px; padding: 1.25rem; max-height: 400px; overflow-y: auto; font-size: 0.9rem; }
@@ -72,6 +76,17 @@
     .intent-question { background: rgba(0, 123, 255, 0.2); color: #007bff; }
     .intent-decline { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
     .intent-unknown { background: rgba(108, 117, 125, 0.2); color: #6c757d; }
+
+    /* Override settings-card border/glow to amber for this page */
+    .settings-card { border-color: var(--sb-border) !important; }
+    .settings-card::before { background: linear-gradient(135deg, rgba(232,168,124,0.15), transparent) !important; }
+    .settings-card:hover { border-color: var(--sb-accent) !important; box-shadow: 0 15px 40px rgba(0,0,0,0.25), 0 0 30px rgba(232,168,124,0.12) !important; }
+    .settings-card .card-header { background: rgba(232,168,124,0.06); border-bottom-color: var(--sb-border) !important; }
+
+    /* Amber primary button override for this page */
+    .btn-sb { background: var(--sb-accent); color: #1e1208; border: none; font-weight: 600; }
+    .btn-sb:hover { background: var(--sb-accent-dim); color: #1e1208; }
+    .btn-sb:disabled { background: rgba(232,168,124,0.3); color: #888; }
 </style>
 
 <div class="container-fluid px-0">
@@ -154,7 +169,7 @@
                 </div>
             </div>
             <div class="mt-3">
-                <button class="btn btn-primary" id="btnScreen" onclick="runScreening()">
+                <button class="btn btn-sb" id="btnScreen" onclick="runScreening()">
                     <i class="fas fa-search me-1"></i> Run Screening
                 </button>
             </div>
@@ -413,7 +428,7 @@ function runScreening() {
                 </div>
             </div>
             <div class="mt-3 d-flex gap-2">
-                <button class="btn btn-primary" onclick="generateOutreach()" ${!data.is_qualified ? 'title="Score below threshold — outreach still available for testing"' : ''}>
+                <button class="btn btn-sb" onclick="generateOutreach()" ${!data.is_qualified ? 'title="Score below threshold — outreach still available for testing"' : ''}>
                     <i class="fas fa-envelope me-1"></i> Generate Outreach
                 </button>
                 <button class="btn btn-outline-secondary" onclick="openStage(1)">
@@ -470,7 +485,7 @@ function generateOutreach() {
                         <input type="email" class="form-control bg-dark text-light border-secondary" id="testEmailAddr" value="${testEmail}" placeholder="test@example.com">
                     </div>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-primary" onclick="sendOutreach()">
+                        <button class="btn btn-sb" onclick="sendOutreach()">
                             <i class="fas fa-paper-plane me-1"></i> Send Outreach Email
                         </button>
                         <button class="btn btn-outline-secondary" onclick="generateOutreach()">
@@ -537,7 +552,7 @@ function initConversation() {
                     <h6>Simulate Candidate Reply</h6>
                     <textarea class="form-control bg-dark text-light border-secondary mb-2" id="replyText" rows="6" placeholder="Type a simulated candidate reply..."></textarea>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-primary" id="btnReply" onclick="simulateReply()">
+                        <button class="btn btn-sb" id="btnReply" onclick="simulateReply()">
                             <i class="fas fa-reply me-1"></i> Send Reply
                         </button>
                         <button class="btn btn-outline-warning" onclick="skipToFinalize()">
@@ -665,7 +680,7 @@ function skipToFinalize() {
                 <button class="btn btn-outline-danger" onclick="cleanupSandbox()">
                     <i class="fas fa-trash me-1"></i> Clean Up Sandbox Data
                 </button>
-                <button class="btn btn-primary" onclick="startNewTest()">
+                <button class="btn btn-sb" onclick="startNewTest()">
                     <i class="fas fa-plus me-1"></i> Start New Test
                 </button>
             </div>
