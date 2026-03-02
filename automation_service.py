@@ -351,6 +351,10 @@ class AutomationService:
     def execute_bullhorn_operation(self, operation, params, task_id=None):
         try:
             bh = self.bullhorn
+            try:
+                bh.authenticate()
+            except Exception as auth_err:
+                return {"error": f"Bullhorn authentication failed: {auth_err}"}
             result = None
 
             if operation == 'search_candidates':
