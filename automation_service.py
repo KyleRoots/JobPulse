@@ -90,6 +90,13 @@ These are pre-built, tested automations that the user can trigger by name:
    - Normally runs automatically every 30 minutes; use this for an immediate sync
    - No params needed
 
+7. **update_field_bulk** — Bulk-update a field on any Bullhorn entity matching a search query
+   - Searches for entities matching a Lucene query and applies specified field updates to all matches
+   - Params: entity (default "Candidate"), query (Lucene query string, required), updates (dict of field→value, required), batch_size (default 500), dry_run (default true), limit (optional cap on records processed for safety)
+   - ALWAYS run with dry_run=true first — it returns the real total count and 5 sample IDs so the user can verify scope before committing
+   - Use this for bulk field changes: source tag normalisation, status updates, custom field resets, etc.
+   - Example: `{"run_builtin": {"name": "update_field_bulk", "params": {"query": "source:LinkedIn", "updates": {"source": "LinkedIn Job Board"}, "dry_run": true}}}`
+
 BULLHORN API NOTES:
 - Note soft-delete uses POST to entity/Note/{id} with {"isDeleted": true}
 - search/Note uses Lucene queries; action values may not be indexed — use entity/Candidate/{id}/notes for reliable note retrieval
@@ -564,6 +571,7 @@ class AutomationService:
             "export_qualified": self._builtin_export_qualified,
             "resume_reparser": self._builtin_resume_reparser,
             "salesrep_sync": self._builtin_salesrep_sync,
+            "update_field_bulk": self._builtin_update_field_bulk,
         }
 
         handler = handlers.get(name)
@@ -953,4 +961,102 @@ class AutomationService:
             "summary": f"Sales Rep Sync: scanned {result.get('scanned', 0)}, "
                        f"updated {result.get('updated', 0)}, errors {result.get('errors', 0)}",
             **result
+        }
+
+    def _builtin_update_field_bulk(self, params):
+        entity = params.get("entity", "Candidate")
+        query = params.get("query", "").strip()
+        updates = params.get("updates", {})
+        batch_size = min(int(params.get("batch_size", 500)), 500)
+        dry_run = params.get("dry_run", True)
+        limit = params.get("limit")
+
+        if not query:
+            return {"error": "query parameter is required (Lucene search string)"}
+        if not updates or not isinstance(updates, dict):
+            return {"error": "updates parameter is required (dict of field→value pairs)"}
+
+        bh = self.bullhorn
+        search_url = f"{self._bh_url()}search/{entity}"
+
+        sample_resp = bh.session.get(search_url, params={
+            "query": query, "fields": "id", "count": 5, "start": 0,
+            "BhRestToken": bh.rest_token
+        }, timeout=30)
+        sample_data = sample_resp.json()
+        total = sample_data.get("total", 0)
+        sample_ids = [r["id"] for r in sample_data.get("data", [])]
+        effective_total = min(total, int(limit)) if limit else total
+
+        if dry_run:
+            batches = (effective_total + batch_size - 1) // batch_size if effective_total else 0
+            return {
+                "summary": (
+                    f"DRY RUN: Found {total:,} {entity} records matching '{query}'. "
+                    + (f"Capped to {effective_total:,} by limit. " if limit else "")
+                    + f"Would update {updates} across ~{batches:,} batch(es). "
+                    f"Re-run with dry_run=false to execute."
+                ),
+                "dry_run": True,
+                "entity": entity,
+                "total_found": total,
+                "effective_total": effective_total,
+                "sample_ids": sample_ids,
+                "fields_to_update": updates,
+                "estimated_batches": batches,
+            }
+
+        succeeded = 0
+        failed = 0
+        failed_ids = []
+        sample_updated_ids = []
+        start = 0
+
+        while start < effective_total:
+            this_count = min(batch_size, effective_total - start)
+            resp = bh.session.get(search_url, params={
+                "query": query, "fields": "id",
+                "count": this_count, "start": start,
+                "BhRestToken": bh.rest_token
+            }, timeout=30)
+            batch_ids = [r["id"] for r in resp.json().get("data", [])]
+
+            if not batch_ids:
+                break
+
+            for record_id in batch_ids:
+                try:
+                    upd = bh.session.post(
+                        f"{self._bh_url()}entity/{entity}/{record_id}",
+                        params={"BhRestToken": bh.rest_token},
+                        json=updates, timeout=15
+                    )
+                    if upd.status_code in (200, 201):
+                        succeeded += 1
+                        if len(sample_updated_ids) < 5:
+                            sample_updated_ids.append(record_id)
+                    else:
+                        failed += 1
+                        if len(failed_ids) < 10:
+                            failed_ids.append({"id": record_id, "status": upd.status_code})
+                except Exception as e:
+                    failed += 1
+                    if len(failed_ids) < 10:
+                        failed_ids.append({"id": record_id, "error": str(e)[:100]})
+
+            start += len(batch_ids)
+            time.sleep(0.05)
+
+        return {
+            "summary": (
+                f"Bulk update complete: {succeeded:,} {entity} records updated "
+                f"({updates}), {failed:,} failed."
+            ),
+            "dry_run": False,
+            "entity": entity,
+            "total_processed": succeeded + failed,
+            "succeeded": succeeded,
+            "failed": failed,
+            "sample_updated_ids": sample_updated_ids,
+            "failed_ids": failed_ids,
         }

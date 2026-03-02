@@ -967,6 +967,12 @@ BUILTIN_AUTOMATIONS = [
         "automation_type": "scheduled",
         "builtin_key": "salesrep_sync",
     },
+    {
+        "name": "Bulk Field Update",
+        "description": "Update one or more fields on all Bullhorn records matching a search query. Supports any entity type (Candidate, JobOrder, etc). Always dry-run first to confirm scope before executing.",
+        "automation_type": "one-time",
+        "builtin_key": "update_field_bulk",
+    },
 ]
 
 
