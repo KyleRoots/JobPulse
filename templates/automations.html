@@ -6,7 +6,7 @@
 {% block page_title %}{% endblock %}
 {% block page_subtitle %}{% endblock %}
 
-{% block extra_head %}
+{% block extra_styles %}
 <style>
     body[data-module="automations"] .page-header {
         display: none !important;
@@ -424,7 +424,7 @@
         <div class="chat-input-area" style="padding:0.75rem 1.25rem;border-top:1px solid rgba(255,255,255,0.08);background:rgba(10,18,14,0.8);flex-shrink:0;">
             <div class="chat-input-wrapper" style="display:flex;gap:0.75rem;">
                 <textarea id="chatInput" placeholder="Describe your automation..." rows="1"
-                    onkeydown="handleKeyDown(event)" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#e0dcd8;padding:0.65rem 0.9rem;font-size:0.9rem;resize:none;min-height:44px;max-height:120px;font-family:inherit;"></textarea>
+                    onkeydown="handleKeyDown(event)" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#e0dcd8;padding:0.65rem 0.9rem;font-size:0.9rem;resize:none;overflow:hidden;min-height:44px;max-height:200px;font-family:inherit;"></textarea>
                 <button id="sendBtn" onclick="sendMessage()" style="align-self:flex-end;padding:0.65rem 1.25rem;background:rgba(232,168,124,0.15);border:1px solid rgba(232,168,124,0.3);color:#e8a87c;border-radius:8px;cursor:pointer;font-size:0.9rem;">
                     <i class="fas fa-paper-plane me-1"></i> Send
                 </button>
@@ -483,7 +483,7 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block extra_scripts %}
 <script>
     (function() {
         var ph = document.querySelector('.page-header');
