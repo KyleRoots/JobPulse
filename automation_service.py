@@ -161,7 +161,12 @@ DATA INTEGRITY — ABSOLUTE RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TASK ANCHORING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-At the start of every response, briefly restate the active task in one sentence using this exact format: "Working on: ... [task description]." — for example: "Working on: ... updating LinkedIn source tags to 'LinkedIn Job Board'." This prevents context drift across long sessions. If the user changes direction, acknowledge the shift and restate the new task using the same format.
+Use the "Working on: ... [task description]." anchor ONLY in these situations:
+1. Your very first response when a new task begins.
+2. When the user changes direction — acknowledge the shift and restate the new task.
+3. When resuming after a session break or a long gap.
+
+Do NOT include it in follow-up responses during an ongoing task. Once a task is underway, respond directly without prefixing every reply with the anchor — it becomes noise.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PLANNING vs. EXECUTION — KEEP THESE SEPARATE
@@ -1103,9 +1108,20 @@ class AutomationService:
         failed_ids = []
         sample_updated_ids = []
         start = 0
+        batch_number = 0
+        first_batch_verified = False
 
         while start < effective_total:
             this_count = min(batch_size, effective_total - start)
+
+            # Refresh Bullhorn auth token every 50 batches (~25k records, ~10 min) to prevent expiry
+            if batch_number > 0 and batch_number % 50 == 0:
+                try:
+                    bh.authenticate()
+                    self.logger.info(f"update_field_bulk: refreshed Bullhorn auth at batch {batch_number}")
+                except Exception as auth_err:
+                    self.logger.warning(f"update_field_bulk: auth refresh failed at batch {batch_number}: {auth_err}")
+
             resp = bh.session.get(search_url, params={
                 "query": query, "fields": "id",
                 "count": this_count, "start": start,
@@ -1127,16 +1143,61 @@ class AutomationService:
                         succeeded += 1
                         if len(sample_updated_ids) < 5:
                             sample_updated_ids.append(record_id)
+
+                        # Read-back spot-check after the very first successful update
+                        if not first_batch_verified and succeeded == 1:
+                            first_batch_verified = True
+                            try:
+                                check = bh.session.get(
+                                    f"{self._bh_url()}entity/{entity}/{record_id}",
+                                    params={
+                                        "fields": ",".join(updates.keys()),
+                                        "BhRestToken": bh.rest_token
+                                    },
+                                    timeout=15
+                                )
+                                check_data = check.json()
+                                record_data = check_data.get("data", check_data)
+                                mismatches = {
+                                    field: {"expected": val, "actual": record_data.get(field)}
+                                    for field, val in updates.items()
+                                    if record_data.get(field) != val
+                                }
+                                if mismatches:
+                                    return {
+                                        "error": (
+                                            f"Read-back verification FAILED after first update (ID {record_id}). "
+                                            f"Changes did not persist in Bullhorn. Halting to prevent wasted API calls."
+                                        ),
+                                        "record_id": record_id,
+                                        "mismatches": mismatches,
+                                        "raw_readback": record_data,
+                                        "succeeded_before_halt": succeeded,
+                                    }
+                                self.logger.info(
+                                    f"update_field_bulk: read-back verified for ID {record_id} — changes confirmed"
+                                )
+                            except Exception as verify_err:
+                                self.logger.warning(f"update_field_bulk: read-back check failed: {verify_err}")
                     else:
                         failed += 1
                         if len(failed_ids) < 10:
-                            failed_ids.append({"id": record_id, "status": upd.status_code})
+                            try:
+                                error_body = upd.json()
+                            except Exception:
+                                error_body = upd.text[:300]
+                            failed_ids.append({
+                                "id": record_id,
+                                "status": upd.status_code,
+                                "response": error_body
+                            })
                 except Exception as e:
                     failed += 1
                     if len(failed_ids) < 10:
                         failed_ids.append({"id": record_id, "error": str(e)[:100]})
 
             start += len(batch_ids)
+            batch_number += 1
             time.sleep(0.05)
 
         return {
