@@ -103,7 +103,32 @@ When you want to execute a built-in automation, include this JSON block:
 {"run_builtin": {"name": "cleanup_ai_notes", "params": {"dry_run": true}}}
 ```
 
-Keep responses clear and conversational. The user is a product expert, not a developer."""
+Keep responses clear and conversational. The user is a product expert, not a developer.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATA INTEGRITY — ABSOLUTE RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. NEVER fabricate data. Do not invent candidate names, IDs, record counts, field values, or API responses. Every number, name, and ID you report must come from an actual API call made in this session. If you did not execute a query, you do not have results to report.
+
+2. NEVER present code as executed unless it has actually run. Showing a code block is planning, not execution. If you cannot execute an operation, say so explicitly — do not show the output you expect.
+
+3. ALWAYS verify after every write. After any update, create, or delete operation, immediately read the record back and confirm the change persisted. If the read-back shows the value did not change, stop and report the failure — do not continue as if the operation succeeded.
+
+4. If a query returns no results or an operation fails, say so plainly. Do not speculate about what the results "would" be.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TASK ANCHORING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+At the start of every response, briefly restate the active task in one sentence (e.g. "Still working on: updating LinkedIn source tags to 'LinkedIn Job Board'."). This prevents context drift across long sessions. If the user changes direction, acknowledge the shift and restate the new task.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PLANNING vs. EXECUTION — KEEP THESE SEPARATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PLANNING MODE: When proposing what you will do, be explicit that no action has been taken yet. Use language like "Here is what I will do — shall I proceed?" Never describe future actions in past tense.
+
+EXECUTION MODE: Once the user confirms, execute the operations. After each operation, report what actually happened using past tense and real data from the response. Never show the same code block twice without executing it in between. If you are blocked from executing, say why instead of repeating the plan.
+
+COMPLETION SUMMARY: After a task finishes, provide a factual summary: what was done, how many records were affected, and 2–5 real record IDs the user can verify manually. If zero records were affected, explain why."""
 
 
 class AutomationService:
@@ -144,6 +169,20 @@ class AutomationService:
             for msg in existing:
                 chat_history.append({"role": msg.role, "content": msg.content})
 
+        is_first_message = len(chat_history) == 0
+        connection_info = None
+
+        if is_first_message:
+            connection_info = self._verify_connection()
+            if not connection_info["connected"]:
+                return {
+                    "error": (
+                        f"Cannot start session — Bullhorn connection failed: "
+                        f"{connection_info.get('error', 'Unknown error')}. "
+                        f"Please check the ATS integration settings and try again."
+                    )
+                }
+
         user_chat = AutomationChat(
             automation_task_id=task_id,
             role='user',
@@ -155,10 +194,23 @@ class AutomationService:
         messages = list(chat_history)
         messages.append({"role": "user", "content": user_message})
 
+        system_prompt = SYSTEM_PROMPT
+        if connection_info and connection_info["connected"]:
+            system_prompt += (
+                f"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"ACTIVE BULLHORN CONNECTION (verified at session start)\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Corporation: {connection_info['corporation']}\n"
+                f"REST URL: {connection_info['rest_url']}\n"
+                f"Status: Connected and authenticated\n\n"
+                f"All operations in this session run against this specific instance. "
+                f"Do not assume you are connected to any other environment."
+            )
+
         try:
             response = self.anthropic_client.messages.create(
                 model="claude-opus-4-20250514",
-                system=SYSTEM_PROMPT,
+                system=system_prompt,
                 messages=messages,
                 temperature=0.3,
                 max_tokens=4096
@@ -357,6 +409,29 @@ class AutomationService:
     def clear_chat_history(self, task_id=None):
         AutomationChat.query.filter_by(automation_task_id=task_id).delete()
         db.session.commit()
+
+    def _verify_connection(self):
+        """Verify Bullhorn connection and return connection context string."""
+        try:
+            self.bullhorn.authenticate()
+            rest_url = self.bullhorn.rest_url or "unknown"
+            corp_name = "Unknown"
+            try:
+                resp = self.bullhorn._make_request('GET', 'settings/corporationName', params={})
+                if resp and isinstance(resp, dict):
+                    corp_name = resp.get('corporationName') or resp.get('name') or "Unknown"
+            except Exception:
+                pass
+            return {
+                "connected": True,
+                "corporation": corp_name,
+                "rest_url": rest_url
+            }
+        except Exception as e:
+            return {
+                "connected": False,
+                "error": str(e)
+            }
 
     def _bh_headers(self):
         return self.bullhorn._get_headers()
