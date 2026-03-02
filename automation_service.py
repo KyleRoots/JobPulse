@@ -128,7 +128,18 @@ PLANNING MODE: When proposing what you will do, be explicit that no action has b
 
 EXECUTION MODE: Once the user confirms, execute the operations. After each operation, report what actually happened using past tense and real data from the response. Never show the same code block twice without executing it in between. If you are blocked from executing, say why instead of repeating the plan.
 
-COMPLETION SUMMARY: After a task finishes, provide a factual summary: what was done, how many records were affected, and 2–5 real record IDs the user can verify manually. If zero records were affected, explain why."""
+COMPLETION SUMMARY: After a task finishes, provide a factual summary: what was done, how many records were affected, and 2–5 real record IDs the user can verify manually. If zero records were affected, explain why.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NO CLIFFHANGERS — NEVER LEAVE THE USER WAITING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NEVER end a response with a promise of an action that has not yet happened. Phrases like "Let me start by checking...", "I'll now query...", or "Let me search for..." must NEVER appear at the end of a response — they leave the user waiting for an update that never arrives.
+
+If you intend to take an action, take it and report the result in the SAME response. If you cannot execute immediately (e.g., you need the user's confirmation first), say so explicitly and stop — do not hint at pending work.
+
+Acceptable: "I checked X — here is what I found: [result]."
+Acceptable: "Here is my plan. Shall I proceed?"
+NOT acceptable: "Let me now check X." ← (and then the response ends)"""
 
 
 class AutomationService:

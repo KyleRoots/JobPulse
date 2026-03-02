@@ -395,8 +395,8 @@
         <div class="chat-header" style="padding:0.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;background:rgba(10,18,14,0.8);flex-shrink:0;">
             <h5 style="margin:0;font-size:0.95rem;color:#e8a87c;"><i class="fas fa-robot me-2"></i>Automation Chat</h5>
             <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-secondary" onclick="clearChat()" title="Clear conversation">
-                    <i class="fas fa-broom"></i>
+                <button class="btn btn-sm btn-outline-warning" onclick="clearChat()" title="Clear conversation and start fresh" style="font-size:0.8rem;letter-spacing:0.03em;">
+                    <i class="fas fa-broom me-1"></i>Clean Slate
                 </button>
             </div>
         </div>
@@ -727,7 +727,7 @@
     }
 
     async function clearChat() {
-        if (!confirm('Clear the current conversation?')) return;
+        if (!confirm('Start a clean slate? This will clear the entire conversation and you can begin fresh with a new task.')) return;
         try {
             await fetch('/automations/chat/clear', {
                 method: 'POST',

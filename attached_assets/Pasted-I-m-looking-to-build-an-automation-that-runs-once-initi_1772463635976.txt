@@ -1,0 +1,87 @@
+I'm looking to build an automation that runs once initially and then every 60 minutes thereafter based on the following criteria: - Looks for any candidate record in the database with the 'source' tag of "LinkedIn" (not case-sensitive) - Only those records will be changed from "LinkedIn" to "LinkedIn Job Board". - After the initial bulk run, schedule an automation to run every 60 minutes. It should follow the same criteria; however, we don't need to scrape the entire database each time. Let's optimise this to minimise API calls. During the 60-minute cycle, it's okay to retrieve the entire batch initially. Moving forward, we only want to process new records that appear with that particular status. Let me know if you need any further clarification.\
+Still working on: Building an automation to update LinkedIn source tags to "LinkedIn Job Board" with initial bulk run and 60-minute scheduled updates.
+
+## Understanding
+You want an automation that:
+Initial bulk run: Find all candidates with source="LinkedIn" (case-insensitive) and update to "LinkedIn Job Board"
+
+Scheduled runs: Every 60 minutes, find only NEW candidates with source="LinkedIn" and update them
+
+Optimization: After the initial bulk run, only process new records to minimize API calls
+
+
+## Plan
+
+### Phase 1: Initial Bulk Update
+Search for all candidates with source containing "LinkedIn" (case-insensitive)
+
+Filter results to only those with exact match "LinkedIn" (not "LinkedIn Job Board" or other variants)
+
+Update each candidate's source to "LinkedIn Job Board"
+
+Track the timestamp of this bulk run
+
+
+### Phase 2: Scheduled Updates (every 60 minutes)
+Query only candidates added/modified since the last run
+
+Filter for those with source="LinkedIn"
+
+Update to "LinkedIn Job Board"
+
+Store the new timestamp for the next run
+
+
+### Implementation Approach
+Use dateAdded or dateLastModified fields to find new records
+
+Store the last run timestamp to optimize subsequent queries
+
+Batch updates to minimize API calls
+
+
+Let me start by checking how many candidates currently have source="LinkedIn" to understand the scope:
+
+{"automation": {"name": "LinkedIn Source Update", "description": "Updates candidate source from 'LinkedIn' to 'LinkedIn Job Board' - initial bulk run then every 60 minutes for new records", "type": "scheduled"}}
+Just quickly regarding this point: initial bulk run: Find all candidates with source="LinkedIn" (case-insensitive) and update to "LinkedIn Job Board" - wanted to clarify that it would not be be case-sensitive as described above.
+Still working on: Building an automation to update LinkedIn source tags to "LinkedIn Job Board" with initial bulk run and 60-minute scheduled updates.
+
+Thank you for the clarification! I understand now - the search should NOT be case-sensitive, meaning we should catch variations like:
+"LinkedIn"
+
+"linkedin"
+
+"LINKEDIN"
+
+"Linkedin"
+
+Any other case variation
+
+
+And update all of them to the standardized "LinkedIn Job Board".
+
+Let me revise the plan:
+
+## Updated Plan
+
+### Phase 1: Initial Bulk Update
+Search for all candidates where source matches "linkedin" (using case-insensitive search)
+
+Filter out any that already have "LinkedIn Job Board" as their source
+
+Update each candidate's source to "LinkedIn Job Board"
+
+Track completion timestamp
+
+
+### Phase 2: Scheduled Updates (every 60 minutes)
+Query candidates added/modified since last run
+
+Find those with source matching "linkedin" (case-insensitive)
+
+Update to "LinkedIn Job Board"
+
+Update timestamp for next run
+
+
+Let me start by searching for candidates with any case variation of "linkedin" as their source to see the current scope:
