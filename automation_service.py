@@ -145,7 +145,7 @@ DATA INTEGRITY — ABSOLUTE RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TASK ANCHORING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-At the start of every response, briefly restate the active task in one sentence (e.g. "Still working on: updating LinkedIn source tags to 'LinkedIn Job Board'."). This prevents context drift across long sessions. If the user changes direction, acknowledge the shift and restate the new task.
+At the start of every response, briefly restate the active task in one sentence using this exact format: "Working on: ... [task description]." — for example: "Working on: ... updating LinkedIn source tags to 'LinkedIn Job Board'." This prevents context drift across long sessions. If the user changes direction, acknowledge the shift and restate the new task using the same format.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PLANNING vs. EXECUTION — KEEP THESE SEPARATE
@@ -386,12 +386,26 @@ class AutomationService:
                     params.get('job_id')
                 )
             elif operation == 'raw_api':
-                result = bh._make_request(
-                    params.get('method', 'GET'),
-                    params.get('endpoint'),
-                    params=params.get('query_params'),
-                    data=params.get('body')
-                )
+                method = params.get('method', 'GET').upper()
+                endpoint = params.get('endpoint', '').lstrip('/')
+                url = f"{bh.base_url}{endpoint}"
+                query_params = params.get('query_params') or {}
+                query_params['BhRestToken'] = bh.rest_token
+                body = params.get('body')
+                if method == 'GET':
+                    resp = bh.session.get(url, params=query_params, timeout=30)
+                elif method == 'POST':
+                    resp = bh.session.post(url, params=query_params, json=body, timeout=30)
+                elif method == 'PUT':
+                    resp = bh.session.put(url, params=query_params, json=body, timeout=30)
+                elif method == 'DELETE':
+                    resp = bh.session.delete(url, params=query_params, timeout=30)
+                else:
+                    return {"error": f"Unsupported HTTP method: {method}"}
+                try:
+                    result = resp.json()
+                except Exception:
+                    result = {"status_code": resp.status_code, "text": resp.text[:500]}
             else:
                 return {"error": f"Unknown operation: {operation}"}
 
@@ -495,7 +509,10 @@ class AutomationService:
             }
 
     def _bh_headers(self):
-        return self.bullhorn._get_headers()
+        return {
+            'BhRestToken': self.bullhorn.rest_token,
+            'Content-Type': 'application/json'
+        }
 
     def _bh_url(self):
         return self.bullhorn.base_url
