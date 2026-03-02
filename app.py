@@ -40,7 +40,7 @@ from tasks import (check_monitor_health, check_environment_status, send_environm
                    activity_retention_cleanup, log_monitoring_cycle, email_parsing_timeout_cleanup,
                    run_data_retention_cleanup, run_vetting_health_check, send_vetting_health_alert,
                    run_candidate_vetting_cycle, reference_number_refresh, automated_upload,
-                   run_xml_change_monitor, start_scheduler_manual)
+                   run_xml_change_monitor, start_scheduler_manual, cleanup_linkedin_source)
 
 # Configure logging for debugging account manager extraction
 logging.basicConfig(
@@ -1116,6 +1116,16 @@ if is_primary_worker:
     except Exception as e:
         print(f"❌ SCHEDULER INIT: Failed to register automated upload job: {e}", flush=True)
         app.logger.error(f"Failed to register automated upload job: {e}")
+
+if is_primary_worker:
+    scheduler.add_job(
+        func=cleanup_linkedin_source,
+        trigger=IntervalTrigger(hours=1),
+        id='linkedin_source_cleanup',
+        name='LinkedIn Source Cleanup (hourly)',
+        replace_existing=True
+    )
+    app.logger.info("🔗 LinkedIn source cleanup enabled — runs hourly to update stale source tags")
 
     def run_salesrep_sync_job():
         try:

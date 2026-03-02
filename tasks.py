@@ -1132,3 +1132,99 @@ def start_scheduler_manual():
             'success': False,
             'error': str(e)
         }), 500
+
+
+def cleanup_linkedin_source():
+    """
+    Hourly scheduled job: find any Bullhorn Candidate records whose source contains
+    a LinkedIn variant (Linkedin, linkedin, LINKEDIN, etc.) but is NOT already
+    "LinkedIn Job Board", and update them to "LinkedIn Job Board".
+
+    THREAD-SAFETY: Uses standalone requests.get/post — never bh.session.* — because
+    this runs in a background APScheduler thread and requests.Session is not thread-safe.
+    """
+    from app import app
+    import requests as _requests
+
+    with app.app_context():
+        try:
+            from bullhorn_service import BullhornService
+
+            bh = BullhornService()
+            if not bh.authenticate():
+                logger.warning("linkedin_source_cleanup: Bullhorn authentication failed — skipping run")
+                return
+
+            base_url = bh.base_url
+            rest_token = bh.rest_token
+            headers = {
+                "BhRestToken": rest_token,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+
+            search_url = f"{base_url}search/Candidate"
+            query = 'source:LinkedIn AND -source:"LinkedIn Job Board"'
+
+            count_resp = _requests.get(search_url, headers=headers, params={
+                "query": query, "fields": "id", "count": 1, "start": 0,
+            }, timeout=30)
+            count_resp.raise_for_status()
+            total = count_resp.json().get("total", 0)
+
+            if total == 0:
+                logger.info("linkedin_source_cleanup: 0 records need updating — nothing to do")
+                return
+
+            logger.info(f"linkedin_source_cleanup: found {total:,} records to update")
+
+            succeeded = 0
+            failed = 0
+            start = 0
+            batch_size = 500
+
+            while start < total:
+                fetch_resp = _requests.get(search_url, headers=headers, params={
+                    "query": query, "fields": "id",
+                    "count": batch_size, "start": start,
+                }, timeout=30)
+                fetch_resp.raise_for_status()
+                record_ids = [r["id"] for r in fetch_resp.json().get("data", [])]
+
+                if not record_ids:
+                    break
+
+                for record_id in record_ids:
+                    try:
+                        upd = _requests.post(
+                            f"{base_url}entity/Candidate/{record_id}",
+                            headers=headers,
+                            json={"source": "LinkedIn Job Board"},
+                            timeout=15,
+                        )
+                        body = {}
+                        try:
+                            body = upd.json()
+                        except Exception:
+                            pass
+                        if (upd.status_code in (200, 201)
+                                and not body.get("errorCode")
+                                and not body.get("errors")
+                                and (body.get("changeType") == "UPDATE"
+                                     or body.get("changedEntityId") is not None)):
+                            succeeded += 1
+                        else:
+                            failed += 1
+                    except Exception as rec_err:
+                        failed += 1
+                        logger.warning(f"linkedin_source_cleanup: error on ID {record_id}: {rec_err}")
+
+                start += len(record_ids)
+                time.sleep(0.05)
+
+            logger.info(
+                f"linkedin_source_cleanup: complete — {succeeded:,} updated, {failed:,} failed"
+            )
+
+        except Exception as e:
+            logger.error(f"linkedin_source_cleanup: unexpected error — {e}")
