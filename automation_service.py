@@ -15,21 +15,47 @@ SYSTEM_PROMPT = """You are the Scout Genius Product Expert Assistant — an AI a
 
 You help the product expert (your user) design, validate, and execute custom automations against the Bullhorn REST API. You have access to a live Bullhorn instance via the BullhornService.
 
-AVAILABLE BULLHORN OPERATIONS (via execute_bullhorn_operation):
-- search_candidates(email, phone, first_name, last_name) — Find candidates
-- get_candidate(candidate_id) — Get candidate details
-- create_candidate(data) — Create a new candidate
-- update_candidate(candidate_id, data) — Update candidate fields
-- create_candidate_note(candidate_id, note_text, action, user_id) — Add a note to a candidate
-- get_candidate_notes(candidate_id, action_filter) — Get notes for a candidate, optionally filtered by action types
-- get_job_order(job_id) — Get job order details
-- get_job_orders() — List job orders
-- get_jobs_by_query(query) — Search jobs with a query string
-- get_tearsheets() — List all tearsheets
-- get_tearsheet_jobs(tearsheet_id) — Get jobs in a tearsheet
-- create_job_submission(candidate_id, job_id) — Submit candidate to job
-- get_user_emails(user_ids) — Get user email addresses
-- raw_api(method, endpoint, query_params, body) — Call any Bullhorn REST endpoint directly
+HOW TO QUERY AND MODIFY BULLHORN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+To perform any Bullhorn operation, include an execute_operation JSON block in your response. The backend executes it immediately against the live Bullhorn API and injects the real result into the chat history. You will see it on your NEXT turn and can then report it accurately.
+
+CRITICAL: After including an execute_operation block, STOP. Do not write the results you expect — you do not know them yet. Any result, count, ID, or field value you report to the user MUST come from a [Live Bullhorn Result] section that appears in this chat history.
+
+ONLY ONE execute_operation block per response. If multiple calls are needed, do them one at a time across turns.
+
+AVAILABLE OPERATIONS — include exactly one of these JSON block formats:
+
+To search candidates:
+```json
+{"execute_operation": {"operation": "raw_api", "params": {"method": "GET", "endpoint": "search/Candidate", "query_params": {"fields": "id,firstName,lastName,source,email", "query": "source:LinkedIn", "count": 20, "start": 0}}}}
+```
+
+To get a single candidate:
+```json
+{"execute_operation": {"operation": "get_candidate", "params": {"candidate_id": 12345}}}
+```
+
+To update a candidate field:
+```json
+{"execute_operation": {"operation": "update_candidate", "params": {"candidate_id": 12345, "data": {"source": "LinkedIn Job Board"}}}}
+```
+
+To add a note to a candidate:
+```json
+{"execute_operation": {"operation": "create_candidate_note", "params": {"candidate_id": 12345, "note_text": "Note text here", "action": "Automation Note"}}}
+```
+
+To get notes for a candidate:
+```json
+{"execute_operation": {"operation": "get_candidate_notes", "params": {"candidate_id": 12345}}}
+```
+
+To call any Bullhorn REST endpoint directly (most flexible):
+```json
+{"execute_operation": {"operation": "raw_api", "params": {"method": "GET", "endpoint": "search/Candidate", "query_params": {"fields": "id,source", "query": "source:LinkedIn", "count": 500}}}}
+```
+
+For POST/PUT via raw_api, add a "body" key to params with the payload dict.
 
 BUILT-IN AUTOMATIONS (via run_builtin):
 These are pre-built, tested automations that the user can trigger by name:
@@ -239,6 +265,7 @@ class AutomationService:
 
             task_created = None
             builtin_result = None
+            operation_result = None
 
             if '```json' in assistant_content:
                 try:
@@ -284,6 +311,28 @@ class AutomationService:
                                 task_id=task_id or (task_created['id'] if task_created else None)
                             )
                             self.logger.info(f"Auto-executed built-in: {builtin_name}")
+
+                    if 'execute_operation' in parsed:
+                        op_def = parsed['execute_operation']
+                        op_name = op_def.get('operation')
+                        op_params = op_def.get('params', {})
+                        if op_name:
+                            effective_task_id = task_id or (task_created['id'] if task_created else None)
+                            operation_result = self.execute_bullhorn_operation(
+                                op_name, op_params, task_id=effective_task_id
+                            )
+                            self.logger.info(f"Executed operation: {op_name}")
+
+                            result_label = f"Live Bullhorn Result — {op_name}"
+                            result_json = json.dumps(operation_result, indent=2, default=str)
+                            result_section = (
+                                f"\n\n---\n**[{result_label}]**\n"
+                                f"```json\n{result_json}\n```\n---"
+                            )
+                            assistant_content += result_section
+                            assistant_chat.content = assistant_content
+                            db.session.commit()
+
                 except (json.JSONDecodeError, ValueError):
                     pass
 
@@ -291,7 +340,8 @@ class AutomationService:
                 "response": assistant_content,
                 "task_created": task_created,
                 "task_id": task_id,
-                "builtin_result": builtin_result
+                "builtin_result": builtin_result,
+                "operation_result": operation_result
             }
 
         except Exception as e:
