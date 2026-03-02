@@ -2,12 +2,21 @@ import os
 import json
 import logging
 import time
+import threading
 import requests
 from datetime import datetime, timedelta
 from collections import defaultdict
 import anthropic
 from extensions import db
 from models import AutomationTask, AutomationLog, AutomationChat
+
+LONG_RUNNING_BUILTINS = {
+    "update_field_bulk",
+    "cleanup_ai_notes",
+    "cleanup_duplicate_notes",
+    "resume_reparser",
+    "export_qualified",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -313,11 +322,94 @@ class AutomationService:
                         builtin_name = builtin_def.get('name')
                         builtin_params = builtin_def.get('params', {})
                         if builtin_name:
-                            builtin_result = self.run_builtin(
-                                builtin_name, builtin_params,
-                                task_id=task_id or (task_created['id'] if task_created else None)
-                            )
-                            self.logger.info(f"Auto-executed built-in: {builtin_name}")
+                            effective_builtin_task_id = task_id or (task_created['id'] if task_created else None)
+
+                            if builtin_name in LONG_RUNNING_BUILTINS:
+                                pending_section = (
+                                    f"\n\n---\n**[Built-in Running: {builtin_name} — processing in background]**\n"
+                                    f"The operation has started on the server. This message will be updated with results when complete — "
+                                    f"you can safely close your laptop or this tab while it runs.\n---"
+                                )
+                                assistant_content += pending_section
+                                assistant_chat.content = assistant_content
+                                db.session.commit()
+
+                                captured_chat_id = assistant_chat.id
+                                service_ref = self
+                                captured_builtin_name = builtin_name
+                                captured_builtin_params = builtin_params
+                                captured_task_id = effective_builtin_task_id
+
+                                def _run_in_background(chat_id, svc, name, params, bg_task_id):
+                                    from app import app as flask_app
+                                    with flask_app.app_context():
+                                        try:
+                                            bg_result = svc.run_builtin(name, params, task_id=bg_task_id)
+                                            result_json = json.dumps(
+                                                bg_result.get('result', bg_result) if isinstance(bg_result, dict) else bg_result,
+                                                indent=2, default=str
+                                            )
+                                            result_section = (
+                                                f"\n\n---\n**[Built-in Result — {name}]**\n"
+                                                f"```json\n{result_json}\n```\n---"
+                                            )
+                                            pending_marker = (
+                                                f"\n\n---\n**[Built-in Running: {name} — processing in background]**\n"
+                                                f"The operation has started on the server. This message will be updated with results when complete — "
+                                                f"you can safely close your laptop or this tab while it runs.\n---"
+                                            )
+                                            chat_record = AutomationChat.query.get(chat_id)
+                                            if chat_record:
+                                                chat_record.content = chat_record.content.replace(
+                                                    pending_marker, result_section
+                                                )
+                                                db.session.commit()
+                                        except Exception as bg_err:
+                                            svc.logger.error(f"Background builtin {name} error: {bg_err}")
+                                            try:
+                                                chat_record = AutomationChat.query.get(chat_id)
+                                                if chat_record:
+                                                    error_section = (
+                                                        f"\n\n---\n**[Built-in Error — {name}]**\n"
+                                                        f"```json\n{json.dumps({'error': str(bg_err)}, indent=2)}\n```\n---"
+                                                    )
+                                                    pending_marker = (
+                                                        f"\n\n---\n**[Built-in Running: {name} — processing in background]**\n"
+                                                        f"The operation has started on the server. This message will be updated with results when complete — "
+                                                        f"you can safely close your laptop or this tab while it runs.\n---"
+                                                    )
+                                                    chat_record.content = chat_record.content.replace(
+                                                        pending_marker, error_section
+                                                    )
+                                                    db.session.commit()
+                                            except Exception:
+                                                pass
+
+                                bg_thread = threading.Thread(
+                                    target=_run_in_background,
+                                    args=(captured_chat_id, service_ref, captured_builtin_name,
+                                          captured_builtin_params, captured_task_id),
+                                    daemon=True
+                                )
+                                bg_thread.start()
+                                builtin_result = {"status": "background", "name": builtin_name}
+                                self.logger.info(f"Launched background built-in: {builtin_name}")
+
+                            else:
+                                builtin_result = self.run_builtin(
+                                    builtin_name, builtin_params,
+                                    task_id=effective_builtin_task_id
+                                )
+                                self.logger.info(f"Auto-executed built-in: {builtin_name}")
+                                sync_result = builtin_result.get('result', builtin_result) if isinstance(builtin_result, dict) else builtin_result
+                                result_json = json.dumps(sync_result, indent=2, default=str)
+                                result_section = (
+                                    f"\n\n---\n**[Built-in Result — {builtin_name}]**\n"
+                                    f"```json\n{result_json}\n```\n---"
+                                )
+                                assistant_content += result_section
+                                assistant_chat.content = assistant_content
+                                db.session.commit()
 
                     if 'execute_operation' in parsed:
                         op_def = parsed['execute_operation']

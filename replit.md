@@ -55,7 +55,8 @@ Source of Truth: GitHub repository (KyleRoots/JobPulse) — main branch.
 - **Product Expert Workbench**: Claude Opus 4-powered chat interface for building custom Bullhorn automations, including built-in automations and execution logging. Super-admin only. Reliability hardened: mandatory Bullhorn connection pre-flight on session start (verifies corporation name and REST URL before accepting any task), revised system prompt enforcing no-fabrication, task anchoring, verify-after-write, and strict planning-vs-execution separation.
 - **Scout Automation Module (Planned — Next Phase)**: Separate production-facing automation module for non-technical users. Distinct from the Workbench. Full specification:
   - Plain English AI output only — no code blocks, no raw JSON, no markdown headers, no API jargon
-  - Real-time progress notifications during long-running tasks (polling-based, every 3s)
+  - Real-time progress notifications during long-running tasks (polling-based, every 3s) — UX mirrors the Replit agent style: visible step-by-step progress cards updated live, showing records processed / total, current batch number, and estimated time remaining
+  - Long-running operations run in a background thread (server-side, same pattern as Workbench `LONG_RUNNING_BUILTINS`); the frontend polls for completion and streams visible progress cards rather than waiting on a single HTTP response
   - Post-task summary card with actual record counts, sample IDs (3–5), and before/after field values displayed in an amber-bordered card
   - Drag-and-drop screenshot upload zone — images base64-encoded and passed to Claude vision for analysis
   - Separate system prompt and service (`scout_automation_service.py`) from the Workbench
