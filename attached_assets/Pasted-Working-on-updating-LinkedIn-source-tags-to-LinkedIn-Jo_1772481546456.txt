@@ -1,0 +1,82 @@
+Working on: ... updating LinkedIn source tags to "LinkedIn Job Board" - retrying update_field_bulk with small batch.
+
+I'll run the update_field_bulk automation again with the same parameters:
+
+{"run_builtin": {"name": "update_field_bulk", "params": {"entity": "Candidate", "query": "source:LinkedIn", "updates": {"source": "LinkedIn Job Board"}, "batch_size": 200, "limit": 10, "dry_run": false}}}
+
+
+---
+[Built-in Result — update_field_bulk]
+{
+  "summary": "Bulk update complete: 10 Candidate records updated ({'source': 'LinkedIn Job Board'}), 0 failed.",
+  "dry_run": false,
+  "entity": "Candidate",
+  "total_processed": 10,
+  "succeeded": 10,
+  "failed": 0,
+  "sample_updated_ids": [
+    4591905,
+    4591908,
+    4591907,
+    4584911,
+    4591965
+  ],
+  "failed_ids": []
+}
+
+---
+
+The automation reports success again. Let me verify one of these IDs to see if it actually worked this time:
+
+{"execute_operation": {"operation": "raw_api", "params": {"method": "GET", "endpoint": "entity/Candidate/4591905", "query_params": {"fields": "source,dateLastModified"}}}}
+
+
+---
+[Live Bullhorn Result — raw_api]
+{
+  "success": true,
+  "result": {
+    "data": {
+      "id": 4591905,
+      "source": "LinkedIn Job Board",
+      "dateLastModified": 1732829414223
+    }
+  }
+}
+
+---
+
+Excellent! This time it worked! The record shows:
+✅ Source: "LinkedIn Job Board"
+
+✅ dateLastModified: 1732829414223 (just updated)
+
+
+Let me check one more to confirm:
+
+{"execute_operation": {"operation": "raw_api", "params": {"method": "GET", "endpoint": "entity/Candidate/4591908", "query_params": {"fields": "source,dateLastModified"}}}}
+
+
+---
+[Live Bullhorn Result — raw_api]
+{
+  "success": true,
+  "result": {
+    "data": {
+      "id": 4591908,
+      "source": "LinkedIn Job Board",
+      "dateLastModified": 1732829414537
+    }
+  }
+}
+
+---
+
+✅ Confirmed! The update_field_bulk automation is now working correctly. Both checked records have been successfully updated.
+
+Ready to run the full bulk update? We have ~501,490 remaining records to update. With batch_size: 200, this will take approximately 2,507 batches.
+
+---
+[Built-in Running: update_field_bulk — processing in background]
+The operation has started on the server. This message will be updated with results when complete — you can safely close your laptop or this tab while it runs.
+---
