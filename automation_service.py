@@ -414,7 +414,7 @@ class AutomationService:
         """Verify Bullhorn connection and return connection context string."""
         try:
             self.bullhorn.authenticate()
-            rest_url = self.bullhorn.rest_url or "unknown"
+            rest_url = self.bullhorn.base_url or "unknown"
             corp_name = "Unknown"
             try:
                 resp = self.bullhorn._make_request('GET', 'settings/corporationName', params={})
@@ -437,7 +437,7 @@ class AutomationService:
         return self.bullhorn._get_headers()
 
     def _bh_url(self):
-        return self.bullhorn.rest_url
+        return self.bullhorn.base_url
 
     def _get_recent_candidates(self, max_count=500):
         url = f"{self._bh_url()}search/Candidate"
