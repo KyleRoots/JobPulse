@@ -1139,12 +1139,24 @@ class AutomationService:
                         params={"BhRestToken": bh.rest_token},
                         json=updates, timeout=15
                     )
-                    if upd.status_code in (200, 201):
+                    # Parse response body — Bullhorn returns HTTP 200 even for errors
+                    try:
+                        upd_body = upd.json()
+                    except Exception:
+                        upd_body = {}
+
+                    bh_error = upd_body.get("errorCode") or upd_body.get("errors")
+                    bh_confirmed = (
+                        upd_body.get("changeType") == "UPDATE"
+                        or upd_body.get("changedEntityId") is not None
+                    )
+
+                    if upd.status_code in (200, 201) and not bh_error and bh_confirmed:
                         succeeded += 1
                         if len(sample_updated_ids) < 5:
                             sample_updated_ids.append(record_id)
 
-                        # Read-back spot-check after the very first successful update
+                        # Read-back spot-check after the very first confirmed update
                         if not first_batch_verified and succeeded == 1:
                             first_batch_verified = True
                             try:
@@ -1182,14 +1194,11 @@ class AutomationService:
                     else:
                         failed += 1
                         if len(failed_ids) < 10:
-                            try:
-                                error_body = upd.json()
-                            except Exception:
-                                error_body = upd.text[:300]
                             failed_ids.append({
                                 "id": record_id,
                                 "status": upd.status_code,
-                                "response": error_body
+                                "bh_error": bh_error if bh_error else None,
+                                "response": upd_body if upd_body else upd.text[:300]
                             })
                 except Exception as e:
                     failed += 1
