@@ -1061,6 +1061,13 @@ class AutomationService:
         }
 
     def _builtin_update_field_bulk(self, params):
+        # THREAD-SAFETY RULE: This built-in runs in a background daemon thread.
+        # All Bullhorn HTTP calls here MUST use standalone requests.get/post —
+        # never bh.session.* — because requests.Session is shared with the main
+        # Flask app and the APScheduler and is NOT thread-safe. Using the shared
+        # session causes silent write failures (Bullhorn returns changeType:UPDATE
+        # but data never persists). The other long-running built-ins already follow
+        # this pattern. The Scout Automation Module must do the same.
         entity = params.get("entity", "Candidate")
         query = params.get("query", "").strip()
         updates = params.get("updates", {})
@@ -1076,9 +1083,8 @@ class AutomationService:
         bh = self.bullhorn
         search_url = f"{self._bh_url()}search/{entity}"
 
-        sample_resp = bh.session.get(search_url, params={
+        sample_resp = requests.get(search_url, headers=self._bh_headers(), params={
             "query": query, "fields": "id", "count": 5, "start": 0,
-            "BhRestToken": bh.rest_token
         }, timeout=30)
         sample_data = sample_resp.json()
         total = sample_data.get("total", 0)
@@ -1122,10 +1128,9 @@ class AutomationService:
                 except Exception as auth_err:
                     self.logger.warning(f"update_field_bulk: auth refresh failed at batch {batch_number}: {auth_err}")
 
-            resp = bh.session.get(search_url, params={
+            resp = requests.get(search_url, headers=self._bh_headers(), params={
                 "query": query, "fields": "id",
                 "count": this_count, "start": start,
-                "BhRestToken": bh.rest_token
             }, timeout=30)
             batch_ids = [r["id"] for r in resp.json().get("data", [])]
 
@@ -1134,9 +1139,9 @@ class AutomationService:
 
             for record_id in batch_ids:
                 try:
-                    upd = bh.session.post(
+                    upd = requests.post(
                         f"{self._bh_url()}entity/{entity}/{record_id}",
-                        params={"BhRestToken": bh.rest_token},
+                        headers=self._bh_headers(),
                         json=updates, timeout=15
                     )
                     # Parse response body — Bullhorn returns HTTP 200 even for errors
@@ -1160,12 +1165,10 @@ class AutomationService:
                         if not first_batch_verified and succeeded == 1:
                             first_batch_verified = True
                             try:
-                                check = bh.session.get(
+                                check = requests.get(
                                     f"{self._bh_url()}entity/{entity}/{record_id}",
-                                    params={
-                                        "fields": ",".join(updates.keys()),
-                                        "BhRestToken": bh.rest_token
-                                    },
+                                    headers=self._bh_headers(),
+                                    params={"fields": ",".join(updates.keys())},
                                     timeout=15
                                 )
                                 check_data = check.json()

@@ -57,6 +57,7 @@ Source of Truth: GitHub repository (KyleRoots/JobPulse) — main branch.
   - Plain English AI output only — no code blocks, no raw JSON, no markdown headers, no API jargon
   - Real-time progress notifications during long-running tasks (polling-based, every 3s) — UX mirrors the Replit agent style: visible step-by-step progress cards updated live, showing records processed / total, current batch number, and estimated time remaining
   - Long-running operations run in a background thread (server-side, same pattern as Workbench `LONG_RUNNING_BUILTINS`); the frontend polls for completion and streams visible progress cards rather than waiting on a single HTTP response
+  - **Thread-safety rule (MANDATORY)**: All Bullhorn HTTP calls made from background threads must use standalone `requests.get()` / `requests.post()` with `self._bh_headers()` — never `BullhornService.session.*`. The shared `requests.Session` is not thread-safe; using it from a background thread causes silent write failures where Bullhorn returns `changeType: UPDATE` but data never persists. This was the root cause of the `update_field_bulk` silent-failure bug (March 2026). All existing long-running built-ins follow this pattern and must continue to do so.
   - Post-task summary card with actual record counts, sample IDs (3–5), and before/after field values displayed in an amber-bordered card
   - Drag-and-drop screenshot upload zone — images base64-encoded and passed to Claude vision for analysis
   - Separate system prompt and service (`scout_automation_service.py`) from the Workbench
