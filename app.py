@@ -910,6 +910,59 @@ def lazy_start_scheduler():
 
 # Track if background services have been initialized
 _background_services_started = False
+def _register_scheduler_listeners():
+    """Register APScheduler job execution listeners for last-run tracking. Call once after scheduler.start()."""
+    try:
+        from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
+        import json as _json
+        from datetime import datetime
+
+        def _on_job_executed(event):
+            try:
+                with app.app_context():
+                    from models import GlobalSettings
+                    GlobalSettings.set_value(
+                        f'scheduler_last_run_{event.job_id}',
+                        _json.dumps({'timestamp': datetime.utcnow().isoformat(), 'success': True})
+                    )
+            except Exception:
+                pass
+
+        def _on_job_error(event):
+            try:
+                with app.app_context():
+                    from models import GlobalSettings
+                    GlobalSettings.set_value(
+                        f'scheduler_last_run_{event.job_id}',
+                        _json.dumps({'timestamp': datetime.utcnow().isoformat(), 'success': False})
+                    )
+            except Exception:
+                pass
+
+        scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
+        scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
+        app.logger.info("📡 Scheduler job execution listeners registered")
+    except Exception as e:
+        app.logger.warning(f"Failed to register scheduler listeners: {e}")
+
+
+def _restore_paused_jobs():
+    """Re-apply paused state from GlobalSettings after scheduler (re)start."""
+    try:
+        import json as _json
+        from models import GlobalSettings
+        paused_raw = GlobalSettings.get_value('scheduler_paused_jobs', '[]')
+        paused_ids = _json.loads(paused_raw)
+        for job_id in paused_ids:
+            try:
+                scheduler.pause_job(job_id)
+                app.logger.info(f"⏸ Restored paused state for scheduler job: {job_id}")
+            except Exception:
+                pass
+    except Exception as e:
+        app.logger.warning(f"Failed to restore paused scheduler jobs: {e}")
+
+
 def ensure_background_services():
     """Ensure background services are started when first needed"""
     global _background_services_started
@@ -919,7 +972,10 @@ def ensure_background_services():
             scheduler.start()
             app.logger.info("Background scheduler started/restarted successfully")
             _background_services_started = True
-            
+
+            _register_scheduler_listeners()
+            _restore_paused_jobs()
+
             # Force immediate monitor check after restart
             try:
                 with app.app_context():
@@ -936,13 +992,13 @@ def ensure_background_services():
             app.logger.error(f"Failed to start scheduler: {str(e)}")
             _background_services_started = False
             return False
-    
-    # Only run these once    
+
+    # Only run these once
     if not _background_services_started:
         _background_services_started = True
         lazy_apply_optimizations()
         lazy_init_file_consolidation()
-    
+
     return True
 
 # Only add scheduler jobs on primary worker to prevent duplicates in production

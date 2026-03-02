@@ -178,36 +178,154 @@ def automations_chat_clear():
     return jsonify({'success': True})
 
 
+VISIBLE_JOBS = {
+    'process_bullhorn_monitors': 'Tearsheet Monitor',
+    'candidate_vetting_cycle': 'AI Candidate Vetting',
+    'vetting_health_check': 'Vetting Health Check',
+    'automated_upload': 'Automated Upload',
+    'salesrep_sync': 'Sales Rep Sync',
+    'linkedin_source_cleanup': 'LinkedIn Source Cleanup',
+    'reference_number_refresh': 'Reference Number Refresh',
+}
+
+PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetting_health_check'}
+
+
+def _trigger_description(job):
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger as APSIntervalTrigger
+        trigger = job.trigger
+        if isinstance(trigger, APSIntervalTrigger):
+            seconds = int(trigger.interval.total_seconds())
+            if seconds >= 86400:
+                h = seconds // 3600
+                return f"every {h} hours"
+            elif seconds >= 7200:
+                h = seconds // 3600
+                return f"every {h} hours"
+            elif seconds >= 3600:
+                return "every hour"
+            elif seconds >= 120:
+                return f"every {seconds // 60} minutes"
+            elif seconds >= 60:
+                return "every minute"
+            else:
+                return f"every {seconds}s"
+    except Exception:
+        pass
+    return "scheduled"
+
+
+def _get_scheduler():
+    import app as app_module
+    return getattr(app_module, 'scheduler', None)
+
+
 @automations_bp.route('/automations/scheduler-status')
 @login_required
 def scheduler_status():
     _require_admin()
-    from flask import current_app
+    import json as _json
+    from models import GlobalSettings
+
+    try:
+        paused_raw = GlobalSettings.get_value('scheduler_paused_jobs', '[]')
+        paused_ids = set(_json.loads(paused_raw))
+    except Exception:
+        paused_ids = set()
+
     jobs = []
     try:
-        scheduler = current_app.config.get('_scheduler')
-        if not scheduler:
-            from apscheduler.schedulers.background import BackgroundScheduler
-            for obj_name in dir(current_app):
-                obj = getattr(current_app, obj_name, None)
-                if isinstance(obj, BackgroundScheduler):
-                    scheduler = obj
-                    break
-
-        if not scheduler:
-            import app as app_module
-            scheduler = getattr(app_module, 'scheduler', None)
-
+        scheduler = _get_scheduler()
         if scheduler and scheduler.running:
-            for job in scheduler.get_jobs():
-                next_run = job.next_run_time
+            job_map = {j.id: j for j in scheduler.get_jobs()}
+            for job_id, display_name in VISIBLE_JOBS.items():
+                job = job_map.get(job_id)
+                next_run = None
+                paused = job_id in paused_ids
+
+                if job:
+                    next_run = job.next_run_time
+
+                last_run_at = None
+                last_run_success = None
+                try:
+                    raw = GlobalSettings.get_value(f'scheduler_last_run_{job_id}')
+                    if raw:
+                        data = _json.loads(raw)
+                        last_run_at = data.get('timestamp')
+                        last_run_success = data.get('success')
+                except Exception:
+                    pass
+
                 jobs.append({
-                    'id': job.id,
-                    'name': job.name,
+                    'id': job_id,
+                    'name': display_name,
+                    'trigger_description': _trigger_description(job) if job else 'scheduled',
                     'next_run': next_run.isoformat() if next_run else None,
-                    'active': next_run is not None
+                    'paused': paused,
+                    'last_run_at': last_run_at,
+                    'last_run_success': last_run_success,
+                    'is_protected': job_id in PROTECTED_JOBS,
+                    'active': job is not None and next_run is not None,
                 })
     except Exception as e:
         logger.error(f"Failed to get scheduler status: {e}")
 
     return jsonify(jobs)
+
+
+@automations_bp.route('/automations/scheduler-jobs/<job_id>/pause', methods=['POST'])
+@login_required
+def scheduler_job_pause(job_id):
+    _require_admin()
+    import json as _json
+    from models import GlobalSettings
+
+    if job_id not in VISIBLE_JOBS:
+        return jsonify({'error': 'Unknown job'}), 400
+
+    try:
+        scheduler = _get_scheduler()
+        if not scheduler or not scheduler.running:
+            return jsonify({'error': 'Scheduler not running'}), 503
+
+        scheduler.pause_job(job_id)
+
+        paused_raw = GlobalSettings.get_value('scheduler_paused_jobs', '[]')
+        paused_ids = list(set(_json.loads(paused_raw)) | {job_id})
+        GlobalSettings.set_value('scheduler_paused_jobs', _json.dumps(paused_ids))
+
+        logger.info(f"⏸ Scheduled job paused: {job_id}")
+        return jsonify({'success': True, 'job_id': job_id, 'paused': True})
+    except Exception as e:
+        logger.error(f"Failed to pause job {job_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@automations_bp.route('/automations/scheduler-jobs/<job_id>/resume', methods=['POST'])
+@login_required
+def scheduler_job_resume(job_id):
+    _require_admin()
+    import json as _json
+    from models import GlobalSettings
+
+    if job_id not in VISIBLE_JOBS:
+        return jsonify({'error': 'Unknown job'}), 400
+
+    try:
+        scheduler = _get_scheduler()
+        if not scheduler or not scheduler.running:
+            return jsonify({'error': 'Scheduler not running'}), 503
+
+        scheduler.resume_job(job_id)
+
+        paused_raw = GlobalSettings.get_value('scheduler_paused_jobs', '[]')
+        paused_ids = list(set(_json.loads(paused_raw)) - {job_id})
+        GlobalSettings.set_value('scheduler_paused_jobs', _json.dumps(paused_ids))
+
+        logger.info(f"▶️ Scheduled job resumed: {job_id}")
+        return jsonify({'success': True, 'job_id': job_id, 'paused': False})
+    except Exception as e:
+        logger.error(f"Failed to resume job {job_id}: {e}")
+        return jsonify({'error': str(e)}), 500
