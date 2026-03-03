@@ -186,6 +186,7 @@ VISIBLE_JOBS = {
     'salesrep_sync': 'Sales Rep Sync',
     'linkedin_source_cleanup': 'LinkedIn Source Cleanup',
     'reference_number_refresh': 'Reference Number Refresh',
+    'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
 }
 
 PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetting_health_check'}
