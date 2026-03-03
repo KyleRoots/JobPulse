@@ -38,6 +38,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 
 ### Feature Specifications
 - **Dual-Cycle Monitoring**: 5-minute tearsheet monitoring and 30-minute automated SFTP upload cycles with smart cleanup of ineligible jobs.
+- **Enforce Tearsheet Jobs Public**: Scheduled job running every 30 minutes (`enforce_tearsheet_jobs_public` in `tasks.py`). Queries Bullhorn for all jobs in monitored tearsheets where `isPublic=false`, filters out ineligible statuses (Filled, Cancelled, Archive, etc.), and sets qualifying jobs to `isPublic=true` via the Bullhorn REST API. Ensures any job added to a tearsheet is automatically made public without manual intervention. Uses the mandatory thread-safe standalone `requests` pattern. Registered with `misfire_grace_time=300, coalesce=False`.
 - **Real-Time Notifications**: Email alerts for new jobs on monitored tearsheets.
 - **Environment Isolation**: Separate development and production configurations.
 - **Database-First Reference Numbers**: `JobReferenceNumber` table as the single source of truth.

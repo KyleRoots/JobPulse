@@ -1217,3 +1217,145 @@ def cleanup_linkedin_source():
 
         except Exception as e:
             logger.error(f"linkedin_source_cleanup: unexpected error — {e}")
+
+
+def enforce_tearsheet_jobs_public():
+    """
+    Scheduled job (every 30 minutes): find all jobs in monitored tearsheets where
+    isPublic is not true and set them to public.
+
+    Runs automatically so any job added to a tearsheet without the isPublic flag
+    set correctly is corrected within the next cycle — no manual intervention needed.
+
+    THREAD-SAFETY: Uses standalone requests.get/post — never bh.session.* — because
+    this runs in a background APScheduler thread and requests.Session is not thread-safe.
+    """
+    from app import app
+    import requests as _requests
+
+    INELIGIBLE_STATUSES = {
+        'Qualifying', 'Hold - Covered', 'Hold - Client Hold', 'Offer Out',
+        'Filled', 'Lost - Competition', 'Lost - Filled Internally',
+        'Lost - Funding', 'Canceled', 'Placeholder/ MPC', 'Archive'
+    }
+
+    with app.app_context():
+        try:
+            from models import BullhornMonitor
+            from bullhorn_service import BullhornService
+
+            monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+            tearsheet_ids = [m.tearsheet_id for m in monitors if m.tearsheet_id]
+
+            if not tearsheet_ids:
+                logger.info("enforce_tearsheet_jobs_public: no active monitors configured — skipping")
+                return
+
+            bh = BullhornService()
+            if not bh.authenticate():
+                logger.warning("enforce_tearsheet_jobs_public: Bullhorn authentication failed — skipping run")
+                return
+
+            base_url = bh.base_url
+            rest_token = bh.rest_token
+            headers = {
+                "BhRestToken": rest_token,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+
+            tearsheet_clause = " OR ".join(str(tid) for tid in tearsheet_ids)
+            query = f"tearsheets.id:({tearsheet_clause}) AND isPublic:0 AND NOT isDeleted:true"
+
+            search_url = f"{base_url}search/JobOrder"
+
+            count_resp = _requests.get(search_url, headers=headers, params={
+                "query": query, "fields": "id", "count": 1, "start": 0,
+            }, timeout=30)
+            count_resp.raise_for_status()
+            total = count_resp.json().get("total", 0)
+
+            if total == 0:
+                logger.info("enforce_tearsheet_jobs_public: all tearsheet jobs are already public — nothing to do")
+                return
+
+            logger.info(f"enforce_tearsheet_jobs_public: found {total:,} non-public job(s) across tearsheets {tearsheet_ids}")
+
+            all_jobs = []
+            start = 0
+            batch_size = 200
+
+            while start < total:
+                fetch_resp = _requests.get(search_url, headers=headers, params={
+                    "query": query, "fields": "id,status",
+                    "count": batch_size, "start": start,
+                }, timeout=30)
+                fetch_resp.raise_for_status()
+                page = fetch_resp.json().get("data", [])
+                if not page:
+                    break
+                all_jobs.extend(page)
+                start += len(page)
+                if len(page) < batch_size:
+                    break
+
+            seen_ids = set()
+            jobs_to_update = []
+            for job in all_jobs:
+                job_id = job.get("id")
+                status = job.get("status", "")
+                if job_id and job_id not in seen_ids and status not in INELIGIBLE_STATUSES:
+                    seen_ids.add(job_id)
+                    jobs_to_update.append(job_id)
+
+            skipped = total - len(jobs_to_update)
+            if not jobs_to_update:
+                logger.info(f"enforce_tearsheet_jobs_public: all {total} non-public jobs have ineligible statuses — skipping updates")
+                return
+
+            logger.info(f"enforce_tearsheet_jobs_public: will update {len(jobs_to_update)} job(s) (skipped {skipped} with ineligible status)")
+
+            succeeded = 0
+            failed = 0
+            sample_updated = []
+
+            for job_id in jobs_to_update:
+                try:
+                    upd = _requests.post(
+                        f"{base_url}entity/JobOrder/{job_id}",
+                        headers=headers,
+                        json={"isPublic": True},
+                        timeout=15,
+                    )
+                    body = {}
+                    try:
+                        body = upd.json()
+                    except Exception:
+                        pass
+                    if (upd.status_code in (200, 201)
+                            and not body.get("errorCode")
+                            and not body.get("errors")
+                            and (body.get("changeType") == "UPDATE"
+                                 or body.get("changedEntityId") is not None)):
+                        succeeded += 1
+                        if len(sample_updated) < 5:
+                            sample_updated.append(job_id)
+                    else:
+                        failed += 1
+                        logger.warning(
+                            f"enforce_tearsheet_jobs_public: unexpected response for job {job_id}: "
+                            f"HTTP {upd.status_code} — {body}"
+                        )
+                except Exception as rec_err:
+                    failed += 1
+                    logger.warning(f"enforce_tearsheet_jobs_public: error on job {job_id}: {rec_err}")
+
+                time.sleep(0.05)
+
+            logger.info(
+                f"enforce_tearsheet_jobs_public: complete — {succeeded} updated, {failed} failed"
+                + (f" | sample IDs: {sample_updated}" if sample_updated else "")
+            )
+
+        except Exception as e:
+            logger.error(f"enforce_tearsheet_jobs_public: unexpected error — {e}")

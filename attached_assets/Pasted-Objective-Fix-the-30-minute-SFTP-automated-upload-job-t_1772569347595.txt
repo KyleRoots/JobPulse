@@ -1,0 +1,93 @@
+Objective
+Fix the 30-minute SFTP automated upload job that repeatedly misfires in production, causing upload gaps of 45–54 minutes instead of the intended 30 minutes. Screenshots confirm the countdown resets every ~30 seconds as APScheduler repeatedly reschedules a missed job.
+
+Stack Recommendation
+Autonomy level: Economy
+Rationale: All changes are surgical edits to existing code — one job registration parameter change, one code block removal, two log lines added, one listener function appended, one key renamed. No new dependencies, no database migrations, no new routes or services. Low blast radius; high confidence in the fix.
+Root Cause Analysis (Fully Confirmed by Screenshots)
+Timeline from user screenshots:
+
+Last Upload: 14:19:21 UTC (initial upload at startup)
+15:07:59 UTC — Next Upload: 15:08:55 (in 56s) — job about to fire
+15:08:26 UTC — Next Upload: reset to 15:09:25 (in 59s) — job missed, rescheduled forward
+15:09:50 UTC — Next Upload: reset to 15:10:25 (in 34s) — missed again, rescheduled again
+15:15:14 UTC — Last Upload: 15:13:56 ✅ — job finally got through; Next: 15:43:56 (correctly +30 min)
+Gap: 14:19:21 → 15:13:56 = ~54 minutes instead of the intended 30.
+
+What is happening:
+
+The 5-minute tearsheet monitor fires at 15:08:31 and takes ~36 seconds to complete. It holds a monitoring lock during this window.
+The automated upload is due at 15:08:55 — right inside that 36-second window.
+The global scheduler misfire_grace_time = 30 seconds. The job tries to fire at 15:08:55, but thread pressure delays it past the 30-second grace window → APScheduler classifies it as a misfire and reschedules it forward (by ~30 seconds each time).
+This repeats at the next attempt, causing the countdown to "reset" again and again until the upload finally gets through at 15:13:56.
+The monitoring.lock file check inside automated_upload (tasks.py ~line 851) also causes a silent early return if the monitoring cycle ran within the last 4 minutes — a second failure mode on top of the first.
+The misleading upload_success: True in 5-min logs: Hardcoded in incremental_monitoring_service.py line 277 — does NOT indicate a real SFTP upload; creates false confidence that uploads are working every 5 minutes.
+
+Tasks
+T001: Increase misfire_grace_time for the automated_upload job (primary fix)
+Blocked By: []
+Details:
+In app.py around line 1162–1174, the scheduler.add_job() call for automated_upload inherits global defaults of misfire_grace_time=30 and coalesce=True.
+Add misfire_grace_time=300 (5 minutes) and coalesce=False explicitly to this specific job:
+scheduler.add_job(
+    func=automated_upload,
+    trigger=IntervalTrigger(minutes=30),
+    id='automated_upload',
+    name='Automated Upload (Every 30 Minutes)',
+    replace_existing=True,
+    misfire_grace_time=300,
+    coalesce=False
+)
+misfire_grace_time=300 gives the job a 5-minute window to execute before it's classified as missed — enough to survive even the busiest monitoring cycle.
+coalesce=False ensures missed firings each execute in sequence rather than being collapsed into one.
+Files: app.py
+Acceptance: Job registration includes misfire_grace_time=300, coalesce=False.
+T002: Remove the monitoring.lock silent-skip in automated_upload (secondary fix)
+Blocked By: []
+Details:
+In tasks.py around line 842–858, the automated_upload function checks for a monitoring.lock file and silently returns if it's less than 4 minutes old. This is a second failure mode that causes the job to skip even when APScheduler does deliver it on time.
+The lock was designed to prevent SFTP uploads during an active monitoring cycle, but it's too aggressive — a 4-minute lockout on a 30-minute job means any monitoring activity blocks uploads.
+Remove the monitoring.lock check entirely. The SFTP upload and monitoring cycle can safely run in parallel (they access different systems: SFTP server vs. Bullhorn API). The lock file itself is still written and released (it can remain for the monitoring cycle's own use), but automated_upload should not read/check it.
+Files: tasks.py
+Acceptance: automated_upload no longer bails out early due to a monitoring.lock file.
+T003: Add early diagnostic logging to automated_upload
+Blocked By: []
+Details:
+In tasks.py at the very top of automated_upload() (line 808), add print("📤 AUTOMATED UPLOAD: Function invoked by scheduler", flush=True) before any imports or context managers. This appears in gunicorn stdout regardless of Flask log level.
+Also add app.logger.info("📤 AUTOMATED UPLOAD: Function invoked") as the very first line inside the with app.app_context(): block, before any DB calls.
+Files: tasks.py
+Acceptance: Every future run immediately produces a visible log entry.
+T004: Add a missed-job listener for automated_upload
+Blocked By: [T001]
+Details:
+In app.py, inside _register_scheduler_listeners() (line 913), add EVENT_JOB_MISSED to the existing imports and register a listener that logs an ERROR when automated_upload is missed:
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, EVENT_JOB_MISSED
+def _on_job_missed(event):
+    if event.job_id == 'automated_upload':
+        app.logger.error(
+            f"⚠️ AUTOMATED UPLOAD MISSED: job skipped due to misfire. "
+            f"Scheduled: {event.scheduled_run_time}"
+        )
+scheduler.add_listener(_on_job_missed, EVENT_JOB_MISSED)
+Files: app.py
+Acceptance: Any future missed automated_upload firing produces a clear ERROR log.
+T005: Fix the misleading upload_success flag in the 5-minute monitoring cycle
+Blocked By: []
+Details:
+In incremental_monitoring_service.py line 277, rename upload_success to cycle_success in the returned dict so it is never confused with a real SFTP upload result.
+In app.py around line 751, update the log line that prints cycle_results to reflect the new key name.
+Files: incremental_monitoring_service.py, app.py
+Acceptance: 5-minute monitoring logs no longer say upload_success: True.
+T006: Verify the fix works
+Blocked By: [T001, T002, T003, T004, T005]
+Details:
+Restart the application workflow.
+Monitor deployment logs for the next 35 minutes to confirm:
+T003 print statement appears when the job fires ("📤 AUTOMATED UPLOAD: Function invoked by scheduler")
+T004 missed-job listener does NOT fire (job is no longer being dropped)
+Full upload sequence appears: "🚀 Starting automated 30-minute upload cycle..." → "✅ Automated upload successful"
+last_sftp_upload_time in GlobalSettings updates to a new timestamp after a successful run
+The UI shows "Last Upload" updating every ~30 minutes with no countdown resets
+5-minute monitoring logs no longer say upload_success: True
+Files: None (testing only)
+Acceptance: Automated upload executes cleanly on a consistent 30-minute schedule.

@@ -40,7 +40,8 @@ from tasks import (check_monitor_health, check_environment_status, send_environm
                    activity_retention_cleanup, log_monitoring_cycle, email_parsing_timeout_cleanup,
                    run_data_retention_cleanup, run_vetting_health_check, send_vetting_health_alert,
                    run_candidate_vetting_cycle, reference_number_refresh, automated_upload,
-                   run_xml_change_monitor, start_scheduler_manual, cleanup_linkedin_source)
+                   run_xml_change_monitor, start_scheduler_manual, cleanup_linkedin_source,
+                   enforce_tearsheet_jobs_public)
 
 # Configure logging for debugging account manager extraction
 logging.basicConfig(
@@ -1208,6 +1209,18 @@ if is_primary_worker:
         replace_existing=True
     )
     app.logger.info("🔗 LinkedIn source cleanup enabled — runs hourly to update stale source tags")
+
+if is_primary_worker:
+    scheduler.add_job(
+        func=enforce_tearsheet_jobs_public,
+        trigger=IntervalTrigger(minutes=30),
+        id='enforce_tearsheet_jobs_public',
+        name='Enforce Tearsheet Jobs Public (Every 30 Minutes)',
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=False
+    )
+    app.logger.info("🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs")
 
     def run_salesrep_sync_job():
         try:
