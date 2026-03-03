@@ -272,4 +272,4 @@ def stats_api():
 @scout_screening_bp.route('/scout-screening/guide')
 @login_required
 def guide():
-    return render_template('scout_screening_guide.html')
+    return render_template('scout_screening_guide.html', active_page='screening')

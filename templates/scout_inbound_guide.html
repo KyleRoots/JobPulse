@@ -292,13 +292,22 @@
 <div class="guide-section">
     <h3><i class="fas fa-copy"></i>Duplicate Candidates</h3>
     <p>
-        If a candidate has applied before, either to this job or another one, you'll see a <strong>Duplicate</strong>
-        flag next to their name along with a confidence percentage. A higher percentage means the system is more
-        certain this person is already in your Bullhorn database.
+        When a candidate applies, the system automatically checks whether they already exist in your Bullhorn
+        database. It searches by email address first, then phone number, and finally uses AI-powered name
+        matching to catch less obvious duplicates. The confidence percentage you see reflects how certain
+        the system is that it found the right match.
     </p>
     <p>
-        A duplicate flag is just a heads-up. It doesn't block the application or remove the candidate. It's there
-        so you can review and decide how to handle it yourself, rather than the system making that call for you.
+        <strong>What happens behind the scenes:</strong> If the system finds a high-confidence match
+        (85% or above), it automatically merges the new application data into the existing Bullhorn
+        candidate record. This keeps your database clean by updating the existing profile rather than
+        creating a duplicate entry. For lower-confidence matches, the system creates a new candidate
+        record to avoid accidentally merging two different people.
+    </p>
+    <p>
+        The <strong>Duplicate</strong> badge on your dashboard tells you that this candidate was matched
+        to an existing Bullhorn profile and their record was updated accordingly. You can click through
+        to Bullhorn to review the merged record at any time.
     </p>
 </div>
 
@@ -327,7 +336,7 @@
 <div class="guide-section">
     <h3><i class="fas fa-user-shield"></i>Who Can See What?</h3>
     <p>
-        Scout Inbound only shows jobs that are assigned to <em>you</em> in Bullhorn. If you're an account manager
+        Scout Inbound only shows jobs that are assigned to <em>you</em> in Bullhorn. If you're a recruiter
         covering three open roles, you'll see only those three jobs and the candidates who applied to them.
         Other recruiters' jobs and applicants are not visible to you, and yours are not visible to them.
     </p>

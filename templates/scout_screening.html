@@ -771,24 +771,34 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── Modal-aware auto-refresh ─────────────────────────────────────────────────
 // Reloads after 60s of idle time, but pauses while any modal is open.
+// Uses a safe-reload pattern to prevent redirecting users away from the page.
 (function () {
     let reloadTimer = null;
     let pendingReload = false;
+
+    function safeReload() {
+        fetch(window.location.href, { redirect: 'manual' })
+            .then(function(resp) {
+                if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
+                location.reload();
+            })
+            .catch(function() {});
+    }
 
     function startTimer() {
         clearTimeout(reloadTimer);
         reloadTimer = setTimeout(() => {
             if (document.querySelector('.modal.show')) {
-                pendingReload = true; // defer until modal closes
+                pendingReload = true;
             } else {
-                location.reload();
+                safeReload();
             }
         }, 60000);
     }
 
     document.querySelectorAll('.modal').forEach(function (modal) {
         modal.addEventListener('hidden.bs.modal', function () {
-            if (pendingReload) { location.reload(); }
+            if (pendingReload) { safeReload(); }
         });
     });
 

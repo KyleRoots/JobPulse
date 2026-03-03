@@ -385,7 +385,15 @@
 
 {% block extra_scripts %}
 <script>
-    setInterval(function() { location.reload(); }, 60000);
+    function safeReload() {
+        fetch(window.location.href, { redirect: 'manual' })
+            .then(function(resp) {
+                if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
+                location.reload();
+            })
+            .catch(function() {});
+    }
+    setInterval(safeReload, 60000);
 
     function filterCandidates(filter) {
         var rows = document.querySelectorAll('#candidates-tbody tr[data-status]');
