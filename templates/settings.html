@@ -772,6 +772,7 @@
         </div><!-- end #existingUsersCollapse -->
 
         <!-- Bulk Modules Modal -->
+        <span id="bulkModulesTrigger" data-bs-toggle="modal" data-bs-target="#bulkModulesModal" style="display:none;"></span>
         <div class="modal fade" id="bulkModulesModal" tabindex="-1" aria-labelledby="bulkModulesModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content" style="background: #0f1f16; border: 1px solid rgba(229,165,10,0.25);">
@@ -1129,8 +1130,7 @@
         if (applyCount) applyCount.textContent = count;
         document.querySelectorAll('.bulk-module-check').forEach(function (cb) { cb.checked = false; });
         document.getElementById('bulkModuleAdd').checked = true;
-        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('bulkModulesModal'));
-        modal.show();
+        document.getElementById('bulkModulesTrigger').click();
     }
 
     async function applyBulkModules() {
