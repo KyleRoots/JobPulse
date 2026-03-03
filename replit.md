@@ -11,6 +11,7 @@ Development Approval Process: Before executing any development task, always prov
   - Brief rationale for the choice
   - Wait for user approval before proceeding
 Source of Truth: GitHub repository (KyleRoots/JobPulse) — main branch.
+Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 
 ## System Architecture
 
