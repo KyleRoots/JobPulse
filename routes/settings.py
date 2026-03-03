@@ -542,6 +542,7 @@ def bulk_send_emails():
 def bulk_update_modules():
     """Add or remove a module subscription for a selection of users. Admin-only."""
     from models import User, AVAILABLE_MODULES
+    from extensions import db
     from flask import request as req
 
     if not current_user.is_admin:

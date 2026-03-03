@@ -3,7 +3,7 @@
 
 {% block title %}Scout Screening - Scout Genius™{% endblock %}
 
-{% block extra_head %}
+{% block extra_styles %}
 <meta http-equiv="refresh" content="60">
 <style>
     .settings-card {
@@ -104,7 +104,7 @@
 {% block page_title %}AI Candidate Screening{% endblock %}
 {% block page_subtitle %}Automated resume-to-job matching for inbound applicants{% endblock %}
 
-{% block header_actions %}
+{% block page_actions %}
 <a href="{{ url_for('vetting.embedding_audit') }}" class="btn btn-outline-info btn-sm me-2"
     title="Embedding filter monitoring">
     <i class="fas fa-chart-bar me-1"></i>Embedding Audit

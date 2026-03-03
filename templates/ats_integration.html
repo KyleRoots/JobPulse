@@ -3,7 +3,7 @@
 
 {% block title %}ATS Monitoring - JobPulse™{% endblock %}
 
-{% block extra_head %}
+{% block extra_styles %}
 <style>
     .activity-table-container {
         max-height: 750px;
@@ -151,7 +151,7 @@
 {% block page_title %}ATS Monitoring{% endblock %}
 {% block page_subtitle %}Monitor ATS tearsheets for job changes{% endblock %}
 
-{% block header_actions %}
+{% block page_actions %}
 <a href="{{ url_for('ats_integration.ats_integration_settings') }}" class="btn btn-outline-info btn-sm">
     <i class="fas fa-cog me-1"></i>ATS Settings
 </a>
