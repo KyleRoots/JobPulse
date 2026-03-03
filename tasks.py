@@ -935,19 +935,37 @@ def automated_upload():
                     
                     if upload_success:
                         try:
+                            from datetime import timedelta
+                            now_utc = datetime.utcnow()
+                            upload_timestamp = now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')
+                            next_upload_dt = now_utc + timedelta(minutes=30)
+                            next_upload_timestamp = next_upload_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+
                             last_upload_setting = GlobalSettings.query.filter_by(setting_key='last_sftp_upload_time').first()
-                            upload_timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
                             if last_upload_setting:
                                 last_upload_setting.setting_value = upload_timestamp
-                                last_upload_setting.updated_at = datetime.utcnow()
+                                last_upload_setting.updated_at = now_utc
                             else:
                                 last_upload_setting = GlobalSettings(
                                     setting_key='last_sftp_upload_time',
                                     setting_value=upload_timestamp
                                 )
                                 db.session.add(last_upload_setting)
+
+                            next_upload_setting = GlobalSettings.query.filter_by(setting_key='next_sftp_upload_time').first()
+                            if next_upload_setting:
+                                next_upload_setting.setting_value = next_upload_timestamp
+                                next_upload_setting.updated_at = now_utc
+                            else:
+                                next_upload_setting = GlobalSettings(
+                                    setting_key='next_sftp_upload_time',
+                                    setting_value=next_upload_timestamp
+                                )
+                                db.session.add(next_upload_setting)
+
                             db.session.commit()
                             app.logger.info(f"✅ Updated last upload timestamp: {upload_timestamp}")
+                            app.logger.info(f"✅ Updated next upload timestamp: {next_upload_timestamp}")
                         except Exception as ts_error:
                             app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
                 else:

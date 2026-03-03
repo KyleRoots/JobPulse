@@ -511,19 +511,41 @@ def automation_status():
         next_upload_timestamp = None
 
         if db_setting_enabled:
-            # Primary: ask the scheduler — only works if this request hits the primary worker
-            try:
-                from app import scheduler
-                job = scheduler.get_job('automated_upload')
-                if job and job.next_run_time:
-                    next_run = job.next_run_time
-                    next_upload_time = next_run.strftime('%Y-%m-%d %H:%M:%S UTC')
-                    next_upload_iso = next_run.isoformat()
-                    next_upload_timestamp = int(next_run.timestamp() * 1000)
-            except Exception:
-                pass
+            # Primary: read next_sftp_upload_time from DB — consistent across all gunicorn workers
+            next_upload_setting = GlobalSettings.query.filter_by(setting_key='next_sftp_upload_time').first()
+            if next_upload_setting and next_upload_setting.setting_value:
+                try:
+                    next_dt = None
+                    for fmt in ('%Y-%m-%d %H:%M:%S UTC', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+                        try:
+                            next_dt = datetime.strptime(next_upload_setting.setting_value.strip(), fmt).replace(tzinfo=timezone.utc)
+                            break
+                        except ValueError:
+                            continue
+                    if next_dt:
+                        now_utc = datetime.now(timezone.utc)
+                        if next_dt < now_utc:
+                            next_dt = now_utc + timedelta(minutes=1)
+                        next_upload_time = next_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                        next_upload_iso = next_dt.isoformat()
+                        next_upload_timestamp = int(next_dt.timestamp() * 1000)
+                except Exception:
+                    pass
 
-            # Fallback: calculate from last upload time when scheduler isn't accessible
+            # Secondary: ask the scheduler — only works on the primary worker (before first run)
+            if not next_upload_time:
+                try:
+                    from app import scheduler
+                    job = scheduler.get_job('automated_upload')
+                    if job and job.next_run_time:
+                        next_run = job.next_run_time
+                        next_upload_time = next_run.strftime('%Y-%m-%d %H:%M:%S UTC')
+                        next_upload_iso = next_run.isoformat()
+                        next_upload_timestamp = int(next_run.timestamp() * 1000)
+                except Exception:
+                    pass
+
+            # Fallback: calculate from last upload time
             if not next_upload_time:
                 if last_upload_raw:
                     try:
@@ -545,8 +567,8 @@ def automation_status():
                     except Exception:
                         pass
 
-                if not next_upload_time:
-                    next_upload_time = 'Pending first run'
+            if not next_upload_time:
+                next_upload_time = 'Pending first run'
 
         automation_enabled = db_setting_enabled
         status = 'Active' if db_setting_enabled else 'Disabled'

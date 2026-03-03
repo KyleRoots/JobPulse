@@ -1179,6 +1179,22 @@ if is_primary_worker:
         )
         print("✅ SCHEDULER INIT: Automated upload job registered successfully", flush=True)
         app.logger.info("📤 Scheduled automated uploads every 30 minutes")
+
+        # Seed next_sftp_upload_time into DB at startup so all workers can read a consistent value
+        try:
+            from datetime import datetime, timedelta, timezone
+            with app.app_context():
+                from models import GlobalSettings
+                existing = GlobalSettings.query.filter_by(setting_key='next_sftp_upload_time').first()
+                if not existing:
+                    seed_dt = datetime.now(timezone.utc) + timedelta(minutes=30)
+                    seed_value = seed_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                    db.session.add(GlobalSettings(setting_key='next_sftp_upload_time', setting_value=seed_value))
+                    db.session.commit()
+                    app.logger.info(f"📤 Seeded initial next_sftp_upload_time: {seed_value}")
+        except Exception as seed_err:
+            app.logger.warning(f"Could not seed next_sftp_upload_time: {seed_err}")
+
     except Exception as e:
         print(f"❌ SCHEDULER INIT: Failed to register automated upload job: {e}", flush=True)
         app.logger.error(f"Failed to register automated upload job: {e}")

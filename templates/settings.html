@@ -925,7 +925,9 @@
     }
 
     // Automation Status Management
-    let countdownInterval = null;
+    // Use window-scoped vars so they survive bfcache restores and re-initialisation
+    window._countdownInterval = window._countdownInterval || null;
+    window._automationPollInterval = window._automationPollInterval || null;
 
     function formatCountdown(timestamp, isoDate, humanDate) {
         const now = new Date();
@@ -983,8 +985,9 @@
                     document.getElementById('upload-interval').textContent = data.upload_interval;
 
                     if (data.next_upload_timestamp || data.next_upload_iso || data.next_upload_time) {
-                        if (countdownInterval) {
-                            clearInterval(countdownInterval);
+                        if (window._countdownInterval) {
+                            clearInterval(window._countdownInterval);
+                            window._countdownInterval = null;
                         }
 
                         const updateCountdown = () => {
@@ -997,7 +1000,7 @@
                         };
 
                         updateCountdown();
-                        countdownInterval = setInterval(updateCountdown, 1000);
+                        window._countdownInterval = setInterval(updateCountdown, 1000);
                     } else {
                         document.getElementById('countdown-timer').textContent = '';
                     }
@@ -1006,9 +1009,9 @@
                     statusElement.textContent = 'Disabled';
                     statusSection.style.display = 'none';
 
-                    if (countdownInterval) {
-                        clearInterval(countdownInterval);
-                        countdownInterval = null;
+                    if (window._countdownInterval) {
+                        clearInterval(window._countdownInterval);
+                        window._countdownInterval = null;
                     }
                 }
             })
@@ -1021,9 +1024,25 @@
         setTimeout(updateAutomationStatus, 1000);
     });
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function initAutomationPolling() {
+        if (window._automationPollInterval) {
+            clearInterval(window._automationPollInterval);
+            window._automationPollInterval = null;
+        }
+        if (window._countdownInterval) {
+            clearInterval(window._countdownInterval);
+            window._countdownInterval = null;
+        }
         updateAutomationStatus();
-        setInterval(updateAutomationStatus, 30000);
+        window._automationPollInterval = setInterval(updateAutomationStatus, 30000);
+    }
+
+    document.addEventListener('DOMContentLoaded', initAutomationPolling);
+
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) {
+            initAutomationPolling();
+        }
     });
 
     const bulkCsrfToken = document.querySelector('meta[name="csrf-token"]') ?
