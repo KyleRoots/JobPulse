@@ -807,9 +807,11 @@ def reference_number_refresh():
 
 def automated_upload():
     """Automatically upload fresh XML every 30 minutes if automation is enabled"""
+    print("📤 AUTOMATED UPLOAD: Function invoked by scheduler", flush=True)
     from app import app
     from extensions import db
     with app.app_context():
+        app.logger.info("📤 AUTOMATED UPLOAD: Function invoked")
         try:
             from models import GlobalSettings
             
@@ -834,160 +836,129 @@ def automated_upload():
             app.logger.info("📍 CHECKPOINT 1: XML generation completed successfully")
             app.logger.info("💾 Reference numbers loaded from DATABASE (database-first approach)")
             
-            lock_file = 'monitoring.lock'
             upload_success = False
             upload_error_message = None
             
             try:
-                if os.path.exists(lock_file):
-                    try:
-                        with open(lock_file, 'r') as f:
-                            lock_data = f.read().strip()
-                            if lock_data:
-                                lock_time = datetime.fromisoformat(lock_data)
-                                lock_age = (datetime.utcnow() - lock_time).total_seconds()
-                                
-                                if lock_age < 240:  # 4 minutes
-                                    app.logger.warning("🔒 Monitoring cycle is running, skipping automated upload")
-                                    return
-                                else:
-                                    os.remove(lock_file)  # Remove stale lock
-                    except Exception as e:
-                        app.logger.warning(f"Error reading monitoring lock: {str(e)}. Proceeding with upload.")
-                        if os.path.exists(lock_file):
-                            os.remove(lock_file)
+                import tempfile
+                temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
+                temp_file.write(xml_content)
+                temp_file.close()
                 
-                with open(lock_file, 'w') as f:
-                    f.write(datetime.utcnow().isoformat())
-                app.logger.info("🔒 Lock acquired for automated upload")
+                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
+                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
+                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
+                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
+                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+                
+                if (sftp_hostname and sftp_hostname.setting_value and 
+                    sftp_username and sftp_username.setting_value and 
+                    sftp_password and sftp_password.setting_value):
+                    
+                    target_directory = sftp_directory.setting_value if sftp_directory else "/"
+                    app.logger.info(f"📤 Uploading to configured directory: '{target_directory}'")
+                    
+                    from ftp_service import FTPService
+                    ftp_service = FTPService(
+                        hostname=sftp_hostname.setting_value,
+                        username=sftp_username.setting_value,
+                        password=sftp_password.setting_value,
+                        target_directory=target_directory,
+                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                        use_sftp=True  # ALWAYS use SFTP for automated uploads (thread-safe)
+                    )
+                    app.logger.info(f"🔐 Using SFTP protocol for thread-safe uploads to {sftp_hostname.setting_value}:{ftp_service.port}")
+                    app.logger.info(f"📂 Target directory: {target_directory}")
+                    
+                    current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
+                    app.logger.info(f"🔍 Environment detection: APP_ENV={os.environ.get('APP_ENV')}, ENVIRONMENT={os.environ.get('ENVIRONMENT')}, using={current_env}")
+                    
+                    if current_env not in ['production', 'development']:
+                        app.logger.error(f"❌ Invalid environment '{current_env}' - defaulting to development for safety")
+                        current_env = 'development'
+                    
+                    if current_env == 'production':
+                        production_filename = "myticas-job-feed-v2.xml"
+                        app.logger.info("🎯 PRODUCTION ENVIRONMENT: Uploading to production file ONLY")
+                        app.logger.info(f"📤 Uploading production XML as '{production_filename}'...")
+                        app.logger.info(f"🔍 Local file path: {temp_file.name}")
+                        app.logger.info(f"🎯 Remote filename: {production_filename}")
+                        try:
+                            app.logger.info("⚡ Calling FTP service for PRODUCTION upload...")
+                            upload_result = ftp_service.upload_file(
+                                local_file_path=temp_file.name,
+                                remote_filename=production_filename
+                            )
+                            app.logger.info(f"📊 Production upload result: {upload_result}")
+                            if upload_result:
+                                app.logger.info("✅ Production file uploaded successfully")
+                            else:
+                                app.logger.error("❌ Production file upload failed")
+                        except Exception as prod_error:
+                            app.logger.error(f"❌ Production file upload error: {str(prod_error)}")
+                            upload_result = False
+                    else:
+                        development_filename = "myticas-job-feed-v2-dev.xml"
+                        app.logger.info("🧪 DEVELOPMENT ENVIRONMENT: Uploading to development file ONLY")
+                        app.logger.info(f"📤 Uploading development XML as '{development_filename}'...")
+                        app.logger.info(f"🔍 Local file path: {temp_file.name}")
+                        app.logger.info(f"🎯 Remote filename: {development_filename}")
+                        try:
+                            upload_result = ftp_service.upload_file(
+                                local_file_path=temp_file.name,
+                                remote_filename=development_filename
+                            )
+                            if upload_result:
+                                app.logger.info("✅ Development file uploaded successfully")
+                            else:
+                                app.logger.error("❌ Development file upload failed")
+                        except Exception as dev_error:
+                            app.logger.error(f"❌ Development file upload error: {str(dev_error)}")
+                            upload_result = False
+                    
+                    app.logger.info(f"🔒 ENVIRONMENT ISOLATION: {current_env} → uploads ONLY to its designated file")
+                    
+                    if isinstance(upload_result, dict):
+                        if upload_result['success']:
+                            upload_success = True
+                            app.logger.info(f"✅ Automated upload successful: {upload_result.get('message', 'File uploaded')}")
+                        else:
+                            upload_error_message = upload_result.get('error', 'Unknown upload error')
+                            app.logger.error(f"❌ Automated upload failed: {upload_error_message}")
+                    else:
+                        if upload_result:
+                            upload_success = True
+                            app.logger.info("✅ Automated upload successful")
+                        else:
+                            upload_error_message = "Upload failed"
+                            app.logger.error("❌ Automated upload failed")
+                    
+                    if upload_success:
+                        try:
+                            last_upload_setting = GlobalSettings.query.filter_by(setting_key='last_sftp_upload_time').first()
+                            upload_timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+                            if last_upload_setting:
+                                last_upload_setting.setting_value = upload_timestamp
+                                last_upload_setting.updated_at = datetime.utcnow()
+                            else:
+                                last_upload_setting = GlobalSettings(
+                                    setting_key='last_sftp_upload_time',
+                                    setting_value=upload_timestamp
+                                )
+                                db.session.add(last_upload_setting)
+                            db.session.commit()
+                            app.logger.info(f"✅ Updated last upload timestamp: {upload_timestamp}")
+                        except Exception as ts_error:
+                            app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
+                else:
+                    upload_error_message = "SFTP credentials not configured"
+                    app.logger.error("❌ SFTP credentials not configured in Global Settings")
                 
                 try:
-                    import tempfile
-                    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
-                    temp_file.write(xml_content)
-                    temp_file.close()
-                    
-                    sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                    sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                    sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                    sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                    sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
-                    
-                    if (sftp_hostname and sftp_hostname.setting_value and 
-                        sftp_username and sftp_username.setting_value and 
-                        sftp_password and sftp_password.setting_value):
-                        
-                        target_directory = sftp_directory.setting_value if sftp_directory else "/"
-                        app.logger.info(f"📤 Uploading to configured directory: '{target_directory}'")
-                        
-                        from ftp_service import FTPService
-                        ftp_service = FTPService(
-                            hostname=sftp_hostname.setting_value,
-                            username=sftp_username.setting_value,
-                            password=sftp_password.setting_value,
-                            target_directory=target_directory,
-                            port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                            use_sftp=True  # ALWAYS use SFTP for automated uploads (thread-safe)
-                        )
-                        app.logger.info(f"🔐 Using SFTP protocol for thread-safe uploads to {sftp_hostname.setting_value}:{ftp_service.port}")
-                        app.logger.info(f"📂 Target directory: {target_directory}")
-                        
-                        current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
-                        app.logger.info(f"🔍 Environment detection: APP_ENV={os.environ.get('APP_ENV')}, ENVIRONMENT={os.environ.get('ENVIRONMENT')}, using={current_env}")
-                        
-                        if current_env not in ['production', 'development']:
-                            app.logger.error(f"❌ Invalid environment '{current_env}' - defaulting to development for safety")
-                            current_env = 'development'
-                        
-                        if current_env == 'production':
-                            production_filename = "myticas-job-feed-v2.xml"
-                            app.logger.info("🎯 PRODUCTION ENVIRONMENT: Uploading to production file ONLY")
-                            app.logger.info(f"📤 Uploading production XML as '{production_filename}'...")
-                            app.logger.info(f"🔍 Local file path: {temp_file.name}")
-                            app.logger.info(f"🎯 Remote filename: {production_filename}")
-                            try:
-                                app.logger.info("⚡ Calling FTP service for PRODUCTION upload...")
-                                upload_result = ftp_service.upload_file(
-                                    local_file_path=temp_file.name,
-                                    remote_filename=production_filename
-                                )
-                                app.logger.info(f"📊 Production upload result: {upload_result}")
-                                if upload_result:
-                                    app.logger.info("✅ Production file uploaded successfully")
-                                else:
-                                    app.logger.error("❌ Production file upload failed")
-                            except Exception as prod_error:
-                                app.logger.error(f"❌ Production file upload error: {str(prod_error)}")
-                                upload_result = False
-                        else:
-                            development_filename = "myticas-job-feed-v2-dev.xml"
-                            app.logger.info("🧪 DEVELOPMENT ENVIRONMENT: Uploading to development file ONLY")
-                            app.logger.info(f"📤 Uploading development XML as '{development_filename}'...")
-                            app.logger.info(f"🔍 Local file path: {temp_file.name}")
-                            app.logger.info(f"🎯 Remote filename: {development_filename}")
-                            try:
-                                upload_result = ftp_service.upload_file(
-                                    local_file_path=temp_file.name,
-                                    remote_filename=development_filename
-                                )
-                                if upload_result:
-                                    app.logger.info("✅ Development file uploaded successfully")
-                                else:
-                                    app.logger.error("❌ Development file upload failed")
-                            except Exception as dev_error:
-                                app.logger.error(f"❌ Development file upload error: {str(dev_error)}")
-                                upload_result = False
-                        
-                        app.logger.info(f"🔒 ENVIRONMENT ISOLATION: {current_env} → uploads ONLY to its designated file")
-                        
-                        if isinstance(upload_result, dict):
-                            if upload_result['success']:
-                                upload_success = True
-                                app.logger.info(f"✅ Automated upload successful: {upload_result.get('message', 'File uploaded')}")
-                            else:
-                                upload_error_message = upload_result.get('error', 'Unknown upload error')
-                                app.logger.error(f"❌ Automated upload failed: {upload_error_message}")
-                        else:
-                            if upload_result:
-                                upload_success = True
-                                app.logger.info("✅ Automated upload successful")
-                            else:
-                                upload_error_message = "Upload failed"
-                                app.logger.error("❌ Automated upload failed")
-                        
-                        if upload_success:
-                            try:
-                                last_upload_setting = GlobalSettings.query.filter_by(setting_key='last_sftp_upload_time').first()
-                                upload_timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
-                                if last_upload_setting:
-                                    last_upload_setting.setting_value = upload_timestamp
-                                    last_upload_setting.updated_at = datetime.utcnow()
-                                else:
-                                    last_upload_setting = GlobalSettings(
-                                        setting_key='last_sftp_upload_time',
-                                        setting_value=upload_timestamp
-                                    )
-                                    db.session.add(last_upload_setting)
-                                db.session.commit()
-                                app.logger.info(f"✅ Updated last upload timestamp: {upload_timestamp}")
-                            except Exception as ts_error:
-                                app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
-                    else:
-                        upload_error_message = "SFTP credentials not configured"
-                        app.logger.error("❌ SFTP credentials not configured in Global Settings")
-                    
-                    try:
-                        os.remove(temp_file.name)
-                    except:
-                        pass
+                    os.remove(temp_file.name)
+                except:
+                    pass
                 
-                finally:
-                    if os.path.exists(lock_file):
-                        try:
-                            os.remove(lock_file)
-                            app.logger.info("🔓 Lock released after automated upload")
-                        except Exception as e:
-                            app.logger.error(f"Error removing upload lock: {str(e)}")
                 
                 email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
                 email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
@@ -1028,8 +999,8 @@ def automated_upload():
                     except Exception as email_error:
                         app.logger.error(f"Failed to send upload notification: {str(email_error)}")
                 
-            except Exception as lock_error:
-                app.logger.error(f"Lock management error during automated upload: {str(lock_error)}")
+            except Exception as upload_error:
+                app.logger.error(f"Upload process error during automated upload: {str(upload_error)}")
             
         except Exception as e:
             app.logger.error(f"❌ Automated upload error: {str(e)}")

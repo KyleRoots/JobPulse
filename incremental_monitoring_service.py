@@ -274,7 +274,7 @@ class IncrementalMonitoringService:
             
             # Step 4: Manual workflow - SFTP auto-upload disabled
             self.logger.info("\n📊 Step 4: Monitoring complete - ready for manual download")
-            cycle_results['upload_success'] = True  # Manual workflow always 'succeeds'
+            cycle_results['cycle_success'] = True  # Manual workflow cycle always 'succeeds'
             self.logger.info("  ✅ XML updated locally - use manual download for publishing")
             
             # Include excluded job count in reporting

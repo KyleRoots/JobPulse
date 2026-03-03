@@ -913,7 +913,7 @@ _background_services_started = False
 def _register_scheduler_listeners():
     """Register APScheduler job execution listeners for last-run tracking. Call once after scheduler.start()."""
     try:
-        from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
+        from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, EVENT_JOB_MISSED
         import json as _json
         from datetime import datetime
 
@@ -939,8 +939,16 @@ def _register_scheduler_listeners():
             except Exception:
                 pass
 
+        def _on_job_missed(event):
+            if event.job_id == 'automated_upload':
+                app.logger.error(
+                    f"⚠️ AUTOMATED UPLOAD MISSED: job skipped due to misfire. "
+                    f"Scheduled: {event.scheduled_run_time}"
+                )
+
         scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
         scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
+        scheduler.add_listener(_on_job_missed, EVENT_JOB_MISSED)
         app.logger.info("📡 Scheduler job execution listeners registered")
     except Exception as e:
         app.logger.warning(f"Failed to register scheduler listeners: {e}")
@@ -1165,7 +1173,9 @@ if is_primary_worker:
             trigger=IntervalTrigger(minutes=30),
             id='automated_upload',
             name='Automated Upload (Every 30 Minutes)',
-            replace_existing=True
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=False
         )
         print("✅ SCHEDULER INIT: Automated upload job registered successfully", flush=True)
         app.logger.info("📤 Scheduled automated uploads every 30 minutes")
