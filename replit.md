@@ -7,8 +7,6 @@ JobPulse is a Flask-based web application designed to automate XML job feed proc
 Preferred communication style: Simple, everyday language.
 Deployment workflow: Always confirm deployment requirements at the end of any changes or updates.
 Development Approval Process: Before executing any development task, always provide "stack recommendation" including:
-  - Model type (Standard/High-Performance)
-  - Extended thinking (Yes/No)
   - Autonomy level (Economy/Power)
   - Brief rationale for the choice
   - Wait for user approval before proceeding

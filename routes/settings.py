@@ -535,3 +535,60 @@ def bulk_send_emails():
             failed_count += 1
 
     return jsonify({'success': success_count, 'failed': failed_count})
+
+
+@settings_bp.route('/settings/users/bulk-modules', methods=['POST'])
+@login_required
+def bulk_update_modules():
+    """Add or remove a module subscription for a selection of users. Admin-only."""
+    from models import User, AVAILABLE_MODULES
+    from flask import request as req
+
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = req.get_json() or {}
+    user_ids = data.get('user_ids', [])
+    module = data.get('module', '')
+    action = data.get('action', 'add')
+
+    if not user_ids:
+        return jsonify({'error': 'No users selected'}), 400
+    if module not in AVAILABLE_MODULES:
+        return jsonify({'error': 'Invalid module'}), 400
+    if action not in ('add', 'remove'):
+        return jsonify({'error': 'Invalid action'}), 400
+
+    success_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for uid in user_ids:
+        try:
+            user = User.query.get(int(uid))
+            if not user:
+                failed_count += 1
+                continue
+            if user.is_admin:
+                skipped_count += 1
+                continue
+            current_mods = user.get_modules()
+            if action == 'add':
+                if module not in current_mods:
+                    current_mods.append(module)
+            else:
+                current_mods = [m for m in current_mods if m != module]
+            user.set_modules(current_mods)
+            success_count += 1
+        except Exception as e:
+            current_app.logger.error(f"Bulk module update error for user {uid}: {e}")
+            failed_count += 1
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(f"Bulk module commit error: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Database commit failed'}), 500
+
+    return jsonify({'success': success_count, 'skipped': skipped_count, 'failed': failed_count})
