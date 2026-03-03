@@ -9,6 +9,7 @@ Deployment workflow: Always confirm deployment requirements at the end of any ch
 Development Approval Process: Before executing any development task, always provide "stack recommendation" including:
   - Model type (Standard/High-Performance)
   - Extended thinking (Yes/No)
+  - Autonomy level (Economy/Power)
   - Brief rationale for the choice
   - Wait for user approval before proceeding
 Source of Truth: GitHub repository (KyleRoots/JobPulse) — main branch.
