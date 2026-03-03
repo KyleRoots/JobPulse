@@ -1,0 +1,372 @@
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="inbound"{% endblock %}
+
+{% block title %}Inbound Config - JobPulse™{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .inbound-card {
+        background: linear-gradient(145deg, rgba(22, 42, 31, 0.9), rgba(10, 22, 16, 0.95));
+        border: 1px solid rgba(74, 150, 120, 0.18);
+        border-radius: 12px;
+        backdrop-filter: blur(20px);
+        margin-bottom: 1.5rem;
+    }
+
+    .inbound-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(74, 150, 120, 0.18);
+    }
+
+    .inbound-card .card-header h5 {
+        color: #4a9678;
+    }
+
+    .form-control, .form-select {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(74, 150, 120, 0.25);
+        color: #fff;
+    }
+
+    .form-control:focus, .form-select:focus {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(74, 150, 120, 0.55);
+        box-shadow: 0 0 0 0.2rem rgba(74, 150, 120, 0.15);
+        color: #fff;
+    }
+
+    .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .form-check-input:checked {
+        background-color: #4a9678;
+        border-color: #4a9678;
+    }
+
+    .btn-inbound-primary {
+        background: linear-gradient(135deg, #4a9678, #2d6a4f);
+        border: none;
+        color: #fff;
+        font-weight: 600;
+    }
+
+    .btn-inbound-primary:hover {
+        background: linear-gradient(135deg, #5aaa88, #3d7a5f);
+        color: #fff;
+    }
+
+    .status-card {
+        background: rgba(74, 150, 120, 0.08);
+        border: 1px solid rgba(74, 150, 120, 0.2);
+        border-radius: 10px;
+    }
+
+    .status-card .card-header {
+        background: rgba(74, 150, 120, 0.12);
+        border-bottom: 1px solid rgba(74, 150, 120, 0.2);
+        border-radius: 10px 10px 0 0;
+    }
+
+    .form-label {
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    small.text-muted {
+        color: rgba(255, 255, 255, 0.4) !important;
+        font-size: 0.78rem;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}Inbound Config{% endblock %}
+{% block page_subtitle %}SFTP connection, automation, and notification settings for Scout Inbound{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="POST" action="{{ url_for('settings.update_inbound_config') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- SFTP Settings -->
+    <div class="card inbound-card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-server me-2"></i>SFTP Upload Settings
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="sftp_enabled" name="sftp_enabled"
+                            {% if settings.sftp_enabled == 'true' %}checked{% endif %}>
+                        <label class="form-check-label" for="sftp_enabled">
+                            <strong>Enable SFTP Connection</strong>
+                        </label>
+                    </div>
+                    <small class="text-muted">When enabled, SFTP is available for XML uploads</small>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="automated_uploads_enabled"
+                            name="automated_uploads_enabled"
+                            {% if settings.automated_uploads_enabled == 'true' %}checked{% endif %}>
+                        <label class="form-check-label" for="automated_uploads_enabled">
+                            <strong>Enable Automated Uploads (Every 30 Minutes)</strong>
+                        </label>
+                    </div>
+                    <small class="text-muted">Automatically upload XML files on a 30-minute cycle</small>
+                </div>
+            </div>
+
+            <!-- Automation Status -->
+            <div id="automation-status-section" class="mb-4" style="display: none;">
+                <div class="status-card p-3">
+                    <div class="d-flex align-items-center mb-2 gap-2">
+                        <i class="fas fa-clock" style="color: #4a9678;"></i>
+                        <strong style="font-size: 0.9rem;">Automated Upload Status</strong>
+                        <span id="automation-status" class="badge bg-secondary ms-1">Loading...</span>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6 col-md-3">
+                            <small class="text-muted d-block">Next Upload</small>
+                            <span id="next-upload-time" class="text-white" style="font-size: 0.875rem;">—</span><br>
+                            <small id="countdown-timer" style="color: #4a9678; font-weight: 600;"></small>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <small class="text-muted d-block">Last Upload</small>
+                            <span id="last-upload-time" class="text-white" style="font-size: 0.875rem;">—</span>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <small class="text-muted d-block">Frequency</small>
+                            <span id="upload-interval" class="text-white" style="font-size: 0.875rem;">Every 30 minutes</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="sftp_hostname" class="form-label">SFTP Hostname</label>
+                    <input type="text" class="form-control" id="sftp_hostname" name="sftp_hostname"
+                        value="{{ settings.sftp_hostname }}" placeholder="yourdomain.wpengine.com">
+                    <small class="text-muted">Your SFTP server hostname (e.g., WP Engine domain)</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="sftp_port" class="form-label">SFTP Port</label>
+                    <input type="number" class="form-control" id="sftp_port" name="sftp_port"
+                        value="{{ settings.sftp_port or '2222' }}" placeholder="2222">
+                    <small class="text-muted">Usually 2222 for WP Engine, 22 for standard SFTP</small>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="sftp_username" class="form-label">SFTP Username</label>
+                    <input type="text" class="form-control" id="sftp_username" name="sftp_username"
+                        value="{{ settings.sftp_username }}" placeholder="your-username">
+                </div>
+                <div class="col-md-6">
+                    <label for="sftp_password" class="form-label">SFTP Password</label>
+                    <input type="password" class="form-control" id="sftp_password" name="sftp_password"
+                        placeholder="{% if settings.sftp_password %}••••••••{% else %}Enter password{% endif %}">
+                    <small class="text-muted">Leave blank to keep current password</small>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="sftp_directory" class="form-label">Upload Directory</label>
+                <input type="text" class="form-control" id="sftp_directory" name="sftp_directory"
+                    value="{{ settings.sftp_directory or '/' }}" placeholder="/">
+                <small class="text-muted">Target directory on your server (e.g., /wp-content/uploads/)</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Connection -->
+    <div class="card inbound-card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-plug me-2"></i>Test SFTP Connection
+            </h5>
+        </div>
+        <div class="card-body text-center">
+            <p class="text-muted mb-3">Verify your SFTP credentials before saving</p>
+            <button type="button" class="btn btn-outline-success" onclick="testSftpConnection()">
+                <i class="fas fa-plug me-2"></i>Test Connection
+            </button>
+            <div id="testResult" class="mt-3"></div>
+        </div>
+    </div>
+
+    <!-- Email Notification Settings -->
+    <div class="card inbound-card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-envelope me-2"></i>Email Notification Settings
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="email_notifications_enabled"
+                            name="email_notifications_enabled"
+                            {% if settings.email_notifications_enabled == 'true' %}checked{% endif %}>
+                        <label class="form-check-label" for="email_notifications_enabled">
+                            <strong>Enable Email Notifications</strong>
+                        </label>
+                    </div>
+                    <small class="text-muted">Send email alerts when automated processing completes</small>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="default_notification_email" class="form-label">Default Notification Email</label>
+                <input type="email" class="form-control" id="default_notification_email"
+                    name="default_notification_email"
+                    value="{{ settings.default_notification_email }}"
+                    placeholder="your-email@example.com">
+                <small class="text-muted">Address for automated upload notifications (can be overridden per schedule)</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save -->
+    <div class="d-grid gap-2 mb-4">
+        <button type="submit" class="btn btn-inbound-primary btn-lg">
+            <i class="fas fa-save me-2"></i>Save Inbound Config
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    window._countdownInterval = window._countdownInterval || null;
+    window._automationPollInterval = window._automationPollInterval || null;
+
+    function formatCountdown(timestamp, isoDate, humanDate) {
+        const now = new Date();
+        let target;
+        if (timestamp && typeof timestamp === 'number') {
+            target = new Date(timestamp);
+        } else if (isoDate) {
+            target = new Date(isoDate);
+        } else if (humanDate) {
+            target = new Date(humanDate.replace(' UTC', 'Z').replace(' ', 'T'));
+        } else {
+            return '';
+        }
+        if (isNaN(target.getTime())) return '';
+        const diff = target - now;
+        if (diff <= 0) return 'uploading soon…';
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        return minutes > 0 ? `in ${minutes}m ${seconds}s` : `in ${seconds}s`;
+    }
+
+    function updateAutomationStatus() {
+        fetch('/automation-status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) return;
+                const statusEl = document.getElementById('automation-status');
+                const section = document.getElementById('automation-status-section');
+                if (data.automation_enabled) {
+                    if (statusEl) {
+                        statusEl.className = 'badge bg-success ms-1';
+                        statusEl.textContent = data.status;
+                    }
+                    if (section) section.style.display = 'block';
+                    document.getElementById('next-upload-time').textContent = data.next_upload_time || 'Not scheduled';
+                    document.getElementById('last-upload-time').textContent = data.last_upload_time || 'Not yet';
+                    document.getElementById('upload-interval').textContent = data.upload_interval || 'Every 30 minutes';
+
+                    if (data.next_upload_timestamp || data.next_upload_iso || data.next_upload_time) {
+                        if (window._countdownInterval) clearInterval(window._countdownInterval);
+                        const tick = () => {
+                            document.getElementById('countdown-timer').textContent = formatCountdown(
+                                data.next_upload_timestamp, data.next_upload_iso, data.next_upload_time
+                            );
+                        };
+                        tick();
+                        window._countdownInterval = setInterval(tick, 1000);
+                    }
+                } else {
+                    if (statusEl) {
+                        statusEl.className = 'badge bg-secondary ms-1';
+                        statusEl.textContent = 'Disabled';
+                    }
+                    if (section) section.style.display = 'none';
+                    if (window._countdownInterval) { clearInterval(window._countdownInterval); window._countdownInterval = null; }
+                }
+            })
+            .catch(() => {});
+    }
+
+    function initAutomationPolling() {
+        if (window._automationPollInterval) clearInterval(window._automationPollInterval);
+        if (window._countdownInterval) clearInterval(window._countdownInterval);
+        updateAutomationStatus();
+        window._automationPollInterval = setInterval(updateAutomationStatus, 30000);
+    }
+
+    document.getElementById('automated_uploads_enabled').addEventListener('change', function () {
+        setTimeout(updateAutomationStatus, 800);
+    });
+
+    document.addEventListener('DOMContentLoaded', initAutomationPolling);
+    window.addEventListener('pageshow', function (e) { if (e.persisted) initAutomationPolling(); });
+
+    function testSftpConnection() {
+        const btn = event.target;
+        const resultDiv = document.getElementById('testResult');
+        const formData = {
+            sftp_hostname: document.getElementById('sftp_hostname').value,
+            sftp_username: document.getElementById('sftp_username').value,
+            sftp_password: document.getElementById('sftp_password').value,
+            sftp_directory: document.getElementById('sftp_directory').value,
+            sftp_port: document.getElementById('sftp_port').value
+        };
+        if (!formData.sftp_hostname || !formData.sftp_username || !formData.sftp_password) {
+            resultDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Fill in hostname, username, and password before testing</div>';
+            return;
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing…';
+        resultDiv.innerHTML = '';
+        fetch('/test-sftp-connection', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                resultDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check me-2"></i>' + data.message + '</div>';
+            } else {
+                resultDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times me-2"></i>' + (data.error || 'Connection failed') + '</div>';
+            }
+        })
+        .catch(() => {
+            resultDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times me-2"></i>Failed to test connection</div>';
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-plug me-2"></i>Test Connection';
+        });
+    }
+</script>
+{% endblock %}

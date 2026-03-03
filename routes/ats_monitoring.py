@@ -14,8 +14,9 @@ register_admin_guard(ats_monitoring_bp)
 @ats_monitoring_bp.route('/ats-monitoring')
 @login_required
 def ats_monitoring_page():
-    """ATS monitoring dashboard"""
-    return render_template('ats_monitoring.html', active_page='ats_monitoring')
+    """Redirect to ATS Integration — monitoring features are now consolidated there"""
+    from flask import redirect, url_for
+    return redirect(url_for('ats_integration.ats_integration_dashboard'))
 
 
 @ats_monitoring_bp.route('/api/monitors')

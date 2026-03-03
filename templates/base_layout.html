@@ -1505,10 +1505,10 @@
 
         <div class="sidebar-header">
             <a href="{{ url_for('dashboard.dashboard_redirect') }}" class="sidebar-logo">
-                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound'] %}
+                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config'] %}
                 <img src="{{ url_for('static', filename='images/scout-inbound-logo.png') }}" alt="Scout Inbound"
                     class="sidebar-logo-full">
-                {% elif active_page in ['screening'] %}
+                {% elif active_page in ['screening', 'screening_config'] %}
                 <img src="{{ url_for('static', filename='images/scout-screening-logo.png') }}" alt="Scout Screening"
                     class="sidebar-logo-full screening-logo">
                 {% elif active_page in ['vetting'] %}
@@ -1518,10 +1518,10 @@
                 <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
                     class="sidebar-logo-full">
                 {% endif %}
-                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound'] %}
+                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config'] %}
                 <img src="{{ url_for('static', filename='images/scout-inbound-icon.png') }}" alt="Scout Inbound"
                     class="sidebar-logo-compact">
-                {% elif active_page in ['screening'] %}
+                {% elif active_page in ['screening', 'screening_config'] %}
                 <img src="{{ url_for('static', filename='images/scout-screening-icon.png') }}" alt="Scout Screening"
                     class="sidebar-logo-compact">
                 {% elif active_page in ['vetting'] %}
@@ -1560,10 +1560,10 @@
                     <i class="fas fa-inbox"></i>
                     <span>Email Parsing</span>
                 </a>
-                <a href="{{ url_for('ats_monitoring.ats_monitoring_page') }}"
-                    class="nav-item {% if active_page == 'ats_monitoring' %}active{% endif %}">
-                    <i class="fas fa-heartbeat"></i>
-                    <span>ATS Monitoring</span>
+                <a href="{{ url_for('settings.inbound_config') }}"
+                    class="nav-item {% if active_page == 'inbound_config' %}active{% endif %}">
+                    <i class="fas fa-cog"></i>
+                    <span>Inbound Config</span>
                 </a>
                 {% endif %}
             </div>
@@ -1578,6 +1578,13 @@
                     <i class="fas fa-brain"></i>
                     <span>My Matches &amp; Jobs</span>
                 </a>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('vetting.vetting_settings') }}"
+                    class="nav-item {% if active_page == 'screening_config' %}active{% endif %}">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>Screening Config</span>
+                </a>
+                {% endif %}
             </div>
             {% endif %}
 

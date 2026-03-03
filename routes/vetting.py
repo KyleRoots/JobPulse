@@ -151,7 +151,7 @@ def vetting_settings():
                           recent_issues=recent_issues,
                           pending_candidates=pending_candidates,
                           recent_vetting=recent_vetting,
-                          active_page='screening')
+                          active_page='screening_config')
 
 
 @vetting_bp.route('/screening/save', methods=['POST'])
@@ -1606,7 +1606,7 @@ def embedding_audit():
                           sort=sort_by,
                           esc_sort=esc_sort,
                           active_tab=active_tab,
-                          active_page='screening')
+                          active_page='screening_config')
 
 
 @vetting_bp.route('/screening/embedding-audit/filtered-csv')

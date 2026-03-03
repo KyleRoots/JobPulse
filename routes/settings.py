@@ -172,6 +172,118 @@ def update_settings():
         return redirect(url_for('settings.settings'))
 
 
+@settings_bp.route('/inbound-config')
+@login_required
+def inbound_config():
+    """Inbound Config — SFTP and automation settings for Scout Inbound"""
+    from app import db
+    from models import GlobalSettings
+
+    try:
+        settings_data = {}
+        setting_keys = [
+            'sftp_hostname', 'sftp_username', 'sftp_directory', 'sftp_port', 'sftp_enabled',
+            'email_notifications_enabled', 'default_notification_email', 'automated_uploads_enabled'
+        ]
+        for key in setting_keys:
+            setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
+            settings_data[key] = setting.setting_value if setting else ''
+
+        return render_template('inbound_config.html',
+                               settings=settings_data,
+                               active_page='inbound_config')
+    except Exception as e:
+        current_app.logger.error(f"Error loading inbound config: {str(e)}")
+        flash('Error loading settings', 'error')
+        return redirect(url_for('ats_integration.ats_integration_dashboard'))
+
+
+@settings_bp.route('/inbound-config', methods=['POST'])
+@login_required
+def update_inbound_config():
+    """Save SFTP and automation settings from Inbound Config page"""
+    from app import db, scheduler, automated_upload
+    from models import GlobalSettings
+
+    try:
+        sftp_settings = {
+            'sftp_enabled': 'true' if request.form.get('sftp_enabled') == 'on' else 'false',
+            'sftp_hostname': request.form.get('sftp_hostname', ''),
+            'sftp_username': request.form.get('sftp_username', ''),
+            'sftp_password': request.form.get('sftp_password', ''),
+            'sftp_directory': request.form.get('sftp_directory', '/'),
+            'sftp_port': request.form.get('sftp_port', '2222')
+        }
+        email_settings = {
+            'email_notifications_enabled': 'true' if request.form.get('email_notifications_enabled') == 'on' else 'false',
+            'default_notification_email': request.form.get('default_notification_email', '')
+        }
+        automation_settings = {
+            'automated_uploads_enabled': 'true' if request.form.get('automated_uploads_enabled') == 'on' else 'false'
+        }
+
+        old_automation_setting = GlobalSettings.query.filter_by(setting_key='automated_uploads_enabled').first()
+        old_automation_enabled = old_automation_setting.setting_value == 'true' if old_automation_setting else False
+        new_automation_enabled = automation_settings['automated_uploads_enabled'] == 'true'
+
+        all_settings = {**sftp_settings, **email_settings, **automation_settings}
+        for key, value in all_settings.items():
+            if key == 'sftp_password' and not value:
+                continue
+            setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
+            if setting:
+                setting.setting_value = str(value)
+                setting.updated_at = datetime.utcnow()
+            else:
+                db.session.add(GlobalSettings(setting_key=key, setting_value=str(value)))
+
+        from sqlalchemy.exc import OperationalError
+        import time
+        for attempt in range(3):
+            try:
+                db.session.commit()
+                break
+            except OperationalError as oe:
+                if 'database is locked' in str(oe) and attempt < 2:
+                    db.session.rollback()
+                    time.sleep(0.5 * (attempt + 1))
+                else:
+                    raise
+
+        if old_automation_enabled != new_automation_enabled:
+            try:
+                if new_automation_enabled:
+                    if scheduler.get_job('automated_upload') is None:
+                        scheduler.add_job(
+                            func=automated_upload,
+                            trigger='interval',
+                            minutes=30,
+                            id='automated_upload',
+                            name='Automated Upload (Every 30 Minutes)',
+                            replace_existing=True
+                        )
+                    flash('Automated uploads enabled! XML files will be uploaded every 30 minutes.', 'success')
+                else:
+                    try:
+                        scheduler.remove_job('automated_upload')
+                    except Exception:
+                        pass
+                    flash('Automated uploads disabled. Manual download workflow activated.', 'info')
+            except Exception as scheduler_error:
+                current_app.logger.error(f"Failed to update automation scheduler: {str(scheduler_error)}")
+                flash('Settings saved but scheduler update failed.', 'warning')
+        else:
+            flash('Inbound config saved successfully!', 'success')
+
+        return redirect(url_for('settings.inbound_config'))
+
+    except Exception as e:
+        current_app.logger.error(f"Error saving inbound config: {str(e)}")
+        db.session.rollback()
+        flash(f'Error saving settings: {str(e)}', 'error')
+        return redirect(url_for('settings.inbound_config'))
+
+
 @settings_bp.route('/test-sftp-connection', methods=['POST'])
 def test_sftp_connection():
     """Test SFTP connection with form data"""

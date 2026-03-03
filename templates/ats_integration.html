@@ -362,6 +362,12 @@
                             <button onclick="testMonitor({{ monitor.id }})" class="btn btn-sm btn-outline-warning">
                                 <i class="fas fa-vial me-1"></i>Test
                             </button>
+                            <button class="btn btn-sm btn-outline-secondary toggle-monitor-btn"
+                                data-paused="false"
+                                onclick="toggleMonitor({{ monitor.id }}, this)"
+                                title="Pause or resume this monitor">
+                                <i class="fas fa-pause me-1"></i>Pause
+                            </button>
                             <form method="POST"
                                 action="{{ url_for('ats_integration.delete_ats_monitor', monitor_id=monitor.id) }}"
                                 class="d-inline"
@@ -387,6 +393,65 @@
             </a>
         </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- System Status Banner -->
+<div id="system-health-banner" class="card glass-card mb-4" style="border-left: 3px solid rgba(74,150,120,0.5);">
+    <div class="card-body py-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <h6 class="mb-0"><i class="fas fa-heartbeat me-2" style="color: #4a9678;"></i>System Status</h6>
+                <span id="health-overall-badge" class="badge bg-secondary">
+                    <span class="spinner-border spinner-border-sm me-1" style="width:.65rem;height:.65rem;"></span>Checking…
+                </span>
+            </div>
+            <div class="d-flex gap-3 flex-wrap" id="health-service-row" style="font-size:0.82rem;">
+                <span class="text-muted"><i class="fas fa-circle me-1" id="h-bh-icon" style="color:#6c757d;font-size:0.6rem;"></i>Bullhorn <span id="h-bh-text" class="text-muted">—</span></span>
+                <span class="text-muted"><i class="fas fa-circle me-1" id="h-ai-icon" style="color:#6c757d;font-size:0.6rem;"></i>OpenAI <span id="h-ai-text" class="text-muted">—</span></span>
+                <span class="text-muted"><i class="fas fa-circle me-1" id="h-db-icon" style="color:#6c757d;font-size:0.6rem;"></i>Database <span id="h-db-text" class="text-muted">—</span></span>
+                <span class="text-muted"><i class="fas fa-circle me-1" id="h-sched-icon" style="color:#6c757d;font-size:0.6rem;"></i>Scheduler <span id="h-sched-text" class="text-muted">—</span></span>
+            </div>
+            <small class="text-muted" id="health-last-checked"></small>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Log -->
+<div class="card glass-card mb-4">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-history me-2"></i>Recent Activity
+        </h5>
+        <div class="d-flex align-items-center gap-2">
+            <span id="cycle-sync-status"></span>
+            <button class="btn btn-outline-secondary btn-sm" onclick="updateRecentActivity()">
+                <i class="fas fa-sync-alt me-1"></i>Refresh
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="activity-table-container">
+            <table class="table table-hover mb-0" id="activity-table">
+                <thead>
+                    <tr>
+                        <th style="padding: 12px 16px;">Monitor</th>
+                        <th style="padding: 12px 16px;">Event</th>
+                        <th style="padding: 12px 16px;">Details</th>
+                        <th style="padding: 12px 16px;">Time</th>
+                        <th style="padding: 12px 16px; text-align:center;" title="Email notification sent"><i class="fas fa-envelope"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            Loading activity…
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -614,20 +679,79 @@
         fetch('/api/system/health')
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.health_status !== 'healthy') {
-                    const healthIndicator = document.querySelector('.display-4');
-                    if (healthIndicator) {
-                        healthIndicator.innerHTML = `
-                            <i class="fas fa-building me-3"></i>
-                            ATS Monitoring 
-                            <span class="badge bg-warning ms-2">
-                                <i class="fas fa-exclamation-triangle me-1"></i>Health Issues
-                            </span>
-                        `;
+                const overallBadge = document.getElementById('health-overall-badge');
+                const lastChecked = document.getElementById('health-last-checked');
+
+                if (!data.success) {
+                    if (overallBadge) overallBadge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error';
+                    if (overallBadge) overallBadge.className = 'badge bg-danger';
+                    return;
+                }
+
+                const status = data.health_status || 'unknown';
+                const statusColor = status === 'healthy' ? 'bg-success' : status === 'degraded' ? 'bg-warning text-dark' : 'bg-danger';
+                const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                if (overallBadge) {
+                    overallBadge.className = `badge ${statusColor}`;
+                    overallBadge.textContent = statusLabel;
+                }
+                if (lastChecked) {
+                    const now = new Date();
+                    lastChecked.textContent = `Updated ${now.toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'})}`;
+                }
+
+                const services = data.services || {};
+                const setService = (id, textId, serviceKey) => {
+                    const icon = document.getElementById(id);
+                    const text = document.getElementById(textId);
+                    const svc = services[serviceKey] || {};
+                    const ok = svc.status === 'healthy' || svc.status === 'connected' || svc.status === 'ok';
+                    const warn = svc.status === 'degraded' || svc.status === 'warning';
+                    if (icon) icon.style.color = ok ? '#4a9678' : warn ? '#f0ad4e' : '#dc3545';
+                    if (text) {
+                        text.textContent = svc.status || '—';
+                        text.style.color = ok ? '#4a9678' : warn ? '#f0ad4e' : '#dc3545';
                     }
+                };
+                setService('h-bh-icon', 'h-bh-text', 'bullhorn');
+                setService('h-ai-icon', 'h-ai-text', 'openai');
+                setService('h-db-icon', 'h-db-text', 'database');
+                setService('h-sched-icon', 'h-sched-text', 'scheduler');
+            })
+            .catch(error => {
+                const overallBadge = document.getElementById('health-overall-badge');
+                if (overallBadge) {
+                    overallBadge.className = 'badge bg-danger';
+                    overallBadge.textContent = 'Unavailable';
+                }
+            });
+    }
+
+    function toggleMonitor(monitorId, btn) {
+        btn.disabled = true;
+        const isPaused = btn.dataset.paused === 'true';
+        fetch(`/api/monitors/${monitorId}/toggle`, {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const nowPaused = !isPaused;
+                    btn.dataset.paused = nowPaused ? 'true' : 'false';
+                    btn.innerHTML = nowPaused
+                        ? '<i class="fas fa-play me-1"></i>Resume'
+                        : '<i class="fas fa-pause me-1"></i>Pause';
+                    btn.className = nowPaused
+                        ? 'btn btn-sm btn-outline-success toggle-monitor-btn'
+                        : 'btn btn-sm btn-outline-secondary toggle-monitor-btn';
+                    const card = btn.closest('.monitor-card');
+                    if (card) {
+                        card.style.opacity = nowPaused ? '0.6' : '1';
+                    }
+                } else {
+                    showNotification('Failed to toggle monitor: ' + (data.error || 'Unknown error'), 'error');
                 }
             })
-            .catch(error => { });
+            .catch(() => showNotification('Error toggling monitor', 'error'))
+            .finally(() => { btn.disabled = false; });
     }
 
     function updateMonitorStatus() {
