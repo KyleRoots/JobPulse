@@ -180,7 +180,7 @@ def automations_chat_clear():
 
 VISIBLE_JOBS = {
     'process_bullhorn_monitors': 'Tearsheet Monitor',
-    'candidate_vetting_cycle': 'AI Candidate Vetting',
+    'candidate_vetting_cycle': 'AI Candidate Screening',
     'vetting_health_check': 'Vetting Health Check',
     'automated_upload': 'Automated Upload',
     'salesrep_sync': 'Sales Rep Sync',

@@ -1187,12 +1187,21 @@ if is_primary_worker:
             with app.app_context():
                 from models import GlobalSettings
                 existing = GlobalSettings.query.filter_by(setting_key='next_sftp_upload_time').first()
+                seed_dt = datetime.now(timezone.utc) + timedelta(minutes=30)
+                seed_value = seed_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
                 if not existing:
-                    seed_dt = datetime.now(timezone.utc) + timedelta(minutes=30)
-                    seed_value = seed_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
                     db.session.add(GlobalSettings(setting_key='next_sftp_upload_time', setting_value=seed_value))
                     db.session.commit()
                     app.logger.info(f"📤 Seeded initial next_sftp_upload_time: {seed_value}")
+                else:
+                    try:
+                        stored_dt = datetime.strptime(existing.setting_value.strip(), '%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=timezone.utc)
+                        if stored_dt <= datetime.now(timezone.utc) + timedelta(minutes=5):
+                            existing.setting_value = seed_value
+                            db.session.commit()
+                            app.logger.info(f"📤 Refreshed stale next_sftp_upload_time: {seed_value}")
+                    except Exception:
+                        pass
         except Exception as seed_err:
             app.logger.warning(f"Could not seed next_sftp_upload_time: {seed_err}")
 

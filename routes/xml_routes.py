@@ -524,11 +524,11 @@ def automation_status():
                             continue
                     if next_dt:
                         now_utc = datetime.now(timezone.utc)
-                        if next_dt < now_utc:
-                            next_dt = now_utc + timedelta(minutes=1)
-                        next_upload_time = next_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-                        next_upload_iso = next_dt.isoformat()
-                        next_upload_timestamp = int(next_dt.timestamp() * 1000)
+                        if next_dt >= now_utc:
+                            next_upload_time = next_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                            next_upload_iso = next_dt.isoformat()
+                            next_upload_timestamp = int(next_dt.timestamp() * 1000)
+                        # else: DB time is past — fall through to scheduler lookup below
                 except Exception:
                     pass
 
