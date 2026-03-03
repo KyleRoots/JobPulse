@@ -267,3 +267,9 @@ def stats_api():
         'not_recommended': sum(1 for m in matches if not m.is_qualified and m.match_score > 0),
         'screened_this_week': sum(1 for m in matches if m.created_at and m.created_at >= week_ago),
     })
+
+
+@scout_screening_bp.route('/scout-screening/guide')
+@login_required
+def guide():
+    return render_template('scout_screening_guide.html')

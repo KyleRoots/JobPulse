@@ -1,0 +1,440 @@
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="screening"{% endblock %}
+
+{% block title %}Scout Screening — Help Guide{% endblock %}
+
+{% block page_title %}Scout Screening{% endblock %}
+{% block page_subtitle %}Help Guide — How to use your screening portal{% endblock %}
+
+{% block extra_head %}
+<style>
+    .guide-hero {
+        background: linear-gradient(135deg, rgba(244, 63, 94, 0.1), rgba(225, 29, 72, 0.05));
+        border: 1px solid rgba(244, 63, 94, 0.2);
+        border-radius: 14px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .guide-hero h2 {
+        color: #fb7185;
+        font-size: 1.4rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .guide-hero p {
+        color: rgba(224, 220, 216, 0.85);
+        font-size: 1rem;
+        line-height: 1.7;
+        margin: 0;
+        max-width: 760px;
+    }
+
+    .guide-section {
+        background: rgba(15, 25, 20, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 12px;
+        padding: 1.75rem 2rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .guide-section h3 {
+        color: #fb7185;
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .guide-section h3 i {
+        font-size: 0.95rem;
+        opacity: 0.8;
+    }
+
+    .guide-section p {
+        color: rgba(224, 220, 216, 0.82);
+        font-size: 0.93rem;
+        line-height: 1.75;
+        margin-bottom: 0.75rem;
+    }
+
+    .guide-section p:last-child {
+        margin-bottom: 0;
+    }
+
+    .status-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.75rem;
+    }
+
+    .status-table th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: rgba(251, 113, 133, 0.7);
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .status-table td {
+        padding: 0.65rem 0.75rem;
+        font-size: 0.88rem;
+        color: rgba(224, 220, 216, 0.82);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        vertical-align: top;
+        line-height: 1.55;
+    }
+
+    .status-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .score-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .score-label {
+        width: 100px;
+        font-size: 0.83rem;
+        color: rgba(224, 220, 216, 0.75);
+        flex-shrink: 0;
+    }
+
+    .score-bar {
+        height: 8px;
+        border-radius: 4px;
+        flex: 1;
+        max-width: 220px;
+    }
+
+    .score-bar.high { background: linear-gradient(90deg, #28a745, #5cb85c); }
+    .score-bar.mid  { background: linear-gradient(90deg, #e5a50a, #f0b429); }
+    .score-bar.low  { background: linear-gradient(90deg, #f87171, #ef4444); }
+
+    .score-desc {
+        font-size: 0.82rem;
+        color: rgba(224, 220, 216, 0.55);
+    }
+
+    .qual-badge {
+        display: inline-block;
+        padding: 0.2rem 0.65rem;
+        border-radius: 5px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .badge-qualified {
+        background: rgba(40, 167, 69, 0.15);
+        color: #5cb85c;
+        border: 1px solid rgba(40, 167, 69, 0.25);
+    }
+
+    .badge-not-recommended {
+        background: rgba(220, 53, 69, 0.12);
+        color: #f87171;
+        border: 1px solid rgba(220, 53, 69, 0.2);
+    }
+
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+    }
+
+    .metric-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 0.9rem 1rem;
+    }
+
+    .metric-card .metric-name {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #fb7185;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.35rem;
+    }
+
+    .metric-card .metric-desc {
+        font-size: 0.83rem;
+        color: rgba(224, 220, 216, 0.7);
+        line-height: 1.5;
+    }
+
+    .tip-box {
+        background: rgba(244, 63, 94, 0.06);
+        border-left: 3px solid rgba(251, 113, 133, 0.45);
+        border-radius: 0 8px 8px 0;
+        padding: 0.9rem 1.1rem;
+        margin-top: 1rem;
+        font-size: 0.88rem;
+        color: rgba(224, 220, 216, 0.78);
+        line-height: 1.6;
+    }
+
+    .tip-box strong {
+        color: #fb7185;
+    }
+
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.45rem 1rem;
+        background: rgba(244, 63, 94, 0.1);
+        border: 1px solid rgba(251, 113, 133, 0.25);
+        border-radius: 6px;
+        color: #fb7185;
+        font-size: 0.85rem;
+        text-decoration: none;
+        margin-bottom: 1.5rem;
+        transition: all 0.2s;
+    }
+
+    .back-btn:hover {
+        background: rgba(244, 63, 94, 0.18);
+        color: #fb7185;
+    }
+
+    .step-list {
+        list-style: none;
+        padding: 0;
+        margin: 0.75rem 0 0 0;
+    }
+
+    .step-list li {
+        display: flex;
+        gap: 0.75rem;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 0.88rem;
+        color: rgba(224, 220, 216, 0.82);
+        line-height: 1.55;
+    }
+
+    .step-list li:last-child {
+        border-bottom: none;
+    }
+
+    .step-num {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: rgba(244, 63, 94, 0.15);
+        border: 1px solid rgba(251, 113, 133, 0.25);
+        color: #fb7185;
+        font-size: 0.72rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('scout_screening.dashboard') }}" class="back-btn">
+    <i class="fas fa-arrow-left"></i> Back to Screening Portal
+</a>
+
+<div class="guide-hero">
+    <h2><i class="fas fa-book-open me-2"></i>What is Scout Screening?</h2>
+    <p>
+        Scout Screening reads every resume that comes in for your jobs and gives it an AI match score before
+        you ever have to look at it. Think of it as a tireless first-pass reviewer that works around the clock —
+        so by the time you open your portal, the candidates most likely to be a good fit are already at the
+        top, clearly labelled, with notes explaining why.
+    </p>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-th-large"></i>Your Dashboard at a Glance</h3>
+    <p>At the top of the Screening Portal you'll see four clickable summary cards:</p>
+    <div class="metric-grid">
+        <div class="metric-card">
+            <div class="metric-name">Qualified Matches</div>
+            <div class="metric-desc">Candidates whose AI score meets or exceeds your threshold. These are worth a closer look.</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-name">Pending Review</div>
+            <div class="metric-desc">Candidates currently being analyzed by the AI. They'll appear in the list within minutes.</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-name">Not Recommended</div>
+            <div class="metric-desc">Candidates who fell below the threshold. Still accessible, but the AI flagged significant gaps.</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-name">Screened This Week</div>
+            <div class="metric-desc">Total candidates the AI has reviewed across all your jobs in the last 7 days.</div>
+        </div>
+    </div>
+    <div class="tip-box">
+        <strong>Tip:</strong> Click any card to instantly filter the candidates list below to show only that group.
+        Click again to clear the filter.
+    </div>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-chart-bar"></i>Understanding Match Scores</h3>
+    <p>
+        Every candidate receives a score from 0 to 100. The higher the score, the closer their resume matches
+        what the job is asking for. Here's a simple guide to what the ranges mean:
+    </p>
+
+    <div style="margin: 1rem 0;">
+        <div class="score-bar-row">
+            <span class="score-label">80 and above</span>
+            <div class="score-bar high" style="width:88%;"></div>
+            <span class="score-desc">Strong match — meets most key requirements</span>
+        </div>
+        <div class="score-bar-row">
+            <span class="score-label">60 to 79</span>
+            <div class="score-bar mid" style="width:65%;"></div>
+            <span class="score-desc">Partial match — some gaps worth reviewing</span>
+        </div>
+        <div class="score-bar-row">
+            <span class="score-label">Below 60</span>
+            <div class="score-bar low" style="width:40%;"></div>
+            <span class="score-desc">Significant gaps — likely not the right fit</span>
+        </div>
+    </div>
+
+    <p>
+        These scores are guides, not final decisions. A candidate at 78 might still be excellent — use
+        the AI notes alongside the score to form your own view.
+    </p>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-tags"></i>Qualified vs. Not Recommended</h3>
+    <p>Each candidate in the list carries one of two badges:</p>
+    <table class="status-table">
+        <thead>
+            <tr>
+                <th>Badge</th>
+                <th>What it means</th>
+                <th>What to do</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="qual-badge badge-qualified">Qualified</span></td>
+                <td>Score is at or above your threshold for this job.</td>
+                <td>Review the AI notes, then open the candidate in Bullhorn to decide next steps.</td>
+            </tr>
+            <tr>
+                <td><span class="qual-badge badge-not-recommended">Not Recommended</span></td>
+                <td>Score fell below the threshold — the AI identified notable gaps.</td>
+                <td>You can still review the notes to understand why, and open the record in Bullhorn if you disagree with the AI.</td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="tip-box">
+        <strong>Remember:</strong> The AI's assessment is a starting point. You always have the final say on
+        any candidate. If you think the AI got it wrong, trust your instincts — you know your clients best.
+    </div>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-file-alt"></i>Reading the AI Notes</h3>
+    <p>
+        Next to each candidate, you'll see a short snippet of what the AI found. To see the full picture,
+        click <strong>"View full notes"</strong> — this opens a panel with the complete AI assessment, which typically includes:
+    </p>
+    <ul class="step-list">
+        <li>
+            <span class="step-num">1</span>
+            <span>A summary of which skills and experience matched the job well.</span>
+        </li>
+        <li>
+            <span class="step-num">2</span>
+            <span>Any gaps or missing requirements the AI identified.</span>
+        </li>
+        <li>
+            <span class="step-num">3</span>
+            <span>The reasoning behind the score — written in plain English, not code or jargon.</span>
+        </li>
+        <li>
+            <span class="step-num">4</span>
+            <span>A direct link to open the candidate's full profile in Bullhorn.</span>
+        </li>
+    </ul>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-sliders-h"></i>Setting Your Match Threshold</h3>
+    <p>
+        The threshold is the minimum score a candidate needs to show up as <strong>Qualified</strong> for a
+        specific job. The default is <strong>80</strong>. You can change it per job directly in the portal.
+    </p>
+    <p>
+        In the job settings table at the bottom of the page, find the job you want to adjust. Click into the
+        number in the <strong>Threshold</strong> column, type a new value between 50 and 100, and it saves
+        automatically — no buttons to click.
+    </p>
+    <div class="tip-box">
+        <strong>When to lower the threshold:</strong> If a role is hard to fill and you're seeing very few
+        Qualified results, try lowering to 70 or 65.<br><br>
+        <strong>When to raise the threshold:</strong> If a senior or highly specialized role is getting too
+        many Qualified results and you want to be more selective, try raising to 85 or 90.
+    </div>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-cog"></i>Custom Requirements — Steering the AI</h3>
+    <p>
+        By default, the AI reads the job description in Bullhorn and figures out what to look for. But sometimes
+        you know there's a specific tool, certification, or skill that's non-negotiable — something that might
+        not be clearly stated in the job description.
+    </p>
+    <p>
+        Click the <strong>"Configure"</strong> button next to any job to open the requirements panel. You'll see
+        what the AI is currently using (read-only), and a text box where you can add your own instructions.
+        For example: <em>"Must have direct experience with SAP S/4HANA — general SAP experience is not sufficient."</em>
+    </p>
+    <p>
+        Once saved, the AI will factor in your instruction for all future candidates screened against that job.
+        Existing results are not retroactively rescored.
+    </p>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-external-link-alt"></i>Opening Records in Bullhorn</h3>
+    <p>
+        Candidate names and job titles in the table are linked. Clicking the link icon beside them opens the
+        corresponding record in Bullhorn in a new tab. You can review the full resume, add notes, or take
+        any next step — all without losing your place in the Screening Portal.
+    </p>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-sync-alt"></i>Auto-Refresh</h3>
+    <p>
+        The portal refreshes automatically every 60 seconds, so new screening results appear on their own
+        as candidates come in. You'll see the table update without needing to reload the page.
+    </p>
+</div>
+
+<div class="guide-section">
+    <h3><i class="fas fa-user-shield"></i>Who Can See What?</h3>
+    <p>
+        The Screening Portal only shows results for jobs assigned to <em>you</em> in Bullhorn. Scores and
+        AI notes for another recruiter's jobs are not visible in your view, and yours are not visible to
+        them. Each recruiter sees only their own workload.
+    </p>
+</div>
+{% endblock %}

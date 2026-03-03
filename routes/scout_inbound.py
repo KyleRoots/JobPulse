@@ -168,3 +168,9 @@ def scout_inbound_candidates_api():
         } for c in candidates],
         'total': len(candidates)
     })
+
+
+@scout_inbound_bp.route('/scout-inbound/guide')
+@login_required
+def guide():
+    return render_template('scout_inbound_guide.html')
