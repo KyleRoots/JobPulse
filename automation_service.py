@@ -16,6 +16,7 @@ LONG_RUNNING_BUILTINS = {
     "resume_reparser",
     "export_qualified",
     "email_extractor",
+    "retry_recruiter_notifications",
 }
 
 logger = logging.getLogger(__name__)
@@ -145,6 +146,7 @@ class AutomationService:
             "salesrep_sync": self._builtin_salesrep_sync,
             "update_field_bulk": self._builtin_update_field_bulk,
             "email_extractor": self._builtin_email_extractor,
+            "retry_recruiter_notifications": self._builtin_retry_recruiter_notifications,
         }
 
         handler = handlers.get(name)
@@ -1055,4 +1057,94 @@ class AutomationService:
             **results,
             "updated_samples": updated_samples,
             "candidates": candidate_details[:50],
+        }
+
+    def _builtin_retry_recruiter_notifications(self, params):
+        from models import CandidateVettingLog
+        from candidate_vetting_service import CandidateVettingService
+
+        dry_run = params.get("dry_run", False)
+        since_date_str = params.get("since_date", "")
+
+        if since_date_str:
+            try:
+                since_dt = datetime.strptime(since_date_str, "%Y-%m-%d")
+            except ValueError:
+                since_dt = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            since_dt = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        query = CandidateVettingLog.query.filter(
+            CandidateVettingLog.is_qualified == True,
+            CandidateVettingLog.notifications_sent == False,
+            CandidateVettingLog.created_at >= since_dt,
+        ).order_by(CandidateVettingLog.created_at.asc())
+
+        logs = query.all()
+        total = len(logs)
+
+        if total == 0:
+            return {
+                "summary": f"No unnotified qualified candidates found since {since_dt.strftime('%Y-%m-%d')}.",
+                "total_found": 0,
+                "sent": 0,
+                "failed": 0,
+                "dry_run": dry_run,
+            }
+
+        if dry_run:
+            names = [f"{l.candidate_name} (ID: {l.bullhorn_candidate_id})" for l in logs[:10]]
+            return {
+                "summary": (
+                    f"Dry run — {total} qualified candidate(s) with no notification sent since "
+                    f"{since_dt.strftime('%Y-%m-%d')}: {', '.join(names)}"
+                    + (" (+ more)" if total > 10 else "")
+                ),
+                "total_found": total,
+                "sent": 0,
+                "failed": 0,
+                "dry_run": True,
+                "candidates": [
+                    {"name": l.candidate_name, "id": l.bullhorn_candidate_id, "created_at": str(l.created_at)}
+                    for l in logs
+                ],
+            }
+
+        vetting_svc = CandidateVettingService(bullhorn_service=self.bullhorn)
+
+        sent = 0
+        failed = 0
+        sent_names = []
+        failed_names = []
+
+        for vetting_log in logs:
+            try:
+                count = vetting_svc.send_recruiter_notifications(vetting_log)
+                if count > 0:
+                    sent += 1
+                    sent_names.append(f"{vetting_log.candidate_name} (ID: {vetting_log.bullhorn_candidate_id})")
+                    self.logger.info(f"retry_recruiter_notifications: sent for {vetting_log.candidate_name}")
+                else:
+                    failed += 1
+                    failed_names.append(f"{vetting_log.candidate_name} (ID: {vetting_log.bullhorn_candidate_id})")
+                    self.logger.warning(f"retry_recruiter_notifications: send_recruiter_notifications returned 0 for {vetting_log.candidate_name}")
+            except Exception as e:
+                failed += 1
+                failed_names.append(f"{vetting_log.candidate_name}")
+                self.logger.error(f"retry_recruiter_notifications: error for {vetting_log.candidate_name}: {e}")
+
+        summary_parts = [f"Found {total} unnotified qualified candidate(s) since {since_dt.strftime('%Y-%m-%d')}."]
+        if sent:
+            summary_parts.append(f"{sent} notification(s) sent: {', '.join(sent_names[:5])}" + (" (+ more)" if sent > 5 else ""))
+        if failed:
+            summary_parts.append(f"{failed} failed: {', '.join(failed_names[:5])}")
+
+        return {
+            "summary": " ".join(summary_parts),
+            "total_found": total,
+            "sent": sent,
+            "failed": failed,
+            "dry_run": False,
+            "sent_names": sent_names,
+            "failed_names": failed_names,
         }

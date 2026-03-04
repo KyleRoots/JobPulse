@@ -1202,7 +1202,8 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                         bcc_emails: list = None,
                         in_reply_to: str = None,
                         reply_to: str = None,
-                        from_name: str = None):
+                        from_name: str = None,
+                        changes_summary: str = None):
         """
         Send an HTML email (for test emails, custom notifications, etc.)
         
@@ -1282,7 +1283,8 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 delivery_status=delivery_status,
                 error_message=error_msg,
                 subject=subject,
-                sendgrid_message_id=sendgrid_message_id
+                sendgrid_message_id=sendgrid_message_id,
+                changes_summary=changes_summary
             )
             
             if response.status_code == 202:

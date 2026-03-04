@@ -995,6 +995,12 @@ BUILTIN_AUTOMATIONS = [
         "automation_type": "one-time",
         "builtin_key": "salesrep_sync",
     },
+    {
+        "name": "Retry Recruiter Notifications",
+        "description": "Find qualified candidates whose recruiter notification email was never sent, and send it now. Defaults to candidates qualified today. Use since_date (YYYY-MM-DD) to extend the lookback window.",
+        "automation_type": "one-time",
+        "builtin_key": "retry_recruiter_notifications",
+    },
 ]
 
 STALE_BUILTIN_KEYS = set()
