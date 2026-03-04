@@ -39,7 +39,7 @@ def update_progress(schedule_id, step, message, completed=False, error=None):
 def scheduler_dashboard():
     """Scheduling dashboard for automated processing"""
     from app import db
-    from models import ScheduleConfig, ProcessingLog, RefreshLog
+    from models import ScheduleConfig, ProcessingLog, RefreshLog, GlobalSettings
     
     # Get all active schedules
     schedules = ScheduleConfig.query.filter_by(is_active=True).all()
@@ -56,46 +56,65 @@ def scheduler_dashboard():
     
     # Get information about the actively maintained XML files
     active_xml_files = []
-    for filename in ['myticas-job-feed.xml']:
-        if os.path.exists(filename):
-            file_stats = os.stat(filename)
-            
-            # Try to find the schedule for this file
-            schedule_for_file = None
-            for schedule in schedules:
-                if schedule.file_path == filename:
-                    schedule_for_file = schedule
-                    break
-            
-            # Use server upload time if available
-            if schedule_for_file and schedule_for_file.last_file_upload:
-                last_modified = schedule_for_file.last_file_upload
-            else:
-                last_modified = datetime.fromtimestamp(file_stats.st_mtime)
-            
-            file_size_kb = file_stats.st_size / 1024
-            
-            if file_stats.st_size == 280377:
-                display_size = "273.8 KB"
-            else:
-                display_size = f"{file_size_kb:.1f} KB"
-            
-            if hasattr(last_modified, 'strftime'):
-                server_time_dt = last_modified - timedelta(hours=4)
-                server_time_str = server_time_dt.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                server_time_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            
-            display_filename = "myticas-job-feed-v2.xml" if filename == "myticas-job-feed.xml" else filename
-            
+
+    import json as _json
+    dual_feed_setting = GlobalSettings.query.filter_by(setting_key='dual_feed_last_result').first()
+    dual_feed_data = None
+    if dual_feed_setting and dual_feed_setting.setting_value:
+        try:
+            dual_feed_data = _json.loads(dual_feed_setting.setting_value)
+        except Exception:
+            pass
+
+    if dual_feed_data:
+        ts_str = dual_feed_data.get('timestamp', '')
+        for feed_key, label in [('v2', 'myticas-job-feed-v2.xml'), ('pando', 'myticas-job-feed-pando.xml')]:
+            size_bytes = dual_feed_data.get(f'{feed_key}_size', 0)
+            job_count = dual_feed_data.get(f'{feed_key}_jobs', 0)
+            display_size = f"{size_bytes / 1024:.1f} KB" if size_bytes else "—"
             active_xml_files.append({
-                'filename': display_filename,
-                'file_size': file_stats.st_size,
+                'filename': label,
+                'file_size': size_bytes,
                 'display_size': display_size,
-                'last_modified': last_modified,
-                'server_time': server_time_str,
-                'is_active': True
+                'last_modified': None,
+                'server_time': ts_str,
+                'is_active': True,
+                'job_count': job_count
             })
+    else:
+        for filename in ['myticas-job-feed.xml']:
+            if os.path.exists(filename):
+                file_stats = os.stat(filename)
+
+                schedule_for_file = None
+                for schedule in schedules:
+                    if schedule.file_path == filename:
+                        schedule_for_file = schedule
+                        break
+
+                if schedule_for_file and schedule_for_file.last_file_upload:
+                    last_modified = schedule_for_file.last_file_upload
+                else:
+                    last_modified = datetime.fromtimestamp(file_stats.st_mtime)
+
+                file_size_kb = file_stats.st_size / 1024
+                display_size = f"{file_size_kb:.1f} KB"
+
+                if hasattr(last_modified, 'strftime'):
+                    server_time_dt = last_modified - timedelta(hours=4)
+                    server_time_str = server_time_dt.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    server_time_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
+                active_xml_files.append({
+                    'filename': "myticas-job-feed-v2.xml",
+                    'file_size': file_stats.st_size,
+                    'display_size': display_size,
+                    'last_modified': last_modified,
+                    'server_time': server_time_str,
+                    'is_active': True,
+                    'job_count': None
+                })
     
     # Get recent processing logs
     recent_logs = ProcessingLog.query.order_by(ProcessingLog.processed_at.desc()).limit(10).all()

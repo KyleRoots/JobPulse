@@ -142,6 +142,9 @@
                         <h6 class="mb-1">
                             <i class="fas fa-file-code me-2"></i>
                             {{ xml_file.filename }}
+                            {% if xml_file.job_count is not none %}
+                            <span class="badge bg-success ms-2">{{ xml_file.job_count }} jobs</span>
+                            {% endif %}
                         </h6>
                     </div>
                     <div class="text-end">
