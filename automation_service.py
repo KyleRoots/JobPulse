@@ -573,7 +573,7 @@ class AutomationService:
                         update_url = f"{self._bh_url()}entity/Candidate/{cid}"
                         requests.post(update_url,
                                       headers={**self._bh_headers(), "Content-Type": "application/json"},
-                                      json={"description": text[:5000]}, timeout=15)
+                                      json={"description": text[:20000]}, timeout=15)
                         results["parsed"] += 1
                         detail["status"] = "parsed"
                     elif reason == "garbled":
@@ -647,10 +647,29 @@ class AutomationService:
             from resume_parser import ResumeParser
             parser = ResumeParser()
             result = parser.parse_resume(tmp_path, quick_mode=True, skip_cache=True)
-            return result.get("raw_text", "")
+
+            formatted_html = result.get("formatted_html", "")
+            if formatted_html and len(formatted_html.strip()) > 50:
+                return formatted_html
+
+            raw_text = result.get("raw_text", "")
+            if not raw_text or len(raw_text.strip()) < 50:
+                return raw_text
+
+            return self._plain_text_to_html(raw_text)
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
+
+    def _plain_text_to_html(self, text):
+        import html as html_lib
+        paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+        parts = []
+        for para in paragraphs:
+            escaped = html_lib.escape(para)
+            escaped = escaped.replace('\n', '<br>')
+            parts.append(f"<p>{escaped}</p>")
+        return "\n".join(parts)
 
     def _builtin_salesrep_sync(self, params):
         from salesrep_sync_service import run_salesrep_sync
