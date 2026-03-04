@@ -949,12 +949,39 @@ BUILTIN_AUTOMATIONS = [
         "automation_type": "one-time",
         "builtin_key": "email_extractor",
     },
+    {
+        "name": "Cleanup AI Notes",
+        "description": "Delete AI vetting notes from candidate records. Finds notes matching actions: AI Vetting, AI Resume Summary, AI Vetted.",
+        "automation_type": "one-time",
+        "builtin_key": "cleanup_ai_notes",
+    },
+    {
+        "name": "Cleanup Duplicate Notes",
+        "description": "Remove duplicate 'AI Vetting - Not Recommended' notes. Keeps the original (oldest) note and deletes subsequent chained duplicates added within 60 minutes.",
+        "automation_type": "one-time",
+        "builtin_key": "cleanup_duplicate_notes",
+    },
+    {
+        "name": "Find Zero Match",
+        "description": "Find candidates with 'Highest Match Score: 0%' in vetting notes. Useful for identifying zero-score candidates that may need review.",
+        "automation_type": "one-time",
+        "builtin_key": "find_zero_match",
+    },
+    {
+        "name": "Export Qualified",
+        "description": "Export qualified candidates for specific jobs. Fetches all submissions for given job IDs and checks candidate notes for qualifying actions.",
+        "automation_type": "one-time",
+        "builtin_key": "export_qualified",
+    },
+    {
+        "name": "Sales Rep Sync",
+        "description": "Manually trigger Sales Rep display name sync. Resolves CorporateUser IDs in customText3 to display names in customText6. Normally runs automatically every 30 minutes.",
+        "automation_type": "one-time",
+        "builtin_key": "salesrep_sync",
+    },
 ]
 
-STALE_BUILTIN_KEYS = {
-    "cleanup_ai_notes", "cleanup_duplicate_notes", "find_zero_match",
-    "export_qualified", "salesrep_sync",
-}
+STALE_BUILTIN_KEYS = set()
 STALE_BUILTIN_NAMES = {"LinkedIn Source Updater"}
 
 

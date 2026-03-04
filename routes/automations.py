@@ -20,34 +20,15 @@ def automations_dashboard():
     from automation_service import AutomationService
     service = AutomationService()
     tasks = service.get_tasks()
-    chat_history = service.get_chat_history(task_id=None)
+    builtin_tasks = [t for t in tasks if t.config_json and 'builtin_key' in (t.config_json or '')]
     from flask import make_response
     resp = make_response(render_template('automations.html',
                            active_page='automations',
-                           tasks=tasks,
-                           chat_history=chat_history))
+                           tasks=builtin_tasks))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
     return resp
-
-
-@automations_bp.route('/automations/chat', methods=['POST'])
-@login_required
-def automations_chat():
-    _require_admin()
-    from automation_service import AutomationService
-    service = AutomationService()
-
-    data = request.get_json()
-    message = data.get('message', '').strip()
-    task_id = data.get('task_id')
-
-    if not message:
-        return jsonify({'error': 'Message is required'}), 400
-
-    result = service.chat(message, task_id=task_id)
-    return jsonify(result)
 
 
 @automations_bp.route('/automations/list')
@@ -66,33 +47,16 @@ def automations_list():
         'schedule': t.schedule_cron,
         'last_run': t.last_run_at.isoformat() if t.last_run_at else None,
         'run_count': t.run_count,
-        'created_at': t.created_at.isoformat()
+        'created_at': t.created_at.isoformat(),
+        'builtin_key': json.loads(t.config_json).get('builtin_key') if t.config_json else None,
     } for t in tasks])
-
-
-@automations_bp.route('/automations/<int:task_id>/run', methods=['POST'])
-@login_required
-def automation_run(task_id):
-    _require_admin()
-    from automation_service import AutomationService
-    service = AutomationService()
-
-    data = request.get_json() or {}
-    operation = data.get('operation')
-    params = data.get('params', {})
-
-    if not operation:
-        return jsonify({'error': 'Operation is required'}), 400
-
-    result = service.execute_bullhorn_operation(operation, params, task_id=task_id)
-    return jsonify(result)
 
 
 @automations_bp.route('/automations/run-builtin', methods=['POST'])
 @login_required
 def automation_run_builtin():
     _require_admin()
-    from automation_service import AutomationService
+    from automation_service import AutomationService, LONG_RUNNING_BUILTINS
     service = AutomationService()
 
     data = request.get_json() or {}
@@ -103,8 +67,12 @@ def automation_run_builtin():
     if not name:
         return jsonify({'error': 'Automation name is required'}), 400
 
-    result = service.run_builtin(name, params, task_id=task_id)
-    return jsonify(result)
+    if name in LONG_RUNNING_BUILTINS:
+        result = service.run_builtin_background(name, params, task_id=task_id)
+        return jsonify(result)
+    else:
+        result = service.run_builtin(name, params, task_id=task_id)
+        return jsonify(result)
 
 
 @automations_bp.route('/automations/<int:task_id>/status', methods=['POST'])
@@ -151,31 +119,54 @@ def automation_logs(task_id):
     } for l in logs])
 
 
-@automations_bp.route('/automations/<int:task_id>/chat')
+@automations_bp.route('/automations/run-history')
 @login_required
-def automation_chat_history(task_id):
+def automation_run_history():
     _require_admin()
     from automation_service import AutomationService
     service = AutomationService()
-    history = service.get_chat_history(task_id=task_id)
+    limit = request.args.get('limit', 50, type=int)
+    logs = service.get_all_logs(limit=min(limit, 200))
     return jsonify([{
-        'id': c.id,
-        'role': c.role,
-        'content': c.content,
-        'created_at': c.created_at.isoformat()
-    } for c in history])
+        'id': l.id,
+        'task_id': l.automation_task_id,
+        'status': l.status,
+        'message': l.message,
+        'details': json.loads(l.details_json) if l.details_json else None,
+        'created_at': l.created_at.isoformat()
+    } for l in logs])
 
 
-@automations_bp.route('/automations/chat/clear', methods=['POST'])
+@automations_bp.route('/automations/builtin-status/<int:task_id>')
 @login_required
-def automations_chat_clear():
+def builtin_status(task_id):
     _require_admin()
-    from automation_service import AutomationService
-    data = request.get_json() or {}
-    task_id = data.get('task_id')
-    service = AutomationService()
-    service.clear_chat_history(task_id=task_id)
-    return jsonify({'success': True})
+    from models import AutomationLog, AutomationTask
+    task = AutomationTask.query.get(task_id)
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+
+    latest_log = AutomationLog.query.filter_by(
+        automation_task_id=task_id
+    ).order_by(AutomationLog.created_at.desc()).first()
+
+    if latest_log:
+        return jsonify({
+            'status': 'complete',
+            'log_status': latest_log.status,
+            'message': latest_log.message,
+            'details': json.loads(latest_log.details_json) if latest_log.details_json else None,
+            'created_at': latest_log.created_at.isoformat(),
+            'task_status': task.status,
+            'run_count': task.run_count,
+            'last_run_at': task.last_run_at.isoformat() if task.last_run_at else None,
+        })
+    else:
+        return jsonify({
+            'status': 'pending',
+            'task_status': task.status,
+            'run_count': task.run_count,
+        })
 
 
 VISIBLE_JOBS = {
@@ -187,9 +178,16 @@ VISIBLE_JOBS = {
     'linkedin_source_cleanup': 'LinkedIn Source Cleanup',
     'reference_number_refresh': 'Reference Number Refresh',
     'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
+    'requirements_maintenance': 'Requirements Maintenance',
 }
 
 PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetting_health_check'}
+
+INTERNAL_JOBS = {
+    'check_monitor_health', 'environment_monitoring', 'refresh_active_job_ids',
+    'activity_cleanup', 'log_monitoring', 'email_parsing_timeout_cleanup',
+    'data_retention_cleanup',
+}
 
 
 def _trigger_description(job):
@@ -314,7 +312,7 @@ def scheduler_job_pause(job_id):
         paused_ids = list(set(_json.loads(paused_raw)) | {job_id})
         GlobalSettings.set_value('scheduler_paused_jobs', _json.dumps(paused_ids))
 
-        logger.info(f"⏸ Scheduled job paused: {job_id}")
+        logger.info(f"Scheduled job paused: {job_id}")
         return jsonify({'success': True, 'job_id': job_id, 'paused': True})
     except Exception as e:
         logger.error(f"Failed to pause job {job_id}: {e}")
@@ -342,7 +340,7 @@ def scheduler_job_resume(job_id):
         paused_ids = list(set(_json.loads(paused_raw)) - {job_id})
         GlobalSettings.set_value('scheduler_paused_jobs', _json.dumps(paused_ids))
 
-        logger.info(f"▶️ Scheduled job resumed: {job_id}")
+        logger.info(f"Scheduled job resumed: {job_id}")
         return jsonify({'success': True, 'job_id': job_id, 'paused': False})
     except Exception as e:
         logger.error(f"Failed to resume job {job_id}: {e}")

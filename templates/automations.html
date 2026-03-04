@@ -1,7 +1,7 @@
 {% extends "base_layout.html" %}
 {% block body_attrs %}data-module="automations"{% endblock %}
 
-{% block title %}Product Expert Workbench - Scout Genius™{% endblock %}
+{% block title %}Automation Hub - Scout Genius™{% endblock %}
 
 {% block page_title %}{% endblock %}
 {% block page_subtitle %}{% endblock %}
@@ -13,489 +13,29 @@
     }
 
     body[data-module="automations"] .content-area {
-        padding: 0.75rem 1rem !important;
-        height: calc(100vh - 10px) !important;
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
+        padding: 1rem 1.5rem !important;
     }
 
-    .workbench-header {
-        display: flex !important;
+    .hub-header {
+        display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.5rem;
-        flex-shrink: 0;
+        margin-bottom: 1.25rem;
     }
 
-    .workbench-header h4 {
-        font-size: 1.05rem;
+    .hub-header h4 {
+        font-size: 1.15rem;
         margin: 0;
-    }
-
-    .workbench-header p {
-        font-size: 0.78rem;
-        margin: 0;
-    }
-
-    .workbench-container {
-        display: flex !important;
-        flex-direction: row !important;
-        gap: 1rem;
-        flex: 1 1 0;
-        min-height: 0;
-        width: 100%;
-    }
-
-    .chat-panel {
-        flex: 1 1 0;
-        min-width: 0;
-        display: flex !important;
-        flex-direction: column !important;
-        background: rgba(15, 25, 20, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        overflow: hidden;
-    }
-
-    .chat-header {
-        padding: 0.75rem 1.25rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: rgba(10, 18, 14, 0.8);
-        flex-shrink: 0;
-    }
-
-    .chat-header h5 {
-        margin: 0;
-        font-size: 0.95rem;
         color: #e8a87c;
     }
 
-    .chat-messages {
-        flex: 1 1 0;
-        min-height: 0;
-        overflow-y: auto;
-        padding: 1.25rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .chat-message {
-        max-width: 85%;
-        padding: 0.85rem 1.1rem;
-        border-radius: 12px;
-        font-size: 0.9rem;
-        line-height: 1.6;
-        word-wrap: break-word;
-    }
-
-    .chat-message.user {
-        align-self: flex-end;
-        background: rgba(74, 150, 120, 0.2);
-        border: 1px solid rgba(74, 150, 120, 0.3);
-        color: #d4e8df;
-    }
-
-    .chat-message.assistant {
-        align-self: flex-start;
-        background: rgba(232, 168, 124, 0.08);
-        border: 1px solid rgba(232, 168, 124, 0.15);
-        color: #e0dcd8;
-    }
-
-    .chat-message.assistant pre {
-        background: rgba(0, 0, 0, 0.3);
-        padding: 0.75rem;
-        border-radius: 6px;
-        overflow-x: auto;
+    .hub-header p {
         font-size: 0.82rem;
-        margin: 0.5rem 0;
-    }
-
-    .chat-message.assistant code {
-        font-size: 0.82rem;
-    }
-
-    .chat-message.assistant strong {
-        color: #e8a87c;
-    }
-
-    .chat-message.assistant ol,
-    .chat-message.assistant ul {
-        padding-left: 1.25rem;
-        margin: 0.5rem 0;
-    }
-
-    .prompt-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        padding: 0.5rem 1.25rem 0;
-        transition: opacity 0.3s;
-    }
-
-    .prompt-chips.hidden {
-        display: none;
-    }
-
-    .prompt-chip {
-        padding: 0.3rem 0.75rem;
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(255, 255, 255, 0.03);
-        color: rgba(224, 220, 216, 0.45);
-        font-size: 0.78rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        white-space: nowrap;
-    }
-
-    .prompt-chip:hover {
-        background: rgba(232, 168, 124, 0.1);
-        border-color: rgba(232, 168, 124, 0.25);
-        color: rgba(232, 168, 124, 0.8);
-    }
-
-    .chat-input-area {
-        padding: 0.5rem 1.25rem 0.75rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(10, 18, 14, 0.8);
-        flex-shrink: 0;
-    }
-
-    .chat-input-wrapper {
-        display: flex;
-        gap: 0.75rem;
-        margin-top: 0.5rem;
-    }
-
-    .chat-input-wrapper textarea {
-        flex: 1;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 8px;
-        color: #e0dcd8;
-        padding: 0.65rem 0.9rem;
-        font-size: 0.9rem;
-        resize: none;
-        min-height: 44px;
-        max-height: 120px;
-        font-family: inherit;
-    }
-
-    .chat-input-wrapper textarea:focus {
-        outline: none;
-        border-color: rgba(232, 168, 124, 0.4);
-    }
-
-    .chat-input-wrapper button {
-        align-self: flex-end;
-        padding: 0.65rem 1.25rem;
-        background: rgba(232, 168, 124, 0.15);
-        border: 1px solid rgba(232, 168, 124, 0.3);
-        color: #e8a87c;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 0.9rem;
-        transition: all 0.2s;
-    }
-
-    .chat-input-wrapper button:hover {
-        background: rgba(232, 168, 124, 0.25);
-    }
-
-    .chat-input-wrapper button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .tasks-panel {
-        width: 310px;
-        min-width: 290px;
-        display: flex;
-        flex-direction: column;
-        background: rgba(15, 25, 20, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        overflow: hidden;
-    }
-
-    .tasks-header {
-        padding: 0.85rem 1.25rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(10, 18, 14, 0.8);
-        flex-shrink: 0;
-    }
-
-    .tasks-header h5 {
-        margin: 0;
-        font-size: 0.95rem;
-        color: #e8a87c;
-    }
-
-    .tasks-list {
-        flex: 1;
-        overflow-y: auto;
-        padding: 0;
-    }
-
-    .section-label {
-        padding: 0.5rem 1rem 0.3rem;
-        font-size: 0.68rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: rgba(232, 168, 124, 0.5);
-        background: rgba(0,0,0,0.15);
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    .section-divider {
-        height: 1px;
-        background: rgba(255,255,255,0.07);
-        margin: 0;
-    }
-
-    .scheduled-job-card {
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        transition: background 0.15s;
-    }
-
-    .scheduled-job-card:last-child {
-        border-bottom: none;
-    }
-
-    .scheduled-job-card:hover {
-        background: rgba(255, 255, 255, 0.03);
-    }
-
-    .job-name-row {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.25rem;
-    }
-
-    .job-status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        flex-shrink: 0;
-    }
-
-    .job-status-dot.running {
-        background: #28a745;
-        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.5);
-        animation: pulse-green 2s infinite;
-    }
-
-    .job-status-dot.paused {
-        background: #e8a87c;
-        box-shadow: 0 0 4px rgba(232, 168, 124, 0.4);
-    }
-
-    .job-status-dot.unknown {
-        background: #6c757d;
-    }
-
-    @keyframes pulse-green {
-        0%   { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.5); }
-        70%  { box-shadow: 0 0 0 5px rgba(40, 167, 69, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-    }
-
-    .job-name {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #e0dcd8;
-        flex: 1;
-        min-width: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .job-lock-icon {
-        font-size: 0.65rem;
-        color: rgba(224, 220, 216, 0.3);
-        flex-shrink: 0;
-    }
-
-    .interval-badge {
-        display: inline-block;
-        padding: 0.1rem 0.45rem;
-        border-radius: 3px;
-        font-size: 0.68rem;
-        background: rgba(255, 255, 255, 0.06);
+        margin: 0.25rem 0 0 0;
         color: rgba(224, 220, 216, 0.5);
-        margin-bottom: 0.3rem;
     }
 
-    .job-meta {
-        font-size: 0.72rem;
-        color: rgba(224, 220, 216, 0.4);
-        margin-bottom: 0.35rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.1rem;
-    }
-
-    .job-last-run {
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-    }
-
-    .job-controls {
-        display: flex;
-        gap: 0.35rem;
-    }
-
-    .job-btn {
-        padding: 0.18rem 0.55rem;
-        font-size: 0.7rem;
-        border-radius: 4px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: transparent;
-        color: rgba(224, 220, 216, 0.55);
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .job-btn:hover {
-        background: rgba(255, 255, 255, 0.07);
-        color: #e0dcd8;
-    }
-
-    .job-btn.pause-btn:hover {
-        background: rgba(232, 168, 124, 0.12);
-        border-color: rgba(232, 168, 124, 0.3);
-        color: #e8a87c;
-    }
-
-    .job-btn.resume-btn {
-        border-color: rgba(40, 167, 69, 0.25);
-        color: rgba(40, 167, 69, 0.7);
-    }
-
-    .job-btn.resume-btn:hover {
-        background: rgba(40, 167, 69, 0.1);
-        border-color: rgba(40, 167, 69, 0.4);
-        color: #28a745;
-    }
-
-    .ondemand-tool-card {
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-
-    .ondemand-tool-card:last-child {
-        border-bottom: none;
-    }
-
-    .ondemand-tool-card:hover {
-        background: rgba(255, 255, 255, 0.03);
-    }
-
-    .tool-name-row {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.3rem;
-    }
-
-    .tool-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: rgba(224, 220, 216, 0.25);
-        flex-shrink: 0;
-    }
-
-    .tool-name {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #e0dcd8;
-    }
-
-    .tool-desc {
-        font-size: 0.75rem;
-        color: rgba(224, 220, 216, 0.45);
-        line-height: 1.4;
-        margin-bottom: 0.4rem;
-    }
-
-    .tool-use-btn {
-        padding: 0.18rem 0.6rem;
-        font-size: 0.7rem;
-        border-radius: 4px;
-        border: 1px solid rgba(232, 168, 124, 0.2);
-        background: rgba(232, 168, 124, 0.07);
-        color: rgba(232, 168, 124, 0.7);
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .tool-use-btn:hover {
-        background: rgba(232, 168, 124, 0.15);
-        border-color: rgba(232, 168, 124, 0.35);
-        color: #e8a87c;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 2rem 1rem;
-        color: rgba(224, 220, 216, 0.4);
-        font-size: 0.85rem;
-    }
-
-    .empty-state i {
-        font-size: 2rem;
-        margin-bottom: 0.75rem;
-        display: block;
-    }
-
-    .typing-indicator {
-        display: none;
-        align-self: flex-start;
-        padding: 0.85rem 1.1rem;
-        background: rgba(232, 168, 124, 0.08);
-        border: 1px solid rgba(232, 168, 124, 0.15);
-        border-radius: 12px;
-    }
-
-    .typing-indicator.visible {
-        display: flex;
-    }
-
-    .typing-indicator span {
-        width: 8px;
-        height: 8px;
-        background: rgba(232, 168, 124, 0.4);
-        border-radius: 50%;
-        margin: 0 2px;
-        animation: typing 1.2s infinite ease-in-out;
-    }
-
-    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-
-    @keyframes typing {
-        0%, 60%, 100% { transform: translateY(0); }
-        30% { transform: translateY(-6px); }
-    }
-
-    .dev-badge {
+    .admin-badge {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
@@ -509,132 +49,472 @@
         text-transform: uppercase;
     }
 
-    @media (max-width: 768px) {
-        .workbench-container {
-            flex-direction: column !important;
-        }
-        .tasks-panel {
-            width: 100% !important;
-            max-height: 300px;
-        }
-        .chat-panel {
-            min-height: 400px;
-        }
+    .hub-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(232, 168, 124, 0.6);
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .section-title i {
+        font-size: 0.72rem;
+    }
+
+    .jobs-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .job-card {
+        background: rgba(15, 25, 20, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 1rem;
+        transition: border-color 0.2s;
+    }
+
+    .job-card:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .job-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .status-dot.running {
+        background: #28a745;
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.5);
+        animation: pulse-green 2s infinite;
+    }
+
+    .status-dot.paused {
+        background: #e8a87c;
+        box-shadow: 0 0 4px rgba(232, 168, 124, 0.4);
+    }
+
+    .status-dot.unknown {
+        background: #6c757d;
+    }
+
+    @keyframes pulse-green {
+        0%   { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.5); }
+        70%  { box-shadow: 0 0 0 5px rgba(40, 167, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+    }
+
+    .job-card-name {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #e0dcd8;
+        flex: 1;
+    }
+
+    .lock-icon {
+        color: rgba(224, 220, 216, 0.3);
+        font-size: 0.65rem;
+    }
+
+    .interval-tag {
+        display: inline-block;
+        padding: 0.1rem 0.45rem;
+        border-radius: 3px;
+        font-size: 0.68rem;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(224, 220, 216, 0.5);
+        margin-bottom: 0.4rem;
+    }
+
+    .job-card-meta {
+        font-size: 0.72rem;
+        color: rgba(224, 220, 216, 0.4);
+        line-height: 1.6;
+        margin-bottom: 0.5rem;
+    }
+
+    .job-card-meta .success-icon { color: #28a745; font-size: 0.65rem; }
+    .job-card-meta .fail-icon { color: #dc3545; font-size: 0.65rem; }
+
+    .job-card-actions {
+        display: flex;
+        gap: 0.35rem;
+    }
+
+    .card-btn {
+        padding: 0.25rem 0.65rem;
+        font-size: 0.72rem;
+        border-radius: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: transparent;
+        color: rgba(224, 220, 216, 0.6);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .card-btn:hover {
+        background: rgba(255, 255, 255, 0.07);
+        color: #e0dcd8;
+    }
+
+    .card-btn.pause:hover {
+        background: rgba(232, 168, 124, 0.12);
+        border-color: rgba(232, 168, 124, 0.3);
+        color: #e8a87c;
+    }
+
+    .card-btn.resume {
+        border-color: rgba(40, 167, 69, 0.25);
+        color: rgba(40, 167, 69, 0.7);
+    }
+
+    .card-btn.resume:hover {
+        background: rgba(40, 167, 69, 0.1);
+        border-color: rgba(40, 167, 69, 0.4);
+        color: #28a745;
+    }
+
+    .tool-card {
+        background: rgba(15, 25, 20, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        transition: border-color 0.2s;
+    }
+
+    .tool-card:hover {
+        border-color: rgba(232, 168, 124, 0.2);
+    }
+
+    .tool-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.4rem;
+    }
+
+    .tool-card-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #e0dcd8;
+    }
+
+    .tool-card-desc {
+        font-size: 0.78rem;
+        color: rgba(224, 220, 216, 0.45);
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
+    }
+
+    .tool-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .tool-card-stats {
+        font-size: 0.7rem;
+        color: rgba(224, 220, 216, 0.35);
+    }
+
+    .run-btn {
+        padding: 0.3rem 0.85rem;
+        font-size: 0.78rem;
+        border-radius: 6px;
+        border: 1px solid rgba(232, 168, 124, 0.3);
+        background: rgba(232, 168, 124, 0.1);
+        color: #e8a87c;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .run-btn:hover {
+        background: rgba(232, 168, 124, 0.2);
+        border-color: rgba(232, 168, 124, 0.5);
+    }
+
+    .run-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .history-table th {
+        text-align: left;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(224, 220, 216, 0.4);
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .history-table td {
+        font-size: 0.8rem;
+        color: rgba(224, 220, 216, 0.7);
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        vertical-align: top;
+    }
+
+    .history-table tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.12rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .status-badge.success {
+        background: rgba(40, 167, 69, 0.15);
+        color: #28a745;
+    }
+
+    .status-badge.error {
+        background: rgba(220, 53, 69, 0.15);
+        color: #dc3545;
+    }
+
+    .details-toggle {
+        font-size: 0.72rem;
+        color: rgba(232, 168, 124, 0.6);
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+        text-decoration: underline;
+    }
+
+    .details-toggle:hover {
+        color: #e8a87c;
+    }
+
+    .details-content {
+        display: none;
+        margin-top: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        background: rgba(0, 0, 0, 0.25);
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: rgba(224, 220, 216, 0.6);
+        white-space: pre-wrap;
+        word-break: break-all;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .details-content.visible {
+        display: block;
+    }
+
+    .result-card {
+        margin-top: 0.75rem;
+        padding: 1rem;
+        background: rgba(15, 25, 20, 0.8);
+        border: 1px solid rgba(232, 168, 124, 0.25);
+        border-radius: 8px;
+    }
+
+    .result-card .result-summary {
+        font-size: 0.85rem;
+        color: #e0dcd8;
+        line-height: 1.5;
+        margin-bottom: 0.5rem;
+    }
+
+    .result-card .result-details {
+        font-size: 0.75rem;
+        color: rgba(224, 220, 216, 0.6);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .modal-content {
+        background: #1a2a20;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #e0dcd8;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .modal-header .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+
+    .modal-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .modal .form-label {
+        font-size: 0.82rem;
+        color: rgba(224, 220, 216, 0.7);
+    }
+
+    .modal .form-control, .modal .form-select {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #e0dcd8;
+        font-size: 0.85rem;
+    }
+
+    .modal .form-control:focus, .modal .form-select:focus {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(232, 168, 124, 0.4);
+        box-shadow: none;
+        color: #e0dcd8;
+    }
+
+    .modal .form-check-input {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .modal .form-check-input:checked {
+        background-color: #e8a87c;
+        border-color: #e8a87c;
+    }
+
+    .spinner-inline {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(232, 168, 124, 0.3);
+        border-top: 2px solid #e8a87c;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 0.4rem;
+        vertical-align: middle;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .empty-history {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: rgba(224, 220, 216, 0.35);
+        font-size: 0.85rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+<div class="hub-header">
     <div>
-        <h4 style="color:#e8a87c;font-size:1.05rem;margin:0;">
-            <i class="fas fa-terminal me-2"></i>Product Expert Workbench
-        </h4>
-        <p class="text-muted" style="font-size:0.78rem;margin:0.25rem 0 0 0;">
-            Build and execute custom Bullhorn automations through natural language
-        </p>
+        <h4><i class="fas fa-layer-group me-2"></i>Automation Hub</h4>
+        <p>Manage scheduled jobs, run built-in tools, and review execution history</p>
     </div>
-    <span class="dev-badge"><i class="fas fa-shield-alt"></i> For internal purposes only</span>
+    <span class="admin-badge"><i class="fas fa-shield-alt"></i> Super Admin Only</span>
 </div>
 
-<div class="workbench-container" style="display:flex;flex-direction:row;gap:1rem;height:calc(100vh - 160px);min-height:500px;">
-
-    <div class="chat-panel" style="flex:1;display:flex;flex-direction:column;background:rgba(15,25,20,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;min-width:0;">
-        <div class="chat-header" style="padding:0.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;background:rgba(10,18,14,0.8);flex-shrink:0;">
-            <h5 style="margin:0;font-size:0.95rem;color:#e8a87c;"><i class="fas fa-robot me-2"></i>Automation Chat</h5>
-            <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-warning" onclick="clearChat()" title="Clear conversation and start fresh" style="font-size:0.8rem;letter-spacing:0.03em;">
-                    <i class="fas fa-broom me-1"></i>Clean Slate
-                </button>
-            </div>
-        </div>
-
-        <div class="chat-messages" id="chatMessages" style="flex:1;min-height:0;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:1rem;">
-            {% if chat_history %}
-                {% for msg in chat_history %}
-                    <div class="chat-message {{ msg.role }}">
-                        {{ msg.content | safe if msg.role == 'assistant' else msg.content }}
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty-state">
-                    <i class="fas fa-comments"></i>
-                    <p>Describe the automation you want to build.</p>
-                    <p style="font-size: 0.78rem;">Example: "Find all candidates submitted to job 34625 in the last 7 days and add a note tagging them for follow-up"</p>
-                </div>
-            {% endif %}
-
-            <div class="typing-indicator" id="typingIndicator">
-                <span></span><span></span><span></span>
-            </div>
-        </div>
-
-        <div class="chat-input-area">
-            <div class="prompt-chips" id="promptChips">
-                <button class="prompt-chip" onclick="useChip(this)" data-prompt="Export all candidates who cleared the vetting threshold since [date] — include their name, ID, score, and job.">
-                    <i class="fas fa-file-export" style="font-size:0.68rem;margin-right:3px;"></i>Export vetted candidates
-                </button>
-                <button class="prompt-chip" onclick="useChip(this)" data-prompt="Find candidates in the last 30 days with a missing or zero AI match score — list their IDs and submission date.">
-                    <i class="fas fa-search" style="font-size:0.68rem;margin-right:3px;"></i>Find missing AI scores
-                </button>
-                <button class="prompt-chip" onclick="useChip(this)" data-prompt="Clean up duplicate AI vetting notes added within 60 minutes of each other in the last 30 days — keep the first, delete the rest.">
-                    <i class="fas fa-broom" style="font-size:0.68rem;margin-right:3px;"></i>Clean duplicate notes
-                </button>
-                <button class="prompt-chip" onclick="useChip(this)" data-prompt="Remove all AI vetting notes for job ID [job_id] — dry-run first to confirm scope.">
-                    <i class="fas fa-trash-alt" style="font-size:0.68rem;margin-right:3px;"></i>Remove notes for a job
-                </button>
-                <button class="prompt-chip" onclick="useChip(this)" data-prompt="Bulk update [field] to [value] for all candidates matching [criteria] — dry-run first.">
-                    <i class="fas fa-edit" style="font-size:0.68rem;margin-right:3px;"></i>Bulk update a field
-                </button>
-            </div>
-            <div class="chat-input-wrapper">
-                <textarea id="chatInput" placeholder="Describe your automation..." rows="1"
-                    onkeydown="handleKeyDown(event)" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#e0dcd8;padding:0.65rem 0.9rem;font-size:0.9rem;resize:none;overflow:hidden;min-height:44px;max-height:200px;font-family:inherit;"></textarea>
-                <button id="sendBtn" onclick="sendMessage()" style="align-self:flex-end;padding:0.65rem 1.25rem;background:rgba(232,168,124,0.15);border:1px solid rgba(232,168,124,0.3);color:#e8a87c;border-radius:8px;cursor:pointer;font-size:0.9rem;">
-                    <i class="fas fa-paper-plane me-1"></i> Send
-                </button>
-            </div>
+<div class="hub-section">
+    <div class="section-title"><i class="fas fa-clock"></i> Scheduled Jobs</div>
+    <div class="jobs-grid" id="scheduledJobsGrid">
+        <div class="job-card" style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
+            <i class="fas fa-spinner fa-spin" style="color: rgba(224,220,216,0.3); font-size: 1.2rem;"></i>
+            <p style="margin-top: 0.5rem; font-size: 0.8rem; color: rgba(224,220,216,0.4);">Loading scheduler status...</p>
         </div>
     </div>
+</div>
 
-    <div class="tasks-panel">
-        <div class="tasks-header">
-            <h5><i class="fas fa-layer-group me-2"></i>Automation Hub</h5>
-        </div>
-        <div class="tasks-list" id="tasksList">
-            <div class="section-label">
-                <i class="fas fa-clock"></i> Scheduled Jobs
+<div class="hub-section">
+    <div class="section-title"><i class="fas fa-tools"></i> Built-in Tools</div>
+    <div class="jobs-grid" id="builtinToolsGrid">
+        {% for task in tasks %}
+        <div class="tool-card" id="tool-card-{{ task.id }}" data-config="{{ task.config_json | default('{}') | e }}">
+            <div class="tool-card-header">
+                <span class="tool-card-name">{{ task.name }}</span>
             </div>
-            <div id="scheduledJobsList">
-                <div class="empty-state" style="padding:1.25rem 1rem;">
-                    <i class="fas fa-spinner fa-spin" style="font-size:1.2rem;"></i>
-                    <p style="margin-top:0.5rem;font-size:0.8rem;">Loading...</p>
-                </div>
-            </div>
-            <div class="section-label" style="margin-top:2px;">
-                <i class="fas fa-hand-point-down"></i> On-Demand Tools
-            </div>
-            <div id="onDemandToolsList">
-                {% if tasks %}
-                    {% for task in tasks %}
-                    <div class="ondemand-tool-card" onclick="selectTask({{ task.id }})">
-                        <div class="tool-name-row">
-                            <span class="tool-dot"></span>
-                            <span class="tool-name">{{ task.name }}</span>
-                        </div>
-                        {% if task.description %}
-                        <div class="tool-desc">{{ task.description[:80] }}{% if task.description|length > 80 %}…{% endif %}</div>
+            <div class="tool-card-desc">{{ task.description }}</div>
+            <div class="tool-card-footer">
+                <span class="tool-card-stats">
+                    {% if task.run_count > 0 %}
+                        Ran {{ task.run_count }} time{{ 's' if task.run_count != 1 else '' }}
+                        {% if task.last_run_at %}
+                            &middot; Last: <span class="relative-time" data-iso="{{ task.last_run_at.isoformat() }}Z"></span>
                         {% endif %}
-                        <button class="tool-use-btn" onclick="event.stopPropagation(); selectTask({{ task.id }})">
-                            <i class="fas fa-arrow-right me-1"></i>Use in Chat
-                        </button>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state" style="padding:1rem;">
-                        <p style="font-size:0.8rem;">No tools configured</p>
-                    </div>
-                {% endif %}
+                    {% else %}
+                        Never run
+                    {% endif %}
+                </span>
+                <button class="run-btn" data-task-id="{{ task.id }}" data-task-name="{{ task.name | e }}">
+                    <i class="fas fa-play me-1"></i>Run
+                </button>
+            </div>
+            <div id="result-area-{{ task.id }}"></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="hub-section">
+    <div class="section-title"><i class="fas fa-history"></i> Run History</div>
+    <div style="background: rgba(15,25,20,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden;">
+        <table class="history-table" id="historyTable">
+            <thead>
+                <tr>
+                    <th>Automation</th>
+                    <th>Status</th>
+                    <th>When</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody">
+                <tr>
+                    <td colspan="4" class="empty-history">
+                        <i class="fas fa-spinner fa-spin"></i> Loading...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="runModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="runModalTitle" style="font-size: 1rem; color: #e8a87c;"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="runModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm" id="runModalSubmit" style="background: rgba(232,168,124,0.15); border: 1px solid rgba(232,168,124,0.3); color: #e8a87c;" onclick="executeBuiltin()">
+                    <i class="fas fa-play me-1"></i>Execute
+                </button>
             </div>
         </div>
     </div>
@@ -646,82 +526,12 @@
     (function() {
         var ph = document.querySelector('.page-header');
         if (ph) ph.style.display = 'none';
-        var ca = document.querySelector('.content-area');
-        if (ca) {
-            ca.style.padding = '0.75rem 1rem';
-            ca.style.height = 'calc(100vh - 10px)';
-            ca.style.overflow = 'hidden';
-        }
     })();
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    let currentTaskId = null;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    let currentRunTaskId = null;
+    let currentRunBuiltinKey = null;
     let schedulerPollInterval = null;
-    let chipsHidden = false;
-
-    function autoResize(el) {
-        el.style.height = 'auto';
-        el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-    }
-
-    const chatInput = document.getElementById('chatInput');
-    if (chatInput) {
-        chatInput.addEventListener('input', function() {
-            autoResize(this);
-            hideChips();
-        });
-    }
-
-    function hideChips() {
-        if (chipsHidden) return;
-        const chips = document.getElementById('promptChips');
-        if (chips) {
-            chips.classList.add('hidden');
-            chipsHidden = true;
-        }
-    }
-
-    function useChip(btn) {
-        const prompt = btn.getAttribute('data-prompt');
-        const input = document.getElementById('chatInput');
-        if (input && prompt) {
-            input.value = prompt;
-            autoResize(input);
-            input.focus();
-            hideChips();
-        }
-    }
-
-    function handleKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    }
-
-    function formatMarkdown(text) {
-        text = text.replace(/```json\n([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-        text = text.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-        text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        text = text.replace(/^\d+\.\s+(.+)/gm, '<li>$1</li>');
-        text = text.replace(/^[-•]\s+(.+)/gm, '<li>$1</li>');
-        text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-        text = text.replace(/\n/g, '<br>');
-        return text;
-    }
-
-    function addMessage(role, content) {
-        const container = document.getElementById('chatMessages');
-        const emptyState = container.querySelector('.empty-state');
-        if (emptyState) emptyState.remove();
-
-        const div = document.createElement('div');
-        div.className = 'chat-message ' + role;
-        div.innerHTML = role === 'assistant' ? formatMarkdown(content) : escapeHtml(content);
-        container.insertBefore(div, document.getElementById('typingIndicator'));
-        container.scrollTop = container.scrollHeight;
-    }
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -729,170 +539,109 @@
         return div.innerHTML;
     }
 
-    async function sendMessage() {
-        const input = document.getElementById('chatInput');
-        const message = input.value.trim();
-        if (!message) return;
-
-        hideChips();
-        const sendBtn = document.getElementById('sendBtn');
-        sendBtn.disabled = true;
-        input.value = '';
-        autoResize(input);
-
-        addMessage('user', message);
-
-        const indicator = document.getElementById('typingIndicator');
-        indicator.classList.add('visible');
-        const container = document.getElementById('chatMessages');
-        container.scrollTop = container.scrollHeight;
-
-        try {
-            const resp = await fetch('/automations/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({
-                    message: message,
-                    task_id: currentTaskId
-                })
-            });
-
-            const data = await resp.json();
-            indicator.classList.remove('visible');
-
-            if (data.error) {
-                addMessage('assistant', 'Error: ' + data.error);
-            } else {
-                addMessage('assistant', data.response);
-                if (data.builtin_result && data.builtin_result.result) {
-                    const br = data.builtin_result.result;
-                    let resultText = '**Execution Result:**\n\n' + (br.summary || JSON.stringify(br, null, 2));
-                    addMessage('assistant', resultText);
-                }
-                if (data.task_created) {
-                    currentTaskId = data.task_created.id;
-                    refreshOnDemandTools();
-                }
-            }
-        } catch (err) {
-            indicator.classList.remove('visible');
-            addMessage('assistant', 'Connection error: ' + err.message);
-        }
-
-        sendBtn.disabled = false;
-        input.focus();
-    }
-
     function formatRelativeTime(isoStr) {
-        if (!isoStr) return null;
+        if (!isoStr) return '';
         const now = new Date();
         const then = new Date(isoStr.endsWith('Z') ? isoStr : isoStr + 'Z');
         const diff = now - then;
-        if (isNaN(diff)) return null;
+        if (isNaN(diff)) return '';
         const mins = Math.floor(diff / 60000);
         if (mins < 1) return 'just now';
-        if (mins < 60) return `${mins}m ago`;
+        if (mins < 60) return mins + 'm ago';
         const hrs = Math.floor(mins / 60);
-        if (hrs < 24) return `${hrs}h ago`;
-        return `${Math.floor(hrs / 24)}d ago`;
+        if (hrs < 24) return hrs + 'h ago';
+        return Math.floor(hrs / 24) + 'd ago';
     }
 
     function formatNextRun(isoStr) {
-        if (!isoStr) return null;
+        if (!isoStr) return '';
         const now = new Date();
         const then = new Date(isoStr);
         const diff = then - now;
         if (isNaN(diff) || diff < 0) return 'imminent';
         const mins = Math.floor(diff / 60000);
         if (mins < 1) return 'in <1m';
-        if (mins < 60) return `in ${mins}m`;
+        if (mins < 60) return 'in ' + mins + 'm';
         const hrs = Math.floor(mins / 60);
-        return `in ${hrs}h ${mins % 60}m`;
+        return 'in ' + hrs + 'h ' + (mins % 60) + 'm';
     }
 
     function renderScheduledJobs(jobs) {
-        const container = document.getElementById('scheduledJobsList');
+        const grid = document.getElementById('scheduledJobsGrid');
         if (!jobs || jobs.length === 0) {
-            container.innerHTML = '<div class="empty-state" style="padding:1rem;"><p style="font-size:0.8rem;">No scheduled jobs found</p></div>';
+            grid.innerHTML = '<div class="job-card" style="grid-column:1/-1;text-align:center;padding:2rem;"><p style="color:rgba(224,220,216,0.4);font-size:0.85rem;">No scheduled jobs found</p></div>';
             return;
         }
 
-        container.innerHTML = jobs.map(job => {
-            const dotClass = job.paused ? 'paused' : (job.active ? 'running' : 'unknown');
-            const lastRunText = formatRelativeTime(job.last_run_at);
-            const nextRunText = formatNextRun(job.next_run);
+        grid.innerHTML = jobs.map(function(job) {
+            var dotClass = job.paused ? 'paused' : (job.active ? 'running' : 'unknown');
+            var lastRunText = formatRelativeTime(job.last_run_at);
+            var nextRunText = formatNextRun(job.next_run);
 
-            let lastRunHtml = '';
+            var lastRunHtml = '';
             if (lastRunText) {
-                const icon = job.last_run_success === true
-                    ? '<i class="fas fa-check-circle" style="color:#28a745;font-size:0.65rem;"></i>'
+                var icon = job.last_run_success === true
+                    ? '<i class="fas fa-check-circle success-icon"></i> '
                     : job.last_run_success === false
-                        ? '<i class="fas fa-times-circle" style="color:#dc3545;font-size:0.65rem;"></i>'
+                        ? '<i class="fas fa-times-circle fail-icon"></i> '
                         : '';
-                lastRunHtml = `<div class="job-last-run">${icon} Last run: ${escapeHtml(lastRunText)}</div>`;
+                lastRunHtml = '<div>' + icon + 'Last: ' + escapeHtml(lastRunText) + '</div>';
             }
 
-            let controlsHtml = '';
+            var controlsHtml = '';
             if (job.is_protected) {
-                controlsHtml = `<span class="job-lock-icon" title="Core infrastructure — contact admin to disable"><i class="fas fa-lock"></i></span>`;
+                controlsHtml = '<span class="lock-icon" title="Core infrastructure"><i class="fas fa-lock"></i></span>';
             } else if (job.paused) {
-                controlsHtml = `<button class="job-btn resume-btn" onclick="resumeJob('${escapeHtml(job.id)}')"><i class="fas fa-play me-1"></i>Resume</button>`;
+                controlsHtml = '<button class="card-btn resume" onclick="resumeJob(\'' + escapeHtml(job.id) + '\')"><i class="fas fa-play me-1"></i>Resume</button>';
             } else {
-                controlsHtml = `<button class="job-btn pause-btn" onclick="pauseJob('${escapeHtml(job.id)}')"><i class="fas fa-pause me-1"></i>Pause</button>`;
+                controlsHtml = '<button class="card-btn pause" onclick="pauseJob(\'' + escapeHtml(job.id) + '\')"><i class="fas fa-pause me-1"></i>Pause</button>';
             }
 
-            return `
-            <div class="scheduled-job-card">
-                <div class="job-name-row">
-                    <span class="job-status-dot ${dotClass}"></span>
-                    <span class="job-name" title="${escapeHtml(job.name)}">${escapeHtml(job.name)}</span>
-                </div>
-                <div class="interval-badge">${escapeHtml(job.trigger_description || 'scheduled')}</div>
-                <div class="job-meta">
-                    ${nextRunText ? `<div>Next run: ${escapeHtml(nextRunText)}</div>` : ''}
-                    ${lastRunHtml}
-                    ${job.last_result_text ? `<div style="color:#d4880f;font-size:0.7rem;margin-top:2px;"><i class="fas fa-info-circle" style="font-size:0.6rem;"></i> ${escapeHtml(job.last_result_text)}</div>` : ''}
-                    ${job.paused ? '<div style="color:#e8a87c;font-size:0.7rem;">⏸ Paused</div>' : ''}
-                </div>
-                <div class="job-controls">${controlsHtml}</div>
-            </div>`;
+            var resultHtml = '';
+            if (job.last_result_text) {
+                resultHtml = '<div style="font-size:0.7rem;color:#d4880f;margin-top:2px;"><i class="fas fa-info-circle" style="font-size:0.6rem;"></i> ' + escapeHtml(job.last_result_text) + '</div>';
+            }
+
+            return '<div class="job-card">' +
+                '<div class="job-card-header">' +
+                    '<span class="status-dot ' + dotClass + '"></span>' +
+                    '<span class="job-card-name">' + escapeHtml(job.name) + '</span>' +
+                    (job.is_protected ? '<span class="lock-icon"><i class="fas fa-lock"></i></span>' : '') +
+                '</div>' +
+                '<div class="interval-tag">' + escapeHtml(job.trigger_description || 'scheduled') + '</div>' +
+                '<div class="job-card-meta">' +
+                    (nextRunText ? '<div>Next: ' + escapeHtml(nextRunText) + '</div>' : '') +
+                    lastRunHtml +
+                    resultHtml +
+                    (job.paused ? '<div style="color:#e8a87c;">Paused</div>' : '') +
+                '</div>' +
+                '<div class="job-card-actions">' + controlsHtml + '</div>' +
+            '</div>';
         }).join('');
     }
 
     async function loadScheduledJobs() {
         try {
-            const resp = await fetch('/automations/scheduler-status', {
+            var resp = await fetch('/automations/scheduler-status', {
                 headers: { 'X-CSRFToken': csrfToken }
             });
-            const jobs = await resp.json();
+            var jobs = await resp.json();
             renderScheduledJobs(jobs);
         } catch (err) {
-            const container = document.getElementById('scheduledJobsList');
-            if (container) container.innerHTML = '<div class="empty-state" style="padding:1rem;"><p style="font-size:0.78rem;">Could not load job status</p></div>';
+            document.getElementById('scheduledJobsGrid').innerHTML =
+                '<div class="job-card" style="grid-column:1/-1;text-align:center;padding:2rem;"><p style="color:rgba(224,220,216,0.4);">Could not load scheduler status</p></div>';
         }
-    }
-
-    function startSchedulerPolling() {
-        loadScheduledJobs();
-        if (schedulerPollInterval) clearInterval(schedulerPollInterval);
-        schedulerPollInterval = setInterval(loadScheduledJobs, 60000);
     }
 
     async function pauseJob(jobId) {
         try {
-            const resp = await fetch(`/automations/scheduler-jobs/${jobId}/pause`, {
+            var resp = await fetch('/automations/scheduler-jobs/' + jobId + '/pause', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
             });
-            const data = await resp.json();
-            if (data.success) {
-                loadScheduledJobs();
-            } else {
-                alert('Could not pause job: ' + (data.error || 'Unknown error'));
-            }
+            var data = await resp.json();
+            if (data.success) loadScheduledJobs();
+            else alert('Could not pause: ' + (data.error || 'Unknown error'));
         } catch (err) {
             alert('Error pausing job: ' + err.message);
         }
@@ -900,129 +649,264 @@
 
     async function resumeJob(jobId) {
         try {
-            const resp = await fetch(`/automations/scheduler-jobs/${jobId}/resume`, {
+            var resp = await fetch('/automations/scheduler-jobs/' + jobId + '/resume', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
             });
-            const data = await resp.json();
-            if (data.success) {
-                loadScheduledJobs();
-            } else {
-                alert('Could not resume job: ' + (data.error || 'Unknown error'));
-            }
+            var data = await resp.json();
+            if (data.success) loadScheduledJobs();
+            else alert('Could not resume: ' + (data.error || 'Unknown error'));
         } catch (err) {
             alert('Error resuming job: ' + err.message);
         }
     }
 
-    async function refreshOnDemandTools() {
+    function openRunModal(taskId, taskName) {
+        currentRunTaskId = taskId;
         try {
-            const resp = await fetch('/automations/list', {
-                headers: { 'X-CSRFToken': csrfToken }
-            });
-            const tasks = await resp.json();
-            const container = document.getElementById('onDemandToolsList');
-            if (!container) return;
-
-            if (tasks.length === 0) {
-                container.innerHTML = '<div class="empty-state" style="padding:1rem;"><p style="font-size:0.8rem;">No tools configured</p></div>';
-                return;
-            }
-
-            container.innerHTML = tasks.map(t => `
-                <div class="ondemand-tool-card" onclick="selectTask(${t.id})">
-                    <div class="tool-name-row">
-                        <span class="tool-dot"></span>
-                        <span class="tool-name">${escapeHtml(t.name)}</span>
-                    </div>
-                    ${t.description ? `<div class="tool-desc">${escapeHtml(t.description.substring(0, 80))}${t.description.length > 80 ? '…' : ''}</div>` : ''}
-                    <button class="tool-use-btn" onclick="event.stopPropagation(); selectTask(${t.id})">
-                        <i class="fas fa-arrow-right me-1"></i>Use in Chat
-                    </button>
-                </div>`).join('');
-        } catch (err) {
-            console.error('Failed to refresh on-demand tools:', err);
+            var card = document.getElementById('tool-card-' + taskId);
+            var configJson = card ? card.getAttribute('data-config') : '{}';
+            var config = JSON.parse(configJson);
+            currentRunBuiltinKey = config.builtin_key || null;
+        } catch (e) {
+            currentRunBuiltinKey = null;
         }
+
+        document.getElementById('runModalTitle').textContent = 'Run: ' + taskName;
+
+        var body = '';
+
+        if (currentRunBuiltinKey === 'email_extractor') {
+            body = '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="365" min="1"></div>' +
+                   '<div class="mb-3"><label class="form-label">Limit (candidates per batch)</label><input type="number" class="form-control" id="param-limit" value="50" min="1" max="500"></div>' +
+                   '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
+        } else if (currentRunBuiltinKey === 'resume_reparser') {
+            body = '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="5" min="1"></div>' +
+                   '<div class="mb-3"><label class="form-label">Limit</label><input type="number" class="form-control" id="param-limit" value="100" min="1" max="500"></div>' +
+                   '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
+        } else if (currentRunBuiltinKey === 'update_field_bulk') {
+            body = '<div class="mb-3"><label class="form-label">Entity</label><select class="form-select" id="param-entity"><option value="Candidate" selected>Candidate</option><option value="JobOrder">JobOrder</option><option value="ClientContact">ClientContact</option><option value="ClientCorporation">ClientCorporation</option></select></div>' +
+                   '<div class="mb-3"><label class="form-label">Lucene Query</label><input type="text" class="form-control" id="param-query" placeholder="e.g. source:LinkedIn"></div>' +
+                   '<div class="mb-3"><label class="form-label">Updates (JSON)</label><input type="text" class="form-control" id="param-updates" placeholder=\'{"source": "LinkedIn Job Board"}\'></div>' +
+                   '<div class="mb-3"><label class="form-label">Limit (optional cap)</label><input type="number" class="form-control" id="param-limit" value="" min="1"></div>' +
+                   '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
+        } else if (currentRunBuiltinKey === 'cleanup_ai_notes') {
+            body = '<div class="mb-3"><label class="form-label">Max Candidates</label><input type="number" class="form-control" id="param-max_candidates" value="500" min="1" max="5000"></div>' +
+                   '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
+        } else if (currentRunBuiltinKey === 'cleanup_duplicate_notes') {
+            body = '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="5" min="1"></div>' +
+                   '<div class="mb-3"><label class="form-label">Max Candidates</label><input type="number" class="form-control" id="param-max_candidates" value="500" min="1" max="5000"></div>' +
+                   '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
+        } else if (currentRunBuiltinKey === 'find_zero_match') {
+            body = '<div class="mb-3"><label class="form-label">Hours Back</label><input type="number" class="form-control" id="param-hours_back" value="6" min="1"></div>' +
+                   '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
+        } else if (currentRunBuiltinKey === 'export_qualified') {
+            body = '<div class="mb-3"><label class="form-label">Job IDs (comma-separated)</label><input type="text" class="form-control" id="param-job_ids" placeholder="e.g. 12345, 67890"></div>' +
+                   '<p style="font-size:0.78rem;color:rgba(224,220,216,0.45);">Enter Bullhorn Job Order IDs to export qualified candidates for.</p>';
+        } else if (currentRunBuiltinKey === 'salesrep_sync') {
+            body = '<p style="font-size:0.85rem;color:rgba(224,220,216,0.6);">This will sync Sales Rep display names from customText3 to customText6. No parameters required.</p>';
+        } else {
+            body = '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>' +
+                   '<p style="font-size:0.8rem;color:rgba(224,220,216,0.5);">This tool will use its default parameters. Uncheck dry run to execute for real.</p>';
+        }
+
+        document.getElementById('runModalBody').innerHTML = body;
+        var modal = new bootstrap.Modal(document.getElementById('runModal'));
+        modal.show();
     }
 
-    async function selectTask(taskId) {
-        currentTaskId = taskId;
+    async function executeBuiltin() {
+        if (!currentRunBuiltinKey || !currentRunTaskId) return;
 
-        try {
-            const resp = await fetch(`/automations/${taskId}/chat`, {
-                headers: { 'X-CSRFToken': csrfToken }
-            });
-            const history = await resp.json();
-            const container = document.getElementById('chatMessages');
-            const indicator = document.getElementById('typingIndicator');
+        var params = {};
+        var dryRunEl = document.getElementById('param-dry_run');
+        if (dryRunEl) params.dry_run = dryRunEl.checked;
 
-            container.innerHTML = '';
-            if (history.length === 0) {
-                container.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>No messages for this automation yet</p></div>';
-            } else {
-                history.forEach(msg => {
-                    const div = document.createElement('div');
-                    div.className = 'chat-message ' + msg.role;
-                    div.innerHTML = msg.role === 'assistant' ? formatMarkdown(msg.content) : escapeHtml(msg.content);
-                    container.appendChild(div);
-                });
-                hideChips();
+        var daysBackEl = document.getElementById('param-days_back');
+        if (daysBackEl && daysBackEl.value) params.days_back = parseInt(daysBackEl.value);
+
+        var limitEl = document.getElementById('param-limit');
+        if (limitEl && limitEl.value) params.limit = parseInt(limitEl.value);
+
+        var maxCandEl = document.getElementById('param-max_candidates');
+        if (maxCandEl && maxCandEl.value) params.max_candidates = parseInt(maxCandEl.value);
+
+        var hoursBackEl = document.getElementById('param-hours_back');
+        if (hoursBackEl && hoursBackEl.value) params.hours_back = parseInt(hoursBackEl.value);
+
+        if (currentRunBuiltinKey === 'update_field_bulk') {
+            var entityEl = document.getElementById('param-entity');
+            if (entityEl) params.entity = entityEl.value;
+
+            var queryEl = document.getElementById('param-query');
+            if (queryEl && queryEl.value) params.query = queryEl.value;
+
+            var updatesEl = document.getElementById('param-updates');
+            if (updatesEl && updatesEl.value) {
+                try { params.updates = JSON.parse(updatesEl.value); }
+                catch (e) { alert('Invalid JSON in Updates field'); return; }
             }
-            container.appendChild(indicator);
-            container.scrollTop = container.scrollHeight;
-        } catch (err) {
-            console.error('Failed to load chat history:', err);
         }
-    }
 
-    async function viewLogs(taskId) {
-        try {
-            const resp = await fetch(`/automations/${taskId}/logs`, {
-                headers: { 'X-CSRFToken': csrfToken }
-            });
-            const logs = await resp.json();
-
-            if (logs.length === 0) {
-                addMessage('assistant', 'No execution logs for this automation yet.');
-                return;
+        if (currentRunBuiltinKey === 'export_qualified') {
+            var jobIdsEl = document.getElementById('param-job_ids');
+            if (jobIdsEl && jobIdsEl.value) {
+                params.job_ids = jobIdsEl.value.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); });
             }
-
-            let logText = '**Execution Logs:**\n\n';
-            logs.forEach(l => {
-                const icon = l.status === 'success' ? '✅' : '❌';
-                logText += `${icon} **${l.status}** - ${l.message}\n`;
-                logText += `   ${l.created_at}\n\n`;
-            });
-            addMessage('assistant', logText);
-        } catch (err) {
-            console.error('Failed to load logs:', err);
+            if (!params.job_ids || params.job_ids.length === 0) {
+                alert('Please enter at least one Job ID'); return;
+            }
         }
-    }
 
-    async function clearChat() {
-        if (!confirm('Start a clean slate? This will clear the entire conversation and you can begin fresh with a new task.')) return;
+        var submitBtn = document.getElementById('runModalSubmit');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-inline"></span>Running...';
+
         try {
-            await fetch('/automations/chat/clear', {
+            var resp = await fetch('/automations/run-builtin', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrfToken
                 },
-                body: JSON.stringify({ task_id: currentTaskId })
+                body: JSON.stringify({
+                    name: currentRunBuiltinKey,
+                    params: params,
+                    task_id: currentRunTaskId
+                })
             });
-            currentTaskId = null;
-            chipsHidden = false;
-            const chips = document.getElementById('promptChips');
-            if (chips) chips.classList.remove('hidden');
-            const container = document.getElementById('chatMessages');
-            const indicator = document.getElementById('typingIndicator');
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>Describe the automation you want to build.</p></div>';
-            container.appendChild(indicator);
+
+            var data = await resp.json();
+
+            var modal = bootstrap.Modal.getInstance(document.getElementById('runModal'));
+            if (modal) modal.hide();
+
+            var resultArea = document.getElementById('result-area-' + currentRunTaskId);
+
+            if (data.status === 'background') {
+                resultArea.innerHTML = '<div class="result-card"><div class="result-summary"><span class="spinner-inline"></span> Running in background... Checking for results.</div></div>';
+                pollForResult(currentRunTaskId);
+            } else if (data.error) {
+                resultArea.innerHTML = '<div class="result-card" style="border-color: rgba(220,53,69,0.3);"><div class="result-summary" style="color:#dc3545;">Error: ' + escapeHtml(data.error) + '</div></div>';
+            } else if (data.result) {
+                showResult(currentRunTaskId, data.result);
+            } else {
+                showResult(currentRunTaskId, data);
+            }
+
+            loadRunHistory();
+
         } catch (err) {
-            console.error('Failed to clear chat:', err);
+            alert('Error running automation: ' + err.message);
+        }
+
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-play me-1"></i>Execute';
+    }
+
+    function showResult(taskId, result) {
+        var area = document.getElementById('result-area-' + taskId);
+        var summary = result.summary || 'Completed';
+        var detailsJson = JSON.stringify(result, null, 2);
+        area.innerHTML = '<div class="result-card">' +
+            '<div class="result-summary">' + escapeHtml(summary) + '</div>' +
+            '<button class="details-toggle" onclick="this.nextElementSibling.classList.toggle(\'visible\')">View full details</button>' +
+            '<div class="details-content">' + escapeHtml(detailsJson) + '</div>' +
+        '</div>';
+    }
+
+    function pollForResult(taskId) {
+        var pollCount = 0;
+        var maxPolls = 120;
+        var interval = setInterval(async function() {
+            pollCount++;
+            if (pollCount > maxPolls) {
+                clearInterval(interval);
+                var area = document.getElementById('result-area-' + taskId);
+                if (area) area.innerHTML = '<div class="result-card"><div class="result-summary">Timed out waiting for results. Check Run History for updates.</div></div>';
+                return;
+            }
+
+            try {
+                var resp = await fetch('/automations/builtin-status/' + taskId, {
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                var data = await resp.json();
+
+                if (data.status === 'complete' && data.details) {
+                    clearInterval(interval);
+                    var result = data.details;
+                    if (result.summary) {
+                        showResult(taskId, result);
+                    } else {
+                        var area = document.getElementById('result-area-' + taskId);
+                        area.innerHTML = '<div class="result-card"><div class="result-summary">' + escapeHtml(data.message || 'Completed') + '</div>' +
+                            '<button class="details-toggle" onclick="this.nextElementSibling.classList.toggle(\'visible\')">View full details</button>' +
+                            '<div class="details-content">' + escapeHtml(JSON.stringify(result, null, 2)) + '</div></div>';
+                    }
+                    loadRunHistory();
+                }
+            } catch (e) {}
+        }, 3000);
+    }
+
+    async function loadRunHistory() {
+        try {
+            var resp = await fetch('/automations/run-history?limit=25', {
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            var logs = await resp.json();
+
+            var tbody = document.getElementById('historyBody');
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-history"><i class="fas fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:0.5rem;"></i>No execution history yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = logs.map(function(log, idx) {
+                var name = log.message || 'Unknown';
+                var statusClass = log.status === 'success' ? 'success' : 'error';
+                var when = formatRelativeTime(log.created_at);
+                var detailsId = 'details-' + idx;
+
+                var detailsHtml = '';
+                if (log.details) {
+                    detailsHtml = '<button class="details-toggle" onclick="document.getElementById(\'' + detailsId + '\').classList.toggle(\'visible\')">View</button>' +
+                        '<div class="details-content" id="' + detailsId + '">' + escapeHtml(JSON.stringify(log.details, null, 2)) + '</div>';
+                }
+
+                return '<tr>' +
+                    '<td>' + escapeHtml(name) + '</td>' +
+                    '<td><span class="status-badge ' + statusClass + '">' + escapeHtml(log.status) + '</span></td>' +
+                    '<td>' + escapeHtml(when) + '</td>' +
+                    '<td>' + detailsHtml + '</td>' +
+                '</tr>';
+            }).join('');
+        } catch (err) {
+            document.getElementById('historyBody').innerHTML = '<tr><td colspan="4" class="empty-history">Could not load history</td></tr>';
         }
     }
 
-    startSchedulerPolling();
+    function updateRelativeTimes() {
+        document.querySelectorAll('.relative-time').forEach(function(el) {
+            var iso = el.getAttribute('data-iso');
+            if (iso) el.textContent = formatRelativeTime(iso);
+        });
+    }
+
+    document.getElementById('builtinToolsGrid').addEventListener('click', function(e) {
+        var btn = e.target.closest('.run-btn');
+        if (!btn) return;
+        var taskId = parseInt(btn.getAttribute('data-task-id'));
+        var taskName = btn.getAttribute('data-task-name');
+        if (taskId && taskName) openRunModal(taskId, taskName);
+    });
+
+    loadScheduledJobs();
+    loadRunHistory();
+    updateRelativeTimes();
+
+    schedulerPollInterval = setInterval(loadScheduledJobs, 30000);
+    setInterval(updateRelativeTimes, 60000);
 </script>
 {% endblock %}

@@ -6,7 +6,6 @@ import threading
 import requests
 from datetime import datetime, timedelta
 from collections import defaultdict
-import anthropic
 from extensions import db
 from models import AutomationTask, AutomationLog, AutomationChat
 
@@ -21,193 +20,9 @@ LONG_RUNNING_BUILTINS = {
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are the Scout Genius Product Expert Assistant — an AI automation builder for Bullhorn ATS/CRM.
-
-You help the product expert (your user) design, validate, and execute custom automations against the Bullhorn REST API. You have access to a live Bullhorn instance via the BullhornService.
-
-HOW TO QUERY AND MODIFY BULLHORN
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-To perform any Bullhorn operation, include an execute_operation JSON block in your response. The backend executes it immediately against the live Bullhorn API and injects the real result into the chat history. You will see it on your NEXT turn and can then report it accurately.
-
-CRITICAL: After including an execute_operation block, STOP. Do not write the results you expect — you do not know them yet. Any result, count, ID, or field value you report to the user MUST come from a [Live Bullhorn Result] section that appears in this chat history.
-
-ONLY ONE execute_operation block per response. If multiple calls are needed, do them one at a time across turns.
-
-AVAILABLE OPERATIONS — include exactly one of these JSON block formats:
-
-To search candidates:
-```json
-{"execute_operation": {"operation": "raw_api", "params": {"method": "GET", "endpoint": "search/Candidate", "query_params": {"fields": "id,firstName,lastName,source,email", "query": "source:LinkedIn", "count": 20, "start": 0}}}}
-```
-
-To get a single candidate:
-```json
-{"execute_operation": {"operation": "get_candidate", "params": {"candidate_id": 12345}}}
-```
-
-To update a candidate field:
-```json
-{"execute_operation": {"operation": "update_candidate", "params": {"candidate_id": 12345, "data": {"source": "LinkedIn Job Board"}}}}
-```
-
-To add a note to a candidate:
-```json
-{"execute_operation": {"operation": "create_candidate_note", "params": {"candidate_id": 12345, "note_text": "Note text here", "action": "Automation Note"}}}
-```
-
-To get notes for a candidate:
-```json
-{"execute_operation": {"operation": "get_candidate_notes", "params": {"candidate_id": 12345}}}
-```
-
-To call any Bullhorn REST endpoint directly (most flexible):
-```json
-{"execute_operation": {"operation": "raw_api", "params": {"method": "GET", "endpoint": "search/Candidate", "query_params": {"fields": "id,source", "query": "source:LinkedIn", "count": 500}}}}
-```
-
-For POST/PUT via raw_api, add a "body" key to params with the payload dict.
-
-BUILT-IN AUTOMATIONS (via run_builtin):
-These are pre-built, tested automations that the user can trigger by name:
-
-1. **cleanup_ai_notes** — Delete AI vetting notes from candidate records
-   - Finds notes with actions matching: "AI Vetting", "AI Resume Summary", "AI Vetted"
-   - Params: candidate_ids (optional list), max_candidates (default 500), dry_run (default true)
-   - ALWAYS run with dry_run=true first and show results before executing
-
-2. **cleanup_duplicate_notes** — Remove duplicate "AI Vetting - Not Recommended" notes
-   - Finds candidates with multiple Not Recommended notes added within 60 minutes of each other
-   - Keeps the original (oldest) note, deletes subsequent chained duplicates
-   - Params: days_back (default 5), max_candidates (default 500), dry_run (default true)
-
-3. **find_zero_match** — Find candidates with "Highest Match Score: 0%" in vetting notes
-   - Searches recent notes for zero-score candidates that may need review
-   - Params: hours_back (default 6), dry_run (default true), delete (default false)
-
-4. **export_qualified** — Export qualified candidates for specific jobs
-   - Fetches all submissions for given job IDs, checks each candidate's notes for qualifying actions
-   - Qualifying actions: "Scout Screen - Qualified", "AI Vetting - Qualified", "AI Vetting - Recommended", "AI Vetted - Accept"
-   - Params: job_ids (required list of job IDs)
-   - Returns CSV-ready data with candidate details
-
-5. **resume_reparser** — Find and re-parse candidates with missing resume text
-   - Finds recently added candidates with empty description but attached resume files
-   - Downloads resume and extracts clean text using PDF/DOCX parser
-   - Params: days_back (default 5), limit (default 100), dry_run (default true)
-
-6. **salesrep_sync** — Manually trigger Sales Rep display name sync
-   - Resolves CorporateUser IDs in customText3 to display names in customText6
-   - Normally runs automatically every 30 minutes; use this for an immediate sync
-   - No params needed
-
-7. **update_field_bulk** — Bulk-update a field on any Bullhorn entity matching a search query
-   - Searches for entities matching a Lucene query and applies specified field updates to all matches
-   - Params: entity (default "Candidate"), query (Lucene query string, required), updates (dict of field→value, required), batch_size (default 500), dry_run (default true), limit (optional cap on records processed for safety)
-   - ALWAYS run with dry_run=true first — it returns the real total count and 5 sample IDs so the user can verify scope before committing
-   - Use this for bulk field changes: source tag normalisation, status updates, custom field resets, etc.
-   - Example: `{"run_builtin": {"name": "update_field_bulk", "params": {"query": "source:LinkedIn", "updates": {"source": "LinkedIn Job Board"}, "dry_run": true}}}`
-
-8. **email_extractor** — Extract missing email addresses from candidate resume files
-   - Finds candidates with no email address, downloads their most recent resume file, extracts email via PDF/DOCX text parsing
-   - ONLY updates the email field — never touches description or any other field
-   - Params: days_back (default 365), limit (default 50), dry_run (default true)
-   - ALWAYS run with dry_run=true first to preview candidate count and sample data before executing
-   - Returns: candidates processed, emails found/updated, sample IDs with extracted emails
-
-BULLHORN API NOTES:
-- Note soft-delete uses POST to entity/Note/{id} with {"isDeleted": true}
-- search/Note uses Lucene queries; action values may not be indexed — use entity/Candidate/{id}/notes for reliable note retrieval
-- Candidate notes via entity endpoint: GET entity/Candidate/{id}/notes with fields and count params
-- For bulk operations, paginate using start/count params (max 500 per page)
-- Timestamps in Bullhorn are milliseconds since epoch
-
-AUTOMATION WORKFLOW:
-1. User describes what they want to automate in plain language
-2. You interpret the request and determine if a built-in automation fits or if custom API calls are needed
-3. You propose a plan with clear steps
-4. You ask for confirmation before executing
-5. On confirmation, you execute and report results
-6. If it's a built-in automation, ALWAYS dry-run first
-
-SAFETY RULES:
-- ALWAYS propose a dry-run or preview first before making changes
-- ALWAYS ask for explicit confirmation before executing write operations (create, update, delete)
-- When doing bulk operations, start with a small sample (5-10 records) to validate
-- Log all operations for audit trail
-- If unsure about the scope of an operation, ask clarifying questions
-
-RESPONSE FORMAT:
-When proposing an automation, structure your response as:
-1. **Understanding**: Restate what the user wants
-2. **Plan**: Step-by-step breakdown of what you'll do
-3. **Preview**: Show sample data or expected results if possible
-4. **Confirmation**: Ask if they want to proceed
-
-When you have enough information to create a named automation task, include this JSON block:
-```json
-{"automation": {"name": "Short task name", "description": "What this automation does", "type": "one-time|scheduled|query"}}
-```
-
-When you want to execute a built-in automation, include this JSON block:
-```json
-{"run_builtin": {"name": "cleanup_ai_notes", "params": {"dry_run": true}}}
-```
-
-Keep responses clear and conversational. The user is a product expert, not a developer.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DATA INTEGRITY — ABSOLUTE RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. NEVER fabricate data. Do not invent candidate names, IDs, record counts, field values, or API responses. Every number, name, and ID you report must come from an actual API call made in this session. If you did not execute a query, you do not have results to report.
-
-2. NEVER present code as executed unless it has actually run. Showing a code block is planning, not execution. If you cannot execute an operation, say so explicitly — do not show the output you expect.
-
-3. ALWAYS verify after every write. After any update, create, or delete operation, immediately read the record back and confirm the change persisted. If the read-back shows the value did not change, stop and report the failure — do not continue as if the operation succeeded.
-
-4. If a query returns no results or an operation fails, say so plainly. Do not speculate about what the results "would" be.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TASK ANCHORING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Use the "Working on: ... [task description]." anchor ONLY in these situations:
-1. Your very first response when a new task begins.
-2. When the user changes direction — acknowledge the shift and restate the new task.
-3. When resuming after a session break or a long gap.
-
-Do NOT include it in follow-up responses during an ongoing task. Once a task is underway, respond directly without prefixing every reply with the anchor — it becomes noise.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PLANNING vs. EXECUTION — KEEP THESE SEPARATE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PLANNING MODE: When proposing what you will do, be explicit that no action has been taken yet. Use language like "Here is what I will do — shall I proceed?" Never describe future actions in past tense.
-
-EXECUTION MODE: Once the user confirms, execute the operations. After each operation, report what actually happened using past tense and real data from the response. Never show the same code block twice without executing it in between. If you are blocked from executing, say why instead of repeating the plan.
-
-COMPLETION SUMMARY: After a task finishes, provide a factual summary: what was done, how many records were affected, and 2–5 real record IDs the user can verify manually. If zero records were affected, explain why.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NO CLIFFHANGERS — NEVER LEAVE THE USER WAITING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NEVER end a response with a promise of an action that has not yet happened. Phrases like "Let me start by checking...", "I'll now query...", or "Let me search for..." must NEVER appear at the end of a response — they leave the user waiting for an update that never arrives.
-
-If you intend to take an action, take it and report the result in the SAME response. If you cannot execute immediately (e.g., you need the user's confirmation first), say so explicitly and stop — do not hint at pending work.
-
-Acceptable: "I checked X — here is what I found: [result]."
-Acceptable: "Here is my plan. Shall I proceed?"
-NOT acceptable: "Let me now check X." ← (and then the response ends)"""
-
-
 class AutomationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        api_key = os.environ.get('ANTHROPIC_API_KEY')
-        if api_key:
-            self.anthropic_client = anthropic.Anthropic(api_key=api_key)
-            self.logger.info("AutomationService: Anthropic client initialized (Claude Opus 4)")
-        else:
-            self.anthropic_client = None
-            self.logger.warning("AutomationService: ANTHROPIC_API_KEY not found")
-        
         self._bullhorn = None
 
     @property
@@ -217,350 +32,10 @@ class AutomationService:
             self._bullhorn = BullhornService()
         return self._bullhorn
 
-    def chat(self, user_message, task_id=None):
-        if not self.anthropic_client:
-            return {"error": "Anthropic API key not configured"}
-
-        chat_history = []
-        if task_id:
-            existing = AutomationChat.query.filter_by(
-                automation_task_id=task_id
-            ).order_by(AutomationChat.created_at).all()
-            for msg in existing:
-                chat_history.append({"role": msg.role, "content": msg.content})
-        else:
-            existing = AutomationChat.query.filter_by(
-                automation_task_id=None
-            ).order_by(AutomationChat.created_at).all()
-            for msg in existing:
-                chat_history.append({"role": msg.role, "content": msg.content})
-
-        is_first_message = len(chat_history) == 0
-        connection_info = None
-
-        if is_first_message:
-            connection_info = self._verify_connection()
-            if not connection_info["connected"]:
-                return {
-                    "error": (
-                        f"Cannot start session — Bullhorn connection failed: "
-                        f"{connection_info.get('error', 'Unknown error')}. "
-                        f"Please check the ATS integration settings and try again."
-                    )
-                }
-
-        user_chat = AutomationChat(
-            automation_task_id=task_id,
-            role='user',
-            content=user_message
-        )
-        db.session.add(user_chat)
-        db.session.commit()
-
-        messages = list(chat_history)
-        messages.append({"role": "user", "content": user_message})
-
-        system_prompt = SYSTEM_PROMPT
-        if connection_info and connection_info["connected"]:
-            system_prompt += (
-                f"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"ACTIVE BULLHORN CONNECTION (verified at session start)\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"Corporation: {connection_info['corporation']}\n"
-                f"REST URL: {connection_info['rest_url']}\n"
-                f"Status: Connected and authenticated\n\n"
-                f"All operations in this session run against this specific instance. "
-                f"Do not assume you are connected to any other environment."
-            )
-
-        try:
-            response = self.anthropic_client.messages.create(
-                model="claude-opus-4-20250514",
-                system=system_prompt,
-                messages=messages,
-                temperature=0.3,
-                max_tokens=4096
-            )
-            
-            assistant_content = response.content[0].text
-
-            assistant_chat = AutomationChat(
-                automation_task_id=task_id,
-                role='assistant',
-                content=assistant_content
-            )
-            db.session.add(assistant_chat)
-            db.session.commit()
-
-            task_created = None
-            builtin_result = None
-            operation_result = None
-
-            if '```json' in assistant_content:
-                try:
-                    json_start = assistant_content.index('```json') + 7
-                    json_end = assistant_content.index('```', json_start)
-                    json_str = assistant_content[json_start:json_end].strip()
-                    parsed = json.loads(json_str)
-
-                    if 'automation' in parsed:
-                        auto_def = parsed['automation']
-                        task = AutomationTask(
-                            name=auto_def.get('name', 'Untitled Automation'),
-                            description=auto_def.get('description', ''),
-                            automation_type=auto_def.get('type', 'one-time'),
-                            status='draft'
-                        )
-                        db.session.add(task)
-                        db.session.commit()
-                        task_created = {
-                            'id': task.id,
-                            'name': task.name,
-                            'description': task.description,
-                            'type': task.automation_type
-                        }
-
-                        if task_id is None:
-                            unlinked = AutomationChat.query.filter_by(
-                                automation_task_id=None
-                            ).all()
-                            for chat in unlinked:
-                                chat.automation_task_id = task.id
-                            db.session.commit()
-
-                        self.logger.info(f"Created automation task: {task.name} (ID: {task.id})")
-
-                    if 'run_builtin' in parsed:
-                        builtin_def = parsed['run_builtin']
-                        builtin_name = builtin_def.get('name')
-                        builtin_params = builtin_def.get('params', {})
-                        if builtin_name:
-                            effective_builtin_task_id = task_id or (task_created['id'] if task_created else None)
-
-                            if builtin_name in LONG_RUNNING_BUILTINS:
-                                pending_section = (
-                                    f"\n\n---\n**[Built-in Running: {builtin_name} — processing in background]**\n"
-                                    f"The operation has started on the server. This message will be updated with results when complete — "
-                                    f"you can safely close your laptop or this tab while it runs.\n---"
-                                )
-                                assistant_content += pending_section
-                                assistant_chat.content = assistant_content
-                                db.session.commit()
-
-                                captured_chat_id = assistant_chat.id
-                                service_ref = self
-                                captured_builtin_name = builtin_name
-                                captured_builtin_params = builtin_params
-                                captured_task_id = effective_builtin_task_id
-
-                                def _run_in_background(chat_id, svc, name, params, bg_task_id):
-                                    from app import app as flask_app
-                                    with flask_app.app_context():
-                                        try:
-                                            bg_result = svc.run_builtin(name, params, task_id=bg_task_id)
-                                            result_json = json.dumps(
-                                                bg_result.get('result', bg_result) if isinstance(bg_result, dict) else bg_result,
-                                                indent=2, default=str
-                                            )
-                                            result_section = (
-                                                f"\n\n---\n**[Built-in Result — {name}]**\n"
-                                                f"```json\n{result_json}\n```\n---"
-                                            )
-                                            pending_marker = (
-                                                f"\n\n---\n**[Built-in Running: {name} — processing in background]**\n"
-                                                f"The operation has started on the server. This message will be updated with results when complete — "
-                                                f"you can safely close your laptop or this tab while it runs.\n---"
-                                            )
-                                            chat_record = AutomationChat.query.get(chat_id)
-                                            if chat_record:
-                                                chat_record.content = chat_record.content.replace(
-                                                    pending_marker, result_section
-                                                )
-                                                db.session.commit()
-                                        except Exception as bg_err:
-                                            svc.logger.error(f"Background builtin {name} error: {bg_err}")
-                                            try:
-                                                chat_record = AutomationChat.query.get(chat_id)
-                                                if chat_record:
-                                                    error_section = (
-                                                        f"\n\n---\n**[Built-in Error — {name}]**\n"
-                                                        f"```json\n{json.dumps({'error': str(bg_err)}, indent=2)}\n```\n---"
-                                                    )
-                                                    pending_marker = (
-                                                        f"\n\n---\n**[Built-in Running: {name} — processing in background]**\n"
-                                                        f"The operation has started on the server. This message will be updated with results when complete — "
-                                                        f"you can safely close your laptop or this tab while it runs.\n---"
-                                                    )
-                                                    chat_record.content = chat_record.content.replace(
-                                                        pending_marker, error_section
-                                                    )
-                                                    db.session.commit()
-                                            except Exception:
-                                                pass
-
-                                bg_thread = threading.Thread(
-                                    target=_run_in_background,
-                                    args=(captured_chat_id, service_ref, captured_builtin_name,
-                                          captured_builtin_params, captured_task_id),
-                                    daemon=True
-                                )
-                                bg_thread.start()
-                                builtin_result = {"status": "background", "name": builtin_name}
-                                self.logger.info(f"Launched background built-in: {builtin_name}")
-
-                            else:
-                                builtin_result = self.run_builtin(
-                                    builtin_name, builtin_params,
-                                    task_id=effective_builtin_task_id
-                                )
-                                self.logger.info(f"Auto-executed built-in: {builtin_name}")
-                                sync_result = builtin_result.get('result', builtin_result) if isinstance(builtin_result, dict) else builtin_result
-                                result_json = json.dumps(sync_result, indent=2, default=str)
-                                result_section = (
-                                    f"\n\n---\n**[Built-in Result — {builtin_name}]**\n"
-                                    f"```json\n{result_json}\n```\n---"
-                                )
-                                assistant_content += result_section
-                                assistant_chat.content = assistant_content
-                                db.session.commit()
-
-                    if 'execute_operation' in parsed:
-                        op_def = parsed['execute_operation']
-                        op_name = op_def.get('operation')
-                        op_params = op_def.get('params', {})
-                        if op_name:
-                            effective_task_id = task_id or (task_created['id'] if task_created else None)
-                            operation_result = self.execute_bullhorn_operation(
-                                op_name, op_params, task_id=effective_task_id
-                            )
-                            self.logger.info(f"Executed operation: {op_name}")
-
-                            result_label = f"Live Bullhorn Result — {op_name}"
-                            result_json = json.dumps(operation_result, indent=2, default=str)
-                            result_section = (
-                                f"\n\n---\n**[{result_label}]**\n"
-                                f"```json\n{result_json}\n```\n---"
-                            )
-                            assistant_content += result_section
-                            assistant_chat.content = assistant_content
-                            db.session.commit()
-
-                except (json.JSONDecodeError, ValueError):
-                    pass
-
-            return {
-                "response": assistant_content,
-                "task_created": task_created,
-                "task_id": task_id,
-                "builtin_result": builtin_result,
-                "operation_result": operation_result
-            }
-
-        except Exception as e:
-            self.logger.error(f"AutomationService chat error: {e}")
-            return {"error": str(e)}
-
-    def execute_bullhorn_operation(self, operation, params, task_id=None):
-        try:
-            bh = self.bullhorn
-            try:
-                bh.authenticate()
-            except Exception as auth_err:
-                return {"error": f"Bullhorn authentication failed: {auth_err}"}
-            result = None
-
-            if operation == 'search_candidates':
-                result = bh.search_candidates(**params)
-            elif operation == 'get_candidate':
-                result = bh.get_candidate(params.get('candidate_id'))
-            elif operation == 'get_job_order':
-                result = bh.get_job_order(params.get('job_id'))
-            elif operation == 'get_job_orders':
-                result = bh.get_job_orders()
-            elif operation == 'get_jobs_by_query':
-                result = bh.get_jobs_by_query(params.get('query', ''))
-            elif operation == 'get_tearsheets':
-                result = bh.get_tearsheets()
-            elif operation == 'get_tearsheet_jobs':
-                result = bh.get_tearsheet_jobs(params.get('tearsheet_id'))
-            elif operation == 'get_candidate_notes':
-                result = bh.get_candidate_notes(params.get('candidate_id'))
-            elif operation == 'create_candidate_note':
-                result = bh.create_candidate_note(
-                    params.get('candidate_id'),
-                    params.get('note_text'),
-                    action=params.get('action', 'Automation Note')
-                )
-            elif operation == 'update_candidate':
-                result = bh.update_candidate(
-                    params.get('candidate_id'),
-                    params.get('data', {})
-                )
-            elif operation == 'create_job_submission':
-                result = bh.create_job_submission(
-                    params.get('candidate_id'),
-                    params.get('job_id')
-                )
-            elif operation == 'raw_api':
-                method = params.get('method', 'GET').upper()
-                endpoint = params.get('endpoint', '').lstrip('/')
-                url = f"{bh.base_url}{endpoint}"
-                query_params = params.get('query_params') or {}
-                query_params['BhRestToken'] = bh.rest_token
-                body = params.get('body')
-                if method == 'GET':
-                    resp = bh.session.get(url, params=query_params, timeout=30)
-                elif method == 'POST':
-                    resp = bh.session.post(url, params=query_params, json=body, timeout=30)
-                elif method == 'PUT':
-                    resp = bh.session.put(url, params=query_params, json=body, timeout=30)
-                elif method == 'DELETE':
-                    resp = bh.session.delete(url, params=query_params, timeout=30)
-                else:
-                    return {"error": f"Unsupported HTTP method: {method}"}
-                try:
-                    result = resp.json()
-                except Exception:
-                    result = {"status_code": resp.status_code, "text": resp.text[:500]}
-            else:
-                return {"error": f"Unknown operation: {operation}"}
-
-            if task_id:
-                log = AutomationLog(
-                    automation_task_id=task_id,
-                    status='success',
-                    message=f"Executed: {operation}",
-                    details_json=json.dumps({
-                        'operation': operation,
-                        'params': {k: str(v)[:200] for k, v in params.items()},
-                        'result_preview': str(result)[:500] if result else None
-                    })
-                )
-                db.session.add(log)
-
-                task = AutomationTask.query.get(task_id)
-                if task:
-                    task.last_run_at = datetime.utcnow()
-                    task.run_count += 1
-                db.session.commit()
-
-            return {"success": True, "result": result}
-
-        except Exception as e:
-            self.logger.error(f"Bullhorn operation error: {e}")
-            if task_id:
-                log = AutomationLog(
-                    automation_task_id=task_id,
-                    status='error',
-                    message=f"Failed: {operation} - {str(e)}",
-                    details_json=json.dumps({
-                        'operation': operation,
-                        'error': str(e)
-                    })
-                )
-                db.session.add(log)
-                db.session.commit()
-            return {"error": str(e)}
+    def get_all_logs(self, limit=50):
+        return AutomationLog.query.order_by(
+            AutomationLog.created_at.desc()
+        ).limit(limit).all()
 
     def get_tasks(self, status=None):
         query = AutomationTask.query.order_by(AutomationTask.created_at.desc())
@@ -575,10 +50,6 @@ class AutomationService:
         return AutomationLog.query.filter_by(
             automation_task_id=task_id
         ).order_by(AutomationLog.created_at.desc()).limit(limit).all()
-
-    def get_chat_history(self, task_id=None):
-        query = AutomationChat.query.filter_by(automation_task_id=task_id)
-        return query.order_by(AutomationChat.created_at).all()
 
     def delete_task(self, task_id):
         task = AutomationTask.query.get(task_id)
@@ -597,32 +68,28 @@ class AutomationService:
             return True
         return False
 
-    def clear_chat_history(self, task_id=None):
-        AutomationChat.query.filter_by(automation_task_id=task_id).delete()
-        db.session.commit()
+    def run_builtin_background(self, name, params, task_id=None):
+        if name in LONG_RUNNING_BUILTINS:
+            service_ref = self
 
-    def _verify_connection(self):
-        """Verify Bullhorn connection and return connection context string."""
-        try:
-            self.bullhorn.authenticate()
-            rest_url = self.bullhorn.base_url or "unknown"
-            corp_name = "Unknown"
-            try:
-                resp = self.bullhorn._make_request('GET', 'settings/corporationName', params={})
-                if resp and isinstance(resp, dict):
-                    corp_name = resp.get('corporationName') or resp.get('name') or "Unknown"
-            except Exception:
-                pass
-            return {
-                "connected": True,
-                "corporation": corp_name,
-                "rest_url": rest_url
-            }
-        except Exception as e:
-            return {
-                "connected": False,
-                "error": str(e)
-            }
+            def _run_bg(svc, bg_name, bg_params, bg_task_id):
+                from app import app as flask_app
+                with flask_app.app_context():
+                    try:
+                        svc.run_builtin(bg_name, bg_params, task_id=bg_task_id)
+                    except Exception as e:
+                        svc.logger.error(f"Background builtin {bg_name} error: {e}")
+
+            bg_thread = threading.Thread(
+                target=_run_bg,
+                args=(service_ref, name, params, task_id),
+                daemon=True
+            )
+            bg_thread.start()
+            self.logger.info(f"Launched background built-in: {name}")
+            return {"status": "background", "name": name, "task_id": task_id}
+        else:
+            return self.run_builtin(name, params, task_id=task_id)
 
     def _bh_headers(self):
         return {
