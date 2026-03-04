@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI Candidate Vetting Module is an advanced feature of JobPulse™ that automatically analyzes ALL inbound job applicants against open positions using GPT-4o. The system evaluates resumes, scores candidate-job matches based on mandatory requirements, creates detailed notes in Bullhorn for every candidate (qualified and not), and notifies recruiters via collaborative email threads when candidates meet the qualification threshold.
+The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that automatically analyzes ALL inbound job applicants against open positions using GPT-4o. The system evaluates resumes, scores candidate-job matches based on mandatory requirements, creates detailed notes in Bullhorn for every candidate (qualified and not), and notifies recruiters via collaborative email threads when candidates meet the qualification threshold.
 
 ---
 
@@ -333,6 +333,6 @@ Each entry includes:
 ## Contact & Support
 
 For questions or issues with the AI Candidate Vetting Module:
-- **Technical Support**: Contact your JobPulse administrator
+- **Technical Support**: Contact your Scout Genius administrator
 - **System Administrator**: kroots@myticas.com
 - **Documentation**: This document and `/vetting/sample-notes` for note previews

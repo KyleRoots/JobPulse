@@ -1,5 +1,5 @@
 """
-Dashboard routes for JobPulse.
+Dashboard routes for Scout Genius.
 
 Handles the main dashboard and root redirect.
 """

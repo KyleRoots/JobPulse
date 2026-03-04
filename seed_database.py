@@ -1,5 +1,5 @@
 """
-Database Seeding Script for JobPulse Application
+Database Seeding Script for Scout Genius Application
 
 This script provides idempotent database seeding for production deployments.
 It creates admin users, SFTP settings, Bullhorn credentials, tearsheet monitors,

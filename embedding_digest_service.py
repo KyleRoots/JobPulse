@@ -1,5 +1,5 @@
 """
-Embedding Digest Service for JobPulse
+Embedding Digest Service for Scout Genius
 
 Generates and sends daily digest emails summarizing:
 - Embedding filter stats (Layer 1)

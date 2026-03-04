@@ -77,7 +77,7 @@ def check_environment_status():
                 response = requests.get(
                     env_status.environment_url + '/health',
                     timeout=env_status.timeout_seconds,
-                    headers={'User-Agent': 'JobPulse-Environment-Monitor/1.0'}
+                    headers={'User-Agent': 'ScoutGenius-Environment-Monitor/1.0'}
                 )
                 
                 if response.status_code == 200:

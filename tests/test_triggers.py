@@ -1,5 +1,5 @@
 """
-Trigger endpoint tests for JobPulse.
+Trigger endpoint tests for Scout Genius.
 
 Tests system trigger endpoints for job sync, file cleanup, health check, and AI fixes.
 """

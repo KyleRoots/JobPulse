@@ -826,7 +826,7 @@ import fcntl
 import atexit
 
 # Initialize scheduler lock variables
-scheduler_lock_file = '/tmp/jobpulse_scheduler.lock'
+scheduler_lock_file = '/tmp/scoutgenius_scheduler.lock'
 scheduler_lock_fd = None
 is_primary_worker = False
 

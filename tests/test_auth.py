@@ -1,5 +1,5 @@
 """
-Authentication tests for JobPulse.
+Authentication tests for Scout Genius.
 
 Tests login, logout, session management, and authentication-protected routes.
 """

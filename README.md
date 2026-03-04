@@ -36,7 +36,7 @@ A comprehensive Flask-based web application that automates XML job feed processi
 - **Session Management**: Flask sessions with secure keys
 - **Proxy Support**: ProxyFix middleware for HTTPS
 - **File Handling**: Secure temporary storage with auto-cleanup
-- **Dual-Domain Setup**: jobpulse.lyntrix.ai (main) + apply.myticas.com (applications)
+- **Dual-Domain Setup**: app.scoutgenius.ai (main) + apply.myticas.com (applications)
 
 ---
 

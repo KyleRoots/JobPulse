@@ -1,5 +1,5 @@
 """
-Sentry SDK initialization for JobPulse.
+Sentry SDK initialization for Scout Genius.
 
 Captures unhandled exceptions and enables performance tracing on all Flask
 routes. Completely disabled when SENTRY_DSN is not set (local dev / CI) or

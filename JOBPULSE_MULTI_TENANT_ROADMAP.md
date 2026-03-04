@@ -1,4 +1,4 @@
-# JobPulse™ Multi-Tenant SaaS Roadmap
+# Scout Genius™ Multi-Tenant SaaS Roadmap
 ## Software Design & Requirements Document
 
 **Document Version:** 1.0  
@@ -27,10 +27,10 @@
 ## Executive Summary
 
 ### Purpose
-This document outlines the strategic transformation of JobPulse™ from a single-tenant XML job feed automation system into a scalable multi-tenant SaaS platform capable of serving multiple staffing and recruiting companies simultaneously.
+This document outlines the strategic transformation of Scout Genius™ from a single-tenant XML job feed automation system into a scalable multi-tenant SaaS platform capable of serving multiple staffing and recruiting companies simultaneously.
 
 ### Current State
-JobPulse™ currently operates as a dedicated solution for Myticas Consulting, providing:
+Scout Genius™ currently operates as a dedicated solution for Myticas Consulting, providing:
 - Automated XML job feed processing with Bullhorn ATS integration
 - AI-powered candidate vetting using GPT-4o
 - Real-time tearsheet monitoring and SFTP synchronization
@@ -38,7 +38,7 @@ JobPulse™ currently operates as a dedicated solution for Myticas Consulting, p
 - Dual-domain support for job application processing
 
 ### Strategic Objective
-Transform JobPulse™ into a multi-tenant SaaS platform that can:
+Transform Scout Genius™ into a multi-tenant SaaS platform that can:
 - Onboard 50+ customers with isolated data environments
 - Support multiple ATS systems (Bullhorn, Greenhouse, Workday, etc.)
 - Provide tiered access levels (Super Admin, Customer Admin, Recruiter)
@@ -986,7 +986,7 @@ GET    /api/v1/stats
 
 ```bash
 # Platform Configuration
-JOBPULSE_ENV=production
+SCOUT_GENIUS_ENV=production
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 
@@ -1011,7 +1011,7 @@ ENABLE_WORKDAY_ADAPTER=false
 
 | Term | Definition |
 |------|------------|
-| **Tenant** | A customer organization using JobPulse |
+| **Tenant** | A customer organization using Scout Genius |
 | **ATS** | Applicant Tracking System (Bullhorn, Greenhouse, etc.) |
 | **Vetting** | AI-powered candidate-job matching process |
 | **Tearsheet** | Bullhorn hotlist of active job orders |

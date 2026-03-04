@@ -1,9 +1,9 @@
-# JobPulse™ — Complete Application Documentation
+# Scout Genius™ — Complete Application Documentation
 
 **Last Updated:** February 14, 2026
 **Version:** 3.3
 **Production URL:** [jobpulse.lyntrix.ai](https://jobpulse.lyntrix.ai)
-**Repository:** [KyleRoots/JobPulse](https://github.com/KyleRoots/JobPulse)
+**Repository:** [KyleRoots/Scout Genius](https://github.com/KyleRoots/Scout Genius)
 
 ---
 
@@ -41,7 +41,7 @@
 
 ## 1. Platform Overview
 
-**JobPulse™** is an intelligent job visibility and candidate vetting automation platform built for staffing agencies. It connects Bullhorn ATS/CRM to job board distribution networks, ensuring job listings stay visible indefinitely through automated refresh cycles, while simultaneously providing AI-powered candidate vetting for inbound applicants.
+**Scout Genius™** is an intelligent job visibility and candidate vetting automation platform built for staffing agencies. It connects Bullhorn ATS/CRM to job board distribution networks, ensuring job listings stay visible indefinitely through automated refresh cycles, while simultaneously providing AI-powered candidate vetting for inbound applicants.
 
 ### Core Value Propositions
 
@@ -80,7 +80,7 @@ graph TB
         RC["Render Cron Jobs"]
     end
 
-    subgraph JobPulse["JobPulse™ (Render)"]
+    subgraph Scout Genius["Scout Genius™ (Render)"]
         FL["Flask Web App"]
         APS["APScheduler<br>(Background Jobs)"]
         PG["PostgreSQL"]
@@ -996,7 +996,7 @@ Prevents multiple Render instances from running duplicate background jobs:
 ### Running Tests
 
 ```bash
-cd /Users/rooster/.gemini/antigravity/playground/JobPulse
+cd /Users/rooster/.gemini/antigravity/playground/Scout Genius
 source .venv/bin/activate
 pytest -q             # Quick summary
 pytest -v             # Verbose output
@@ -1187,7 +1187,7 @@ Uses `job_categories_mapping.json` for keyword lookup and `InternalJobClassifier
 ## 27. File Structure Reference
 
 ```
-JobPulse/
+Scout Genius/
 ├── app.py                              # Flask app factory, core routes (231K)
 ├── main.py                             # Application entry point (4K)
 ├── models.py                           # 29 SQLAlchemy models (926 lines)

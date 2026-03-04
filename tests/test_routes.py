@@ -1,5 +1,5 @@
 """
-Core route tests for JobPulse.
+Core route tests for Scout Genius.
 
 Tests that main pages render correctly and core functionality works.
 """

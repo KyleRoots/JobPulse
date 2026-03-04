@@ -1,5 +1,5 @@
 """
-Log Monitoring Service for JobPulse
+Log Monitoring Service for Scout Genius
 ===================================
 Automated log analysis with self-healing capabilities.
 

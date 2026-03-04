@@ -1,4 +1,4 @@
-# JobPulse™ Solution Design Document
+# Scout Genius™ Solution Design Document
 ## Intelligent Job Visibility & Freshness Automation Platform
 
 **Document Version:** 3.0  
@@ -12,7 +12,7 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [The Core Problem: Job Visibility Decay](#2-the-core-problem-job-visibility-decay)
-3. [The JobPulse™ Solution: Perpetual Freshness](#3-the-jobpulse-solution-perpetual-freshness)
+3. [The Scout Genius™ Solution: Perpetual Freshness](#3-the-scout-genius-solution-perpetual-freshness)
 4. [System Architecture](#4-system-architecture)
 5. [Core Capabilities](#5-core-capabilities)
 6. [Technical Implementation](#6-technical-implementation)
@@ -31,9 +31,9 @@
 
 Staffing agencies spend thousands on job board subscriptions, but their listings become invisible within weeks. **Job boards algorithmically demote "stale" postings**, pushing them below newer listings in search results. A job posted 30 days ago might as well not exist - candidates never see it.
 
-### 1.2 The JobPulse™ Solution
+### 1.2 The Scout Genius™ Solution
 
-**JobPulse™** is an intelligent job visibility platform that keeps job listings appearing **fresh and new indefinitely**. Through automated refresh cycles, smart metadata optimization, and continuous synchronization, JobPulse ensures maximum job visibility regardless of actual posting date.
+**Scout Genius™** is an intelligent job visibility platform that keeps job listings appearing **fresh and new indefinitely**. Through automated refresh cycles, smart metadata optimization, and continuous synchronization, Scout Genius ensures maximum job visibility regardless of actual posting date.
 
 This isn't just automation - it's a **visibility multiplier** that compounds value every day a job remains open.
 
@@ -49,7 +49,7 @@ This isn't just automation - it's a **visibility multiplier** that compounds val
 
 ### 1.4 Deployment Status
 
-- **Production URL:** jobpulse.[entityname].ai
+- **Production URL:** scoutgenius.[entityname].ai
 - **Application Portals:** apply.myticas.com, apply.stsigroup.com
 - **Current Uptime:** 99.95% (30-day average)
 - **Active Job Postings:** 68+ managed positions
@@ -108,15 +108,15 @@ For an agency with 68 active positions:
 | Scenario | Day 30 Visibility | Total Exposure (60 days) | Estimated Lost Applicants |
 |----------|-------------------|--------------------------|---------------------------|
 | Traditional | 15% | 35% average | 40-60% fewer applications |
-| JobPulse™ | 100% | 100% maintained | None |
+| Scout Genius™ | 100% | 100% maintained | None |
 
 ---
 
-## 3. The JobPulse™ Solution: Perpetual Freshness
+## 3. The Scout Genius™ Solution: Perpetual Freshness
 
 ### 3.1 The Core Innovation
 
-JobPulse™ implements **Intelligent Refresh Automation**—a system that continuously updates job listings to signal freshness to job board algorithms while maintaining data integrity for applicant tracking.
+Scout Genius™ implements **Intelligent Refresh Automation**—a system that continuously updates job listings to signal freshness to job board algorithms while maintaining data integrity for applicant tracking.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -124,7 +124,7 @@ JobPulse™ implements **Intelligent Refresh Automation**—a system that contin
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐    │
-│  │   Bullhorn   │──▶│   JobPulse   │──▶│   Job Boards     │    │
+│  │   Bullhorn   │──▶│   Scout Genius   │──▶│   Job Boards     │    │
 │  │   ATS/CRM    │   │   Freshness  │   │   (LinkedIn,     │    │
 │  │              │   │   Engine     │   │    Indeed, etc)  │    │
 │  └──────────────┘   └──────────────┘   └──────────────────┘    │
@@ -158,7 +158,7 @@ JobPulse™ implements **Intelligent Refresh Automation**—a system that contin
 │                     THE VISIBILITY ADVANTAGE                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   TRADITIONAL APPROACH              JOBPULSE™ APPROACH          │
+│   TRADITIONAL APPROACH              SCOUT_GENIUS™ APPROACH          │
 │   ────────────────────              ──────────────────          │
 │                                                                  │
 │   Day 1:  ████████████ 100%         Day 1:  ████████████ 100%  │
@@ -242,7 +242,7 @@ JobPulse™ implements **Intelligent Refresh Automation**—a system that contin
 
 | Domain | Purpose | Users |
 |--------|---------|-------|
-| jobpulse.[entitydomain].ai | Admin dashboard, freshness controls | Internal staff |
+| scoutgenius.[entitydomain].ai | Admin dashboard, freshness controls | Internal staff |
 | apply.myticas.com | Myticas-branded job application portal | Candidates |
 | apply.stsigroup.com | STSI-branded job application portal | Candidates |
 
@@ -252,7 +252,7 @@ JobPulse™ implements **Intelligent Refresh Automation**—a system that contin
 
 ### 5.1 Perpetual Freshness Engine (Primary Differentiator)
 
-The Perpetual Freshness Engine is JobPulse's core innovation—ensuring jobs never appear "stale" to job board algorithms.
+The Perpetual Freshness Engine is Scout Genius's core innovation—ensuring jobs never appear "stale" to job board algorithms.
 
 **Architecture:**
 
@@ -343,7 +343,7 @@ Ensures applicant tracking continuity while jobs appear "fresh":
 
 **Why This Matters:**
 
-Traditional "reposting" breaks applicant tracking—candidates applying to a "reposted" job get lost. JobPulse maintains **one continuous applicant pipeline** while the job appears fresh.
+Traditional "reposting" breaks applicant tracking—candidates applying to a "reposted" job get lost. Scout Genius maintains **one continuous applicant pipeline** while the job appears fresh.
 
 ### 5.4 Intelligent Job Classification
 
@@ -479,7 +479,7 @@ Protection against API failures corrupting job feeds:
 
 **Data Flow:**
 ```
-Bullhorn → JobPulse → Fresh XML Feed → Job Boards
+Bullhorn → Scout Genius → Fresh XML Feed → Job Boards
                 ↓
          Application Forms → Email → Recruiters
 ```
@@ -667,7 +667,7 @@ Separate PostgreSQL databases and independent schedules prevent cross-contaminat
 
 | Term | Definition |
 |------|------------|
-| **Perpetual Freshness** | JobPulse's core capability of keeping jobs appearing "new" indefinitely |
+| **Perpetual Freshness** | Scout Genius's core capability of keeping jobs appearing "new" indefinitely |
 | **Visibility Decay** | The algorithmic demotion of stale job listings by job boards |
 | **Reference Number** | Unique identifier that persists for applicant tracking |
 | **Tearsheet** | Bullhorn's saved list of job postings for monitoring |

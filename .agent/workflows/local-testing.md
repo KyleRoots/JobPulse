@@ -1,5 +1,5 @@
 ---
-description: How to run JobPulse locally with ngrok for testing
+description: How to run Scout Genius locally with ngrok for testing
 ---
 
 # Local Development Testing Workflow
@@ -14,7 +14,7 @@ description: How to run JobPulse locally with ngrok for testing
 ### 1. Start the Flask App
 // turbo
 ```bash
-cd /Users/rooster/.gemini/antigravity/playground/JobPulse
+cd /Users/rooster/.gemini/antigravity/playground/Scout Genius
 source .venv/bin/activate
 python main.py
 ```

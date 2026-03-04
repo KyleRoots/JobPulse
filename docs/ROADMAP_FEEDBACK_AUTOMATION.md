@@ -2,7 +2,7 @@
 
 ## Overview
 
-As JobPulse onboards more customers, the feedback system will evolve to include AI-assisted triage and automated resolution capabilities.
+As Scout Genius onboards more customers, the feedback system will evolve to include AI-assisted triage and automated resolution capabilities.
 
 ---
 

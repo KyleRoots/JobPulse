@@ -340,7 +340,7 @@ class EmailService:
             
             The updated XML file with new reference numbers is attached to this email.
             
-            JobPulse™ Processing & Automation System
+            Scout Genius™ Automation Platform
             """
 
             # Create the email message
@@ -447,7 +447,7 @@ class EmailService:
                 
                 <p>Please check your XML file and schedule configuration, then try again.</p>
                 
-                <p>JobPulse™ Processing & Automation System</p>
+                <p>Scout Genius™ Automation Platform</p>
             </body>
             </html>
             """
@@ -464,7 +464,7 @@ class EmailService:
             
             Please check your XML file and schedule configuration, then try again.
             
-            JobPulse™ Processing & Automation System
+            Scout Genius™ Automation Platform
             """
 
             # Create the email message
@@ -959,7 +959,7 @@ This is an automated notification from the Job Feed Reference Number Refresh sys
             # Close email body
             html_content += """
                 <p style="margin-top: 20px; font-size: 12px; color: #6c757d;">
-                    JobPulse™ Processing & Automation System
+                    Scout Genius™ Automation Platform
                 </p>
             </body>
             </html>
@@ -1025,7 +1025,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                         text_content += f"  • {job_title} (ID: {job_id})\n"
                 text_content += "\n"
             
-            text_content += "JobPulse™ Processing & Automation System"
+            text_content += "Scout Genius™ Automation Platform"
 
             # Create email message
             message = Mail(from_email=Email(self.from_email),

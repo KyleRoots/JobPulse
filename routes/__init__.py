@@ -1,4 +1,4 @@
-# Routes module for JobPulse
+# Routes module for Scout Genius
 # Flask blueprints organized by feature area
 
 from functools import wraps

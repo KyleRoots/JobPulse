@@ -1,10 +1,10 @@
 ---
-description: Mandatory pre-implementation analysis for all JobPulse code changes. Perform blast radius assessment, risk analysis, and deployment planning before writing any code.
+description: Mandatory pre-implementation analysis for all Scout Genius code changes. Perform blast radius assessment, risk analysis, and deployment planning before writing any code.
 ---
 
 # Production-Ready Change Protocol
 
-> **MANDATORY**: All code changes to JobPulse must include this analysis BEFORE implementation begins.
+> **MANDATORY**: All code changes to Scout Genius must include this analysis BEFORE implementation begins.
 
 ## Step 1: Change Summary
 

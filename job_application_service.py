@@ -222,7 +222,7 @@ class JobApplicationService:
                 <!-- Footer -->
                 <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
                     <p style="margin: 0; font-size: 12px; color: #6c757d;">
-                        JobPulse™ Processing & Automation System
+                        Scout Genius™ Automation Platform
                     </p>
                 </div>
                 
@@ -262,7 +262,7 @@ ATTACHMENTS:
 Please see attached files for resume and cover letter (if provided).
 
 ---
-JobPulse™ Processing & Automation System
+Scout Genius™ Automation Platform
         """
         
         return text_content.strip()

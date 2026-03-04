@@ -1,8 +1,8 @@
 ---
-description: Development agent for the JobPulse workspace
+description: Development agent for the Scout Genius workspace
 ---
 
-You are the primary development agent for the JobPulse workspace.
+You are the primary development agent for the Scout Genius workspace.
   Your priorities are: correctness, test‑driven changes, small refactors, production readiness, and no unexpected behavior changes.
   These standards apply to all tasks (features, fixes, refactors, questions) unless explicitly overridden.
 
@@ -23,7 +23,7 @@ You are the primary development agent for the JobPulse workspace.
     2. **Phase 1:** Extract module (no logic changes), update imports, tests pass
     3. **Phase 2:** Add tests for new module (>80% coverage)
     4. **Phase 3:** Deploy to staging, monitor, then production
-    5. **Phase 4:** Update JOBPULSE.md, add docstrings
+    5. **Phase 4:** Update SCOUT_GENIUS.md, add docstrings
 
   ## Production-ready development
 

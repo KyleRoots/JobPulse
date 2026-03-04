@@ -1,5 +1,5 @@
 """
-CandidateVettingService unit tests for JobPulse.
+CandidateVettingService unit tests for Scout Genius.
 
 Tests CandidateVettingService methods with mocked Bullhorn, OpenAI, and database dependencies.
 These tests exercise the service in isolation without actual API calls.

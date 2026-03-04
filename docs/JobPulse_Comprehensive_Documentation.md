@@ -1,9 +1,9 @@
-# JobPulse™ — Comprehensive Application Documentation
+# Scout Genius™ — Comprehensive Application Documentation
 
 **Last Updated:** February 12, 2026  
 **Version:** 3.2  
 **Platform:** [jobpulse.lyntrix.ai](https://jobpulse.lyntrix.ai)  
-**Repository:** [KyleRoots/JobPulse](file:///Users/rooster/.gemini/antigravity/playground/JobPulse)
+**Repository:** [KyleRoots/Scout Genius](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius)
 
 ---
 
@@ -33,7 +33,7 @@
 
 ## 1. Platform Overview
 
-**JobPulse™** is an intelligent job visibility and candidate vetting automation platform built for staffing agencies. It connects Bullhorn ATS/CRM to job board distribution networks, ensuring job listings stay visible indefinitely through automated refresh cycles, while simultaneously providing AI-powered candidate vetting for inbound applicants.
+**Scout Genius™** is an intelligent job visibility and candidate vetting automation platform built for staffing agencies. It connects Bullhorn ATS/CRM to job board distribution networks, ensuring job listings stay visible indefinitely through automated refresh cycles, while simultaneously providing AI-powered candidate vetting for inbound applicants.
 
 ### Core Value Propositions
 
@@ -71,7 +71,7 @@ graph TB
         JB["Job Boards<br>(Indeed, LinkedIn, etc.)"]
     end
 
-    subgraph JobPulse["JobPulse™ (Render)"]
+    subgraph Scout Genius["Scout Genius™ (Render)"]
         FL["Flask Web App"]
         APS["APScheduler<br>(Background Jobs)"]
         PG["PostgreSQL"]
@@ -121,7 +121,7 @@ graph TB
 ### File Structure
 
 ```
-JobPulse/
+Scout Genius/
 ├── app.py                              # Flask app factory, core routes (227K)
 ├── main.py                             # Application entry point
 ├── models.py                           # 25 SQLAlchemy models (925 lines)
@@ -173,7 +173,7 @@ JobPulse/
 
 ### 3.1 Perpetual Freshness Engine (Primary Differentiator)
 
-The core innovation of JobPulse — jobs appear "fresh and new" to job board algorithms indefinitely.
+The core innovation of Scout Genius — jobs appear "fresh and new" to job board algorithms indefinitely.
 
 **How it works:**
 
@@ -183,9 +183,9 @@ The core innovation of JobPulse — jobs appear "fresh and new" to job board alg
 4. **SFTP upload** distributes the freshened feed to job boards
 
 **Key files:**
-- [xml_integration_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_integration_service.py) — Main XML generation engine
-- [simplified_xml_generator.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/simplified_xml_generator.py) — Simplified XML builder
-- [lightweight_reference_refresh.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/lightweight_reference_refresh.py) — Reference number management
+- [xml_integration_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_integration_service.py) — Main XML generation engine
+- [simplified_xml_generator.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/simplified_xml_generator.py) — Simplified XML builder
+- [lightweight_reference_refresh.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/lightweight_reference_refresh.py) — Reference number management
 
 **Impact**: 6x improvement in candidate exposure over job lifetime (100% visibility at Day 60 vs. 5% traditional).
 
@@ -206,7 +206,7 @@ Keyword-based classification aligned with LinkedIn's official taxonomy:
 
 **Performance**: Sub-second classification, no external API dependency, 95%+ accuracy.
 
-**Key file:** [job_classification_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/job_classification_service.py)
+**Key file:** [job_classification_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/job_classification_service.py)
 
 ---
 
@@ -214,7 +214,7 @@ Keyword-based classification aligned with LinkedIn's official taxonomy:
 
 The AI Candidate Vetting Module automatically analyzes ALL inbound applicants against all open positions using a **3-layer cost-optimized architecture**.
 
-**Key file:** [candidate_vetting_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/candidate_vetting_service.py) (165K, 4,400+ lines)
+**Key file:** [candidate_vetting_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/candidate_vetting_service.py) (165K, 4,400+ lines)
 
 ### Processing Flow
 
@@ -290,9 +290,9 @@ flowchart TD
    - Pattern-based fixes for common merges (e.g., `PROFESSIONALSUMMARYAnIT` → `PROFESSIONAL SUMMARY An IT`)
 3. **GPT-4o AI Formatting** — Structures normalized text into semantic HTML with proper headings, paragraphs, and bullet lists
 
-**Resume cache:** SHA-256 content hashing prevents re-processing identical resumes, stored in [ParsedResumeCache](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#800-858) table.
+**Resume cache:** SHA-256 content hashing prevents re-processing identical resumes, stored in [ParsedResumeCache](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#800-858) table.
 
-**Key file:** [resume_parser.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/resume_parser.py)
+**Key file:** [resume_parser.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/resume_parser.py)
 
 ### Scoring & Notes
 
@@ -316,15 +316,15 @@ flowchart TD
 A cost-saving layer that uses vector similarity to eliminate obvious mismatches **before** expensive GPT-4o calls.
 
 **Key files:**
-- [embedding_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/embedding_service.py) — Embedding generation and comparison
-- [embedding_digest_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/embedding_digest_service.py) — Daily digest email with filter stats
+- [embedding_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/embedding_service.py) — Embedding generation and comparison
+- [embedding_digest_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/embedding_digest_service.py) — Daily digest email with filter stats
 
 ### How It Works
 
 1. **Resume → Embedding**: Generate a vector embedding of the candidate's resume using `text-embedding-3-small`
-2. **Job → Embedding**: Generate embeddings for each job description (cached in [JobEmbedding](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#860-875) table)
+2. **Job → Embedding**: Generate embeddings for each job description (cached in [JobEmbedding](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#860-875) table)
 3. **Cosine Similarity**: Calculate similarity between resume and each job
-4. **Filter Decision**: If similarity < threshold (0.35), the pair is filtered out and logged to [EmbeddingFilterLog](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#877-899)
+4. **Filter Decision**: If similarity < threshold (0.35), the pair is filtered out and logged to [EmbeddingFilterLog](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#877-899)
 5. **Safeguard**: Even if ALL pairs fall below threshold, the top 5 most similar jobs always pass through
 
 ### Current Configuration
@@ -349,7 +349,7 @@ A cost-saving layer that uses vector similarity to eliminate obvious mismatches 
 
 ### Audit UI
 
-The [Embedding Audit page](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/embedding_audit.html) provides a dashboard showing:
+The [Embedding Audit page](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/embedding_audit.html) provides a dashboard showing:
 - Filter rate over time
 - Per-candidate filter breakdown
 - Similarity score distribution
@@ -364,7 +364,7 @@ The [Embedding Audit page](file:///Users/rooster/.gemini/antigravity/playground/
 | Setting | Current Value |
 |---|---|
 | **Model** | `gpt-4o` |
-| **Setting key** | [layer2_model](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/candidate_vetting_service.py#140-149) |
+| **Setting key** | [layer2_model](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/candidate_vetting_service.py#140-149) |
 | **Prompt strategy** | Focus on mandatory requirements only |
 | **Output** | JSON: `match_score`, `match_summary`, `skills_match`, `experience_match`, `gaps_identified`, `key_requirements` |
 | **Parallelism** | `ThreadPoolExecutor` for concurrent job analysis |
@@ -377,7 +377,7 @@ The [Embedding Audit page](file:///Users/rooster/.gemini/antigravity/playground/
 | **Trigger range** | 60-85% scores from Layer 2 |
 | **Purpose** | Re-analyze borderline candidates with premium model |
 | **Status** | Currently redundant (Layer 2 already uses GPT-4o) |
-| **Logged to** | [EscalationLog](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#901-926) table |
+| **Logged to** | [EscalationLog](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#901-926) table |
 
 > [!NOTE]
 > Layer 3 escalation was designed for when Layer 2 uses GPT-4o-mini. Since Layer 2 was reverted to GPT-4o (Feb 12, 2026), escalation is effectively dormant. If GPT-4o-mini is reintroduced in the future, escalation will automatically resume.
@@ -401,7 +401,7 @@ This led to the decision to **revert Layer 2 to GPT-4o** for accuracy. See [scor
 
 Processes inbound job application emails from PandoLogic and other sources to create Bullhorn candidate records.
 
-**Key file:** [email_inbound_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/email_inbound_service.py) (50K)
+**Key file:** [email_inbound_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/email_inbound_service.py) (50K)
 
 ### Capabilities
 
@@ -409,7 +409,7 @@ Processes inbound job application emails from PandoLogic and other sources to cr
 - **Resume attachment processing**: Downloads and parses PDF/DOCX/DOC/TXT resumes
 - **Bullhorn integration**: Creates or updates candidate records in Bullhorn
 - **Duplicate detection**: Prevents creating duplicate candidate records
-- **Status tracking**: Logs all parsed emails in [ParsedEmail](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#480-521) table
+- **Status tracking**: Logs all parsed emails in [ParsedEmail](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#480-521) table
 - **Vetting integration**: Sets `vetted_at = NULL` on new records to trigger AI vetting
 
 ---
@@ -420,13 +420,13 @@ Processes inbound job application emails from PandoLogic and other sources to cr
 
 | Step | Description | Service |
 |---|---|---|
-| 1 | Pull jobs from Bullhorn tearsheets | [bullhorn_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/bullhorn_service.py) |
-| 2 | Load persistent reference numbers from database | [lightweight_reference_refresh.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/lightweight_reference_refresh.py) |
-| 3 | Apply fresh timestamps (current time) | [xml_integration_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_integration_service.py) |
-| 4 | Apply intelligent job classification | [job_classification_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/job_classification_service.py) |
-| 5 | Generate CDATA-wrapped XML | [simplified_xml_generator.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/simplified_xml_generator.py) |
-| 6 | Validate structure | [xml_safeguards.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_safeguards.py) |
-| 7 | Upload to SFTP | [ftp_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/ftp_service.py) |
+| 1 | Pull jobs from Bullhorn tearsheets | [bullhorn_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/bullhorn_service.py) |
+| 2 | Load persistent reference numbers from database | [lightweight_reference_refresh.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/lightweight_reference_refresh.py) |
+| 3 | Apply fresh timestamps (current time) | [xml_integration_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_integration_service.py) |
+| 4 | Apply intelligent job classification | [job_classification_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/job_classification_service.py) |
+| 5 | Generate CDATA-wrapped XML | [simplified_xml_generator.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/simplified_xml_generator.py) |
+| 6 | Validate structure | [xml_safeguards.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_safeguards.py) |
+| 7 | Upload to SFTP | [ftp_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/ftp_service.py) |
 
 ### Monitored Tearsheets
 
@@ -441,26 +441,26 @@ Processes inbound job application emails from PandoLogic and other sources to cr
 
 - **Zero-Job Detection Safeguard**: If Bullhorn API returns 0 jobs when XML contains ≥5, the update is blocked
 - **Automated backups**: Created before any destructive operations
-- **Duplicate prevention**: [xml_duplicate_prevention.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_duplicate_prevention.py) prevents job pollution
-- **Change monitoring**: [xml_change_monitor.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_change_monitor.py) detects and alerts on significant changes
+- **Duplicate prevention**: [xml_duplicate_prevention.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_duplicate_prevention.py) prevents job pollution
+- **Change monitoring**: [xml_change_monitor.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_change_monitor.py) detects and alerts on significant changes
 
 ### Key Files
 
 | File | Purpose | Size |
 |---|---|---|
-| [xml_integration_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_integration_service.py) | Main XML generation engine | 116K |
-| [simplified_xml_generator.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/simplified_xml_generator.py) | Simplified XML builder | 17K |
-| [xml_field_sync_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_field_sync_service.py) | Field synchronization | 19K |
-| [xml_change_monitor.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_change_monitor.py) | Change detection | 17K |
-| [xml_duplicate_prevention.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_duplicate_prevention.py) | Duplicate prevention | 7K |
-| [xml_safeguards.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_safeguards.py) | Zero-job safeguards | 9K |
-| [xml_processor.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/xml_processor.py) | Processing utilities | 16K |
+| [xml_integration_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_integration_service.py) | Main XML generation engine | 116K |
+| [simplified_xml_generator.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/simplified_xml_generator.py) | Simplified XML builder | 17K |
+| [xml_field_sync_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_field_sync_service.py) | Field synchronization | 19K |
+| [xml_change_monitor.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_change_monitor.py) | Change detection | 17K |
+| [xml_duplicate_prevention.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_duplicate_prevention.py) | Duplicate prevention | 7K |
+| [xml_safeguards.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_safeguards.py) | Zero-job safeguards | 9K |
+| [xml_processor.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/xml_processor.py) | Processing utilities | 16K |
 
 ---
 
 ## 9. Bullhorn ATS Integration
 
-**Key file:** [bullhorn_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/bullhorn_service.py) (86K)
+**Key file:** [bullhorn_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/bullhorn_service.py) (86K)
 
 ### Connection
 
@@ -492,7 +492,7 @@ Processes inbound job application emails from PandoLogic and other sources to cr
 
 ## 10. Email & Notification System
 
-**Key file:** [email_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/email_service.py) (69K)
+**Key file:** [email_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/email_service.py) (69K)
 
 ### Email Types
 
@@ -529,17 +529,17 @@ Processes inbound job application emails from PandoLogic and other sources to cr
 
 ### Log Monitoring Service
 
-**Key file:** [log_monitoring_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/log_monitoring_service.py) (32K)
+**Key file:** [log_monitoring_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/log_monitoring_service.py) (32K)
 
 - Analyzes Render deployment logs via API
 - Detects error patterns (429 rate limits, Flask context errors, UniqueViolation)
 - Auto-categorizes issues by severity
 - Tracks resolution status (auto-fixed, escalated, resolved)
-- Persists all data to [LogMonitoringRun](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#713-734) and [LogMonitoringIssue](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#736-798) tables
+- Persists all data to [LogMonitoringRun](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#713-734) and [LogMonitoringIssue](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#736-798) tables
 
 ### Comprehensive Monitoring Service
 
-**Key file:** [comprehensive_monitoring_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/comprehensive_monitoring_service.py) (51K)
+**Key file:** [comprehensive_monitoring_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/comprehensive_monitoring_service.py) (51K)
 
 - Full system health assessment
 - Database connectivity verification
@@ -550,66 +550,66 @@ Processes inbound job application emails from PandoLogic and other sources to cr
 ### External Monitoring
 
 - **UptimeRobot**: 5-minute interval health checks
-- **Sentry**: Error tracking and alerting via [sentry_config.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/sentry_config.py)
+- **Sentry**: Error tracking and alerting via [sentry_config.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/sentry_config.py)
 
 ---
 
 ## 12. Database Schema
 
-### Models Overview (25 models in [models.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py))
+### Models Overview (25 models in [models.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py))
 
 #### Core Application Models
 
 | Model | Purpose | Key Fields |
 |---|---|---|
-| [User](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#7-25) | Authentication | username, email, password_hash, is_admin |
-| [GlobalSettings](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#152-162) | Application settings | setting_key, setting_value |
+| [User](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#7-25) | Authentication | username, email, password_hash, is_admin |
+| [GlobalSettings](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#152-162) | Application settings | setting_key, setting_value |
 | `ActivityLog` | Audit trail | action, details, timestamp, user_id |
-| [ScheduleConfig](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#26-105) | Upload schedule config | name, file_path, schedule_days |
-| [ProcessingLog](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#106-126) | Processing operations log | schedule_config_id, status, records_processed |
-| [SchedulerLock](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#293-404) | Prevent concurrent schedulers | owner_process_id, expires_at, environment |
-| [EnvironmentStatus](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#405-456) | Track up/down status | environment_name, status, last_check |
-| [EnvironmentAlert](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#457-478) | Alert log | alert_type, sent_at, downtime_duration |
+| [ScheduleConfig](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#26-105) | Upload schedule config | name, file_path, schedule_days |
+| [ProcessingLog](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#106-126) | Processing operations log | schedule_config_id, status, records_processed |
+| [SchedulerLock](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#293-404) | Prevent concurrent schedulers | owner_process_id, expires_at, environment |
+| [EnvironmentStatus](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#405-456) | Track up/down status | environment_name, status, last_check |
+| [EnvironmentAlert](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#457-478) | Alert log | alert_type, sent_at, downtime_duration |
 
 #### Job Feed Models
 
 | Model | Purpose | Key Fields |
 |---|---|---|
-| [JobReferenceNumber](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#127-138) | Persistent reference numbers | bullhorn_job_id, reference_number |
-| [BullhornMonitor](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#163-191) | Tearsheet monitoring config | tearsheet_id, is_active, company_override |
-| [BullhornActivity](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#192-239) | Monitoring activity log | activity_type, job_id, details |
-| [TearsheetJobHistory](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#240-262) | Job state tracking | tearsheet_id, job_id, is_current |
-| [RecruiterMapping](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#282-292) | Recruiter → LinkedIn tag | recruiter_name, linkedin_tag |
-| [RefreshLog](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#139-151) | Reference refresh tracking | refresh_date, processing_time |
+| [JobReferenceNumber](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#127-138) | Persistent reference numbers | bullhorn_job_id, reference_number |
+| [BullhornMonitor](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#163-191) | Tearsheet monitoring config | tearsheet_id, is_active, company_override |
+| [BullhornActivity](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#192-239) | Monitoring activity log | activity_type, job_id, details |
+| [TearsheetJobHistory](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#240-262) | Job state tracking | tearsheet_id, job_id, is_current |
+| [RecruiterMapping](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#282-292) | Recruiter → LinkedIn tag | recruiter_name, linkedin_tag |
+| [RefreshLog](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#139-151) | Reference refresh tracking | refresh_date, processing_time |
 
 #### Email & Parsing Models
 
 | Model | Purpose | Key Fields |
 |---|---|---|
-| [EmailDeliveryLog](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#263-281) | Email delivery tracking | notification_type, job_id, status |
-| [ParsedEmail](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#480-521) | Inbound email tracking | message_id, from_address, vetted_at |
-| [EmailParsingConfig](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#523-533) | Email parsing settings | setting_key, setting_value |
+| [EmailDeliveryLog](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#263-281) | Email delivery tracking | notification_type, job_id, status |
+| [ParsedEmail](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#480-521) | Inbound email tracking | message_id, from_address, vetted_at |
+| [EmailParsingConfig](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#523-533) | Email parsing settings | setting_key, setting_value |
 
 #### AI Vetting Models
 
 | Model | Purpose | Key Fields |
 |---|---|---|
-| [VettingConfig](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#645-677) | Vetting system settings | setting_key, setting_value |
-| [CandidateVettingLog](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#535-582) | Per-candidate vetting status | bullhorn_candidate_id, highest_match_score, status |
-| [CandidateJobMatch](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#584-621) | Individual match scores | vetting_log_id, bullhorn_job_id, match_score |
-| [JobVettingRequirements](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#623-643) | Custom/AI requirements per job | bullhorn_job_id, custom_requirements |
-| [VettingHealthCheck](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#679-711) | Health check results | candidates_pending, cycles_today |
-| [ParsedResumeCache](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#800-858) | Resume processing cache | content_hash, parsed_data, hit_count |
-| [JobEmbedding](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#860-875) | Cached job embeddings | bullhorn_job_id, embedding_vector |
-| [EmbeddingFilterLog](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#877-899) | Pre-filter audit trail | similarity_score, threshold_used |
-| [EscalationLog](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#901-926) | Layer 2→3 escalation events | mini_score, gpt4o_score, score_delta |
+| [VettingConfig](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#645-677) | Vetting system settings | setting_key, setting_value |
+| [CandidateVettingLog](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#535-582) | Per-candidate vetting status | bullhorn_candidate_id, highest_match_score, status |
+| [CandidateJobMatch](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#584-621) | Individual match scores | vetting_log_id, bullhorn_job_id, match_score |
+| [JobVettingRequirements](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#623-643) | Custom/AI requirements per job | bullhorn_job_id, custom_requirements |
+| [VettingHealthCheck](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#679-711) | Health check results | candidates_pending, cycles_today |
+| [ParsedResumeCache](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#800-858) | Resume processing cache | content_hash, parsed_data, hit_count |
+| [JobEmbedding](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#860-875) | Cached job embeddings | bullhorn_job_id, embedding_vector |
+| [EmbeddingFilterLog](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#877-899) | Pre-filter audit trail | similarity_score, threshold_used |
+| [EscalationLog](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#901-926) | Layer 2→3 escalation events | mini_score, gpt4o_score, score_delta |
 
 #### Monitoring Models
 
 | Model | Purpose | Key Fields |
 |---|---|---|
-| [LogMonitoringRun](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#713-734) | Log monitoring cycle tracking | run_time, total_issues, log_lines_analyzed |
-| [LogMonitoringIssue](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#736-798) | Detected issues with resolution | category, severity, resolution_status |
+| [LogMonitoringRun](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#713-734) | Log monitoring cycle tracking | run_time, total_issues, log_lines_analyzed |
+| [LogMonitoringIssue](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#736-798) | Detected issues with resolution | category, severity, resolution_status |
 
 ---
 
@@ -619,34 +619,34 @@ Processes inbound job application emails from PandoLogic and other sources to cr
 
 | File | Mount | Purpose |
 |---|---|---|
-| [auth.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/routes/auth.py) | `/auth/` | Login, logout, session management |
-| [dashboard.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/routes/dashboard.py) | `/` | Main dashboard |
-| [bullhorn.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/routes/bullhorn.py) | `/bullhorn/` | Bullhorn management, job details, candidate creation |
-| [settings.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/routes/settings.py) | `/settings/` | Global settings management |
-| [scheduler.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/routes/scheduler.py) | `/scheduler/` | Scheduler, XML, upload management |
-| [triggers.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/routes/triggers.py) | `/api/` | Manual trigger endpoints |
-| [vetting.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/routes/vetting.py) | `/vetting/` | AI vetting dashboard, settings, API |
-| [health.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/routes/health.py) | `/` | Health check endpoints |
+| [auth.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/routes/auth.py) | `/auth/` | Login, logout, session management |
+| [dashboard.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/routes/dashboard.py) | `/` | Main dashboard |
+| [bullhorn.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/routes/bullhorn.py) | `/bullhorn/` | Bullhorn management, job details, candidate creation |
+| [settings.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/routes/settings.py) | `/settings/` | Global settings management |
+| [scheduler.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/routes/scheduler.py) | `/scheduler/` | Scheduler, XML, upload management |
+| [triggers.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/routes/triggers.py) | `/api/` | Manual trigger endpoints |
+| [vetting.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/routes/vetting.py) | `/vetting/` | AI vetting dashboard, settings, API |
+| [health.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/routes/health.py) | `/` | Health check endpoints |
 
 ### Key UI Pages
 
 | Template | URL | Purpose |
 |---|---|---|
-| [dashboard.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/dashboard.html) | `/` | Main dashboard with system overview |
-| [vetting_settings.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/vetting_settings.html) | `/vetting` | AI vetting configuration & activity dashboard (68K) |
-| [bullhorn.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/bullhorn.html) | `/bullhorn` | Bullhorn integration management (51K) |
-| [bullhorn_settings.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/bullhorn_settings.html) | `/bullhorn/settings` | Bullhorn connection settings |
-| [bullhorn_create.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/bullhorn_create.html) | `/bullhorn/create` | Create new candidates in Bullhorn |
-| [bullhorn_details.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/bullhorn_details.html) | `/bullhorn/details/<id>` | Job order details |
-| [scheduler.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/scheduler.html) | `/scheduler` | Upload scheduler management (45K) |
-| [settings.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/settings.html) | `/settings` | Global application settings |
-| [embedding_audit.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/embedding_audit.html) | `/vetting/embedding-audit` | Embedding pre-filter audit dashboard |
-| [log_monitoring.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/log_monitoring.html) | `/monitoring` | Log monitoring & issue tracking |
-| [email_parsing.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/email_parsing.html) | `/email-parsing` | Inbound email parsing dashboard |
-| [email_logs.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/email_logs.html) | `/email-logs` | Email delivery log viewer |
-| [apply.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/apply.html) | `apply.myticas.com` | Myticas-branded job application form |
-| [apply_stsi.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/apply_stsi.html) | `apply.stsigroup.com` | STSI-branded job application form |
-| [login.html](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/templates/login.html) | `/login` | Authentication page |
+| [dashboard.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/dashboard.html) | `/` | Main dashboard with system overview |
+| [vetting_settings.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/vetting_settings.html) | `/vetting` | AI vetting configuration & activity dashboard (68K) |
+| [bullhorn.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/bullhorn.html) | `/bullhorn` | Bullhorn integration management (51K) |
+| [bullhorn_settings.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/bullhorn_settings.html) | `/bullhorn/settings` | Bullhorn connection settings |
+| [bullhorn_create.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/bullhorn_create.html) | `/bullhorn/create` | Create new candidates in Bullhorn |
+| [bullhorn_details.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/bullhorn_details.html) | `/bullhorn/details/<id>` | Job order details |
+| [scheduler.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/scheduler.html) | `/scheduler` | Upload scheduler management (45K) |
+| [settings.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/settings.html) | `/settings` | Global application settings |
+| [embedding_audit.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/embedding_audit.html) | `/vetting/embedding-audit` | Embedding pre-filter audit dashboard |
+| [log_monitoring.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/log_monitoring.html) | `/monitoring` | Log monitoring & issue tracking |
+| [email_parsing.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/email_parsing.html) | `/email-parsing` | Inbound email parsing dashboard |
+| [email_logs.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/email_logs.html) | `/email-logs` | Email delivery log viewer |
+| [apply.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/apply.html) | `apply.myticas.com` | Myticas-branded job application form |
+| [apply_stsi.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/apply_stsi.html) | `apply.stsigroup.com` | STSI-branded job application form |
+| [login.html](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/templates/login.html) | `/login` | Authentication page |
 
 ### API Endpoints
 
@@ -668,38 +668,38 @@ Processes inbound job application emails from PandoLogic and other sources to cr
 
 ### Test Suite Overview
 
-**339 tests** across 25 test files in [tests/](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests).
+**339 tests** across 25 test files in [tests/](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests).
 
 | Test File | Focus Area |
 |---|---|
-| [test_auth.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_auth.py) | Authentication and login flows |
-| [test_bullhorn.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_bullhorn.py) | Bullhorn integration |
-| [test_csrf.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_csrf.py) | CSRF protection |
-| [test_email_dedup.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_email_dedup.py) | Email deduplication |
-| [test_embedding_monitoring.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_embedding_monitoring.py) | Embedding monitoring service |
-| [test_embedding_service.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_embedding_service.py) | Embedding generation and filtering |
-| [test_login_redirect.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_login_redirect.py) | Login redirect behavior |
-| [test_resume_cache.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_resume_cache.py) | Resume caching system |
-| [test_returning_applicant.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_returning_applicant.py) | Returning applicant handling |
-| [test_route_auth.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_route_auth.py) | Route authentication guards |
-| [test_routes.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_routes.py) | General route testing |
-| [test_schedules.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_schedules.py) | Scheduler configuration |
-| [test_security_headers.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_security_headers.py) | Security header verification |
-| [test_sensitive_logging.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_sensitive_logging.py) | Sensitive data logging prevention |
-| [test_service_bullhorn.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_service_bullhorn.py) | Bullhorn service unit tests |
-| [test_service_email.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_service_email.py) | Email service unit tests |
-| [test_service_vetting.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_service_vetting.py) | Vetting service unit tests |
-| [test_settings.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_settings.py) | Settings management |
-| [test_triggers.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_triggers.py) | Manual trigger endpoints |
-| [test_upload_validation.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_upload_validation.py) | File upload validation |
-| [test_vetting.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_vetting.py) | Vetting dashboard and workflow |
-| [test_vetting_cutoff.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_vetting_cutoff.py) | Score cutoff behavior |
-| [test_vetting_overflow.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/test_vetting_overflow.py) | Batch overflow handling |
+| [test_auth.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_auth.py) | Authentication and login flows |
+| [test_bullhorn.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_bullhorn.py) | Bullhorn integration |
+| [test_csrf.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_csrf.py) | CSRF protection |
+| [test_email_dedup.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_email_dedup.py) | Email deduplication |
+| [test_embedding_monitoring.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_embedding_monitoring.py) | Embedding monitoring service |
+| [test_embedding_service.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_embedding_service.py) | Embedding generation and filtering |
+| [test_login_redirect.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_login_redirect.py) | Login redirect behavior |
+| [test_resume_cache.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_resume_cache.py) | Resume caching system |
+| [test_returning_applicant.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_returning_applicant.py) | Returning applicant handling |
+| [test_route_auth.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_route_auth.py) | Route authentication guards |
+| [test_routes.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_routes.py) | General route testing |
+| [test_schedules.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_schedules.py) | Scheduler configuration |
+| [test_security_headers.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_security_headers.py) | Security header verification |
+| [test_sensitive_logging.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_sensitive_logging.py) | Sensitive data logging prevention |
+| [test_service_bullhorn.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_service_bullhorn.py) | Bullhorn service unit tests |
+| [test_service_email.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_service_email.py) | Email service unit tests |
+| [test_service_vetting.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_service_vetting.py) | Vetting service unit tests |
+| [test_settings.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_settings.py) | Settings management |
+| [test_triggers.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_triggers.py) | Manual trigger endpoints |
+| [test_upload_validation.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_upload_validation.py) | File upload validation |
+| [test_vetting.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_vetting.py) | Vetting dashboard and workflow |
+| [test_vetting_cutoff.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_vetting_cutoff.py) | Score cutoff behavior |
+| [test_vetting_overflow.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/test_vetting_overflow.py) | Batch overflow handling |
 
 ### Running Tests
 
 ```bash
-cd /Users/rooster/.gemini/antigravity/playground/JobPulse
+cd /Users/rooster/.gemini/antigravity/playground/Scout Genius
 source .venv/bin/activate
 pytest -q        # Quick summary
 pytest -v        # Verbose output
@@ -708,8 +708,8 @@ pytest tests/test_vetting.py  # Single file
 
 ### Test Configuration
 
-- **Config file**: [pytest.ini](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/pytest.ini)
-- **Fixtures**: [conftest.py](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/tests/conftest.py) — shared test fixtures with in-memory SQLite
+- **Config file**: [pytest.ini](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/pytest.ini)
+- **Fixtures**: [conftest.py](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/tests/conftest.py) — shared test fixtures with in-memory SQLite
 - **All tests**: Pass as of Feb 12, 2026 (339/339 ✅)
 
 ---
@@ -757,14 +757,14 @@ pytest tests/test_vetting.py  # Single file
 
 ## 16. Configuration Reference
 
-### Vetting Settings ([VettingConfig](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#645-677) table)
+### Vetting Settings ([VettingConfig](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#645-677) table)
 
 | Key | Current Value | Description |
 |---|---|---|
 | `vetting_enabled` | `true` | Master toggle for AI vetting |
 | `match_threshold` | `80` | Minimum score for "qualified" status |
-| [batch_size](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/candidate_vetting_service.py#3190-3200) | `25` | Candidates per 5-minute cycle |
-| [layer2_model](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/candidate_vetting_service.py#140-149) | **`gpt-4o`** | Primary scoring model |
+| [batch_size](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/candidate_vetting_service.py#3190-3200) | `25` | Candidates per 5-minute cycle |
+| [layer2_model](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/candidate_vetting_service.py#140-149) | **`gpt-4o`** | Primary scoring model |
 | `layer3_model` | `gpt-4o` | Escalation model (always GPT-4o) |
 | `escalation_low` | `60` | Lower bound of escalation range |
 | `escalation_high` | `85` | Upper bound of escalation range |
@@ -772,7 +772,7 @@ pytest tests/test_vetting.py  # Single file
 | `embedding_enabled` | `true` | Enable/disable embedding pre-filter |
 | `embedding_min_jobs` | `5` | Minimum jobs always analyzed (safeguard) |
 
-### Global Settings ([GlobalSettings](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#152-162) table)
+### Global Settings ([GlobalSettings](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#152-162) table)
 
 | Key | Description |
 |---|---|
@@ -806,7 +806,7 @@ pytest tests/test_vetting.py  # Single file
 |---|---|---|
 | Lowered threshold | `embedding_similarity_threshold`: 0.35 → 0.20 (temporary) | Settings UI |
 | Added safeguard | Top 5 jobs always pass through filter | Settings UI |
-| Flask context fix | Pre-fetch all DB data in main thread, defer [save_escalation_log()](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/embedding_service.py#385-450) to main thread, use `job_threshold_cache` | `ac6b936` |
+| Flask context fix | Pre-fetch all DB data in main thread, defer [save_escalation_log()](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/embedding_service.py#385-450) to main thread, use `job_threshold_cache` | `ac6b936` |
 
 **Post-Fix Discovery — Score Inflation:**
 
@@ -816,7 +816,7 @@ After fixing the 0% bug, investigation revealed GPT-4o-mini was inflating scores
 
 | Change | Before | After |
 |---|---|---|
-| [layer2_model](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/candidate_vetting_service.py#140-149) | `gpt-4o-mini` | **`gpt-4o`** |
+| [layer2_model](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/candidate_vetting_service.py#140-149) | `gpt-4o-mini` | **`gpt-4o`** |
 | `embedding_similarity_threshold` | `0.28` | **`0.35`** |
 
 **Verification Results (8 candidates post-fix):**
@@ -842,7 +842,7 @@ After fixing the 0% bug, investigation revealed GPT-4o-mini was inflating scores
 ### Oct 2025: Reference Number Reversion
 
 - **Problem**: Live XML URL returns 403 Forbidden, causing reference numbers to revert
-- **Fix**: Database-backed [JobReferenceNumber](file:///Users/rooster/.gemini/antigravity/playground/JobPulse/models.py#127-138) table for persistent storage
+- **Fix**: Database-backed [JobReferenceNumber](file:///Users/rooster/.gemini/antigravity/playground/Scout Genius/models.py#127-138) table for persistent storage
 - **Impact**: Reference numbers now preserved across all cycles
 
 ---

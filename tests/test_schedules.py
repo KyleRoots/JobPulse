@@ -1,5 +1,5 @@
 """
-Schedule CRUD tests for JobPulse.
+Schedule CRUD tests for Scout Genius.
 
 Tests schedule creation, deletion, status, and management endpoints.
 """

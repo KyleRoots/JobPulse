@@ -1,5 +1,5 @@
 """
-Scout Vetting Service unit tests for JobPulse.
+Scout Vetting Service unit tests for Scout Genius.
 
 Tests ScoutVettingService methods with mocked Claude, SendGrid, and
 database dependencies.  These tests exercise the service in isolation

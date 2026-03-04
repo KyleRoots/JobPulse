@@ -1,5 +1,5 @@
 """
-Health check routes for JobPulse.
+Health check routes for Scout Genius.
 
 Provides various health check endpoints for deployment monitoring and Kubernetes probes.
 Also provides CSRF-exempt cron job endpoints authenticated via bearer token.

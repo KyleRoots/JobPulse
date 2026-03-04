@@ -3,7 +3,7 @@ One-time migration to fix legacy gap arrays in CandidateJobMatch table.
 Run ONCE after deploying the normalization fixes.
 
 Usage:
-    cd /path/to/JobPulse
+    cd /path/to/ScoutGenius
     python scripts/fix_legacy_gap_arrays.py
 
 This script finds CandidateJobMatch records where gaps_identified is stored

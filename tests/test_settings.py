@@ -1,5 +1,5 @@
 """
-Settings page tests for JobPulse.
+Settings page tests for Scout Genius.
 
 Tests settings page rendering, SFTP configuration, and settings management.
 """

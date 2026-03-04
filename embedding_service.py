@@ -1,5 +1,5 @@
 """
-Embedding Service for JobPulse Cost Optimization
+Embedding Service for Scout Genius Cost Optimization
 
 Provides Layer 1 (embedding pre-filter) functionality:
 - Generates text embeddings using OpenAI text-embedding-3-small

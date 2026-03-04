@@ -1,5 +1,5 @@
 """
-Pytest fixtures for JobPulse tests.
+Pytest fixtures for Scout Genius tests.
 
 Provides Flask app, test client, and database fixtures for integration testing.
 """

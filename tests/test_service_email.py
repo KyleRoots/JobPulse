@@ -1,5 +1,5 @@
 """
-EmailService unit tests for JobPulse.
+EmailService unit tests for Scout Genius.
 
 Tests EmailService methods with mocked SendGrid and database dependencies.
 These tests exercise the service in isolation without actual email sending.

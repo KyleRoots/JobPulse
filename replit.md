@@ -1,7 +1,7 @@
-# JobPulse™ - AI-Powered Job Feed Automation Platform
+# Scout Genius™ - AI-Powered Job Feed Automation Platform
 
 ## Overview
-JobPulse is a Flask-based web application designed to automate XML job feed processing, synchronize job listings with Bullhorn ATS/CRM, and provide AI-powered candidate vetting (Scout Vetting). Its primary purpose is to maintain accurate, real-time job listings, streamline application workflows, and enhance recruitment efficiency through automation. The project aims to become a multi-tenant SaaS platform, revolutionizing recruitment operations.
+Scout Genius is a Flask-based web application designed to automate XML job feed processing, synchronize job listings with Bullhorn ATS/CRM, and provide AI-powered candidate vetting (Scout Vetting). Its primary purpose is to maintain accurate, real-time job listings, streamline application workflows, and enhance recruitment efficiency through automation. The project aims to become a multi-tenant SaaS platform, revolutionizing recruitment operations.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -10,7 +10,7 @@ Development Approval Process: Before executing any development task, always prov
   - Autonomy level (Economy/Power)
   - Brief rationale for the choice
   - Wait for user approval before proceeding
-Source of Truth: GitHub repository (KyleRoots/JobPulse) — main branch.
+Source of Truth: GitHub repository (KyleRoots/Scout Genius) — main branch.
 Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 
 ## System Architecture

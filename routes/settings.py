@@ -1,5 +1,5 @@
 """
-Settings routes for JobPulse.
+Settings routes for Scout Genius.
 
 Handles global settings for SFTP, email notifications, automation configuration,
 and user management (create/edit users, toggle module subscriptions).

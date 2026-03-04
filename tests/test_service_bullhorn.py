@@ -1,5 +1,5 @@
 """
-BullhornService unit tests for JobPulse.
+BullhornService unit tests for Scout Genius.
 
 Tests BullhornService methods with mocked external dependencies.
 These tests exercise the service in isolation without actual Bullhorn API calls.

@@ -1,5 +1,5 @@
 """
-Vetting tests for JobPulse.
+Vetting tests for Scout Genius.
 
 Tests vetting settings, job requirements, thresholds, and vetting operations.
 """

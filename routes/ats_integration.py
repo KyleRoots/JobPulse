@@ -1,5 +1,5 @@
 """
-ATS Integration routes for JobPulse (Scout Inbound module).
+ATS Integration routes for Scout Genius (Scout Inbound module).
 
 Handles ATS monitoring dashboard, monitor CRUD operations, Bullhorn settings,
 OAuth authentication, and related API endpoints.

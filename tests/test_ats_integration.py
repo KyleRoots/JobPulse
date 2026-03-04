@@ -1,5 +1,5 @@
 """
-Bullhorn integration tests for JobPulse.
+Bullhorn integration tests for Scout Genius.
 
 Tests Bullhorn connection, settings, monitors, and API endpoints.
 Tests both success paths and typical failure cases (missing credentials, API unavailable).

@@ -1,4 +1,4 @@
-# JobPulse Design Guidelines
+# Scout Genius Design Guidelines
 
 ## Design Approach
 **System-Based Approach**: Drawing from Carbon Design System (IBM) and Fluent Design principles for enterprise data-heavy applications. Bootstrap 5 dark theme as foundation with professional dashboard patterns from Linear, Asana, and Bullhorn's own interface conventions.

@@ -1,4 +1,4 @@
-# JobPulse™ Executive Summary
+# Scout Genius™ Executive Summary
 ## Intelligent Job Visibility & Freshness Automation Platform
 
 **Prepared For:** Investors & Stakeholders  
@@ -15,20 +15,20 @@ Most staffing agencies focus on *posting* jobs to job boards. But the real chall
 
 The industry spends millions on job board subscriptions while their postings slowly become invisible.
 
-**JobPulse™ solves job visibility decay through intelligent refresh automation.**
+**Scout Genius™ solves job visibility decay through intelligent refresh automation.**
 
 ---
 
 ## The Golden Goose: Perpetual Freshness
 
-JobPulse™ doesn't just automate posting—it **keeps jobs appearing fresh and new** across all job boards, indefinitely.
+Scout Genius™ doesn't just automate posting—it **keeps jobs appearing fresh and new** across all job boards, indefinitely.
 
 ```
      ┌─────────────────────────────────────────────────────────────────┐
      │                     THE VISIBILITY ADVANTAGE                     │
      ├─────────────────────────────────────────────────────────────────┤
      │                                                                  │
-     │   TRADITIONAL APPROACH              JOBPULSE™ APPROACH          │
+     │   TRADITIONAL APPROACH              SCOUT_GENIUS™ APPROACH          │
      │   ────────────────────              ──────────────────          │
      │                                                                  │
      │   Day 1:  ████████████ 100%         Day 1:  ████████████ 100%  │
@@ -52,13 +52,13 @@ JobPulse™ doesn't just automate posting—it **keeps jobs appearing fresh and 
 
 ---
 
-## What is JobPulse™?
+## What is Scout Genius™?
 
-JobPulse™ is a **job visibility automation platform** that ensures your job listings never go stale. It connects your Applicant Tracking System to job board distribution networks, continuously refreshing listings to maintain peak visibility.
+Scout Genius™ is a **job visibility automation platform** that ensures your job listings never go stale. It connects your Applicant Tracking System to job board distribution networks, continuously refreshing listings to maintain peak visibility.
 
 ```
      ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-     │  Bullhorn   │ ──────▶ │  JobPulse™  │ ──────▶ │ Job Boards  │
+     │  Bullhorn   │ ──────▶ │  Scout Genius™  │ ──────▶ │ Job Boards  │
      │    ATS      │         │  Freshness  │         │  (Indeed,   │
      │             │         │   Engine    │         │  LinkedIn)  │
      └─────────────┘         └─────────────┘         └─────────────┘
@@ -101,7 +101,7 @@ JobPulse™ is a **job visibility automation platform** that ensures your job li
 
 ## Business Impact
 
-| Metric | Without JobPulse™ | With JobPulse™ |
+| Metric | Without Scout Genius™ | With Scout Genius™ |
 |--------|-------------------|-----------------|
 | **Job Visibility at Day 30** | 15-20% | 100% |
 | **Applicant Flow Consistency** | Declining | Stable |
@@ -123,7 +123,7 @@ For an agency managing 68 positions, this translates to:
 
 ## Competitive Advantages
 
-| Feature | JobPulse™ | Traditional Job Posting |
+| Feature | Scout Genius™ | Traditional Job Posting |
 |---------|-----------|-------------------------|
 | **Visibility Over Time** | Maintained at 100% | Decays to 15% by Day 30 |
 | **Refresh Automation** | Every 30 minutes | Manual or not at all |
@@ -157,7 +157,7 @@ For an agency managing 68 positions, this translates to:
 
 | Metric | Value |
 |--------|-------|
-| **Production URL** | jobpulse.[entityname].ai |
+| **Production URL** | scoutgenius.[entityname].ai |
 | **Application Portals** | apply.myticas.com, apply.stsigroup.com |
 | **Active Job Postings** | 68+ managed positions |
 | **Refresh Frequency** | Every 30 minutes |
@@ -195,7 +195,7 @@ For an agency managing 68 positions, this translates to:
 
 ## Summary
 
-**JobPulse™** solves the hidden problem in recruitment: job visibility decay. While competitors focus on posting automation, JobPulse ensures jobs **stay visible indefinitely** through intelligent refresh automation.
+**Scout Genius™** solves the hidden problem in recruitment: job visibility decay. While competitors focus on posting automation, Scout Genius ensures jobs **stay visible indefinitely** through intelligent refresh automation.
 
 The result: **more applicants, faster fills, and maximum ROI on job board investments**.
 
@@ -213,7 +213,7 @@ Entity Name
 Email: kroots@[entityname].com
 
 **Platform Access**  
-Main Application: jobpulse.[entityname].ai  
+Main Application: scoutgenius.[entityname].ai  
 Application Portal: apply.[companyname].com
 
 ---

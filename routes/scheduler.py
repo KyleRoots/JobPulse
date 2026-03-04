@@ -1,5 +1,5 @@
 """
-Scheduler routes blueprint for JobPulse
+Scheduler routes blueprint for Scout Genius
 Extracted from app.py for cleaner codebase organization.
 """
 
