@@ -1446,14 +1446,14 @@ if is_primary_worker:
 
     scheduler.add_job(
         func=run_candidate_data_cleanup,
-        trigger=IntervalTrigger(minutes=30),
+        trigger=IntervalTrigger(minutes=15),
         id='candidate_data_cleanup',
-        name='Candidate Data Cleanup (Every 30 Minutes)',
+        name='Candidate Data Cleanup (Every 15 Minutes)',
         replace_existing=True,
         misfire_grace_time=300,
         coalesce=False
     )
-    app.logger.info("🧹 Candidate data cleanup scheduled — runs every 30 minutes when enabled")
+    app.logger.info("🧹 Candidate data cleanup scheduled — runs every 15 minutes when enabled")
 
 if is_primary_worker:
     # XML Change Monitor - DISABLED automatic scheduling for manual workflow
