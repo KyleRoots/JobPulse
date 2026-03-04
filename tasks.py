@@ -2,6 +2,7 @@ import os
 import logging
 import traceback
 import json
+import time
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -1392,7 +1393,7 @@ def enforce_tearsheet_jobs_public():
                     upd = _requests.post(
                         f"{base_url}entity/JobOrder/{job_id}",
                         headers=headers,
-                        json={"isPublic": True},
+                        json={"isPublic": 1},
                         timeout=15,
                     )
                     body = {}
