@@ -51,7 +51,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **AI Job Classification**: Classifies jobs based on LinkedIn taxonomy.
 - **Zero-Job Detection Safeguard**: Prevents XML corruption from empty API responses.
 - **Zero-Touch Deployment**: Environment-aware database seeding.
-- **Scout Vetting**: AI-powered candidate screening using GPT-4o with embedding pre-filtering, experience-level classification, location-aware scoring, work authorization/security clearance inference, and configurable global screening prompts.
+- **Scout Vetting**: AI-powered candidate screening using GPT-4o with embedding pre-filtering, experience-level classification, location-aware scoring, work authorization/security clearance inference, and configurable global screening prompts. Vetting cycle runs every 1 minute (APScheduler lock prevents overlap). Resume text limit is 20,000 chars (up from 8,000) to prevent truncation of prior-role content. Gap descriptions use a precision rule: "no evidence" is reserved for truly absent skills; present-but-insufficient experience must be acknowledged with context (employer, dates, specific shortfall reason).
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
 - **Scout Screening Portal**: Recruiter-facing dashboard displaying AI match results, including scores, qualification status, and AI notes, with per-job threshold and override capabilities.
 - **Module Switcher**: UI component for non-admin users subscribed to multiple modules. Pill navigation in top navbar, visible only when user has 2+ modules.

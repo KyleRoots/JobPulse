@@ -2100,7 +2100,7 @@ Format as a bullet-point list. Be specific and concise."""
         job_description = re.sub(r'<[^>]+>', '', job_description)
         
         # Truncate if too long
-        max_resume_len = 8000
+        max_resume_len = 20000
         max_desc_len = 4000
         resume_text = resume_text[:max_resume_len] if resume_text else ''
         job_description = job_description[:max_desc_len] if job_description else ''
@@ -2280,6 +2280,12 @@ MANDATORY EVIDENCE EXTRACTION (you MUST complete this before assigning a score):
 4. The overall match_score MUST be mathematically consistent with the per-requirement evidence — if most requirements are met with strong evidence, the score must reflect that; if you cite a gap, the score must reflect the penalty.
 5. If you claim a gap exists, you MUST have searched for ALL synonyms, dollar amounts, quantified achievements, and related terms for that requirement. For example, "budget management" evidence includes dollar amounts ("$8M budget"), revenue figures, P&L ownership, financial planning mentions, etc.
 6. DO NOT flag a requirement as "No evidence found" if the resume contains clear evidence under different wording or in a different section.
+
+GAP DESCRIPTION PRECISION (MANDATORY):
+When writing gaps_identified, you MUST distinguish between these two cases:
+- ABSENT: The skill or qualification is genuinely NOT mentioned anywhere in the resume. Use: "No evidence of [requirement] found in resume."
+- PRESENT BUT INSUFFICIENT: The skill or qualification IS mentioned in the resume but does not fully satisfy the job's specific requirement (e.g., wrong recency, insufficient depth, not the primary focus). Use: "[Requirement] experience noted at [employer/context] ([dates]) but [specific reason it falls short — e.g., 'not primary focus in last 2 years', 'experience predates required recency window', 'mentioned only in skills list without supporting work history']."
+NEVER describe existing experience as "no evidence" or "no specific evidence." If the resume contains ANY mention of the skill — whether in a skills list, a prior role, or a certification — you must acknowledge it exists and explain WHY it does not satisfy the requirement. Saying "no evidence" when evidence exists is factually incorrect.
 
 WORK AUTHORIZATION EVIDENCE EXTRACTION (when applicable):
 If the job description contains US work authorization language ("US citizen", "W2 only", "no sponsorship", etc.):

@@ -1207,16 +1207,18 @@ if is_primary_worker:
     app.logger.info("🩺 Scheduled vetting system health check (every 10 minutes)")
 
 if is_primary_worker:
-    # Add candidate vetting cycle - runs every 3 minutes (reduced from 1 min to lower API pressure)
+    # Add candidate vetting cycle - runs every 1 minute (APScheduler lock prevents overlapping runs)
     scheduler.add_job(
         func=run_candidate_vetting_cycle,
         trigger='interval',
-        minutes=3,
+        minutes=1,
         id='candidate_vetting_cycle',
         name='AI Candidate Vetting Cycle',
-        replace_existing=True
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=False
     )
-    app.logger.info("🎯 Scheduled AI candidate vetting cycle (every 3 minutes)")
+    app.logger.info("🎯 Scheduled AI candidate vetting cycle (every 1 minute)")
 
 if is_primary_worker:
     # Schedule automated uploads every 30 minutes - simple and reliable

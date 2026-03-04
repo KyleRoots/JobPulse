@@ -1,0 +1,260 @@
+Skip to content
+Commands
+Packager files
+Config files
+/dashboard
+
+Production
+Status
+Kyle published 34 minutes ago
+Visibility
+Public
+Domain
+https://scoutgenius.replit.app
+https://app.scoutgenius.ai
+https://apply.myticas.com
+https://support.myticas.com
+https://apply.stsigroup.com
+https://support.stsigroup.com
+Type
+Reserved VM
+(Dedicated 4 vCPU / 16 GiB RAM)
+Database
+Production database connected
+Your production database is ready! Your app can now save and manage live user data securely.
+db4d26f0
+KR
+kyleroots00
+Kyle
+published about 23 hours ago
+fc638041
+KR
+kyleroots00
+Kyle
+published 1 day ago
+f78e8652
+KR
+kyleroots00
+Kyle
+published 1 day ago
+8b69ab91
+KR
+kyleroots00
+Kyle
+published 1 day ago
+4b11c7a3
+KR
+kyleroots00
+Kyle
+published 2 days ago
+76677147
+KR
+kyleroots00
+Kyle
+published 2 days ago
+786220dd
+KR
+kyleroots00
+Kyle
+published 2 days ago
+ba0092f5
+KR
+kyleroots00
+Kyle
+published 2 days ago
+f38b66cc
+KR
+kyleroots00
+Kyle
+published 2 days ago
+11f69e69
+KR
+kyleroots00
+Kyle
+published 2 days ago
+60cf3af8
+KR
+kyleroots00
+Kyle
+published 2 days ago
+407f6052
+KR
+kyleroots00
+Kyle
+published 2 days ago
+2f8ebbce
+KR
+kyleroots00
+Kyle
+published 2 days ago
+f41ab30b
+KR
+kyleroots00
+Kyle
+published 2 days ago
+9c420a8b
+KR
+kyleroots00
+Kyle
+published 3 days ago
+9bdf4472
+KR
+kyleroots00
+Kyle
+published 3 days ago
+5f469434
+KR
+kyleroots00
+Kyle
+published 5 days ago
+6a6ed9cd
+KR
+kyleroots00
+Kyle
+published 6 days ago
+c0b07e1b
+KR
+kyleroots00
+Kyle
+failed to publish 6 days ago
+45b09763
+KR
+kyleroots00
+Kyle
+published 6 days ago
+gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
+29m
+ • 
+30 minutes ago
+Port :5000 opened on
+Remote Updates
+origin/main•upstream
+last fetched 2 hours ago
+Commit
+Message
+⌘
+↵
+Review Changes
+1 change
+1 changed file
+Screenshot_2026-03-04_at_11.29.14_AM_1772641757286.png
+A
+Committing will automatically stage your changes.
+Objective
+Fix email delivery logging so that Screening Alert emails and Welcome emails both appear in the Activity Log Email Delivery tab.
+
+Autonomy Level: Economy — Targeted fixes to 2 files. No schema changes. No new models.
+
+Root causes identified:
+
+Vetting emails (confirmed): CandidateVettingService creates EmailService() with no db or EmailDeliveryLog args. The logging method checks for these and silently returns early every single time — so vetting recruiter notifications have NEVER been written to the log. The correct pattern (seen in incremental_monitoring_service.py) passes both.
+Welcome emails (silently failing): The direct db.session.add() logging in auth.py is catching its own exceptions with logger.debug — completely hiding the actual error. Since 1 password reset email DID log successfully, the DB and model are fine — the issue is specific to the bulk send context. Upgrading to logger.error + adding a defensive session.rollback() before the log attempt will surface the real error and fix the most common cause (dirty session state from a prior iteration).
+Tasks
+T001: Fix EmailService initialization in CandidateVettingService
+Blocked By: []
+Files: candidate_vetting_service.py
+Details:
+Line 48: self.email_service = EmailService() → pass db and EmailDeliveryLog
+Pattern to follow is already in incremental_monitoring_service.py line 108: self.email_service = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
+Add the necessary imports at the top of __init__: from extensions import db and from models import EmailDeliveryLog (lazy import inside the method is also acceptable if those names aren't already at module scope)
+Verify db and EmailDeliveryLog are accessible in CandidateVettingService.__init__ context
+Acceptance: Vetting recruiter notification emails now create EmailDeliveryLog rows with notification_type='vetting_recruiter_notification' and the correct changes_summary
+T002: Surface and fix welcome email logging failure in auth.py
+Blocked By: []
+Files: routes/auth.py
+Details:
+In send_welcome_email(), change the logging exception handler from logger.debug to logger.error so the actual exception appears in logs
+Add _edb.session.rollback() BEFORE _edb.session.add(EmailDeliveryLog(...)) as a defensive measure — this ensures any dirty session state from generate_reset_token or prior bulk iterations doesn't block the log commit
+The pattern should be:
+try:
+    from models import EmailDeliveryLog
+    from extensions import db as _edb
+    _edb.session.rollback()  # defensive: ensure clean state
+    _edb.session.add(EmailDeliveryLog(...))
+    _edb.session.commit()
+except Exception as log_err:
+    logger.error(f"Failed to log welcome email delivery: {log_err}", exc_info=True)
+    try:
+        _edb.session.rollback()
+    except Exception:
+        pass
+Apply the same pattern to the error-path logging block at the bottom of send_welcome_email (the one inside except Exception as e:)
+Acceptance: Welcome email log entries appear in EmailDeliveryLog with notification_type='welcome_email'. If rollback alone doesn't fix it, the logger.error output will reveal the actual exception for a follow-up fix.
+Add filters for activity log to improve user data searching
+Objective
+Fix email delivery logging so that Screening Alert emails and Welcome emails both appear in the Activity Log Email Delivery tab.
+
+Autonomy Level: Economy — Targeted fixes to 2 files. No schema changes. No new models.
+
+Root causes identified:
+
+Vetting emails (confirmed): CandidateVettingService creates EmailService() with no db or EmailDeliveryLog args. The logging method checks for these and silently returns early every single time — so vetting recruiter notifications have NEVER been written to the log. The correct pattern (seen in incremental_monitoring_service.py) passes both.
+Welcome emails (silently failing): The direct db.session.add() logging in auth.py is catching its own exceptions with logger.debug — completely hiding the actual error. Since 1 password reset email DID log successfully, the DB and model are fine — the issue is specific to the bulk send context. Upgrading to logger.error + adding a defensive session.rollback() before the log attempt will surface the real error and fix the most common cause (dirty session state from a prior iteration).
+Tasks
+T001: Fix EmailService initialization in CandidateVettingService
+Blocked By: []
+Files: candidate_vetting_service.py
+Details:
+Line 48: self.email_service = EmailService() → pass db and EmailDeliveryLog
+Pattern to follow is already in incremental_monitoring_service.py line 108: self.email_service = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
+Add the necessary imports at the top of __init__: from extensions import db and from models import EmailDeliveryLog (lazy import inside the method is also acceptable if those names aren't already at module scope)
+Verify db and EmailDeliveryLog are accessible in CandidateVettingService.__init__ context
+Acceptance: Vetting recruiter notification emails now create EmailDeliveryLog rows with notification_type='vetting_recruiter_notification' and the correct changes_summary
+T002: Surface and fix welcome email logging failure in auth.py
+Blocked By: []
+Files: routes/auth.py
+Details:
+In send_welcome_email(), change the logging exception handler from logger.debug to logger.error so the actual exception appears in logs
+Add _edb.session.rollback() BEFORE _edb.session.add(EmailDeliveryLog(...)) as a defensive measure — this ensures any dirty session state from generate_reset_token or prior bulk iterations doesn't block the log commit
+The pattern should be:
+try:
+    from models import EmailDeliveryLog
+    from extensions import db as _edb
+    _edb.session.rollback()  # defensive: ensure clean state
+    _edb.session.add(EmailDeliveryLog(...))
+    _edb.session.commit()
+except Exception as log_err:
+    logger.error(f"Failed to log welcome email delivery: {log_err}", exc_info=True)
+    try:
+        _edb.session.rollback()
+    except Exception:
+        pass
+Apply the same pattern to the error-path logging block at the bottom of send_welcome_email (the one inside except Exception as e:)
+Acceptance: Welcome email log entries appear in EmailDeliveryLog with notification_type='welcome_email'. If rollback alone doesn't fix it, the logger.error output will reveal the actual exception for a follow-up fix.
+Okay, that plan makes sense - can you also clarify that every time we republish or redeploy something, the Automated Upload Status either restarts at the 30-minute mark or does it pick up where it left off?
+
+Okay, great. Thanks for confirming that. I guess now is for me to approve the plan that you proposed.
+
+Start building
+Okay sounds good. Please provide the republish button
+
+Want users to get these changes? Republish this App.
+Deployment was successful. I'm going to assume that since I'm just still seeing all the welcome email logs and no other types, we're going to be picking things up as they come in and not looking back. Is that correct?
+
+Wondering if we can quickly have the same search filtering capabilities that we built for the email delivery tab in the activity log section that we can do when it comes to login history and module usage
+
+I seem to have maybe been reviewing the wrong plan (Or an outdated one) but based on what you've just described above, let me know what level of autonomy you prefer to work at and I can just approve it here
+
+Please proceed
+
+Once we're done with this, can we quickly check on the AI screening module? I just want to see logically how things are built and screened through multiple profiles at once. It seems there is about a 10-minute delay between a candidate entering the system (whether it's an existing or new profile) before the AI screening module gets to it. I'm wondering if there are ways to speed this up or if you're already optimized on that front
+
+Okay thanks for the explanation of the plan. It does make sense; however I'm not sure about the logic regarding number two as I do think that candidates that still have not been processed should not be skipped because, as you mentioned, that could snowball in the wrong way. I'm just wondering, based on option one alone, would that help the case at all or do we really need to investigate option number three as the real solution?
+
+All right let's go ahead with option number one then. If you mentioned it's a zero-risk and lightweight implementation, after that I also want you to take a look at candidate ID 4592921 from a screening auditing perspective, for example, the Scout screening module did not recommend the profile, which is actually the correct output given the fact that they are not in the correct location. However it seemed within the summarization that it mentioned that there is no specific evidence with a specific skill, which is GCP in this case, but looking in the resume there's plenty of GCP experience.
+
+I want to make sure that we're not missing anything from the AI logic in terms of being able to read and interpret the skills and experiences in the candidate records resume field as it relates to the requirements of the role. You have full access to Bullhorn so please tap into whatever you need to tap into from an API perspective to validate this and see if we need to make any changes to the logic or prompts that run the Scout Screening AI.
+
+Okay these all look good. I'm going to assume since this is a bit more complex than you, we're going to have to operate at the power autonomy level. Let me know what your recommendation would be here
+
+Power is the right call here, and I agree. The cycle change and character limit are mechanical, but the prompt edit (T003) requires careful judgment — getting the wording wrong could produce worse gap descriptions than before, or introduce ambiguity that confuses the AI on edge cases. I'll draft it carefully, test the logic against the Pramod Petla scenario before committing, and won't leave any ambiguity in the instruction.
+
+Here's the full plan:
+
+
+Scroll to latest
+What would you like to change about the plan?
+Plan is ready for review
+
+Ask questions, plan your work…
+ScoutGenius - Replit
