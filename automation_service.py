@@ -1388,7 +1388,14 @@ class AutomationService:
                     continue
 
                 emails_found = EMAIL_RE.findall(text)
-                valid_emails = [e.lower() for e in emails_found if _is_valid_email(e)]
+                cleaned_emails = []
+                for raw_email in emails_found:
+                    cleaned = raw_email.strip()
+                    cleaned = cleaned.lstrip("(<[")
+                    cleaned = cleaned.rstrip(")>].,;:!?\"'")
+                    if cleaned:
+                        cleaned_emails.append(cleaned)
+                valid_emails = [e.lower() for e in cleaned_emails if _is_valid_email(e)]
 
                 seen = set()
                 unique_emails = []
