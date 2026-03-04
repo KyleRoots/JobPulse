@@ -70,6 +70,25 @@ def activity_log_page():
     modules_data = None
     emails_data = None
 
+    user_login_summary = None
+    if tab == 'logins':
+        from sqlalchemy import func as sa_func
+        last_login_subq = db.session.query(
+            UserActivityLog.user_id,
+            sa_func.max(UserActivityLog.created_at).label('last_login')
+        ).filter(
+            UserActivityLog.activity_type == 'login'
+        ).group_by(UserActivityLog.user_id).subquery()
+
+        user_login_summary = db.session.query(
+            User, last_login_subq.c.last_login
+        ).outerjoin(
+            last_login_subq, User.id == last_login_subq.c.user_id
+        ).order_by(
+            db.case((last_login_subq.c.last_login == None, 1), else_=0),
+            last_login_subq.c.last_login.desc()
+        ).all()
+
     if tab == 'logins':
         q = db.session.query(UserActivityLog, User).join(User, UserActivityLog.user_id == User.id).filter(
             UserActivityLog.activity_type == 'login',
@@ -220,4 +239,6 @@ def activity_log_page():
                            module_filter=module_filter,
                            page_search=page_search,
                            parse_user_agent=_parse_user_agent,
+                           user_login_summary=user_login_summary,
+                           now=datetime.utcnow(),
                            json=json)
