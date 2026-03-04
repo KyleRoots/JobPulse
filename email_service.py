@@ -136,8 +136,19 @@ class EmailService:
                             <h2>Upload Summary</h2>
                             <div class="details">
                                 <p><strong>Upload Time:</strong> {upload_time}</p>
-                                <p><strong>Total Jobs:</strong> {total_jobs}</p>
-                                <p><strong>XML File Size:</strong> {xml_size}</p>
+                                <p><strong>Total Jobs (v2 feed):</strong> {total_jobs}</p>
+                                <p><strong>v2 File Size:</strong> {xml_size}</p>
+            """
+
+            pando_jobs = upload_details.get('pando_jobs_count')
+            pando_size = upload_details.get('pando_xml_size')
+            if pando_jobs is not None:
+                html_content += f"""
+                                <p><strong>Total Jobs (pando feed):</strong> {pando_jobs}</p>
+                                <p><strong>Pando File Size:</strong> {pando_size}</p>
+                """
+
+            html_content += f"""
                                 <p><strong>Status:</strong> 
                                     <span class="status-{'success' if status == 'success' else 'error'}">
                                         {'✅ Successfully Uploaded' if status == 'success' else '❌ Upload Failed'}
@@ -151,8 +162,12 @@ class EmailService:
                             </div>
                             <div class="details">
                                 <h3>✅ Upload Details</h3>
-                                <p>Your XML job feed has been automatically uploaded to the server with the latest job listings.</p>
-                                <p>The system will continue to upload fresh data every 30 minutes to ensure your job feed stays current.</p>
+                                <p>Two XML job feeds have been automatically uploaded:</p>
+                                <ul>
+                                    <li><strong>myticas-job-feed-v2.xml</strong> — {total_jobs} jobs (STSI capped at 10 most recent)</li>
+                                    <li><strong>myticas-job-feed-pando.xml</strong> — {pando_jobs if pando_jobs else 'N/A'} jobs (all jobs, no cap)</li>
+                                </ul>
+                                <p>The system will continue to upload fresh data every 30 minutes to ensure your job feeds stay current.</p>
                             </div>
                 """
             else:

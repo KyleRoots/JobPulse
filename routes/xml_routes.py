@@ -573,6 +573,15 @@ def automation_status():
         automation_enabled = db_setting_enabled
         status = 'Active' if db_setting_enabled else 'Disabled'
 
+        dual_feed_info = None
+        try:
+            dual_feed_setting = GlobalSettings.query.filter_by(setting_key='dual_feed_last_result').first()
+            if dual_feed_setting and dual_feed_setting.setting_value:
+                import json
+                dual_feed_info = json.loads(dual_feed_setting.setting_value)
+        except Exception:
+            pass
+
         return jsonify({
             'automation_enabled': automation_enabled,
             'db_setting_enabled': db_setting_enabled,
@@ -581,7 +590,8 @@ def automation_status():
             'next_upload_timestamp': next_upload_timestamp,
             'last_upload_time': last_upload_time,
             'upload_interval': upload_interval,
-            'status': status
+            'status': status,
+            'dual_feed': dual_feed_info
         })
 
     except Exception as e:

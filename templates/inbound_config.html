@@ -154,6 +154,21 @@
                             <span id="upload-interval" class="text-white" style="font-size: 0.875rem;">Every 30 minutes</span>
                         </div>
                     </div>
+                    <div id="dual-feed-stats" class="row g-3 mt-2" style="display: none;">
+                        <div class="col-12">
+                            <small class="text-muted d-block mb-1">Dual Feed (Last Upload)</small>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <small style="color: #4a9678;">v2 Feed</small><br>
+                            <span id="v2-jobs" class="text-white" style="font-size: 0.875rem;">—</span>
+                            <small class="text-muted"> jobs</small>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <small style="color: #e8a838;">Pando Feed</small><br>
+                            <span id="pando-jobs" class="text-white" style="font-size: 0.875rem;">—</span>
+                            <small class="text-muted"> jobs</small>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -303,6 +318,13 @@
                         };
                         tick();
                         window._countdownInterval = setInterval(tick, 1000);
+                    }
+
+                    const dualFeedSection = document.getElementById('dual-feed-stats');
+                    if (data.dual_feed && dualFeedSection) {
+                        dualFeedSection.style.display = 'flex';
+                        document.getElementById('v2-jobs').textContent = data.dual_feed.v2_jobs || '—';
+                        document.getElementById('pando-jobs').textContent = data.dual_feed.pando_jobs || '—';
                     }
                 } else {
                     if (statusEl) {

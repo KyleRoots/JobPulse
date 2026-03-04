@@ -51,9 +51,14 @@ class SimplifiedXMLGenerator:
         # Thread lock for preventing concurrent generation
         self._generation_lock = False
     
-    def generate_fresh_xml(self) -> tuple[str, dict]:
+    def generate_fresh_xml(self, tearsheet_caps=None) -> tuple[str, dict]:
         """
         Generate fresh XML by pulling directly from all Bullhorn tearsheets
+        
+        Args:
+            tearsheet_caps: Optional dict of {tearsheet_id: max_jobs} to limit jobs
+                            per tearsheet. e.g. {1531: 10} caps STSI to 10 jobs.
+                            Jobs are selected by most-recently-added-to-tearsheet.
         
         Returns:
             tuple: (xml_content_string, stats_dict)
@@ -66,35 +71,27 @@ class SimplifiedXMLGenerator:
         
         try:
             self._generation_lock = True
-            self.logger.info("🚀 Starting fresh XML generation from Bullhorn tearsheets")
+            cap_label = f" (caps: {tearsheet_caps})" if tearsheet_caps else ""
+            self.logger.info(f"🚀 Starting fresh XML generation from Bullhorn tearsheets{cap_label}")
             
-            # Load existing reference number mappings from DATABASE (database-first approach)
             existing_references = self._load_references_from_database()
             
-            # Get BullhornService with credentials from database
             bullhorn_service = self._get_bullhorn_service()
             
-            # Authenticate with Bullhorn
             if not bullhorn_service.authenticate():
                 raise Exception("Failed to authenticate with Bullhorn")
             
-            # Pull jobs from all tearsheets with tearsheet context
-            all_jobs_with_context = self._get_jobs_from_tearsheets(bullhorn_service, self.tearsheet_ids)
+            all_jobs_with_context = self._get_jobs_from_tearsheets(
+                bullhorn_service, self.tearsheet_ids, tearsheet_caps=tearsheet_caps
+            )
             
             if not all_jobs_with_context:
                 raise Exception("No jobs found in any tearsheets")
             
-            # Build XML from job data with tearsheet context
             xml_content, updated_references = self._build_clean_xml(all_jobs_with_context, existing_references)
             
-            # Save updated reference mappings to DATABASE (database-first approach)
-            # This is the ONLY source of truth - database is required
             self._save_references_to_database(xml_content)
             
-            # NOTE: Snapshot file save REMOVED - database is the single source of truth
-            # No fallback to file snapshots to ensure database-first architecture
-            
-            # Generate stats
             stats = {
                 'job_count': len(all_jobs_with_context),
                 'tearsheets_processed': len(self.tearsheet_ids),
@@ -141,13 +138,45 @@ class SimplifiedXMLGenerator:
         'lost - funding', 'canceled', 'placeholder/ mpc', 'archive'
     }
 
-    def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int]) -> List[Dict]:
+    def _get_recent_tearsheet_job_ids(self, tearsheet_id: int, limit: int) -> Optional[set]:
+        """
+        Get the N most recently added job IDs for a tearsheet,
+        based on when each job was first observed in TearsheetJobHistory.
+        
+        Returns None if no history data exists (cap will be skipped as a safety measure).
+        """
+        try:
+            from models import TearsheetJobHistory
+            from sqlalchemy import func
+            results = self.db.session.query(
+                TearsheetJobHistory.job_id,
+                func.min(TearsheetJobHistory.timestamp).label('first_seen')
+            ).filter_by(
+                tearsheet_id=tearsheet_id
+            ).group_by(
+                TearsheetJobHistory.job_id
+            ).order_by(
+                func.min(TearsheetJobHistory.timestamp).desc()
+            ).limit(limit).all()
+            if not results:
+                self.logger.warning(f"⚠️ No TearsheetJobHistory for tearsheet {tearsheet_id} — skipping cap (all jobs included)")
+                return None
+            recent_ids = {str(r.job_id) for r in results}
+            self.logger.info(f"📋 Tearsheet {tearsheet_id} cap: keeping {len(recent_ids)} most recent of {limit} requested")
+            return recent_ids
+        except Exception as e:
+            self.logger.error(f"Failed to query TearsheetJobHistory for cap on {tearsheet_id}: {e} — skipping cap")
+            return None
+
+    def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int],
+                                  tearsheet_caps: Optional[Dict[int, int]] = None) -> List[Dict]:
         """
         Pull jobs from all tearsheets using the same proven method as main monitoring system
         
         Args:
             bullhorn_service: Authenticated Bullhorn service
             tearsheet_ids: List of tearsheet IDs to process
+            tearsheet_caps: Optional dict of {tearsheet_id: max_jobs} to cap specific tearsheets
             
         Returns:
             List of job dictionaries with tearsheet_context added (ineligible jobs filtered out)
@@ -156,11 +185,15 @@ class SimplifiedXMLGenerator:
         seen_job_ids = set()
         total_filtered = 0
         
+        cap_filters = {}
+        if tearsheet_caps:
+            for ts_id, max_jobs in tearsheet_caps.items():
+                cap_filters[ts_id] = self._get_recent_tearsheet_job_ids(ts_id, max_jobs)
+        
         for tearsheet_id in tearsheet_ids:
             try:
                 self.logger.info(f"Processing tearsheet {tearsheet_id}")
                 
-                # Use the same method as main monitoring system (proven to work)
                 jobs = bullhorn_service.get_tearsheet_jobs(tearsheet_id)
                 
                 if not jobs:
@@ -169,27 +202,30 @@ class SimplifiedXMLGenerator:
                 
                 self.logger.info(f"Found {len(jobs)} jobs in tearsheet {tearsheet_id}")
                 
+                allowed_ids = cap_filters.get(tearsheet_id)
+                
                 filtered_count = 0
+                capped_count = 0
                 for job in jobs:
                     job_id = job.get('id')
                     if job_id and job_id not in seen_job_ids:
-                        # Filter out ineligible jobs (Archive, Filled, Canceled, etc.)
                         status = job.get('status', '').strip()
                         is_open = job.get('isOpen')
                         
-                        # Check isOpen flag
                         if is_open == False or str(is_open).lower() in ('closed', 'false'):
                             self.logger.info(f"  Filtered job {job_id}: {job.get('title', '?')[:50]} (isOpen={is_open})")
                             filtered_count += 1
                             continue
                         
-                        # Check status against ineligible list (case-insensitive)
                         if status.lower() in self.INELIGIBLE_STATUSES:
                             self.logger.info(f"  Filtered job {job_id}: {job.get('title', '?')[:50]} (status={status})")
                             filtered_count += 1
                             continue
                         
-                        # Add tearsheet context to job data
+                        if allowed_ids is not None and str(job_id) not in allowed_ids:
+                            capped_count += 1
+                            continue
+                        
                         monitor_name = self.tearsheet_monitor_mapping.get(tearsheet_id, 'default')
                         job['tearsheet_context'] = {
                             'tearsheet_id': tearsheet_id,
@@ -203,6 +239,8 @@ class SimplifiedXMLGenerator:
                 if filtered_count > 0:
                     self.logger.info(f"  ⚠️ Filtered out {filtered_count} ineligible jobs from tearsheet {tearsheet_id}")
                     total_filtered += filtered_count
+                if capped_count > 0:
+                    self.logger.info(f"  🔒 Capped: excluded {capped_count} older jobs from tearsheet {tearsheet_id} (cap={tearsheet_caps.get(tearsheet_id)})")
                     
             except Exception as e:
                 self.logger.error(f"Error processing tearsheet {tearsheet_id}: {str(e)}")

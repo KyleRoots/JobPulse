@@ -805,8 +805,50 @@ def reference_number_refresh():
             app.logger.error(f"Reference refresh error: {str(e)}")
 
 
+def _upload_single_file(ftp_service, xml_content, remote_filename, app):
+    """Helper: write XML to a temp file and upload via SFTP. Returns (success, error_msg)."""
+    import tempfile
+    temp_path = None
+    try:
+        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
+        temp_path = temp_file.name
+        temp_file.write(xml_content)
+        temp_file.close()
+
+        app.logger.info(f"📤 Uploading '{remote_filename}' ({len(xml_content):,} bytes)...")
+        upload_result = ftp_service.upload_file(local_file_path=temp_path, remote_filename=remote_filename)
+
+        if isinstance(upload_result, dict):
+            if upload_result.get('success'):
+                app.logger.info(f"✅ '{remote_filename}' uploaded successfully")
+                return True, None
+            else:
+                err = upload_result.get('error', 'Unknown upload error')
+                app.logger.error(f"❌ '{remote_filename}' upload failed: {err}")
+                return False, err
+        elif upload_result:
+            app.logger.info(f"✅ '{remote_filename}' uploaded successfully")
+            return True, None
+        else:
+            app.logger.error(f"❌ '{remote_filename}' upload failed")
+            return False, "Upload returned False"
+    except Exception as e:
+        app.logger.error(f"❌ '{remote_filename}' upload error: {e}")
+        return False, str(e)
+    finally:
+        if temp_path:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+
 def automated_upload():
-    """Automatically upload fresh XML every 30 minutes if automation is enabled"""
+    """Automatically upload fresh XML every 30 minutes if automation is enabled.
+    Generates two feeds:
+      - myticas-job-feed-v2.xml   — STSI tearsheet 1531 capped at 10 most-recently-added jobs
+      - myticas-job-feed-pando.xml — all jobs from all tearsheets (no cap)
+    """
     print("📤 AUTOMATED UPLOAD: Function invoked by scheduler", flush=True)
     from app import app
     from extensions import db
@@ -825,26 +867,29 @@ def automated_upload():
                 app.logger.warning("📤 Automated upload skipped: SFTP not enabled")
                 return
             
-            app.logger.info("🚀 Starting automated 30-minute upload cycle...")
-            app.logger.info("⚡ AUTOMATED UPLOAD FUNCTION EXECUTING - production priority enabled")
+            app.logger.info("🚀 Starting automated 30-minute dual-feed upload cycle...")
             
             from simplified_xml_generator import SimplifiedXMLGenerator
             generator = SimplifiedXMLGenerator(db=db)
-            xml_content, stats = generator.generate_fresh_xml()
-            
-            app.logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
-            app.logger.info("📍 CHECKPOINT 1: XML generation completed successfully")
+
+            STSI_CAPS = {1531: 10}
+
+            app.logger.info("📄 [FEED 1/2] Generating pando feed (all jobs, no cap) — saves reference numbers...")
+            pando_xml, pando_stats = generator.generate_fresh_xml()
+            app.logger.info(f"📊 pando feed: {pando_stats['job_count']} jobs, {pando_stats['xml_size_bytes']:,} bytes")
+
+            app.logger.info("📄 [FEED 2/2] Generating v2 feed (STSI capped at 10) — uses existing references...")
+            v2_xml, v2_stats = generator.generate_fresh_xml(tearsheet_caps=STSI_CAPS)
+            app.logger.info(f"📊 v2 feed: {v2_stats['job_count']} jobs, {v2_stats['xml_size_bytes']:,} bytes")
+
+            app.logger.info("📍 CHECKPOINT 1: Both XML feeds generated successfully")
             app.logger.info("💾 Reference numbers loaded from DATABASE (database-first approach)")
             
-            upload_success = False
+            v2_upload_ok = False
+            pando_upload_ok = False
             upload_error_message = None
             
             try:
-                import tempfile
-                temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
-                temp_file.write(xml_content)
-                temp_file.close()
-                
                 sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
                 sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
                 sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
@@ -865,73 +910,40 @@ def automated_upload():
                         password=sftp_password.setting_value,
                         target_directory=target_directory,
                         port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                        use_sftp=True  # ALWAYS use SFTP for automated uploads (thread-safe)
+                        use_sftp=True
                     )
                     app.logger.info(f"🔐 Using SFTP protocol for thread-safe uploads to {sftp_hostname.setting_value}:{ftp_service.port}")
-                    app.logger.info(f"📂 Target directory: {target_directory}")
                     
                     current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
-                    app.logger.info(f"🔍 Environment detection: APP_ENV={os.environ.get('APP_ENV')}, ENVIRONMENT={os.environ.get('ENVIRONMENT')}, using={current_env}")
+                    app.logger.info(f"🔍 Environment: {current_env}")
                     
                     if current_env not in ['production', 'development']:
                         app.logger.error(f"❌ Invalid environment '{current_env}' - defaulting to development for safety")
                         current_env = 'development'
                     
                     if current_env == 'production':
-                        production_filename = "myticas-job-feed-v2.xml"
-                        app.logger.info("🎯 PRODUCTION ENVIRONMENT: Uploading to production file ONLY")
-                        app.logger.info(f"📤 Uploading production XML as '{production_filename}'...")
-                        app.logger.info(f"🔍 Local file path: {temp_file.name}")
-                        app.logger.info(f"🎯 Remote filename: {production_filename}")
-                        try:
-                            app.logger.info("⚡ Calling FTP service for PRODUCTION upload...")
-                            upload_result = ftp_service.upload_file(
-                                local_file_path=temp_file.name,
-                                remote_filename=production_filename
-                            )
-                            app.logger.info(f"📊 Production upload result: {upload_result}")
-                            if upload_result:
-                                app.logger.info("✅ Production file uploaded successfully")
-                            else:
-                                app.logger.error("❌ Production file upload failed")
-                        except Exception as prod_error:
-                            app.logger.error(f"❌ Production file upload error: {str(prod_error)}")
-                            upload_result = False
+                        v2_filename = "myticas-job-feed-v2.xml"
+                        pando_filename = "myticas-job-feed-pando.xml"
                     else:
-                        development_filename = "myticas-job-feed-v2-dev.xml"
-                        app.logger.info("🧪 DEVELOPMENT ENVIRONMENT: Uploading to development file ONLY")
-                        app.logger.info(f"📤 Uploading development XML as '{development_filename}'...")
-                        app.logger.info(f"🔍 Local file path: {temp_file.name}")
-                        app.logger.info(f"🎯 Remote filename: {development_filename}")
-                        try:
-                            upload_result = ftp_service.upload_file(
-                                local_file_path=temp_file.name,
-                                remote_filename=development_filename
-                            )
-                            if upload_result:
-                                app.logger.info("✅ Development file uploaded successfully")
-                            else:
-                                app.logger.error("❌ Development file upload failed")
-                        except Exception as dev_error:
-                            app.logger.error(f"❌ Development file upload error: {str(dev_error)}")
-                            upload_result = False
+                        v2_filename = "myticas-job-feed-v2-dev.xml"
+                        pando_filename = "myticas-job-feed-pando-dev.xml"
                     
-                    app.logger.info(f"🔒 ENVIRONMENT ISOLATION: {current_env} → uploads ONLY to its designated file")
+                    app.logger.info(f"🎯 {current_env.upper()}: uploading {v2_filename} + {pando_filename}")
+
+                    v2_upload_ok, v2_err = _upload_single_file(ftp_service, v2_xml, v2_filename, app)
+                    pando_upload_ok, pando_err = _upload_single_file(ftp_service, pando_xml, pando_filename, app)
+
+                    if not v2_upload_ok or not pando_upload_ok:
+                        errors = []
+                        if not v2_upload_ok:
+                            errors.append(f"v2: {v2_err}")
+                        if not pando_upload_ok:
+                            errors.append(f"pando: {pando_err}")
+                        upload_error_message = "; ".join(errors)
                     
-                    if isinstance(upload_result, dict):
-                        if upload_result['success']:
-                            upload_success = True
-                            app.logger.info(f"✅ Automated upload successful: {upload_result.get('message', 'File uploaded')}")
-                        else:
-                            upload_error_message = upload_result.get('error', 'Unknown upload error')
-                            app.logger.error(f"❌ Automated upload failed: {upload_error_message}")
-                    else:
-                        if upload_result:
-                            upload_success = True
-                            app.logger.info("✅ Automated upload successful")
-                        else:
-                            upload_error_message = "Upload failed"
-                            app.logger.error("❌ Automated upload failed")
+                    app.logger.info(f"🔒 ENVIRONMENT ISOLATION: {current_env} → uploads ONLY to its designated files")
+                    
+                    upload_success = v2_upload_ok and pando_upload_ok
                     
                     if upload_success:
                         try:
@@ -963,20 +975,34 @@ def automated_upload():
                                 )
                                 db.session.add(next_upload_setting)
 
+                            dual_feed_result = json.dumps({
+                                'v2_jobs': v2_stats['job_count'],
+                                'pando_jobs': pando_stats['job_count'],
+                                'v2_size': v2_stats['xml_size_bytes'],
+                                'pando_size': pando_stats['xml_size_bytes'],
+                                'timestamp': upload_timestamp
+                            })
+                            feed_setting = GlobalSettings.query.filter_by(setting_key='dual_feed_last_result').first()
+                            if feed_setting:
+                                feed_setting.setting_value = dual_feed_result
+                                feed_setting.updated_at = now_utc
+                            else:
+                                feed_setting = GlobalSettings(
+                                    setting_key='dual_feed_last_result',
+                                    setting_value=dual_feed_result
+                                )
+                                db.session.add(feed_setting)
+
                             db.session.commit()
                             app.logger.info(f"✅ Updated last upload timestamp: {upload_timestamp}")
                             app.logger.info(f"✅ Updated next upload timestamp: {next_upload_timestamp}")
+                            app.logger.info(f"✅ Dual feed stats saved: v2={v2_stats['job_count']} jobs, pando={pando_stats['job_count']} jobs")
                         except Exception as ts_error:
                             app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
                 else:
                     upload_error_message = "SFTP credentials not configured"
+                    upload_success = False
                     app.logger.error("❌ SFTP credentials not configured in Global Settings")
-                
-                try:
-                    os.remove(temp_file.name)
-                except:
-                    pass
-                
                 
                 email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
                 email_setting = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
@@ -986,6 +1012,7 @@ def automated_upload():
                     try:
                         from email_service import EmailService
                         from timezone_utils import format_eastern_time
+                        from datetime import timedelta
                         email_service = EmailService()
                         
                         current_time = datetime.utcnow()
@@ -993,18 +1020,21 @@ def automated_upload():
                         
                         notification_details = {
                             'execution_time': format_eastern_time(current_time),
-                            'jobs_count': stats['job_count'],
-                            'xml_size': f"{stats['xml_size_bytes']:,} bytes",
+                            'jobs_count': v2_stats['job_count'],
+                            'xml_size': f"{v2_stats['xml_size_bytes']:,} bytes",
                             'upload_attempted': True,
                             'upload_success': upload_success,
                             'upload_error': upload_error_message,
-                            'next_upload': format_eastern_time(next_upload_time)
+                            'next_upload': format_eastern_time(next_upload_time),
+                            'pando_jobs_count': pando_stats['job_count'],
+                            'pando_xml_size': f"{pando_stats['xml_size_bytes']:,} bytes",
+                            'dual_feed': True
                         }
                         
                         status = "success" if upload_success else "error"
                         email_sent = email_service.send_automated_upload_notification(
                             to_email=email_setting.setting_value,
-                            total_jobs=stats['job_count'],
+                            total_jobs=v2_stats['job_count'],
                             upload_details=notification_details,
                             status=status
                         )
