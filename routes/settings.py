@@ -141,7 +141,9 @@ def update_settings():
                             minutes=30,
                             id='automated_upload',
                             name='Automated Upload (Every 30 Minutes)',
-                            replace_existing=True
+                            replace_existing=True,
+                            misfire_grace_time=300,
+                            coalesce=False
                         )
                         current_app.logger.info("📤 Automated uploads enabled - 30-minute job added to scheduler")
                         flash('Automated uploads enabled! XML files will be uploaded every 30 minutes.', 'success')
@@ -260,7 +262,9 @@ def update_inbound_config():
                             minutes=30,
                             id='automated_upload',
                             name='Automated Upload (Every 30 Minutes)',
-                            replace_existing=True
+                            replace_existing=True,
+                            misfire_grace_time=300,
+                            coalesce=False
                         )
                     flash('Automated uploads enabled! XML files will be uploaded every 30 minutes.', 'success')
                 else:
