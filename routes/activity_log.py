@@ -121,6 +121,40 @@ def activity_log_page():
             q = q.filter(db.cast(UserActivityLog.details, db.Text).ilike(f'%{page_search}%'))
         modules_data = q.order_by(UserActivityLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
+    elif tab == 'active':
+        active_users_data = []
+        now = datetime.utcnow()
+        one_hour_ago = now - timedelta(hours=1)
+        recent_users = User.query.filter(User.last_active_at >= one_hour_ago).order_by(User.last_active_at.desc()).all()
+        for u in recent_users:
+            last_module_entry = UserActivityLog.query.filter_by(
+                user_id=u.id,
+                activity_type='module_access'
+            ).order_by(UserActivityLog.created_at.desc()).first()
+            current_module = None
+            if last_module_entry and last_module_entry.details:
+                try:
+                    details = json.loads(last_module_entry.details)
+                    current_module = details.get('module')
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            seconds_ago = (now - u.last_active_at).total_seconds() if u.last_active_at else None
+            if seconds_ago is not None:
+                if seconds_ago < 300:
+                    status = 'active'
+                elif seconds_ago < 900:
+                    status = 'idle'
+                else:
+                    status = 'away'
+            else:
+                status = 'away'
+            active_users_data.append({
+                'user': u,
+                'status': status,
+                'seconds_ago': seconds_ago,
+                'current_module': current_module,
+            })
+
     elif tab == 'emails':
         allowed_types = ['welcome_email', 'password_reset_email', 'vetting_recruiter_notification']
         if email_type and email_type in allowed_types:
@@ -142,6 +176,12 @@ def activity_log_page():
             if target_user:
                 q = q.filter(EmailDeliveryLog.recipient_email == target_user.email)
         emails_data = q.order_by(EmailDeliveryLog.sent_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    if tab != 'active':
+        active_users_data = None
+    active_now_count = User.query.filter(
+        User.last_active_at >= (datetime.utcnow() - timedelta(minutes=15))
+    ).count()
 
     seven_days_ago = datetime.utcnow() - timedelta(days=7)
     total_logins_7d = UserActivityLog.query.filter(
@@ -167,6 +207,8 @@ def activity_log_page():
                            logins_data=logins_data,
                            modules_data=modules_data,
                            emails_data=emails_data,
+                           active_users_data=active_users_data,
+                           active_now_count=active_now_count,
                            total_logins_7d=total_logins_7d,
                            active_users_7d=active_users_7d,
                            emails_sent_7d=emails_sent_7d,

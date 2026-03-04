@@ -227,9 +227,25 @@ _MODULE_MAP = {
 
 @app.before_request
 def _track_module_access():
-    if request.method != 'GET' or not current_user.is_authenticated:
+    if not current_user.is_authenticated:
         return
     if request.path.startswith('/static') or request.path.startswith('/api'):
+        return
+
+    try:
+        from extensions import db as _db
+        now = datetime.utcnow()
+        if not current_user.last_active_at or (now - current_user.last_active_at).total_seconds() > 60:
+            current_user.last_active_at = now
+            _db.session.commit()
+    except Exception:
+        try:
+            from extensions import db as _db2
+            _db2.session.rollback()
+        except Exception:
+            pass
+
+    if request.method != 'GET':
         return
     module = None
     for prefix, mod in _MODULE_MAP.items():

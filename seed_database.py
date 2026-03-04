@@ -835,6 +835,22 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for user.is_company_admin: {str(e)}")
 
+    # Add last_active_at to user table (added March 2026 for Active Users tracking)
+    try:
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'user' AND column_name = 'last_active_at'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text('ALTER TABLE "user" ADD COLUMN last_active_at TIMESTAMP'))
+            db.session.commit()
+            logger.info("✅ Added column last_active_at to user table")
+        else:
+            logger.info("ℹ️ Column last_active_at already exists on user table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for user.last_active_at: {str(e)}")
+
     # Add is_sandbox to candidate_vetting_log (added Feb 2026 for Vetting Sandbox feature)
     try:
         result = db.session.execute(text("""

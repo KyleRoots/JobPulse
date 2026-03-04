@@ -74,6 +74,13 @@
             <i class="fas fa-envelope me-1"></i>Email Delivery
         </a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'active' %}active{% endif %}"
+           href="{{ url_for('activity_log.activity_log_page', tab='active') }}">
+            <i class="fas fa-circle me-1" style="color: #4ade80; font-size: 0.6rem; vertical-align: middle;"></i>Active Users
+            {% if active_now_count %}<span class="badge bg-success ms-1" style="font-size: 0.7rem;">{{ active_now_count }}</span>{% endif %}
+        </a>
+    </li>
 </ul>
 
 {% if tab == 'logins' %}
@@ -347,5 +354,107 @@
     </ul>
 </nav>
 {% endif %}
+
+{% elif tab == 'active' %}
+<div class="card mb-4" style="background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.25); border-radius: 12px;">
+    <div class="card-body d-flex align-items-center gap-3 py-3 px-4">
+        <i class="fas fa-circle" style="color: #4ade80; font-size: 0.8rem;"></i>
+        <div>
+            <div style="color: #4ade80; font-weight: 600; font-size: 1.1rem;">
+                {{ active_users_data|length if active_users_data else 0 }} user{{ 's' if (active_users_data|length if active_users_data else 0) != 1 else '' }} active in the last hour
+            </div>
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.85rem;">Auto-refreshes every 30 seconds</div>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0" style="background: transparent;">
+                <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <th style="padding: 14px 16px; color: rgba(255,255,255,0.5); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Status</th>
+                        <th style="padding: 14px 16px; color: rgba(255,255,255,0.5); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">User</th>
+                        <th style="padding: 14px 16px; color: rgba(255,255,255,0.5); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Company</th>
+                        <th style="padding: 14px 16px; color: rgba(255,255,255,0.5); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Role</th>
+                        <th style="padding: 14px 16px; color: rgba(255,255,255,0.5); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Last Active</th>
+                        <th style="padding: 14px 16px; color: rgba(255,255,255,0.5); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Current Module</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if active_users_data %}
+                    {% for entry in active_users_data %}
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 12px 16px;">
+                            {% if entry.status == 'active' %}
+                            <i class="fas fa-circle" style="color: #4ade80; font-size: 0.55rem;" title="Active (< 5 min)"></i>
+                            {% elif entry.status == 'idle' %}
+                            <i class="fas fa-circle" style="color: #fb923c; font-size: 0.55rem;" title="Idle (5-15 min)"></i>
+                            {% else %}
+                            <i class="fas fa-circle" style="color: #6b7280; font-size: 0.55rem;" title="Away (15-60 min)"></i>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <div style="color: rgba(255,255,255,0.9); font-weight: 500;">{{ entry.user.display_name or entry.user.username }}</div>
+                            {% if entry.user.display_name %}
+                            <div style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">@{{ entry.user.username }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 12px 16px; color: rgba(255,255,255,0.7);">{{ entry.user.company or 'Myticas Consulting' }}</td>
+                        <td style="padding: 12px 16px;">
+                            {% if entry.user.is_admin %}
+                            <span class="badge" style="background: rgba(139,92,246,0.2); color: #a78bfa; padding: 4px 10px;">Super Admin</span>
+                            {% elif entry.user.is_company_admin %}
+                            <span class="badge" style="background: rgba(59,130,246,0.2); color: #93c5fd; padding: 4px 10px;">Company Admin</span>
+                            {% else %}
+                            <span class="badge" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); padding: 4px 10px;">User</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 12px 16px; color: rgba(255,255,255,0.7);">
+                            {% if entry.seconds_ago is not none %}
+                                {% if entry.seconds_ago < 60 %}
+                                    Just now
+                                {% elif entry.seconds_ago < 3600 %}
+                                    {{ (entry.seconds_ago // 60)|int }}m ago
+                                {% else %}
+                                    {{ (entry.seconds_ago // 3600)|int }}h ago
+                                {% endif %}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            {% if entry.current_module %}
+                            <span class="badge" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); padding: 4px 10px; text-transform: capitalize;">{{ entry.current_module|replace('_', ' ') }}</span>
+                            {% else %}
+                            <span style="color: rgba(255,255,255,0.3);">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5" style="color: rgba(255,255,255,0.4);">
+                            <i class="fas fa-user-clock fa-2x mb-2 d-block"></i>
+                            No users have been active in the last hour.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    if (window.location.search.includes('tab=active')) {
+        setTimeout(function() {
+            window.location.reload();
+        }, 30000);
+    }
+})();
+</script>
 {% endif %}
 {% endblock %}
