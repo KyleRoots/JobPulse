@@ -943,6 +943,12 @@ BUILTIN_AUTOMATIONS = [
         "automation_type": "one-time",
         "builtin_key": "update_field_bulk",
     },
+    {
+        "name": "Email Extractor",
+        "description": "Find candidates with missing email addresses, download their resume files, and extract email addresses using PDF/DOCX text parsing. Only updates the email field — never touches description or other fields.",
+        "automation_type": "one-time",
+        "builtin_key": "email_extractor",
+    },
 ]
 
 STALE_BUILTIN_KEYS = {
