@@ -1399,6 +1399,63 @@ if is_primary_worker:
         app.logger.error(f"Failed to schedule reference refresh: {str(startup_error)}")
 
 if is_primary_worker:
+    def run_candidate_data_cleanup():
+        """Scheduled cleanup: extract missing emails + reparse empty descriptions (batch=50, every 30 min)."""
+        with app.app_context():
+            try:
+                from models import GlobalSettings
+                enabled = GlobalSettings.get_value('candidate_cleanup_enabled', 'false').lower() == 'true'
+                if not enabled:
+                    return
+
+                batch_size = 50
+                try:
+                    batch_size = int(GlobalSettings.get_value('candidate_cleanup_batch_size', '50'))
+                except (ValueError, TypeError):
+                    pass
+
+                from automation_service import AutomationService
+                from bullhorn_service import BullhornService
+
+                svc = AutomationService()
+                bh = BullhornService()
+                bh.authenticate()
+                svc._bullhorn = bh
+
+                email_result = svc._builtin_email_extractor({
+                    'dry_run': False,
+                    'limit': batch_size,
+                    'days_back': 3650,
+                })
+                email_updated = email_result.get('updated', 0) if isinstance(email_result, dict) else 0
+
+                reparse_result = svc._builtin_resume_reparser({
+                    'dry_run': False,
+                    'limit': batch_size,
+                    'days_back': 3650,
+                })
+                reparse_updated = reparse_result.get('updated', 0) if isinstance(reparse_result, dict) else 0
+
+                app.logger.info(
+                    f"🧹 Candidate data cleanup cycle complete: "
+                    f"emails_extracted={email_updated}, descriptions_reparsed={reparse_updated} "
+                    f"(batch_size={batch_size})"
+                )
+            except Exception as e:
+                app.logger.error(f"❌ Candidate data cleanup error: {e}")
+
+    scheduler.add_job(
+        func=run_candidate_data_cleanup,
+        trigger=IntervalTrigger(minutes=30),
+        id='candidate_data_cleanup',
+        name='Candidate Data Cleanup (Every 30 Minutes)',
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=False
+    )
+    app.logger.info("🧹 Candidate data cleanup scheduled — runs every 30 minutes when enabled")
+
+if is_primary_worker:
     # XML Change Monitor - DISABLED automatic scheduling for manual workflow
     # Change notifications now triggered only during manual downloads
     app.logger.info("📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads")

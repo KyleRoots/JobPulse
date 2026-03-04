@@ -450,6 +450,31 @@
 </div>
 
 <div class="hub-section">
+    <div class="section-title"><i class="fas fa-broom"></i> Candidate Data Cleanup</div>
+    <div style="background: rgba(15,25,20,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 1.25rem 1.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: #e0dcd8; margin-bottom: 0.3rem;">
+                    Auto Email Extraction &amp; Resume Reparse
+                </div>
+                <div style="font-size: 0.8rem; color: rgba(224,220,216,0.55); max-width: 520px; line-height: 1.5;">
+                    Runs every 30 minutes as a background safety net. Each cycle processes up to
+                    <strong id="cleanupBatchDisplay" style="color: rgba(224,220,216,0.8);">50</strong> candidates —
+                    first extracting missing emails from resume files, then reparsing empty descriptions.
+                    Toggle to start clearing the backlog.
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0;">
+                <span id="cleanupStatusBadge" style="font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 20px; font-weight: 600; background: rgba(100,100,100,0.2); color: rgba(224,220,216,0.4);">Loading...</span>
+                <button id="cleanupToggleBtn" onclick="toggleCleanup()" style="font-size: 0.8rem; padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #e0dcd8; cursor: pointer;" disabled>
+                    <i class="fas fa-circle-notch fa-spin me-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="hub-section">
     <div class="section-title"><i class="fas fa-tools"></i> Built-in Tools</div>
     <div class="jobs-grid" id="builtinToolsGrid">
         {% for task in tasks %}
@@ -907,11 +932,65 @@
         if (taskId && taskName) openRunModal(taskId, taskName);
     });
 
+    async function loadCleanupSettings() {
+        try {
+            var resp = await fetch('/automations/cleanup-settings', {credentials: 'same-origin'});
+            var data = await resp.json();
+            var badge = document.getElementById('cleanupStatusBadge');
+            var btn = document.getElementById('cleanupToggleBtn');
+            var batchDisplay = document.getElementById('cleanupBatchDisplay');
+            if (!badge || !btn) return;
+            batchDisplay.textContent = data.batch_size || '50';
+            if (data.enabled) {
+                badge.textContent = 'Enabled';
+                badge.style.background = 'rgba(52,211,153,0.15)';
+                badge.style.color = '#34d399';
+                btn.innerHTML = '<i class="fas fa-toggle-on me-1"></i>Disable';
+                btn.style.borderColor = 'rgba(52,211,153,0.3)';
+                btn.style.color = '#34d399';
+            } else {
+                badge.textContent = 'Disabled';
+                badge.style.background = 'rgba(100,100,100,0.2)';
+                badge.style.color = 'rgba(224,220,216,0.4)';
+                btn.innerHTML = '<i class="fas fa-toggle-off me-1"></i>Enable';
+                btn.style.borderColor = 'rgba(255,255,255,0.15)';
+                btn.style.color = '#e0dcd8';
+            }
+            btn.disabled = false;
+            btn._cleanupEnabled = data.enabled;
+        } catch(e) {
+            var btn = document.getElementById('cleanupToggleBtn');
+            if (btn) { btn.innerHTML = 'Error'; }
+        }
+    }
+
+    async function toggleCleanup() {
+        var btn = document.getElementById('cleanupToggleBtn');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>';
+        var newEnabled = !btn._cleanupEnabled;
+        try {
+            var resp = await fetch('/automations/cleanup-settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+                credentials: 'same-origin',
+                body: JSON.stringify({enabled: newEnabled})
+            });
+            if (!resp.ok) throw new Error('Save failed');
+            await loadCleanupSettings();
+        } catch(e) {
+            await loadCleanupSettings();
+        }
+    }
+
     loadScheduledJobs();
     loadRunHistory();
+    loadCleanupSettings();
     updateRelativeTimes();
 
     schedulerPollInterval = setInterval(loadScheduledJobs, 30000);
+    setInterval(loadCleanupSettings, 60000);
     setInterval(updateRelativeTimes, 60000);
 </script>
 {% endblock %}

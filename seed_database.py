@@ -295,7 +295,9 @@ def seed_global_settings(db, GlobalSettings):
         # Defaults are always conservative (off) — user enables via UI
         automation_toggles = {
             'sftp_enabled': 'false',
-            'automated_uploads_enabled': 'true'
+            'automated_uploads_enabled': 'true',
+            'candidate_cleanup_enabled': 'false',
+            'candidate_cleanup_batch_size': '50',
         }
         
         for key, default_value in automation_toggles.items():

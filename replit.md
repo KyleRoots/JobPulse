@@ -27,7 +27,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Authentication**: Flask-Login for user management, supporting username or email login, with password reset.
 - **Authorization**: Granular module-based access control with route guards.
 - **User Management**: Admin interface for user CRUD, module subscriptions, Bullhorn User ID assignment, and account activation/reset. Includes "View As" impersonation.
-- **Background Processing**: APScheduler manages automated tasks (e.g., tearsheet monitoring, SFTP uploads, `enforce_tearsheet_jobs_public`, Scout Vetting cycle). Critical scheduled jobs use `misfire_grace_time=300` and `coalesce=False`.
+- **Background Processing**: APScheduler manages automated tasks (e.g., tearsheet monitoring, SFTP uploads, `enforce_tearsheet_jobs_public`, Scout Vetting cycle, `candidate_data_cleanup`). Critical scheduled jobs use `misfire_grace_time=300` and `coalesce=False`.
 - **XML Processing**: Custom `lxml` processor for data handling, reference number generation, and HTML consistency.
 - **Email Service**: SendGrid for notifications and delivery logging.
 - **AI/LLM Integration**: OpenAI GPT-4o for candidate vetting, job classification, and resume formatting.
@@ -57,10 +57,13 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Module Switcher**: UI component for non-admin users with multiple module subscriptions.
 - **Company Admin Role**: Specialized role for managing users within a specific company.
 - **Multi-Company Support**: `company` field on User model; company admins see only users within their company.
-- **Automation Hub (Super-Admin Only)**: Management console for scheduled jobs, built-in automation tools (e.g., `cleanup_ai_notes`, `export_qualified`), and run history. Long-running built-ins execute in background threads. All Bullhorn HTTP calls from background threads use standalone `requests.get()`/`requests.post()` for thread-safety.
+- **Automation Hub (Super-Admin Only)**: Management console for scheduled jobs, built-in automation tools (e.g., `cleanup_ai_notes`, `export_qualified`, `email_extractor`, `resume_reparser`, `retry_recruiter_notifications`), and run history. Long-running built-ins execute in background threads. All Bullhorn HTTP calls from background threads use standalone `requests.get()`/`requests.post()` for thread-safety. Email Extractor and Resume Reparser modals support optional `candidate_ids` field for targeted runs.
+- **Candidate Data Cleanup (Scheduled)**: Background job (every 30 min, batch=50) that automatically extracts missing emails from resume files and reparses empty candidate descriptions. Controlled by `candidate_cleanup_enabled` GlobalSettings toggle visible in the Automation Hub. Off by default; designed to clear the 97K+ candidate backlog over ~20 days at ~$0.15/cycle.
 - **Scout Automation Module (Planned)**: A user-friendly automation module for non-technical users with real-time progress notifications, background processing, and AI vision capabilities.
-- **Activity Log (Super-Admin Only)**: System-wide admin visibility page tracking login history, module usage, email delivery, and active users.
+- **Activity Log (Super-Admin Only)**: System-wide admin visibility page tracking login history, module usage, email delivery, and active users. Includes an **Active Users** tab showing real-time presence with status dots and 30-second auto-refresh (uses `last_active_at` column on User model, throttled to 1-minute DB writes).
 - **Vetting Sandbox (Super-Admin Only)**: 5-stage wizard for manually testing the AI vetting pipeline in isolation.
+- **Resume Character Limit (Vetting)**: AI vetting reads up to 20,000 characters of resume text (previously 8,000). GAP DESCRIPTION PRECISION prompt: AI must distinguish between a skill being truly absent vs. present-but-insufficient in the resume — eliminates false "no evidence" gap reports.
+- **DOCX Resume Parsing**: Multi-layer extraction from section headers, body paragraphs, table cells, text boxes (w:drawing XML), and full XML w:t fallback — captures emails and content regardless of resume template layout. Supports `.doc` files via antiword conversion. Garbled text detection with fallback to plain-text-to-HTML conversion.
 
 ## External Dependencies
 

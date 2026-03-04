@@ -179,6 +179,7 @@ VISIBLE_JOBS = {
     'reference_number_refresh': 'Reference Number Refresh',
     'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
     'requirements_maintenance': 'Requirements Maintenance',
+    'candidate_data_cleanup': 'Candidate Data Cleanup',
 }
 
 PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetting_health_check'}
@@ -345,3 +346,32 @@ def scheduler_job_resume(job_id):
     except Exception as e:
         logger.error(f"Failed to resume job {job_id}: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@automations_bp.route('/automations/cleanup-settings', methods=['GET'])
+@login_required
+def cleanup_settings_get():
+    _require_admin()
+    from models import GlobalSettings
+    enabled = GlobalSettings.get_value('candidate_cleanup_enabled', 'false').lower() == 'true'
+    batch_size = GlobalSettings.get_value('candidate_cleanup_batch_size', '50')
+    return jsonify({'enabled': enabled, 'batch_size': batch_size})
+
+
+@automations_bp.route('/automations/cleanup-settings', methods=['POST'])
+@login_required
+def cleanup_settings_save():
+    _require_admin()
+    from models import GlobalSettings
+    from extensions import db
+    data = request.get_json() or {}
+    if 'enabled' in data:
+        GlobalSettings.set_value('candidate_cleanup_enabled', 'true' if data['enabled'] else 'false')
+    if 'batch_size' in data:
+        try:
+            size = max(1, min(500, int(data['batch_size'])))
+            GlobalSettings.set_value('candidate_cleanup_batch_size', str(size))
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid batch_size'}), 400
+    logger.info(f"Candidate cleanup settings updated: {json.dumps(data)}")
+    return jsonify({'success': True})
