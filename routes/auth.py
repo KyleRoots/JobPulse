@@ -261,6 +261,7 @@ def send_welcome_email(user, set_password_url):
         try:
             from models import EmailDeliveryLog
             from extensions import db as _edb
+            _edb.session.rollback()
             _edb.session.add(EmailDeliveryLog(
                 notification_type='welcome_email',
                 recipient_email=user.email,
@@ -269,8 +270,12 @@ def send_welcome_email(user, set_password_url):
                 error_message=None if success else f"Status {resp.status_code}"
             ))
             _edb.session.commit()
-        except Exception:
-            logger.debug("Failed to log welcome email delivery", exc_info=True)
+        except Exception as log_err:
+            logger.error(f"Failed to log welcome email delivery: {log_err}", exc_info=True)
+            try:
+                _edb.session.rollback()
+            except Exception:
+                pass
         if success:
             logger.info(f"Welcome email sent to {user.email}")
             return True
@@ -281,6 +286,7 @@ def send_welcome_email(user, set_password_url):
         try:
             from models import EmailDeliveryLog
             from extensions import db as _edb
+            _edb.session.rollback()
             _edb.session.add(EmailDeliveryLog(
                 notification_type='welcome_email',
                 recipient_email=user.email,
@@ -289,8 +295,12 @@ def send_welcome_email(user, set_password_url):
                 error_message=str(e)[:500]
             ))
             _edb.session.commit()
-        except Exception:
-            pass
+        except Exception as log_err:
+            logger.error(f"Failed to log welcome email (error path): {log_err}", exc_info=True)
+            try:
+                _edb.session.rollback()
+            except Exception:
+                pass
         return False
 
 

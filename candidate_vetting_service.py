@@ -19,7 +19,8 @@ from openai import OpenAI
 from app import db
 from models import (
     CandidateVettingLog, CandidateJobMatch, VettingConfig,
-    BullhornMonitor, GlobalSettings, JobVettingRequirements, ParsedEmail
+    BullhornMonitor, GlobalSettings, JobVettingRequirements, ParsedEmail,
+    EmailDeliveryLog
 )
 from bullhorn_service import BullhornService
 from email_service import EmailService
@@ -45,7 +46,7 @@ class CandidateVettingService:
     
     def __init__(self, bullhorn_service: BullhornService = None):
         self.bullhorn = bullhorn_service
-        self.email_service = EmailService()
+        self.email_service = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
         self.openai_client = None
         self._init_openai()
         
