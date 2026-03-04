@@ -143,7 +143,7 @@ class SimplifiedXMLGenerator:
         Get the N most recently added job IDs for a tearsheet,
         based on when each job was first observed in TearsheetJobHistory.
         
-        Returns None if no history data exists (cap will be skipped as a safety measure).
+        Returns None if no history data exists — caller should apply job-ID fallback cap.
         """
         try:
             from models import TearsheetJobHistory
@@ -159,13 +159,13 @@ class SimplifiedXMLGenerator:
                 func.min(TearsheetJobHistory.timestamp).desc()
             ).limit(limit).all()
             if not results:
-                self.logger.warning(f"⚠️ No TearsheetJobHistory for tearsheet {tearsheet_id} — skipping cap (all jobs included)")
+                self.logger.warning(f"⚠️ No TearsheetJobHistory for tearsheet {tearsheet_id} — will fall back to job ID ordering")
                 return None
             recent_ids = {str(r.job_id) for r in results}
-            self.logger.info(f"📋 Tearsheet {tearsheet_id} cap: keeping {len(recent_ids)} most recent of {limit} requested")
+            self.logger.info(f"📋 Tearsheet {tearsheet_id} cap: keeping {len(recent_ids)} most recent (by timestamp) of {limit} requested")
             return recent_ids
         except Exception as e:
-            self.logger.error(f"Failed to query TearsheetJobHistory for cap on {tearsheet_id}: {e} — skipping cap")
+            self.logger.error(f"Failed to query TearsheetJobHistory for cap on {tearsheet_id}: {e} — will fall back to job ID ordering")
             return None
 
     def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int],
@@ -203,9 +203,15 @@ class SimplifiedXMLGenerator:
                 self.logger.info(f"Found {len(jobs)} jobs in tearsheet {tearsheet_id}")
                 
                 allowed_ids = cap_filters.get(tearsheet_id)
-                
+                cap_limit = tearsheet_caps.get(tearsheet_id) if tearsheet_caps else None
+                use_id_fallback = (cap_limit is not None) and (allowed_ids is None)
+
+                if use_id_fallback:
+                    self.logger.info(f"📋 Tearsheet {tearsheet_id} cap: using job ID fallback (no TearsheetJobHistory data) — keeping top {cap_limit} by ID")
+
                 filtered_count = 0
-                capped_count = 0
+                eligible_jobs_this_tearsheet = []
+
                 for job in jobs:
                     job_id = job.get('id')
                     if job_id and job_id not in seen_job_ids:
@@ -221,26 +227,36 @@ class SimplifiedXMLGenerator:
                             self.logger.info(f"  Filtered job {job_id}: {job.get('title', '?')[:50]} (status={status})")
                             filtered_count += 1
                             continue
-                        
+
                         if allowed_ids is not None and str(job_id) not in allowed_ids:
-                            capped_count += 1
                             continue
-                        
-                        monitor_name = self.tearsheet_monitor_mapping.get(tearsheet_id, 'default')
+
+                        eligible_jobs_this_tearsheet.append(job)
+
+                if use_id_fallback and cap_limit:
+                    eligible_jobs_this_tearsheet.sort(key=lambda j: j.get('id', 0), reverse=True)
+                    eligible_jobs_this_tearsheet = eligible_jobs_this_tearsheet[:cap_limit]
+
+                capped_count = 0
+                monitor_name = self.tearsheet_monitor_mapping.get(tearsheet_id, 'default')
+                for job in eligible_jobs_this_tearsheet:
+                    job_id = job.get('id')
+                    if job_id not in seen_job_ids:
                         job['tearsheet_context'] = {
                             'tearsheet_id': tearsheet_id,
                             'monitor_name': monitor_name
                         }
                         all_jobs.append(job)
                         seen_job_ids.add(job_id)
-                        
-                        self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')} from {monitor_name} [isOpen={is_open}, status={status}]")
-                
+                        self.logger.debug(f"Added job {job_id}: {job.get('title', 'Unknown')} from {monitor_name}")
+                    else:
+                        capped_count += 1
+
                 if filtered_count > 0:
                     self.logger.info(f"  ⚠️ Filtered out {filtered_count} ineligible jobs from tearsheet {tearsheet_id}")
                     total_filtered += filtered_count
                 if capped_count > 0:
-                    self.logger.info(f"  🔒 Capped: excluded {capped_count} older jobs from tearsheet {tearsheet_id} (cap={tearsheet_caps.get(tearsheet_id)})")
+                    self.logger.info(f"  🔒 Capped: excluded {capped_count} older jobs from tearsheet {tearsheet_id} (cap={cap_limit})")
                     
             except Exception as e:
                 self.logger.error(f"Error processing tearsheet {tearsheet_id}: {str(e)}")
