@@ -448,6 +448,13 @@
                 title="Collapse all job requirements">
                 <i class="fas fa-compress-alt me-1"></i>Collapse All
             </button>
+            <form action="{{ url_for('vetting.extract_all_job_requirements') }}" method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-warning btn-sm"
+                    onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Extracting...'; this.form.submit();">
+                    <i class="fas fa-magic me-1"></i>Extract All Requirements
+                </button>
+            </form>
             <form action="{{ url_for('vetting.sync_job_requirements') }}" method="POST" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-outline-primary btn-sm"
@@ -527,7 +534,7 @@
                                     {% else %}
                                     <p class="text-muted"><i class="fas fa-exclamation-circle me-1"></i>No AI
                                         interpretation
-                                        yet. Click "Sync Jobs" to extract requirements.</p>
+                                        yet. Click "Extract All Requirements" to run AI extraction.</p>
                                     {% endif %}
                                 </div>
                                 <div class="col-md-5">
@@ -576,7 +583,7 @@
             <div class="text-center py-4">
                 <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
                 <h5>No Job Requirements Data</h5>
-                <p class="text-muted">Click "Sync Jobs" to extract requirements from active tearsheet jobs.</p>
+                <p class="text-muted">Click "Extract All Requirements" above to process all active jobs through AI.</p>
             </div>
             {% endif %}
         </div>
