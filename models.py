@@ -362,6 +362,21 @@ class EmailDeliveryLog(db.Model):
     def __repr__(self):
         return f'<EmailDeliveryLog {self.notification_type} to {self.recipient_email}>'
 
+class UserActivityLog(db.Model):
+    __tablename__ = 'user_activity_log'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    activity_type = db.Column(db.String(50), nullable=False, index=True)
+    details = db.Column(db.Text, nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    user = db.relationship('User', backref=db.backref('activity_logs', lazy='dynamic'))
+
+    def __repr__(self):
+        return f'<UserActivityLog {self.activity_type} user={self.user_id}>'
+
+
 class RecruiterMapping(db.Model):
     """Mapping of recruiter names to LinkedIn tags (#LI-XXX)"""
     id = db.Column(db.Integer, primary_key=True)

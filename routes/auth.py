@@ -67,15 +67,28 @@ def login():
             (_db.func.lower(User.email) == identifier.lower())
         ).first()
         if user and user.check_password(password):
-            # Update last login
             user.last_login = datetime.utcnow()
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            try:
+                from models import UserActivityLog
+                import json as _json
+                db.session.add(UserActivityLog(
+                    user_id=user.id,
+                    activity_type='login',
+                    ip_address=request.remote_addr,
+                    details=_json.dumps({'user_agent': request.headers.get('User-Agent', '')[:500]})
+                ))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                logger.debug("Failed to log user activity", exc_info=True)
             
-            login_user(user, remember=True)  # Remember user for extended session
-            session.permanent = True  # Enable 30-day session persistence
-            # Removed welcome message for cleaner login experience
+            login_user(user, remember=True)
+            session.permanent = True
             
-            # Start scheduler on successful login
             ensure_background_services()
             
             next_page = request.args.get('next')
@@ -244,13 +257,40 @@ def send_welcome_email(user, set_password_url):
             html_content=Content('text/html', html_content)
         )
         resp = sg.client.mail.send.post(request_body=mail.get())
-        if resp.status_code == 202:
+        success = resp.status_code == 202
+        try:
+            from models import EmailDeliveryLog
+            from extensions import db as _edb
+            _edb.session.add(EmailDeliveryLog(
+                notification_type='welcome_email',
+                recipient_email=user.email,
+                delivery_status='sent' if success else 'failed',
+                changes_summary=f"Welcome email — account activation for {display_name}",
+                error_message=None if success else f"Status {resp.status_code}"
+            ))
+            _edb.session.commit()
+        except Exception:
+            logger.debug("Failed to log welcome email delivery", exc_info=True)
+        if success:
             logger.info(f"Welcome email sent to {user.email}")
             return True
         logger.error(f"Welcome email failed: status {resp.status_code}")
         return False
     except Exception as e:
         logger.error(f"Error sending welcome email: {e}", exc_info=True)
+        try:
+            from models import EmailDeliveryLog
+            from extensions import db as _edb
+            _edb.session.add(EmailDeliveryLog(
+                notification_type='welcome_email',
+                recipient_email=user.email,
+                delivery_status='failed',
+                changes_summary=f"Welcome email — account activation for {user.display_name or user.username}",
+                error_message=str(e)[:500]
+            ))
+            _edb.session.commit()
+        except Exception:
+            pass
         return False
 
 
@@ -283,13 +323,40 @@ def send_password_reset_email(user, reset_url):
             html_content=Content('text/html', html_content)
         )
         resp = sg.client.mail.send.post(request_body=mail.get())
-        if resp.status_code == 202:
+        success = resp.status_code == 202
+        try:
+            from models import EmailDeliveryLog
+            from extensions import db as _edb
+            _edb.session.add(EmailDeliveryLog(
+                notification_type='password_reset_email',
+                recipient_email=user.email,
+                delivery_status='sent' if success else 'failed',
+                changes_summary=f"Password reset email for {display_name}",
+                error_message=None if success else f"Status {resp.status_code}"
+            ))
+            _edb.session.commit()
+        except Exception:
+            logger.debug("Failed to log reset email delivery", exc_info=True)
+        if success:
             logger.info(f"Reset email sent to {user.email}")
             return True
         logger.error(f"Reset email failed: status {resp.status_code}")
         return False
     except Exception as e:
         logger.error(f"Error sending reset email: {e}", exc_info=True)
+        try:
+            from models import EmailDeliveryLog
+            from extensions import db as _edb
+            _edb.session.add(EmailDeliveryLog(
+                notification_type='password_reset_email',
+                recipient_email=user.email,
+                delivery_status='failed',
+                changes_summary=f"Password reset email for {user.display_name or user.username}",
+                error_message=str(e)[:500]
+            ))
+            _edb.session.commit()
+        except Exception:
+            pass
         return False
 
 

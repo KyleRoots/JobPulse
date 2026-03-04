@@ -1640,6 +1640,11 @@
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                 </a>
+                <a href="{{ url_for('activity_log.activity_log_page') }}"
+                    class="nav-item {% if active_page == 'activity_log' %}active{% endif %}">
+                    <i class="fas fa-history"></i>
+                    <span>Activity Log</span>
+                </a>
                 <a href="{{ url_for('ats_integration.ats_integration_settings') }}"
                     class="nav-item {% if active_page == 'ats_settings' %}active{% endif %}">
                     <i class="fas fa-key"></i>

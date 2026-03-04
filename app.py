@@ -204,7 +204,60 @@ app.register_blueprint(support_request_bp)
 from routes.vetting_sandbox import vetting_sandbox_bp
 app.register_blueprint(vetting_sandbox_bp)
 
+from routes.activity_log import activity_log_bp
+app.register_blueprint(activity_log_bp)
+
 from utils.bullhorn_helpers import get_bullhorn_service, get_email_service
+
+_MODULE_MAP = {
+    '/screening': 'scout_screening',
+    '/vetting': 'scout_screening',
+    '/scout-screening': 'scout_screening',
+    '/ats-integration': 'scout_inbound',
+    '/scout-inbound': 'scout_inbound',
+    '/automations': 'scout_automation',
+    '/workbench': 'scout_automation',
+    '/scout-automation': 'scout_automation',
+    '/settings': 'system',
+    '/email-logs': 'system',
+    '/log-monitoring': 'system',
+    '/activity-log': 'system',
+    '/dashboard': 'system',
+}
+
+@app.before_request
+def _track_module_access():
+    if request.method != 'GET' or not current_user.is_authenticated:
+        return
+    if request.path.startswith('/static') or request.path.startswith('/api'):
+        return
+    module = None
+    for prefix, mod in _MODULE_MAP.items():
+        if request.path.startswith(prefix):
+            module = mod
+            break
+    if not module:
+        return
+    last = session.get('_last_module')
+    if last == module:
+        return
+    session['_last_module'] = module
+    try:
+        from models import UserActivityLog
+        from extensions import db as _db
+        _db.session.add(UserActivityLog(
+            user_id=current_user.id,
+            activity_type='module_access',
+            ip_address=request.remote_addr,
+            details=json.dumps({'module': module, 'path': request.path})
+        ))
+        _db.session.commit()
+    except Exception:
+        try:
+            from extensions import db as _db2
+            _db2.session.rollback()
+        except Exception:
+            pass
 
 @login_manager.user_loader
 def load_user(user_id):
