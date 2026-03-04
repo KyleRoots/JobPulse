@@ -251,7 +251,7 @@ def send_welcome_email(user, set_password_url):
         )
         sg = SendGridAPIClient(sg_api_key)
         mail = Mail(
-            from_email=Email('kroots@myticas.com', 'Scout Genius'),
+            from_email=Email('noreply@scoutgenius.ai', 'Scout Genius'),
             to_emails=To(user.email),
             subject='Welcome to Scout Genius — Set Your Password',
             html_content=Content('text/html', html_content)
@@ -317,7 +317,7 @@ def send_password_reset_email(user, reset_url):
         )
         sg = SendGridAPIClient(sg_api_key)
         mail = Mail(
-            from_email=Email('kroots@myticas.com', 'Scout Genius'),
+            from_email=Email('noreply@scoutgenius.ai', 'Scout Genius'),
             to_emails=To(user.email),
             subject='Reset Your Scout Genius Password',
             html_content=Content('text/html', html_content)
