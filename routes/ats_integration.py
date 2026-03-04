@@ -546,7 +546,7 @@ def ats_integration_settings():
         setting = GlobalSettings.query.filter_by(setting_key=key).first()
         settings[key] = setting.setting_value if setting else ''
     
-    return render_template('ats_integration_settings.html', settings=settings)
+    return render_template('ats_integration_settings.html', settings=settings, active_page='ats_settings')
 
 
 @ats_integration_bp.route('/api/ats-integration/connection-test', methods=['POST'])

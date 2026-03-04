@@ -1246,8 +1246,9 @@ def enforce_tearsheet_jobs_public():
 
             monitors = BullhornMonitor.query.filter_by(is_active=True).all()
             tearsheet_ids = [m.tearsheet_id for m in monitors if m.tearsheet_id]
+            snapshot_monitors = [m for m in monitors if not m.tearsheet_id]
 
-            if not tearsheet_ids:
+            if not tearsheet_ids and not snapshot_monitors:
                 logger.info("enforce_tearsheet_jobs_public: no active monitors configured — skipping")
                 return
 
@@ -1264,40 +1265,76 @@ def enforce_tearsheet_jobs_public():
                 "Accept": "application/json",
             }
 
-            tearsheet_clause = " OR ".join(str(tid) for tid in tearsheet_ids)
-            query = f"tearsheets.id:({tearsheet_clause}) AND isPublic:0 AND NOT isDeleted:true"
+            snapshot_job_ids = set()
+            if snapshot_monitors:
+                import json as _json
+                for sm in snapshot_monitors:
+                    if sm.last_job_snapshot:
+                        try:
+                            snap = _json.loads(sm.last_job_snapshot)
+                            for j in snap:
+                                jid = j.get('id') if isinstance(j, dict) else j
+                                if jid:
+                                    snapshot_job_ids.add(int(jid))
+                        except Exception:
+                            pass
+                if snapshot_job_ids:
+                    logger.info(f"enforce_tearsheet_jobs_public: {len(snapshot_job_ids)} job(s) from snapshot-based monitors")
 
             search_url = f"{base_url}search/JobOrder"
+            total = 0
+            all_jobs = []
 
-            count_resp = _requests.get(search_url, headers=headers, params={
-                "query": query, "fields": "id", "count": 1, "start": 0,
-            }, timeout=30)
-            count_resp.raise_for_status()
-            total = count_resp.json().get("total", 0)
+            if tearsheet_ids:
+                tearsheet_clause = " OR ".join(str(tid) for tid in tearsheet_ids)
+                query = f"tearsheets.id:({tearsheet_clause}) AND isPublic:0 AND NOT isDeleted:true"
 
-            if total == 0:
+                count_resp = _requests.get(search_url, headers=headers, params={
+                    "query": query, "fields": "id", "count": 1, "start": 0,
+                }, timeout=30)
+                count_resp.raise_for_status()
+                total = count_resp.json().get("total", 0)
+
+            if snapshot_job_ids:
+                for sjid in snapshot_job_ids:
+                    try:
+                        entity_resp = _requests.get(
+                            f"{base_url}entity/JobOrder/{sjid}",
+                            headers=headers,
+                            params={"fields": "id,status,isPublic"},
+                            timeout=15,
+                        )
+                        if entity_resp.status_code == 200:
+                            jdata = entity_resp.json().get("data", {})
+                            if jdata and not jdata.get("isPublic", True):
+                                all_jobs.append(jdata)
+                    except Exception:
+                        pass
+
+            if total == 0 and not all_jobs:
                 logger.info("enforce_tearsheet_jobs_public: all tearsheet jobs are already public — nothing to do")
+                _store_enforce_result(0, [], app)
                 return
 
-            logger.info(f"enforce_tearsheet_jobs_public: found {total:,} non-public job(s) across tearsheets {tearsheet_ids}")
-
-            all_jobs = []
-            start = 0
-            batch_size = 200
-
-            while start < total:
-                fetch_resp = _requests.get(search_url, headers=headers, params={
-                    "query": query, "fields": "id,status",
-                    "count": batch_size, "start": start,
-                }, timeout=30)
-                fetch_resp.raise_for_status()
-                page = fetch_resp.json().get("data", [])
-                if not page:
-                    break
-                all_jobs.extend(page)
-                start += len(page)
-                if len(page) < batch_size:
-                    break
+            if total > 0:
+                logger.info(f"enforce_tearsheet_jobs_public: found {total:,} non-public job(s) across tearsheets {tearsheet_ids}")
+                start = 0
+                batch_size = 200
+                while start < total:
+                    fetch_resp = _requests.get(search_url, headers=headers, params={
+                        "query": query, "fields": "id,status",
+                        "count": batch_size, "start": start,
+                    }, timeout=30)
+                    fetch_resp.raise_for_status()
+                    page = fetch_resp.json().get("data", [])
+                    if not page:
+                        break
+                    all_jobs.extend(page)
+                    start += len(page)
+                    if len(page) < batch_size:
+                        break
+            if all_jobs and not tearsheet_ids:
+                logger.info(f"enforce_tearsheet_jobs_public: found {len(all_jobs)} non-public job(s) from snapshot monitors")
 
             seen_ids = set()
             jobs_to_update = []
@@ -1308,9 +1345,10 @@ def enforce_tearsheet_jobs_public():
                     seen_ids.add(job_id)
                     jobs_to_update.append(job_id)
 
-            skipped = total - len(jobs_to_update)
+            skipped = len(all_jobs) - len(jobs_to_update)
             if not jobs_to_update:
-                logger.info(f"enforce_tearsheet_jobs_public: all {total} non-public jobs have ineligible statuses — skipping updates")
+                logger.info(f"enforce_tearsheet_jobs_public: all {len(all_jobs)} non-public jobs have ineligible statuses — skipping updates")
+                _store_enforce_result(0, [], app)
                 return
 
             logger.info(f"enforce_tearsheet_jobs_public: will update {len(jobs_to_update)} job(s) (skipped {skipped} with ineligible status)")
@@ -1357,5 +1395,29 @@ def enforce_tearsheet_jobs_public():
                 + (f" | sample IDs: {sample_updated}" if sample_updated else "")
             )
 
+            _store_enforce_result(succeeded, sample_updated, app)
+
         except Exception as e:
             logger.error(f"enforce_tearsheet_jobs_public: unexpected error — {e}")
+            _store_enforce_result(0, [], app)
+
+
+def _store_enforce_result(succeeded, sample_ids, app):
+    import json as _json
+    try:
+        from models import GlobalSettings
+        from app import db
+        result = _json.dumps({
+            "succeeded": succeeded,
+            "sample_ids": sample_ids,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        })
+        setting = GlobalSettings.query.filter_by(setting_key='enforce_public_last_result').first()
+        if setting:
+            setting.setting_value = result
+        else:
+            setting = GlobalSettings(setting_key='enforce_public_last_result', setting_value=result)
+            db.session.add(setting)
+        db.session.commit()
+    except Exception as e:
+        logger.warning(f"enforce_tearsheet_jobs_public: could not store result — {e}")

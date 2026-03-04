@@ -305,7 +305,7 @@ This feedback was submitted via the Scout Genius™ Feedback system.
             """
             
             mail = Mail(
-                from_email=Email("noreply@lyntrix.ai", "Scout Genius Feedback"),
+                from_email=Email("noreply@scoutgenius.ai", "Scout Genius Feedback"),
                 to_emails=To(admin_email),
                 subject=f"[Scout Genius Feedback] {type_label} from {user}",
                 plain_text_content=Content("text/plain", email_content),

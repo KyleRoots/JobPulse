@@ -854,6 +854,7 @@
                 <div class="job-meta">
                     ${nextRunText ? `<div>Next run: ${escapeHtml(nextRunText)}</div>` : ''}
                     ${lastRunHtml}
+                    ${job.last_result_text ? `<div style="color:#d4880f;font-size:0.7rem;margin-top:2px;"><i class="fas fa-info-circle" style="font-size:0.6rem;"></i> ${escapeHtml(job.last_result_text)}</div>` : ''}
                     ${job.paused ? '<div style="color:#e8a87c;font-size:0.7rem;">⏸ Paused</div>' : ''}
                 </div>
                 <div class="job-controls">${controlsHtml}</div>

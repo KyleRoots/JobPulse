@@ -259,6 +259,22 @@ def scheduler_status():
                 except Exception:
                     pass
 
+                last_result_text = None
+                if job_id == 'enforce_tearsheet_jobs_public':
+                    try:
+                        result_raw = GlobalSettings.get_value('enforce_public_last_result')
+                        if result_raw:
+                            result_data = _json.loads(result_raw)
+                            count = result_data.get('succeeded', 0)
+                            ids = result_data.get('sample_ids', [])
+                            if count > 0:
+                                id_str = ', '.join(str(i) for i in ids[:5])
+                                last_result_text = f"{count} job(s) set to public (IDs: {id_str})"
+                            else:
+                                last_result_text = "All jobs already public"
+                    except Exception:
+                        pass
+
                 jobs.append({
                     'id': job_id,
                     'name': display_name,
@@ -269,6 +285,7 @@ def scheduler_status():
                     'last_run_success': last_run_success,
                     'is_protected': job_id in PROTECTED_JOBS,
                     'active': job is not None and next_run is not None,
+                    'last_result_text': last_result_text,
                 })
     except Exception as e:
         logger.error(f"Failed to get scheduler status: {e}")
