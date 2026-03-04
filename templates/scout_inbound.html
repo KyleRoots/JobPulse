@@ -140,10 +140,11 @@
 
 {% block content %}
 <!-- ===== SECTION 1: MY JOBS ===== -->
-<div class="section-header">
-    <div>
-        <h5><i class="fas fa-briefcase me-2" style="color: #e8a87c;"></i>My Jobs</h5>
-        <div class="section-subtitle">Jobs assigned to you across your inbound tearsheets</div>
+<div class="section-header" style="cursor:pointer;" onclick="toggleSection('myJobs')">
+    <div style="display:flex; align-items:center; gap:0.5rem;">
+        <h5 style="margin:0;"><i class="fas fa-briefcase me-2" style="color: #e8a87c;"></i>My Jobs</h5>
+        <i class="fas fa-chevron-right" id="myJobsChevron" style="font-size:0.8rem; color:rgba(255,255,255,0.4); transition:transform 0.2s; margin-left:0.25rem;"></i>
+        <div class="section-subtitle" style="margin:0; margin-left:0.5rem;">Jobs assigned to you across your inbound tearsheets</div>
     </div>
     <div>
         {% for ts in job_stats.tearsheets %}
@@ -152,6 +153,7 @@
     </div>
 </div>
 
+<div id="myJobsCollapse" style="display:none;">
 <div class="metrics-row mb-4">
     <div class="metric-card blue">
         <div class="metric-icon"><i class="fas fa-briefcase"></i></div>
@@ -229,17 +231,20 @@
         </div>
     </div>
 </div>
+</div><!-- /myJobsCollapse -->
 
 <!-- ===== SECTION 2: CANDIDATES APPLIED ===== -->
 <div class="section-divider"></div>
 
-<div class="section-header">
-    <div>
-        <h5><i class="fas fa-user-check me-2" style="color: #e8a87c;"></i>Candidates Applied</h5>
-        <div class="section-subtitle">Candidate resumes are automatically parsed and imported into the ATS using AI</div>
+<div class="section-header" style="cursor:pointer;" onclick="toggleSection('candidatesApplied')">
+    <div style="display:flex; align-items:center; gap:0.5rem;">
+        <h5 style="margin:0;"><i class="fas fa-user-check me-2" style="color: #e8a87c;"></i>Candidates Applied</h5>
+        <i class="fas fa-chevron-right" id="candidatesAppliedChevron" style="font-size:0.8rem; color:rgba(255,255,255,0.4); transition:transform 0.2s; margin-left:0.25rem;"></i>
+        <div class="section-subtitle" style="margin:0; margin-left:0.5rem;">Candidate resumes are automatically parsed and imported into the ATS using AI</div>
     </div>
 </div>
 
+<div id="candidatesAppliedCollapse" style="display:none;">
 <div class="metrics-row mb-4">
     <div id="filter-all" class="metric-card blue metric-filter active" data-filter="all" style="cursor: pointer;" onclick="filterCandidates('all')">
         <div class="metric-icon"><i class="fas fa-user-plus"></i></div>
@@ -381,10 +386,26 @@
         </div>
     </div>
 </div>
+</div><!-- /candidatesAppliedCollapse -->
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
+    function toggleSection(name) {
+        var map = {
+            myJobs:            { content: 'myJobsCollapse',            chevron: 'myJobsChevron' },
+            candidatesApplied: { content: 'candidatesAppliedCollapse', chevron: 'candidatesAppliedChevron' }
+        };
+        var ids = map[name];
+        if (!ids) return;
+        var content = document.getElementById(ids.content);
+        var chevron = document.getElementById(ids.chevron);
+        if (!content) return;
+        var expanded = content.style.display !== 'none';
+        content.style.display = expanded ? 'none' : 'block';
+        if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
+    }
+
     function safeReload() {
         fetch(window.location.href, { redirect: 'manual' })
             .then(function(resp) {
