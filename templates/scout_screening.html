@@ -273,11 +273,15 @@
 </div>
 
 <!-- ===== SCREENED CANDIDATES ===== -->
-<div class="section-header">
-    <h5><i class="fas fa-users me-2" style="color:var(--sc-accent);"></i>Screened Candidates</h5>
+<div class="section-header" style="cursor:pointer;" onclick="toggleSection('candidates')">
+    <div style="display:flex; align-items:center; gap:0.5rem;">
+        <h5 style="margin:0;"><i class="fas fa-users me-2" style="color:var(--sc-accent);"></i>Screened Candidates</h5>
+        <i class="fas fa-chevron-right" id="candidatesChevron" style="font-size:0.8rem; color:rgba(255,255,255,0.4); transition:transform 0.2s;"></i>
+    </div>
     <div class="section-subtitle">AI match results for candidates on your active jobs — click a metric card above to filter</div>
 </div>
 
+<div id="candidatesCollapse" style="display:none;">
 <div class="sc-card mb-4">
     <div class="card-body p-0">
 {% if matches or pending_logs %}
@@ -409,15 +413,20 @@
 {% endif %}
     </div>
 </div>
+</div><!-- /candidatesCollapse -->
 
 <!-- ===== JOB LEVEL SETTINGS ===== -->
 {% if jobs_map %}
 <div class="section-divider"></div>
-<div class="section-header">
-    <h5><i class="fas fa-sliders-h me-2" style="color:var(--sc-accent);"></i>Job-Level Settings</h5>
+<div class="section-header" style="cursor:pointer;" onclick="toggleSection('jobSettings')">
+    <div style="display:flex; align-items:center; gap:0.5rem;">
+        <h5 style="margin:0;"><i class="fas fa-sliders-h me-2" style="color:var(--sc-accent);"></i>Job-Level Settings</h5>
+        <i class="fas fa-chevron-right" id="jobSettingsChevron" style="font-size:0.8rem; color:rgba(255,255,255,0.4); transition:transform 0.2s;"></i>
+    </div>
     <div class="section-subtitle">Refine AI screening per job — custom requirements and thresholds override global defaults</div>
 </div>
 
+<div id="jobSettingsCollapse" style="display:none;">
 <div class="sc-card">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -489,6 +498,7 @@
         </div>
     </div>
 </div>
+</div><!-- /jobSettingsCollapse -->
 {% endif %}
 
 <!-- ===== CONFIGURE OVERRIDE MODAL ===== -->
@@ -804,5 +814,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     startTimer();
 }());
+
+function toggleSection(name) {
+    var map = {
+        candidates:  { content: 'candidatesCollapse',  chevron: 'candidatesChevron' },
+        jobSettings: { content: 'jobSettingsCollapse', chevron: 'jobSettingsChevron' }
+    };
+    var ids = map[name];
+    if (!ids) return;
+    var content = document.getElementById(ids.content);
+    var chevron = document.getElementById(ids.chevron);
+    if (!content) return;
+    var expanded = content.style.display !== 'none';
+    content.style.display = expanded ? 'none' : 'block';
+    if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
+}
 </script>
 {% endblock %}

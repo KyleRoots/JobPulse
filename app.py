@@ -41,7 +41,7 @@ from tasks import (check_monitor_health, check_environment_status, send_environm
                    run_data_retention_cleanup, run_vetting_health_check, send_vetting_health_alert,
                    run_candidate_vetting_cycle, reference_number_refresh, automated_upload,
                    run_xml_change_monitor, start_scheduler_manual, cleanup_linkedin_source,
-                   enforce_tearsheet_jobs_public)
+                   enforce_tearsheet_jobs_public, run_requirements_maintenance)
 
 # Configure logging for debugging account manager extraction
 logging.basicConfig(
@@ -1283,6 +1283,17 @@ if is_primary_worker:
         coalesce=False
     )
     app.logger.info("🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs")
+
+    scheduler.add_job(
+        func=run_requirements_maintenance,
+        trigger=IntervalTrigger(minutes=5),
+        id='requirements_maintenance',
+        name='Requirements Maintenance — New & Modified Jobs (5 min)',
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=False
+    )
+    app.logger.info("🔍 Requirements maintenance enabled — auto-extracts for new jobs and re-interprets modified descriptions every 5 minutes")
 
     def run_salesrep_sync_job():
         try:

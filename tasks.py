@@ -1452,3 +1452,112 @@ def _store_enforce_result(succeeded, sample_ids, app):
         db.session.commit()
     except Exception as e:
         logger.warning(f"enforce_tearsheet_jobs_public: could not store result — {e}")
+
+
+def run_requirements_maintenance():
+    """
+    Scheduled job (every 5 minutes): keep AI job requirements up to date automatically.
+
+    Two responsibilities:
+      A) Re-interpret modified jobs — calls check_and_refresh_changed_jobs() which compares
+         Bullhorn dateLastModified vs last_ai_interpretation and re-runs GPT-4o extraction
+         for any job whose description has changed since the last interpretation.
+      B) Extract for new jobs — finds any jobs currently in monitored tearsheets that have
+         no JobVettingRequirements record yet and extracts requirements via GPT-4o.
+
+    In steady state (nothing changed, nothing new) this task makes only lightweight Bullhorn
+    bulk-fetch calls and zero GPT-4o calls, so the 5-minute frequency is safe.
+
+    THREAD-SAFETY: Runs inside app.app_context() — uses CandidateVettingService which manages
+    its own Bullhorn session internally. No direct bh.session.* access here.
+    """
+    from app import app
+
+    with app.app_context():
+        try:
+            from models import VettingConfig, JobVettingRequirements
+            from candidate_vetting_service import CandidateVettingService
+
+            vetting_enabled = VettingConfig.get_value('vetting_enabled', 'false')
+            if str(vetting_enabled).lower() != 'true':
+                return
+
+            svc = CandidateVettingService()
+
+            # ── Part A: re-interpret modified jobs ──────────────────────────
+            try:
+                mod_results = svc.check_and_refresh_changed_jobs()
+                refreshed = mod_results.get('jobs_refreshed', 0)
+                if refreshed > 0:
+                    logger.info(
+                        f"Requirements maintenance [modified]: {refreshed} job(s) re-interpreted, "
+                        f"{mod_results.get('jobs_skipped', 0)} unchanged"
+                    )
+            except Exception as mod_err:
+                logger.error(f"Requirements maintenance [modified]: error — {mod_err}")
+
+            # ── Part B: extract for new jobs ────────────────────────────────
+            try:
+                active_jobs = svc.get_active_jobs_from_tearsheets()
+                if not active_jobs:
+                    return
+
+                existing_ids = set(
+                    r.bullhorn_job_id for r in
+                    JobVettingRequirements.query.filter(
+                        JobVettingRequirements.ai_interpreted_requirements.isnot(None)
+                    ).with_entities(JobVettingRequirements.bullhorn_job_id).all()
+                )
+
+                new_jobs = [
+                    j for j in active_jobs
+                    if j.get('id') and int(j['id']) not in existing_ids
+                ]
+
+                if not new_jobs:
+                    return
+
+                logger.info(f"Requirements maintenance [new]: {len(new_jobs)} job(s) found without requirements — extracting…")
+
+                jobs_payload = []
+                for job in new_jobs:
+                    job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+                    job_city = job_address.get('city', '')
+                    job_state = job_address.get('state', '')
+                    job_country = job_address.get('countryName', '') or job_address.get('country', '')
+                    job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
+
+                    on_site_value = job.get('onSite', 1)
+                    if isinstance(on_site_value, list):
+                        on_site_value = on_site_value[0] if on_site_value else 1
+                    if isinstance(on_site_value, (int, float)):
+                        work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+                        job_work_type = work_type_map.get(int(on_site_value), 'On-site')
+                    else:
+                        onsite_str = str(on_site_value).lower().strip() if on_site_value else ''
+                        if 'remote' in onsite_str or onsite_str == 'offsite':
+                            job_work_type = 'Remote'
+                        elif 'hybrid' in onsite_str:
+                            job_work_type = 'Hybrid'
+                        else:
+                            job_work_type = 'On-site'
+
+                    jobs_payload.append({
+                        'id': job.get('id'),
+                        'title': job.get('title', ''),
+                        'description': job.get('publicDescription', '') or job.get('description', ''),
+                        'location': job_location,
+                        'work_type': job_work_type,
+                    })
+
+                extract_results = svc.extract_requirements_for_jobs(jobs_payload)
+                logger.info(
+                    f"Requirements maintenance [new]: extracted={extract_results.get('extracted', 0)}, "
+                    f"skipped={extract_results.get('skipped', 0)}, failed={extract_results.get('failed', 0)}"
+                )
+
+            except Exception as new_err:
+                logger.error(f"Requirements maintenance [new]: error — {new_err}")
+
+        except Exception as e:
+            logger.error(f"run_requirements_maintenance: unexpected error — {e}")
