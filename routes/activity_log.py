@@ -52,9 +52,16 @@ def activity_log_page():
     days = request.args.get('days', 30, type=int)
     page = request.args.get('page', 1, type=int)
     per_page = 50
+
     email_type = request.args.get('email_type', '').strip()
     email_status = request.args.get('email_status', '').strip()
     recipient_search = request.args.get('recipient_search', '').strip()
+
+    ip_search = request.args.get('ip_search', '').strip()
+    browser_filter = request.args.get('browser_filter', '').strip()
+
+    module_filter = request.args.get('module_filter', '').strip()
+    page_search = request.args.get('page_search', '').strip()
 
     cutoff = datetime.utcnow() - timedelta(days=days)
     users = User.query.order_by(User.username).all()
@@ -70,6 +77,35 @@ def activity_log_page():
         )
         if user_filter:
             q = q.filter(UserActivityLog.user_id == user_filter)
+        if ip_search:
+            q = q.filter(UserActivityLog.ip_address.ilike(f'%{ip_search}%'))
+        if browser_filter:
+            details_text = db.cast(UserActivityLog.details, db.Text)
+            if browser_filter == 'chrome':
+                q = q.filter(
+                    details_text.ilike('%chrome%'),
+                    ~details_text.ilike('%edg/%'),
+                    ~details_text.ilike('%edge/%')
+                )
+            elif browser_filter == 'edge':
+                q = q.filter(
+                    db.or_(details_text.ilike('%edg/%'), details_text.ilike('%edge/%'))
+                )
+            elif browser_filter == 'firefox':
+                q = q.filter(details_text.ilike('%firefox%'))
+            elif browser_filter == 'safari':
+                q = q.filter(
+                    details_text.ilike('%safari%'),
+                    ~details_text.ilike('%chrome%')
+                )
+            elif browser_filter == 'other':
+                q = q.filter(
+                    ~details_text.ilike('%chrome%'),
+                    ~details_text.ilike('%edg/%'),
+                    ~details_text.ilike('%edge/%'),
+                    ~details_text.ilike('%firefox%'),
+                    ~details_text.ilike('%safari%')
+                )
         logins_data = q.order_by(UserActivityLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
     elif tab == 'modules':
@@ -79,6 +115,10 @@ def activity_log_page():
         )
         if user_filter:
             q = q.filter(UserActivityLog.user_id == user_filter)
+        if module_filter:
+            q = q.filter(db.cast(UserActivityLog.details, db.Text).ilike(f'%"{module_filter}"%'))
+        if page_search:
+            q = q.filter(db.cast(UserActivityLog.details, db.Text).ilike(f'%{page_search}%'))
         modules_data = q.order_by(UserActivityLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
     elif tab == 'emails':
@@ -133,5 +173,9 @@ def activity_log_page():
                            email_type=email_type,
                            email_status=email_status,
                            recipient_search=recipient_search,
+                           ip_search=ip_search,
+                           browser_filter=browser_filter,
+                           module_filter=module_filter,
+                           page_search=page_search,
                            parse_user_agent=_parse_user_agent,
                            json=json)

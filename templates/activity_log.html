@@ -12,6 +12,12 @@
     <input type="hidden" name="email_type" value="{{ email_type or '' }}">
     <input type="hidden" name="email_status" value="{{ email_status or '' }}">
     <input type="hidden" name="recipient_search" value="{{ recipient_search or '' }}">
+    {% elif tab == 'logins' %}
+    <input type="hidden" name="ip_search" value="{{ ip_search or '' }}">
+    <input type="hidden" name="browser_filter" value="{{ browser_filter or '' }}">
+    {% elif tab == 'modules' %}
+    <input type="hidden" name="module_filter" value="{{ module_filter or '' }}">
+    <input type="hidden" name="page_search" value="{{ page_search or '' }}">
     {% endif %}
     <select class="form-select form-select-sm" name="user" style="width: auto;" onchange="document.getElementById('filterForm').submit()">
         <option value="">All Users</option>
@@ -71,6 +77,26 @@
 </ul>
 
 {% if tab == 'logins' %}
+<form method="GET" action="{{ url_for('activity_log.activity_log_page') }}" class="mb-3">
+    <input type="hidden" name="tab" value="logins">
+    <input type="hidden" name="user" value="{{ user_filter or '' }}">
+    <input type="hidden" name="days" value="{{ days }}">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <select class="form-select form-select-sm" name="browser_filter" style="width: auto; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff;">
+            <option value="" {% if not browser_filter %}selected{% endif %}>All Browsers</option>
+            <option value="chrome" {% if browser_filter == 'chrome' %}selected{% endif %}>Chrome</option>
+            <option value="edge" {% if browser_filter == 'edge' %}selected{% endif %}>Edge</option>
+            <option value="firefox" {% if browser_filter == 'firefox' %}selected{% endif %}>Firefox</option>
+            <option value="safari" {% if browser_filter == 'safari' %}selected{% endif %}>Safari</option>
+            <option value="other" {% if browser_filter == 'other' %}selected{% endif %}>Other</option>
+        </select>
+        <input type="text" class="form-control form-control-sm" name="ip_search" value="{{ ip_search or '' }}" placeholder="Search IP address…" style="width: 200px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff;">
+        <button type="submit" class="btn btn-sm" style="background: rgba(74,150,120,0.2); border: 1px solid rgba(74,150,120,0.4); color: #4a9678; padding: 4px 14px;">Apply</button>
+        {% if ip_search or browser_filter %}
+        <a href="{{ url_for('activity_log.activity_log_page', tab='logins', user=user_filter or '', days=days) }}" class="btn btn-sm" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); padding: 4px 14px;">Clear</a>
+        {% endif %}
+    </div>
+</form>
 <div class="card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -123,7 +149,7 @@
         {% for p in logins_data.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
         {% if p %}
         <li class="page-item {% if p == logins_data.page %}active{% endif %}">
-            <a class="page-link" href="{{ url_for('activity_log.activity_log_page', tab='logins', user=user_filter or '', days=days, page=p) }}">{{ p }}</a>
+            <a class="page-link" href="{{ url_for('activity_log.activity_log_page', tab='logins', user=user_filter or '', days=days, page=p, ip_search=ip_search or '', browser_filter=browser_filter or '') }}">{{ p }}</a>
         </li>
         {% else %}
         <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -135,6 +161,25 @@
 {% endif %}
 
 {% if tab == 'modules' %}
+<form method="GET" action="{{ url_for('activity_log.activity_log_page') }}" class="mb-3">
+    <input type="hidden" name="tab" value="modules">
+    <input type="hidden" name="user" value="{{ user_filter or '' }}">
+    <input type="hidden" name="days" value="{{ days }}">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <select class="form-select form-select-sm" name="module_filter" style="width: auto; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff;">
+            <option value="" {% if not module_filter %}selected{% endif %}>All Modules</option>
+            <option value="scout_inbound" {% if module_filter == 'scout_inbound' %}selected{% endif %}>Scout Inbound</option>
+            <option value="scout_screening" {% if module_filter == 'scout_screening' %}selected{% endif %}>Scout Screening</option>
+            <option value="scout_automation" {% if module_filter == 'scout_automation' %}selected{% endif %}>Scout Automation</option>
+            <option value="system" {% if module_filter == 'system' %}selected{% endif %}>System</option>
+        </select>
+        <input type="text" class="form-control form-control-sm" name="page_search" value="{{ page_search or '' }}" placeholder="Search page path…" style="width: 220px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff;">
+        <button type="submit" class="btn btn-sm" style="background: rgba(74,150,120,0.2); border: 1px solid rgba(74,150,120,0.4); color: #4a9678; padding: 4px 14px;">Apply</button>
+        {% if module_filter or page_search %}
+        <a href="{{ url_for('activity_log.activity_log_page', tab='modules', user=user_filter or '', days=days) }}" class="btn btn-sm" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); padding: 4px 14px;">Clear</a>
+        {% endif %}
+    </div>
+</form>
 <div class="card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -195,7 +240,7 @@
         {% for p in modules_data.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
         {% if p %}
         <li class="page-item {% if p == modules_data.page %}active{% endif %}">
-            <a class="page-link" href="{{ url_for('activity_log.activity_log_page', tab='modules', user=user_filter or '', days=days, page=p) }}">{{ p }}</a>
+            <a class="page-link" href="{{ url_for('activity_log.activity_log_page', tab='modules', user=user_filter or '', days=days, page=p, module_filter=module_filter or '', page_search=page_search or '') }}">{{ p }}</a>
         </li>
         {% else %}
         <li class="page-item disabled"><span class="page-link">...</span></li>
