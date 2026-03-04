@@ -310,9 +310,22 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                 elif filename.lower().endswith('.docx'):
                     raw_text, formatted_html = self._extract_docx_with_formatting(file_path)
                 elif filename.lower().endswith('.doc'):
-                    raw_text = ""
                     formatted_html = ""
-                    logger.info("Legacy DOC format not supported - allowing manual entry")
+                    try:
+                        import subprocess
+                        import shutil
+                        antiword_path = shutil.which('antiword') or 'antiword'
+                        result = subprocess.run(
+                            [antiword_path, file_path],
+                            capture_output=True,
+                            timeout=30
+                        )
+                        raw_text = result.stdout.decode('utf-8', errors='replace').strip()
+                        if not raw_text:
+                            logger.warning(f"antiword returned empty output for {filename}")
+                    except Exception as e:
+                        raw_text = ""
+                        logger.warning(f"antiword failed for {filename}: {e}")
                 else:
                     raw_text = ""
                     formatted_html = ""
