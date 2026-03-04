@@ -3942,13 +3942,17 @@ CRITICAL RULES:
             # Always BCC admin for monitoring/troubleshooting
             admin_bcc_email = 'kroots@myticas.com'
             
+            job_titles = ', '.join(set(m.job_title for m in matches if m.job_title)) or 'unknown position'
+            avg_score = sum(m.match_score for m in matches) / len(matches) if matches else 0
+            changes_summary = f"Screening alert — {candidate_name} matched {job_titles} (Score: {avg_score:.0f}%)"
             result = self.email_service.send_html_email(
                 to_email=recruiter_email,
                 subject=subject,
                 html_content=html_content,
                 notification_type='vetting_recruiter_notification',
                 cc_emails=cc_emails,  # CC all other recruiters on same thread
-                bcc_emails=[admin_bcc_email]  # BCC admin for transparency
+                bcc_emails=[admin_bcc_email],  # BCC admin for transparency
+                changes_summary=changes_summary
             )
             return result is True or (isinstance(result, dict) and result.get('success', False))
         except Exception as e:

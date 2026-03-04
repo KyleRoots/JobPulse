@@ -8,6 +8,11 @@
 {% block page_actions %}
 <form class="d-flex gap-2 align-items-center" method="GET" action="{{ url_for('activity_log.activity_log_page') }}" id="filterForm">
     <input type="hidden" name="tab" value="{{ tab }}">
+    {% if tab == 'emails' %}
+    <input type="hidden" name="email_type" value="{{ email_type or '' }}">
+    <input type="hidden" name="email_status" value="{{ email_status or '' }}">
+    <input type="hidden" name="recipient_search" value="{{ recipient_search or '' }}">
+    {% endif %}
     <select class="form-select form-select-sm" name="user" style="width: auto;" onchange="document.getElementById('filterForm').submit()">
         <option value="">All Users</option>
         {% for u in users %}
@@ -202,6 +207,29 @@
 {% endif %}
 
 {% if tab == 'emails' %}
+<form method="GET" action="{{ url_for('activity_log.activity_log_page') }}" class="mb-3">
+    <input type="hidden" name="tab" value="emails">
+    <input type="hidden" name="user" value="{{ user_filter or '' }}">
+    <input type="hidden" name="days" value="{{ days }}">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <select class="form-select form-select-sm" name="email_type" style="width: auto; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff;">
+            <option value="" {% if not email_type %}selected{% endif %}>All Types</option>
+            <option value="welcome_email" {% if email_type == 'welcome_email' %}selected{% endif %}>Welcome</option>
+            <option value="password_reset_email" {% if email_type == 'password_reset_email' %}selected{% endif %}>Password Reset</option>
+            <option value="vetting_recruiter_notification" {% if email_type == 'vetting_recruiter_notification' %}selected{% endif %}>Screening Alert</option>
+        </select>
+        <select class="form-select form-select-sm" name="email_status" style="width: auto; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff;">
+            <option value="" {% if not email_status %}selected{% endif %}>All Statuses</option>
+            <option value="sent" {% if email_status == 'sent' %}selected{% endif %}>Sent</option>
+            <option value="failed" {% if email_status == 'failed' %}selected{% endif %}>Failed</option>
+        </select>
+        <input type="text" class="form-control form-control-sm" name="recipient_search" value="{{ recipient_search or '' }}" placeholder="Search recipient email…" style="width: 220px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff;">
+        <button type="submit" class="btn btn-sm" style="background: rgba(74,150,120,0.2); border: 1px solid rgba(74,150,120,0.4); color: #4a9678; padding: 4px 14px;">Apply</button>
+        {% if email_type or email_status or recipient_search %}
+        <a href="{{ url_for('activity_log.activity_log_page', tab='emails', user=user_filter or '', days=days) }}" class="btn btn-sm" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); padding: 4px 14px;">Clear</a>
+        {% endif %}
+    </div>
+</form>
 <div class="card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -265,7 +293,7 @@
         {% for p in emails_data.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
         {% if p %}
         <li class="page-item {% if p == emails_data.page %}active{% endif %}">
-            <a class="page-link" href="{{ url_for('activity_log.activity_log_page', tab='emails', user=user_filter or '', days=days, page=p) }}">{{ p }}</a>
+            <a class="page-link" href="{{ url_for('activity_log.activity_log_page', tab='emails', user=user_filter or '', days=days, page=p, email_type=email_type or '', email_status=email_status or '', recipient_search=recipient_search or '') }}">{{ p }}</a>
         </li>
         {% else %}
         <li class="page-item disabled"><span class="page-link">...</span></li>

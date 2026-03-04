@@ -52,6 +52,9 @@ def activity_log_page():
     days = request.args.get('days', 30, type=int)
     page = request.args.get('page', 1, type=int)
     per_page = 50
+    email_type = request.args.get('email_type', '').strip()
+    email_status = request.args.get('email_status', '').strip()
+    recipient_search = request.args.get('recipient_search', '').strip()
 
     cutoff = datetime.utcnow() - timedelta(days=days)
     users = User.query.order_by(User.username).all()
@@ -79,11 +82,21 @@ def activity_log_page():
         modules_data = q.order_by(UserActivityLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
     elif tab == 'emails':
-        email_types = ['welcome_email', 'password_reset_email', 'vetting_recruiter_notification']
-        q = EmailDeliveryLog.query.filter(
-            EmailDeliveryLog.notification_type.in_(email_types),
-            EmailDeliveryLog.sent_at >= cutoff
-        )
+        allowed_types = ['welcome_email', 'password_reset_email', 'vetting_recruiter_notification']
+        if email_type and email_type in allowed_types:
+            q = EmailDeliveryLog.query.filter(
+                EmailDeliveryLog.notification_type == email_type,
+                EmailDeliveryLog.sent_at >= cutoff
+            )
+        else:
+            q = EmailDeliveryLog.query.filter(
+                EmailDeliveryLog.notification_type.in_(allowed_types),
+                EmailDeliveryLog.sent_at >= cutoff
+            )
+        if email_status and email_status in ('sent', 'failed'):
+            q = q.filter(EmailDeliveryLog.delivery_status == email_status)
+        if recipient_search:
+            q = q.filter(EmailDeliveryLog.recipient_email.ilike(f'%{recipient_search}%'))
         if user_filter:
             target_user = User.query.get(user_filter)
             if target_user:
@@ -117,5 +130,8 @@ def activity_log_page():
                            total_logins_7d=total_logins_7d,
                            active_users_7d=active_users_7d,
                            emails_sent_7d=emails_sent_7d,
+                           email_type=email_type,
+                           email_status=email_status,
+                           recipient_search=recipient_search,
                            parse_user_agent=_parse_user_agent,
                            json=json)

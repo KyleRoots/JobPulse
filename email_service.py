@@ -17,7 +17,7 @@ class EmailService:
             return
 
         self.sg = SendGridAPIClient(self.api_key)
-        self.from_email = "kroots@myticas.com"  # Verified sender email
+        self.from_email = "noreply@scoutgenius.ai"  # Verified sender email
         self.db = db
         self.EmailDeliveryLog = EmailDeliveryLog
 
