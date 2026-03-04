@@ -7,6 +7,7 @@ from flask_login import login_required
 from routes import register_module_guard
 from datetime import datetime, timedelta
 import logging
+import threading
 
 vetting_bp = Blueprint('vetting', __name__)
 register_module_guard(vetting_bp, 'scout_vetting')
@@ -1443,15 +1444,34 @@ def extract_all_job_requirements():
                 flash('All jobs already have requirements extracted', 'info')
             return redirect(url_for('vetting.vetting_settings'))
         
-        # Extract requirements for all jobs
-        results = vetting_service.extract_requirements_for_jobs(all_jobs)
-        
-        msg = f"Extracted requirements for {results.get('extracted', 0)} jobs. "
-        msg += f"Skipped {results.get('skipped', 0)}, Failed {results.get('failed', 0)}"
-        if location_updates > 0:
-            msg += f", Updated location for {location_updates} existing jobs"
-        flash(msg, 'success')
-        
+        # Run GPT-4o extraction in a background thread so the HTTP request
+        # returns immediately instead of timing out after 76 sequential API calls
+        app = current_app._get_current_object()
+        jobs_to_process = list(all_jobs)
+        jobs_count = len(jobs_to_process)
+
+        def _run_extraction():
+            with app.app_context():
+                try:
+                    svc = CandidateVettingService()
+                    results = svc.extract_requirements_for_jobs(jobs_to_process)
+                    app.logger.info(
+                        f"Background extraction complete — extracted: {results.get('extracted', 0)}, "
+                        f"skipped: {results.get('skipped', 0)}, failed: {results.get('failed', 0)}"
+                    )
+                except Exception as bg_err:
+                    app.logger.error(f"Background extraction error: {str(bg_err)}")
+
+        t = threading.Thread(target=_run_extraction, daemon=True)
+        t.start()
+
+        location_msg = f" Also updated location data for {location_updates} existing jobs." if location_updates > 0 else ""
+        flash(
+            f'Extraction started for {jobs_count} jobs — running in the background. '
+            f'Refresh in a few minutes to see updated counts.{location_msg}',
+            'info'
+        )
+
     except Exception as e:
         current_app.logger.error(f"Error extracting all requirements: {str(e)}")
         flash(f'Error: {str(e)}', 'error')
