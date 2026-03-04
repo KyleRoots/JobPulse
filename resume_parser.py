@@ -381,7 +381,21 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
             raw_lines = []
             html_parts = []
             in_list = False
-            
+            seen_lines = set()
+
+            for section in doc.sections:
+                try:
+                    header = section.header
+                    if header and not header.is_linked_to_previous:
+                        for para in header.paragraphs:
+                            text = para.text.strip()
+                            if text and text not in seen_lines:
+                                seen_lines.add(text)
+                                raw_lines.append(text)
+                                html_parts.append(f'<p>{html.escape(text)}</p>')
+                except Exception:
+                    pass
+
             for para in doc.paragraphs:
                 text = para.text.strip()
                 if not text:
@@ -389,59 +403,103 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                         html_parts.append('</ul>')
                         in_list = False
                     continue
-                
+
+                seen_lines.add(text)
                 raw_lines.append(text)
                 escaped_text = html.escape(text)
-                
+
                 style_name = para.style.name.lower() if para.style else ''
                 is_heading = (
                     'heading' in style_name or
                     'title' in style_name or
                     self._is_likely_heading(text)
                 )
-                
+
                 is_bullet = (
                     text.startswith('•') or
                     text.startswith('-') or
                     text.startswith('*') or
                     'list' in style_name
                 )
-                
+
                 if is_heading:
                     if in_list:
                         html_parts.append('</ul>')
                         in_list = False
-                    
+
                     if 'heading 1' in style_name or 'title' in style_name:
                         html_parts.append(f'<h2>{escaped_text}</h2>')
                     elif 'heading 2' in style_name:
                         html_parts.append(f'<h3>{escaped_text}</h3>')
                     else:
                         html_parts.append(f'<h4><strong>{escaped_text}</strong></h4>')
-                
+
                 elif is_bullet:
                     clean_text = re.sub(r'^[•\-\*]\s*', '', escaped_text)
                     if not in_list:
                         html_parts.append('<ul>')
                         in_list = True
                     html_parts.append(f'<li>{clean_text}</li>')
-                
+
                 else:
                     if in_list:
                         html_parts.append('</ul>')
                         in_list = False
-                    
+
                     formatted_text = self._apply_inline_formatting(para, escaped_text)
                     html_parts.append(f'<p>{formatted_text}</p>')
-            
+
             if in_list:
                 html_parts.append('</ul>')
-            
+
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for para in cell.paragraphs:
+                            text = para.text.strip()
+                            if text and text not in seen_lines:
+                                seen_lines.add(text)
+                                raw_lines.append(text)
+                                html_parts.append(f'<p>{html.escape(text)}</p>')
+
+            try:
+                from docx.oxml.ns import qn as _qn
+                for drawing in doc.element.findall('.//' + _qn('w:drawing')):
+                    tb_parts = []
+                    for t_elem in drawing.findall('.//' + _qn('w:t')):
+                        t = (t_elem.text or '').strip()
+                        if t:
+                            tb_parts.append(t)
+                    combined = ' '.join(tb_parts).strip()
+                    if combined and combined not in seen_lines:
+                        seen_lines.add(combined)
+                        raw_lines.append(combined)
+                        html_parts.append(f'<p>{html.escape(combined)}</p>')
+            except Exception:
+                pass
+
+            try:
+                from docx.oxml.ns import qn as _qn
+                seen_tokens = set(seen_lines)
+                all_t = doc.element.findall('.//' + _qn('w:t'))
+                remaining = []
+                for t_elem in all_t:
+                    t = (t_elem.text or '').strip()
+                    if t and t not in seen_tokens:
+                        seen_tokens.add(t)
+                        remaining.append(t)
+                if remaining:
+                    combined_remaining = ' '.join(remaining)
+                    raw_lines.append(combined_remaining)
+                    html_parts.append(f'<p>{html.escape(combined_remaining)}</p>')
+            except Exception:
+                pass
+
             raw_text = '\n'.join(raw_lines)
             formatted_html = '\n'.join(html_parts)
-            
+
             return raw_text, formatted_html
-            
+
         except Exception as e:
             logger.warning(f"Could not extract DOCX with formatting: {str(e)}")
             return "", ""

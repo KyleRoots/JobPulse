@@ -852,8 +852,11 @@ class AutomationService:
         import re as _re
 
         dry_run = params.get("dry_run", True)
-        days_back = params.get("days_back", 365)
-        limit = params.get("limit", 50)
+        if isinstance(dry_run, str):
+            dry_run = dry_run.lower() not in ('false', '0', 'no')
+        days_back = int(params.get("days_back", 365))
+        limit = int(params.get("limit", 50))
+        candidate_ids_raw = params.get("candidate_ids", "")
 
         EMAIL_RE = _re.compile(
             r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b',
@@ -875,22 +878,47 @@ class AutomationService:
                 return False
             return True
 
-        cutoff_ts = int((datetime.utcnow() - timedelta(days=days_back)).timestamp() * 1000)
-        url = f"{self._bh_url()}search/Candidate"
-        p = {
-            "query": f"dateAdded:[{cutoff_ts} TO *] AND -email:[* TO *]",
-            "fields": "id,firstName,lastName,email,dateAdded",
-            "count": min(limit, 500),
-            "sort": "-dateAdded"
-        }
-        resp = requests.get(url, headers=self._bh_headers(), params=p, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        total_available = data.get("total", 0)
-        candidates = data.get("data", [])
+        specific_ids = []
+        if candidate_ids_raw:
+            if isinstance(candidate_ids_raw, str):
+                specific_ids = [int(x.strip()) for x in candidate_ids_raw.split(",") if x.strip().isdigit()]
+            elif isinstance(candidate_ids_raw, (list, tuple)):
+                specific_ids = [int(x) for x in candidate_ids_raw if str(x).strip().isdigit()]
+
+        if specific_ids:
+            candidates = []
+            for cid in specific_ids:
+                try:
+                    resp = requests.get(
+                        f"{self._bh_url()}entity/Candidate/{cid}",
+                        headers=self._bh_headers(),
+                        params={"fields": "id,firstName,lastName,email,dateAdded"},
+                        timeout=15
+                    )
+                    resp.raise_for_status()
+                    data = resp.json().get("data", {})
+                    if data:
+                        candidates.append(data)
+                except Exception as e:
+                    self.logger.warning(f"email_extractor: could not fetch candidate {cid}: {e}")
+            total_available = len(candidates)
+        else:
+            cutoff_ts = int((datetime.utcnow() - timedelta(days=days_back)).timestamp() * 1000)
+            url = f"{self._bh_url()}search/Candidate"
+            p = {
+                "query": f"dateAdded:[{cutoff_ts} TO *] AND -email:[* TO *]",
+                "fields": "id,firstName,lastName,email,dateAdded",
+                "count": min(limit, 500),
+                "sort": "-dateAdded"
+            }
+            resp = requests.get(url, headers=self._bh_headers(), params=p, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            total_available = data.get("total", 0)
+            candidates = data.get("data", [])
 
         also_empty = []
-        if len(candidates) < limit:
+        if not specific_ids and len(candidates) < limit:
             empty_url = f"{self._bh_url()}search/Candidate"
             empty_p = {
                 "query": f'dateAdded:[{cutoff_ts} TO *] AND email:""',

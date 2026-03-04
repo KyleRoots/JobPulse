@@ -677,11 +677,13 @@
         var body = '';
 
         if (currentRunBuiltinKey === 'email_extractor') {
-            body = '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="365" min="1"></div>' +
+            body = '<div class="mb-3"><label class="form-label fw-semibold">Candidate IDs <small class="text-muted fw-normal">(optional — comma-separated, leave blank for auto-discovery)</small></label><input type="text" class="form-control" id="param-candidate_ids" placeholder="e.g. 4593007,4593003,4592981"></div>' +
+                   '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="365" min="1"></div>' +
                    '<div class="mb-3"><label class="form-label">Limit (candidates per batch)</label><input type="number" class="form-control" id="param-limit" value="50" min="1" max="500"></div>' +
                    '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
         } else if (currentRunBuiltinKey === 'resume_reparser') {
-            body = '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="5" min="1"></div>' +
+            body = '<div class="mb-3"><label class="form-label fw-semibold">Candidate IDs <small class="text-muted fw-normal">(optional — comma-separated, leave blank for auto-discovery)</small></label><input type="text" class="form-control" id="param-candidate_ids" placeholder="e.g. 4592981,4593007"></div>' +
+                   '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="5" min="1"></div>' +
                    '<div class="mb-3"><label class="form-label">Limit</label><input type="number" class="form-control" id="param-limit" value="100" min="1" max="500"></div>' +
                    '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
         } else if (currentRunBuiltinKey === 'update_field_bulk') {
@@ -721,6 +723,9 @@
         var params = {};
         var dryRunEl = document.getElementById('param-dry_run');
         if (dryRunEl) params.dry_run = dryRunEl.checked;
+
+        var candidateIdsEl = document.getElementById('param-candidate_ids');
+        if (candidateIdsEl && candidateIdsEl.value.trim()) params.candidate_ids = candidateIdsEl.value.trim();
 
         var daysBackEl = document.getElementById('param-days_back');
         if (daysBackEl && daysBackEl.value) params.days_back = parseInt(daysBackEl.value);
