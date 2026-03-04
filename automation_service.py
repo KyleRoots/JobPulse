@@ -444,29 +444,92 @@ class AutomationService:
             "candidates": qualified
         }
 
+    _GARBLED_PATTERNS = ["WW8Num", "OJQJ", "^J ", "phOJQJ", "OJQJo", "Num1z", "OJQJ^J"]
+
+    def _is_garbled_description(self, text):
+        if not text:
+            return False
+        matches = sum(1 for p in self._GARBLED_PATTERNS if p in text)
+        return matches >= 3
+
     def _builtin_resume_reparser(self, params):
         dry_run = params.get("dry_run", True)
         days_back = params.get("days_back", 5)
         limit = params.get("limit", 100)
+        fix_garbled = params.get("fix_garbled", False)
+        candidate_ids = params.get("candidate_ids", [])
 
         cutoff_ts = int((datetime.utcnow() - timedelta(days=days_back)).timestamp() * 1000)
-        url = f"{self._bh_url()}search/Candidate"
-        p = {
-            "query": f"dateAdded:[{cutoff_ts} TO *] AND -description:[* TO *]",
-            "fields": "id,firstName,lastName,email,description,dateAdded",
-            "count": limit,
-            "sort": "-dateAdded"
-        }
-        resp = requests.get(url, headers=self._bh_headers(), params=p, timeout=30)
-        resp.raise_for_status()
-        candidates = resp.json().get("data", [])
+        search_url = f"{self._bh_url()}search/Candidate"
+        candidates_to_process = []
 
-        results = {"candidates_found": len(candidates), "with_resume": 0, "no_file": 0, "parsed": 0, "failed": 0}
+        if candidate_ids:
+            for cid in candidate_ids:
+                try:
+                    resp = requests.get(
+                        f"{self._bh_url()}entity/Candidate/{cid}",
+                        headers=self._bh_headers(),
+                        params={"fields": "id,firstName,lastName,email,description"},
+                        timeout=15
+                    )
+                    resp.raise_for_status()
+                    data = resp.json().get("data", {})
+                    desc = data.get("description") or ""
+                    reason = "garbled" if self._is_garbled_description(desc) else ("empty" if not desc.strip() else "force")
+                    data["_reason"] = reason
+                    candidates_to_process.append(data)
+                except Exception as e:
+                    self.logger.warning(f"resume_reparser: could not fetch candidate {cid}: {e}")
+        else:
+            try:
+                resp = requests.get(search_url, headers=self._bh_headers(), params={
+                    "query": f"dateAdded:[{cutoff_ts} TO *] AND -description:[* TO *]",
+                    "fields": "id,firstName,lastName,email,description,dateAdded",
+                    "count": limit,
+                    "sort": "-dateAdded"
+                }, timeout=30)
+                resp.raise_for_status()
+                for c in resp.json().get("data", []):
+                    c["_reason"] = "empty"
+                    candidates_to_process.append(c)
+            except Exception as e:
+                self.logger.warning(f"resume_reparser: empty-description search failed: {e}")
+
+            if fix_garbled:
+                try:
+                    resp2 = requests.get(search_url, headers=self._bh_headers(), params={
+                        "query": f"dateAdded:[{cutoff_ts} TO *] AND description:[* TO *]",
+                        "fields": "id,firstName,lastName,email,description,dateAdded",
+                        "count": max(limit, 200),
+                        "sort": "-dateAdded"
+                    }, timeout=30)
+                    resp2.raise_for_status()
+                    existing_ids = {c["id"] for c in candidates_to_process}
+                    for c in resp2.json().get("data", []):
+                        if c["id"] in existing_ids:
+                            continue
+                        if self._is_garbled_description(c.get("description") or ""):
+                            c["_reason"] = "garbled"
+                            candidates_to_process.append(c)
+                except Exception as e:
+                    self.logger.warning(f"resume_reparser: garbled-description search failed: {e}")
+
+        garbled_found = sum(1 for c in candidates_to_process if c.get("_reason") == "garbled")
+        results = {
+            "candidates_found": len(candidates_to_process),
+            "garbled_found": garbled_found,
+            "with_resume": 0,
+            "no_file": 0,
+            "parsed": 0,
+            "cleared": 0,
+            "failed": 0,
+        }
         candidate_details = []
 
-        for cand in candidates:
+        for cand in candidates_to_process:
             cid = cand.get("id")
             name = f"{cand.get('firstName', '')} {cand.get('lastName', '')}".strip()
+            reason = cand.get("_reason", "empty")
 
             file_url = f"{self._bh_url()}entity/Candidate/{cid}/fileAttachments"
             try:
@@ -482,15 +545,26 @@ class AutomationService:
 
             if not resume_files:
                 results["no_file"] += 1
+                if reason == "garbled" and not dry_run:
+                    update_url = f"{self._bh_url()}entity/Candidate/{cid}"
+                    try:
+                        requests.post(update_url,
+                                      headers={**self._bh_headers(), "Content-Type": "application/json"},
+                                      json={"description": ""}, timeout=15)
+                        results["cleared"] += 1
+                    except Exception as e:
+                        self.logger.warning(f"resume_reparser: failed to clear garbled description for {cid}: {e}")
                 continue
 
             results["with_resume"] += 1
-            candidate_details.append({
+            detail = {
                 "candidate_id": cid,
                 "name": name,
                 "email": cand.get("email", ""),
-                "resume_file": resume_files[0].get("name", "unknown")
-            })
+                "resume_file": resume_files[0].get("name", "unknown"),
+                "reason": reason,
+                "status": "would_process" if dry_run else None
+            }
 
             if not dry_run:
                 try:
@@ -501,17 +575,35 @@ class AutomationService:
                                       headers={**self._bh_headers(), "Content-Type": "application/json"},
                                       json={"description": text[:5000]}, timeout=15)
                         results["parsed"] += 1
+                        detail["status"] = "parsed"
+                    elif reason == "garbled":
+                        update_url = f"{self._bh_url()}entity/Candidate/{cid}"
+                        requests.post(update_url,
+                                      headers={**self._bh_headers(), "Content-Type": "application/json"},
+                                      json={"description": ""}, timeout=15)
+                        results["cleared"] += 1
+                        detail["status"] = "cleared_garbled"
                     else:
                         results["failed"] += 1
+                        detail["status"] = "failed"
                 except Exception as e:
                     self.logger.warning(f"resume_reparser: failed for candidate {cid}: {e}")
                     results["failed"] += 1
+                    detail["status"] = "error"
 
+            candidate_details.append(detail)
+
+        mode_desc = "specific IDs" if candidate_ids else ("empty + garbled descriptions" if fix_garbled else "empty descriptions")
+        summary_parts = [f"{'DRY RUN: ' if dry_run else ''}Scanned {results['candidates_found']} candidates ({mode_desc})"]
+        if garbled_found:
+            summary_parts.append(f"{garbled_found} garbled")
+        summary_parts.append(f"{results['with_resume']} have resume files")
+        if not dry_run:
+            summary_parts.append(f"parsed {results['parsed']}, cleared {results['cleared']}, failed {results['failed']}")
         return {
-            "summary": f"{'DRY RUN: ' if dry_run else ''}Found {results['candidates_found']} candidates with empty description, "
-                       f"{results['with_resume']} have resume files"
-                       + (f", parsed {results['parsed']}, failed {results['failed']}" if not dry_run else ""),
+            "summary": ", ".join(summary_parts),
             "dry_run": dry_run,
+            "fix_garbled": fix_garbled,
             **results,
             "candidates": candidate_details[:50]
         }
