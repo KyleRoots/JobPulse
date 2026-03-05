@@ -2109,89 +2109,22 @@ Format as a bullet-point list. Be specific and concise."""
         # Also fetch global screening instructions that apply to ALL jobs
         # Use pre-fetched value when available (ThreadPoolExecutor threads lack app context)
         global_requirements = prefetched_global_requirements if prefetched_global_requirements is not None else self._get_global_custom_requirements()
-        requirements_instruction = ""
+
+        # For the user message: only inject custom requirements if present (per-job dynamic data)
+        custom_requirements_block = ""
         if custom_requirements:
-            requirements_instruction = f"""
-IMPORTANT: Use these specific requirements for evaluation (manually specified):
+            custom_requirements_block = f"""
+CUSTOM REQUIREMENTS OVERRIDE (use these instead of extracting from the job description):
 {custom_requirements}
 
 Focus ONLY on these requirements when scoring. Ignore nice-to-haves in the job description."""
-        else:
-            requirements_instruction = """
-IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job description:
-- Required skills (often marked as "required", "must have", "essential")
-- Minimum years of experience specified
-- Required certifications or licenses
-- Required education level
 
-DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
-Be lenient on soft skills - focus primarily on technical/hard skill requirements."""
-
-        # Append global screening instructions (apply to ALL jobs, additive)
-        if global_requirements:
-            requirements_instruction += f"""
-
-GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
-{global_requirements}"""
-
-        # Years-of-experience analysis instruction (applies regardless of custom vs AI requirements)
         # Inject exact current date from Python for accurate ongoing-role calculation
         from datetime import date as _date
         _today = _date.today()
-        _today_str = _today.strftime('%B %d, %Y')  # e.g., "February 16, 2026"
-        _today_month = _today.month
-        _today_year = _today.year
-        
-        years_analysis_instruction = f"""
+        _today_str = _today.strftime('%B %d, %Y')  # e.g., "March 05, 2026"
 
-YEARS OF EXPERIENCE ANALYSIS (MANDATORY):
-Before scoring, you MUST perform this analysis for EACH skill or technology that has an
-explicit "X+ years" or "X years" requirement in the job description or requirements:
-
-1. Identify which skills have year-based requirements (e.g., "3+ years of Python", "5 years Java development").
-2. For each such skill, scan the resume for ALL roles where the candidate performed work in that skill area.
-   DISCIPLINE RECOGNITION — count a role if the candidate DID the work, even if their title differs:
-   - "Data Science" experience includes roles titled: Data Scientist, ML Engineer, AI Engineer,
-     Machine Learning Engineer, Research Scientist, Applied Scientist, or any role where
-     responsibilities include predictive/statistical modeling, feature engineering, ML model
-     training/evaluation/deployment, or NLP/CV/deep learning applications.
-   - A "Data Analyst" role ONLY counts toward Data Science if responsibilities demonstrate
-     hands-on work in at least TWO of: predictive/statistical modeling, feature engineering,
-     ML model training/evaluation/deployment, NLP/CV/deep learning. Roles that ONLY involve
-     SQL queries, Excel dashboards, report generation, or KPI tracking do NOT count.
-   - "Machine Learning" experience includes: ML Engineer, AI Engineer, Data Scientist,
-     Deep Learning Engineer, NLP Engineer, Computer Vision Engineer, Research Scientist.
-   - "AI" experience includes: AI Engineer, ML Engineer, Data Scientist, GenAI Engineer.
-   - "Software Engineering" includes: Software Developer, Full-Stack Developer, Backend Engineer.
-   - "Data Engineering" includes: Data Engineer, ETL Developer, Analytics Engineer, Data Architect.
-   - "DevOps" includes: SRE, Platform Engineer, Infrastructure Engineer, Cloud Engineer.
-   CRITICAL: Focus on WHAT THE CANDIDATE DID in each role (responsibilities), not their job title alone.
-   If a job requires "5 years of Data Science" and a candidate was a "Machine Learning Engineer" for
-   7 years doing predictive modeling, NLP, and statistical analysis — that IS Data Science experience.
-3. Calculate the total duration IN MONTHS using this exact formula for each role:
-   - Convert start and end dates to (year, month) pairs.
-   - Duration in months = (end_year - start_year) × 12 + (end_month - start_month).
-   - For "Present", "Current", or ongoing roles, use today's exact date: {_today_str} (month {_today_month} of {_today_year}).
-   - EXAMPLE: "Jan 2024 - {_today_str}" = ({_today_year} - 2024) × 12 + ({_today_month} - 1) = {(_today_year - 2024) * 12 + (_today_month - 1)} months.
-   - EXAMPLE: "Jul 2021 - Aug 2023" = (2023 - 2021) × 12 + (8 - 7) = 25 months.
-   - Internships and part-time roles count at 50% weight (e.g., a 6-month internship = 3 months effective).
-   - University coursework, academic projects, and personal projects do NOT count toward professional years.
-   - Overlapping roles should not be double-counted; use the union of date ranges.
-4. SUM all months across qualifying roles, then divide by 12 to get total years.
-5. Show your step-by-step arithmetic in the "calculation" field (see JSON format below).
-6. Compare the candidate's calculated years against the job's requirement.
-7. If ANY required skill has a candidate shortfall of 2+ years below the minimum,
-   the match_score MUST be capped at 60 (regardless of how well other requirements match).
-   If the shortfall is 1-2 years, reduce the score by at least 15 points from what it would otherwise be.
-
-EXAMPLE: Job requires "3+ years of React". Candidate's resume shows:
-  - Software Engineer at Acme Corp (Jun 2024 - {_today_str}): ({_today_year} - 2024)×12 + ({_today_month} - 6) = {(_today_year - 2024) * 12 + (_today_month - 6)} months
-  - Intern at Beta Inc (Jan 2024 - May 2024): (2024-2024)×12 + (5-1) = 4 months × 50% = 2 months
-  Total: {(_today_year - 2024) * 12 + (_today_month - 6)} + 2 = {(_today_year - 2024) * 12 + (_today_month - 6) + 2} months / 12 = {((_today_year - 2024) * 12 + (_today_month - 6) + 2) / 12:.2f} years
-
-If no skills in the job description have explicit year-based requirements, set years_analysis to an empty object {{}}.\n\nTRANSFERABLE SKILLS — TECHNOLOGY EQUIVALENCY:\nWhen counting years for a SPECIFIC TOOL, also check for equivalent/competing technologies:\n\nEquivalency Groups:\n- BI/Data Visualization: Power BI <-> Tableau <-> Looker <-> QlikView <-> MicroStrategy <-> Sisense\n- Cloud ML Platforms: AWS SageMaker <-> Azure ML <-> Google Vertex AI <-> Databricks ML\n- Data Lakehouse/Warehouse: Microsoft Fabric <-> Databricks <-> Snowflake <-> BigQuery <-> AWS Lake Formation\n- ETL/Data Integration: SSIS <-> Informatica <-> Talend <-> Apache Airflow <-> AWS Glue <-> Azure Data Factory\n- API/Integration: REST API experience in ANY language/framework satisfies \"API literacy\" requirements\n- Cloud Platforms: AWS <-> Azure <-> GCP (core cloud concepts transfer between platforms)\n- Databases/SQL: SQL Server <-> PostgreSQL <-> MySQL <-> Oracle (SQL skills transfer across engines)\n- Low-Code AI/RPA: Copilot Studio <-> Power Automate <-> UiPath <-> Automation Anywhere\n- Containerization: Docker <-> Podman, Kubernetes <-> ECS <-> GKE\n\nCredit Rules (TWO-TIER):\n1. If the job requires a SKILL CATEGORY (e.g., \"5yr data visualization experience\", \"5yr cloud ML\"),\n   sum ALL equivalent tools at 100% credit — the job is asking for category experience.\n2. If the job requires a SPECIFIC TOOL (e.g., \"5yr Power BI\", \"3yr Azure ML\"),\n   sum equivalent tool years and apply 75% credit (accounts for tool-specific features not transferring).\n3. Mark gap as \"TRANSFERABLE\" (not \"CRITICAL\") when equivalent experience exists.\n4. In years_analysis, document the equivalency:\n   e.g., \"Power BI: required 5yr, candidate has ~0yr Power BI but 6yr Tableau (equivalent: 4.5yr credit)\"\n5. In gaps_identified, write:\n   \"Missing [required tool] specifically, but has [equivalent tool] experience (transferable skill)\"\n   NOT \"CRITICAL: [required tool] requires Xyr, candidate has ~0.0yr\""""
-        
-        # Build location matching instructions based on work type
+                # Build location matching instructions based on work type
         location_instruction = ""
         if job_location_full:
             if work_type == 'Remote':
@@ -2246,10 +2179,13 @@ MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
 
 CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults."""
         
-        prompt = f"""Analyze how well this candidate's resume matches the MANDATORY job requirements.
-Provide an objective assessment with a percentage match score (0-100).
-{requirements_instruction}
-{years_analysis_instruction}
+        # ── Slim user-message (data-only) ──
+        # Today's date injected here so the AI calculates ongoing-role durations correctly.
+        # All static instructions live in the system message for maximum prompt caching.
+        prompt = f"""Today's date: {_today_str}.
+
+Evaluate the candidate below against the job below. Apply all instructions from your system prompt.
+{custom_requirements_block}
 {location_instruction}
 
 JOB DETAILS:
@@ -2262,10 +2198,143 @@ CANDIDATE INFORMATION:
 - {candidate_location_label}
 
 CANDIDATE RESUME:
-{resume_text}
+{resume_text}"""
 
-CRITICAL INSTRUCTIONS - READ CAREFULLY:
-1. ONLY reference skills, technologies, and experience that are EXPLICITLY STATED in the resume text above.
+        try:
+            # ── Static system message (cached by OpenAI on every call) ──
+            # All unchanging instructions live here so OpenAI can cache this prefix
+            # across all vetting calls, cutting prompt costs by ~50% on cached tokens.
+            # Dynamic per-call data (date, job details, resume) lives in the user message above.
+            global_reqs_section = ""
+            if global_requirements:
+                global_reqs_section = f"""
+
+GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
+{global_requirements}"""
+
+            system_message = f"""You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
+
+CRITICAL RULES:
+1. You MUST only cite skills and experience that are EXPLICITLY written in the candidate\'s resume.
+2. You MUST NOT infer or hallucinate skills that are not directly stated.
+3. If a job requires FPGA and the resume shows SQL/database experience, they DO NOT match.
+4. If a job requires a technology and the resume shows ONLY an unrelated technology (e.g., FPGA job but resume shows SQL/database), that IS a GAP. However, if the resume shows a COMPETING tool in the same category (e.g., Tableau for Power BI, AWS SageMaker for Azure ML), apply partial credit and mark as TRANSFERABLE, not CRITICAL.
+5. Be honest - a mismatched candidate should score LOW even if they have impressive but irrelevant skills.
+6. Your assessment will be used for recruiter decisions - accuracy is critical.
+7. LOCATION MATTERS: Check if the candidate\'s location is compatible with the job\'s work type (remote/onsite/hybrid).
+   - Remote jobs: Candidate must be in the same COUNTRY for tax/legal compliance.
+   - On-site/Hybrid jobs: Candidate should be in or near the job\'s city/metro area.
+   - If candidate location doesn\'t match, this is a GAP that should reduce their score.
+8. EDUCATION HIERARCHY (higher degrees satisfy lower requirements):
+   - Doctorate/PhD > Master\'s (MA, MS, MBA, etc.) > Bachelor\'s (BA, BS, etc.) > Associate\'s > High School/GED
+   - If a job requires "Bachelor\'s degree" and the candidate has a Master\'s, PhD, or Doctorate, the education requirement is MET (exceeded), NOT a gap.
+   - Only flag an education gap if the candidate\'s highest degree is LOWER than what the job requires.
+   - If the job specifies a field (e.g., "Bachelor\'s in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap.
+9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
+10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement.
+11. WORK AUTHORIZATION EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST populate the work_authorization_analysis section with ALL US roles enumerated from the resume. DO NOT simply flag "citizenship not mentioned" as a gap without first performing the mandatory work history enumeration from the Global Screening Instructions. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. The same applies to Canadian security clearance — enumerate Canadian roles before flagging clearance gaps.
+12. EVIDENCE-FIRST SCORING: You MUST complete the requirement_evidence array BEFORE determining the match_score. Your score must be mathematically derivable from the evidence you cited — do not assign a holistic impression score that contradicts the per-requirement evidence.
+13. EXPERIENCE DEPTH & DOMAIN RELEVANCE: When evaluating whether a candidate\'s experience satisfies a requirement, assess the NATURE of the experience, not just keyword overlap. Specifically:
+   - AUDIT/ASSESSMENT experience (e.g., "audited cybersecurity controls using NIST") does NOT satisfy a requirement for HANDS-ON DELIVERY/OPERATIONS (e.g., "ensure reliable, secure delivery of IT systems"). Auditing a system ≠ building or operating that system.
+   - GOVERNANCE/COMPLIANCE/STANDARDS experience does NOT satisfy a requirement for TECHNOLOGY IMPLEMENTATION/OPERATIONS. Setting conformance standards ≠ delivering technology solutions.
+   - A candidate who EVALUATED, ASSESSED, or REVIEWED a system is NOT equivalent to one who BUILT, OPERATED, MANAGED, or DELIVERED that system.
+   - When citing evidence in requirement_evidence, explicitly note whether the experience is ADVISORY/AUDIT or DELIVERY/OPERATIONAL — and apply a score penalty (10-15 pts per affected requirement) when advisory experience is cited against a delivery requirement.
+   - Budget experience from audit engagements (managing engagement budgets at a consulting firm) is NOT equivalent to owning a technology department budget ($5M+). Note the distinction.
+14. RECENCY OF RELEVANT EXPERIENCE: After evaluating requirements, check whether the candidate\'s
+    MOST RECENT 2 roles (by date) are relevant to the job requirements being scored.
+    - If the candidate\'s most recent role is UNRELATED to the job domain and the most recent
+      RELEVANT role ended 12+ months ago, apply a 10-15 point penalty. Note in gaps: "Candidate\'s most
+      recent professional activity is outside the target domain; relevant experience is not current."
+    - If BOTH of the candidate\'s two most recent roles are unrelated to the job domain, apply
+      a 15-25 point penalty. Note in gaps: "Candidate has not practiced relevant skills in their last
+      two positions; career trajectory has shifted away from this domain."
+    - Roles with NO bullet points or descriptions provide NO evidence of relevant skills.
+      Do not assume relevance based on job title alone.
+    - "Unrelated" means the role\'s described responsibilities share NO meaningful overlap with
+      the job\'s mandatory requirements. A DevOps engineer\'s role is related to a Cloud Developer
+      job; a real estate consultant\'s role is not.
+    - Report your finding in the recency_analysis JSON section.
+
+REQUIREMENTS EVALUATION (when no custom requirements are provided):
+IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job description:
+- Required skills (often marked as "required", "must have", "essential")
+- Minimum years of experience specified
+- Required certifications or licenses
+- Required education level
+
+DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
+Be lenient on soft skills - focus primarily on technical/hard skill requirements.{global_reqs_section}
+
+YEARS OF EXPERIENCE ANALYSIS (MANDATORY):
+Before scoring, you MUST perform this analysis for EACH skill or technology that has an
+explicit "X+ years" or "X years" requirement in the job description or requirements:
+
+1. Identify which skills have year-based requirements (e.g., "3+ years of Python", "5 years Java development").
+2. For each such skill, scan the resume for ALL roles where the candidate performed work in that skill area.
+   DISCIPLINE RECOGNITION — count a role if the candidate DID the work, even if their title differs:
+   - "Data Science" experience includes roles titled: Data Scientist, ML Engineer, AI Engineer,
+     Machine Learning Engineer, Research Scientist, Applied Scientist, or any role where
+     responsibilities include predictive/statistical modeling, feature engineering, ML model
+     training/evaluation/deployment, or NLP/CV/deep learning applications.
+   - A "Data Analyst" role ONLY counts toward Data Science if responsibilities demonstrate
+     hands-on work in at least TWO of: predictive/statistical modeling, feature engineering,
+     ML model training/evaluation/deployment, NLP/CV/deep learning. Roles that ONLY involve
+     SQL queries, Excel dashboards, report generation, or KPI tracking do NOT count.
+   - "Machine Learning" experience includes: ML Engineer, AI Engineer, Data Scientist,
+     Deep Learning Engineer, NLP Engineer, Computer Vision Engineer, Research Scientist.
+   - "AI" experience includes: AI Engineer, ML Engineer, Data Scientist, GenAI Engineer.
+   - "Software Engineering" includes: Software Developer, Full-Stack Developer, Backend Engineer.
+   - "Data Engineering" includes: Data Engineer, ETL Developer, Analytics Engineer, Data Architect.
+   - "DevOps" includes: SRE, Platform Engineer, Infrastructure Engineer, Cloud Engineer.
+   CRITICAL: Focus on WHAT THE CANDIDATE DID in each role (responsibilities), not their job title alone.
+   If a job requires "5 years of Data Science" and a candidate was a "Machine Learning Engineer" for
+   7 years doing predictive modeling, NLP, and statistical analysis — that IS Data Science experience.
+3. Calculate the total duration IN MONTHS using this exact formula for each role:
+   - Convert start and end dates to (year, month) pairs.
+   - Duration in months = (end_year - start_year) × 12 + (end_month - start_month).
+   - For "Present", "Current", or ongoing roles, use today\'s date from the user message.
+   - EXAMPLE: "Jan 2020 – Aug 2023" = (2023 − 2020) × 12 + (8 − 1) = 43 months.
+   - EXAMPLE: "Jul 2018 – Jun 2021" = (2021 − 2018) × 12 + (6 − 7) = 35 months.
+   - Internships and part-time roles count at 50% weight (e.g., a 6-month internship = 3 months effective).
+   - University coursework, academic projects, and personal projects do NOT count toward professional years.
+   - Overlapping roles should not be double-counted; use the union of date ranges.
+4. SUM all months across qualifying roles, then divide by 12 to get total years.
+5. Show your step-by-step arithmetic in the "calculation" field (see JSON format below).
+6. Compare the candidate\'s calculated years against the job\'s requirement.
+7. If ANY required skill has a candidate shortfall of 2+ years below the minimum,
+   the match_score MUST be capped at 60 (regardless of how well other requirements match).
+   If the shortfall is 1-2 years, reduce the score by at least 15 points from what it would otherwise be.
+
+If no skills in the job description have explicit year-based requirements, set years_analysis to an empty object {{}}.
+
+TRANSFERABLE SKILLS — TECHNOLOGY EQUIVALENCY:
+When counting years for a SPECIFIC TOOL, also check for equivalent/competing technologies:
+
+Equivalency Groups:
+- BI/Data Visualization: Power BI <-> Tableau <-> Looker <-> QlikView <-> MicroStrategy <-> Sisense
+- Cloud ML Platforms: AWS SageMaker <-> Azure ML <-> Google Vertex AI <-> Databricks ML
+- Data Lakehouse/Warehouse: Microsoft Fabric <-> Databricks <-> Snowflake <-> BigQuery <-> AWS Lake Formation
+- ETL/Data Integration: SSIS <-> Informatica <-> Talend <-> Apache Airflow <-> AWS Glue <-> Azure Data Factory
+- API/Integration: REST API experience in ANY language/framework satisfies "API literacy" requirements
+- Cloud Platforms: AWS <-> Azure <-> GCP (core cloud concepts transfer between platforms)
+- Databases/SQL: SQL Server <-> PostgreSQL <-> MySQL <-> Oracle (SQL skills transfer across engines)
+- Low-Code AI/RPA: Copilot Studio <-> Power Automate <-> UiPath <-> Automation Anywhere
+- Containerization: Docker <-> Podman, Kubernetes <-> ECS <-> GKE
+
+Credit Rules (TWO-TIER):
+1. If the job requires a SKILL CATEGORY (e.g., "5yr data visualization experience", "5yr cloud ML"),
+   sum ALL equivalent tools at 100% credit — the job is asking for category experience.
+2. If the job requires a SPECIFIC TOOL (e.g., "5yr Power BI", "3yr Azure ML"),
+   sum equivalent tool years and apply 75% credit (accounts for tool-specific features not transferring).
+3. Mark gap as "TRANSFERABLE" (not "CRITICAL") when equivalent experience exists.
+4. In years_analysis, document the equivalency:
+   e.g., "Power BI: required 5yr, candidate has ~0yr Power BI but 6yr Tableau (equivalent: 4.5yr credit)"
+5. In gaps_identified, write:
+   "Missing [required tool] specifically, but has [equivalent tool] experience (transferable skill)"
+   NOT "CRITICAL: [required tool] requires Xyr, candidate has ~0.0yr"
+
+CRITICAL INSTRUCTIONS — READ CAREFULLY:
+1. ONLY reference skills, technologies, and experience that are EXPLICITLY STATED in the resume text.
 2. DO NOT infer, assume, or hallucinate any skills not directly mentioned in the resume.
 3. If a MANDATORY job requirement skill is NOT mentioned in the resume, you MUST list it in gaps_identified.
 4. For skills_match and experience_match, ONLY quote or paraphrase content that actually exists in the resume.
@@ -2284,7 +2353,7 @@ MANDATORY EVIDENCE EXTRACTION (you MUST complete this before assigning a score):
 GAP DESCRIPTION PRECISION (MANDATORY):
 When writing gaps_identified, you MUST distinguish between these two cases:
 - ABSENT: The skill or qualification is genuinely NOT mentioned anywhere in the resume. Use: "No evidence of [requirement] found in resume."
-- PRESENT BUT INSUFFICIENT: The skill or qualification IS mentioned in the resume but does not fully satisfy the job's specific requirement (e.g., wrong recency, insufficient depth, not the primary focus). Use: "[Requirement] experience noted at [employer/context] ([dates]) but [specific reason it falls short — e.g., 'not primary focus in last 2 years', 'experience predates required recency window', 'mentioned only in skills list without supporting work history']."
+- PRESENT BUT INSUFFICIENT: The skill or qualification IS mentioned in the resume but does not fully satisfy the job\'s specific requirement (e.g., wrong recency, insufficient depth, not the primary focus). Use: "[Requirement] experience noted at [employer/context] ([dates]) but [specific reason it falls short — e.g., \'not primary focus in last 2 years\', \'experience predates required recency window\', \'mentioned only in skills list without supporting work history\']."
 NEVER describe existing experience as "no evidence" or "no specific evidence." If the resume contains ANY mention of the skill — whether in a skills list, a prior role, or a certification — you must acknowledge it exists and explain WHY it does not satisfy the requirement. Saying "no evidence" when evidence exists is factually incorrect.
 
 WORK AUTHORIZATION EVIDENCE EXTRACTION (when applicable):
@@ -2300,56 +2369,56 @@ Respond in JSON format with these exact fields:
     "requirement_evidence": [
         {{
             "requirement": "<the specific job requirement being evaluated>",
-            "evidence_found": "<EXACT quoted text from resume that matches this requirement, or 'No evidence found after full resume search'>",
+            "evidence_found": "<EXACT quoted text from resume that matches this requirement, or \'No evidence found after full resume search\'>",
             "meets_requirement": true/false,
-            "score_impact": "<'no penalty', 'minor gap (-3 to -5 pts)', 'significant gap (-10 to -15 pts)', or 'critical gap (-20+ pts)'>"
+            "score_impact": "<\'no penalty\', \'minor gap (-3 to -5 pts)\', \'significant gap (-10 to -15 pts)\', or \'critical gap (-20+ pts)\'>"
         }}
     ],
     "work_authorization_analysis": {{
         "triggered": true/false,
-        "trigger_reason": "<which rule was triggered and why, or 'No work authorization language in job description'>",
-        "explicit_statement": "<quote exact authorization text from resume if found, or 'None found'>",
+        "trigger_reason": "<which rule was triggered and why, or \'No work authorization language in job description\'>",
+        "explicit_statement": "<quote exact authorization text from resume if found, or \'None found\'>",
         "roles_enumerated": [
-            {{"title": "<role title>", "company": "<company>", "dates": "<start - end>", "location": "<city, state/country>", "months": <N>}}
+            {{"title": "<role title>", "company": "<company>", "dates": "<start - end>", "location": "<city, state/country>", "months": 0}}
         ],
-        "total_months": <N>,
-        "total_years": <N.N>,
-        "inference_tier": "<e.g. '5+ years - strong likelihood, no penalty' or '3-4 years - minor penalty (3-5 pts)' or 'Under 3 years - standard gap scoring' or 'N/A - not triggered'>",
-        "score_adjustment": "<e.g. 'No penalty applied per Rule 1 Tier 1' or 'Minor reduction (3-5 pts) applied' or 'N/A'>"
+        "total_months": 0,
+        "total_years": 0.0,
+        "inference_tier": "<e.g. \'5+ years - strong likelihood, no penalty\' or \'3-4 years - minor penalty (3-5 pts)\' or \'Under 3 years - standard gap scoring\' or \'N/A - not triggered\'>",
+        "score_adjustment": "<e.g. \'No penalty applied per Rule 1 Tier 1\' or \'Minor reduction (3-5 pts) applied\' or \'N/A\'>"
     }},
-    "match_score": <integer 0-100>,
-    "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say 'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.' Do NOT use contradictory phrasing like 'mismatch which matches'.>",
+    "match_score": 0,
+    "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say \'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.\' Do NOT use contradictory phrasing like \'mismatch which matches\'.>",
     "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
     "experience_match": "<ONLY list experience from the resume that is relevant to the job - be specific>",
     "gaps_identified": "<Describe in natural prose ALL mandatory requirements NOT found in the resume INCLUDING location mismatches AND years-of-experience shortfalls. Separate multiple gaps with periods or semicolons. Return as a single cohesive string, NOT as a JSON array - this is critical>",
     "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>",
     "years_analysis": {{
         "<skill_name>": {{
-            "required_years": <N>,
-            "estimated_years": <M>,
-            "meets_requirement": true/false,
-            "calculation": "<step-by-step month arithmetic, e.g. 'Role1: (2026-2024)×12+(2-1)=25mo + Role2: (2023-2021)×12+(8-7)=25mo = 50mo/12 = 4.17yr'>"
+            "required_years": 0,
+            "estimated_years": 0.0,
+            "meets_requirement": true,
+            "calculation": "<step-by-step month arithmetic, e.g. \'Role1: (2023-2020)×12+(8-1)=43mo + Role2: (2021-2018)×12+(6-7)=35mo = 78mo/12 = 6.5yr\'>"
         }}
     }},
     "recency_analysis": {{
         "most_recent_role": "<title> at <company> (<start> – <end>)",
-        "most_recent_role_relevant": true/false,
+        "most_recent_role_relevant": true,
         "second_recent_role": "<title> at <company> (<start> – <end>)",
-        "second_recent_role_relevant": true/false,
-        "last_relevant_role_ended": "<date or 'current'>",
-        "months_since_relevant_work": <N or 0 if current>,
-        "penalty_applied": <0-25>,
+        "second_recent_role_relevant": true,
+        "last_relevant_role_ended": "<date or \'current\'>",
+        "months_since_relevant_work": 0,
+        "penalty_applied": 0,
         "reasoning": "<brief explanation of why roles are or are not relevant>"
     }},
     "experience_level_classification": {{
         "classification": "<FRESH_GRAD | ENTRY | MID | SENIOR>",
-        "total_professional_years": <N.N>,
+        "total_professional_years": 0.0,
         "highest_role_type": "<PROFESSIONAL_FULLTIME | PROFESSIONAL_CONTRACT | INTERNSHIP_ONLY | ACADEMIC_ONLY>"
     }}
 }}
 
 EXPERIENCE LEVEL CLASSIFICATION (MANDATORY):
-Before scoring, classify the candidate's experience level based on their PROFESSIONAL work history:
+Before scoring, classify the candidate\'s experience level based on their PROFESSIONAL work history:
 - FRESH_GRAD: Only internships, academic projects, or graduated within the last 12 months with no full-time professional roles.
 - ENTRY: Less than 2 years of professional (non-intern) experience.
 - MID: 2-5 years of professional experience.
@@ -2357,14 +2426,13 @@ Before scoring, classify the candidate's experience level based on their PROFESS
 total_professional_years counts ONLY paid, non-intern, non-academic roles. Internships count at 50% weight.
 highest_role_type reflects the most senior type of role held (PROFESSIONAL_FULLTIME > PROFESSIONAL_CONTRACT > INTERNSHIP_ONLY > ACADEMIC_ONLY).
 
-
 SCORING GUIDELINES:
 - 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, location matches, meets or exceeds ALL required years of experience per skill, AND has practiced relevant skills in a recent role (within last 12 months)
 - 70-84: Candidate meets MOST mandatory requirements, may have 1-2 minor gaps or be 1 year short on a non-critical skill
 - 65-75: Candidate has strong equivalent experience with competing tools in the same category — core competencies align but specific tool experience is limited (transferable skills present)
 - 50-69: Candidate has relevant skills but INSUFFICIENT years of professional experience for required skills, OR is missing key qualifications, OR has location issues, OR has equivalent tools but lacks the specific required tool
 - 30-49: Candidate has tangential experience, significant experience/years gaps, or major location mismatch
-- 0-29: Candidate's background does not align with the role (wrong field/specialty or completely wrong location)
+- 0-29: Candidate\'s background does not align with the role (wrong field/specialty or completely wrong location)
 
 CRITICAL SCORING RULES:
 - If a job requires "X+ years" for a skill and the candidate has < (X-2) years, the score MUST be <= 60.
@@ -2372,51 +2440,7 @@ CRITICAL SCORING RULES:
 - A candidate fresh out of school with only internships CANNOT score 85+ for a role requiring 3+ years of professional experience.
 - If experience_level_classification is FRESH_GRAD or ENTRY and any requirement specifies 3+ years of experience, the match_score MUST NOT exceed 55.
 - "Experience with deployment workflows", "production deployment", or similar deployment/operations requirements are ONLY satisfied by professional (non-academic, non-intern) deployment experience. Coursework deployments (Streamlit, Railway, Heroku, hobby Docker) do NOT satisfy production deployment requirements.
-- BE HONEST. If the resume does not show the required skills, sufficient years, OR the candidate location doesn't match, the candidate should NOT score high."""
-
-        try:
-            system_message = """You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
-
-CRITICAL RULES:
-1. You MUST only cite skills and experience that are EXPLICITLY written in the candidate's resume.
-2. You MUST NOT infer or hallucinate skills that are not directly stated.
-3. If a job requires FPGA and the resume shows SQL/database experience, they DO NOT match.
-4. If a job requires a technology and the resume shows ONLY an unrelated technology (e.g., FPGA job but resume shows SQL/database), that IS a GAP. However, if the resume shows a COMPETING tool in the same category (e.g., Tableau for Power BI, AWS SageMaker for Azure ML), apply partial credit and mark as TRANSFERABLE, not CRITICAL.
-5. Be honest - a mismatched candidate should score LOW even if they have impressive but irrelevant skills.
-6. Your assessment will be used for recruiter decisions - accuracy is critical.
-7. LOCATION MATTERS: Check if the candidate's location is compatible with the job's work type (remote/onsite/hybrid).
-   - Remote jobs: Candidate must be in the same COUNTRY for tax/legal compliance.
-   - On-site/Hybrid jobs: Candidate should be in or near the job's city/metro area.
-   - If candidate location doesn't match, this is a GAP that should reduce their score.
-8. EDUCATION HIERARCHY (higher degrees satisfy lower requirements):
-   - Doctorate/PhD > Master's (MA, MS, MBA, etc.) > Bachelor's (BA, BS, etc.) > Associate's > High School/GED
-   - If a job requires "Bachelor's degree" and the candidate has a Master's, PhD, or Doctorate, the education requirement is MET (exceeded), NOT a gap.
-   - Only flag an education gap if the candidate's highest degree is LOWER than what the job requires.
-   - If the job specifies a field (e.g., "Bachelor's in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap.
-9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
-10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement.
-11. WORK AUTHORIZATION EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST populate the work_authorization_analysis section with ALL US roles enumerated from the resume. DO NOT simply flag "citizenship not mentioned" as a gap without first performing the mandatory work history enumeration from the Global Screening Instructions. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. The same applies to Canadian security clearance — enumerate Canadian roles before flagging clearance gaps.
-12. EVIDENCE-FIRST SCORING: You MUST complete the requirement_evidence array BEFORE determining the match_score. Your score must be mathematically derivable from the evidence you cited — do not assign a holistic impression score that contradicts the per-requirement evidence.
-13. EXPERIENCE DEPTH & DOMAIN RELEVANCE: When evaluating whether a candidate's experience satisfies a requirement, assess the NATURE of the experience, not just keyword overlap. Specifically:
-   - AUDIT/ASSESSMENT experience (e.g., "audited cybersecurity controls using NIST") does NOT satisfy a requirement for HANDS-ON DELIVERY/OPERATIONS (e.g., "ensure reliable, secure delivery of IT systems"). Auditing a system ≠ building or operating that system.
-   - GOVERNANCE/COMPLIANCE/STANDARDS experience does NOT satisfy a requirement for TECHNOLOGY IMPLEMENTATION/OPERATIONS. Setting conformance standards ≠ delivering technology solutions.
-   - A candidate who EVALUATED, ASSESSED, or REVIEWED a system is NOT equivalent to one who BUILT, OPERATED, MANAGED, or DELIVERED that system.
-   - When citing evidence in requirement_evidence, explicitly note whether the experience is ADVISORY/AUDIT or DELIVERY/OPERATIONAL — and apply a score penalty (10-15 pts per affected requirement) when advisory experience is cited against a delivery requirement.
-   - Budget experience from audit engagements (managing engagement budgets at a consulting firm) is NOT equivalent to owning a technology department budget ($5M+). Note the distinction.
-14. RECENCY OF RELEVANT EXPERIENCE: After evaluating requirements, check whether the candidate's
-    MOST RECENT 2 roles (by date) are relevant to the job requirements being scored.
-    - If the candidate's most recent role is UNRELATED to the job domain and the most recent
-      RELEVANT role ended 12+ months ago, apply a 10-15 point penalty. Note in gaps: "Candidate's most
-      recent professional activity is outside the target domain; relevant experience is not current."
-    - If BOTH of the candidate's two most recent roles are unrelated to the job domain, apply
-      a 15-25 point penalty. Note in gaps: "Candidate has not practiced relevant skills in their last
-      two positions; career trajectory has shifted away from this domain."
-    - Roles with NO bullet points or descriptions provide NO evidence of relevant skills.
-      Do not assume relevance based on job title alone.
-    - "Unrelated" means the role's described responsibilities share NO meaningful overlap with
-      the job's mandatory requirements. A DevOps engineer's role is related to a Cloud Developer
-      job; a real estate consultant's role is not.
-    - Report your finding in the recency_analysis JSON section."""
+- BE HONEST. If the resume does not show the required skills, sufficient years, OR the candidate location doesn\'t match, the candidate should NOT score high."""
 
             response = self.openai_client.chat.completions.create(
                 model=model_override or self.model,
@@ -2428,7 +2452,23 @@ CRITICAL RULES:
                 temperature=0.1,  # Lower temperature for more deterministic/accurate responses
                 max_tokens=2500  # Increased to accommodate requirement_evidence + work_authorization_analysis in response
             )
-            
+
+            # ── Prompt cache hit logging ──
+            try:
+                usage = response.usage
+                prompt_tokens = usage.prompt_tokens if usage else 0
+                cached_tokens = 0
+                if usage and hasattr(usage, 'prompt_tokens_details') and usage.prompt_tokens_details:
+                    details = usage.prompt_tokens_details
+                    cached_tokens = getattr(details, 'cached_tokens', 0) or 0
+                if prompt_tokens > 0:
+                    hit_pct = (cached_tokens / prompt_tokens) * 100
+                    logging.info(f"💰 Cache: {cached_tokens} cached / {prompt_tokens} prompt tokens ({hit_pct:.0f}% hit rate) for job {job_id}")
+                else:
+                    logging.info(f"💰 Cache: usage data unavailable for job {job_id}")
+            except Exception as _cache_log_err:
+                logging.debug(f"Cache logging error (non-fatal): {_cache_log_err}")
+
             result = json.loads(response.choices[0].message.content)
             
             # ── Layer 2: Normalize text fields that GPT may return as arrays ──
