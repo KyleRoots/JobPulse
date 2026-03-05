@@ -226,6 +226,10 @@
         color: rgba(255,255,255,0.68); line-height: 1.75; white-space: pre-wrap;
         max-height: 360px; overflow-y: auto;
     }
+    .sort-icon { font-size: 0.65rem; color: rgba(155,127,212,0.5); margin-left: 0.2rem; }
+    .sort-icon.active { color: var(--sc-accent); }
+    #minScoreInput::-webkit-inner-spin-button,
+    #minScoreInput::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 </style>
 {% endblock %}
 
@@ -278,7 +282,22 @@
         <h5 style="margin:0;"><i class="fas fa-users me-2" style="color:var(--sc-accent);"></i>Screened Candidates</h5>
         <i class="fas fa-chevron-right" id="candidatesChevron" style="font-size:0.8rem; color:rgba(255,255,255,0.4); transition:transform 0.2s;"></i>
     </div>
-    <div class="section-subtitle">AI match results for candidates on your active jobs — click a metric card above to filter</div>
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-top:0.4rem;">
+        <div class="section-subtitle" style="margin-top:0;">AI match results for candidates on your active jobs — click a metric card above to filter</div>
+        <div style="display:flex; align-items:center; gap:0.4rem;" onclick="event.stopPropagation()">
+            <i class="fas fa-search" style="font-size:0.75rem; color:rgba(255,255,255,0.3);"></i>
+            <input type="number" id="minScoreInput" min="0" max="100" placeholder="Min score…"
+                   title="Show only candidates at or above this score"
+                   style="width:100px; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.25); border-radius:7px;
+                          color:rgba(255,255,255,0.75); font-size:0.78rem; padding:0.25rem 0.5rem; outline:none;
+                          -moz-appearance:textfield;"
+                   oninput="applyMinScore()">
+            <button type="button" onclick="clearMinScore()" id="minScoreClear"
+                    style="display:none; background:transparent; border:none; color:rgba(255,255,255,0.35);
+                           font-size:0.8rem; cursor:pointer; padding:0 0.1rem; line-height:1;"
+                    title="Clear score filter"><i class="fas fa-times-circle"></i></button>
+        </div>
+    </div>
 </div>
 
 <div id="candidatesCollapse" style="display:none;">
@@ -289,18 +308,20 @@
         <table class="table table-dark table-hover sc-table" id="matchTable">
             <thead>
                 <tr>
-                    <th style="width:100px; white-space:nowrap;">Screened</th>
-                    <th style="white-space:nowrap;">Candidate</th>
-                    <th style="white-space:nowrap;">Job</th>
-                    <th style="width:80px; text-align:center; white-space:nowrap;">Score</th>
-                    <th style="white-space:nowrap;">Status</th>
+                    <th style="width:100px; white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('date')" title="Sort by date">Screened <span class="sort-icon" id="si-date"></span></th>
+                    <th style="white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('candidate')" title="Sort by candidate">Candidate <span class="sort-icon" id="si-candidate"></span></th>
+                    <th style="white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('job')" title="Sort by job">Job <span class="sort-icon" id="si-job"></span></th>
+                    <th style="width:80px; text-align:center; white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('score')" title="Sort by score">Score <span class="sort-icon" id="si-score"></span></th>
+                    <th style="white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('status')" title="Sort by status">Status <span class="sort-icon" id="si-status"></span></th>
                     <th style="white-space:nowrap;">AI Notes</th>
                 </tr>
             </thead>
             <tbody id="tableBody">
                 {% for m in matches %}
                 <tr data-status="{{ 'qualified' if m.is_qualified else 'not_recommended' }}"
-                    data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}">
+                    data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}"
+                    data-score="{{ m.match_score|round|int }}"
+                    data-date="{{ m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0' }}">
                     <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
                         {{ m.created_at.strftime('%b %d, %Y') if m.created_at else '—' }}
                     </td>
@@ -352,7 +373,8 @@
                 </tr>
                 {% endfor %}
                 {% for log in pending_logs %}
-                <tr data-status="pending" data-week="no">
+                <tr data-status="pending" data-week="no" data-score="0"
+                    data-date="{{ log.created_at.strftime('%Y%m%d%H%M%S') if log.created_at else '0' }}">
                     <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
                         {{ log.created_at.strftime('%b %d, %Y') if log.created_at else '—' }}
                     </td>
@@ -621,12 +643,117 @@ function changePage(delta) {
     renderPage();
 }
 
+// ── Sort ──────────────────────────────────────────────────────────────────────
+let currentSort = { col: null, dir: 'desc' };
+
+function sortTable(col) {
+    if (currentSort.col === col) {
+        currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSort.col = col;
+        currentSort.dir = col === 'score' ? 'desc' : 'asc';
+    }
+
+    const tbody = document.getElementById('tableBody');
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+
+    function getVal(row) {
+        switch (col) {
+            case 'score':     return parseInt(row.dataset.score || '0', 10);
+            case 'date':      return row.dataset.date || '0';
+            case 'candidate': return (row.cells[1] ? row.cells[1].textContent.trim().toLowerCase() : '');
+            case 'job':       return (row.cells[2] ? row.cells[2].textContent.trim().toLowerCase() : '');
+            case 'status':    return (row.cells[4] ? row.cells[4].textContent.trim().toLowerCase() : '');
+            default:          return '';
+        }
+    }
+
+    allRows.sort((a, b) => {
+        const av = getVal(a), bv = getVal(b);
+        let cmp = 0;
+        if (typeof av === 'number') cmp = av - bv;
+        else cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return currentSort.dir === 'asc' ? cmp : -cmp;
+    });
+
+    allRows.forEach(r => tbody.appendChild(r));
+
+    document.querySelectorAll('.sort-icon').forEach(el => {
+        el.textContent = '';
+        el.classList.remove('active');
+    });
+    const activeIcon = document.getElementById('si-' + col);
+    if (activeIcon) {
+        activeIcon.textContent = currentSort.dir === 'asc' ? '▲' : '▼';
+        activeIcon.classList.add('active');
+    }
+
+    visibleRows = allRows.filter(r => r.style.display !== 'none');
+    currentPage = 1;
+    renderPage();
+}
+
+// ── Min-score filter ──────────────────────────────────────────────────────────
+let activeMinScore = null;
+
+function applyMinScore() {
+    const input = document.getElementById('minScoreInput');
+    const clearBtn = document.getElementById('minScoreClear');
+    const val = input ? input.value.trim() : '';
+    activeMinScore = val !== '' ? parseInt(val, 10) : null;
+    if (clearBtn) clearBtn.style.display = activeMinScore !== null ? '' : 'none';
+    rebuildVisibleRows();
+}
+
+function clearMinScore() {
+    const input = document.getElementById('minScoreInput');
+    const clearBtn = document.getElementById('minScoreClear');
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    activeMinScore = null;
+    rebuildVisibleRows();
+}
+
+function rebuildVisibleRows() {
+    const allRows = Array.from(document.querySelectorAll('#tableBody tr'));
+    const filterEmpty = document.getElementById('filterEmptyState');
+    const cards = {
+        qualified:       document.getElementById('card-qualified'),
+        pending:         document.getElementById('card-pending'),
+        not_recommended: document.getElementById('card-not-rec'),
+        week:            document.getElementById('card-week'),
+    };
+
+    const matched = [];
+    allRows.forEach(row => {
+        const status = row.dataset.status;
+        const isWeek = row.dataset.week === 'yes';
+        const score  = parseInt(row.dataset.score || '0', 10);
+
+        let show = true;
+        if (activeFilter !== null) {
+            show = (activeFilter === 'qualified'       && status === 'qualified')
+                || (activeFilter === 'pending'         && status === 'pending')
+                || (activeFilter === 'not_recommended' && status === 'not_recommended')
+                || (activeFilter === 'week'            && isWeek);
+        }
+        if (show && activeMinScore !== null) {
+            show = score >= activeMinScore;
+        }
+        row.style.display = show ? '' : 'none';
+        if (show) matched.push(row);
+    });
+
+    if (filterEmpty) filterEmpty.style.display = matched.length === 0 ? 'block' : 'none';
+    visibleRows = matched;
+    currentPage = 1;
+    renderPage();
+}
+
 // ── Filter ───────────────────────────────────────────────────────────────────
 let activeFilter = null;
 
 function filterMatches(filter) {
-    const allRows     = Array.from(document.querySelectorAll('#tableBody tr'));
-    const filterEmpty = document.getElementById('filterEmptyState');
     const cards = {
         qualified:       document.getElementById('card-qualified'),
         pending:         document.getElementById('card-pending'),
@@ -636,35 +763,14 @@ function filterMatches(filter) {
 
     if (activeFilter === filter) {
         activeFilter = null;
-        allRows.forEach(r => r.style.display = '');
         Object.values(cards).forEach(c => c && c.classList.remove('active'));
-        if (filterEmpty) filterEmpty.style.display = 'none';
-        visibleRows = allRows;
-        currentPage = 1;
-        renderPage();
-        return;
+    } else {
+        activeFilter = filter;
+        Object.values(cards).forEach(c => c && c.classList.remove('active'));
+        if (cards[filter]) cards[filter].classList.add('active');
     }
 
-    activeFilter = filter;
-    Object.values(cards).forEach(c => c && c.classList.remove('active'));
-    if (cards[filter]) cards[filter].classList.add('active');
-
-    const matched = [];
-    allRows.forEach(row => {
-        const status = row.dataset.status;
-        const isWeek = row.dataset.week === 'yes';
-        let show = (filter === 'qualified' && status === 'qualified')
-                || (filter === 'pending'   && status === 'pending')
-                || (filter === 'not_recommended' && status === 'not_recommended')
-                || (filter === 'week'      && isWeek);
-        row.style.display = show ? '' : 'none';
-        if (show) matched.push(row);
-    });
-
-    if (filterEmpty) filterEmpty.style.display = matched.length === 0 ? 'block' : 'none';
-    visibleRows = matched;
-    currentPage = 1;
-    renderPage();
+    rebuildVisibleRows();
 }
 
 // ── Event delegation — notes + configure links ────────────────────────────────
