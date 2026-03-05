@@ -4,7 +4,6 @@
 {% block title %}Scout Screening - Scout Genius™{% endblock %}
 
 {% block extra_styles %}
-<meta http-equiv="refresh" content="60">
 <style>
     .settings-card {
         background: rgba(255, 255, 255, 0.08);
@@ -529,7 +528,7 @@
                                     <div class="p-3 rounded mb-3"
                                         style="background: var(--module-bg, rgba(74, 150, 120, 0.1)); border: 1px solid var(--module-border, rgba(74, 150, 120, 0.2));">
                                         <pre
-                                            style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.ai_interpreted_requirements }}</pre>
+                                            style="white-space: pre-wrap; font-size: 0.85rem; color: #e2e8f0; margin: 0;">{{ job.ai_interpreted_requirements | replace('.. ', '\n') }}</pre>
                                     </div>
                                     {% else %}
                                     <p class="text-muted"><i class="fas fa-exclamation-circle me-1"></i>No AI
@@ -1286,5 +1285,53 @@
                 if (icon) icon.style.transform = 'rotate(0deg)';
             });
         }
+
+        (function () {
+            let reloadTimer = null;
+            let pendingReload = false;
+
+            function hasExpandedContent() {
+                const acc = document.getElementById('jobRequirementsAccordion');
+                if (acc && acc.querySelector('.accordion-collapse.show')) return true;
+                if (document.querySelector('.modal.show')) return true;
+                return false;
+            }
+
+            function safeReload() {
+                fetch(window.location.href, { redirect: 'manual' })
+                    .then(function (resp) {
+                        if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
+                        location.reload();
+                    })
+                    .catch(function () {});
+            }
+
+            function startTimer() {
+                clearTimeout(reloadTimer);
+                reloadTimer = setTimeout(function () {
+                    if (hasExpandedContent()) {
+                        pendingReload = true;
+                    } else {
+                        safeReload();
+                    }
+                }, 60000);
+            }
+
+            function onCollapse() {
+                if (pendingReload && !hasExpandedContent()) {
+                    safeReload();
+                }
+            }
+
+            var acc = document.getElementById('jobRequirementsAccordion');
+            if (acc) {
+                acc.addEventListener('hidden.bs.collapse', onCollapse);
+            }
+            document.querySelectorAll('.modal').forEach(function (modal) {
+                modal.addEventListener('hidden.bs.modal', onCollapse);
+            });
+
+            startTimer();
+        }());
     </script>
     {% endblock %}

@@ -706,7 +706,7 @@ function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
     if (subtitle) subtitle.textContent = (jobTitle || '') + '  ·  ID: ' + jobId;
     if (aiBox) {
         const hasReq = aiReq && aiReq.trim();
-        aiBox.textContent = hasReq ? aiReq
+        aiBox.textContent = hasReq ? aiReq.replace(/\.\. /g, '\n')
             : 'No AI interpretation available yet. Requirements are extracted automatically from the Bullhorn job description within 5 minutes of the job being added.';
         aiBox.style.color = hasReq ? '' : 'rgba(255,255,255,0.28)';
         aiBox.style.fontStyle = hasReq ? '' : 'italic';
