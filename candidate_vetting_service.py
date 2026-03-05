@@ -2162,12 +2162,21 @@ INTERNATIONAL/OFFSHORE OVERRIDE:
 LOCATION REQUIREMENT ({work_type} Position):
 - Job Location: {job_location_full} (Work Type: {work_type})
 - {candidate_location_label}
-- For ON-SITE/HYBRID positions: Candidate should be in or near the job's city/metro area, or willing to relocate.
+- For ON-SITE/HYBRID positions: Candidate must be in or near the job's city/metro area, or explicitly willing to relocate.
 
 CRITICAL: If candidate is ALREADY in the same city or metro area as the job, they AUTOMATICALLY qualify for on-site/hybrid work.
 - Do NOT flag "location mismatch" or "not willing to work on-site" if candidate lives locally.
 - Local candidates CAN work on-site by default - no explicit statement needed.
-- Only flag location issues if candidate is in a completely different region (different state/province) or country.
+
+MANDATORY LOCATION PENALTY TIERS (apply these exact deductions — physical presence is non-negotiable for on-site/hybrid roles):
+1. Candidate is in a DIFFERENT COUNTRY than the job location:
+   - Add "Location mismatch: candidate in [country], job requires on-site presence in [job country]" to gaps_identified.
+   - Reduce score by 25–35 points. This is a hard location barrier — strong technical skills cannot compensate.
+2. Candidate is in the SAME COUNTRY but a DIFFERENT STATE/PROVINCE:
+   - Add "Location mismatch: candidate not in {job_city or job_state or 'job area'}, on-site required" to gaps_identified.
+   - Reduce score by 15–20 points.
+   - EXCEPTION: If the candidate explicitly states willingness to relocate (e.g., "open to relocation", "willing to relocate"), reduce the deduction to 10–15 points instead and note the relocation intent.
+3. Candidate is in the SAME CITY or METRO AREA: no deduction, no flag.
 - If candidate is non-local AND doesn't mention relocation willingness, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified.
 
 MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
