@@ -1162,7 +1162,27 @@ def save_job_requirements(job_id):
                 vetting_threshold=int(vetting_threshold) if vetting_threshold else None
             )
             db.session.add(job_req)
-        
+
+        # Audit log
+        try:
+            import json as _json
+            from models import UserActivityLog
+            from flask_login import current_user
+            db.session.add(UserActivityLog(
+                user_id=current_user.id,
+                activity_type='config_change',
+                ip_address=request.remote_addr,
+                details=_json.dumps({
+                    'job_id': job_id,
+                    'job_title': job_req.job_title or f'Job #{job_id}',
+                    'custom_requirements_action': 'set' if custom_requirements else 'cleared',
+                    'threshold': int(vetting_threshold) if vetting_threshold else None,
+                    'page': 'vetting_settings',
+                })
+            ))
+        except Exception as log_err:
+            logging.warning(f"Failed to write config_change log: {log_err}")
+
         db.session.commit()
         
         if request.is_json:
@@ -1211,7 +1231,27 @@ def save_job_threshold(job_id):
                 vetting_threshold=new_threshold
             )
             db.session.add(job_req)
-        
+
+        # Audit log
+        try:
+            import json as _json
+            from models import UserActivityLog
+            from flask_login import current_user
+            db.session.add(UserActivityLog(
+                user_id=current_user.id,
+                activity_type='config_change',
+                ip_address=request.remote_addr,
+                details=_json.dumps({
+                    'job_id': job_id,
+                    'job_title': job_req.job_title or f'Job #{job_id}',
+                    'custom_requirements_action': None,
+                    'threshold': new_threshold,
+                    'page': 'vetting_settings',
+                })
+            ))
+        except Exception as log_err:
+            logging.warning(f"Failed to write config_change log: {log_err}")
+
         db.session.commit()
         
         global_threshold = VettingConfig.get_value('match_threshold', '80')

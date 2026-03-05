@@ -69,6 +69,7 @@ def activity_log_page():
     logins_data = None
     modules_data = None
     emails_data = None
+    config_changes_data = None
 
     user_login_summary = None
     if tab == 'logins':
@@ -139,6 +140,15 @@ def activity_log_page():
         if page_search:
             q = q.filter(db.cast(UserActivityLog.details, db.Text).ilike(f'%{page_search}%'))
         modules_data = q.order_by(UserActivityLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    elif tab == 'config':
+        q = db.session.query(UserActivityLog, User).join(User, UserActivityLog.user_id == User.id).filter(
+            UserActivityLog.activity_type == 'config_change',
+            UserActivityLog.created_at >= cutoff
+        )
+        if user_filter:
+            q = q.filter(UserActivityLog.user_id == user_filter)
+        config_changes_data = q.order_by(UserActivityLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
     elif tab == 'active':
         active_users_data = []
@@ -226,6 +236,7 @@ def activity_log_page():
                            logins_data=logins_data,
                            modules_data=modules_data,
                            emails_data=emails_data,
+                           config_changes_data=config_changes_data,
                            active_users_data=active_users_data,
                            active_now_count=active_now_count,
                            total_logins_7d=total_logins_7d,

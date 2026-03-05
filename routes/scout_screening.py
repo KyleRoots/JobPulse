@@ -224,6 +224,24 @@ def save_job_settings(job_id):
             )
             db.session.add(job_req)
 
+        # Audit log
+        try:
+            from models import UserActivityLog
+            db.session.add(UserActivityLog(
+                user_id=current_user.id,
+                activity_type='config_change',
+                ip_address=request.remote_addr,
+                details=json.dumps({
+                    'job_id': job_id,
+                    'job_title': job_req.job_title or f'Job #{job_id}',
+                    'custom_requirements_action': 'set' if custom_requirements else 'cleared',
+                    'threshold': vetting_threshold,
+                    'page': 'scout_screening',
+                })
+            ))
+        except Exception as log_err:
+            logger.warning(f"Failed to write config_change log: {log_err}")
+
         db.session.commit()
         if request.form.get('_ajax') == '1':
             return ('', 204)
