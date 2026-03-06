@@ -179,9 +179,19 @@ class SimplifiedXMLGenerator:
             return None
 
     def _job_has_stsi_pando_tag(self, job: Dict) -> bool:
-        """Return True if the job description contains any STSI pando routing tag (#STSIVMS or #STSIEG)."""
-        description = (job.get('description') or job.get('publicDescription') or '').lower()
-        return any(tag in description for tag in self.STSI_PANDO_TAGS)
+        """Return True if either description field contains any STSI pando routing tag (#STSIVMS or #STSIEG).
+        
+        Both fields are always combined before checking — avoids Python's `or` short-circuit
+        silently skipping publicDescription when description is non-empty but tag-free.
+        """
+        description = (job.get('description') or '').lower()
+        public_description = (job.get('publicDescription') or '').lower()
+        combined = description + ' ' + public_description
+        found_tag = next((tag for tag in self.STSI_PANDO_TAGS if tag in combined), None)
+        if found_tag:
+            field = 'description' if found_tag in description else 'publicDescription'
+            self.logger.debug(f"  🏷️ STSI tag '{found_tag}' found in {field} for job {job.get('id')}")
+        return found_tag is not None
 
     def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int],
                                   tearsheet_caps: Optional[Dict[int, int]] = None,
