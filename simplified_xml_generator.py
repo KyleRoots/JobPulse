@@ -51,15 +51,22 @@ class SimplifiedXMLGenerator:
         # Thread lock for preventing concurrent generation
         self._generation_lock = False
     
-    def generate_fresh_xml(self, tearsheet_caps=None) -> tuple[str, dict]:
+    # Tags that route STSI jobs to the pando feed instead of v2
+    STSI_PANDO_TAGS = {'#stsivms', '#stsieg'}
+    STSI_TEARSHEET_ID = 1531
+
+    def generate_fresh_xml(self, tearsheet_caps=None, stsi_tag_mode=None) -> tuple[str, dict]:
         """
         Generate fresh XML by pulling directly from all Bullhorn tearsheets
-        
+
         Args:
             tearsheet_caps: Optional dict of {tearsheet_id: max_jobs} to limit jobs
-                            per tearsheet. e.g. {1531: 10} caps STSI to 10 jobs.
-                            Jobs are selected by most-recently-added-to-tearsheet.
-        
+                            per tearsheet (legacy, not used for STSI tag routing).
+            stsi_tag_mode: Controls STSI (tearsheet 1531) job routing by description tags.
+                'exclude_tags' — v2 feed: include only STSI jobs WITHOUT #STSIVMS or #STSIEG.
+                'only_tags'    — pando feed: include only STSI jobs WITH #STSIVMS or #STSIEG.
+                None           — no tag filtering applied (include all STSI jobs).
+
         Returns:
             tuple: (xml_content_string, stats_dict)
         """
@@ -72,7 +79,8 @@ class SimplifiedXMLGenerator:
         try:
             self._generation_lock = True
             cap_label = f" (caps: {tearsheet_caps})" if tearsheet_caps else ""
-            self.logger.info(f"🚀 Starting fresh XML generation from Bullhorn tearsheets{cap_label}")
+            tag_label = f" (STSI tag mode: {stsi_tag_mode})" if stsi_tag_mode else ""
+            self.logger.info(f"🚀 Starting fresh XML generation from Bullhorn tearsheets{cap_label}{tag_label}")
             
             existing_references = self._load_references_from_database()
             
@@ -82,7 +90,9 @@ class SimplifiedXMLGenerator:
                 raise Exception("Failed to authenticate with Bullhorn")
             
             all_jobs_with_context = self._get_jobs_from_tearsheets(
-                bullhorn_service, self.tearsheet_ids, tearsheet_caps=tearsheet_caps
+                bullhorn_service, self.tearsheet_ids,
+                tearsheet_caps=tearsheet_caps,
+                stsi_tag_mode=stsi_tag_mode
             )
             
             if not all_jobs_with_context:
@@ -168,40 +178,50 @@ class SimplifiedXMLGenerator:
             self.logger.error(f"Failed to query TearsheetJobHistory for cap on {tearsheet_id}: {e} — will fall back to job ID ordering")
             return None
 
+    def _job_has_stsi_pando_tag(self, job: Dict) -> bool:
+        """Return True if the job description contains any STSI pando routing tag (#STSIVMS or #STSIEG)."""
+        description = (job.get('description') or job.get('publicDescription') or '').lower()
+        return any(tag in description for tag in self.STSI_PANDO_TAGS)
+
     def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int],
-                                  tearsheet_caps: Optional[Dict[int, int]] = None) -> List[Dict]:
+                                  tearsheet_caps: Optional[Dict[int, int]] = None,
+                                  stsi_tag_mode: Optional[str] = None) -> List[Dict]:
         """
-        Pull jobs from all tearsheets using the same proven method as main monitoring system
-        
+        Pull jobs from all tearsheets using the same proven method as main monitoring system.
+
         Args:
             bullhorn_service: Authenticated Bullhorn service
             tearsheet_ids: List of tearsheet IDs to process
             tearsheet_caps: Optional dict of {tearsheet_id: max_jobs} to cap specific tearsheets
-            
+            stsi_tag_mode: STSI (tearsheet 1531) tag-based routing.
+                'exclude_tags' — v2 feed: skip STSI jobs that contain #STSIVMS or #STSIEG.
+                'only_tags'    — pando feed: skip STSI jobs that do NOT contain those tags.
+                None           — include all STSI jobs (no tag filtering).
+
         Returns:
             List of job dictionaries with tearsheet_context added (ineligible jobs filtered out)
         """
         all_jobs = []
         seen_job_ids = set()
         total_filtered = 0
-        
+
         cap_filters = {}
         if tearsheet_caps:
             for ts_id, max_jobs in tearsheet_caps.items():
                 cap_filters[ts_id] = self._get_recent_tearsheet_job_ids(ts_id, max_jobs)
-        
+
         for tearsheet_id in tearsheet_ids:
             try:
                 self.logger.info(f"Processing tearsheet {tearsheet_id}")
-                
+
                 jobs = bullhorn_service.get_tearsheet_jobs(tearsheet_id)
-                
+
                 if not jobs:
                     self.logger.warning(f"No jobs found in tearsheet {tearsheet_id}")
                     continue
-                
+
                 self.logger.info(f"Found {len(jobs)} jobs in tearsheet {tearsheet_id}")
-                
+
                 allowed_ids = cap_filters.get(tearsheet_id)
                 cap_limit = tearsheet_caps.get(tearsheet_id) if tearsheet_caps else None
                 use_id_fallback = (cap_limit is not None) and (allowed_ids is None)
@@ -209,6 +229,8 @@ class SimplifiedXMLGenerator:
                 if use_id_fallback:
                     self.logger.info(f"📋 Tearsheet {tearsheet_id} cap: using job ID fallback (no TearsheetJobHistory data) — keeping top {cap_limit} by ID")
 
+                is_stsi = (tearsheet_id == self.STSI_TEARSHEET_ID)
+                tag_filtered_count = 0
                 filtered_count = 0
                 eligible_jobs_this_tearsheet = []
 
@@ -217,12 +239,12 @@ class SimplifiedXMLGenerator:
                     if job_id and job_id not in seen_job_ids:
                         status = job.get('status', '').strip()
                         is_open = job.get('isOpen')
-                        
+
                         if is_open == False or str(is_open).lower() in ('closed', 'false'):
                             self.logger.info(f"  Filtered job {job_id}: {job.get('title', '?')[:50]} (isOpen={is_open})")
                             filtered_count += 1
                             continue
-                        
+
                         if status.lower() in self.INELIGIBLE_STATUSES:
                             self.logger.info(f"  Filtered job {job_id}: {job.get('title', '?')[:50]} (status={status})")
                             filtered_count += 1
@@ -230,6 +252,18 @@ class SimplifiedXMLGenerator:
 
                         if allowed_ids is not None and str(job_id) not in allowed_ids:
                             continue
+
+                        # STSI tag-based routing (replaces cap logic for tearsheet 1531)
+                        if is_stsi and stsi_tag_mode:
+                            has_tag = self._job_has_stsi_pando_tag(job)
+                            if stsi_tag_mode == 'exclude_tags' and has_tag:
+                                self.logger.info(f"  📌 [v2] Routed job {job_id} to pando (has #STSIVMS/#STSIEG tag): {job.get('title', '?')[:50]}")
+                                tag_filtered_count += 1
+                                continue
+                            elif stsi_tag_mode == 'only_tags' and not has_tag:
+                                self.logger.info(f"  📌 [pando] Skipping job {job_id} — no #STSIVMS/#STSIEG tag: {job.get('title', '?')[:50]}")
+                                tag_filtered_count += 1
+                                continue
 
                         eligible_jobs_this_tearsheet.append(job)
 
@@ -255,6 +289,8 @@ class SimplifiedXMLGenerator:
                 if filtered_count > 0:
                     self.logger.info(f"  ⚠️ Filtered out {filtered_count} ineligible jobs from tearsheet {tearsheet_id}")
                     total_filtered += filtered_count
+                if tag_filtered_count > 0:
+                    self.logger.info(f"  🏷️ Tag-routed {tag_filtered_count} STSI jobs (mode={stsi_tag_mode}) from tearsheet {tearsheet_id}")
                 if capped_count > 0:
                     self.logger.info(f"  🔒 Capped: excluded {capped_count} older jobs from tearsheet {tearsheet_id} (cap={cap_limit})")
                     

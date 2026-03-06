@@ -847,8 +847,8 @@ def _upload_single_file(ftp_service, xml_content, remote_filename, app):
 def automated_upload():
     """Automatically upload fresh XML every 30 minutes if automation is enabled.
     Generates two feeds:
-      - myticas-job-feed-v2.xml   — STSI tearsheet 1531 capped at 10 most-recently-added jobs
-      - myticas-job-feed-pando.xml — all jobs from all tearsheets (no cap)
+      - myticas-job-feed-v2.xml   — all tearsheets; STSI (1531) jobs WITHOUT #STSIVMS or #STSIEG tags
+      - myticas-job-feed-pando.xml — all tearsheets; STSI (1531) jobs WITH #STSIVMS or #STSIEG tags
     """
     print("📤 AUTOMATED UPLOAD: Function invoked by scheduler", flush=True)
     from app import app
@@ -873,14 +873,12 @@ def automated_upload():
             from simplified_xml_generator import SimplifiedXMLGenerator
             generator = SimplifiedXMLGenerator(db=db)
 
-            STSI_CAPS = {1531: 10}
-
-            app.logger.info("📄 [FEED 1/2] Generating pando feed (all jobs, no cap) — saves reference numbers...")
-            pando_xml, pando_stats = generator.generate_fresh_xml()
+            app.logger.info("📄 [FEED 1/2] Generating pando feed (STSI: tagged #STSIVMS/#STSIEG jobs only) — saves reference numbers...")
+            pando_xml, pando_stats = generator.generate_fresh_xml(stsi_tag_mode='only_tags')
             app.logger.info(f"📊 pando feed: {pando_stats['job_count']} jobs, {pando_stats['xml_size_bytes']:,} bytes")
 
-            app.logger.info("📄 [FEED 2/2] Generating v2 feed (STSI capped at 10) — uses existing references...")
-            v2_xml, v2_stats = generator.generate_fresh_xml(tearsheet_caps=STSI_CAPS)
+            app.logger.info("📄 [FEED 2/2] Generating v2 feed (STSI: untagged jobs only) — uses existing references...")
+            v2_xml, v2_stats = generator.generate_fresh_xml(stsi_tag_mode='exclude_tags')
             app.logger.info(f"📊 v2 feed: {v2_stats['job_count']} jobs, {v2_stats['xml_size_bytes']:,} bytes")
 
             app.logger.info("📍 CHECKPOINT 1: Both XML feeds generated successfully")
