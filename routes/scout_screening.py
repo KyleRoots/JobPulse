@@ -156,14 +156,27 @@ def dashboard():
         matches = []
         pending_logs = []
 
+    global_threshold = int(VettingConfig.get_value('match_threshold', '80') or 80)
     qualified = [m for m in matches if m.is_qualified]
-    not_recommended = [m for m in matches if not m.is_qualified and m.match_score > 0]
+    location_barrier = [
+        m for m in matches
+        if not m.is_qualified
+        and 'location mismatch' in (m.gaps_identified or '').lower()
+        and m.match_score >= global_threshold
+    ]
+    not_recommended = [
+        m for m in matches
+        if not m.is_qualified
+        and m.match_score > 0
+        and not ('location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= global_threshold)
+    ]
     screened_this_week = [m for m in matches if m.created_at and m.created_at >= week_ago]
 
     metrics = {
         'qualified': len(qualified),
         'pending': len(pending_logs),
         'not_recommended': len(not_recommended),
+        'location_barrier': len(location_barrier),
         'screened_this_week': len(screened_this_week),
     }
 
@@ -173,8 +186,6 @@ def dashboard():
             JobVettingRequirements.bullhorn_job_id.in_(job_ids)
         ).all()
         job_requirements = {r.bullhorn_job_id: r for r in reqs}
-
-    global_threshold = int(VettingConfig.get_value('match_threshold', '80') or 80)
 
     return render_template(
         'scout_screening.html',
@@ -267,7 +278,7 @@ def stats_api():
     week_ago = datetime.utcnow() - timedelta(days=7)
 
     if not job_ids:
-        return jsonify({'qualified': 0, 'pending': 0, 'not_recommended': 0, 'screened_this_week': 0})
+        return jsonify({'qualified': 0, 'pending': 0, 'not_recommended': 0, 'location_barrier': 0, 'screened_this_week': 0})
 
     matches = CandidateJobMatch.query.filter(
         CandidateJobMatch.bullhorn_job_id.in_(job_ids)
@@ -279,10 +290,24 @@ def stats_api():
         CandidateVettingLog.is_sandbox != True
     ).count()
 
+    from models import VettingConfig as _VC
+    _gt = int(_VC.get_value('match_threshold', '80') or 80)
+
     return jsonify({
         'qualified': sum(1 for m in matches if m.is_qualified),
         'pending': pending,
-        'not_recommended': sum(1 for m in matches if not m.is_qualified and m.match_score > 0),
+        'location_barrier': sum(
+            1 for m in matches
+            if not m.is_qualified
+            and 'location mismatch' in (m.gaps_identified or '').lower()
+            and m.match_score >= _gt
+        ),
+        'not_recommended': sum(
+            1 for m in matches
+            if not m.is_qualified
+            and m.match_score > 0
+            and not ('location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= _gt)
+        ),
         'screened_this_week': sum(1 for m in matches if m.created_at and m.created_at >= week_ago),
     })
 

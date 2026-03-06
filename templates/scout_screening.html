@@ -103,9 +103,10 @@
     .score-zero  { background: rgba(108,117,125,0.12); color: #9da5ad; border: 1px solid rgba(108,117,125,0.18); }
 
     /* ── Status badges ── */
-    .st-qualified { background: rgba(40,167,69,0.12);  color: #7ec98e; border: 1px solid rgba(40,167,69,0.18);  font-size: 0.71rem; }
-    .st-not-rec   { background: rgba(220,53,69,0.12);  color: #e87c7c; border: 1px solid rgba(220,53,69,0.18);  font-size: 0.71rem; }
-    .st-pending   { background: rgba(255,193,7,0.12);  color: #ffd966; border: 1px solid rgba(255,193,7,0.18);  font-size: 0.71rem; }
+    .st-qualified    { background: rgba(40,167,69,0.12);  color: #7ec98e; border: 1px solid rgba(40,167,69,0.18);  font-size: 0.71rem; }
+    .st-not-rec      { background: rgba(220,53,69,0.12);  color: #e87c7c; border: 1px solid rgba(220,53,69,0.18);  font-size: 0.71rem; }
+    .st-pending      { background: rgba(255,193,7,0.12);  color: #ffd966; border: 1px solid rgba(255,193,7,0.18);  font-size: 0.71rem; }
+    .st-loc-barrier  { background: rgba(251,146,60,0.12); color: #fb923c; border: 1px solid rgba(251,146,60,0.22); font-size: 0.71rem; }
 
     /* ── AI notes snippet ── */
     .notes-snippet {
@@ -267,6 +268,13 @@
         <div class="metric-subtext">Below threshold</div>
         <div class="metric-trend neutral"><i class="fas fa-filter"></i> Filtered</div>
     </div>
+    <div class="metric-card metric-filter" id="card-loc-barrier" onclick="filterMatches('location_barrier')">
+        <div class="metric-icon"><i class="fas fa-map-marker-alt"></i></div>
+        <div class="metric-label">Location Barrier</div>
+        <div class="metric-value">{{ metrics.location_barrier }}</div>
+        <div class="metric-subtext">Strong fit, non-local</div>
+        <div class="metric-trend neutral"><i class="fas fa-map-marker-alt"></i> Review</div>
+    </div>
     <div class="metric-card metric-filter" id="card-week" onclick="filterMatches('week')">
         <div class="metric-icon"><i class="fas fa-calendar-week"></i></div>
         <div class="metric-label">Screened This Week</div>
@@ -318,7 +326,7 @@
             </thead>
             <tbody id="tableBody">
                 {% for m in matches %}
-                <tr data-status="{{ 'qualified' if m.is_qualified else 'not_recommended' }}"
+                <tr data-status="{{ 'qualified' if m.is_qualified else ('location_barrier' if 'location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= global_threshold else 'not_recommended') }}"
                     data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}"
                     data-score="{{ m.match_score|round|int }}"
                     data-date="{{ m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0' }}">
@@ -354,6 +362,8 @@
                     <td>
                         {% if m.is_qualified %}
                         <span class="badge rounded-pill st-qualified">Qualified</span>
+                        {% elif 'location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= global_threshold %}
+                        <span class="badge rounded-pill st-loc-barrier" title="Strong technical fit — location barrier for on-site/hybrid role">📍 Location Barrier</span>
                         {% else %}
                         <span class="badge rounded-pill st-not-rec">Not Recommended</span>
                         {% endif %}
@@ -718,10 +728,11 @@ function rebuildVisibleRows() {
     const allRows = Array.from(document.querySelectorAll('#tableBody tr'));
     const filterEmpty = document.getElementById('filterEmptyState');
     const cards = {
-        qualified:       document.getElementById('card-qualified'),
-        pending:         document.getElementById('card-pending'),
-        not_recommended: document.getElementById('card-not-rec'),
-        week:            document.getElementById('card-week'),
+        qualified:        document.getElementById('card-qualified'),
+        pending:          document.getElementById('card-pending'),
+        not_recommended:  document.getElementById('card-not-rec'),
+        location_barrier: document.getElementById('card-loc-barrier'),
+        week:             document.getElementById('card-week'),
     };
 
     const matched = [];
@@ -732,10 +743,11 @@ function rebuildVisibleRows() {
 
         let show = true;
         if (activeFilter !== null) {
-            show = (activeFilter === 'qualified'       && status === 'qualified')
-                || (activeFilter === 'pending'         && status === 'pending')
-                || (activeFilter === 'not_recommended' && status === 'not_recommended')
-                || (activeFilter === 'week'            && isWeek);
+            show = (activeFilter === 'qualified'        && status === 'qualified')
+                || (activeFilter === 'pending'          && status === 'pending')
+                || (activeFilter === 'not_recommended'  && status === 'not_recommended')
+                || (activeFilter === 'location_barrier' && status === 'location_barrier')
+                || (activeFilter === 'week'             && isWeek);
         }
         if (show && activeMinScore !== null) {
             show = score >= activeMinScore;
@@ -755,10 +767,11 @@ let activeFilter = null;
 
 function filterMatches(filter) {
     const cards = {
-        qualified:       document.getElementById('card-qualified'),
-        pending:         document.getElementById('card-pending'),
-        not_recommended: document.getElementById('card-not-rec'),
-        week:            document.getElementById('card-week'),
+        qualified:        document.getElementById('card-qualified'),
+        pending:          document.getElementById('card-pending'),
+        not_recommended:  document.getElementById('card-not-rec'),
+        location_barrier: document.getElementById('card-loc-barrier'),
+        week:             document.getElementById('card-week'),
     };
 
     if (activeFilter === filter) {

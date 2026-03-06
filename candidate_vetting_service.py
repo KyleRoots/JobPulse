@@ -2779,6 +2779,17 @@ CRITICAL SCORING RULES:
                         else:
                             result['gaps_identified'] = floor_gap
 
+            # ── POST-PROCESSING: Location barrier detection ──
+            # On-site/Hybrid jobs where the AI flagged a location mismatch are marked
+            # so that process_candidate can override is_qualified even if score >= threshold.
+            _gaps_text = result.get('gaps_identified', '') or ''
+            if work_type in ('On-site', 'Hybrid') and 'location mismatch' in _gaps_text.lower():
+                result['is_location_barrier'] = True
+                logging.info(
+                    f"📍 Location barrier detected for job {job_id}: "
+                    f"work_type={work_type}, score={result['match_score']}"
+                )
+
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
             logging.info(f"📋 AI response for job {job_id}: score={result['match_score']}%, has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}, years_analysis={bool(years_analysis)}")
@@ -3382,7 +3393,7 @@ CRITICAL SCORING RULES:
                     recruiter_email=recruiter_email,
                     recruiter_bullhorn_id=recruiter_id,
                     match_score=analysis.get('match_score', 0),
-                    is_qualified=analysis.get('match_score', 0) >= job_threshold,
+                    is_qualified=(analysis.get('match_score', 0) >= job_threshold) and not analysis.get('is_location_barrier', False),
                     is_applied_job=is_applied_job,
                     match_summary=analysis.get('match_summary', ''),
                     skills_match=analysis.get('skills_match', ''),
@@ -3400,6 +3411,11 @@ CRITICAL SCORING RULES:
                     qualified_matches.append(match_record)
                     logging.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                 else:
+                    if analysis.get('is_location_barrier', False) and analysis.get('match_score', 0) >= job_threshold:
+                        logging.info(
+                            f"  📍 Location barrier override: {job.get('title')} scored {analysis.get('match_score')}% "
+                            f"(>= {int(job_threshold)}% threshold) but is_qualified=False due to location mismatch"
+                        )
                     logging.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                     # Diagnostic: log GPT's reasoning for 0% scores
                     if analysis.get('match_score', 0) == 0:
@@ -3514,6 +3530,7 @@ CRITICAL SCORING RULES:
                     "Scout Screen - Qualified",
                     "Scout Screen - Not Qualified",
                     "Scout Screen - Incomplete",
+                    "Scout Screen - Location Barrier",
                     # Backward compat: match legacy action strings
                     "Scout Screening - Qualified",
                     "Scout Screening - Not Recommended",
@@ -3602,7 +3619,79 @@ CRITICAL SCORING RULES:
                 logging.error(f"Failed to create incomplete vetting note for candidate {vetting_log.bullhorn_candidate_id}")
                 return False
         
-        if vetting_log.is_qualified:
+        # ── LOCATION BARRIER DETECTION ──
+        # Candidate scored above the technical threshold but was overridden out of
+        # qualified status because the role is on-site/hybrid and they're non-local.
+        location_barrier_matches = [
+            m for m in matches
+            if not m.is_qualified
+            and 'location mismatch' in (m.gaps_identified or '').lower()
+            and m.match_score >= threshold
+        ]
+        is_location_barrier_candidate = (
+            len(qualified_matches) == 0 and len(location_barrier_matches) > 0
+        )
+
+        if is_location_barrier_candidate:
+            # Strong fit / location barrier note
+            top_lb = sorted(location_barrier_matches, key=lambda m: m.match_score, reverse=True)
+            top_score = top_lb[0].match_score if top_lb else 0
+            note_lines = [
+                f"📍 SCOUT SCREENING - STRONG FIT / LOCATION BARRIER",
+                f"",
+                f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
+                f"Threshold: {threshold}%",
+                f"Technical Match Score: {top_score:.0f}% (above threshold on skills)",
+                f"",
+                f"This candidate meets the technical threshold but has a location barrier",
+                f"for an on-site/hybrid position. Recruiter review is recommended.",
+                f"",
+                f"POSITION(S) AFFECTED:",
+            ]
+            for m in top_lb:
+                match_custom = job_threshold_map.get(m.bullhorn_job_id)
+                threshold_display = (
+                    f"{m.match_score:.0f}%  |  Threshold: {match_custom:.0f}% (custom)"
+                    if match_custom else f"{m.match_score:.0f}%"
+                )
+                # Extract just the location mismatch portion of the gaps text
+                gaps_full = m.gaps_identified or ''
+                loc_gap_parts = [
+                    part.strip() for part in gaps_full.replace(' | ', '|').split('|')
+                    if 'location mismatch' in part.lower()
+                ]
+                loc_gap_text = ' | '.join(loc_gap_parts) if loc_gap_parts else gaps_full
+                note_lines += [
+                    f"",
+                    f"• Job ID: {m.bullhorn_job_id} - {m.job_title}",
+                    f"  Technical Score: {threshold_display}",
+                    f"  ⚠️  LOCATION BARRIER",
+                    f"  Summary: {m.match_summary}",
+                    f"  Skills: {m.skills_match}",
+                    f"  Location Gap: {loc_gap_text}",
+                ]
+            note_text = "\n".join(note_lines)
+            action = "Scout Screen - Location Barrier"
+
+            note_id = bullhorn.create_candidate_note(
+                vetting_log.bullhorn_candidate_id,
+                note_text,
+                action=action
+            )
+            if note_id:
+                vetting_log.note_created = True
+                vetting_log.bullhorn_note_id = note_id
+                db.session.commit()
+                logging.info(
+                    f"📍 Created location barrier note for candidate {vetting_log.bullhorn_candidate_id} "
+                    f"(top score: {top_score:.0f}%)"
+                )
+                return True
+            else:
+                logging.error(f"Failed to create location barrier note for candidate {vetting_log.bullhorn_candidate_id}")
+                return False
+
+        elif vetting_log.is_qualified:
             # Qualified candidate note
             note_lines = [
                 f"🎯 SCOUT SCREENING - QUALIFIED CANDIDATE",
