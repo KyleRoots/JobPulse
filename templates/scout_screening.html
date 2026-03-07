@@ -558,7 +558,16 @@
                     <textarea name="custom_requirements" id="modalOverrideText"
                               placeholder="Enter custom requirements to override AI interpretation…"
                               style="display:block; width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.22); border-radius:8px; color:rgba(255,255,255,0.85); font-size:0.82rem; resize:vertical; min-height:130px; max-height:280px; padding:0.75rem 0.9rem; line-height:1.65; outline:none; font-family:inherit;"></textarea>
-                    <div style="font-size:0.72rem; color:rgba(255,255,255,0.27); margin-top:0.4rem; margin-bottom:1.1rem;">Custom requirements take priority over AI-interpreted ones. Leave blank to use AI interpretation.</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:0.4rem; margin-bottom:1.1rem; gap:0.75rem;">
+                        <div style="font-size:0.72rem; color:rgba(255,255,255,0.27);">Custom requirements take priority over AI-interpreted ones. Leave blank to use AI interpretation.</div>
+                        <button type="button" id="optimizeReqBtn"
+                                style="flex-shrink:0; background:transparent; border:1px solid rgba(155,127,212,0.35); color:#9b7fd4; border-radius:7px; padding:0.3rem 0.8rem; font-size:0.75rem; font-weight:500; cursor:pointer; white-space:nowrap; transition:all 0.18s;"
+                                onmouseover="this.style.borderColor='rgba(155,127,212,0.75)';this.style.color='#c4a8f0'"
+                                onmouseout="this.style.borderColor='rgba(155,127,212,0.35)';this.style.color='#9b7fd4'">
+                            <i class="fas fa-wand-magic-sparkles me-1"></i>Optimize with AI
+                        </button>
+                    </div>
+                    <div id="optimizeStatus" style="display:none; font-size:0.72rem; margin-top:-0.6rem; margin-bottom:0.8rem;"></div>
 
                     <div class="col-label mb-1"><i class="fas fa-sliders-h"></i> Match Threshold</div>
                     <div style="display:flex; align-items:center; gap:0.6rem;">
@@ -814,7 +823,10 @@ document.addEventListener('click', function (e) {
 });
 
 // ── Override modal ────────────────────────────────────────────────────────────
+let currentModalJobId = null;
+
 function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
+    currentModalJobId = jobId;
     const form     = document.getElementById('overrideModalForm');
     const subtitle = document.getElementById('modalJobSubtitle');
     const aiBox    = document.getElementById('modalAiReq');
@@ -832,8 +844,61 @@ function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
     }
     if (textarea) textarea.value = customOverride || '';
     if (thInput)  thInput.value  = threshold || '';
+    const statusEl = document.getElementById('optimizeStatus');
+    if (statusEl) { statusEl.style.display = 'none'; statusEl.innerHTML = ''; }
     new bootstrap.Modal(document.getElementById('overrideModal')).show();
 }
+
+// ── Optimize requirements ─────────────────────────────────────────────────────
+document.getElementById('optimizeReqBtn').addEventListener('click', function () {
+    const textarea = document.getElementById('modalOverrideText');
+    const status   = document.getElementById('optimizeStatus');
+    const btn      = this;
+    const raw      = (textarea.value || '').trim();
+
+    if (!raw) {
+        status.style.display = '';
+        status.style.color   = 'rgba(255,180,0,0.85)';
+        status.innerHTML     = '<i class="fas fa-exclamation-triangle me-1"></i>Enter requirements first.';
+        return;
+    }
+
+    btn.disabled    = true;
+    btn.innerHTML   = '<i class="fas fa-spinner fa-spin me-1"></i>Optimizing…';
+    status.style.display = '';
+    status.style.color   = 'rgba(255,255,255,0.35)';
+    status.innerHTML     = '<i class="fas fa-spinner fa-spin me-1"></i>Analyzing and rewriting…';
+
+    const csrfToken = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
+
+    fetch('/scout-screening/job/' + currentModalJobId + '/optimize-requirements', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body:    JSON.stringify({custom_requirements: raw})
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data.success) {
+            textarea.value             = data.optimized;
+            textarea.style.transition  = 'border-color 0.3s';
+            textarea.style.borderColor = 'rgba(74,222,128,0.6)';
+            setTimeout(function () { textarea.style.borderColor = 'rgba(155,127,212,0.22)'; }, 1800);
+            status.style.color = 'rgba(74,222,128,0.75)';
+            status.innerHTML   = '<i class="fas fa-check me-1"></i>Optimized — review and save when ready.';
+        } else {
+            status.style.color = 'rgba(255,100,100,0.8)';
+            status.innerHTML   = '<i class="fas fa-exclamation-circle me-1"></i>' + (data.error || 'Optimization failed.');
+        }
+    })
+    .catch(function () {
+        status.style.color = 'rgba(255,100,100,0.8)';
+        status.innerHTML   = '<i class="fas fa-exclamation-circle me-1"></i>Request failed — please try again.';
+    })
+    .finally(function () {
+        btn.disabled  = false;
+        btn.innerHTML = '<i class="fas fa-wand-magic-sparkles me-1"></i>Optimize with AI';
+    });
+});
 
 // ── Notes modal ───────────────────────────────────────────────────────────────
 function openNotesModal(candidateName, jobTitle, notes, bullhornId) {

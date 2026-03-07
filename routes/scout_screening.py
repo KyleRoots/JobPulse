@@ -268,6 +268,56 @@ def save_job_settings(job_id):
     return redirect(url_for('scout_screening.dashboard'))
 
 
+@scout_screening_bp.route('/scout-screening/job/<int:job_id>/optimize-requirements', methods=['POST'])
+@login_required
+def optimize_job_requirements(job_id):
+    """Use GPT-4o to rewrite custom requirements using prompt-engineering best practices."""
+    try:
+        data = request.get_json(silent=True) or {}
+        raw = (data.get('custom_requirements') or '').strip()
+        if not raw:
+            return jsonify({'success': False, 'error': 'No requirements text provided.'}), 400
+
+        from openai import OpenAI
+        client = OpenAI()
+
+        system_prompt = (
+            "You are a prompt engineer specializing in AI-powered candidate screening systems. "
+            "Your task is to take a recruiter's raw custom requirements and rewrite them as clear, "
+            "unambiguous, machine-readable screening criteria for an AI vetting system.\n\n"
+            "Rules:\n"
+            "1. Preserve the recruiter's original intent exactly — never add requirements they did not mention.\n"
+            "2. Make each requirement explicit and testable — replace vague qualifiers like 'some experience' "
+            "or 'familiarity with' with concrete, measurable criteria.\n"
+            "3. For experience requirements, always state the number of years and the specific domain.\n"
+            "4. For eligibility or work-authorization requirements, add OR clauses for equivalent qualifications "
+            "(e.g. 'Canadian citizen OR permanent resident', 'degree OR equivalent professional experience').\n"
+            "5. Distinguish between required and preferred where inferable from context.\n"
+            "6. If there are multiple requirements, number them for clarity.\n"
+            "7. Use present-tense active language: 'Candidate must have…' or 'Candidate should demonstrate…'.\n"
+            "8. Output ONLY the optimized requirements text — no explanations, no commentary, no preamble.\n"
+            "9. Keep the output concise — clear and structured, not a lengthy essay."
+        )
+
+        response = client.chat.completions.create(
+            model='gpt-4o',
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': f'Optimize the following custom screening requirements:\n\n{raw}'}
+            ],
+            max_tokens=600,
+            temperature=0.3
+        )
+
+        optimized = response.choices[0].message.content.strip()
+        logger.info(f"Optimized requirements for job {job_id} ({len(raw)} → {len(optimized)} chars)")
+        return jsonify({'success': True, 'optimized': optimized})
+
+    except Exception as e:
+        current_app.logger.error(f"Error optimizing requirements for job {job_id}: {e}")
+        return jsonify({'success': False, 'error': 'Optimization failed — please try again.'}), 500
+
+
 @scout_screening_bp.route('/api/scout-screening/stats')
 @login_required
 def stats_api():
