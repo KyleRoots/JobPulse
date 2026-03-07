@@ -99,24 +99,6 @@ def vetting_settings():
         CandidateVettingLog.is_sandbox != True
     ).order_by(CandidateVettingLog.created_at.desc()).limit(30).all()
     
-    # Get job requirements - filtered to only show active tearsheet jobs
-    # P1 optimization: read the class-level cache directly instead of
-    # instantiating the full CandidateVettingService (avoids constructing
-    # OpenAI, SendGrid, EmbeddingService clients just for a set of IDs).
-    # The cache is kept warm by the background scheduler job (P0).
-    from candidate_vetting_service import CandidateVettingService
-    active_job_ids = CandidateVettingService._active_job_ids_cache
-    
-    if active_job_ids:
-        job_requirements = JobVettingRequirements.query.filter(
-            JobVettingRequirements.bullhorn_job_id.in_(active_job_ids)
-        ).order_by(JobVettingRequirements.updated_at.desc()).all()
-    else:
-        # Cache not warm yet (first boot) — show all requirements
-        job_requirements = JobVettingRequirements.query.order_by(
-            JobVettingRequirements.updated_at.desc()
-        ).limit(50).all()
-    
     # Get latest health check
     latest_health = VettingHealthCheck.query.order_by(
         VettingHealthCheck.check_time.desc()
@@ -147,7 +129,6 @@ def vetting_settings():
                           recent_activity=recent_activity,
                           recommended_candidates=recommended_candidates,
                           not_recommended_candidates=not_recommended_candidates,
-                          job_requirements=job_requirements,
                           latest_health=latest_health,
                           recent_issues=recent_issues,
                           pending_candidates=pending_candidates,

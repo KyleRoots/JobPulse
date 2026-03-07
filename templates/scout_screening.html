@@ -927,6 +927,25 @@ function showThresholdFeedback(jobId, success) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Restore section expand/collapse state from sessionStorage
+    (function () {
+        var sections = {
+            candidates:  { content: 'candidatesCollapse',  chevron: 'candidatesChevron' },
+            jobSettings: { content: 'jobSettingsCollapse', chevron: 'jobSettingsChevron' }
+        };
+        Object.keys(sections).forEach(function (name) {
+            try {
+                if (sessionStorage.getItem('sc_section_' + name) === '1') {
+                    var ids = sections[name];
+                    var content = document.getElementById(ids.content);
+                    var chevron = document.getElementById(ids.chevron);
+                    if (content) content.style.display = 'block';
+                    if (chevron) chevron.style.transform = 'rotate(90deg)';
+                }
+            } catch (e) {}
+        });
+    }());
+
     // Pagination init
     visibleRows = Array.from(document.querySelectorAll('#tableBody tr'));
     renderPage();
@@ -1012,6 +1031,7 @@ function toggleSection(name) {
     var expanded = content.style.display !== 'none';
     content.style.display = expanded ? 'none' : 'block';
     if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
+    try { sessionStorage.setItem('sc_section_' + name, expanded ? '0' : '1'); } catch (e) {}
 }
 </script>
 {% endblock %}
