@@ -2077,17 +2077,16 @@ Format as a bullet-point list. Be specific and concise."""
             candidate_country = smart_correct_country(candidate_city, candidate_state, candidate_country_normalized)  # Auto-fix country mismatches
         candidate_location_full = ', '.join(filter(None, [candidate_city, candidate_state, candidate_country]))
         
-        # Detect low-quality Bullhorn default locations (country-only, no city/state)
-        # These should not prime the AI — demote to "system fallback" so resume takes priority
-        bullhorn_location_is_specific = bool(candidate_city or candidate_state)
-        
-        # Build quality-aware location label for the prompt
-        if candidate_location_full and bullhorn_location_is_specific:
-            candidate_location_label = f'System Address (cross-reference with resume): {candidate_location_full}'
-        elif candidate_location_full:
-            candidate_location_label = f'System Address (UNRELIABLE — Bullhorn default, verify against resume): {candidate_location_full}'
-        else:
-            candidate_location_label = 'Not provided — you MUST extract from resume text (header/contact section first, then work history, then education)'
+        # Bullhorn address fields are intentionally NOT passed to the AI.
+        # Bullhorn frequently stores inaccurate or auto-defaulted location data,
+        # which can bias location extraction and produce inconsistent results
+        # across parallel job evaluations for the same candidate.
+        # The resume is the sole source of truth for candidate location.
+        candidate_location_label = (
+            'Resume-based extraction ONLY — Bullhorn address fields are intentionally withheld '
+            'to avoid data quality issues. You MUST determine the candidate location exclusively '
+            'from the resume text using the MANDATORY LOCATION EXTRACTION steps below.'
+        )
         
         job_id = job.get('id', 'N/A')
         
@@ -2134,7 +2133,8 @@ LOCATION REQUIREMENT (Remote Position):
 - {candidate_location_label}
 - For REMOTE positions: Candidate MUST be in the same COUNTRY as the job location for tax/legal compliance.
 - City and state do NOT need to match for remote roles - only the country matters.
-- If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 15-20 points.
+- If candidate is in a different country than the job, add "Location mismatch: different country" to gaps_identified and reduce score by 25-35 points.
+- HARD CEILING: The final score for any cross-country candidate on a remote role MUST NOT exceed 75, regardless of how strong their technical fit is. Cap the score at 75 before returning.
 
 CRITICAL STATE/PROVINCE RECOGNITION:
 - ANY U.S. STATE (Pennsylvania, California, Texas, New York, Florida, etc.) IS PART OF THE UNITED STATES.
