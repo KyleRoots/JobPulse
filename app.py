@@ -52,8 +52,9 @@ logging.basicConfig(
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.getLogger('requests').setLevel(logging.WARNING)
 
-# Global progress tracker for manual operations
-progress_tracker = {}
+# NOTE: progress_tracker removed — per-process in-memory dicts don't work
+# across multiple Gunicorn workers. Progress state is stored in GlobalSettings
+# (DB-backed) in routes/scheduler.py and routes/xml_routes.py instead.
 
 # Timeout handler for monitoring cycles - thread-safe version
 class MonitoringTimeout(Exception):
@@ -261,13 +262,26 @@ def _track_module_access():
     try:
         from models import UserActivityLog
         from extensions import db as _db
-        _db.session.add(UserActivityLog(
-            user_id=current_user.id,
-            activity_type='module_access',
-            ip_address=request.remote_addr,
-            details=json.dumps({'module': module, 'path': request.path})
-        ))
-        _db.session.commit()
+        # SCALABILITY: Throttled to 1 write per user/module per 5 min to reduce
+        # per-request DB commit overhead. One read + conditional write beats
+        # an unconditional write on every page load.
+        from datetime import timedelta
+        five_min_ago = datetime.utcnow() - timedelta(minutes=5)
+        recent = UserActivityLog.query.filter(
+            UserActivityLog.user_id == current_user.id,
+            UserActivityLog.activity_type == 'module_access',
+            UserActivityLog.created_at >= five_min_ago
+        ).filter(
+            UserActivityLog.details.contains(f'"module": "{module}"')
+        ).first()
+        if not recent:
+            _db.session.add(UserActivityLog(
+                user_id=current_user.id,
+                activity_type='module_access',
+                ip_address=request.remote_addr,
+                details=json.dumps({'module': module, 'path': request.path})
+            ))
+            _db.session.commit()
     except Exception:
         try:
             from extensions import db as _db2

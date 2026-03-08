@@ -19,19 +19,28 @@ import json
 scheduler_bp = Blueprint('scheduler', __name__)
 register_admin_guard(scheduler_bp)
 
-# Progress tracker for manual operations (module-level for thread access)
-progress_tracker = {}
-
-
 def update_progress(schedule_id, step, message, completed=False, error=None):
-    """Update progress for a manual operation"""
-    progress_tracker[f"schedule_{schedule_id}"] = {
+    """Update progress for a manual schedule operation.
+
+    SCALABILITY: Progress is persisted to GlobalSettings (DB) instead of an
+    in-memory dict. This ensures the polling endpoint returns correct state
+    even when a different Gunicorn worker handles the HTTP request than the
+    one running the background thread.
+    """
+    from models import GlobalSettings
+    from app import app
+    payload = json.dumps({
         'step': step,
         'message': message,
         'completed': completed,
         'error': error,
         'timestamp': time.time()
-    }
+    })
+    try:
+        with app.app_context():
+            GlobalSettings.set_value(f'sched_progress_{schedule_id}', payload)
+    except Exception:
+        pass  # Non-fatal — UI will just not update in real time
 
 
 @scheduler_bp.route('/scheduler')
@@ -366,21 +375,15 @@ def replace_schedule_file():
 
 @scheduler_bp.route('/api/schedules/<int:schedule_id>/progress', methods=['GET'])
 def get_schedule_progress(schedule_id):
-    """Get real-time progress for manual schedule execution"""
+    """Get real-time progress for manual schedule execution (DB-backed)."""
     try:
-        progress_key = f"schedule_{schedule_id}"
-        progress = progress_tracker.get(progress_key, {
-            'step': 0,
-            'message': 'Ready to start...',
-            'completed': False,
-            'error': None
-        })
-        
-        return jsonify({
-            'success': True,
-            **progress
-        })
-        
+        from models import GlobalSettings
+        raw = GlobalSettings.get_value(f'sched_progress_{schedule_id}')
+        if raw:
+            progress = json.loads(raw)
+        else:
+            progress = {'step': 0, 'message': 'Ready to start...', 'completed': False, 'error': None}
+        return jsonify({'success': True, **progress})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -534,9 +537,9 @@ def run_schedule_now(schedule_id):
     try:
         schedule = ScheduleConfig.query.get_or_404(schedule_id)
         
-        # Clear any existing progress
-        if f"schedule_{schedule_id}" in progress_tracker:
-            del progress_tracker[f"schedule_{schedule_id}"]
+        # Clear any stale progress key from a previous run
+        from models import GlobalSettings
+        GlobalSettings.set_value(f'sched_progress_{schedule_id}', '')
         
         # Start processing in a separate thread
         thread = threading.Thread(target=process_schedule_with_progress, args=(schedule_id,))

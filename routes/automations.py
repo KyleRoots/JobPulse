@@ -21,10 +21,49 @@ def automations_dashboard():
     service = AutomationService()
     tasks = service.get_tasks()
     builtin_tasks = [t for t in tasks if t.config_json and 'builtin_key' in (t.config_json or '')]
+
+    # Category grouping for Built-in Tools grid — controls section labels and ordering.
+    # Keeps the grid scannable as more tools are added over time.
+    BUILTIN_CATEGORIES = {
+        'Data Quality': [
+            'cleanup_duplicate_notes',
+            'cleanup_ai_notes',
+            'email_extractor',
+            'resume_reparser',
+        ],
+        'Reporting': [
+            'export_qualified',
+            'find_zero_match',
+        ],
+        'Integration': [
+            'retry_recruiter_notifications',
+            'salesrep_sync',
+            'update_field_bulk',
+        ],
+    }
+
+    # Build an ordered list of (category_label, task) tuples for the template
+    # so Jinja2 can render section headers inline with the grid.
+    key_to_category = {k: cat for cat, keys in BUILTIN_CATEGORIES.items() for k in keys}
+    categorized = []
+    seen_categories = set()
+    uncategorized_label = 'Other'
+    for task in builtin_tasks:
+        try:
+            bk = json.loads(task.config_json or '{}').get('builtin_key', '')
+        except Exception:
+            bk = ''
+        cat = key_to_category.get(bk, uncategorized_label)
+        if cat not in seen_categories:
+            seen_categories.add(cat)
+            categorized.append({'type': 'header', 'label': cat})
+        categorized.append({'type': 'task', 'task': task})
+
     from flask import make_response
     resp = make_response(render_template('automations.html',
                            active_page='automations',
-                           tasks=builtin_tasks))
+                           tasks=builtin_tasks,
+                           categorized=categorized))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'

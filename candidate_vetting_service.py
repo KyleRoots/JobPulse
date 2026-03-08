@@ -72,13 +72,14 @@ class CandidateVettingService:
         """Get or create Bullhorn service with current credentials"""
         if self.bullhorn:
             return self.bullhorn
-            
-        credentials = {}
-        for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
-            setting = GlobalSettings.query.filter_by(setting_key=key).first()
-            if setting and setting.setting_value:
-                credentials[key.replace('bullhorn_', '')] = setting.setting_value
-        
+
+        # PERF: Single bulk fetch replaces 4 individual queries per vetting cycle init.
+        # One DB round-trip instead of four — net saving grows with vetting frequency.
+        bh_keys = ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']
+        rows = GlobalSettings.query.filter(GlobalSettings.setting_key.in_(bh_keys)).all()
+        raw = {r.setting_key: r.setting_value for r in rows if r.setting_value}
+        credentials = {k.replace('bullhorn_', ''): raw[k] for k in bh_keys if k in raw}
+
         if len(credentials) == 4:
             self.bullhorn = BullhornService(
                 client_id=credentials['client_id'],

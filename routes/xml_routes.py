@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
 xml_routes_bp = Blueprint('xml_routes', __name__)
 register_admin_guard(xml_routes_bp)
 
-progress_tracker = {}
+import json as _json_mod
+
+# SCALABILITY: No in-memory progress_tracker dict — progress is stored in
+# GlobalSettings (DB-backed) so it works across all Gunicorn workers.
 
 ALLOWED_EXTENSIONS = {'xml'}
 
@@ -280,7 +283,9 @@ def upload_file():
 
             upload_id = unique_id
 
-            progress_tracker[upload_id] = {
+            # SCALABILITY: Store upload progress in DB so any Gunicorn worker can serve the poll
+            from models import GlobalSettings
+            GlobalSettings.set_value(f'upload_progress_{upload_id}', _json_mod.dumps({
                 'step': 'completed',
                 'message': 'Processing complete!',
                 'completed': True,
@@ -289,7 +294,7 @@ def upload_file():
                 'filename': output_filename,
                 'jobs_processed': result['jobs_processed'],
                 'sftp_uploaded': sftp_uploaded
-            }
+            }))
 
             return render_template('index.html',
                                  download_key=unique_id,
@@ -311,12 +316,14 @@ def upload_file():
 @xml_routes_bp.route('/manual-upload-progress/<upload_id>')
 @login_required
 def get_manual_upload_progress(upload_id):
-    """Get real-time progress for manual upload processing"""
+    """Get real-time progress for manual upload processing (DB-backed)."""
     try:
-        if upload_id not in progress_tracker:
+        from models import GlobalSettings
+        raw = GlobalSettings.get_value(f'upload_progress_{upload_id}')
+        if not raw:
             return jsonify({'error': 'Upload not found'}), 404
 
-        progress = progress_tracker[upload_id]
+        progress = _json_mod.loads(raw)
 
         response_data = {
             'step': progress['step'],
