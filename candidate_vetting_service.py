@@ -2173,7 +2173,16 @@ MANDATORY LOCATION PENALTY TIERS (apply these exact deductions — physical pres
 1. Candidate is in a DIFFERENT COUNTRY than the job location:
    - Add "Location mismatch: candidate in [country], job requires on-site presence in [job country]" to gaps_identified.
    - Reduce score by 25–35 points. This is a hard location barrier — strong technical skills cannot compensate.
-2. Candidate is in the SAME COUNTRY but a DIFFERENT STATE/PROVINCE:
+
+SPECIAL CASE — JOB CITY/STATE UNKNOWN:
+Before applying tier 2, check whether the job location shown above includes a specific city or state/province.
+- If the job location ONLY shows a country name with NO city and NO state/province listed, AND the candidate is in that same country:
+  → Do NOT apply any score penalty.
+  → Add this soft note to gaps_identified ONLY: "Job city not specified — recruiter should verify candidate proximity for on-site role."
+  → This prevents false penalties when the job's specific location has not been configured in the system.
+- Only proceed to tier 2 if the job location includes a specific city or state/province to compare against.
+
+2. Candidate is in the SAME COUNTRY but a DIFFERENT STATE/PROVINCE (only applies when job city/state IS known):
    - Add "Location mismatch: candidate not in {job_city or job_state or 'job area'}, on-site required" to gaps_identified.
    - Reduce score by 15–20 points.
    - EXCEPTION: If the candidate explicitly states willingness to relocate (e.g., "open to relocation", "willing to relocate"), reduce the deduction to 10–15 points instead and note the relocation intent.
