@@ -218,7 +218,6 @@ VISIBLE_JOBS = {
     'reference_number_refresh': 'Reference Number Refresh',
     'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
     'requirements_maintenance': 'Requirements Maintenance',
-    'candidate_data_cleanup': 'Candidate Data Cleanup',
 }
 
 PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetting_health_check'}
