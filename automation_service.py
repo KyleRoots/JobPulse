@@ -196,27 +196,63 @@ class AutomationService:
         candidate_ids = params.get("candidate_ids")
         max_candidates = params.get("max_candidates", 500)
 
-        if not candidate_ids:
-            candidate_ids = self._get_recent_candidates(max_candidates)
-
+        note_url = f"{self._bh_url()}search/Note"
         ai_notes = []
-        for i, cid in enumerate(candidate_ids):
-            try:
-                notes = self._get_candidate_entity_notes(cid)
-                for note in notes:
+        scanned_ids = set()
+
+        def _fetch_notes_batch(query_str):
+            start = 0
+            while True:
+                p = {
+                    "query": query_str,
+                    "fields": "id,action,comments,dateAdded,personReference(id)",
+                    "count": 500,
+                    "start": start,
+                    "sort": "-dateAdded",
+                }
+                resp = requests.get(note_url, headers=self._bh_headers(), params=p, timeout=30)
+                resp.raise_for_status()
+                data = resp.json()
+                batch = data.get("data", [])
+                total = data.get("total", 0)
+                for note in batch:
                     action = note.get("action") or ""
-                    if any(p in action for p in self.AI_ACTION_PATTERNS):
-                        person = note.get("commentingPerson") or {}
-                        ai_notes.append({
-                            "note_id": note["id"],
-                            "candidate_id": cid,
-                            "action": action,
-                            "comments_preview": (note.get("comments") or "")[:150]
-                        })
+                    if any(pat in action for pat in self.AI_ACTION_PATTERNS):
+                        cid = (note.get("personReference") or {}).get("id")
+                        if cid:
+                            scanned_ids.add(cid)
+                            ai_notes.append({
+                                "note_id": note["id"],
+                                "candidate_id": cid,
+                                "action": action,
+                                "comments_preview": (note.get("comments") or "")[:150],
+                            })
+                start += len(batch)
+                if len(batch) < 500 or start >= total:
+                    break
+                time.sleep(0.05)
+
+        if candidate_ids:
+            chunk_size = 100
+            for i in range(0, len(candidate_ids), chunk_size):
+                chunk = candidate_ids[i:i + chunk_size]
+                id_clause = " OR ".join(str(c) for c in chunk)
+                try:
+                    _fetch_notes_batch(f"personReference.id:({id_clause}) AND isDeleted:false")
+                except Exception:
+                    pass
+        else:
+            action_clause = " OR ".join(
+                f'"{pat} - Not Recommended" OR "{pat} - Qualified" OR "{pat} - Recommended"'
+                if pat == "AI Vetting" else f'"{pat}"'
+                for pat in self.AI_ACTION_PATTERNS
+            )
+            try:
+                _fetch_notes_batch(f"action:({action_clause}) AND isDeleted:false")
             except Exception:
                 pass
-            if (i + 1) % 100 == 0:
-                time.sleep(0.1)
+
+        candidate_ids = list(scanned_ids)
 
         deleted = 0
         failed = 0
@@ -245,46 +281,64 @@ class AutomationService:
         max_candidates = params.get("max_candidates", 500)
         chain_window = 60
 
-        candidate_ids = self._get_recent_candidates(max_candidates)
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         cutoff_ts = int(cutoff.timestamp() * 1000)
+
+        notes_by_candidate = {}
+        note_url = f"{self._bh_url()}search/Note"
+        start = 0
+        while True:
+            p = {
+                "query": f'action:"AI Vetting - Not Recommended" AND dateAdded:[{cutoff_ts} TO *] AND isDeleted:false',
+                "fields": "id,action,dateAdded,personReference(id)",
+                "count": 500,
+                "start": start,
+                "sort": "dateAdded",
+            }
+            try:
+                resp = requests.get(note_url, headers=self._bh_headers(), params=p, timeout=30)
+                resp.raise_for_status()
+                data = resp.json()
+                batch = data.get("data", [])
+                total = data.get("total", 0)
+                for note in batch:
+                    cid = (note.get("personReference") or {}).get("id")
+                    if cid:
+                        notes_by_candidate.setdefault(cid, []).append(note)
+                start += len(batch)
+                if len(batch) < 500 or start >= total:
+                    break
+            except Exception:
+                break
+            time.sleep(0.05)
 
         duplicates = {}
         total_delete = 0
 
-        for cid in candidate_ids:
-            try:
-                notes = self._get_candidate_entity_notes(cid)
-                target_notes = [
-                    n for n in notes
-                    if (n.get("action") or "") == "AI Vetting - Not Recommended"
-                    and (n.get("dateAdded") or 0) >= cutoff_ts
-                ]
-                if len(target_notes) < 2:
-                    continue
+        for cid, target_notes in notes_by_candidate.items():
+            if len(target_notes) < 2:
+                continue
 
-                target_notes.sort(key=lambda n: n.get("dateAdded", 0))
-                keep = [target_notes[0]]
-                to_delete = []
-                prev_time = target_notes[0].get("dateAdded", 0)
+            target_notes.sort(key=lambda n: n.get("dateAdded", 0))
+            keep = [target_notes[0]]
+            to_delete = []
+            prev_time = target_notes[0].get("dateAdded", 0)
 
-                for note in target_notes[1:]:
-                    gap_ms = note.get("dateAdded", 0) - prev_time
-                    gap_min = gap_ms / 60000
-                    if gap_min <= chain_window:
-                        to_delete.append({
-                            "id": note["id"],
-                            "gap_minutes": round(gap_min, 1)
-                        })
-                    else:
-                        keep.append(note)
-                    prev_time = note.get("dateAdded", 0)
+            for note in target_notes[1:]:
+                gap_ms = note.get("dateAdded", 0) - prev_time
+                gap_min = gap_ms / 60000
+                if gap_min <= chain_window:
+                    to_delete.append({
+                        "id": note["id"],
+                        "gap_minutes": round(gap_min, 1)
+                    })
+                else:
+                    keep.append(note)
+                prev_time = note.get("dateAdded", 0)
 
-                if to_delete:
-                    duplicates[cid] = {"keep": len(keep), "delete": to_delete}
-                    total_delete += len(to_delete)
-            except Exception:
-                pass
+            if to_delete:
+                duplicates[cid] = {"keep": len(keep), "delete": to_delete}
+                total_delete += len(to_delete)
 
         deleted = 0
         failed = 0
@@ -297,11 +351,12 @@ class AutomationService:
                     except Exception:
                         failed += 1
 
+        candidates_scanned = len(notes_by_candidate)
         return {
             "summary": f"{'DRY RUN: ' if dry_run else ''}Found {total_delete} duplicate notes across {len(duplicates)} candidates"
                        + (f". Deleted {deleted}, failed {failed}" if not dry_run else ""),
             "dry_run": dry_run,
-            "candidates_scanned": len(candidate_ids),
+            "candidates_scanned": candidates_scanned,
             "candidates_with_duplicates": len(duplicates),
             "duplicate_notes_found": total_delete,
             "deleted": deleted,
@@ -408,33 +463,60 @@ class AutomationService:
                 start += 500
                 time.sleep(0.1)
 
-            for sub in subs:
-                cand = sub.get("candidate") or {}
-                cid = cand.get("id")
-                if not cid:
-                    continue
-                try:
-                    notes = self._get_candidate_entity_notes(cid, count=200)
-                    for note in notes:
-                        action = note.get("action") or ""
-                        if action:
-                            all_actions_seen.add(action)
-                        if action in qualifying_actions:
-                            qualified.append({
-                                "candidate_id": cid,
-                                "first_name": cand.get("firstName", ""),
-                                "last_name": cand.get("lastName", ""),
-                                "email": cand.get("email", ""),
-                                "phone": cand.get("phone", ""),
-                                "source": cand.get("source", ""),
-                                "occupation": cand.get("occupation", ""),
-                                "job_id": job_id,
-                                "note_action": action
-                            })
+            cand_by_id = {
+                sub.get("candidate", {}).get("id"): sub.get("candidate", {})
+                for sub in subs
+                if (sub.get("candidate") or {}).get("id")
+            }
+            if cand_by_id:
+                note_url = f"{self._bh_url()}search/Note"
+                action_clause = " OR ".join(f'"{a}"' for a in qualifying_actions)
+                qualifying_notes = {}
+                chunk_ids = list(cand_by_id.keys())
+                for i in range(0, len(chunk_ids), 100):
+                    chunk = chunk_ids[i:i + 100]
+                    id_clause = " OR ".join(str(c) for c in chunk)
+                    note_start = 0
+                    while True:
+                        np = {
+                            "query": f"personReference.id:({id_clause}) AND action:({action_clause}) AND isDeleted:false",
+                            "fields": "id,action,personReference(id)",
+                            "count": 500,
+                            "start": note_start,
+                            "sort": "-dateAdded",
+                        }
+                        try:
+                            nr = requests.get(note_url, headers=self._bh_headers(), params=np, timeout=30)
+                            nr.raise_for_status()
+                            nd = nr.json()
+                            note_batch = nd.get("data", [])
+                            for note in note_batch:
+                                action = note.get("action") or ""
+                                if action:
+                                    all_actions_seen.add(action)
+                                cid = (note.get("personReference") or {}).get("id")
+                                if cid and cid not in qualifying_notes and action in qualifying_actions:
+                                    qualifying_notes[cid] = action
+                            note_start += len(note_batch)
+                            if len(note_batch) < 500 or note_start >= nd.get("total", 0):
+                                break
+                        except Exception:
                             break
-                except Exception:
-                    pass
-                time.sleep(0.05)
+                        time.sleep(0.05)
+
+                for cid, cand in cand_by_id.items():
+                    if cid in qualifying_notes:
+                        qualified.append({
+                            "candidate_id": cid,
+                            "first_name": cand.get("firstName", ""),
+                            "last_name": cand.get("lastName", ""),
+                            "email": cand.get("email", ""),
+                            "phone": cand.get("phone", ""),
+                            "source": cand.get("source", ""),
+                            "occupation": cand.get("occupation", ""),
+                            "job_id": job_id,
+                            "note_action": qualifying_notes[cid]
+                        })
 
         unique_ids = set(c["candidate_id"] for c in qualified)
         return {
@@ -1089,20 +1171,27 @@ class AutomationService:
 
         if specific_ids:
             candidates = []
-            for cid in specific_ids:
+            search_url = f"{self._bh_url()}search/Candidate"
+            chunk_size = 100
+            for i in range(0, len(specific_ids), chunk_size):
+                chunk = specific_ids[i:i + chunk_size]
+                id_clause = " OR ".join(str(c) for c in chunk)
                 try:
                     resp = requests.get(
-                        f"{self._bh_url()}entity/Candidate/{cid}",
+                        search_url,
                         headers=self._bh_headers(),
-                        params={"fields": "id,firstName,lastName,email,dateAdded"},
+                        params={
+                            "query": f"id:({id_clause})",
+                            "fields": "id,firstName,lastName,email,dateAdded",
+                            "count": chunk_size,
+                            "sort": "id",
+                        },
                         timeout=15
                     )
                     resp.raise_for_status()
-                    data = resp.json().get("data", {})
-                    if data:
-                        candidates.append(data)
+                    candidates.extend(resp.json().get("data", []))
                 except Exception as e:
-                    self.logger.warning(f"email_extractor: could not fetch candidate {cid}: {e}")
+                    self.logger.warning(f"email_extractor: could not fetch candidate batch {chunk}: {e}")
             total_available = len(candidates)
         else:
             cutoff_ts = int((datetime.utcnow() - timedelta(days=days_back)).timestamp() * 1000)
