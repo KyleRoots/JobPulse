@@ -1456,6 +1456,45 @@ if is_primary_worker:
     app.logger.info("🧹 Candidate data cleanup scheduled — runs every 15 minutes when enabled")
 
 if is_primary_worker:
+    def run_incomplete_rescreen():
+        """Scheduled job: reparse resumes for empty-description inbound candidates and re-queue for vetting."""
+        with app.app_context():
+            try:
+                from models import GlobalSettings
+                enabled = GlobalSettings.get_value('incomplete_rescreen_enabled', 'false').lower() == 'true'
+                if not enabled:
+                    return
+
+                from automation_service import AutomationService
+                from bullhorn_service import BullhornService
+
+                svc = AutomationService()
+                bh = BullhornService()
+                bh.authenticate()
+                svc._bullhorn = bh
+
+                result = svc._builtin_incomplete_rescreen({
+                    'dry_run': False,
+                    'batch_size': 20,
+                })
+                app.logger.info(
+                    f"♻️  Incomplete rescreen cycle complete: {result.get('summary', '')}"
+                )
+            except Exception as e:
+                app.logger.error(f"❌ Incomplete rescreen error: {e}")
+
+    scheduler.add_job(
+        func=run_incomplete_rescreen,
+        trigger=IntervalTrigger(minutes=15),
+        id='incomplete_rescreen',
+        name='Incomplete Candidate Rescreen (Every 15 Minutes)',
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=False
+    )
+    app.logger.info("♻️  Incomplete rescreen job scheduled — runs every 15 minutes when enabled")
+
+if is_primary_worker:
     # XML Change Monitor - DISABLED automatic scheduling for manual workflow
     # Change notifications now triggered only during manual downloads
     app.logger.info("📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads")

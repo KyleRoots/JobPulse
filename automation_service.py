@@ -673,6 +673,192 @@ class AutomationService:
             parts.append(f"<p>{escaped}</p>")
         return "\n".join(parts)
 
+    def _builtin_incomplete_rescreen(self, params):
+        """
+        Finds inbound tearsheet candidates (from ParsedEmail records, March 8 2026 onwards)
+        whose Bullhorn 'description' field is empty but who have an attached resume file.
+        For each such candidate:
+          1. Downloads and parses the resume file → writes it back to Bullhorn description.
+          2. Resets ParsedEmail.vetted_at = None so the next vetting cycle re-evaluates them.
+        Candidate records that already have a description, or have no resume file, are skipped.
+        """
+        from datetime import timezone
+        dry_run = params.get("dry_run", False)
+        batch_size = params.get("batch_size", 20)
+
+        # Hard cutoff — only process candidates who came in on or after Mar 8 2026
+        CUTOFF = datetime(2026, 3, 8, 0, 0, 0)
+
+        results = {
+            "candidates_checked": 0,
+            "already_have_description": 0,
+            "no_resume_file": 0,
+            "parsed_and_queued": 0,
+            "parse_failed": 0,
+        }
+        candidate_details = []
+
+        try:
+            from models import ParsedEmail
+            from extensions import db
+
+            # Find completed ParsedEmail records with a candidate, received after the cutoff,
+            # whose vetted_at is either None (never vetted) or already set (was vetted with
+            # empty description — needs a re-run after parsing).
+            # We filter for records whose candidate description is empty by checking Bullhorn.
+            candidates_q = (
+                ParsedEmail.query
+                .filter(
+                    ParsedEmail.status == 'completed',
+                    ParsedEmail.bullhorn_candidate_id.isnot(None),
+                    ParsedEmail.received_at >= CUTOFF,
+                )
+                .order_by(ParsedEmail.received_at.asc())
+                .limit(batch_size * 5)  # over-fetch to account for already-described candidates
+                .all()
+            )
+        except Exception as e:
+            self.logger.error(f"incomplete_rescreen: DB query failed: {e}")
+            return {"summary": f"DB error: {e}", **results}
+
+        # Deduplicate by candidate ID — one ParsedEmail per candidate is enough
+        seen_candidate_ids = set()
+        unique_records = []
+        for pe in candidates_q:
+            if pe.bullhorn_candidate_id not in seen_candidate_ids:
+                seen_candidate_ids.add(pe.bullhorn_candidate_id)
+                unique_records.append(pe)
+
+        processed = 0
+        for pe in unique_records:
+            if processed >= batch_size:
+                break
+
+            cid = pe.bullhorn_candidate_id
+            results["candidates_checked"] += 1
+
+            # Step 1: Check whether the candidate already has a description in Bullhorn
+            try:
+                cand_resp = requests.get(
+                    f"{self._bh_url()}entity/Candidate/{cid}",
+                    headers=self._bh_headers(),
+                    params={"fields": "id,firstName,lastName,description"},
+                    timeout=15
+                )
+                cand_resp.raise_for_status()
+                cand_data = cand_resp.json().get("data", {})
+            except Exception as e:
+                self.logger.warning(f"incomplete_rescreen: could not fetch candidate {cid}: {e}")
+                results["parse_failed"] += 1
+                continue
+
+            desc = (cand_data.get("description") or "").strip()
+            name = f"{cand_data.get('firstName', '')} {cand_data.get('lastName', '')}".strip()
+
+            if desc:
+                results["already_have_description"] += 1
+                # Mark vetted_at so this candidate is not re-checked next cycle
+                if not pe.vetted_at:
+                    try:
+                        pe.vetted_at = datetime.utcnow()
+                        from extensions import db
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+                continue
+
+            # Step 2: Find a resume file attachment
+            try:
+                file_resp = requests.get(
+                    f"{self._bh_url()}entity/Candidate/{cid}/fileAttachments",
+                    headers=self._bh_headers(),
+                    params={"fields": "id,name,type,contentType"},
+                    timeout=15
+                )
+                file_resp.raise_for_status()
+                files = file_resp.json().get("data", [])
+                resume_files = [
+                    f for f in files if
+                    (f.get("type", "").lower() == "resume") or
+                    f.get("name", "").lower().endswith((".pdf", ".doc", ".docx"))
+                ]
+            except Exception as e:
+                self.logger.warning(f"incomplete_rescreen: file fetch failed for {cid}: {e}")
+                resume_files = []
+
+            if not resume_files:
+                results["no_resume_file"] += 1
+                candidate_details.append({"candidate_id": cid, "name": name, "status": "no_resume_file"})
+                continue
+
+            processed += 1
+
+            if dry_run:
+                results["parsed_and_queued"] += 1
+                candidate_details.append({
+                    "candidate_id": cid,
+                    "name": name,
+                    "resume_file": resume_files[0].get("name", "unknown"),
+                    "status": "would_process"
+                })
+                continue
+
+            # Step 3: Parse resume → write back to Bullhorn
+            try:
+                text = self._download_and_extract_text(cid, resume_files[0])
+                if not text or len(text.strip()) < 50:
+                    self.logger.warning(f"incomplete_rescreen: resume parse returned empty text for {cid}")
+                    results["parse_failed"] += 1
+                    candidate_details.append({"candidate_id": cid, "name": name, "status": "parse_empty"})
+                    continue
+
+                requests.post(
+                    f"{self._bh_url()}entity/Candidate/{cid}",
+                    headers={**self._bh_headers(), "Content-Type": "application/json"},
+                    json={"description": text[:20000]},
+                    timeout=15
+                )
+                self.logger.info(f"incomplete_rescreen: reparsed description for candidate {cid} ({name})")
+            except Exception as e:
+                self.logger.warning(f"incomplete_rescreen: parse/write failed for {cid}: {e}")
+                results["parse_failed"] += 1
+                candidate_details.append({"candidate_id": cid, "name": name, "status": "error"})
+                continue
+
+            # Step 4: Reset vetted_at so the vetting cycle re-evaluates this candidate
+            try:
+                from extensions import db
+                pe.vetted_at = None
+                db.session.commit()
+                self.logger.info(f"incomplete_rescreen: reset vetted_at for ParsedEmail {pe.id} (candidate {cid})")
+            except Exception as e:
+                db.session.rollback()
+                self.logger.warning(f"incomplete_rescreen: could not reset vetted_at for {cid}: {e}")
+
+            results["parsed_and_queued"] += 1
+            candidate_details.append({
+                "candidate_id": cid,
+                "name": name,
+                "resume_file": resume_files[0].get("name", "unknown"),
+                "status": "reparsed_and_queued"
+            })
+
+        summary_parts = [
+            f"{'DRY RUN: ' if dry_run else ''}Checked {results['candidates_checked']} inbound candidates (since Mar 8 2026)",
+            f"{results['already_have_description']} already have a description",
+            f"{results['no_resume_file']} have no resume file",
+            f"{results['parsed_and_queued']} reparsed {'(would requeue)' if dry_run else 'and queued for re-screening'}",
+        ]
+        if results["parse_failed"]:
+            summary_parts.append(f"{results['parse_failed']} failed")
+
+        return {
+            "summary": " · ".join(summary_parts),
+            "dry_run": dry_run,
+            **results,
+            "candidates": candidate_details[:50]
+        }
+
     def _builtin_salesrep_sync(self, params):
         from salesrep_sync_service import run_salesrep_sync
         result = run_salesrep_sync(self.bullhorn)

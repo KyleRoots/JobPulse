@@ -358,6 +358,28 @@ def cleanup_settings_get():
     return jsonify({'enabled': enabled, 'batch_size': batch_size})
 
 
+@automations_bp.route('/automations/incomplete-rescreen-settings', methods=['GET'])
+@login_required
+def incomplete_rescreen_settings_get():
+    _require_admin()
+    from models import GlobalSettings
+    enabled = GlobalSettings.get_value('incomplete_rescreen_enabled', 'false').lower() == 'true'
+    return jsonify({'enabled': enabled})
+
+
+@automations_bp.route('/automations/incomplete-rescreen-settings', methods=['POST'])
+@login_required
+def incomplete_rescreen_settings_save():
+    _require_admin()
+    from models import GlobalSettings
+    from extensions import db
+    data = request.get_json() or {}
+    if 'enabled' in data:
+        GlobalSettings.set_value('incomplete_rescreen_enabled', 'true' if data['enabled'] else 'false')
+    logger.info(f"Incomplete rescreen settings updated: {json.dumps(data)}")
+    return jsonify({'success': True})
+
+
 @automations_bp.route('/automations/cleanup-settings', methods=['POST'])
 @login_required
 def cleanup_settings_save():
