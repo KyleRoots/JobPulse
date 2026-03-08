@@ -734,7 +734,18 @@ class JobVettingRequirements(db.Model):
         return f'<JobVettingRequirements job_id={self.bullhorn_job_id}>'
     
     def get_active_requirements(self):
-        """Return custom requirements if set, otherwise AI interpreted"""
+        """Return combined requirements for vetting.
+
+        When both fields are populated, returns AI-interpreted requirements as the
+        base with the custom recruiter requirements appended as a supplementary
+        section — neither overrides the other.
+        When only one field is populated, returns that field.
+        """
+        if self.custom_requirements and self.ai_interpreted_requirements:
+            return (
+                f"{self.ai_interpreted_requirements}\n\n"
+                f"ADDITIONAL RECRUITER-SPECIFIED REQUIREMENTS:\n{self.custom_requirements}"
+            )
         return self.custom_requirements or self.ai_interpreted_requirements
 
 

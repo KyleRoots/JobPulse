@@ -2114,10 +2114,10 @@ Format as a bullet-point list. Be specific and concise."""
         custom_requirements_block = ""
         if custom_requirements:
             custom_requirements_block = f"""
-CUSTOM REQUIREMENTS OVERRIDE (use these instead of extracting from the job description):
+MANDATORY SCREENING REQUIREMENTS (evaluate against ALL of these):
 {custom_requirements}
 
-Focus ONLY on these requirements when scoring. Ignore nice-to-haves in the job description."""
+These requirements take priority in scoring. Evaluate the candidate against every requirement listed above AND assess their technical fit from the job description — do not ignore the job description's core technical requirements."""
 
         # Inject exact current date from Python for accurate ongoing-role calculation
         from datetime import date as _date
