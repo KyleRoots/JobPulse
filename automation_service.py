@@ -675,7 +675,7 @@ class AutomationService:
 
     def _builtin_incomplete_rescreen(self, params):
         """
-        Finds inbound tearsheet candidates (from ParsedEmail records, March 8 2026 onwards)
+        Finds inbound tearsheet candidates (from ParsedEmail records, March 5 2026 onwards)
         whose Bullhorn 'description' field is empty but who have an attached resume file.
         For each such candidate:
           1. Downloads and parses the resume file → writes it back to Bullhorn description.
@@ -686,8 +686,8 @@ class AutomationService:
         dry_run = params.get("dry_run", False)
         batch_size = params.get("batch_size", 20)
 
-        # Hard cutoff — only process candidates who came in on or after Mar 8 2026
-        CUTOFF = datetime(2026, 3, 8, 0, 0, 0)
+        # Hard cutoff — only process candidates who came in on or after Mar 5 2026
+        CUTOFF = datetime(2026, 3, 5, 0, 0, 0)
 
         results = {
             "candidates_checked": 0,
@@ -825,9 +825,25 @@ class AutomationService:
                 candidate_details.append({"candidate_id": cid, "name": name, "status": "error"})
                 continue
 
-            # Step 4: Reset vetted_at so the vetting cycle re-evaluates this candidate
+            # Step 4: Clear old 0% vetting logs so the candidate is treated as brand new
             try:
                 from extensions import db
+                from models import CandidateVettingLog, CandidateJobMatch
+                old_logs = CandidateVettingLog.query.filter_by(
+                    bullhorn_candidate_id=cid,
+                    highest_match_score=0
+                ).all()
+                for old_log in old_logs:
+                    CandidateJobMatch.query.filter_by(vetting_log_id=old_log.id).delete()
+                    db.session.delete(old_log)
+                if old_logs:
+                    self.logger.info(f"incomplete_rescreen: cleared {len(old_logs)} old 0% vetting log(s) for candidate {cid}")
+            except Exception as e:
+                db.session.rollback()
+                self.logger.warning(f"incomplete_rescreen: could not clear old vetting logs for {cid}: {e}")
+
+            # Step 5: Reset vetted_at so the vetting cycle re-evaluates this candidate
+            try:
                 pe.vetted_at = None
                 db.session.commit()
                 self.logger.info(f"incomplete_rescreen: reset vetted_at for ParsedEmail {pe.id} (candidate {cid})")
