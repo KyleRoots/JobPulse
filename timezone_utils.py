@@ -5,6 +5,7 @@ Handles conversion between UTC and Eastern Time (EDT/EST)
 from datetime import datetime
 import pytz
 
+# Test GPT code review workflow
 
 # Define timezone objects
 UTC = pytz.UTC
@@ -23,11 +24,11 @@ def utc_to_eastern(utc_dt):
     """
     if utc_dt is None:
         return None
-    
+
     # If naive datetime, assume it's UTC
     if utc_dt.tzinfo is None:
         utc_dt = UTC.localize(utc_dt)
-    
+
     # Convert to Eastern Time
     eastern_dt = utc_dt.astimezone(EASTERN)
     return eastern_dt
@@ -46,7 +47,7 @@ def format_eastern_time(utc_dt, format_string='%b %d, %Y at %I:%M %p %Z'):
     """
     if utc_dt is None:
         return "N/A"
-    
+
     eastern_dt = utc_to_eastern(utc_dt)
     return eastern_dt.strftime(format_string)
 
@@ -75,7 +76,7 @@ def get_timezone_abbreviation(dt=None):
         dt = get_current_eastern_time()
     else:
         dt = utc_to_eastern(dt)
-    
+
     return dt.strftime('%Z')
 
 

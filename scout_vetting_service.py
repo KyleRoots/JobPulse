@@ -1,13 +1,13 @@
 """
 Scout Vetting Service — Conversational AI follow-up for qualified candidates.
 
-Activates after Scout Screening qualifies a candidate. Uses Claude Opus to
+Activates after Scout Screening qualifies a candidate. Uses GPT-4o to
 generate job-specific verification questions and conducts multi-turn email
 conversations before recruiter handoff.
 
 Flow:
   1. Screening qualifies candidate → initiate_vetting()
-  2. Claude generates 3-5 questions based on gaps/match → send_initial_outreach()
+  2. GPT-4o generates 3-5 questions based on gaps/match → send_initial_outreach()
   3. Candidate replies → process_candidate_reply() classifies intent, extracts answers
   4. If more info needed → send follow-up; if complete → finalize_vetting()
   5. Follow-up scheduler nudges unresponsive candidates (24h, 48h, then close)
@@ -35,7 +35,7 @@ SCOUT_VETTING_FROM_NAME = 'Scout by Myticas'
 
 
 class ScoutVettingService:
-    """Conversational AI vetting via Claude Opus."""
+    """Conversational AI vetting via GPT-4o."""
 
     MAX_CONCURRENT_SESSIONS = 3
     STAGGER_MINUTES = 15
@@ -45,29 +45,18 @@ class ScoutVettingService:
     def __init__(self, email_service, bullhorn_service=None):
         self.email_service = email_service
         self.bullhorn = bullhorn_service
-        self._llm = None  # Lazy-loaded
+        self._openai_client = None  # Lazy-loaded
 
     @property
-    def llm(self):
-        """Lazy-load the Claude Opus client to avoid import errors when not needed."""
-        if self._llm is None:
-            try:
-                from langchain_anthropic import ChatAnthropic
-                api_key = os.getenv('ANTHROPIC_API_KEY')
-                if not api_key:
-                    raise ValueError("ANTHROPIC_API_KEY not set in environment")
-                self._llm = ChatAnthropic(
-                    model="claude-opus-4-20250514",
-                    api_key=api_key,
-                    max_tokens=4096,
-                    temperature=0.3,
-                )
-            except ImportError:
-                raise ImportError(
-                    "langchain-anthropic is required for Scout Vetting. "
-                    "Install with: pip install langchain-anthropic"
-                )
-        return self._llm
+    def openai_client(self):
+        """Lazy-load the OpenAI client."""
+        if self._openai_client is None:
+            import openai
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not set in environment")
+            self._openai_client = openai.OpenAI(api_key=api_key)
+        return self._openai_client
 
     # ═══════════════════════════════════════════════════════════════
     # Toggle Checks
@@ -297,8 +286,12 @@ Return ONLY a JSON array of question strings, nothing else.
 Example: ["Question 1?", "Question 2?", "Question 3?"]"""
 
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
+            response = self.openai_client.chat.completions.create(
+                model='gpt-4o',
+                messages=[{'role': 'user', 'content': prompt}],
+                temperature=0.3,
+            )
+            content = response.choices[0].message.content
 
             # Parse JSON array from response
             # Handle possible markdown code blocks
@@ -487,8 +480,12 @@ RULES:
 - If the candidate partially answers, extract what you can"""
 
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
+            response = self.openai_client.chat.completions.create(
+                model='gpt-4o',
+                messages=[{'role': 'user', 'content': prompt}],
+                temperature=0.3,
+            )
+            content = response.choices[0].message.content
             content = content.strip()
             if content.startswith('```'):
                 content = re.sub(r'^```\w*\n?', '', content)
@@ -591,8 +588,12 @@ RULES:
 - Be fair — partial but honest answers are better than no response"""
 
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
+            response = self.openai_client.chat.completions.create(
+                model='gpt-4o',
+                messages=[{'role': 'user', 'content': prompt}],
+                temperature=0.3,
+            )
+            content = response.choices[0].message.content
             content = content.strip()
             if content.startswith('```'):
                 content = re.sub(r'^```\w*\n?', '', content)
@@ -870,8 +871,12 @@ Return ONLY the HTML content (no <html>, <head>, or <body> tags — just the div
 Keep it concise — no more than 3-4 short paragraphs."""
 
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
+            response = self.openai_client.chat.completions.create(
+                model='gpt-4o',
+                messages=[{'role': 'user', 'content': prompt}],
+                temperature=0.3,
+            )
+            content = response.choices[0].message.content
             # Strip markdown code blocks if present
             content = content.strip()
             if content.startswith('```'):
