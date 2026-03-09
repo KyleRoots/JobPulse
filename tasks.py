@@ -848,7 +848,7 @@ def automated_upload():
     """Automatically upload fresh XML every 30 minutes if automation is enabled.
     Generates two feeds:
       - myticas-job-feed-v2.xml   — all tearsheets; STSI (1531) jobs WITHOUT #STSIVMS or #STSIEG tags
-      - myticas-job-feed-pando.xml — all tearsheets; STSI (1531) jobs WITH #STSIVMS or #STSIEG tags
+      - myticas-job-feed-pando.xml — all tearsheets; ALL STSI (1531) jobs (no tag filter)
     """
     print("📤 AUTOMATED UPLOAD: Function invoked by scheduler", flush=True)
     from app import app
@@ -873,8 +873,8 @@ def automated_upload():
             from simplified_xml_generator import SimplifiedXMLGenerator
             generator = SimplifiedXMLGenerator(db=db)
 
-            app.logger.info("📄 [FEED 1/2] Generating pando feed (STSI: tagged #STSIVMS/#STSIEG jobs only) — saves reference numbers...")
-            pando_xml, pando_stats = generator.generate_fresh_xml(stsi_tag_mode='only_tags')
+            app.logger.info("📄 [FEED 1/2] Generating pando feed (STSI: all jobs, no tag filter) — saves reference numbers...")
+            pando_xml, pando_stats = generator.generate_fresh_xml(stsi_tag_mode=None)
             app.logger.info(f"📊 pando feed: {pando_stats['job_count']} jobs, {pando_stats['xml_size_bytes']:,} bytes")
 
             app.logger.info("📄 [FEED 2/2] Generating v2 feed (STSI: untagged jobs only) — uses existing references...")
