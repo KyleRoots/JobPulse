@@ -65,9 +65,18 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Resume Character Limit (Vetting)**: AI vetting reads up to 20,000 characters of resume text (previously 8,000). GAP DESCRIPTION PRECISION prompt: AI must distinguish between a skill being truly absent vs. present-but-insufficient in the resume — eliminates false "no evidence" gap reports.
 - **DOCX Resume Parsing**: Multi-layer extraction from section headers, body paragraphs, table cells, text boxes (w:drawing XML), and full XML w:t fallback — captures emails and content regardless of resume template layout. Supports `.doc` files via antiword conversion. Garbled text detection with fallback to plain-text-to-HTML conversion.
 
+## Commercial Agreements
+
+### OpenAI — Modified Data Retention Amendment
+- **Agreement**: Modified Data Retention Amendment between OpenAI OpCo, LLC and Myticas Consulting ULC.
+- **Org ID**: `org-yOsdUJqxqyaR7msNs3M3ISmW`
+- **Data Handling**: Zero Data Retention / Modified Abuse Monitoring is active — OpenAI does not log, retain, or use API inputs for training or abuse monitoring for this org.
+- **Commercial Terms**: Committed minimum spend agreement in exchange for full, unlimited access to all OpenAI APIs and models.
+- **Model Usage Guidance**: Do NOT apply cost-saving model downgrades (e.g. using mini models to save tokens). Use the highest-quality model available (GPT-4o, o1, o3, etc.) whenever better output accuracy, reasoning, or reliability is warranted. The spend commitment removes the need for conservative model selection.
+
 ## External Dependencies
 
 - **Python Libraries**: Flask, Flask-Login, Flask-WTF, Flask-SQLAlchemy, lxml, SQLAlchemy, Alembic, APScheduler, gunicorn, SendGrid, OpenAI, tiktoken, PyMuPDF, PyPDF2, python-docx, Paramiko, Requests, httpx, Sentry SDK, bcrypt, BeautifulSoup4.
 - **Frontend Libraries**: Bootstrap 5, Font Awesome 6.
 - **External Services**: PostgreSQL (Neon-hosted), SendGrid, OpenAI, Bullhorn ATS/CRM, Sentry.
-- **AI Models**: OpenAI GPT-4o.
+- **AI Models**: OpenAI GPT-4o (primary). Upgrade to o1/o3 freely when higher reasoning quality is needed — no cost barrier.
