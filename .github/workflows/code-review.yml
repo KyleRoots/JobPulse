@@ -1,0 +1,35 @@
+name: GPT Code Review
+
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  gpt-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: GPT Code Review
+        uses: anc95/ChatGPT-CodeReview@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_ENDPOINT: https://api.openai.com/v1
+          MODEL: gpt-4o
+          LANGUAGE: en
+          PROMPT: >
+            You are a senior full-stack engineer reviewing a multi-tenant SaaS application 
+            hosted on Replit with FastAPI backend, Supabase Postgres database, and Bullhorn ATS integration. 
+            The application uses external AI APIs for candidate vetting and screening.
+            Focus on: (1) correctness and bug detection, (2) error handling and resilience, 
+            (3) security vulnerabilities, (4) scalability for multi-tenant high-volume scenarios, 
+            (5) database query performance, (6) webhook reliability and retry logic.
+            For each issue found, classify as MUST-FIX (breaks functionality or security), 
+            SHOULD-FIX (hurts maintainability or future scaling), or NICE-TO-HAVE (code quality improvement).
+            Provide concrete, actionable suggestions with line references.
+          MAX_PATCH_LENGTH: 10000
