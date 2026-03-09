@@ -366,11 +366,10 @@ def simulate_reply():
         else:
             unanswered = [q for i, q in enumerate(questions) if str(i) not in existing_answers and q not in existing_answers.values()]
             follow_up_questions = unanswered[:3]
-            if hasattr(scout_svc, '_build_followup_email'):
-                try:
-                    follow_up_html = scout_svc._build_followup_email(session, follow_up_questions)
-                except Exception:
-                    pass
+            try:
+                follow_up_html = scout_svc._generate_followup_reply(session, classification, unanswered[:3])
+            except Exception as e:
+                logger.warning(f"Sandbox: Follow-up generation failed for session {session.id} ({len(unanswered[:3])} unanswered questions): {e}")
 
             session.current_turn += 1
             outbound_turn = VettingConversationTurn(
