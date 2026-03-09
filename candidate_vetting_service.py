@@ -2185,7 +2185,10 @@ Before applying tier 2, check whether the job location shown above includes a sp
 2. Candidate is in the SAME COUNTRY but a DIFFERENT STATE/PROVINCE (only applies when job city/state IS known):
    - Add "Location mismatch: candidate not in {job_city or job_state or 'job area'}, on-site required" to gaps_identified.
    - Reduce score by 15–20 points.
-   - EXCEPTION: If the candidate explicitly states willingness to relocate (e.g., "open to relocation", "willing to relocate"), reduce the deduction to 10–15 points instead and note the relocation intent.
+   - EXCEPTION — WILLING TO RELOCATE: If the candidate explicitly states willingness to relocate anywhere on their resume (e.g., "open to relocation", "willing to relocate", "open to moving", "relocation considered"):
+     → Reduce the deduction to exactly 5 points (not 15–20).
+     → Do NOT use the word "mismatch" in the gap note. Instead write: "Location note: candidate not local to [city/area] but explicitly states willingness to relocate — recruiter should verify relocation timeline and logistics."
+     → This treats relocation willingness as a logistics item for the recruiter, not a qualification gap.
 3. Candidate is in the SAME CITY or METRO AREA: no deduction, no flag.
 - If candidate is non-local AND doesn't mention relocation willingness, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified.
 
