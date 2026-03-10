@@ -1811,3 +1811,27 @@ def unblock_retry(log_id):
         'log_id': log_id,
         'candidate_name': log.candidate_name
     })
+
+
+@vetting_bp.route('/screening/dismiss-pending/<int:log_id>', methods=['POST'])
+@csrf.exempt
+@login_required
+def dismiss_pending(log_id):
+    """Dismiss a stuck pending/processing candidate — removes them from the awaiting vetting queue permanently."""
+    from models import CandidateVettingLog
+    from flask_login import current_user
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    log = CandidateVettingLog.query.get_or_404(log_id)
+    if log.status not in ('pending', 'processing'):
+        return jsonify({'success': False, 'error': 'Candidate is not in a pending state'}), 400
+
+    log.status = 'dismissed'
+    log.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'log_id': log_id,
+        'candidate_name': log.candidate_name
+    })

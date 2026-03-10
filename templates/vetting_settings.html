@@ -614,7 +614,7 @@
                     {% if pending_candidates and pending_candidates|length > 0 %}
                     <div class="accordion" id="pendingAccordion">
                         {% for candidate in pending_candidates[:30] %}
-                        <div class="accordion-item candidate-item" data-status="pending"
+                        <div class="accordion-item candidate-item" data-status="pending" data-log-id="{{ candidate.id }}"
                             style="background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); margin-bottom: 0.5rem;">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
@@ -664,11 +664,16 @@
                                                 if candidate.detected_at else 'N/A' }}</p>
                                         </div>
                                     </div>
-                                    <div class="mt-3 pt-2 border-top border-secondary">
+                                    <div class="mt-3 pt-2 border-top border-secondary d-flex align-items-center gap-2">
                                         <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ candidate.bullhorn_candidate_id }}"
                                             target="_blank" class="btn btn-outline-info btn-sm">
                                             <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
                                         </a>
+                                        <button class="btn btn-outline-warning btn-sm"
+                                            onclick="dismissPending({{ candidate.id }}, this)"
+                                            title="Remove this candidate from the vetting queue permanently">
+                                            <i class="fas fa-ban me-1"></i>Skip &amp; Dismiss
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -911,6 +916,48 @@
 
     {% block extra_scripts %}
     <script>
+        // Dismiss a stuck pending candidate from the vetting queue permanently
+        function dismissPending(logId, btn) {
+            if (!confirm('Remove this candidate from the Awaiting Vetting queue? They will no longer be processed by the AI vetting cycle.')) return;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Dismissing…';
+
+            fetch('/screening/dismiss-pending/' + logId, { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.success) {
+                        alert('Error: ' + (data.error || 'Unknown error'));
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-ban me-1"></i>Skip &amp; Dismiss';
+                        return;
+                    }
+                    // Remove the accordion item from the DOM
+                    var item = btn.closest('.accordion-item');
+                    if (item) item.remove();
+
+                    // Decrement the pending count badge
+                    var badge = document.getElementById('filterCount');
+                    if (badge) {
+                        var current = parseInt(badge.textContent, 10);
+                        if (!isNaN(current) && current > 0) badge.textContent = current - 1;
+                    }
+
+                    // If no pending items remain, show the empty state
+                    var remaining = document.querySelectorAll('#pendingAccordion .accordion-item');
+                    if (remaining.length === 0) {
+                        var accordion = document.getElementById('pendingAccordion');
+                        if (accordion) {
+                            accordion.innerHTML = '<div class="text-center py-4"><i class="fas fa-inbox fa-2x text-muted mb-2"></i><p class="text-muted mb-0">No candidates currently awaiting vetting</p></div>';
+                        }
+                    }
+                })
+                .catch(function() {
+                    alert('Network error — please try again');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-ban me-1"></i>Skip &amp; Dismiss';
+                });
+        }
+
         // Re-screen confirmation: fetch count then show confirmation dialog
         function confirmRescreen() {
             const hours = document.getElementById('rescreenHoursSelect').value;
