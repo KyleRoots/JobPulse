@@ -5,6 +5,7 @@ AI Candidate Vetting settings, operations, and job requirements management
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required
 from routes import register_module_guard
+from extensions import csrf
 from datetime import datetime, timedelta
 import logging
 import threading
@@ -1765,6 +1766,7 @@ def export_escalations_csv():
 
 
 @vetting_bp.route('/screening/block-retry/<int:log_id>', methods=['POST'])
+@csrf.exempt
 @login_required
 def block_retry(log_id):
     """Mark a vetting log as retry-blocked so the auto-retry cycle skips it permanently."""
@@ -1791,6 +1793,7 @@ def block_retry(log_id):
 
 
 @vetting_bp.route('/screening/unblock-retry/<int:log_id>', methods=['POST'])
+@csrf.exempt
 @login_required
 def unblock_retry(log_id):
     """Remove the retry block from a vetting log — candidate re-enters the auto-retry cycle."""
