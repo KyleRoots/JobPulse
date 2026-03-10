@@ -2968,8 +2968,11 @@ CRITICAL SCORING RULES:
             
             if raw_description:
                 description = str(raw_description).strip()
-                # Clean HTML tags if present
+                # Remove <style> and <script> block contents before stripping tags
+                # (PDF-to-HTML conversion embeds stylesheets that regex tag-stripping leaves as raw text)
                 import re
+                description = re.sub(r'<style[^>]*>.*?</style>', ' ', description, flags=re.DOTALL | re.IGNORECASE)
+                description = re.sub(r'<script[^>]*>.*?</script>', ' ', description, flags=re.DOTALL | re.IGNORECASE)
                 description = re.sub(r'<[^>]+>', ' ', description)
                 description = re.sub(r'\s+', ' ', description).strip()
                 
