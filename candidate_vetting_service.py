@@ -4138,10 +4138,12 @@ CRITICAL SCORING RULES:
             
             # Find completed vetting logs with highest_match_score = 0
             # that are old enough to not be in-progress
+            # Excludes retry_blocked candidates (manually excluded by admin — e.g. unparsable resumes)
             zero_logs = CandidateVettingLog.query.filter(
                 CandidateVettingLog.highest_match_score == 0,
                 CandidateVettingLog.status == 'completed',
-                CandidateVettingLog.created_at < cutoff
+                CandidateVettingLog.created_at < cutoff,
+                CandidateVettingLog.retry_blocked != True
             ).limit(50).all()
             
             if not zero_logs:

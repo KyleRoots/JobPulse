@@ -1762,3 +1762,49 @@ def export_escalations_csv():
     response = Response(output.getvalue(), mimetype='text/csv')
     response.headers['Content-Disposition'] = f'attachment; filename=escalations_{datetime.utcnow().strftime("%Y%m%d")}.csv'
     return response
+
+
+@vetting_bp.route('/screening/block-retry/<int:log_id>', methods=['POST'])
+@login_required
+def block_retry(log_id):
+    """Mark a vetting log as retry-blocked so the auto-retry cycle skips it permanently."""
+    from models import CandidateVettingLog
+    from flask_login import current_user
+    if not current_user.is_super_admin:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    log = CandidateVettingLog.query.get_or_404(log_id)
+    if request.is_json:
+        data = request.get_json(force=True, silent=True) or {}
+        reason = data.get('reason', '').strip()
+    else:
+        reason = request.form.get('reason', '').strip()
+    log.retry_blocked = True
+    log.retry_block_reason = reason or None
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'log_id': log_id,
+        'candidate_name': log.candidate_name,
+        'reason': log.retry_block_reason
+    })
+
+
+@vetting_bp.route('/screening/unblock-retry/<int:log_id>', methods=['POST'])
+@login_required
+def unblock_retry(log_id):
+    """Remove the retry block from a vetting log — candidate re-enters the auto-retry cycle."""
+    from models import CandidateVettingLog
+    from flask_login import current_user
+    if not current_user.is_super_admin:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    log = CandidateVettingLog.query.get_or_404(log_id)
+    log.retry_blocked = False
+    log.retry_block_reason = None
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'log_id': log_id,
+        'candidate_name': log.candidate_name
+    })

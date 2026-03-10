@@ -803,6 +803,9 @@
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="badge bg-danger">{{ log.highest_match_score|int if
                                                 log.highest_match_score else 0 }}%</span>
+                                            {% if log.retry_blocked %}
+                                            <span class="badge" style="background:rgba(100,100,120,0.7); color:#aaa; font-size:0.65rem;" title="{{ log.retry_block_reason or 'Manually excluded from auto-retry' }}">⛔ Retry Blocked</span>
+                                            {% endif %}
                                             <small class="text-muted">{{ log.analyzed_at.strftime('%b %d, %H:%M') if
                                                 log.analyzed_at else '' }}</small>
                                         </div>
@@ -857,11 +860,27 @@
                                             {% endif %}
                                         </div>
                                     </div>
-                                    <div class="mt-3 pt-2 border-top border-secondary">
+                                    <div class="mt-3 pt-2 border-top border-secondary d-flex align-items-center gap-2 flex-wrap">
                                         <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
                                             target="_blank" class="btn btn-outline-danger btn-sm">
                                             <i class="fas fa-external-link-alt me-1"></i>View in Bullhorn
                                         </a>
+                                        {% if log.retry_blocked %}
+                                        <span class="text-muted small me-1">
+                                            <i class="fas fa-ban me-1"></i>Retry blocked{% if log.retry_block_reason %}: <em>{{ log.retry_block_reason }}</em>{% endif %}
+                                        </span>
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                onclick="unblockRetry({{ log.id }}, this)"
+                                                style="font-size:0.72rem; padding:2px 10px;">
+                                            Unblock
+                                        </button>
+                                        {% elif (log.highest_match_score or 0) == 0 %}
+                                        <button class="btn btn-sm"
+                                                onclick="blockRetry({{ log.id }}, '{{ (log.candidate_name or '')|e }}', this)"
+                                                style="background:rgba(80,80,100,0.5); color:#bbb; border:1px solid rgba(255,255,255,0.15); font-size:0.72rem; padding:2px 10px;">
+                                            <i class="fas fa-ban me-1"></i>Exclude from Retry
+                                        </button>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -1115,5 +1134,61 @@
 
             startTimer();
         }());
+
+        function blockRetry(logId, candidateName, btn) {
+            const reason = window.prompt(
+                'Exclude "' + candidateName + '" from auto-retry?\n\nOptional reason (e.g. "unparsable PDF — design resume"):',
+                ''
+            );
+            if (reason === null) return;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…';
+            fetch('/screening/block-retry/' + logId, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+                body: JSON.stringify({reason: reason.trim()})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-ban me-1"></i>Exclude from Retry';
+                    alert('Error: ' + (data.error || 'Could not save'));
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-ban me-1"></i>Exclude from Retry';
+                alert('Network error — please try again');
+            });
+        }
+
+        function unblockRetry(logId, btn) {
+            if (!confirm('Remove the retry block? This candidate will re-enter the auto-retry cycle.')) return;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…';
+            fetch('/screening/unblock-retry/' + logId, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+                body: JSON.stringify({})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Unblock';
+                    alert('Error: ' + (data.error || 'Could not save'));
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.textContent = 'Unblock';
+                alert('Network error — please try again');
+            });
+        }
     </script>
     {% endblock %}

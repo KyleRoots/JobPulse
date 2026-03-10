@@ -653,6 +653,8 @@ class CandidateVettingLog(db.Model):
     # Error handling
     error_message = db.Column(db.Text, nullable=True)
     retry_count = db.Column(db.Integer, default=0)
+    retry_blocked = db.Column(db.Boolean, default=False, server_default='false')
+    retry_block_reason = db.Column(db.String(500), nullable=True)
     
     # Sandbox flag
     is_sandbox = db.Column(db.Boolean, default=False, server_default='false')

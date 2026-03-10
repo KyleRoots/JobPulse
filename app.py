@@ -375,6 +375,18 @@ with app.app_context():
                 db.session.execute(text('ALTER TABLE job_vetting_requirements ADD COLUMN vetting_threshold INTEGER'))
                 db.session.commit()
                 app.logger.info('🔧 Migration: Added vetting_threshold column to job_vetting_requirements')
+
+        # Migration: Add retry_blocked columns to candidate_vetting_log if missing
+        if 'candidate_vetting_log' in inspector.get_table_names():
+            columns = [col['name'] for col in inspector.get_columns('candidate_vetting_log')]
+            if 'retry_blocked' not in columns:
+                db.session.execute(text('ALTER TABLE candidate_vetting_log ADD COLUMN retry_blocked BOOLEAN DEFAULT FALSE'))
+                db.session.commit()
+                app.logger.info('🔧 Migration: Added retry_blocked column to candidate_vetting_log')
+            if 'retry_block_reason' not in columns:
+                db.session.execute(text('ALTER TABLE candidate_vetting_log ADD COLUMN retry_block_reason VARCHAR(500)'))
+                db.session.commit()
+                app.logger.info('🔧 Migration: Added retry_block_reason column to candidate_vetting_log')
     except Exception as migrate_err:
         app.logger.warning(f'Migration check failed (may be first run): {migrate_err}')
     
