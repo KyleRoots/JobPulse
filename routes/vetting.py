@@ -1770,7 +1770,7 @@ def block_retry(log_id):
     """Mark a vetting log as retry-blocked so the auto-retry cycle skips it permanently."""
     from models import CandidateVettingLog
     from flask_login import current_user
-    if not current_user.is_super_admin:
+    if not current_user.is_admin:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
     log = CandidateVettingLog.query.get_or_404(log_id)
@@ -1796,7 +1796,7 @@ def unblock_retry(log_id):
     """Remove the retry block from a vetting log — candidate re-enters the auto-retry cycle."""
     from models import CandidateVettingLog
     from flask_login import current_user
-    if not current_user.is_super_admin:
+    if not current_user.is_admin:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
     log = CandidateVettingLog.query.get_or_404(log_id)
