@@ -2275,6 +2275,17 @@ CRITICAL RULES:
     - "Unrelated" means the role\'s described responsibilities share NO meaningful overlap with
       the job\'s mandatory requirements. A DevOps engineer\'s role is related to a Cloud Developer
       job; a real estate consultant\'s role is not.
+    - TECHNOLOGY EVOLUTION IN CAREERS — CRITICAL RECENCY RULE: When a job requires a specific
+      technology (e.g., Databricks, Snowflake, Kafka), do NOT anchor recency only on roles that
+      mention that exact tool by name if the candidate\'s CURRENT role uses the tool actively.
+      Many technologies emerged mid-career: a candidate may have used Hadoop/MapReduce in 2015-2018
+      and then transitioned to Spark/Databricks from 2020 onward as the industry evolved. This is
+      a SIGN OF EXPERTISE AND ADAPTABILITY — not evidence of an outdated career. Evaluate recency
+      based on the candidate\'s CURRENT and MOST RECENT role responsibilities, not on which of their
+      older roles happen to name the required tool. If the most recent role\'s responsibilities are
+      clearly relevant to the job domain (e.g., data engineering using Spark, cloud pipelines, ETL),
+      mark most_recent_role_relevant=true and months_since_relevant_work=0 regardless of which
+      specific platform names appear in older roles.
     - Report your finding in the recency_analysis JSON section.
 
 REQUIREMENTS EVALUATION (when no custom requirements are provided):
@@ -2322,8 +2333,27 @@ explicit "X+ years" or "X years" requirement in the job description or requireme
    - Overlapping roles should not be double-counted; use the union of date ranges.
 4. SUM all months across qualifying roles, then divide by 12 to get total years.
 5. Show your step-by-step arithmetic in the "calculation" field (see JSON format below).
-6. Compare the candidate\'s calculated years against the job\'s requirement.
-7. If ANY required skill has a candidate shortfall of 2+ years below the minimum,
+6. PLATFORM AGE CEILING — CRITICAL: Before treating any years shortfall as a gap, check whether the
+   required number of years is physically achievable given the technology\'s commercial availability.
+   Some technologies simply did not exist as enterprise-grade platforms until recently. Use these
+   maximum possible years (as of today, 2026) when evaluating requirements:
+   - Databricks: max ~8 years (enterprise availability ~2018; mainstream adoption ~2020)
+   - Snowflake: max ~10 years (GA 2015, mainstream ~2018)
+   - Apache Kafka: max ~14 years (OSS 2011, enterprise mainstream ~2015)
+   - Apache Spark: max ~12 years (ASF graduation 2014)
+   - Azure Data Factory: max ~9 years (GA 2015)
+   - Delta Lake: max ~7 years (OSS 2019)
+   - Azure Synapse Analytics: max ~6 years (GA 2020)
+   - Kubernetes: max ~10 years (GA 2014)
+   - dbt (data build tool): max ~8 years (OSS 2016, mainstream ~2020)
+   If a job requires MORE years than the platform ceiling allows (e.g., "8 years Databricks" when
+   Databricks maximum is ~8 years), treat the CEILING as the effective requirement and DO NOT penalize
+   the candidate for failing to meet a physically impossible threshold. In your calculation field, note:
+   "Platform ceiling applied: [technology] max ~Xyr commercially available; effective requirement
+   adjusted to Xyr." A candidate with 5-6 years of Databricks against an "8 year" requirement should
+   receive PARTIAL credit, not a critical failure — note the ceiling and score accordingly.
+7. Compare the candidate\'s calculated years against the EFFECTIVE requirement (after ceiling adjustment).
+8. If ANY required skill has a candidate shortfall of 2+ years below the EFFECTIVE minimum,
    the match_score MUST be capped at 60 (regardless of how well other requirements match).
    If the shortfall is 1-2 years, reduce the score by at least 15 points from what it would otherwise be.
 
@@ -2509,6 +2539,23 @@ CRITICAL SCORING RULES:
             # ── POST-PROCESSING: Years-of-experience hard gate (Option B defense-in-depth) ──
             # Even if the AI prompt correctly penalizes for insufficient years,
             # this code enforces a hard ceiling so inflated scores cannot slip through.
+            
+            # Platform age ceilings — maximum years any candidate could possibly have
+            # as of 2026, based on when these tools became enterprise-grade.
+            PLATFORM_AGE_CEILINGS = {
+                'databricks': 8.0,
+                'delta lake': 7.0,
+                'azure synapse': 6.0,
+                'azure synapse analytics': 6.0,
+                'microsoft fabric': 3.0,
+                'snowflake': 10.0,
+                'dbt': 8.0,
+                'data build tool': 8.0,
+                'apache flink': 10.0,
+                'kubernetes': 10.0,
+                'apache kafka': 14.0,
+            }
+            
             years_analysis = result.get('years_analysis', {})
             if isinstance(years_analysis, dict) and years_analysis:
                 original_score = result['match_score']
@@ -2526,6 +2573,26 @@ CRITICAL SCORING RULES:
                         if required <= 0:
                             continue
                         estimated = float(data.get('estimated_years', 0))
+                        
+                        # Apply platform age ceiling: if required_years exceeds what is
+                        # physically achievable for this technology, cap the effective
+                        # requirement at the ceiling before computing shortfall.
+                        skill_lower = skill.lower()
+                        ceiling = None
+                        for platform_key, platform_ceiling in PLATFORM_AGE_CEILINGS.items():
+                            if platform_key in skill_lower:
+                                ceiling = platform_ceiling
+                                break
+                        
+                        if ceiling is not None and required > ceiling:
+                            logging.info(
+                                f"📐 Platform age ceiling applied for job {job_id}: "
+                                f"'{skill}' requires {required:.0f}yr but platform max is ~{ceiling:.0f}yr. "
+                                f"Effective requirement adjusted to {ceiling:.0f}yr."
+                            )
+                            required = ceiling
+                            data['required_years'] = ceiling
+                        
                         shortfall = required - estimated
                         if shortfall > max_shortfall:
                             max_shortfall = shortfall
@@ -2555,6 +2622,13 @@ CRITICAL SCORING RULES:
                                 if required <= 0:
                                     continue
                                 estimated = float(data.get('estimated_years', 0))
+                                # Re-apply platform age ceiling on re-check pass too
+                                skill_lower = skill.lower()
+                                for platform_key, platform_ceiling in PLATFORM_AGE_CEILINGS.items():
+                                    if platform_key in skill_lower and required > platform_ceiling:
+                                        required = platform_ceiling
+                                        data['required_years'] = platform_ceiling
+                                        break
                                 shortfall = required - estimated
                                 if shortfall > max_shortfall:
                                     max_shortfall = shortfall
@@ -2611,6 +2685,36 @@ CRITICAL SCORING RULES:
                 second_recent_relevant = recency_analysis.get('second_recent_role_relevant', True)
                 months_since = recency_analysis.get('months_since_relevant_work', 0)
                 ai_penalty = recency_analysis.get('penalty_applied', 0)
+                
+                # ── SAFEGUARD: Detect recency gate misfires on technology-evolution careers ──
+                # If the AI marks the most recent role as "not relevant" but reports
+                # months_since_relevant > 24, cross-check against the most_recent_role string.
+                # If the most recent role description contains domain-relevant keywords
+                # (data engineering, cloud, ETL, Spark, Databricks, etc.) this is a misfire —
+                # the AI anchored recency on an older role that explicitly named a legacy tool
+                # while missing that the current role is clearly in the same domain.
+                if not most_recent_relevant and months_since > 24:
+                    most_recent_role_str = str(recency_analysis.get('most_recent_role', '')).lower()
+                    recency_domain_keywords = [
+                        'data engineer', 'azure data', 'databricks', 'spark', 'etl', 'pipeline',
+                        'data lake', 'synapse', 'snowflake', 'cloud engineer', 'big data',
+                        'data warehouse', 'kafka', 'airflow', 'dbt', 'analytics engineer',
+                        'machine learning', 'ml engineer', 'ai engineer', 'software engineer',
+                        'devops', 'platform engineer', 'backend engineer', 'data architect',
+                    ]
+                    if any(kw in most_recent_role_str for kw in recency_domain_keywords):
+                        # Most recent role is clearly in the relevant domain — override misfire
+                        logging.warning(
+                            f"⚠️ Recency gate misfire detected for job {job_id}: "
+                            f"AI reported most_recent_role_relevant=False with months_since={months_since} "
+                            f"but most_recent_role='{recency_analysis.get('most_recent_role', '')}' "
+                            f"contains domain-relevant keywords. Overriding to relevant=True."
+                        )
+                        most_recent_relevant = True
+                        recency_analysis['most_recent_role_relevant'] = True
+                        recency_analysis['months_since_relevant_work'] = 0
+                        months_since = 0
+                        ai_penalty = 0
                 
                 # Determine the correct penalty tier
                 if not most_recent_relevant and not second_recent_relevant:
