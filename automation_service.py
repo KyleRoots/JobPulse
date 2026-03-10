@@ -17,6 +17,11 @@ LONG_RUNNING_BUILTINS = {
     "export_qualified",
     "email_extractor",
     "retry_recruiter_notifications",
+    "screening_audit",
+}
+
+NO_BULLHORN_BUILTINS = {
+    "screening_audit",
 }
 
 logger = logging.getLogger(__name__)
@@ -132,10 +137,11 @@ class AutomationService:
 
     def run_builtin(self, name, params=None, task_id=None):
         params = params or {}
-        try:
-            self.bullhorn.authenticate()
-        except Exception as e:
-            return {"error": f"Bullhorn auth failed: {e}"}
+        if name not in NO_BULLHORN_BUILTINS:
+            try:
+                self.bullhorn.authenticate()
+            except Exception as e:
+                return {"error": f"Bullhorn auth failed: {e}"}
 
         handlers = {
             "cleanup_ai_notes": self._builtin_cleanup_ai_notes,
@@ -147,6 +153,7 @@ class AutomationService:
             "update_field_bulk": self._builtin_update_field_bulk,
             "email_extractor": self._builtin_email_extractor,
             "retry_recruiter_notifications": self._builtin_retry_recruiter_notifications,
+            "screening_audit": self._builtin_screening_audit,
         }
 
         handler = handlers.get(name)
@@ -1466,4 +1473,34 @@ class AutomationService:
             "dry_run": False,
             "sent_names": sent_names,
             "failed_names": failed_names,
+        }
+
+    def _builtin_screening_audit(self, params):
+        from vetting_audit_service import VettingAuditService
+
+        batch_size = int(params.get("batch_size", 20))
+        svc = VettingAuditService()
+        result = svc.run_audit_cycle(batch_size=batch_size)
+
+        details_summary = ""
+        if result.get("details"):
+            items = []
+            for d in result["details"][:10]:
+                items.append(
+                    f"{d.get('candidate_name', 'Unknown')} — {d.get('finding_type', '')} "
+                    f"(original {d.get('original_score', 0):.0f}%, action: {d.get('action_taken', 'none')})"
+                )
+            details_summary = "; ".join(items)
+
+        return {
+            "summary": (
+                f"Audited {result['total_audited']} result(s): "
+                f"{result['issues_found']} issue(s) found, "
+                f"{result['revets_triggered']} re-vet(s) triggered. "
+                + (details_summary if details_summary else "No issues detected.")
+            ),
+            "total_audited": result["total_audited"],
+            "issues_found": result["issues_found"],
+            "revets_triggered": result["revets_triggered"],
+            "details": result.get("details", []),
         }

@@ -53,7 +53,8 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Zero-Touch Deployment**: Environment-aware database seeding.
 - **Scout Vetting**: AI-powered candidate screening using GPT-4o with embedding pre-filtering, experience-level classification, location-aware scoring, work authorization/security clearance inference, and configurable global screening prompts.
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
-- **Scout Screening Portal**: Recruiter-facing dashboard for AI match results, scores, and qualification status.
+- **Scout Screening Portal**: Recruiter-facing dashboard for AI match results, scores, and qualification status. Includes per-candidate "Re-screen" button (admin-only) to trigger immediate re-vetting.
+- **Scout Screening Quality Auditor**: Background AI audit (every 15 min) that reviews recent Not Qualified results for scoring errors — recency gate misfires, platform age violations, false gap claims, and score-evidence inconsistencies. Uses heuristic pre-checks (no API cost) followed by GPT-4o confirmation for flagged results. High-confidence misfires auto-trigger re-vets with Bullhorn note rewrite. Email summary sent to admin when issues found. Controlled by `screening_audit_enabled` VettingConfig toggle. Service: `vetting_audit_service.py`, model: `VettingAuditLog`, Automation Hub tool: `screening_audit`.
 - **Module Switcher**: UI component for non-admin users with multiple module subscriptions.
 - **Company Admin Role**: Specialized role for managing users within a specific company.
 - **Multi-Company Support**: `company` field on User model; company admins see only users within their company.

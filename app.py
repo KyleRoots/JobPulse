@@ -1520,6 +1520,38 @@ if is_primary_worker:
     )
     app.logger.info("♻️  Incomplete rescreen job scheduled — runs every 15 minutes when enabled")
 
+    # ── Scout Screening Quality Audit (every 15 minutes) ──
+    def run_screening_audit():
+        """Scheduled job: AI quality auditor reviews recent Not Qualified results for scoring errors."""
+        with app.app_context():
+            try:
+                from models import VettingConfig
+                enabled = VettingConfig.get_value('screening_audit_enabled', 'false').lower() == 'true'
+                if not enabled:
+                    return
+
+                from vetting_audit_service import VettingAuditService
+                svc = VettingAuditService()
+                result = svc.run_audit_cycle(batch_size=20)
+                app.logger.info(
+                    f"🔍 Screening audit cycle: {result.get('total_audited', 0)} audited, "
+                    f"{result.get('issues_found', 0)} issues, "
+                    f"{result.get('revets_triggered', 0)} re-vets"
+                )
+            except Exception as e:
+                app.logger.error(f"❌ Screening audit error: {e}")
+
+    scheduler.add_job(
+        func=run_screening_audit,
+        trigger=IntervalTrigger(minutes=15),
+        id='screening_quality_audit',
+        name='Scout Screening Quality Audit (15 min)',
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=False
+    )
+    app.logger.info("🔍 Screening quality audit job scheduled — runs every 15 minutes when enabled")
+
 if is_primary_worker:
     # XML Change Monitor - DISABLED automatic scheduling for manual workflow
     # Change notifications now triggered only during manual downloads

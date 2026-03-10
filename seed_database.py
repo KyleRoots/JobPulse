@@ -522,6 +522,8 @@ def seed_vetting_config(db, VettingConfig):
             'layer2_model': 'gpt-4o',
             # Cutoff date: only process candidates received after this timestamp
             'vetting_cutoff_date': '',             # Empty by default; user sets via UI
+            # Screening quality audit
+            'screening_audit_enabled': 'false',    # Off by default; user enables via UI
             # Global screening instructions — loaded from version-controlled config file
             # so a DB reset restores the full prompt instead of wiping it.
             'global_custom_requirements': _load_global_screening_prompt(),
@@ -1002,6 +1004,12 @@ BUILTIN_AUTOMATIONS = [
         "description": "Find qualified candidates whose recruiter notification email was never sent, and send it now. Defaults to candidates qualified today. Use since_date (YYYY-MM-DD) to extend the lookback window.",
         "automation_type": "one-time",
         "builtin_key": "retry_recruiter_notifications",
+    },
+    {
+        "name": "Screening Quality Audit",
+        "description": "AI-powered audit that reviews recent Not Qualified results for scoring errors (recency misfires, platform age violations, false gap claims). Automatically re-screens candidates and updates Bullhorn notes when high-confidence misfires are detected.",
+        "automation_type": "one-time",
+        "builtin_key": "screening_audit",
     },
 ]
 

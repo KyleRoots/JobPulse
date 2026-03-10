@@ -1249,3 +1249,27 @@ class SupportContact(db.Model):
 
     def __repr__(self):
         return f'<SupportContact {self.id}: {self.full_name} ({self.brand})>'
+
+
+class VettingAuditLog(db.Model):
+    """Tracks AI quality audit findings for Scout Screening results"""
+    id = db.Column(db.Integer, primary_key=True)
+    candidate_vetting_log_id = db.Column(db.Integer, index=True, nullable=False)
+    bullhorn_candidate_id = db.Column(db.Integer, index=True, nullable=False)
+    candidate_name = db.Column(db.String(255), nullable=True)
+    job_id = db.Column(db.Integer, nullable=True)
+    job_title = db.Column(db.String(500), nullable=True)
+    original_score = db.Column(db.Float, nullable=True)
+    audit_finding = db.Column(db.Text, nullable=True)
+    finding_type = db.Column(db.String(50), nullable=False, default='no_issue')
+    confidence = db.Column(db.String(20), nullable=True)
+    action_taken = db.Column(db.String(50), nullable=False, default='no_action')
+    revet_new_score = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index('idx_audit_log_vetting_id', 'candidate_vetting_log_id'),
+    )
+
+    def __repr__(self):
+        return f'<VettingAuditLog candidate={self.bullhorn_candidate_id} type={self.finding_type}>'

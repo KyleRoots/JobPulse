@@ -25,6 +25,9 @@ def automations_dashboard():
     # Category grouping for Built-in Tools grid — controls section labels and ordering.
     # Keeps the grid scannable as more tools are added over time.
     BUILTIN_CATEGORIES = {
+        'Quality Assurance': [
+            'screening_audit',
+        ],
         'Data Quality': [
             'cleanup_duplicate_notes',
             'cleanup_ai_notes',

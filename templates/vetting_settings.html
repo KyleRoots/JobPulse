@@ -236,6 +236,23 @@
                     </div>
 
                     <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Screening Quality Audit</h6>
+                                <small class="text-muted">
+                                    AI auditor reviews recent Not Qualified results every 15 min for scoring errors
+                                    (recency misfires, platform age violations, false gap claims).
+                                    High-confidence misfires are auto re-screened with Bullhorn note update.
+                                </small>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="screening_audit_enabled" {% if settings.screening_audit_enabled %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
                         <label class="form-label">Match Threshold (%)</label>
                         <div class="input-group">
                             <input type="number" class="form-control" name="match_threshold"

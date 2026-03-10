@@ -33,6 +33,7 @@ def vetting_settings():
     settings = {
         'vetting_enabled': False,
         'send_recruiter_emails': False,
+        'screening_audit_enabled': False,
         'match_threshold': 80,
         'batch_size': 25,
         'admin_notification_email': '',
@@ -50,7 +51,7 @@ def vetting_settings():
     for key in settings.keys():
         value = config_map.get(key)
         if value is not None:
-            if key in ('vetting_enabled', 'send_recruiter_emails'):
+            if key in ('vetting_enabled', 'send_recruiter_emails', 'screening_audit_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size'):
                 try:
@@ -149,6 +150,7 @@ def save_vetting_settings():
         # Get form values
         vetting_enabled = 'vetting_enabled' in request.form
         send_recruiter_emails = 'send_recruiter_emails' in request.form
+        screening_audit_enabled = 'screening_audit_enabled' in request.form
         match_threshold = request.form.get('match_threshold', '80')
         batch_size = request.form.get('batch_size', '25')
         admin_email = request.form.get('admin_notification_email', '')
@@ -193,6 +195,7 @@ def save_vetting_settings():
         settings_to_save = [
             ('vetting_enabled', 'true' if vetting_enabled else 'false'),
             ('send_recruiter_emails', 'true' if send_recruiter_emails else 'false'),
+            ('screening_audit_enabled', 'true' if screening_audit_enabled else 'false'),
             ('match_threshold', str(threshold)),
             ('batch_size', str(batch)),
             ('admin_notification_email', admin_email),
@@ -425,66 +428,69 @@ def start_fresh():
 
 
 @vetting_bp.route('/screening/revet-candidate/<int:candidate_id>', methods=['POST'])
+@csrf.exempt
 @login_required
 def revet_candidate(candidate_id):
     """Re-vet a specific candidate by clearing their existing vetting records.
     
     This removes the VettingLog and CandidateJobMatch records so the duplicate
     loop prevention won't skip them on the next cycle.
+    Supports both form-based (redirect) and fetch-based (JSON) calls.
     """
     from models import ParsedEmail, CandidateVettingLog, CandidateJobMatch, EmbeddingFilterLog, EscalationLog
+    from flask_login import current_user
     
     db = get_db()
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.accept_mimetypes.best == 'application/json'
+    
+    if not current_user.is_admin:
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Unauthorized — admin access required'}), 403
+        flash('Unauthorized — admin access required', 'error')
+        return redirect(url_for('vetting.scout_screening'))
     
     try:
-        # Find all ParsedEmail records for this candidate
         parsed_emails = ParsedEmail.query.filter(
             ParsedEmail.bullhorn_candidate_id == candidate_id,
             ParsedEmail.status == 'completed'
         ).all()
         
         if not parsed_emails:
+            if is_ajax:
+                return jsonify({'success': False, 'error': f'No ParsedEmail records found for candidate {candidate_id}.'}), 404
             flash(f'No ParsedEmail records found for candidate {candidate_id}.', 'warning')
             return redirect(url_for('vetting.vetting_settings'))
         
         pe_ids = [pe.id for pe in parsed_emails]
         
-        # Delete existing VettingLog records to bypass duplicate loop prevention
         vetting_logs = CandidateVettingLog.query.filter(
             CandidateVettingLog.parsed_email_id.in_(pe_ids)
         ).all()
         
         log_ids = [vl.id for vl in vetting_logs]
         
-        # Cascade-delete all child tables that reference candidate_vetting_log
-        # Order: children first, then parent
         filter_count = 0
         escalation_count = 0
         match_count = 0
         if log_ids:
-            # 1. Delete EmbeddingFilterLog records (FK → candidate_vetting_log)
             filter_count = EmbeddingFilterLog.query.filter(
                 EmbeddingFilterLog.vetting_log_id.in_(log_ids)
             ).delete(synchronize_session=False)
             
-            # 2. Delete EscalationLog records (FK → candidate_vetting_log)
             escalation_count = EscalationLog.query.filter(
                 EscalationLog.vetting_log_id.in_(log_ids)
             ).delete(synchronize_session=False)
             
-            # 3. Delete CandidateJobMatch records (FK → candidate_vetting_log)
             match_count = CandidateJobMatch.query.filter(
                 CandidateJobMatch.vetting_log_id.in_(log_ids)
             ).delete(synchronize_session=False)
         
-        # 4. Delete the VettingLog records themselves
         log_count = 0
         if log_ids:
             log_count = CandidateVettingLog.query.filter(
                 CandidateVettingLog.id.in_(log_ids)
             ).delete(synchronize_session=False)
         
-        # Reset vetted_at on ParsedEmail records
         for pe in parsed_emails:
             pe.vetted_at = None
         
@@ -495,15 +501,20 @@ def revet_candidate(candidate_id):
             f"cleared {log_count} vetting logs, {match_count} match records, "
             f"reset {len(pe_ids)} ParsedEmails"
         )
-        flash(
-            f'Reset candidate {candidate_id} for re-vetting: cleared {log_count} vetting log(s) '
-            f'and {match_count} match record(s). Will be processed in next vetting cycle.',
-            'success'
-        )
+        
+        msg = (f'Reset candidate {candidate_id} for re-vetting: cleared {log_count} vetting log(s) '
+               f'and {match_count} match record(s). Will be processed in next vetting cycle.')
+        
+        if is_ajax:
+            return jsonify({'success': True, 'message': msg})
+        
+        flash(msg, 'success')
         
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error resetting candidate {candidate_id} for re-vet: {str(e)}")
+        if is_ajax:
+            return jsonify({'success': False, 'error': str(e)}), 500
         flash(f'Error resetting candidate for re-vet: {str(e)}', 'error')
     
     return redirect(url_for('vetting.vetting_settings'))
