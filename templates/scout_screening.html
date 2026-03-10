@@ -238,7 +238,7 @@
 {% block page_subtitle %}AI-screened candidates for your open positions{% endblock %}
 
 {% block page_actions %}
-<button class="btn btn-outline-light btn-sm" onclick="location.reload()">
+<button class="btn btn-outline-light btn-sm" onclick="saveAndReloadScreening()">
     <i class="fas fa-sync-alt me-1"></i>Refresh
 </button>
 {% endblock %}
@@ -982,48 +982,39 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-// ── Modal-aware auto-refresh ─────────────────────────────────────────────────
-// Reloads after 60s of idle time, but pauses while any modal is open.
-// Uses a safe-reload pattern to prevent redirecting users away from the page.
-(function () {
-    let reloadTimer = null;
-    let pendingReload = false;
+var SCREENING_SECTIONS = {
+    candidates:  { content: 'candidatesCollapse',  chevron: 'candidatesChevron' },
+    jobSettings: { content: 'jobSettingsCollapse', chevron: 'jobSettingsChevron' }
+};
 
-    function safeReload() {
-        fetch(window.location.href, { redirect: 'manual' })
-            .then(function(resp) {
-                if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
-                location.reload();
-            })
-            .catch(function() {});
-    }
-
-    function startTimer() {
-        clearTimeout(reloadTimer);
-        reloadTimer = setTimeout(() => {
-            if (document.querySelector('.modal.show')) {
-                pendingReload = true;
-            } else {
-                safeReload();
-            }
-        }, 60000);
-    }
-
-    document.querySelectorAll('.modal').forEach(function (modal) {
-        modal.addEventListener('hidden.bs.modal', function () {
-            if (pendingReload) { safeReload(); }
-        });
+function saveAndReloadScreening() {
+    var open = [];
+    Object.keys(SCREENING_SECTIONS).forEach(function (name) {
+        var el = document.getElementById(SCREENING_SECTIONS[name].content);
+        if (el && el.style.display !== 'none') open.push(name);
     });
+    try { sessionStorage.setItem('sc_open_sections', JSON.stringify(open)); } catch (e) {}
+    location.reload();
+}
 
-    startTimer();
+(function restoreScreeningSections() {
+    try {
+        var saved = sessionStorage.getItem('sc_open_sections');
+        if (!saved) return;
+        sessionStorage.removeItem('sc_open_sections');
+        JSON.parse(saved).forEach(function (name) {
+            var ids = SCREENING_SECTIONS[name];
+            if (!ids) return;
+            var content = document.getElementById(ids.content);
+            var chevron = document.getElementById(ids.chevron);
+            if (content) content.style.display = 'block';
+            if (chevron) chevron.style.transform = 'rotate(90deg)';
+        });
+    } catch (e) {}
 }());
 
 function toggleSection(name) {
-    var map = {
-        candidates:  { content: 'candidatesCollapse',  chevron: 'candidatesChevron' },
-        jobSettings: { content: 'jobSettingsCollapse', chevron: 'jobSettingsChevron' }
-    };
-    var ids = map[name];
+    var ids = SCREENING_SECTIONS[name];
     if (!ids) return;
     var content = document.getElementById(ids.content);
     var chevron = document.getElementById(ids.chevron);
@@ -1033,5 +1024,45 @@ function toggleSection(name) {
     if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
     try { sessionStorage.setItem('sc_section_' + name, expanded ? '0' : '1'); } catch (e) {}
 }
+
+(function () {
+    let reloadTimer = null;
+    let pendingReload = false;
+
+    function hasExpandedContent() {
+        return Object.keys(SCREENING_SECTIONS).some(function (name) {
+            var el = document.getElementById(SCREENING_SECTIONS[name].content);
+            return el && el.style.display !== 'none';
+        }) || !!document.querySelector('.modal.show');
+    }
+
+    function safeReload() {
+        fetch(window.location.href, { redirect: 'manual' })
+            .then(function(resp) {
+                if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
+                saveAndReloadScreening();
+            })
+            .catch(function() {});
+    }
+
+    function startTimer() {
+        clearTimeout(reloadTimer);
+        reloadTimer = setTimeout(() => {
+            if (hasExpandedContent()) {
+                pendingReload = true;
+            } else {
+                safeReload();
+            }
+        }, 60000);
+    }
+
+    document.querySelectorAll('.modal').forEach(function (modal) {
+        modal.addEventListener('hidden.bs.modal', function () {
+            if (pendingReload && !hasExpandedContent()) safeReload();
+        });
+    });
+
+    startTimer();
+}());
 </script>
 {% endblock %}

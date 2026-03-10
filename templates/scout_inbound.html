@@ -133,7 +133,7 @@
 {% block page_subtitle %}Your jobs and inbound candidate activity{% endblock %}
 
 {% block page_actions %}
-<button class="btn btn-outline-light btn-sm" onclick="location.reload()">
+<button class="btn btn-outline-light btn-sm" onclick="saveAndReloadInbound()">
     <i class="fas fa-sync-alt me-1"></i>Refresh
 </button>
 {% endblock %}
@@ -391,12 +391,39 @@
 
 {% block extra_scripts %}
 <script>
+    var INBOUND_SECTIONS = {
+        myJobs:            { content: 'myJobsCollapse',            chevron: 'myJobsChevron' },
+        candidatesApplied: { content: 'candidatesAppliedCollapse', chevron: 'candidatesAppliedChevron' }
+    };
+
+    function saveAndReloadInbound() {
+        var open = [];
+        Object.keys(INBOUND_SECTIONS).forEach(function (name) {
+            var el = document.getElementById(INBOUND_SECTIONS[name].content);
+            if (el && el.style.display !== 'none') open.push(name);
+        });
+        try { sessionStorage.setItem('si_open_sections', JSON.stringify(open)); } catch (e) {}
+        location.reload();
+    }
+
+    (function restoreInboundSections() {
+        try {
+            var saved = sessionStorage.getItem('si_open_sections');
+            if (!saved) return;
+            sessionStorage.removeItem('si_open_sections');
+            JSON.parse(saved).forEach(function (name) {
+                var ids = INBOUND_SECTIONS[name];
+                if (!ids) return;
+                var content = document.getElementById(ids.content);
+                var chevron = document.getElementById(ids.chevron);
+                if (content) content.style.display = 'block';
+                if (chevron) chevron.style.transform = 'rotate(90deg)';
+            });
+        } catch (e) {}
+    }());
+
     function toggleSection(name) {
-        var map = {
-            myJobs:            { content: 'myJobsCollapse',            chevron: 'myJobsChevron' },
-            candidatesApplied: { content: 'candidatesAppliedCollapse', chevron: 'candidatesAppliedChevron' }
-        };
-        var ids = map[name];
+        var ids = INBOUND_SECTIONS[name];
         if (!ids) return;
         var content = document.getElementById(ids.content);
         var chevron = document.getElementById(ids.chevron);
@@ -406,15 +433,45 @@
         if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
     }
 
-    function safeReload() {
-        fetch(window.location.href, { redirect: 'manual' })
-            .then(function(resp) {
-                if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
-                location.reload();
-            })
-            .catch(function() {});
-    }
-    setInterval(safeReload, 60000);
+    (function () {
+        var reloadTimer = null;
+        var pendingReload = false;
+
+        function hasExpandedContent() {
+            return Object.keys(INBOUND_SECTIONS).some(function (name) {
+                var el = document.getElementById(INBOUND_SECTIONS[name].content);
+                return el && el.style.display !== 'none';
+            }) || !!document.querySelector('.modal.show');
+        }
+
+        function safeReload() {
+            fetch(window.location.href, { redirect: 'manual' })
+                .then(function(resp) {
+                    if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
+                    saveAndReloadInbound();
+                })
+                .catch(function() {});
+        }
+
+        function startTimer() {
+            clearTimeout(reloadTimer);
+            reloadTimer = setTimeout(function () {
+                if (hasExpandedContent()) {
+                    pendingReload = true;
+                } else {
+                    safeReload();
+                }
+            }, 60000);
+        }
+
+        document.querySelectorAll('.modal').forEach(function (modal) {
+            modal.addEventListener('hidden.bs.modal', function () {
+                if (pendingReload && !hasExpandedContent()) safeReload();
+            });
+        });
+
+        startTimer();
+    }());
 
     function filterCandidates(filter) {
         var rows = document.querySelectorAll('#candidates-tbody tr[data-status]');
