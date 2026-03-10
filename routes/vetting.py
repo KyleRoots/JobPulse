@@ -5,7 +5,7 @@ AI Candidate Vetting settings, operations, and job requirements management
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required
 from routes import register_module_guard
-from extensions import csrf
+from extensions import csrf, db
 from datetime import datetime, timedelta
 import logging
 import threading
