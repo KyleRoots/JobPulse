@@ -108,7 +108,7 @@
     title="Embedding filter monitoring">
     <i class="fas fa-chart-bar me-1"></i>Embedding Audit
 </a>
-<button onclick="location.reload()" class="btn btn-outline-light btn-sm" title="Refresh data">
+<button onclick="saveAndReload()" class="btn btn-outline-light btn-sm" title="Refresh data">
     <i class="fas fa-sync-alt me-1"></i>Refresh
 </button>
 {% endblock %}
@@ -1087,13 +1087,41 @@
             });
         }
 
+        var _retryOpInProgress = false;
+
+        function saveAndReload() {
+            var openIds = [];
+            document.querySelectorAll('.accordion-collapse.show').forEach(function (el) {
+                if (el.id) openIds.push(el.id);
+            });
+            if (openIds.length > 0) {
+                sessionStorage.setItem('sg_open_panels', JSON.stringify(openIds));
+            } else {
+                sessionStorage.removeItem('sg_open_panels');
+            }
+            location.reload();
+        }
+
+        (function () {
+            var saved = sessionStorage.getItem('sg_open_panels');
+            if (saved) {
+                sessionStorage.removeItem('sg_open_panels');
+                try {
+                    JSON.parse(saved).forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (el) bootstrap.Collapse.getOrCreateInstance(el, { toggle: false }).show();
+                    });
+                } catch (e) {}
+            }
+        }());
+
         (function () {
             let reloadTimer = null;
             let pendingReload = false;
 
             function hasExpandedContent() {
-                const acc = document.getElementById('jobRequirementsAccordion');
-                if (acc && acc.querySelector('.accordion-collapse.show')) return true;
+                if (_retryOpInProgress) return true;
+                if (document.querySelector('.accordion-collapse.show')) return true;
                 if (document.querySelector('.modal.show')) return true;
                 return false;
             }
@@ -1102,7 +1130,7 @@
                 fetch(window.location.href, { redirect: 'manual' })
                     .then(function (resp) {
                         if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
-                        location.reload();
+                        saveAndReload();
                     })
                     .catch(function () {});
             }
@@ -1124,10 +1152,9 @@
                 }
             }
 
-            var acc = document.getElementById('jobRequirementsAccordion');
-            if (acc) {
-                acc.addEventListener('hidden.bs.collapse', onCollapse);
-            }
+            document.querySelectorAll('.accordion-collapse').forEach(function (el) {
+                el.addEventListener('hidden.bs.collapse', onCollapse);
+            });
             document.querySelectorAll('.modal').forEach(function (modal) {
                 modal.addEventListener('hidden.bs.modal', onCollapse);
             });
@@ -1141,6 +1168,7 @@
                 ''
             );
             if (reason === null) return;
+            _retryOpInProgress = true;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…';
             fetch('/screening/block-retry/' + logId, {
@@ -1150,8 +1178,9 @@
             })
             .then(r => r.json())
             .then(data => {
+                _retryOpInProgress = false;
                 if (data.success) {
-                    location.reload();
+                    saveAndReload();
                 } else {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-ban me-1"></i>Exclude from Retry';
@@ -1159,6 +1188,7 @@
                 }
             })
             .catch(() => {
+                _retryOpInProgress = false;
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-ban me-1"></i>Exclude from Retry';
                 alert('Network error — please try again');
@@ -1167,6 +1197,7 @@
 
         function unblockRetry(logId, btn) {
             if (!confirm('Remove the retry block? This candidate will re-enter the auto-retry cycle.')) return;
+            _retryOpInProgress = true;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…';
             fetch('/screening/unblock-retry/' + logId, {
@@ -1176,8 +1207,9 @@
             })
             .then(r => r.json())
             .then(data => {
+                _retryOpInProgress = false;
                 if (data.success) {
-                    location.reload();
+                    saveAndReload();
                 } else {
                     btn.disabled = false;
                     btn.textContent = 'Unblock';
@@ -1185,6 +1217,7 @@
                 }
             })
             .catch(() => {
+                _retryOpInProgress = false;
                 btn.disabled = false;
                 btn.textContent = 'Unblock';
                 alert('Network error — please try again');
