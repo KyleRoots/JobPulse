@@ -1,0 +1,212 @@
+Anuhya Mundru
+
+Senior Azure Data Engineer
+
+Phone: +1 630-445-1568
+
+Email:
+
+LinkedIn:
+
+PROFESSIONAL SUMMARY:
+Senior Azure Data Engineer with 12+ years of progressive experience across data warehousing, Hadoop ecosystems, AWS, and Azure cloud platforms. Specialized in designing scalable batch and streaming data pipelines using Azure Data Factory, Databricks, Synapse Analytics, and Delta Lake.
+Strong expertise in Spark optimization, secure cloud architecture, CI/CD automation, and enterprise data governance. Proven track record delivering production-grade analytics solutions in financial, healthcare, and enterprise environments.
+Designed and implemented scalable Change Data Capture (CDC) and incremental ingestion pipelines using Azure Data Factory, Azure Databricks, and Azure Synapse Analytics to enable reliable and near real-time data processing.
+Architected secure Azure data solutions leveraging ADLS Gen2, Blob Storage, Event Hubs, Stream Analytics, Logic Apps, Azure Functions, and Key Vault, implementing RBAC, encryption, and monitoring best practices.
+Optimized Azure Synapse Analytics workloads using Azure Monitor, Application Insights, and query tuning techniques to improve performance and reduce execution time.
+
+Built and tuned large-scale Spark applications in Azure Databricks using partitioning, caching, and Adaptive Query Execution (AQE) to enhance processing efficiency and cluster utilization.
+
+Developed complex data transformation workflows using PySpark, Spark SQL, and Scala for cleansing, aggregation, and business rule implementation.
+
+Automated data classification, lineage tracking, and governance policies using Azure Purview and enterprise metadata standards to support regulatory compliance.
+
+Integrated legacy systems using SSIS and modernized data ingestion into ADLS Gen2 and Delta Lake architectures.
+
+Implemented globally distributed data solutions using Azure Cosmos DB to support high availability and low-latency data access patterns.
+
+Applied Azure Active Directory (Entra ID) and IAM policies to enforce secure access controls across cloud environments.
+
+Designed dimensional data models including Star Schema and Snowflake Schema, implementing Slowly Changing Dimensions (SCD Type 1 & 2) for historical data accuracy.
+
+Built scalable Snowflake data warehouse solutions with optimized schema design and performance tuning for analytical workloads.
+
+Worked with Hadoop ecosystem tools including HDFS, Hive, MapReduce, Sqoop, and Flume to support distributed data processing.
+
+Developed streaming data solutions using Kafka and Spark Structured Streaming for high-volume, real-time data ingestion.
+
+Managed diverse data formats including Avro, JSON, CSV, Parquet, ORC, and XML across ingestion and transformation pipelines.
+
+Implemented Infrastructure as Code (IaC) using Terraform to provision and manage Azure resources across environments.
+
+Proficient in Python, SQL (T-SQL), Scala, and PowerShell for data engineering, automation, and scripting tasks.
+
+Followed SDLC best practices and Agile methodologies (Scrum, Kanban) to deliver scalable and maintainable data solutions.
+
+Collaborated with cross-functional stakeholders including data scientists, analysts, and business teams to deliver analytics-ready datasets and reporting solutions. Proficient in Python, SQL (T-SQL), Scala, and PowerShell for large-scale data transformation, automation, and pipeline optimization.
+
+Implemented Infrastructure as Code (IaC) using Terraform and Azure DevOps CI/CD pipelines for automated deployments and environment consistency. Collaborated with cross-functional stakeholders in Agile environments to deliver analytics-ready datasets and scalable data solutions.
+
+TECHNICAL SKILLS:
+Cloud Services: Azure Data Factory (ADF), Azure Databricks, Logic Apps, Azure Functions, Azure DevOps, Azure Event Hubs, Azure Monitor, Key Vault, Azure Synapse analytics, ADLS Gen2, Blob Storage, PolyBase, Delta Lake, Unity Catalog, Microsoft Fabric, Azure SQL DB, Azure Stream Analytics, Azure Virtual Machines, Azure CLI, Azure Active Directory (Entra ID), Azure Purview, Azure Cosmos DB, Azure HDInsigjht, MLflow, Application Insights.
+
+Hadoop Distribution: Cloudera, Horton Works.
+
+Big Data Technologies: HDFS, Hadoop, MapReduce, Hive, HBase, Yarn, Scala, Kafka, Structured Streaming, Delta Live Tables, Medallion Architecture, DBT, Oozie, Sqoop, Zookeeper, Flume, Snowflake (Snowpipe, Snowpark, Streams, Tasks), Apache Flink, S3, Trino, Airflow.
+
+Data Governance & Security: RBAC, Column-Level Security, Data Masking, Azure Purview, Unity Catalog, Data Lineage, GDPR/HIPAA Compliance, Encryption at Rest & In Transit
+
+Languages: SQL, PL/SQL, T-SQL, Python, HiveQL, Scala, Java, PySpark.
+
+Visualization Tools: Power BI, Tableau, SSRS, SSAS.
+
+Operating Systems: Windows, UNIX, LINUX, UBUNTU, CENTOS.
+
+Build Automation Tools: SBT, Terraform, Docker, Kubernetes, GitLab.
+
+Version Control Tools & CI/CD: GIT, GitHub, Jenkins, Maven, bitbucket.
+
+IDE &Build Tools, Design: Eclipse, Azure Data Studio, Visual Studio.
+
+Databases & Warehousing: MS SQL Server 2019/2016/2014/2012, Databricks SQL Warehouse, Azure SQL DB, Azure Synapse Analytics, MySQL, PostgreSQL, Snowflake, Oracle 11g/12c, DB2, Cosmos DB, Mongo DB, HBase
+
+File Formats: JSON, CSV, ORC, Parquet, Avro, XML, TXT, Excel.
+
+Miscellaneous: PowerShell, Shell Scripting.
+
+EDUCATION:
+Bachelor’s in computer science (B.Tech), Acharya Nagarjuna University, India - 2011.
+Master’s in information technology (MSIT), Concordia University Wisconsin, USA - 2013.
+CERTIFICATIONS:
+Databricks Certified Data Engineer Associate
+Microsoft Certified: Azure Data Engineer Associate
+PROFESSIONAL EXPERIENCE:
+Honeywell, Charlotte, North Carolina
+
+Senior Azure Data Engineer Sep 2022 – till now
+
+Responsibilities:
+Designed and developed enterprise-grade data pipelines using Azure Data Factory to ingest and process retirement customer data from multiple internal and third-party systems.
+Built dynamic ADF pipelines using Copy, Lookup, Filter, Get Metadata, and Web activities with robust error handling, logging, and alerting mechanisms.
+Architected scalable data ingestion and storage solutions using Azure Data Lake Storage Gen2, implementing secure and cost-optimized data landing zones.
+Developed high-performance batch and incremental data transformation workflows in Azure Databricks using PySpark and Spark SQL. Implemented Lakehouse architecture (Bronze, Silver, Gold layers) using ADLS and Delta Lake to support structured data refinement and enterprise reporting.
+Built structured streaming and incremental load pipelines into Delta Lake to support near real-time data processing use cases. Managed schema evolution and ACID-compliant Delta tables to ensure reliable and consistent data processing.
+Tuned Spark workloads using partitioning strategies, Adaptive Query Execution (AQE), caching, and cluster resource optimization to improve performance and stability.
+Optimized Azure Synapse Analytics performance through proper table distribution, clustered columnstore indexing, and query tuning techniques. Delivered curated datasets into Azure Synapse Analytics to support enterprise reporting and Power BI dashboards.
+Integrated REST APIs and external platforms using ADF connectors to enable near real-time data ingestion. Implemented Slowly Changing Dimensions (SCD Type 1 & 2) to maintain historical accuracy in dimensional data models.
+Applied enterprise data governance using Azure Purview for data classification, lineage tracking, and secure data access. Automated orchestration and validation workflows using Azure Functions, Logic Apps, and Databricks notebooks.
+Implemented Infrastructure as Code using Terraform and ARM templates to provision Azure resources across environments. Built CI/CD pipelines using Jenkins and GitHub to automate deployment of data pipelines and notebooks.
+
+Monitored production pipelines using Azure Monitor, Application Insights, Spark UI, and Databricks metrics to proactively identify and resolve issues. Developed advanced SQL scripts including stored procedures, views, indexing strategies, and performance tuning to support analytics use cases.
+
+Collaborated with data scientists, analysts, and business teams in Agile environments to deliver analytics-ready datasets and production-grade solutions.
+Led data platform enhancements by standardizing reusable ADF pipeline templates and Databricks notebook frameworks, improving development consistency and reducing onboarding time for new team members. Conducted performance benchmarking and cost optimization initiatives across Azure Databricks and Synapse environments, resulting in improved cluster utilization and reduced overall compute spend.
+
+Implemented role-based access controls (RBAC) and data masking policies across ADLS, Synapse, and Databricks to strengthen enterprise data security and compliance posture. Established automated monitoring and alerting strategies for production pipelines using Azure Monitor and Log Analytics, minimizing downtime and improving SLA adherence.
+
+Partnered with enterprise architecture and DevOps teams to design scalable CI/CD deployment strategies across development, QA, and production environments. Provided production support and root cause analysis for critical data incidents, ensuring timely resolution and continuous pipeline reliability.
+
+Environment: Azure Data Factory, Azure Data Lake Storage Gen2, Azure Databricks, Apache Spark, Spark SQL, Structured Streaming, Delta Lake, Azure Synapse Analytics, Azure Purview, Azure Data Catalog, Azure Blob Storage, Azure Monitor, Azure Functions, Azure Logic Apps, Azure Active Directory (Entra ID), ARM Templates, Terraform, Python, SQL, PowerShell, REST APIs, Application Insights, Parquet, ORC, Avro, JSON, CSV, Informatica IICS, Jenkins, GitHub, CI/CD, Shell Scripting, Jira, Confluence, Power BI
+
+Barclays, New York City, New York
+
+Azure Data Engineer Apr 2020 – Aug 2022
+
+Responsibilities:
+Led the migration of mission-critical financial and transactional datasets from on-prem SQL Server and Teradata systems into Azure, utilizing Self-Hosted Integration Runtime (SHIR) to ensure secure hybrid connectivity and regulatory-compliant data transfer.
+Designed and implemented incremental data ingestion frameworks in Azure Data Factory to replicate high-volume financial transactions, account activity logs, and risk datasets into Azure Data Lake Storage Gen2 with minimal latency and no data loss.
+Developed enterprise-grade ETL pipelines using Azure Data Factory and Azure Databricks to cleanse, validate, reconcile, and transform financial datasets, ensuring data accuracy and audit traceability.
+
+Implemented data validation and reconciliation logic to compare source and target systems, preventing financial discrepancies and ensuring SOX compliance standards were met. Architected secure data lake zones (raw, curated, and reporting layers) in ADLS Gen2, implementing encryption at rest, RBAC policies, and strict access controls aligned with banking security policies.
+
+Built high-performance transformation workflows using PySpark and Spark SQL to process structured and semi-structured financial data, optimizing partitioning and memory management to handle large daily batch volumes.
+
+Optimized data loading strategies into Azure Synapse Analytics using PolyBase and dedicated SQL pools, improving query execution performance for risk reporting and regulatory dashboards. Designed partitioning and indexing strategies within Synapse dedicated SQL pools to support complex joins and aggregation-heavy financial reporting workloads.
+
+Implemented near real-time streaming ingestion using Azure Event Hubs and Stream Analytics to process trade events and transactional feeds, enabling faster downstream reconciliation and fraud detection workflows. Built anomaly detection logic in Stream Analytics to flag unusual transaction spikes and system irregularities, supporting risk monitoring initiatives.
+
+Integrated Azure SQL Database, ADLS Gen2, Synapse Analytics, and Databricks to enable seamless end-to-end data movement across batch and streaming pipelines. Contributed to Snowflake integration initiatives by developing ETL pipelines and optimizing complex SQL transformations to support cross-platform analytical reporting.
+
+Supported modernization efforts by migrating legacy Hadoop-based ETL workloads to Azure HDInsight and Databricks, reducing infrastructure maintenance overhead. Automated Azure infrastructure provisioning using ARM templates and terraform, improving deployment consistency and reducing environment setup time across Dev, QA, and Production.
+
+Implemented CI/CD pipelines using GitHub and Azure DevOps to promote data pipelines, notebooks, and infrastructure changes across environments in a controlled and auditable manner. Applied role-based access controls (RBAC), data masking, and secure key management practices using Azure Key Vault and Azure Active Directory to ensure compliance with internal banking governance standards.
+
+Developed complex SQL stored procedures, views, and indexing strategies to support financial reconciliation, regulatory reporting, and executive dashboards. Built Power BI dashboards sourced from Synapse and curated data layers to provide insights into transaction trends, operational KPIs, and compliance metrics.
+
+Participated in Agile ceremonies including sprint planning, backlog grooming, release planning, and production support rotations, ensuring timely resolution of high-priority data incidents.
+
+Collaborated closely with risk analysts, compliance teams, and business stakeholders to translate regulatory requirements into scalable data engineering solutions.
+
+Environment: Azure Data Factory (ADF), Azure Data Lake Storage Gen2 (ADLS), Azure Databricks, Apache Spark, PySpark, Delta Lake, Azure Synapse Analytics, Azure SQL Database, Azure Event Hubs, Azure Stream Analytics, Snowflake, Informatica IICS, Teradata, Azure Key Vault, Azure Active Directory (Entra ID), ARM Templates, Terraform, GitHub, Azure DevOps, REST/HTTPS APIs, Power BI.
+
+General Electric, Boston, Massachusetts
+
+Data Engineer Dec 2017 – Mar 2020
+
+Responsibilities:
+Designed, developed, and optimized large-scale Apache Spark applications running on AWS EMR clusters to process high-volume enterprise datasets, applying advanced techniques such as partition pruning, broadcast joins, caching strategies, memory tuning, and executor configuration to significantly reduce processing time and improve cluster utilization.
+Built scalable batch and streaming data pipelines leveraging Apache Spark, Kafka, and AWS-managed services to ingest and process structured and semi-structured operational data across multiple business domains.
+Developed cloud-native ETL workflows using AWS Glue Spark jobs to extract data from relational databases, flat files, and APIs, transforming it into analytics-ready datasets stored in Amazon S3 in optimized Parquet format.
+
+Migrated legacy on-prem Oracle and SQL Server workloads to AWS by designing distributed processing frameworks on EMR and Glue, enabling scalable analytics and improved system performance. Implemented incremental ingestion frameworks using watermarking and partition-based strategies to process millions of records daily while minimizing recomputation and reducing cloud compute costs.
+
+Designed event-driven processing pipelines using AWS Lambda functions to trigger validation routines, metadata updates, and post-load data quality checks upon file arrival in S3. Orchestrated complex, multi-step workflows using AWS Step Functions to coordinate Glue jobs, EMR Spark executions, and downstream validation tasks, ensuring controlled and reliable pipeline execution.
+
+Engineered Kafka-based streaming ingestion solutions to support real-time data movement between operational systems and analytical platforms, maintaining high throughput and fault tolerance. Developed reusable PySpark transformation frameworks and custom user-defined functions (UDFs) to encapsulate business logic, ensuring consistency and reusability across distributed Spark applications.
+
+Applied advanced Spark SQL techniques including window functions, aggregations, and ranking logic to compute key business metrics such as revenue trends, churn rates, and customer retention indicators.
+
+Designed and implemented Hive data models with partitioning and bucketing strategies to optimize query performance and reduce scan time for large analytical workloads.
+
+Created and maintained Hive tables stored in Parquet format to ensure efficient storage utilization and improved read/write performance across Hadoop ecosystems. Built and maintained Apache Airflow DAGs to orchestrate incremental data loads from relational databases, file systems, and external APIs, improving data freshness and reducing manual intervention.
+
+Processed structured, semi-structured, and unstructured data across distributed Hadoop environments using Spark, Hive, and Scala-based transformations to support enterprise analytics initiatives.
+
+Implemented robust data governance and access control policies using AWS IAM roles and policies, ensuring secure access to S3 buckets, EMR clusters, and Glue jobs across multiple environments.
+
+Containerized Spark-based data processing components using RedHat OpenShift and integrated CI/CD pipelines with Jenkins and GitHub to automate build, testing, and deployment workflows. Conducted performance tuning and troubleshooting of production data pipelines, analyzing Spark UI metrics, executor logs, and cluster health indicators to resolve bottlenecks and ensure SLA compliance.
+
+Provided ongoing production support for mission-critical data workflows, handling incident management, root cause analysis, and post-incident documentation in collaboration with cross-functional teams.
+
+Collaborated closely with data analysts, business stakeholders, and DevOps teams to translate reporting and analytics requirements into scalable and maintainable data engineering solutions.
+
+Environment: AWS Glue, AWS EMR, AWS Lambda, AWS Step Functions, Amazon S3, Apache Spark, Spark SQL, PySpark, Apache Kafka, Apache Airflow, Hadoop, HDFS, Hive, MapReduce, YARN, Scala, Python, SQL, Oracle, MS SQL Server, Parquet, RedHat OpenShift, Jenkins, GitHub, Git, Shell Scripting, Jira, Power BI.
+Centene Corporation, Saint Louis, Missouri
+
+Big Data Engineer Sep 2015 – Nov 2017
+
+Responsibilities:
+Designed and developed scalable Hadoop-based data pipelines to ingest, store, and process large volumes of structured and semi-structured healthcare data within enterprise data lake environments.
+Extracted data from RDBMS systems including SQL Server, Teradata, and Netezza using Sqoop, loading it into HDFS for distributed processing and downstream analytics. Built and optimized Hive tables with partitioning and bucketing strategies to improve query performance on multi-terabyte datasets.
+
+Developed Spark-based transformation jobs to perform complex joins, aggregations, filtering, and business rule implementations across distributed clusters. Implemented workflow orchestration using Apache Oozie to manage multi-step ETL pipelines and ensure reliable batch processing.
+
+Engineered Kafka-based ingestion pipelines to enable near real-time data streaming into Hadoop ecosystems for operational reporting use cases. Loaded log and event data into HDFS using Apache Flume, supporting large-scale ingestion from multiple upstream systems.
+
+Designed and maintained HBase tables to support low-latency access to semi-structured and high-volume transactional data. Wrote advanced SQL queries for data validation, reconciliation, and reporting support across Hadoop and relational systems.
+
+Automated batch processes and job monitoring using Shell scripting and Control-M, ensuring SLA compliance and operational stability. Collaborated with data architects and BI teams to refine logical and physical data models supporting enterprise reporting solutions.
+
+Performed performance tuning and troubleshooting of Hive and Spark jobs by analyzing execution plans and optimizing resource allocation.
+
+Environment: Hadoop (HDFS), MapReduce, Apache Oozie, Apache Kafka, Hive, Spark, Spark SQL, Sqoop, Flume, HBase, Netezza, Teradata, SQL Server, Shell Scripting, Control-M.
+
+TD Bank, Mount Laurel, New Jersey
+
+Data Warehouse Engineer Feb 2014 – Aug 2015
+
+Responsibilities:
+Developed and maintained ETL mappings and workflows using Informatica PowerCenter 8.x to load data from Oracle, DB2, XML, and flat files into the enterprise data warehouse.
+Assisted in monitoring and troubleshooting scheduled workflows using Informatica Workflow Manager, resolving job failures and data issues in development and production environments.
+
+Participated in designing and implementing Star Schema data models to support financial and operational reporting requirements. Implemented Slowly Changing Dimensions (Type 2) to maintain historical data in dimension tables.
+
+Wrote SQL and PL/SQL queries for data validation, reconciliation, and performance optimization. Supported incremental and delta load processes to efficiently handle daily and monthly financial data feeds.
+
+Created source-to-target mapping documents and maintained technical documentation for ETL workflows. Assisted in performance tuning of Oracle 11g warehouse tables using indexing and partitioning techniques.
+
+Used Unix shell scripting to automate file transfers, job execution, and validation processes. Supported UAT and production deployments, validating data outputs and resolving defects raised by business users.
+
+Environment:  Informatica PowerCenter 8.x, Informatica PowerExchange, Oracle 11g, DB2, SQL, PL/SQL, Unix Shell Scripting, XML, Flat Files, Tableau.
+
+Senior Azure Data Engineer Phone: +1 630-445-1568 Email: anuhyamundru1432@gmail.com LinkedIn: www.linkedin.com/in/anuhyamundru PROFESSIONAL SUMMARY : Developed complex data transformation workflows using PySpark , Spark SQL, and Scala for cleansing, aggregation, and business rule implementation. Integrated legacy systems using SSIS and modernized data ingestion into ADLS Gen2 and Delta Lake architectures . Implemented Infrastructure as Code ( IaC ) using Terraform to provision and manage Azure resources across environments. Collaborated with cross-functional stakeholders including data scientists, analysts, and business teams to deliver analytics-ready datasets and reporting solutions. Proficient in Python, SQL (T-SQL), Scala, and PowerShell for large-scale data transformation, automation, and pipeline optimization. ) using Terraform and Azure DevOps CI/CD pipelines for automated deployments and environment consistency. Collaborated with cross-functional stakeholders in Agile environments to deliver analytics-ready datasets and scalable data solutions. Cloud Services: Azure Data Factory (ADF) , Azure Data b ricks, Logic Apps, Azure Functions , Azure DevOps, Azure Event Hub s , Azure Monitor, Key Vault, Azure Synapse analytics, ADLS G en 2 , Blob Storage, PolyBase Delta Lake, Unity Catalog, Microsoft Fabric, Azure SQL DB , Azure Stream Analytics, Azure Virtual Machines, Azure CLI, Azure Active Directory (Entra ID) Azure Purview, Azure Cosmos DB, Azure HDInsigjht ML f low , Application Insights Hadoop Distribution: Cloudera, Horton Works. Big Data Technologies: HDFS, Hadoop, MapReduce, Hive, HBase, Yarn, Scala, Kafka, Structured Streaming, Delta Live Tables, Medallion Architecture, DBT, Oozie, Sqoop, Zookeeper , Flume, Snowflake ( Snowpipe , Snowpark, Streams, Tasks) Apache Flink, S3, Trino, Airflo w Data Governance & Security: RBAC, Column-Level Security, Data Masking, Azure Purview, Unity Catalog, Data Lineage, GDPR/HIPAA Compliance Encryption at Rest & In Transit Languages: SQL, PL/SQL, T-SQL, Python, HiveQL, Scala, Java, Visualization Tools: Power BI, Tableau SSRS, SSAS Operating Systems: Windows, UNIX, LINUX, UBUNTU, CENTOS. Build Automation Tools: SB T, Terraform, Docker, Kubernetes, GitLab Version Control Tools & CI/CD: GIT, GitHub, Jenkins , Maven, bitbucket IDE &Build Tools, Design: Eclipse, Azure Data Studio, Visual Studio. Databases & Warehousing: MS SQL Server 2019/ 2016/2014/2012, Databricks SQL Warehouse Azure SQL DB, Azure Synapse Analytics MySQL, PostgreSQL, Snowflake, Oracle 11g /12c, DB2, Cosmos DB , Mongo DB, HBase File Formats: JSON, CSV, ORC, Parquet, Avro , XML, TXT, Excel. Miscellaneous: PowerShell , Shell Scripting. Bachelor’s in computer science ( B.Tech ) Acharya Nagarjuna University, India - 2011. Master’s in information technology (MSIT ), Concordia University Wisconsin, USA - 2013. Microsoft Certified: Azure Data Engineer Associate Honeywell, Charlotte North Carolina S enior Sep 2022 – till now Developed high-performance batch and incremental data transformation workflows in Azure Databricks using and Spark SQL. Implemented Lakehouse architecture (Bronze, Silver, Gold layers) using ADLS and Delta Lake to support structured data refinement and enterprise reporting. Built structured streaming and incremental load pipelines into Delta Lake to support near real-time data processing use cases. Managed schema evolution and ACID-compliant Delta tables to ensure reliable and consistent data processing. Optimized Azure Synapse Analytics performance through proper table distribution, clustered columnstore indexing, and query tuning techniques. Delivered curated datasets into Azure Synapse Analytics to support enterprise reporting and Power BI dashboards. Integrated REST APIs and external platforms using ADF connectors to enable near real-time data ingestion. Implemented Slowly Changing Dimensions (SCD Type 1 & 2) to maintain historical accuracy in dimensional data models. Applied enterprise data governance using Azure Purview for data classification, lineage tracking, and secure data access. Automated orchestration and validation workflows using Azure Functions, Logic Apps, and Databricks notebooks. Implemented Infrastructure as Code using Terraform and ARM templates to provision Azure resources across environments. Built CI/CD pipelines using Jenkins and GitHub to automate deployment of data pipelines and notebooks. Monitored production pipelines using Azure Monitor, Application Insights, Spark UI, and Databricks metrics to proactively identify and resolve issues. Developed advanced SQL scripts including stored procedures, views, indexing strategies, and performance tuning to support analytics use cases. Led data platform enhancements by standardizing reusable ADF pipeline templates and Databricks notebook frameworks, improving development consistency and reducing onboarding time for new team members. Conducted performance benchmarking and cost optimization initiatives across Azure Databricks and Synapse environments, resulting in improved cluster utilization and reduced overall compute spend. Implemented role-based access controls (RBAC) and data masking policies across ADLS, Synapse, and Databricks to strengthen enterprise data security and compliance posture. Established automated monitoring and alerting strategies for production pipelines using Azure Monitor and Log Analytics, minimizing downtime and improving SLA adherence. Partnered with enterprise architecture and DevOps teams to design scalable CI/CD deployment strategies across development, QA, and production environments. Provided production support and root cause analysis for critical data incidents, ensuring timely resolution and continuous pipeline reliability. Environment: Azure Data Factory, Azure Data Lake Storage Gen2, Azure Databricks, Apache Spark, Spark SQL, Structured Streaming, Delta Lake, Azure Synapse Analytics, Azure Purview, Azure Data Catalog, Azure Blob Storage, Azure Monitor, Azure Functions, Azure Logic Apps, Azure Active Directory , ARM Templates, Terraform, Python, SQL, PowerShell, REST APIs, Application Insights, Parquet, ORC, Avro, JSON, CSV, Informatica IICS, Jenkins, GitHub, CI/CD, Shell Scripting, Jira, Confluence, Power BI Barclays, New York City, New York Apr 2020 – Aug 2022 Led the migration of mission-critical financial and transactional datasets from on-prem SQL Server and Teradata systems into Azure, utilizing Self-Hosted Integration Runtime (SHIR) to ensure secure hybrid connectivity and regulatory-compliant data transfer. Implemented data validation and reconciliation logic to compare source and target systems, preventing financial discrepancies and ensuring SOX compliance standards were met. Architected secure data lake zones (raw, curated, and reporting layers) in ADLS Gen2, implementing encryption at rest, RBAC policies, and strict access controls aligned with banking security policies. Built high-performance transformation workflows using and Spark SQL to process structured and semi-structured financial data, optimizing partitioning and memory management to handle large daily batch volumes. Optimized data loading strategies into Azure Synapse Analytics using and dedicated SQL pools, improving query execution performance for risk reporting and regulatory dashboards. Designed partitioning and indexing strategies within Synapse dedicated SQL pools to support complex joins and aggregation-heavy financial reporting workloads. Implemented near real-time streaming ingestion using Azure Event Hubs and Stream Analytics to process trade events and transactional feeds, enabling faster downstream reconciliation and fraud detection workflows. Built anomaly detection logic in Stream Analytics to flag unusual transaction spikes and system irregularities, supporting risk monitoring initiatives. Integrated Azure SQL Database, ADLS Gen2, Synapse Analytics, and Databricks to enable seamless end-to-end data movement across batch and streaming pipelines. Contributed to Snowflake integration initiatives by developing ETL pipelines and optimizing complex SQL transformations to support cross-platform analytical reporting. Supported modernization efforts by migrating legacy Hadoop-based ETL workloads to Azure HDInsight and Databricks, reducing infrastructure maintenance overhead. Automated Azure infrastructure provisioning using ARM templates and terraform , improving deployment consistency and reducing environment setup time across Dev, QA, and Production. Implemented CI/CD pipelines using GitHub and Azure DevOps to promote data pipelines, notebooks, and infrastructure changes across environments in a controlled and auditable manner. Applied role-based access controls (RBAC), data masking, and secure key management practices using Azure Key Vault and Azure Active Directory to ensure compliance with internal banking governance standards. Developed complex SQL stored procedures, views, and indexing strategies to support financial reconciliation, regulatory reporting, and executive dashboards. Built Power BI dashboards sourced from Synapse and curated data layers to provide insights into transaction trends, operational KPIs, and compliance metrics. Environment Azure Data Factory (ADF), Azure Data Lake Storage Gen2 (ADLS), Azure Databricks, Apache Spark, , Delta Lake, Azure Synapse Analytics, Azure SQL Database, Azure Event Hubs, Azure Stream Analytics, Snowflake, Informatica IICS, Teradata, Azure Key Vault, Azure Active Directory (Entra ID), ARM Templates, Terraform, GitHub, Azure DevOps, REST/HTTPS APIs, Power BI. General Electric, Boston, Massachusetts Data Engineer Dec 2017 – Mar 2020 Migrated legacy on-prem Oracle and SQL Server workloads to AWS by designing distributed processing frameworks on EMR and Glue, enabling scalable analytics and improved system performance. Implemented incremental ingestion frameworks using watermarking and partition-based strategies to process millions of records daily while minimizing recomputation and reducing cloud compute costs. Designed event-driven processing pipelines using AWS Lambda functions to trigger validation routines, metadata updates, and post-load data quality checks upon file arrival in S3. Orchestrated complex, multi-step workflows using AWS Step Functions to coordinate Glue jobs, EMR Spark executions, and downstream validation tasks, ensuring controlled and reliable pipeline execution. Engineered Kafka-based streaming ingestion solutions to support real-time data movement between operational systems and analytical platforms, maintaining high throughput and fault tolerance. Developed reusable transformation frameworks and custom user-defined functions (UDFs) to encapsulate business logic, ensuring consistency and reusability across distributed Spark applications. Created and maintained Hive tables stored in Parquet format to ensure efficient storage utilization and improved read/write performance across Hadoop ecosystems. Built and maintained Apache Airflow DAGs to orchestrate incremental data loads from relational databases, file systems, and external APIs, improving data freshness and reducing manual intervention. Containerized Spark-based data processing components using RedHat OpenShift and integrated CI/CD pipelines with Jenkins and GitHub to automate build, testing, and deployment workflows. Conducted performance tuning and troubleshooting of production data pipelines, analyzing Spark UI metrics, executor logs, and cluster health indicators to resolve bottlenecks and ensure SLA compliance. AWS Glue, AWS EMR, AWS Lambda, AWS Step Functions, Amazon S3, Apache Spark, Spark SQL, , Apache Kafka, Apache Airflow, Hadoop, HDFS, Hive, MapReduce, YARN, Scala, Python, SQL, Oracle, MS SQL Server, Parquet, RedHat OpenShift, Jenkins, GitHub, Git, Shell Scripting, Jira, Power BI. Big Data Engineer Sep 2015 – Nov 2017 Extracted data from RDBMS systems including SQL Server, Teradata, and Netezza using Sqoop, loading it into HDFS for distributed processing and downstream analytics. Built and optimized Hive tables with partitioning and bucketing strategies to improve query performance on multi-terabyte datasets. Developed Spark-based transformation jobs to perform complex , aggregations, filtering, and business rule implementations across distributed clusters. Implemented workflow orchestration using Apache Oozie to manage multi-step ETL pipelines and ensure reliable batch processing. Engineered Kafka-based ingestion pipelines to enable near real-time data streaming into Hadoop ecosystems for operational reporting use cases. Loaded log and event data into HDFS using Apache Flume, supporting large-scale ingestion from multiple upstream systems. Designed and maintained HBase tables to support low-latency access to semi-structured and high-volume transactional data. Wrote advanced SQL queries for data validation, reconciliation, and reporting support across Hadoop and relational systems. Automated batch processes and job monitoring using Shell scripting and Control-M, ensuring SLA compliance and operational stability. Collaborated with data architects and BI teams to refine logical and physical data models supporting enterprise reporting solutions. Hadoop (HDFS), MapReduce, Apache Oozie, Apache Kafka, Hive, Spark, Spark SQL, Sqoop, Flume, HBase, Netezza, Teradata, SQL Server, Shell Scripting, Control-M. Data Warehouse Engineer Feb 2014 – Aug 2015 Participated in designing and implementing Star Schema data models to support financial and operational reporting requirements. Implemented Slowly Changing Dimensions (Type 2) to maintain historical data in dimension tables. Wrote SQL and PL/SQL queries for data validation, reconciliation, and performance optimization. Supported incremental and delta load processes to efficiently handle daily and monthly financial data feeds. Created source-to-target mapping documents and maintained technical documentation for ETL workflows. Assisted in performance tuning of Oracle 11g warehouse tables using indexing and partitioning techniques. Used Unix shell scripting to automate file transfers, job execution, and validation processes. Supported UAT and production deployments, validating data outputs and resolving defects raised by business users. Informatica PowerCenter 8.x, Informatica PowerExchange , Oracle 11g, DB2, SQL, PL/SQL, Unix Shell Scripting, XML, Flat Files, Tableau.
