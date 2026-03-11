@@ -915,6 +915,36 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for dropping unique constraint: {str(e)}")
 
+    # Ensure pg_trgm extension and trigram GIN index on candidate_vetting_log.candidate_name
+    # (March 2026 — for server-side candidate search on Scout Screening portal)
+    # Managed here instead of Alembic because Replit's deployment auto-migration
+    # generates incorrect SQL for GIN indexes (omits gin_trgm_ops operator class)
+    try:
+        db.session.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ pg_trgm extension creation skipped: {str(e)}")
+
+    try:
+        result = db.session.execute(text("""
+            SELECT indexname FROM pg_indexes
+            WHERE tablename = 'candidate_vetting_log'
+              AND indexname = 'idx_vetting_log_candidate_name_trgm'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text(
+                "CREATE INDEX idx_vetting_log_candidate_name_trgm "
+                "ON candidate_vetting_log USING gin (candidate_name gin_trgm_ops)"
+            ))
+            db.session.commit()
+            logger.info("✅ Created trigram GIN index on candidate_vetting_log.candidate_name")
+        else:
+            logger.info("ℹ️ Trigram GIN index on candidate_vetting_log.candidate_name already exists")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Trigram index creation skipped: {str(e)}")
+
 
 def log_critical_settings_state(db):
     """
