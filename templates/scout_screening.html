@@ -264,6 +264,34 @@
         border-color: rgba(220, 53, 69, 0.3);
         color: #e87c7c;
     }
+
+    .candidate-parent { cursor: pointer; transition: background-color 0.15s ease; }
+    .candidate-parent:hover { background: rgba(155, 127, 212, 0.06) !important; }
+    .candidate-parent .expand-icon {
+        display: inline-block; font-size: 0.6rem; color: rgba(155, 127, 212, 0.5);
+        transition: transform 0.2s ease; margin-right: 0.3rem; width: 0.7rem; text-align: center;
+    }
+    .candidate-parent.expanded .expand-icon { transform: rotate(90deg); }
+    .candidate-parent.expanded { background: rgba(155, 127, 212, 0.04) !important; }
+
+    .candidate-child td {
+        padding-top: 0.55rem !important; padding-bottom: 0.55rem !important;
+        border-color: rgba(155, 127, 212, 0.06) !important;
+        background: rgba(0, 0, 0, 0.12) !important;
+        font-size: 0.82rem !important;
+    }
+    .candidate-child:last-of-type td { border-bottom: 2px solid rgba(155, 127, 212, 0.1) !important; }
+    .candidate-child td:first-child { padding-left: 2.8rem !important; }
+
+    .job-count-chip {
+        display: inline-flex; align-items: center; gap: 0.25rem;
+        background: rgba(155, 127, 212, 0.1); border: 1px solid rgba(155, 127, 212, 0.2);
+        border-radius: 20px; padding: 0.15rem 0.6rem; font-size: 0.72rem;
+        color: rgba(155, 127, 212, 0.8); white-space: nowrap; font-weight: 500;
+    }
+    .candidate-parent.expanded .job-count-chip {
+        background: rgba(155, 127, 212, 0.15); border-color: rgba(155, 127, 212, 0.3);
+    }
 </style>
 {% endblock %}
 
@@ -357,17 +385,16 @@
 <div id="candidatesCollapse" style="display:none;">
 <div class="sc-card mb-4">
     <div class="card-body p-0">
-{% if matches or pending_logs %}
+{% if candidate_groups or pending_logs %}
         <div class="table-responsive">
         <table class="table table-dark table-hover sc-table" id="matchTable">
             <thead>
                 <tr>
                     <th style="width:100px; white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('date')" title="Sort by date">Screened <span class="sort-icon" id="si-date"></span></th>
                     <th style="white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('candidate')" title="Sort by candidate">Candidate <span class="sort-icon" id="si-candidate"></span></th>
-                    <th style="white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('job')" title="Sort by job">Job <span class="sort-icon" id="si-job"></span></th>
                     <th style="width:80px; text-align:center; white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('score')" title="Sort by score">Score <span class="sort-icon" id="si-score"></span></th>
                     <th style="white-space:nowrap; cursor:pointer; user-select:none;" onclick="sortTable('status')" title="Sort by status">Status <span class="sort-icon" id="si-status"></span></th>
-                    <th style="white-space:nowrap;">AI Notes</th>
+                    <th style="white-space:nowrap;">Jobs</th>
                     {% if current_user.is_admin %}
                     <th style="width:90px; text-align:center; white-space:nowrap;">Actions</th>
                     {% endif %}
@@ -376,73 +403,57 @@
             <tbody id="tableBody"
                    data-threshold="{{ global_threshold }}"
                    data-is-admin="{{ 'true' if current_user.is_admin else 'false' }}">
-                {% for m in matches %}
-                {% set is_loc_barrier = 'location mismatch' in (m.gaps_identified or '').lower() and (m.technical_score or m.match_score) >= (global_threshold - 15) %}
-                <tr data-original="true"
-                    data-status="{{ 'qualified' if m.is_qualified else ('location_barrier' if is_loc_barrier else 'not_recommended') }}"
-                    data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}"
-                    data-score="{{ m.match_score|round|int }}"
-                    data-date="{{ m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0' }}"
-                    data-candidateid="{{ (m.vetting_log.bullhorn_candidate_id if m.vetting_log and m.vetting_log.bullhorn_candidate_id else '')|e }}"
-                    data-candidatename="{{ (m.vetting_log.candidate_name if m.vetting_log and m.vetting_log.candidate_name else '')|lower|e }}">
+                {% for g in candidate_groups %}
+                <tr class="candidate-parent" data-original="true"
+                    data-status="{{ g.overall_status }}"
+                    data-week="{{ 'yes' if g.is_week else 'no' }}"
+                    data-score="{{ g.best_score }}"
+                    data-date="{{ g.latest_date.strftime('%Y%m%d%H%M%S') if g.latest_date else '0' }}"
+                    data-candidateid="{{ g.candidate_id or '' }}"
+                    data-candidatename="{{ (g.candidate_name or '')|lower }}"
+                    data-group-key="{{ g.candidate_id or ('unk_' ~ loop.index0) }}"
+                    onclick="toggleCandidateRow(this)">
                     <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
-                        {{ m.created_at.strftime('%b %d, %Y') if m.created_at else '—' }}
+                        {{ g.latest_date.strftime('%b %d, %Y') if g.latest_date else '—' }}
                     </td>
                     <td>
-                        {% if m.vetting_log and m.vetting_log.bullhorn_candidate_id %}
+                        {% if g.candidate_id %}
                         <a class="cand-link"
-                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ m.vetting_log.bullhorn_candidate_id }}"
-                           target="_blank" rel="noopener">
-                            {{ m.vetting_log.candidate_name or 'Unknown' }}<i class="fas fa-external-link-alt ext-icon"></i>
+                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ g.candidate_id }}"
+                           target="_blank" rel="noopener" onclick="event.stopPropagation()">
+                            {{ g.candidate_name or 'Unknown' }}<i class="fas fa-external-link-alt ext-icon"></i>
                         </a>
                         {% else %}
-                        <span style="color:rgba(255,255,255,0.6);">{{ m.vetting_log.candidate_name if m.vetting_log else 'Unknown' }}</span>
+                        <span style="color:rgba(255,255,255,0.6);">{{ g.candidate_name or 'Unknown' }}</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <a class="sc-link"
-                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ m.bullhorn_job_id }}"
-                           target="_blank" rel="noopener">
-                            {{ m.job_title or ('Job #' ~ m.bullhorn_job_id) }}<i class="fas fa-external-link-alt ext-icon"></i>
-                        </a>
-                    </td>
                     <td style="text-align:center;">
-                        {% set score = m.match_score|round|int %}
-                        {% if is_loc_barrier and m.technical_score %}
-                            {% set tech = m.technical_score|round|int %}
-                            <span class="score-badge score-mid" title="Tech fit: {{ tech }}% → Location → {{ score }}%">{{ score }}%</span>
-                            <div style="font-size:0.65rem; color:rgba(255,255,255,0.45); margin-top:2px;" title="Technical fit score before location penalty">Tech: {{ tech }}%</div>
-                        {% elif score >= 80 %}<span class="score-badge score-high">{{ score }}%</span>
+                        {% set score = g.best_score %}
+                        {% if score >= 80 %}<span class="score-badge score-high">{{ score }}%</span>
                         {% elif score >= 60 %}<span class="score-badge score-mid">{{ score }}%</span>
                         {% elif score > 0 %}<span class="score-badge score-low">{{ score }}%</span>
                         {% else %}<span class="score-badge score-zero">—</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if m.is_qualified %}
+                        {% if g.overall_status == 'qualified' %}
                         <span class="badge rounded-pill st-qualified">Qualified</span>
-                        {% elif is_loc_barrier %}
-                        <span class="badge rounded-pill st-loc-barrier" title="Strong technical fit — location barrier for on-site/hybrid role">📍 Location Barrier</span>
+                        {% elif g.overall_status == 'location_barrier' %}
+                        <span class="badge rounded-pill st-loc-barrier">📍 Location Barrier</span>
                         {% else %}
                         <span class="badge rounded-pill st-not-rec">Not Recommended</span>
                         {% endif %}
                     </td>
-                    <td>
-                        {% if m.match_summary %}
-                        <div class="notes-snippet">{{ m.match_summary[:100] }}…</div>
-                        <a href="javascript:void(0)" class="sc-link sc-link-sm open-notes-link"
-                           data-cname="{{ (m.vetting_log.candidate_name if m.vetting_log else 'Unknown')|e }}"
-                           data-job="{{ (m.job_title or ('Job #' ~ m.bullhorn_job_id))|e }}"
-                           data-notes="{{ m.match_summary|e }}"
-                           data-bhid="{{ (m.vetting_log.bullhorn_candidate_id if m.vetting_log else '')|e }}">View full notes</a>
-                        {% else %}
-                        <span style="color:rgba(255,255,255,0.2); font-size:0.78rem;">—</span>
-                        {% endif %}
+                    <td onclick="event.stopPropagation()">
+                        <span class="job-count-chip" onclick="toggleCandidateRow(this.closest('.candidate-parent'))">
+                            <i class="fas fa-chevron-right expand-icon"></i>
+                            {{ g.job_count }} job{{ 's' if g.job_count != 1 }}
+                        </span>
                     </td>
                     {% if current_user.is_admin %}
-                    <td style="text-align:center;">
-                        {% if m.vetting_log and m.vetting_log.bullhorn_candidate_id %}
-                        <button type="button" class="btn-rescreen" data-candidate-id="{{ m.vetting_log.bullhorn_candidate_id }}" title="Re-screen this candidate">
+                    <td style="text-align:center;" onclick="event.stopPropagation()">
+                        {% if g.candidate_id %}
+                        <button type="button" class="btn-rescreen" data-candidate-id="{{ g.candidate_id }}" title="Re-screen this candidate">
                             <i class="fas fa-redo-alt"></i> Re-screen
                         </button>
                         {% else %}
@@ -451,10 +462,59 @@
                     </td>
                     {% endif %}
                 </tr>
+                {% for m in g.matches %}
+                <tr class="candidate-child" style="display:none;"
+                    data-child-of="{{ g.candidate_id or ('unk_' ~ loop.parent.index0) }}">
+                    <td style="color:rgba(255,255,255,0.3); font-size:0.75rem; white-space:nowrap;">
+                        {{ m.created_at.strftime('%b %d') if m.created_at else '—' }}
+                    </td>
+                    <td>
+                        <a class="sc-link" style="font-size:0.82rem;"
+                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ m.bullhorn_job_id }}"
+                           target="_blank" rel="noopener">
+                            {{ m.job_title or ('Job #' ~ m.bullhorn_job_id) }}<i class="fas fa-external-link-alt ext-icon"></i>
+                        </a>
+                    </td>
+                    <td style="text-align:center;">
+                        {% set score = m.match_score|round|int %}
+                        {% if m._is_loc_barrier and m.technical_score %}
+                            {% set tech = m.technical_score|round|int %}
+                            <span class="score-badge score-mid" title="Tech: {{ tech }}% → {{ score }}%">{{ score }}%</span>
+                        {% elif score >= 80 %}<span class="score-badge score-high">{{ score }}%</span>
+                        {% elif score >= 60 %}<span class="score-badge score-mid">{{ score }}%</span>
+                        {% elif score > 0 %}<span class="score-badge score-low">{{ score }}%</span>
+                        {% else %}<span class="score-badge score-zero">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.is_qualified %}
+                        <span class="badge rounded-pill st-qualified" style="font-size:0.68rem;">Qualified</span>
+                        {% elif m._is_loc_barrier %}
+                        <span class="badge rounded-pill st-loc-barrier" style="font-size:0.68rem;">📍 Loc Barrier</span>
+                        {% else %}
+                        <span class="badge rounded-pill st-not-rec" style="font-size:0.68rem;">Not Rec</span>
+                        {% endif %}
+                    </td>
+                    <td{% if current_user.is_admin %} colspan="2"{% endif %}>
+                        {% if m.match_summary %}
+                        <div class="notes-snippet" style="max-width:200px;">{{ m.match_summary[:80] }}…</div>
+                        <a href="javascript:void(0)" class="sc-link sc-link-sm open-notes-link"
+                           data-cname="{{ (g.candidate_name or 'Unknown')|e }}"
+                           data-job="{{ (m.job_title or ('Job #' ~ m.bullhorn_job_id))|e }}"
+                           data-notes="{{ m.match_summary|e }}"
+                           data-bhid="{{ (g.candidate_id or '')|e }}">View notes</a>
+                        {% else %}
+                        <span style="color:rgba(255,255,255,0.2); font-size:0.78rem;">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
                 {% endfor %}
                 {% for log in pending_logs %}
-                <tr data-original="true" data-status="pending" data-week="no" data-score="0"
-                    data-date="{{ log.created_at.strftime('%Y%m%d%H%M%S') if log.created_at else '0' }}">
+                <tr class="candidate-parent" data-original="true" data-status="pending" data-week="no" data-score="0"
+                    data-date="{{ log.created_at.strftime('%Y%m%d%H%M%S') if log.created_at else '0' }}"
+                    data-candidateid="{{ log.bullhorn_candidate_id or '' }}"
+                    data-candidatename="{{ (log.candidate_name or '')|lower }}">
                     <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
                         {{ log.created_at.strftime('%b %d, %Y') if log.created_at else '—' }}
                     </td>
@@ -469,19 +529,9 @@
                         <span style="color:rgba(255,255,255,0.6);">{{ log.candidate_name or 'Unknown' }}</span>
                         {% endif %}
                     </td>
-                    <td>
-                        {% if log.applied_job_id %}
-                        <a class="sc-link"
-                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ log.applied_job_id }}"
-                           target="_blank" rel="noopener">
-                            {{ log.applied_job_title or ('Job #' ~ log.applied_job_id) }}<i class="fas fa-external-link-alt ext-icon"></i>
-                        </a>
-                        {% else %}<span style="color:rgba(255,255,255,0.25);">—</span>
-                        {% endif %}
-                    </td>
                     <td style="text-align:center;"><span class="score-badge score-zero">—</span></td>
                     <td><span class="badge rounded-pill st-pending">Pending</span></td>
-                    <td><span style="color:rgba(255,255,255,0.25); font-size:0.78rem; font-style:italic;">Awaiting AI analysis…</span></td>
+                    <td><span style="color:rgba(255,255,255,0.25); font-size:0.78rem; font-style:italic;">Awaiting AI…</span></td>
                     {% if current_user.is_admin %}
                     <td style="text-align:center;">
                         <span style="color:rgba(255,255,255,0.15);">—</span>
@@ -493,7 +543,6 @@
         </table>
         </div>
 
-        <!-- Filter zero-match message -->
         <div id="filterEmptyState" style="display:none;">
             <div class="sc-empty">
                 <i class="fas fa-search"></i>
@@ -502,7 +551,6 @@
             </div>
         </div>
 
-        <!-- Pagination footer (only shown when there are rows) -->
         <div class="sc-footer d-flex justify-content-between align-items-center" id="paginationBar" style="display:none !important;">
             <span id="pageInfo"></span>
             <div class="d-flex align-items-center gap-3">
@@ -695,36 +743,59 @@
 
 {% block extra_scripts %}
 <script>
-// ── Pagination ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 10;
 let currentPage = 1;
 let visibleRows = [];
 
+function _getChildRows(parentRow) {
+    const key = parentRow.dataset.groupKey;
+    if (!key) return [];
+    const children = [];
+    let next = parentRow.nextElementSibling;
+    while (next && next.classList.contains('candidate-child') && next.dataset.childOf === key) {
+        children.push(next);
+        next = next.nextElementSibling;
+    }
+    return children;
+}
+
+function toggleCandidateRow(parentRow) {
+    if (!parentRow || !parentRow.classList.contains('candidate-parent')) return;
+    const isExpanded = parentRow.classList.contains('expanded');
+    const children = _getChildRows(parentRow);
+    parentRow.classList.toggle('expanded');
+    children.forEach(c => { c.style.display = isExpanded ? 'none' : ''; });
+}
+
 function renderPage() {
-    const total      = visibleRows.length;
+    const total = visibleRows.length;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     if (currentPage > totalPages) currentPage = totalPages;
     if (currentPage < 1) currentPage = 1;
 
     visibleRows.forEach((r, i) => {
-        r.style.display = (i >= (currentPage-1)*PAGE_SIZE && i < currentPage*PAGE_SIZE) ? '' : 'none';
+        const onPage = (i >= (currentPage - 1) * PAGE_SIZE && i < currentPage * PAGE_SIZE);
+        r.style.display = onPage ? '' : 'none';
+        const children = _getChildRows(r);
+        const showChildren = onPage && r.classList.contains('expanded');
+        children.forEach(c => { c.style.display = showChildren ? '' : 'none'; });
     });
 
-    const bar  = document.getElementById('paginationBar');
+    const bar = document.getElementById('paginationBar');
     const info = document.getElementById('pageInfo');
-    const ind  = document.getElementById('pageIndicator');
+    const ind = document.getElementById('pageIndicator');
     const prev = document.getElementById('prevBtn');
     const next = document.getElementById('nextBtn');
     if (!bar) return;
 
-    if (total === 0) { bar.style.setProperty('display','none','important'); return; }
+    if (total === 0) { bar.style.setProperty('display', 'none', 'important'); return; }
     bar.style.removeProperty('display');
     bar.style.display = 'flex';
 
-    const start = (currentPage-1)*PAGE_SIZE + 1;
-    const end   = Math.min(currentPage*PAGE_SIZE, total);
-    if (info) info.textContent = `Showing ${start}–${end} of ${total} result${total !== 1 ? 's' : ''}`;
-    if (ind)  ind.textContent  = `Page ${currentPage} of ${totalPages}`;
+    const start = (currentPage - 1) * PAGE_SIZE + 1;
+    const end = Math.min(currentPage * PAGE_SIZE, total);
+    if (info) info.textContent = `Showing ${start}\u2013${end} of ${total} candidate${total !== 1 ? 's' : ''}`;
+    if (ind) ind.textContent = `Page ${currentPage} of ${totalPages}`;
     if (prev) prev.classList.toggle('disabled', currentPage === 1);
     if (next) next.classList.toggle('disabled', currentPage === totalPages);
 }
@@ -737,7 +808,6 @@ function changePage(delta) {
     renderPage();
 }
 
-// ── Sort ──────────────────────────────────────────────────────────────────────
 let currentSort = { col: null, dir: 'desc' };
 
 function sortTable(col) {
@@ -749,21 +819,23 @@ function sortTable(col) {
     }
 
     const tbody = document.getElementById('tableBody');
-    const rowSel = searchModeActive ? 'tr[data-search-result][data-score]' : 'tr[data-original]';
-    const allRows = Array.from(tbody.querySelectorAll(rowSel));
+    const selector = searchModeActive ? 'tr.candidate-parent[data-search-result]' : 'tr.candidate-parent[data-original]';
+    const parents = Array.from(tbody.querySelectorAll(selector));
+
+    const childMap = new Map();
+    parents.forEach(p => { childMap.set(p, _getChildRows(p)); });
 
     function getVal(row) {
         switch (col) {
-            case 'score':     return parseInt(row.dataset.score || '0', 10);
-            case 'date':      return row.dataset.date || '0';
-            case 'candidate': return (row.cells[1] ? row.cells[1].textContent.trim().toLowerCase() : '');
-            case 'job':       return (row.cells[2] ? row.cells[2].textContent.trim().toLowerCase() : '');
-            case 'status':    return (row.cells[4] ? row.cells[4].textContent.trim().toLowerCase() : '');
-            default:          return '';
+            case 'score': return parseInt(row.dataset.score || '0', 10);
+            case 'date': return row.dataset.date || '0';
+            case 'candidate': return (row.dataset.candidatename || '');
+            case 'status': return row.dataset.status || '';
+            default: return '';
         }
     }
 
-    allRows.sort((a, b) => {
+    parents.sort((a, b) => {
         const av = getVal(a), bv = getVal(b);
         let cmp = 0;
         if (typeof av === 'number') cmp = av - bv;
@@ -771,24 +843,21 @@ function sortTable(col) {
         return currentSort.dir === 'asc' ? cmp : -cmp;
     });
 
-    allRows.forEach(r => tbody.appendChild(r));
-
-    document.querySelectorAll('.sort-icon').forEach(el => {
-        el.textContent = '';
-        el.classList.remove('active');
+    parents.forEach(p => {
+        tbody.appendChild(p);
+        (childMap.get(p) || []).forEach(c => tbody.appendChild(c));
     });
+
+    document.querySelectorAll('.sort-icon').forEach(el => { el.textContent = ''; el.classList.remove('active'); });
     const activeIcon = document.getElementById('si-' + col);
     if (activeIcon) {
-        activeIcon.textContent = currentSort.dir === 'asc' ? '▲' : '▼';
+        activeIcon.textContent = currentSort.dir === 'asc' ? '\u25B2' : '\u25BC';
         activeIcon.classList.add('active');
     }
 
-    visibleRows = allRows.filter(r => r.style.display !== 'none');
-    currentPage = 1;
-    renderPage();
+    rebuildVisibleRows();
 }
 
-// ── Candidate search (server-side for 3+ chars, client-side for <3) ──────────
 let activeMinScore = null;
 let activeCandidateSearch = '';
 let searchModeActive = false;
@@ -798,9 +867,7 @@ function applyCandidateSearch() {
     const raw = (document.getElementById('candidateSearchInput').value || '').trim();
     const clearBtn = document.getElementById('candidateSearchClear');
     if (clearBtn) clearBtn.style.display = raw.length > 0 ? '' : 'none';
-
     clearTimeout(searchDebounceTimer);
-
     if (raw.length === 0) {
         if (searchModeActive) _exitSearchMode();
         activeCandidateSearch = '';
@@ -829,7 +896,8 @@ function clearCandidateSearch() {
 function _exitSearchMode() {
     searchModeActive = false;
     document.querySelectorAll('#tableBody tr[data-search-result]').forEach(r => r.remove());
-    document.querySelectorAll('#tableBody tr[data-original]').forEach(r => r.style.display = '');
+    document.querySelectorAll('#tableBody tr.candidate-parent[data-original]').forEach(r => r.style.display = '');
+    document.querySelectorAll('#tableBody tr.candidate-child').forEach(r => r.style.display = 'none');
     _restoreMetricCards();
 }
 
@@ -856,87 +924,134 @@ function _renderSearchResults(results, truncated) {
     if (!tbody) return;
     const THRESHOLD = parseInt(tbody.dataset.threshold || '80', 10);
     const IS_ADMIN = tbody.dataset.isAdmin === 'true';
-    const WEEK_MS  = 7 * 24 * 60 * 60 * 1000;
+    const COLSPAN = IS_ADMIN ? 6 : 5;
 
     document.querySelectorAll('#tableBody tr[data-original]').forEach(r => r.style.display = 'none');
+    document.querySelectorAll('#tableBody tr.candidate-child').forEach(r => r.style.display = 'none');
     document.querySelectorAll('#tableBody tr[data-search-result]').forEach(r => r.remove());
 
-    const COLSPAN = IS_ADMIN ? 7 : 6;
     if (results.length === 0) {
         const empty = document.createElement('tr');
         empty.setAttribute('data-search-result', '');
         empty.innerHTML = `<td colspan="${COLSPAN}" style="text-align:center; color:rgba(255,255,255,0.3); padding:2rem;">No candidates found matching your search.</td>`;
         tbody.appendChild(empty);
-        _updateSearchMetrics(results, THRESHOLD, WEEK_MS);
-        _attachNotesLinks();
+        _updateSearchMetrics([]);
         return;
     }
 
+    const groups = {};
+    const groupOrder = [];
     results.forEach(m => {
-        const tr = document.createElement('tr');
-        tr.setAttribute('data-search-result', '');
-        tr.setAttribute('data-status', m.is_qualified ? 'qualified' : (m.is_loc_barrier ? 'location_barrier' : 'not_recommended'));
-        tr.setAttribute('data-week', m.is_week ? 'yes' : 'no');
-        tr.setAttribute('data-score', m.match_score);
-        tr.setAttribute('data-date', m.created_ts);
-        tr.setAttribute('data-candidateid', m.candidate_id || '');
-        tr.setAttribute('data-candidatename', (m.candidate_name || '').toLowerCase());
+        const key = m.candidate_id || ('unk_' + m.id);
+        if (!groups[key]) {
+            groups[key] = {
+                candidate_id: m.candidate_id,
+                candidate_name: m.candidate_name,
+                latest_ts: m.created_ts,
+                latest_display: m.created_at_display,
+                best_score: m.match_score,
+                has_qualified: m.is_qualified,
+                has_loc_barrier: m.is_loc_barrier,
+                is_week: m.is_week,
+                matches: []
+            };
+            groupOrder.push(key);
+        }
+        const g = groups[key];
+        g.matches.push(m);
+        if (m.created_ts > g.latest_ts) { g.latest_ts = m.created_ts; g.latest_display = m.created_at_display; }
+        if (m.match_score > g.best_score) g.best_score = m.match_score;
+        if (m.is_qualified) g.has_qualified = true;
+        if (m.is_loc_barrier) g.has_loc_barrier = true;
+        if (m.is_week) g.is_week = true;
+    });
 
-        const techBadge = (m.is_loc_barrier && m.technical_score !== null)
-            ? `<span class="score-badge score-mid" title="Tech fit: ${m.technical_score}% → Location → ${m.match_score}%">${m.match_score}%</span>
-               <div style="font-size:0.65rem; color:rgba(255,255,255,0.45); margin-top:2px;">Tech: ${m.technical_score}%</div>`
-            : m.match_score >= 80
-                ? `<span class="score-badge score-high">${m.match_score}%</span>`
-                : m.match_score >= 60
-                    ? `<span class="score-badge score-mid">${m.match_score}%</span>`
-                    : m.match_score > 0
-                        ? `<span class="score-badge score-low">${m.match_score}%</span>`
-                        : `<span class="score-badge score-zero">—</span>`;
-
-        const statusBadge = m.is_qualified
+    groupOrder.forEach(key => {
+        const g = groups[key];
+        const status = g.has_qualified ? 'qualified' : (g.has_loc_barrier ? 'location_barrier' : 'not_recommended');
+        const score = g.best_score;
+        const scoreBadge = score >= 80 ? `<span class="score-badge score-high">${score}%</span>`
+            : score >= 60 ? `<span class="score-badge score-mid">${score}%</span>`
+            : score > 0 ? `<span class="score-badge score-low">${score}%</span>`
+            : `<span class="score-badge score-zero">\u2014</span>`;
+        const statusBadge = g.has_qualified
             ? `<span class="badge rounded-pill st-qualified">Qualified</span>`
-            : m.is_loc_barrier
-                ? `<span class="badge rounded-pill st-loc-barrier" title="Strong technical fit — location barrier for on-site/hybrid role">📍 Location Barrier</span>`
+            : g.has_loc_barrier
+                ? `<span class="badge rounded-pill st-loc-barrier">\uD83D\uDCCD Location Barrier</span>`
                 : `<span class="badge rounded-pill st-not-rec">Not Recommended</span>`;
-
-        const candLink = m.candidate_id
-            ? `<a class="cand-link" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=${m.candidate_id}" target="_blank" rel="noopener">${_esc(m.candidate_name || 'Unknown')}<i class="fas fa-external-link-alt ext-icon"></i></a>`
-            : `<span style="color:rgba(255,255,255,0.6);">${_esc(m.candidate_name || 'Unknown')}</span>`;
-
-        const notesCell = m.match_summary
-            ? `<div class="notes-snippet">${_esc(m.match_summary.substring(0, 100))}…</div>
-               <a href="javascript:void(0)" class="sc-link sc-link-sm open-notes-link"
-                  data-cname="${_esc(m.candidate_name || 'Unknown')}"
-                  data-job="${_esc(m.job_title)}"
-                  data-notes="${_esc(m.match_summary)}"
-                  data-bhid="${m.candidate_id || ''}">View full notes</a>`
-            : `<span style="color:rgba(255,255,255,0.2); font-size:0.78rem;">—</span>`;
-
-        const adminCell = IS_ADMIN
-            ? `<td style="text-align:center;">${m.candidate_id
-                ? `<button type="button" class="btn-rescreen" data-candidate-id="${m.candidate_id}" title="Re-screen this candidate"><i class="fas fa-redo-alt"></i> Re-screen</button>`
-                : `<span style="color:rgba(255,255,255,0.15);">—</span>`}</td>`
+        const candLink = g.candidate_id
+            ? `<a class="cand-link" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=${g.candidate_id}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${_esc(g.candidate_name || 'Unknown')}<i class="fas fa-external-link-alt ext-icon"></i></a>`
+            : `<span style="color:rgba(255,255,255,0.6);">${_esc(g.candidate_name || 'Unknown')}</span>`;
+        const rescreenCell = IS_ADMIN
+            ? `<td style="text-align:center;" onclick="event.stopPropagation()">${g.candidate_id
+                ? `<button type="button" class="btn-rescreen" data-candidate-id="${g.candidate_id}" title="Re-screen"><i class="fas fa-redo-alt"></i> Re-screen</button>`
+                : `<span style="color:rgba(255,255,255,0.15);">\u2014</span>`}</td>`
             : '';
 
-        tr.innerHTML = `
-            <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">${_esc(m.created_at_display)}</td>
+        const parentTr = document.createElement('tr');
+        parentTr.className = 'candidate-parent';
+        parentTr.setAttribute('data-search-result', '');
+        parentTr.setAttribute('data-status', status);
+        parentTr.setAttribute('data-week', g.is_week ? 'yes' : 'no');
+        parentTr.setAttribute('data-score', score);
+        parentTr.setAttribute('data-date', g.latest_ts);
+        parentTr.setAttribute('data-candidateid', g.candidate_id || '');
+        parentTr.setAttribute('data-candidatename', (g.candidate_name || '').toLowerCase());
+        parentTr.setAttribute('data-group-key', key);
+        parentTr.setAttribute('onclick', 'toggleCandidateRow(this)');
+        parentTr.innerHTML = `
+            <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">${_esc(g.latest_display)}</td>
             <td>${candLink}</td>
-            <td><a class="sc-link" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id=${m.job_id}" target="_blank" rel="noopener">${_esc(m.job_title)}<i class="fas fa-external-link-alt ext-icon"></i></a></td>
-            <td style="text-align:center;">${techBadge}</td>
+            <td style="text-align:center;">${scoreBadge}</td>
             <td>${statusBadge}</td>
-            <td>${notesCell}</td>
-            ${adminCell}`;
-        tbody.appendChild(tr);
+            <td onclick="event.stopPropagation()"><span class="job-count-chip" onclick="toggleCandidateRow(this.closest('.candidate-parent'))"><i class="fas fa-chevron-right expand-icon"></i>${g.matches.length} job${g.matches.length !== 1 ? 's' : ''}</span></td>
+            ${rescreenCell}`;
+        tbody.appendChild(parentTr);
+
+        g.matches.forEach(m => {
+            const childTr = document.createElement('tr');
+            childTr.className = 'candidate-child';
+            childTr.setAttribute('data-search-result', '');
+            childTr.setAttribute('data-child-of', key);
+            childTr.style.display = 'none';
+            const mScore = m.match_score;
+            const mScoreBadge = (m.is_loc_barrier && m.technical_score !== null)
+                ? `<span class="score-badge score-mid" title="Tech: ${m.technical_score}% \u2192 ${mScore}%">${mScore}%</span>`
+                : mScore >= 80 ? `<span class="score-badge score-high">${mScore}%</span>`
+                : mScore >= 60 ? `<span class="score-badge score-mid">${mScore}%</span>`
+                : mScore > 0 ? `<span class="score-badge score-low">${mScore}%</span>`
+                : `<span class="score-badge score-zero">\u2014</span>`;
+            const mStatusBadge = m.is_qualified
+                ? `<span class="badge rounded-pill st-qualified" style="font-size:0.68rem;">Qualified</span>`
+                : m.is_loc_barrier
+                    ? `<span class="badge rounded-pill st-loc-barrier" style="font-size:0.68rem;">\uD83D\uDCCD Loc Barrier</span>`
+                    : `<span class="badge rounded-pill st-not-rec" style="font-size:0.68rem;">Not Rec</span>`;
+            const notesCell = m.match_summary
+                ? `<div class="notes-snippet" style="max-width:200px;">${_esc(m.match_summary.substring(0, 80))}\u2026</div><a href="javascript:void(0)" class="sc-link sc-link-sm open-notes-link" data-cname="${_esc(g.candidate_name || 'Unknown')}" data-job="${_esc(m.job_title)}" data-notes="${_esc(m.match_summary)}" data-bhid="${g.candidate_id || ''}">View notes</a>`
+                : `<span style="color:rgba(255,255,255,0.2); font-size:0.78rem;">\u2014</span>`;
+            childTr.innerHTML = `
+                <td style="color:rgba(255,255,255,0.3); font-size:0.75rem;">${_esc(m.created_at_display)}</td>
+                <td><a class="sc-link" style="font-size:0.82rem;" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id=${m.job_id}" target="_blank" rel="noopener">${_esc(m.job_title)}<i class="fas fa-external-link-alt ext-icon"></i></a></td>
+                <td style="text-align:center;">${mScoreBadge}</td>
+                <td>${mStatusBadge}</td>
+                <td${IS_ADMIN ? ' colspan="2"' : ''}>${notesCell}</td>`;
+            tbody.appendChild(childTr);
+        });
     });
 
     if (truncated) {
         const note = document.createElement('tr');
         note.setAttribute('data-search-result', '');
-        note.innerHTML = `<td colspan="${COLSPAN}" style="text-align:center; color:rgba(255,255,255,0.3); font-size:0.78rem; padding:0.5rem;">Showing top 500 results — refine your search for more specific results.</td>`;
+        note.innerHTML = `<td colspan="${COLSPAN}" style="text-align:center; color:rgba(255,255,255,0.3); font-size:0.78rem; padding:0.5rem;">Showing top 500 results \u2014 refine your search for more specific results.</td>`;
         tbody.appendChild(note);
     }
 
-    _updateSearchMetrics(results, THRESHOLD, WEEK_MS);
+    const groupsList = groupOrder.map(k => groups[k]);
+    _updateSearchMetrics(groupsList);
+
+    visibleRows = Array.from(tbody.querySelectorAll('tr.candidate-parent[data-search-result]'));
+    currentPage = 1;
+    renderPage();
 }
 
 function _esc(str) {
@@ -948,7 +1063,6 @@ function _esc(str) {
         .replace(/'/g, '&#39;');
 }
 
-// ── Metrics card helpers ──────────────────────────────────────────────────────
 let _originalMetrics = null;
 function _metricEl(cardId) {
     const card = document.getElementById(cardId);
@@ -957,36 +1071,36 @@ function _metricEl(cardId) {
 function _captureOriginalMetrics() {
     const get = id => parseInt((_metricEl(id) || {}).textContent || '0', 10);
     _originalMetrics = {
-        qualified:        get('card-qualified'),
-        pending:          get('card-pending'),
-        not_recommended:  get('card-not-rec'),
+        qualified: get('card-qualified'),
+        pending: get('card-pending'),
+        not_recommended: get('card-not-rec'),
         location_barrier: get('card-loc-barrier'),
-        week:             get('card-week'),
+        week: get('card-week'),
     };
 }
 function _restoreMetricCards() {
     if (!_originalMetrics) return;
     const set = (id, v) => { const el = _metricEl(id); if (el) el.textContent = v; };
-    set('card-qualified',    _originalMetrics.qualified);
-    set('card-pending',      _originalMetrics.pending);
-    set('card-not-rec',      _originalMetrics.not_recommended);
-    set('card-loc-barrier',  _originalMetrics.location_barrier);
-    set('card-week',         _originalMetrics.week);
+    set('card-qualified', _originalMetrics.qualified);
+    set('card-pending', _originalMetrics.pending);
+    set('card-not-rec', _originalMetrics.not_recommended);
+    set('card-loc-barrier', _originalMetrics.location_barrier);
+    set('card-week', _originalMetrics.week);
 }
-function _updateSearchMetrics(results, threshold, weekMs) {
-    let q = 0, p = 0, nr = 0, lb = 0, w = 0;
-    results.forEach(m => {
-        if (m.is_qualified)        q++;
-        else if (m.is_loc_barrier) lb++;
-        else                       nr++;
-        if (m.is_week)             w++;
+function _updateSearchMetrics(groupsList) {
+    let q = 0, nr = 0, lb = 0, w = 0;
+    groupsList.forEach(g => {
+        if (g.has_qualified) q++;
+        else if (g.has_loc_barrier) lb++;
+        else nr++;
+        if (g.is_week) w++;
     });
     const set = (id, v) => { const el = _metricEl(id); if (el) el.textContent = v; };
-    set('card-qualified',   q);
-    set('card-pending',     p);
-    set('card-not-rec',     nr);
+    set('card-qualified', q);
+    set('card-pending', 0);
+    set('card-not-rec', nr);
     set('card-loc-barrier', lb);
-    set('card-week',        w);
+    set('card-week', w);
 }
 
 function applyMinScore() {
@@ -1009,39 +1123,34 @@ function clearMinScore() {
 
 function rebuildVisibleRows() {
     if (searchModeActive) return;
-    const allRows = Array.from(document.querySelectorAll('#tableBody tr[data-original]'));
+    const allParents = Array.from(document.querySelectorAll('#tableBody tr.candidate-parent[data-original]'));
     const filterEmpty = document.getElementById('filterEmptyState');
-    const cards = {
-        qualified:        document.getElementById('card-qualified'),
-        pending:          document.getElementById('card-pending'),
-        not_recommended:  document.getElementById('card-not-rec'),
-        location_barrier: document.getElementById('card-loc-barrier'),
-        week:             document.getElementById('card-week'),
-    };
 
     const matched = [];
-    allRows.forEach(row => {
+    allParents.forEach(row => {
         const status = row.dataset.status;
         const isWeek = row.dataset.week === 'yes';
-        const score  = parseInt(row.dataset.score || '0', 10);
+        const score = parseInt(row.dataset.score || '0', 10);
 
         let show = true;
         if (activeFilter !== null) {
-            show = (activeFilter === 'qualified'        && status === 'qualified')
-                || (activeFilter === 'pending'          && status === 'pending')
-                || (activeFilter === 'not_recommended'  && status === 'not_recommended')
+            show = (activeFilter === 'qualified' && status === 'qualified')
+                || (activeFilter === 'pending' && status === 'pending')
+                || (activeFilter === 'not_recommended' && status === 'not_recommended')
                 || (activeFilter === 'location_barrier' && status === 'location_barrier')
-                || (activeFilter === 'week'             && isWeek);
+                || (activeFilter === 'week' && isWeek);
         }
         if (show && activeMinScore !== null) {
             show = score >= activeMinScore;
         }
         if (show && activeCandidateSearch !== '') {
-            const cname = (row.dataset.candidatename || '').toLowerCase();
-            const cid   = String(row.dataset.candidateid || '').toLowerCase();
+            const cname = (row.dataset.candidatename || '');
+            const cid = String(row.dataset.candidateid || '').toLowerCase();
             show = cname.includes(activeCandidateSearch) || cid.includes(activeCandidateSearch);
         }
         row.style.display = show ? '' : 'none';
+        const children = _getChildRows(row);
+        children.forEach(c => { c.style.display = (show && row.classList.contains('expanded')) ? '' : 'none'; });
         if (show) matched.push(row);
     });
 
@@ -1051,18 +1160,16 @@ function rebuildVisibleRows() {
     renderPage();
 }
 
-// ── Filter ───────────────────────────────────────────────────────────────────
 let activeFilter = null;
 
 function filterMatches(filter) {
     const cards = {
-        qualified:        document.getElementById('card-qualified'),
-        pending:          document.getElementById('card-pending'),
-        not_recommended:  document.getElementById('card-not-rec'),
+        qualified: document.getElementById('card-qualified'),
+        pending: document.getElementById('card-pending'),
+        not_recommended: document.getElementById('card-not-rec'),
         location_barrier: document.getElementById('card-loc-barrier'),
-        week:             document.getElementById('card-week'),
+        week: document.getElementById('card-week'),
     };
-
     if (activeFilter === filter) {
         activeFilter = null;
         Object.values(cards).forEach(c => c && c.classList.remove('active'));
@@ -1071,37 +1178,22 @@ function filterMatches(filter) {
         Object.values(cards).forEach(c => c && c.classList.remove('active'));
         if (cards[filter]) cards[filter].classList.add('active');
     }
-
     rebuildVisibleRows();
 }
 
-// ── Event delegation — notes + configure links ────────────────────────────────
 document.addEventListener('click', function (e) {
     const notesLink = e.target.closest('.open-notes-link');
     if (notesLink) {
         e.preventDefault();
-        openNotesModal(
-            notesLink.dataset.cname,
-            notesLink.dataset.job,
-            notesLink.dataset.notes,
-            notesLink.dataset.bhid
-        );
+        openNotesModal(notesLink.dataset.cname, notesLink.dataset.job, notesLink.dataset.notes, notesLink.dataset.bhid);
         return;
     }
-
     const configLink = e.target.closest('.open-config-link');
     if (configLink) {
         e.preventDefault();
-        openOverrideModal(
-            configLink.dataset.jobId,
-            configLink.dataset.jobTitle,
-            configLink.dataset.aiReq,
-            configLink.dataset.custom,
-            configLink.dataset.threshold
-        );
+        openOverrideModal(configLink.dataset.jobId, configLink.dataset.jobTitle, configLink.dataset.aiReq, configLink.dataset.custom, configLink.dataset.threshold);
         return;
     }
-
     const rescreenBtn = e.target.closest('.btn-rescreen');
     if (rescreenBtn && !rescreenBtn.disabled) {
         e.preventDefault();
@@ -1109,19 +1201,17 @@ document.addEventListener('click', function (e) {
     }
 });
 
-// ── Override modal ────────────────────────────────────────────────────────────
 let currentModalJobId = null;
 
 function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
     currentModalJobId = jobId;
-    const form     = document.getElementById('overrideModalForm');
+    const form = document.getElementById('overrideModalForm');
     const subtitle = document.getElementById('modalJobSubtitle');
-    const aiBox    = document.getElementById('modalAiReq');
+    const aiBox = document.getElementById('modalAiReq');
     const textarea = document.getElementById('modalOverrideText');
-    const thInput  = document.getElementById('modalThreshold');
-
+    const thInput = document.getElementById('modalThreshold');
     form.action = '/scout-screening/job/' + jobId + '/save';
-    if (subtitle) subtitle.textContent = (jobTitle || '') + '  ·  ID: ' + jobId;
+    if (subtitle) subtitle.textContent = (jobTitle || '') + '  \u00B7  ID: ' + jobId;
     if (aiBox) {
         const hasReq = aiReq && aiReq.trim();
         aiBox.textContent = hasReq ? aiReq.replace(/\.\. /g, '\n')
@@ -1130,72 +1220,64 @@ function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
         aiBox.style.fontStyle = hasReq ? '' : 'italic';
     }
     if (textarea) textarea.value = customOverride || '';
-    if (thInput)  thInput.value  = threshold || '';
+    if (thInput) thInput.value = threshold || '';
     const statusEl = document.getElementById('optimizeStatus');
     if (statusEl) { statusEl.style.display = 'none'; statusEl.innerHTML = ''; }
     new bootstrap.Modal(document.getElementById('overrideModal')).show();
 }
 
-// ── Optimize requirements ─────────────────────────────────────────────────────
 document.getElementById('optimizeReqBtn').addEventListener('click', function () {
     const textarea = document.getElementById('modalOverrideText');
-    const status   = document.getElementById('optimizeStatus');
-    const btn      = this;
-    const raw      = (textarea.value || '').trim();
-
+    const status = document.getElementById('optimizeStatus');
+    const btn = this;
+    const raw = (textarea.value || '').trim();
     if (!raw) {
         status.style.display = '';
-        status.style.color   = 'rgba(255,180,0,0.85)';
-        status.innerHTML     = '<i class="fas fa-exclamation-triangle me-1"></i>Enter requirements first.';
+        status.style.color = 'rgba(255,180,0,0.85)';
+        status.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Enter requirements first.';
         return;
     }
-
-    btn.disabled    = true;
-    btn.innerHTML   = '<i class="fas fa-spinner fa-spin me-1"></i>Optimizing…';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Optimizing\u2026';
     status.style.display = '';
-    status.style.color   = 'rgba(255,255,255,0.35)';
-    status.innerHTML     = '<i class="fas fa-spinner fa-spin me-1"></i>Analyzing and rewriting…';
-
+    status.style.color = 'rgba(255,255,255,0.35)';
+    status.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Analyzing and rewriting\u2026';
     const csrfToken = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
-
     fetch('/scout-screening/job/' + currentModalJobId + '/optimize-requirements', {
-        method:  'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
-        body:    JSON.stringify({custom_requirements: raw})
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ custom_requirements: raw })
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {
         if (data.success) {
-            textarea.value             = data.optimized;
-            textarea.style.transition  = 'border-color 0.3s';
+            textarea.value = data.optimized;
+            textarea.style.transition = 'border-color 0.3s';
             textarea.style.borderColor = 'rgba(74,222,128,0.6)';
             setTimeout(function () { textarea.style.borderColor = 'rgba(155,127,212,0.22)'; }, 1800);
             status.style.color = 'rgba(74,222,128,0.75)';
-            status.innerHTML   = '<i class="fas fa-check me-1"></i>Optimized — review and save when ready.';
+            status.innerHTML = '<i class="fas fa-check me-1"></i>Optimized \u2014 review and save when ready.';
         } else {
             status.style.color = 'rgba(255,100,100,0.8)';
-            status.innerHTML   = '<i class="fas fa-exclamation-circle me-1"></i>' + (data.error || 'Optimization failed.');
+            status.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + (data.error || 'Optimization failed.');
         }
     })
     .catch(function () {
         status.style.color = 'rgba(255,100,100,0.8)';
-        status.innerHTML   = '<i class="fas fa-exclamation-circle me-1"></i>Request failed — please try again.';
+        status.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Request failed \u2014 please try again.';
     })
     .finally(function () {
-        btn.disabled  = false;
+        btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-wand-magic-sparkles me-1"></i>Optimize with AI';
     });
 });
 
-// ── Re-screen handler ─────────────────────────────────────────────────────────
 function triggerRescreen(btn) {
     var candidateId = btn.dataset.candidateId;
     if (!candidateId) return;
-
     btn.disabled = true;
     var origHtml = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
     fetch('/screening/revet-candidate/' + candidateId, {
         method: 'POST',
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
@@ -1209,32 +1291,22 @@ function triggerRescreen(btn) {
             btn.innerHTML = '<i class="fas fa-times me-1"></i>Error';
             btn.classList.add('rescreen-error');
             btn.title = result.data.error || 'Re-screen failed';
-            setTimeout(function () {
-                btn.innerHTML = origHtml;
-                btn.classList.remove('rescreen-error');
-                btn.disabled = false;
-            }, 3000);
+            setTimeout(function () { btn.innerHTML = origHtml; btn.classList.remove('rescreen-error'); btn.disabled = false; }, 3000);
         }
     })
     .catch(function () {
         btn.innerHTML = '<i class="fas fa-times me-1"></i>Error';
         btn.classList.add('rescreen-error');
-        setTimeout(function () {
-            btn.innerHTML = origHtml;
-            btn.classList.remove('rescreen-error');
-            btn.disabled = false;
-        }, 3000);
+        setTimeout(function () { btn.innerHTML = origHtml; btn.classList.remove('rescreen-error'); btn.disabled = false; }, 3000);
     });
 }
 
-// ── Notes modal ───────────────────────────────────────────────────────────────
 function openNotesModal(candidateName, jobTitle, notes, bullhornId) {
     const subtitle = document.getElementById('notesModalSubtitle');
     const notesBox = document.getElementById('notesFullText');
-    const bhLink   = document.getElementById('notesBullhornLink');
-
-    if (subtitle) subtitle.textContent = (candidateName || '') + '  ·  ' + (jobTitle || '');
-    if (notesBox) notesBox.textContent = notes || '—';
+    const bhLink = document.getElementById('notesBullhornLink');
+    if (subtitle) subtitle.textContent = (candidateName || '') + '  \u00B7  ' + (jobTitle || '');
+    if (notesBox) notesBox.textContent = notes || '\u2014';
     if (bhLink) {
         bhLink.style.display = bullhornId ? '' : 'none';
         if (bullhornId) bhLink.href = 'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=' + bullhornId;
@@ -1242,22 +1314,20 @@ function openNotesModal(candidateName, jobTitle, notes, bullhornId) {
     new bootstrap.Modal(document.getElementById('notesModal')).show();
 }
 
-// ── Threshold auto-save ───────────────────────────────────────────────────────
 function showThresholdFeedback(jobId, success) {
     const fb = document.getElementById('tfb-' + jobId);
     if (!fb) return;
-    fb.textContent = success ? '✓ Saved' : '✗ Error';
-    fb.className   = 'threshold-feedback ' + (success ? 'saved' : 'error');
-    void fb.offsetWidth; // reflow
+    fb.textContent = success ? '\u2713 Saved' : '\u2717 Error';
+    fb.className = 'threshold-feedback ' + (success ? 'saved' : 'error');
+    void fb.offsetWidth;
     fb.classList.add('visible');
     setTimeout(() => { fb.classList.remove('visible'); }, 2000);
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Restore section expand/collapse state from sessionStorage
     (function () {
         var sections = {
-            candidates:  { content: 'candidatesCollapse',  chevron: 'candidatesChevron' },
+            candidates: { content: 'candidatesCollapse', chevron: 'candidatesChevron' },
             jobSettings: { content: 'jobSettingsCollapse', chevron: 'jobSettingsChevron' }
         };
         Object.keys(sections).forEach(function (name) {
@@ -1272,36 +1342,27 @@ document.addEventListener('DOMContentLoaded', function () {
             } catch (e) {}
         });
     }());
-
-    // Capture original metric counts before any filtering
     _captureOriginalMetrics();
-
-    // Pagination init (only original rows — not search result rows)
-    visibleRows = Array.from(document.querySelectorAll('#tableBody tr[data-original]'));
+    visibleRows = Array.from(document.querySelectorAll('#tableBody tr.candidate-parent[data-original]'));
     renderPage();
-
-    // Auto-save threshold on blur
     document.querySelectorAll('.auto-save-threshold').forEach(function (input) {
         let originalValue = input.value;
         input.addEventListener('focus', function () { originalValue = this.value; });
         input.addEventListener('blur', function () {
-            const jobId  = this.dataset.jobId;
+            const jobId = this.dataset.jobId;
             const newVal = this.value.trim();
-            if (newVal === originalValue) return; // no change
-
+            if (newVal === originalValue) return;
             const num = parseInt(newVal, 10);
             if (newVal !== '' && (isNaN(num) || num < 50 || num > 100)) {
                 showThresholdFeedback(jobId, false);
                 this.value = originalValue;
                 return;
             }
-
             const fd = new FormData();
-            fd.append('csrf_token',         this.dataset.csrf);
-            fd.append('vetting_threshold',  newVal);
+            fd.append('csrf_token', this.dataset.csrf);
+            fd.append('vetting_threshold', newVal);
             fd.append('custom_requirements', (document.getElementById('hiddenOverride-' + jobId) || {}).value || '');
-            fd.append('_ajax',              '1');
-
+            fd.append('_ajax', '1');
             fetch(this.dataset.saveUrl, { method: 'POST', body: fd })
                 .then(r => {
                     if (r.ok) { originalValue = newVal; showThresholdFeedback(jobId, true); }
@@ -1313,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 var SCREENING_SECTIONS = {
-    candidates:  { content: 'candidatesCollapse',  chevron: 'candidatesChevron' },
+    candidates: { content: 'candidatesCollapse', chevron: 'candidatesChevron' },
     jobSettings: { content: 'jobSettingsCollapse', chevron: 'jobSettingsChevron' }
 };
 
@@ -1358,40 +1419,32 @@ function toggleSection(name) {
 (function () {
     let reloadTimer = null;
     let pendingReload = false;
-
     function hasExpandedContent() {
         return Object.keys(SCREENING_SECTIONS).some(function (name) {
             var el = document.getElementById(SCREENING_SECTIONS[name].content);
             return el && el.style.display !== 'none';
         }) || !!document.querySelector('.modal.show');
     }
-
     function safeReload() {
         fetch(window.location.href, { redirect: 'manual' })
-            .then(function(resp) {
+            .then(function (resp) {
                 if (resp.type === 'opaqueredirect' || (resp.status >= 300 && resp.status < 400)) return;
                 saveAndReloadScreening();
             })
-            .catch(function() {});
+            .catch(function () {});
     }
-
     function startTimer() {
         clearTimeout(reloadTimer);
         reloadTimer = setTimeout(() => {
-            if (hasExpandedContent()) {
-                pendingReload = true;
-            } else {
-                safeReload();
-            }
+            if (hasExpandedContent()) { pendingReload = true; }
+            else { safeReload(); }
         }, 60000);
     }
-
     document.querySelectorAll('.modal').forEach(function (modal) {
         modal.addEventListener('hidden.bs.modal', function () {
             if (pendingReload && !hasExpandedContent()) safeReload();
         });
     });
-
     startTimer();
 }());
 </script>

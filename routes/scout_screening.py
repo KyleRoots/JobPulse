@@ -9,6 +9,7 @@ Provides a focused single-page view for scout_screening users showing:
 
 import json
 import logging
+from collections import OrderedDict
 from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, current_app
@@ -121,7 +122,7 @@ def _get_user_jobs_with_meta():
 @scout_screening_bp.route('/scout-screening')
 @login_required
 def dashboard():
-    """Scout Screening Portal — AI match results scoped to the user's jobs."""
+    """Scout Screening Portal — AI match results grouped by candidate."""
     from models import CandidateJobMatch, CandidateVettingLog, JobVettingRequirements, VettingConfig
 
     job_ids = _get_user_job_ids()
@@ -130,7 +131,7 @@ def dashboard():
     week_ago = datetime.utcnow() - timedelta(days=7)
 
     if job_ids:
-        matches = (
+        all_matches = (
             CandidateJobMatch.query
             .join(CandidateVettingLog)
             .filter(
@@ -138,7 +139,7 @@ def dashboard():
                 CandidateVettingLog.is_sandbox != True
             )
             .order_by(CandidateJobMatch.created_at.desc())
-            .limit(200)
+            .limit(2000)
             .all()
         )
         pending_logs = (
@@ -153,32 +154,72 @@ def dashboard():
             .all()
         )
     else:
-        matches = []
+        all_matches = []
         pending_logs = []
 
     global_threshold = int(VettingConfig.get_value('match_threshold', '80') or 80)
-    qualified = [m for m in matches if m.is_qualified]
-    location_barrier = [
-        m for m in matches
-        if not m.is_qualified
-        and 'location mismatch' in (m.gaps_identified or '').lower()
-        and (m.technical_score or m.match_score) >= (global_threshold - 15)
-    ]
-    location_barrier_ids = set(id(m) for m in location_barrier)
-    not_recommended = [
-        m for m in matches
-        if not m.is_qualified
-        and m.match_score > 0
-        and id(m) not in location_barrier_ids
-    ]
-    screened_this_week = [m for m in matches if m.created_at and m.created_at >= week_ago]
+
+    def _is_loc_barrier(m):
+        return (
+            not m.is_qualified
+            and 'location mismatch' in (m.gaps_identified or '').lower()
+            and (m.technical_score or m.match_score or 0) >= (global_threshold - 15)
+        )
+
+    candidate_groups = OrderedDict()
+    for m in all_matches:
+        cand_id = m.vetting_log.bullhorn_candidate_id if m.vetting_log else None
+        key = cand_id or f'unknown_{m.id}'
+        loc_barrier = _is_loc_barrier(m)
+        is_week = bool(m.created_at and m.created_at >= week_ago)
+
+        if key not in candidate_groups:
+            candidate_groups[key] = {
+                'candidate_id': cand_id,
+                'candidate_name': m.vetting_log.candidate_name if m.vetting_log else 'Unknown',
+                'latest_date': m.created_at,
+                'best_score': int(round(m.match_score or 0)),
+                'has_qualified': bool(m.is_qualified),
+                'has_loc_barrier': loc_barrier,
+                'is_week': is_week,
+                'matches': [m],
+            }
+        else:
+            g = candidate_groups[key]
+            g['matches'].append(m)
+            if m.created_at and (not g['latest_date'] or m.created_at > g['latest_date']):
+                g['latest_date'] = m.created_at
+            score = int(round(m.match_score or 0))
+            if score > g['best_score']:
+                g['best_score'] = score
+            if m.is_qualified:
+                g['has_qualified'] = True
+            if loc_barrier:
+                g['has_loc_barrier'] = True
+            if is_week:
+                g['is_week'] = True
+
+    groups_list = list(candidate_groups.values())[:200]
+
+    for g in groups_list:
+        if g['has_qualified']:
+            g['overall_status'] = 'qualified'
+        elif g['has_loc_barrier']:
+            g['overall_status'] = 'location_barrier'
+        elif g['best_score'] > 0:
+            g['overall_status'] = 'not_recommended'
+        else:
+            g['overall_status'] = 'pending'
+        g['job_count'] = len(g['matches'])
+        for m in g['matches']:
+            m._is_loc_barrier = _is_loc_barrier(m)
 
     metrics = {
-        'qualified': len(qualified),
+        'qualified': sum(1 for g in groups_list if g['has_qualified']),
         'pending': len(pending_logs),
-        'not_recommended': len(not_recommended),
-        'location_barrier': len(location_barrier),
-        'screened_this_week': len(screened_this_week),
+        'not_recommended': sum(1 for g in groups_list if not g['has_qualified'] and not g['has_loc_barrier'] and g['best_score'] > 0),
+        'location_barrier': sum(1 for g in groups_list if not g['has_qualified'] and g['has_loc_barrier']),
+        'screened_this_week': sum(1 for g in groups_list if g['is_week']),
     }
 
     job_requirements = {}
@@ -190,7 +231,7 @@ def dashboard():
 
     return render_template(
         'scout_screening.html',
-        matches=matches,
+        candidate_groups=groups_list,
         pending_logs=pending_logs,
         metrics=metrics,
         jobs_map=jobs_map,
