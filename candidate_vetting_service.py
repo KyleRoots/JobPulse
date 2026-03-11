@@ -2157,7 +2157,13 @@ INTERNATIONAL/OFFSHORE OVERRIDE:
 - If the job description explicitly mentions international eligibility, offshore work, or specific non-job-address countries/regions (e.g., "open to candidates in Egypt or Spain", "100% Remote, international OK", "offshore resources welcome", "candidates in [Country] welcome"), then the same-country rule above does NOT apply.
 - In this case, match the candidate's country against the countries/regions listed IN THE JOB DESCRIPTION, not the Bullhorn job address field.
 - If the candidate is located in one of the explicitly allowed countries/regions from the description, there is NO location mismatch — do not penalize their score.
-- Example: Job address says "United States" but description says "Must be located in Egypt or Spain" → a candidate in Cairo, Egypt or Madrid, Spain has NO location mismatch."""
+- Example: Job address says "United States" but description says "Must be located in Egypt or Spain" → a candidate in Cairo, Egypt or Madrid, Spain has NO location mismatch.
+
+MANDATORY SELF-CONSISTENCY CHECK (Remote Positions — perform this BEFORE returning your response):
+Before finalising your output, re-read the candidate location you extracted and the job country (or the explicitly allowed countries from the INTERNATIONAL/OFFSHORE OVERRIDE if that rule applies), then verify:
+1. If the candidate IS in the same country as the job, OR qualifies under the international/offshore override → your gaps_identified MUST NOT contain "Location mismatch: different country". If it does, REMOVE that phrase and restore the 25-35 points that were deducted. Do NOT return a contradictory response.
+2. If the candidate IS NOT in the same country (and no international/offshore override applies) → "Location mismatch: different country" MUST appear in gaps_identified and the score MUST be capped at 75. Verify the deduction was actually applied.
+This self-check exists because prior AI responses have simultaneously stated "candidate meets the location requirement" AND applied a -25 location penalty — an internal contradiction that must never appear in your output."""
             else:  # On-site or Hybrid
                 location_instruction = f"""
 LOCATION REQUIREMENT ({work_type} Position):

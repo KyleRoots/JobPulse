@@ -349,6 +349,73 @@ class VettingAuditService:
                         )
                     })
 
+        if 'location mismatch: different country' in gaps:
+            try:
+                from models import JobVettingRequirements
+                job_req = JobVettingRequirements.query.filter_by(
+                    bullhorn_job_id=job_match.bullhorn_job_id
+                ).first()
+                if job_req and (job_req.job_work_type or '').strip().lower() == 'remote':
+                    raw_location = (job_req.job_location or '').strip()
+                    job_country = raw_location.lower()
+                    if ',' in job_country:
+                        job_country = job_country.split(',')[-1].strip()
+
+                    summary_lower = (job_match.match_summary or '').lower()
+                    resume_header = (vetting_log.resume_text or '')[:600].lower()
+
+                    same_country_signals = []
+
+                    positive_location_phrases = [
+                        'meeting the location requirement',
+                        'meets the location requirement',
+                        'satisfies the location requirement',
+                        'meets the remote location',
+                        'eligible for remote work in',
+                        'qualifies for the remote',
+                    ]
+                    for phrase in positive_location_phrases:
+                        if phrase in summary_lower:
+                            same_country_signals.append(f"summary says \"{phrase}\"")
+                            break
+
+                    if job_country:
+                        affirmative_country_patterns = [
+                            f"based in {job_country}",
+                            f"located in {job_country}",
+                            f"residing in {job_country}",
+                            f"candidate is in {job_country}",
+                            f"candidate is located in {job_country}",
+                        ]
+                        for pattern in affirmative_country_patterns:
+                            if pattern in summary_lower:
+                                same_country_signals.append(
+                                    f"summary explicitly places candidate in '{job_country}' ({pattern!r})"
+                                )
+                                break
+
+                        resume_first_line = resume_header.split('\n')[0] if '\n' in resume_header else resume_header[:120]
+                        if f", {job_country}" in resume_first_line or resume_first_line.endswith(job_country):
+                            same_country_signals.append(
+                                f"resume first line contains '{job_country}' in location position"
+                            )
+
+                    if same_country_signals:
+                        tech_display = f"{job_match.technical_score:.0f}%" if job_match.technical_score is not None else "N/A"
+                        final_display = f"{job_match.match_score:.0f}%" if job_match.match_score is not None else "N/A"
+                        issues.append({
+                            'check_type': 'remote_location_misfire',
+                            'description': (
+                                f"Job {job_match.bullhorn_job_id} is Remote (location: {raw_location}). "
+                                f"Gaps contain 'location mismatch: different country' but evidence suggests "
+                                f"candidate is in the same country — {'; '.join(same_country_signals)}. "
+                                f"Technical: {tech_display}, Final: {final_display}. "
+                                f"Likely a location penalty misfire on a remote role."
+                            )
+                        })
+            except Exception as _loc_err:
+                logging.debug(f"remote_location_misfire check error: {_loc_err}")
+
         years_json_str2 = job_match.years_analysis_json
         if years_json_str2:
             try:
