@@ -376,7 +376,7 @@ class VettingAuditService:
         if 'employment gap' in gaps:
             resume_header = ''
             if vetting_log.resume_text:
-                resume_header = vetting_log.resume_text[:800].lower()
+                resume_header = vetting_log.resume_text[:2500].lower()
             employment_current_indicators = ['present', 'current', 'ongoing', 'to date', 'till date']
             if resume_header and any(indicator in resume_header for indicator in employment_current_indicators):
                 issues.append({
