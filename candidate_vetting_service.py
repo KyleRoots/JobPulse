@@ -2288,6 +2288,24 @@ CRITICAL RULES:
       specific platform names appear in older roles.
     - Report your finding in the recency_analysis JSON section.
 
+15. EMPLOYMENT CONTINUITY: Check whether the candidate is currently employed by looking at
+    the end date of their most recent role (any role, regardless of relevance).
+    - "Currently employed" means the most recent role has an end date of "Present", "Current",
+      "Now", or a date within the last 12 months of today's date (provided at the top of this prompt).
+    - If currently employed OR last role ended less than 12 months ago: NO penalty.
+    - If last role ended 12–23 months ago: reduce technical_score by 8 points.
+      Add to gaps_identified: "Employment gap: candidate last employed [Mon YYYY] ([N] months ago)."
+    - If last role ended 24–35 months ago: reduce technical_score by 12 points.
+      Add to gaps_identified: "Employment gap: candidate last employed [Mon YYYY] ([N] months ago)."
+    - If last role ended 36+ months ago: reduce technical_score by 15 points.
+      Add to gaps_identified: "Employment gap: candidate last employed [Mon YYYY] ([N] months ago)."
+    - If no employment dates are found anywhere on the resume (dates entirely absent):
+      DO NOT apply any score penalty. Add to gaps_identified:
+      "Employment continuity unknown: no employment dates found on resume — recruiter should verify current employment status."
+    - Contract, freelance, self-employed, and part-time roles count as employed — treat an
+      active end date of "present/current" in any of these as currently employed.
+    - Report your finding in the employment_gap_analysis JSON section.
+
 REQUIREMENTS EVALUATION (when no custom requirements are provided):
 IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job description:
 - Required skills (often marked as "required", "must have", "essential")
@@ -2462,6 +2480,13 @@ Respond in JSON format with these exact fields:
         "months_since_relevant_work": 0,
         "penalty_applied": 0,
         "reasoning": "<brief explanation of why roles are or are not relevant>"
+    }},
+    "employment_gap_analysis": {{
+        "is_currently_employed": true,
+        "last_role_end_date": "<\'present\' | \'YYYY-MM\' | \'unknown\' if no dates on resume>",
+        "gap_months": 0,
+        "penalty_applied": 0,
+        "note": "<e.g. \'Currently employed — no penalty\' | \'Gap of 14 months — penalty -8pts\' | \'No employment dates found — soft note only\'>"
     }},
     "experience_level_classification": {{
         "classification": "<FRESH_GRAD | ENTRY | MID | SENIOR>",
@@ -2780,7 +2805,96 @@ CRITICAL SCORING RULES:
                             result['gaps_identified'] = f"{existing_gaps} | {recency_note}"
                         else:
                             result['gaps_identified'] = recency_note
-            
+
+            # ── POST-PROCESSING: Employment gap gate ──────────────────────────────────────────────
+            # Validates and enforces the employment continuity penalty from rule 15 of the prompt.
+            # Tiers: 12-23 months → -8pts, 24-35 months → -12pts, 36+ months → -15pts.
+            # No-dates case: no penalty but appends a soft recruiter note to gaps_identified.
+            from datetime import date as _egdate
+            _eg_today = _egdate.today()
+            gap_analysis = result.get('employment_gap_analysis', {})
+            if isinstance(gap_analysis, dict) and gap_analysis:
+                last_end = str(gap_analysis.get('last_role_end_date', '') or '').strip().lower()
+                ai_gap_months = 0
+                try:
+                    ai_gap_months = int(gap_analysis.get('gap_months', 0) or 0)
+                except (ValueError, TypeError):
+                    pass
+
+                if last_end in ('unknown', '', 'none'):
+                    # No employment dates on resume — soft note only, no score change
+                    soft_note = "Employment continuity unknown: no employment dates found on resume — recruiter should verify current employment status."
+                    existing_gaps = result.get('gaps_identified', '') or ''
+                    if soft_note.lower() not in existing_gaps.lower():
+                        result['gaps_identified'] = f"{existing_gaps} | {soft_note}" if existing_gaps else soft_note
+                    logging.info(
+                        f"📋 Employment gap: no dates on resume for candidate "
+                        f"(job {job_id}) — soft note added, no penalty applied"
+                    )
+
+                elif last_end not in ('present', 'current', 'now', 'ongoing'):
+                    # Parse end date and compute authoritative gap_months from Python's date
+                    py_gap_months = 0
+                    try:
+                        import re as _eg_re
+                        _m = _eg_re.search(r'(\d{4})[^\d](\d{1,2})', last_end)
+                        if _m:
+                            end_year, end_month = int(_m.group(1)), int(_m.group(2))
+                            py_gap_months = (
+                                (_eg_today.year - end_year) * 12
+                                + (_eg_today.month - end_month)
+                            )
+                        elif _eg_re.match(r'^\d{4}$', last_end):
+                            # Year-only end date (e.g. "2023")
+                            end_year = int(last_end)
+                            py_gap_months = (_eg_today.year - end_year) * 12 + _eg_today.month
+                    except Exception:
+                        py_gap_months = ai_gap_months  # fall back to AI value
+
+                    # Use the larger of AI vs Python calculation (AI may be more precise
+                    # with day-level dates; Python calc catches AI under-reporting)
+                    gap_months = max(py_gap_months, ai_gap_months)
+
+                    # Determine penalty tier
+                    if gap_months >= 36:
+                        required_penalty = 15
+                    elif gap_months >= 24:
+                        required_penalty = 12
+                    elif gap_months >= 12:
+                        required_penalty = 8
+                    else:
+                        required_penalty = 0
+
+                    if required_penalty > 0:
+                        # Check whether AI already applied an adequate penalty
+                        ai_penalty_applied = int(gap_analysis.get('penalty_applied', 0) or 0)
+                        shortfall = required_penalty - ai_penalty_applied
+
+                        eg_original_score = result.get('technical_score') or result['match_score']
+                        if shortfall > 0:
+                            # AI under-applied (or skipped) the penalty — enforce it
+                            new_technical = max(0, (result.get('technical_score') or result['match_score']) - shortfall)
+                            if result.get('technical_score') is not None:
+                                result['technical_score'] = new_technical
+                            result['match_score'] = max(0, result['match_score'] - shortfall)
+                            logging.info(
+                                f"📉 Employment gap gate: enforced additional -{shortfall}pts "
+                                f"(total penalty -{required_penalty}pts) for job {job_id} "
+                                f"(gap={gap_months}mo, AI applied={ai_penalty_applied}pts, "
+                                f"score {eg_original_score}→{result['match_score']})"
+                            )
+                        else:
+                            logging.info(
+                                f"✅ Employment gap gate: AI correctly applied -{ai_penalty_applied}pts "
+                                f"for job {job_id} (gap={gap_months}mo)"
+                            )
+
+                        # Ensure gap note is in gaps_identified
+                        gap_note = f"Employment gap: candidate last employed {last_end} ({gap_months} months ago)."
+                        existing_gaps = result.get('gaps_identified', '') or ''
+                        if 'employment gap' not in existing_gaps.lower():
+                            result['gaps_identified'] = f"{existing_gaps} | {gap_note}" if existing_gaps else gap_note
+
             # ── POST-PROCESSING: Experience floor gate (defense-in-depth for fresh-grad profiles) ──
             # Detects candidates with FRESH_GRAD/ENTRY classification matched against roles
             # requiring 3+ years, and caps the score. Also cross-checks the AI's years_analysis
