@@ -176,6 +176,33 @@ class CandidateVettingService:
             logging.error(f"Error getting global custom requirements: {str(e)}")
             return None
     
+    @staticmethod
+    def _has_employment_dates(resume_text: str) -> bool:
+        """Return True if the resume contains credible employment date references.
+
+        Looks for year ranges, month/year combos, or relative phrases that indicate
+        when the candidate held each role.  A single match is enough — we only want
+        to penalise resumes that have *no* dates at all.
+        """
+        import re
+        if not resume_text:
+            return False
+        text = resume_text[:20000]
+        patterns = [
+            r'\b(19|20)\d{2}\s*[-–—to]+\s*((19|20)\d{2}|[Pp]resent|[Cc]urrent|[Nn]ow)\b',
+            r'\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
+            r'Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|'
+            r'Dec(?:ember)?)[,\s]+((19|20)\d{2})\b',
+            r'\b(0?[1-9]|1[0-2])\s*/\s*(19|20)\d{2}\b',
+            r'\b[Ss]ince\s+(19|20)\d{2}\b',
+            r'\b[Ff]rom\s+(19|20)\d{2}\b',
+            r'\b(19|20)\d{2}\s*[-–—]\s*(19|20)\d{2}\b',
+        ]
+        for pattern in patterns:
+            if re.search(pattern, text):
+                return True
+        return False
+
     def _recheck_years_calculation(self, resume_text: str, original_years_analysis: dict,
                                     job_id: int, job_title: str) -> Optional[dict]:
         """Re-check years-of-experience calculation when a >2yr shortfall is detected.
@@ -2477,6 +2504,7 @@ Before scoring, classify the candidate\'s experience level based on their PROFES
 - SENIOR: 6+ years of professional experience.
 total_professional_years counts ONLY paid, non-intern, non-academic roles. Internships count at 50% weight.
 highest_role_type reflects the most senior type of role held (PROFESSIONAL_FULLTIME > PROFESSIONAL_CONTRACT > INTERNSHIP_ONLY > ACADEMIC_ONLY).
+IMPORTANT — MISSING EMPLOYMENT DATES: If the resume contains NO date ranges or month/year references for any role (i.e. you cannot apply the duration formula because start/end dates are simply absent), set total_professional_years to a conservative low estimate (default 2.0) rather than a high value. Only set total_professional_years above 5.0 if explicit date ranges are present that support that calculation. Do NOT infer seniority from job titles alone when dates are absent.
 
 SCORING GUIDELINES:
 - 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, location matches, meets or exceeds ALL required years of experience per skill, AND has practiced relevant skills in a recent role (within last 12 months)
@@ -2895,6 +2923,49 @@ CRITICAL SCORING RULES:
                             result['gaps_identified'] = f"{existing_gaps} | {floor_gap}"
                         else:
                             result['gaps_identified'] = floor_gap
+
+                # ── Gate 4: Unverifiable experience (no employment dates in resume) ──
+                # When a resume contains no date references, the AI cannot calculate
+                # actual years of experience and the pipeline defaults to professional_years=99
+                # (safe default).  If the job has explicit year requirements, that assumption
+                # is unsafe — penalise to keep the candidate below the 80% qualified threshold.
+                dates_present = self._has_employment_dates(resume_text)
+                if not dates_present:
+                    # Find the highest required_years across all mandatory skills
+                    max_required = 0.0
+                    if isinstance(years_analysis, dict):
+                        for _skill, _data in years_analysis.items():
+                            if isinstance(_data, dict):
+                                _req = float(_data.get('required_years', 0))
+                                if _req > max_required:
+                                    max_required = _req
+
+                    if max_required >= 2.0:
+                        # Severity tiers: 5+ years → cap 65, 2-4 years → cap 70
+                        cap = 65 if max_required >= 5.0 else 70
+                        gate4_original = result['match_score']
+                        if gate4_original > cap:
+                            result['match_score'] = cap
+                            logging.info(
+                                f"📅 Gate 4 (no dates): capped {gate4_original}→{cap} "
+                                f"for job {job_id} (max_required={max_required:.0f}yr, "
+                                f"no employment dates found in resume)"
+                            )
+                        date_gap = (
+                            "Employment dates absent — years of experience cannot be "
+                            "verified for this role."
+                        )
+                        existing_gaps = result.get('gaps_identified', '') or ''
+                        if 'employment dates absent' not in existing_gaps.lower():
+                            if existing_gaps:
+                                result['gaps_identified'] = f"{existing_gaps} | {date_gap}"
+                            else:
+                                result['gaps_identified'] = date_gap
+                    else:
+                        logging.info(
+                            f"📅 Gate 4: no dates in resume for job {job_id} "
+                            f"but job has no explicit year requirements — no penalty applied"
+                        )
 
             # ── POST-PROCESSING: Location barrier detection ──
             # On-site/Hybrid jobs where the AI flagged a location mismatch are marked
