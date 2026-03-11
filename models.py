@@ -696,6 +696,7 @@ class CandidateJobMatch(db.Model):
     
     # Match analysis
     match_score = db.Column(db.Float, nullable=False, default=0.0)  # 0-100 percentage
+    technical_score = db.Column(db.Float, nullable=True)  # 0-100 technical fit before location penalty
     is_qualified = db.Column(db.Boolean, default=False)  # True if score >= threshold
     is_applied_job = db.Column(db.Boolean, default=False)  # True if this is the job they applied to
     

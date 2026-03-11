@@ -162,13 +162,14 @@ def dashboard():
         m for m in matches
         if not m.is_qualified
         and 'location mismatch' in (m.gaps_identified or '').lower()
-        and m.match_score >= global_threshold
+        and (m.technical_score or m.match_score) >= (global_threshold - 15)
     ]
+    location_barrier_ids = set(id(m) for m in location_barrier)
     not_recommended = [
         m for m in matches
         if not m.is_qualified
         and m.match_score > 0
-        and not ('location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= global_threshold)
+        and id(m) not in location_barrier_ids
     ]
     screened_this_week = [m for m in matches if m.created_at and m.created_at >= week_ago]
 
@@ -343,20 +344,24 @@ def stats_api():
     from models import VettingConfig as _VC
     _gt = int(_VC.get_value('match_threshold', '80') or 80)
 
+    _lb_ids = set()
+    _lb_count = 0
+    for m in matches:
+        if (not m.is_qualified
+            and 'location mismatch' in (m.gaps_identified or '').lower()
+            and (m.technical_score or m.match_score) >= (_gt - 15)):
+            _lb_ids.add(id(m))
+            _lb_count += 1
+
     return jsonify({
         'qualified': sum(1 for m in matches if m.is_qualified),
         'pending': pending,
-        'location_barrier': sum(
-            1 for m in matches
-            if not m.is_qualified
-            and 'location mismatch' in (m.gaps_identified or '').lower()
-            and m.match_score >= _gt
-        ),
+        'location_barrier': _lb_count,
         'not_recommended': sum(
             1 for m in matches
             if not m.is_qualified
             and m.match_score > 0
-            and not ('location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= _gt)
+            and id(m) not in _lb_ids
         ),
         'screened_this_week': sum(1 for m in matches if m.created_at and m.created_at >= week_ago),
     })

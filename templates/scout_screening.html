@@ -367,7 +367,8 @@
             </thead>
             <tbody id="tableBody">
                 {% for m in matches %}
-                <tr data-status="{{ 'qualified' if m.is_qualified else ('location_barrier' if 'location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= global_threshold else 'not_recommended') }}"
+                {% set is_loc_barrier = 'location mismatch' in (m.gaps_identified or '').lower() and (m.technical_score or m.match_score) >= (global_threshold - 15) %}
+                <tr data-status="{{ 'qualified' if m.is_qualified else ('location_barrier' if is_loc_barrier else 'not_recommended') }}"
                     data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}"
                     data-score="{{ m.match_score|round|int }}"
                     data-date="{{ m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0' }}"
@@ -396,7 +397,11 @@
                     </td>
                     <td style="text-align:center;">
                         {% set score = m.match_score|round|int %}
-                        {% if score >= 80 %}<span class="score-badge score-high">{{ score }}%</span>
+                        {% if is_loc_barrier and m.technical_score %}
+                            {% set tech = m.technical_score|round|int %}
+                            <span class="score-badge score-mid" title="Tech fit: {{ tech }}% → Location → {{ score }}%">{{ score }}%</span>
+                            <div style="font-size:0.65rem; color:rgba(255,255,255,0.45); margin-top:2px;" title="Technical fit score before location penalty">Tech: {{ tech }}%</div>
+                        {% elif score >= 80 %}<span class="score-badge score-high">{{ score }}%</span>
                         {% elif score >= 60 %}<span class="score-badge score-mid">{{ score }}%</span>
                         {% elif score > 0 %}<span class="score-badge score-low">{{ score }}%</span>
                         {% else %}<span class="score-badge score-zero">—</span>
@@ -405,7 +410,7 @@
                     <td>
                         {% if m.is_qualified %}
                         <span class="badge rounded-pill st-qualified">Qualified</span>
-                        {% elif 'location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= global_threshold %}
+                        {% elif is_loc_barrier %}
                         <span class="badge rounded-pill st-loc-barrier" title="Strong technical fit — location barrier for on-site/hybrid role">📍 Location Barrier</span>
                         {% else %}
                         <span class="badge rounded-pill st-not-rec">Not Recommended</span>

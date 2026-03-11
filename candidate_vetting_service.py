@@ -2438,6 +2438,7 @@ Respond in JSON format with these exact fields:
         "inference_tier": "<e.g. \'5+ years - strong likelihood, no penalty\' or \'3-4 years - minor penalty (3-5 pts)\' or \'Under 3 years - standard gap scoring\' or \'N/A - not triggered\'>",
         "score_adjustment": "<e.g. \'No penalty applied per Rule 1 Tier 1\' or \'Minor reduction (3-5 pts) applied\' or \'N/A\'>"
     }},
+    "technical_score": 0,
     "match_score": 0,
     "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say \'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.\' Do NOT use contradictory phrasing like \'mismatch which matches\'.>",
     "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
@@ -2482,13 +2483,28 @@ IMPORTANT — MISSING EMPLOYMENT DATES: If the resume contains NO date ranges or
 2. If no education end date is present either: set total_professional_years to a conservative low estimate (default 2.0). Do NOT infer seniority from job titles alone.
 In all cases, only set total_professional_years above 5.0 if explicit date ranges in the resume support that calculation.
 
-SCORING GUIDELINES:
-- 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, location matches, meets or exceeds ALL required years of experience per skill, AND has practiced relevant skills in a recent role (within last 12 months)
+TWO-PHASE SCORING (MANDATORY):
+You MUST produce TWO scores:
+1. technical_score (integer 0-100): Assess the candidate\'s fit based SOLELY on technical skills, experience depth, years of experience, education, and qualifications. DO NOT consider location, work type, or geographic factors in this score. This score answers: "How well does this candidate fit the role if location were irrelevant?"
+2. match_score (integer 0-100): The final score AFTER applying any location penalty. If the candidate\'s location matches the job requirements, match_score equals technical_score. If there is a location mismatch, reduce match_score by:
+   - On-site jobs, candidate not in city/metro area: reduce by 20-30 points
+   - Hybrid jobs, candidate not reasonably commutable: reduce by 15-25 points
+   - Remote jobs, candidate in wrong country: reduce by 20-30 points
+   - If no location issue exists: match_score = technical_score
+When a location penalty is applied, you MUST document it explicitly in gaps_identified:
+   "Location mismatch: candidate in [X], job requires [work type] in [Y]. Technical fit: [technical_score]%. Location penalty: -[N] pts."
+IMPORTANT: You MUST complete the full technical assessment (all requirement_evidence entries, years_analysis, skills_match, experience_match) BEFORE considering location. A location mismatch must NEVER cause you to skip or abbreviate the technical analysis.
+
+NOTES QUALITY (MANDATORY):
+Your gaps_identified and match_summary fields must provide enough reasoning for a recruiter who has NOT read the resume to understand exactly why the candidate scored as they did. When more than one gap exists, use bullet-point format (separate with " | "). Each gap must state: (1) what is required, (2) what was found in the resume (or "not found"), and (3) why it does not satisfy the requirement.
+
+SCORING GUIDELINES (apply to technical_score — location penalty adjusts match_score separately):
+- 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, meets or exceeds ALL required years of experience per skill, AND has practiced relevant skills in a recent role (within last 12 months)
 - 70-84: Candidate meets MOST mandatory requirements, may have 1-2 minor gaps or be 1 year short on a non-critical skill
 - 65-75: Candidate has strong equivalent experience with competing tools in the same category — core competencies align but specific tool experience is limited (transferable skills present)
-- 50-69: Candidate has relevant skills but INSUFFICIENT years of professional experience for required skills, OR is missing key qualifications, OR has location issues, OR has equivalent tools but lacks the specific required tool
-- 30-49: Candidate has tangential experience, significant experience/years gaps, or major location mismatch
-- 0-29: Candidate\'s background does not align with the role (wrong field/specialty or completely wrong location)
+- 50-69: Candidate has relevant skills but INSUFFICIENT years of professional experience for required skills, OR is missing key qualifications, OR has equivalent tools but lacks the specific required tool
+- 30-49: Candidate has tangential experience, significant experience/years gaps
+- 0-29: Candidate\'s background does not align with the role (wrong field/specialty)
 
 CRITICAL SCORING RULES:
 - If a job requires "X+ years" for a skill and the candidate has < (X-2) years, the score MUST be <= 60.
@@ -2496,7 +2512,7 @@ CRITICAL SCORING RULES:
 - A candidate fresh out of school with only internships CANNOT score 85+ for a role requiring 3+ years of professional experience.
 - If experience_level_classification is FRESH_GRAD or ENTRY and any requirement specifies 3+ years of experience, the match_score MUST NOT exceed 55.
 - "Experience with deployment workflows", "production deployment", or similar deployment/operations requirements are ONLY satisfied by professional (non-academic, non-intern) deployment experience. Coursework deployments (Streamlit, Railway, Heroku, hobby Docker) do NOT satisfy production deployment requirements.
-- BE HONEST. If the resume does not show the required skills, sufficient years, OR the candidate location doesn\'t match, the candidate should NOT score high."""
+- BE HONEST. If the resume does not show the required skills or sufficient years, the technical_score should be LOW. If location also doesn\'t match, the match_score must reflect BOTH the technical gaps AND the location penalty."""
 
             response = self.openai_client.chat.completions.create(
                 model=model_override or self.model,
@@ -2537,8 +2553,13 @@ CRITICAL SCORING RULES:
             raw_score = result.get('match_score')
             logging.info(f"📊 Raw GPT score for job {job_id}: {raw_score} (type: {type(raw_score).__name__})")
             
-            # Ensure match_score is an integer
+            # Ensure match_score and technical_score are integers
             result['match_score'] = int(result.get('match_score', 0))
+            raw_tech = result.get('technical_score')
+            if raw_tech is not None:
+                result['technical_score'] = int(raw_tech)
+            else:
+                result['technical_score'] = result['match_score']
             
             # ── POST-PROCESSING: Years-of-experience hard gate (Option B defense-in-depth) ──
             # Even if the AI prompt correctly penalizes for insufficient years,
@@ -3520,6 +3541,7 @@ CRITICAL SCORING RULES:
                     recruiter_email=recruiter_email,
                     recruiter_bullhorn_id=recruiter_id,
                     match_score=analysis.get('match_score', 0),
+                    technical_score=analysis.get('technical_score'),
                     is_qualified=(analysis.get('match_score', 0) >= job_threshold) and not analysis.get('is_location_barrier', False),
                     is_applied_job=is_applied_job,
                     match_summary=analysis.get('match_summary', ''),
@@ -3604,6 +3626,39 @@ CRITICAL SCORING RULES:
             db.session.commit()
             return vetting_log
     
+    def _format_match_note_block(self, match, job_threshold_map, is_applied=False, show_gaps=False, candidate_id=None):
+        lines = []
+        lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
+
+        tech = match.technical_score
+        has_location_penalty = (
+            tech is not None
+            and tech != match.match_score
+            and 'location mismatch' in (match.gaps_identified or '').lower()
+        )
+
+        match_custom = job_threshold_map.get(match.bullhorn_job_id)
+        if has_location_penalty:
+            score_text = f"  Technical Fit: {tech:.0f}% → Location Penalty → Final: {match.match_score:.0f}%"
+        else:
+            score_text = f"  Match Score: {match.match_score:.0f}%"
+
+        if match_custom:
+            score_text += f"  |  Threshold: {match_custom:.0f}% (custom)"
+        lines.append(score_text)
+
+        if is_applied:
+            lines.append(f"  ⭐ APPLIED TO THIS POSITION")
+
+        lines.append(f"  Summary: {match.match_summary}")
+        lines.append(f"  Skills: {match.skills_match}")
+
+        if show_gaps and match.gaps_identified:
+            gaps_text = self._normalize_gaps_text(match.gaps_identified, candidate_id)
+            lines.append(f"  Gaps: {gaps_text}")
+
+        return lines
+
     def _normalize_gaps_text(self, gaps, candidate_id=None):
         """Layer 3 safety net: normalize gaps_identified to clean prose.
         
@@ -3753,7 +3808,7 @@ CRITICAL SCORING RULES:
             m for m in matches
             if not m.is_qualified
             and 'location mismatch' in (m.gaps_identified or '').lower()
-            and m.match_score >= threshold
+            and (m.technical_score or m.match_score) >= (threshold - 15)
         ]
         is_location_barrier_candidate = (
             len(qualified_matches) == 0 and len(location_barrier_matches) > 0
@@ -3761,42 +3816,53 @@ CRITICAL SCORING RULES:
 
         if is_location_barrier_candidate:
             # Strong fit / location barrier note
-            top_lb = sorted(location_barrier_matches, key=lambda m: m.match_score, reverse=True)
-            top_score = top_lb[0].match_score if top_lb else 0
+            top_lb = sorted(location_barrier_matches, key=lambda m: (m.technical_score or m.match_score), reverse=True)
+            top_tech = top_lb[0].technical_score or top_lb[0].match_score if top_lb else 0
+            top_final = top_lb[0].match_score if top_lb else 0
             note_lines = [
                 f"📍 SCOUT SCREENING - STRONG FIT / LOCATION BARRIER",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
                 f"Threshold: {threshold}%",
-                f"Technical Match Score: {top_score:.0f}% (above threshold on skills)",
+                f"Technical Fit: {top_tech:.0f}% (skills & experience, before location penalty)",
+                f"Final Score: {top_final:.0f}% (after location penalty)",
                 f"",
-                f"This candidate meets the technical threshold but has a location barrier",
+                f"This candidate is a strong technical fit but has a location barrier",
                 f"for an on-site/hybrid position. Recruiter review is recommended.",
                 f"",
                 f"POSITION(S) AFFECTED:",
             ]
             for m in top_lb:
+                tech = m.technical_score or m.match_score
                 match_custom = job_threshold_map.get(m.bullhorn_job_id)
-                threshold_display = (
-                    f"{m.match_score:.0f}%  |  Threshold: {match_custom:.0f}% (custom)"
-                    if match_custom else f"{m.match_score:.0f}%"
-                )
-                # Extract just the location mismatch portion of the gaps text
+                if tech != m.match_score:
+                    score_line = f"  Technical Fit: {tech:.0f}% → Location Penalty → Final: {m.match_score:.0f}%"
+                else:
+                    score_line = f"  Score: {m.match_score:.0f}%"
+                if match_custom:
+                    score_line += f"  |  Threshold: {match_custom:.0f}% (custom)"
                 gaps_full = m.gaps_identified or ''
                 loc_gap_parts = [
                     part.strip() for part in gaps_full.replace(' | ', '|').split('|')
                     if 'location mismatch' in part.lower()
                 ]
-                loc_gap_text = ' | '.join(loc_gap_parts) if loc_gap_parts else gaps_full
+                non_loc_parts = [
+                    part.strip() for part in gaps_full.replace(' | ', '|').split('|')
+                    if 'location mismatch' not in part.lower() and part.strip()
+                ]
+                loc_gap_text = ' | '.join(loc_gap_parts) if loc_gap_parts else ''
                 note_lines += [
                     f"",
                     f"• Job ID: {m.bullhorn_job_id} - {m.job_title}",
-                    f"  Technical Score: {threshold_display}",
+                    score_line,
                     f"  ⚠️  LOCATION BARRIER",
                     f"  Summary: {m.match_summary}",
                     f"  Skills: {m.skills_match}",
-                    f"  Location Gap: {loc_gap_text}",
                 ]
+                if non_loc_parts:
+                    note_lines.append(f"  Other Gaps: {' | '.join(non_loc_parts)}")
+                if loc_gap_text:
+                    note_lines.append(f"  Location: {loc_gap_text}")
             note_text = "\n".join(note_lines)
             action = "Scout Screen - Location Barrier"
 
@@ -3811,7 +3877,7 @@ CRITICAL SCORING RULES:
                 db.session.commit()
                 logging.info(
                     f"📍 Created location barrier note for candidate {vetting_log.bullhorn_candidate_id} "
-                    f"(top score: {top_score:.0f}%)"
+                    f"(tech fit: {top_tech:.0f}%, final: {top_final:.0f}%)"
                 )
                 return True
             else:
@@ -3830,7 +3896,6 @@ CRITICAL SCORING RULES:
                 f"",
             ]
             
-            # Find applied job and separate from others
             applied_match = None
             other_qualified = []
             for match in qualified_matches:
@@ -3839,39 +3904,21 @@ CRITICAL SCORING RULES:
                 else:
                     other_qualified.append(match)
             
-            # Sort other qualified matches by score descending
             other_qualified.sort(key=lambda m: m.match_score, reverse=True)
             
-            # Show applied job FIRST if qualified
             if applied_match:
                 note_lines.append(f"APPLIED POSITION (QUALIFIED):")
                 note_lines.append(f"")
-                note_lines.append(f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}")
-                applied_custom = job_threshold_map.get(applied_match.bullhorn_job_id)
-                if applied_custom:
-                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%  |  Threshold: {applied_custom:.0f}% (custom)")
-                else:
-                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
-                note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
-                note_lines.append(f"  Summary: {applied_match.match_summary}")
-                note_lines.append(f"  Skills: {applied_match.skills_match}")
+                note_lines += self._format_match_note_block(applied_match, job_threshold_map, is_applied=True)
                 if other_qualified:
                     note_lines.append(f"")
                     note_lines.append(f"OTHER QUALIFIED POSITIONS:")
             else:
                 note_lines.append(f"QUALIFIED POSITIONS:")
             
-            # Show other qualified matches
             for match in other_qualified:
                 note_lines.append(f"")
-                note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
-                match_custom = job_threshold_map.get(match.bullhorn_job_id)
-                if match_custom:
-                    note_lines.append(f"  Match Score: {match.match_score:.0f}%  |  Threshold: {match_custom:.0f}% (custom)")
-                else:
-                    note_lines.append(f"  Match Score: {match.match_score:.0f}%")
-                note_lines.append(f"  Summary: {match.match_summary}")
-                note_lines.append(f"  Skills: {match.skills_match}")
+                note_lines += self._format_match_note_block(match, job_threshold_map)
         else:
             # Not qualified note
             note_lines = [
@@ -3886,7 +3933,6 @@ CRITICAL SCORING RULES:
                 f"",
             ]
             
-            # Find the applied job (if analyzed)
             applied_match = None
             other_matches = []
             for match in matches:
@@ -3895,38 +3941,20 @@ CRITICAL SCORING RULES:
                 else:
                     other_matches.append(match)
             
-            # Sort other matches by score descending
             other_matches.sort(key=lambda m: m.match_score, reverse=True)
             
-            # Show applied job FIRST if found
             if applied_match:
                 note_lines.append(f"APPLIED POSITION:")
                 note_lines.append(f"")
-                note_lines.append(f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}")
-                applied_custom = job_threshold_map.get(applied_match.bullhorn_job_id)
-                if applied_custom:
-                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%  |  Threshold: {applied_custom:.0f}% (custom)")
-                else:
-                    note_lines.append(f"  Match Score: {applied_match.match_score:.0f}%")
-                note_lines.append(f"  ⭐ APPLIED TO THIS POSITION")
-                if applied_match.gaps_identified:
-                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(applied_match.gaps_identified, vetting_log.bullhorn_candidate_id)}")
+                note_lines += self._format_match_note_block(applied_match, job_threshold_map, is_applied=True, show_gaps=True, candidate_id=vetting_log.bullhorn_candidate_id)
                 note_lines.append(f"")
                 note_lines.append(f"OTHER TOP MATCHES:")
             else:
                 note_lines.append(f"TOP ANALYSIS RESULTS:")
             
-            # Show top 5 other matches (sorted by score)
             for match in other_matches[:5]:
                 note_lines.append(f"")
-                note_lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
-                match_custom = job_threshold_map.get(match.bullhorn_job_id)
-                if match_custom:
-                    note_lines.append(f"  Match Score: {match.match_score:.0f}%  |  Threshold: {match_custom:.0f}% (custom)")
-                else:
-                    note_lines.append(f"  Match Score: {match.match_score:.0f}%")
-                if match.gaps_identified:
-                    note_lines.append(f"  Gaps: {self._normalize_gaps_text(match.gaps_identified, vetting_log.bullhorn_candidate_id)}")
+                note_lines += self._format_match_note_block(match, job_threshold_map, show_gaps=True, candidate_id=vetting_log.bullhorn_candidate_id)
         
         note_text = "\n".join(note_lines)
         

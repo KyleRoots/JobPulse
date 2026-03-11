@@ -308,6 +308,47 @@ class VettingAuditService:
                     )
                 })
 
+        if 'location mismatch' in gaps:
+            tech_score = job_match.technical_score
+            final_score = job_match.match_score or 0
+            from models import VettingConfig
+            threshold = VettingConfig.get_value('match_threshold', 80.0)
+            try:
+                threshold = float(threshold)
+            except (ValueError, TypeError):
+                threshold = 80.0
+
+            if tech_score is not None and tech_score >= (threshold - 10) and not job_match.is_qualified:
+                non_loc_gaps = [
+                    part.strip() for part in gaps.replace(' | ', '|').split('|')
+                    if 'location mismatch' not in part.lower() and part.strip()
+                ]
+                if not non_loc_gaps:
+                    issues.append({
+                        'check_type': 'location_score_consistency',
+                        'description': (
+                            f"Candidate has technical_score={tech_score:.0f}% "
+                            f"(threshold={threshold:.0f}%) with location as the ONLY gap, "
+                            f"but was marked Not Recommended (final={final_score:.0f}%). "
+                            f"This may be a strong technical fit that should be Location Barrier instead."
+                        )
+                    })
+            elif tech_score is None and 'location mismatch' in gaps:
+                other_gaps = [
+                    part.strip() for part in gaps.replace(' | ', '|').split('|')
+                    if 'location mismatch' not in part.lower() and part.strip()
+                ]
+                if not other_gaps and final_score >= (threshold - 20):
+                    issues.append({
+                        'check_type': 'location_score_consistency',
+                        'description': (
+                            f"Location is the only gap but no technical_score recorded "
+                            f"(pre two-phase scoring). Final score={final_score:.0f}% "
+                            f"with threshold={threshold:.0f}%. Consider re-screening to "
+                            f"capture separate technical vs. location scoring."
+                        )
+                    })
+
         return issues
 
     def _run_ai_audit(self, job_match, resume_text: str, job_title: str,
