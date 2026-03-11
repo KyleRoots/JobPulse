@@ -319,6 +319,95 @@ def optimize_job_requirements(job_id):
         return jsonify({'success': False, 'error': 'Optimization failed — please try again.'}), 500
 
 
+@scout_screening_bp.route('/scout-screening/search')
+@login_required
+def candidate_search():
+    """Server-side candidate search across all historical screening records.
+    
+    Returns the most recent match record per (candidate, job) pair for any
+    candidate matching the query — not limited to the 200-record default view.
+    Scoped to the current user's assigned jobs.
+    """
+    from extensions import db
+    from models import CandidateJobMatch, CandidateVettingLog, VettingConfig
+    from sqlalchemy import func, or_
+
+    q = request.args.get('q', '').strip()
+    if len(q) < 3:
+        return jsonify({'results': [], 'total': 0, 'truncated': False})
+
+    job_ids = _get_user_job_ids()
+    if not job_ids:
+        return jsonify({'results': [], 'total': 0, 'truncated': False})
+
+    # Build search filter — name partial match or exact ID match
+    name_filter = CandidateVettingLog.candidate_name.ilike(f'%{q}%')
+    if q.isdigit():
+        search_filter = or_(name_filter, CandidateVettingLog.bullhorn_candidate_id == int(q))
+    else:
+        search_filter = name_filter
+
+    # Subquery: one row per (bullhorn_candidate_id, bullhorn_job_id) — the latest match only
+    latest_subq = (
+        db.session.query(func.max(CandidateJobMatch.id).label('max_id'))
+        .join(CandidateVettingLog, CandidateJobMatch.vetting_log_id == CandidateVettingLog.id)
+        .filter(
+            CandidateJobMatch.bullhorn_job_id.in_(job_ids),
+            CandidateVettingLog.is_sandbox != True,
+            search_filter
+        )
+        .group_by(CandidateVettingLog.bullhorn_candidate_id, CandidateJobMatch.bullhorn_job_id)
+        .subquery()
+    )
+
+    matches = (
+        CandidateJobMatch.query
+        .join(CandidateVettingLog)
+        .filter(CandidateJobMatch.id.in_(db.session.query(latest_subq.c.max_id)))
+        .order_by(CandidateJobMatch.created_at.desc())
+        .limit(501)
+        .all()
+    )
+
+    truncated = len(matches) > 500
+    matches = matches[:500]
+
+    threshold = int(VettingConfig.get_value('match_threshold', '80') or 80)
+    week_ago = datetime.utcnow() - timedelta(days=7)
+
+    results = []
+    for m in matches:
+        log = m.vetting_log
+        gaps = (m.gaps_identified or '').lower()
+        tech = m.technical_score
+        is_loc_barrier = (
+            'location mismatch' in gaps
+            and (tech or m.match_score) >= (threshold - 15)
+            and not m.is_qualified
+        )
+        is_week = bool(m.created_at and m.created_at >= week_ago)
+        results.append({
+            'id': m.id,
+            'created_at_display': m.created_at.strftime('%b %d, %Y') if m.created_at else '—',
+            'created_ts': m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0',
+            'is_week': is_week,
+            'candidate_id': log.bullhorn_candidate_id if log else None,
+            'candidate_name': log.candidate_name if log else 'Unknown',
+            'job_id': m.bullhorn_job_id,
+            'job_title': m.job_title or f'Job #{m.bullhorn_job_id}',
+            'match_score': int(round(m.match_score or 0)),
+            'technical_score': int(round(tech)) if tech is not None else None,
+            'is_qualified': m.is_qualified,
+            'is_loc_barrier': is_loc_barrier,
+            'match_summary': m.match_summary or '',
+            'gaps_identified': m.gaps_identified or '',
+            'is_applied_job': m.is_applied_job,
+            'vetting_log_id': m.vetting_log_id,
+        })
+
+    return jsonify({'results': results, 'total': len(results), 'truncated': truncated})
+
+
 @scout_screening_bp.route('/api/scout-screening/stats')
 @login_required
 def stats_api():

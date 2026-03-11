@@ -328,10 +328,18 @@
         <div style="display:flex; align-items:center; gap:0.4rem;" onclick="event.stopPropagation()">
             <i class="fas fa-search" style="font-size:0.75rem; color:rgba(255,255,255,0.3);"></i>
             <input type="text" id="candidateSearchInput" placeholder="Name or ID…"
-                   title="Search by candidate name or Bullhorn ID"
-                   style="width:130px; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.25); border-radius:7px;
+                   title="Search by candidate name or Bullhorn ID (3+ characters searches all history)"
+                   style="width:150px; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.25); border-radius:7px;
                           color:rgba(255,255,255,0.75); font-size:0.78rem; padding:0.25rem 0.5rem; outline:none;"
-                   oninput="applyCandidateSearch()">
+                   oninput="applyCandidateSearch()"
+                   autocomplete="off">
+            <button type="button" id="candidateSearchClear" onclick="clearCandidateSearch()"
+                    style="display:none; background:transparent; border:none; color:rgba(255,255,255,0.35);
+                           font-size:0.8rem; cursor:pointer; padding:0 0.1rem; line-height:1;"
+                    title="Clear search"><i class="fas fa-times-circle"></i></button>
+            <span id="candidateSearchSpinner" style="display:none; font-size:0.72rem; color:rgba(155,127,212,0.6);">
+                <i class="fas fa-circle-notch fa-spin"></i>
+            </span>
             <input type="number" id="minScoreInput" min="0" max="100" placeholder="Min score…"
                    title="Show only candidates at or above this score"
                    style="width:100px; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.25); border-radius:7px;
@@ -365,10 +373,13 @@
                     {% endif %}
                 </tr>
             </thead>
-            <tbody id="tableBody">
+            <tbody id="tableBody"
+                   data-threshold="{{ global_threshold }}"
+                   data-is-admin="{{ 'true' if current_user.is_admin else 'false' }}">
                 {% for m in matches %}
                 {% set is_loc_barrier = 'location mismatch' in (m.gaps_identified or '').lower() and (m.technical_score or m.match_score) >= (global_threshold - 15) %}
-                <tr data-status="{{ 'qualified' if m.is_qualified else ('location_barrier' if is_loc_barrier else 'not_recommended') }}"
+                <tr data-original="true"
+                    data-status="{{ 'qualified' if m.is_qualified else ('location_barrier' if is_loc_barrier else 'not_recommended') }}"
                     data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}"
                     data-score="{{ m.match_score|round|int }}"
                     data-date="{{ m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0' }}"
@@ -442,7 +453,7 @@
                 </tr>
                 {% endfor %}
                 {% for log in pending_logs %}
-                <tr data-status="pending" data-week="no" data-score="0"
+                <tr data-original="true" data-status="pending" data-week="no" data-score="0"
                     data-date="{{ log.created_at.strftime('%Y%m%d%H%M%S') if log.created_at else '0' }}">
                     <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
                         {{ log.created_at.strftime('%b %d, %Y') if log.created_at else '—' }}
@@ -738,7 +749,8 @@ function sortTable(col) {
     }
 
     const tbody = document.getElementById('tableBody');
-    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    const rowSel = searchModeActive ? 'tr[data-search-result][data-score]' : 'tr[data-original]';
+    const allRows = Array.from(tbody.querySelectorAll(rowSel));
 
     function getVal(row) {
         switch (col) {
@@ -776,13 +788,205 @@ function sortTable(col) {
     renderPage();
 }
 
-// ── Min-score filter ──────────────────────────────────────────────────────────
+// ── Candidate search (server-side for 3+ chars, client-side for <3) ──────────
 let activeMinScore = null;
 let activeCandidateSearch = '';
+let searchModeActive = false;
+let searchDebounceTimer = null;
 
 function applyCandidateSearch() {
-    activeCandidateSearch = (document.getElementById('candidateSearchInput').value || '').trim().toLowerCase();
+    const raw = (document.getElementById('candidateSearchInput').value || '').trim();
+    const clearBtn = document.getElementById('candidateSearchClear');
+    if (clearBtn) clearBtn.style.display = raw.length > 0 ? '' : 'none';
+
+    clearTimeout(searchDebounceTimer);
+
+    if (raw.length === 0) {
+        if (searchModeActive) _exitSearchMode();
+        activeCandidateSearch = '';
+        rebuildVisibleRows();
+        return;
+    }
+    if (raw.length < 3) {
+        if (searchModeActive) _exitSearchMode();
+        activeCandidateSearch = raw.toLowerCase();
+        rebuildVisibleRows();
+        return;
+    }
+    searchDebounceTimer = setTimeout(() => _doServerSearch(raw), 300);
+}
+
+function clearCandidateSearch() {
+    const input = document.getElementById('candidateSearchInput');
+    const clearBtn = document.getElementById('candidateSearchClear');
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (searchModeActive) _exitSearchMode();
+    activeCandidateSearch = '';
     rebuildVisibleRows();
+}
+
+function _exitSearchMode() {
+    searchModeActive = false;
+    document.querySelectorAll('#tableBody tr[data-search-result]').forEach(r => r.remove());
+    document.querySelectorAll('#tableBody tr[data-original]').forEach(r => r.style.display = '');
+    _restoreMetricCards();
+}
+
+function _doServerSearch(q) {
+    const spinner = document.getElementById('candidateSearchSpinner');
+    if (spinner) spinner.style.display = '';
+    fetch('/scout-screening/search?q=' + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(data => {
+            searchModeActive = true;
+            activeCandidateSearch = '';
+            _renderSearchResults(data.results, data.truncated);
+        })
+        .catch(() => {
+            searchModeActive = false;
+            activeCandidateSearch = q.toLowerCase();
+            rebuildVisibleRows();
+        })
+        .finally(() => { if (spinner) spinner.style.display = 'none'; });
+}
+
+function _renderSearchResults(results, truncated) {
+    const tbody = document.getElementById('tableBody');
+    if (!tbody) return;
+    const THRESHOLD = parseInt(tbody.dataset.threshold || '80', 10);
+    const IS_ADMIN = tbody.dataset.isAdmin === 'true';
+    const WEEK_MS  = 7 * 24 * 60 * 60 * 1000;
+
+    document.querySelectorAll('#tableBody tr[data-original]').forEach(r => r.style.display = 'none');
+    document.querySelectorAll('#tableBody tr[data-search-result]').forEach(r => r.remove());
+
+    const COLSPAN = IS_ADMIN ? 7 : 6;
+    if (results.length === 0) {
+        const empty = document.createElement('tr');
+        empty.setAttribute('data-search-result', '');
+        empty.innerHTML = `<td colspan="${COLSPAN}" style="text-align:center; color:rgba(255,255,255,0.3); padding:2rem;">No candidates found matching your search.</td>`;
+        tbody.appendChild(empty);
+        _updateSearchMetrics(results, THRESHOLD, WEEK_MS);
+        _attachNotesLinks();
+        return;
+    }
+
+    results.forEach(m => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-search-result', '');
+        tr.setAttribute('data-status', m.is_qualified ? 'qualified' : (m.is_loc_barrier ? 'location_barrier' : 'not_recommended'));
+        tr.setAttribute('data-week', m.is_week ? 'yes' : 'no');
+        tr.setAttribute('data-score', m.match_score);
+        tr.setAttribute('data-date', m.created_ts);
+        tr.setAttribute('data-candidateid', m.candidate_id || '');
+        tr.setAttribute('data-candidatename', (m.candidate_name || '').toLowerCase());
+
+        const techBadge = (m.is_loc_barrier && m.technical_score !== null)
+            ? `<span class="score-badge score-mid" title="Tech fit: ${m.technical_score}% → Location → ${m.match_score}%">${m.match_score}%</span>
+               <div style="font-size:0.65rem; color:rgba(255,255,255,0.45); margin-top:2px;">Tech: ${m.technical_score}%</div>`
+            : m.match_score >= 80
+                ? `<span class="score-badge score-high">${m.match_score}%</span>`
+                : m.match_score >= 60
+                    ? `<span class="score-badge score-mid">${m.match_score}%</span>`
+                    : m.match_score > 0
+                        ? `<span class="score-badge score-low">${m.match_score}%</span>`
+                        : `<span class="score-badge score-zero">—</span>`;
+
+        const statusBadge = m.is_qualified
+            ? `<span class="badge rounded-pill st-qualified">Qualified</span>`
+            : m.is_loc_barrier
+                ? `<span class="badge rounded-pill st-loc-barrier" title="Strong technical fit — location barrier for on-site/hybrid role">📍 Location Barrier</span>`
+                : `<span class="badge rounded-pill st-not-rec">Not Recommended</span>`;
+
+        const candLink = m.candidate_id
+            ? `<a class="cand-link" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=${m.candidate_id}" target="_blank" rel="noopener">${_esc(m.candidate_name || 'Unknown')}<i class="fas fa-external-link-alt ext-icon"></i></a>`
+            : `<span style="color:rgba(255,255,255,0.6);">${_esc(m.candidate_name || 'Unknown')}</span>`;
+
+        const notesCell = m.match_summary
+            ? `<div class="notes-snippet">${_esc(m.match_summary.substring(0, 100))}…</div>
+               <a href="javascript:void(0)" class="sc-link sc-link-sm open-notes-link"
+                  data-cname="${_esc(m.candidate_name || 'Unknown')}"
+                  data-job="${_esc(m.job_title)}"
+                  data-notes="${_esc(m.match_summary)}"
+                  data-bhid="${m.candidate_id || ''}">View full notes</a>`
+            : `<span style="color:rgba(255,255,255,0.2); font-size:0.78rem;">—</span>`;
+
+        const adminCell = IS_ADMIN
+            ? `<td style="text-align:center;">${m.candidate_id
+                ? `<button type="button" class="btn-rescreen" data-candidate-id="${m.candidate_id}" title="Re-screen this candidate"><i class="fas fa-redo-alt"></i> Re-screen</button>`
+                : `<span style="color:rgba(255,255,255,0.15);">—</span>`}</td>`
+            : '';
+
+        tr.innerHTML = `
+            <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">${_esc(m.created_at_display)}</td>
+            <td>${candLink}</td>
+            <td><a class="sc-link" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id=${m.job_id}" target="_blank" rel="noopener">${_esc(m.job_title)}<i class="fas fa-external-link-alt ext-icon"></i></a></td>
+            <td style="text-align:center;">${techBadge}</td>
+            <td>${statusBadge}</td>
+            <td>${notesCell}</td>
+            ${adminCell}`;
+        tbody.appendChild(tr);
+    });
+
+    if (truncated) {
+        const note = document.createElement('tr');
+        note.setAttribute('data-search-result', '');
+        note.innerHTML = `<td colspan="${COLSPAN}" style="text-align:center; color:rgba(255,255,255,0.3); font-size:0.78rem; padding:0.5rem;">Showing top 500 results — refine your search for more specific results.</td>`;
+        tbody.appendChild(note);
+    }
+
+    _updateSearchMetrics(results, THRESHOLD, WEEK_MS);
+}
+
+function _esc(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// ── Metrics card helpers ──────────────────────────────────────────────────────
+let _originalMetrics = null;
+function _metricEl(cardId) {
+    const card = document.getElementById(cardId);
+    return card ? card.querySelector('.metric-value') : null;
+}
+function _captureOriginalMetrics() {
+    const get = id => parseInt((_metricEl(id) || {}).textContent || '0', 10);
+    _originalMetrics = {
+        qualified:        get('card-qualified'),
+        pending:          get('card-pending'),
+        not_recommended:  get('card-not-rec'),
+        location_barrier: get('card-loc-barrier'),
+        week:             get('card-week'),
+    };
+}
+function _restoreMetricCards() {
+    if (!_originalMetrics) return;
+    const set = (id, v) => { const el = _metricEl(id); if (el) el.textContent = v; };
+    set('card-qualified',    _originalMetrics.qualified);
+    set('card-pending',      _originalMetrics.pending);
+    set('card-not-rec',      _originalMetrics.not_recommended);
+    set('card-loc-barrier',  _originalMetrics.location_barrier);
+    set('card-week',         _originalMetrics.week);
+}
+function _updateSearchMetrics(results, threshold, weekMs) {
+    let q = 0, p = 0, nr = 0, lb = 0, w = 0;
+    results.forEach(m => {
+        if (m.is_qualified)        q++;
+        else if (m.is_loc_barrier) lb++;
+        else                       nr++;
+        if (m.is_week)             w++;
+    });
+    const set = (id, v) => { const el = _metricEl(id); if (el) el.textContent = v; };
+    set('card-qualified',   q);
+    set('card-pending',     p);
+    set('card-not-rec',     nr);
+    set('card-loc-barrier', lb);
+    set('card-week',        w);
 }
 
 function applyMinScore() {
@@ -804,7 +1008,8 @@ function clearMinScore() {
 }
 
 function rebuildVisibleRows() {
-    const allRows = Array.from(document.querySelectorAll('#tableBody tr'));
+    if (searchModeActive) return;
+    const allRows = Array.from(document.querySelectorAll('#tableBody tr[data-original]'));
     const filterEmpty = document.getElementById('filterEmptyState');
     const cards = {
         qualified:        document.getElementById('card-qualified'),
@@ -1068,8 +1273,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }());
 
-    // Pagination init
-    visibleRows = Array.from(document.querySelectorAll('#tableBody tr'));
+    // Capture original metric counts before any filtering
+    _captureOriginalMetrics();
+
+    // Pagination init (only original rows — not search result rows)
+    visibleRows = Array.from(document.querySelectorAll('#tableBody tr[data-original]'));
     renderPage();
 
     // Auto-save threshold on blur
