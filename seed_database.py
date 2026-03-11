@@ -922,6 +922,7 @@ def run_schema_migrations(db):
     try:
         db.session.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         db.session.commit()
+        logger.info("ℹ️ pg_trgm extension ensured")
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ pg_trgm extension creation skipped: {str(e)}")
