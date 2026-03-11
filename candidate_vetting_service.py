@@ -3737,7 +3737,8 @@ CRITICAL SCORING RULES:
                     "Scout Screen - Qualified",
                     "Scout Screen - Not Qualified",
                     "Scout Screen - Incomplete",
-                    "Scout Screen - Location Barrier",
+                    "Scout Screen - Loc Barrier",
+                    "Scout Screen - Location Barrier",  # legacy (was 31 chars, never wrote successfully)
                     # Backward compat: match legacy action strings
                     "Scout Screening - Qualified",
                     "Scout Screening - Not Recommended",
@@ -3889,7 +3890,7 @@ CRITICAL SCORING RULES:
                 if loc_gap_text:
                     note_lines.append(f"  Location: {loc_gap_text}")
             note_text = "\n".join(note_lines)
-            action = "Scout Screen - Location Barrier"
+            action = "Scout Screen - Loc Barrier"
 
             note_id = bullhorn.create_candidate_note(
                 vetting_log.bullhorn_candidate_id,
