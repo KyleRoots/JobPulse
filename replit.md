@@ -19,7 +19,8 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Template Engine**: Jinja2 with Bootstrap 5 (dark theme) for a responsive and modern user interface.
 - **Client-side**: Vanilla JavaScript for interactive elements.
 - **Icons**: Font Awesome 6.0.
-- **Dual-Domain Architecture**: Supports `app.scoutgenius.ai` (main application) and `apply.myticas.com` / `apply.stsigroup.com` (job application forms).
+- **Dual-Domain Architecture**: Supports `app.scoutgenius.ai` (main application), `apply.myticas.com` / `apply.stsigroup.com` (job application forms), and `support.myticas.com` / `support.stsigroup.com` (internal support request forms).
+- **Microsoft SSO (support.myticas.com)**: `support.myticas.com` is protected by Microsoft Entra ID (Office 365) single sign-on via OAuth 2.0 Authorization Code flow. Only `@myticas.com` accounts can authenticate (single-tenant). Sessions expire after 15 minutes of inactivity. Auth routes in `routes/support_auth.py`; login template at `templates/support_login.html`. Azure App Registration: "Myticas Support Portal". Secrets: `MICROSOFT_CLIENT_ID`, `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_SECRET`. Redirect URI: `https://support.myticas.com/support/auth/callback`.
 
 ### Technical Implementations
 - **Web Framework**: Flask (Python 3.11) utilizing modular route blueprints.

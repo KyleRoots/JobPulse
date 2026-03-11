@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Sign In - Myticas Support Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-card {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 20px;
+            box-shadow:
+                0 25px 50px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            color: white;
+        }
+
+        .brand-logo {
+            width: 72px;
+            height: 72px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem auto;
+            font-size: 2rem;
+        }
+
+        .brand-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-subtitle {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.65);
+            margin-bottom: 2.5rem;
+        }
+
+        .divider {
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            margin: 2rem 0;
+        }
+
+        .ms-signin-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.85rem 1.5rem;
+            background: white;
+            color: #1a1a1a;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+            cursor: pointer;
+        }
+
+        .ms-signin-btn:hover {
+            background: #f0f0f0;
+            color: #1a1a1a;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .ms-signin-btn:active {
+            transform: translateY(0);
+        }
+
+        .ms-logo {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .internal-notice {
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.45);
+            margin-top: 1.75rem;
+            line-height: 1.5;
+        }
+
+        .error-alert {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid rgba(220, 53, 69, 0.4);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: #f8d7da;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="brand-logo">
+            <i class="fas fa-headset" style="color: rgba(255,255,255,0.9);"></i>
+        </div>
+        <div class="brand-name">Myticas Support</div>
+        <div class="brand-subtitle">Internal Support Portal</div>
+
+        {% if error %}
+        <div class="error-alert">
+            <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+        </div>
+        {% endif %}
+
+        <a href="/support/auth/login" class="ms-signin-btn">
+            <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+            </svg>
+            Sign in with Microsoft
+        </a>
+
+        <div class="divider"></div>
+
+        <div class="internal-notice">
+            <i class="fas fa-lock me-1"></i>
+            This portal is restricted to Myticas Consulting staff.<br>
+            Sign in using your <strong>@myticas.com</strong> Microsoft account.
+        </div>
+    </div>
+</body>
+</html>

@@ -155,12 +155,21 @@ def support_form_stsi():
 
 @support_request_bp.before_app_request
 def redirect_support_domain():
+    from flask import redirect as _redirect
     host = request.host.lower()
     if 'support.myticas.com' in host:
         path = request.path
+        # Auth routes and static assets always pass through
+        if path.startswith('/support/auth') or path == '/robots.txt' or path.startswith('/static/'):
+            return None
+        # Check Microsoft SSO authentication
+        from routes.support_auth import is_support_authed, refresh_support_session
+        if not is_support_authed():
+            return _redirect('/support/auth/login')
+        refresh_support_session()
         if path == '/' or path == '':
             return _serve_support_form()
-        if path == '/robots.txt' or path.startswith('/static/') or path.startswith('/support'):
+        if path.startswith('/support'):
             return None
         from flask import abort
         abort(404)

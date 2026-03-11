@@ -182,6 +182,7 @@ from routes.xml_routes import xml_routes_bp
 from routes.scout_inbound import scout_inbound_bp
 from routes.scout_screening import scout_screening_bp
 from routes.support_request import support_request_bp
+from routes.support_auth import support_auth_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(health_bp)
 app.register_blueprint(settings_bp)
@@ -201,6 +202,7 @@ app.register_blueprint(xml_routes_bp)
 app.register_blueprint(scout_inbound_bp)
 app.register_blueprint(scout_screening_bp)
 app.register_blueprint(support_request_bp)
+app.register_blueprint(support_auth_bp)
 
 from routes.vetting_sandbox import vetting_sandbox_bp
 app.register_blueprint(vetting_sandbox_bp)
