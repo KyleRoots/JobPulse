@@ -327,6 +327,11 @@
         <div class="section-subtitle" style="margin-top:0;">AI match results for candidates on your active jobs — click a metric card above to filter</div>
         <div style="display:flex; align-items:center; gap:0.4rem;" onclick="event.stopPropagation()">
             <i class="fas fa-search" style="font-size:0.75rem; color:rgba(255,255,255,0.3);"></i>
+            <input type="text" id="candidateSearchInput" placeholder="Name or ID…"
+                   title="Search by candidate name or Bullhorn ID"
+                   style="width:130px; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.25); border-radius:7px;
+                          color:rgba(255,255,255,0.75); font-size:0.78rem; padding:0.25rem 0.5rem; outline:none;"
+                   oninput="applyCandidateSearch()">
             <input type="number" id="minScoreInput" min="0" max="100" placeholder="Min score…"
                    title="Show only candidates at or above this score"
                    style="width:100px; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.25); border-radius:7px;
@@ -365,7 +370,9 @@
                 <tr data-status="{{ 'qualified' if m.is_qualified else ('location_barrier' if 'location mismatch' in (m.gaps_identified or '').lower() and m.match_score >= global_threshold else 'not_recommended') }}"
                     data-week="{{ 'yes' if m.created_at and m.created_at >= week_ago else 'no' }}"
                     data-score="{{ m.match_score|round|int }}"
-                    data-date="{{ m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0' }}">
+                    data-date="{{ m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0' }}"
+                    data-candidateid="{{ (m.vetting_log.bullhorn_candidate_id if m.vetting_log and m.vetting_log.bullhorn_candidate_id else '')|e }}"
+                    data-candidatename="{{ (m.vetting_log.candidate_name if m.vetting_log and m.vetting_log.candidate_name else '')|lower|e }}">
                     <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">
                         {{ m.created_at.strftime('%b %d, %Y') if m.created_at else '—' }}
                     </td>
@@ -766,6 +773,12 @@ function sortTable(col) {
 
 // ── Min-score filter ──────────────────────────────────────────────────────────
 let activeMinScore = null;
+let activeCandidateSearch = '';
+
+function applyCandidateSearch() {
+    activeCandidateSearch = (document.getElementById('candidateSearchInput').value || '').trim().toLowerCase();
+    rebuildVisibleRows();
+}
 
 function applyMinScore() {
     const input = document.getElementById('minScoreInput');
@@ -812,6 +825,11 @@ function rebuildVisibleRows() {
         }
         if (show && activeMinScore !== null) {
             show = score >= activeMinScore;
+        }
+        if (show && activeCandidateSearch !== '') {
+            const cname = (row.dataset.candidatename || '').toLowerCase();
+            const cid   = String(row.dataset.candidateid || '').toLowerCase();
+            show = cname.includes(activeCandidateSearch) || cid.includes(activeCandidateSearch);
         }
         row.style.display = show ? '' : 'none';
         if (show) matched.push(row);

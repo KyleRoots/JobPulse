@@ -110,6 +110,12 @@ def support_callback():
     return redirect('/')
 
 
+@support_auth_bp.route('/support/auth/signed-out')
+@csrf.exempt
+def support_signed_out():
+    return render_template('support_login.html', signed_out=True)
+
+
 @support_auth_bp.route('/support/auth/logout')
 @csrf.exempt
 def support_logout():
@@ -117,4 +123,4 @@ def support_logout():
     session.pop('support_user', None)
     session.pop('support_last_active', None)
     logger.info(f'Support portal logout: {name}')
-    return redirect('/support/auth/login')
+    return redirect('/support/auth/signed-out')

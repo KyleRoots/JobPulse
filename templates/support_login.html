@@ -123,6 +123,12 @@
         <div class="brand-name">Myticas Support</div>
         <div class="brand-subtitle">Internal Support Portal</div>
 
+        {% if signed_out %}
+        <div style="background:rgba(40,167,69,0.15); border:1px solid rgba(40,167,69,0.35); border-radius:10px; padding:0.7rem 1rem; margin-bottom:1.5rem; font-size:0.875rem; color:#a8e6b8;">
+            <i class="fas fa-check-circle me-2"></i>You have been signed out successfully.
+        </div>
+        {% endif %}
+
         {% if error %}
         <div class="error-alert">
             <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
