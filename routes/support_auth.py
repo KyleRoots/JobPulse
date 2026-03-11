@@ -20,7 +20,7 @@ _GRAPH_ME = 'https://graph.microsoft.com/v1.0/me'
 _SCOPES = 'openid email profile User.Read'
 _REDIRECT_PATH = '/support/auth/callback'
 
-SESSION_TIMEOUT = 15 * 60
+SESSION_TIMEOUT = 4 * 60 * 60
 
 
 def _redirect_uri():
@@ -123,4 +123,8 @@ def support_logout():
     session.pop('support_user', None)
     session.pop('support_last_active', None)
     logger.info(f'Support portal logout: {name}')
-    return redirect('/support/auth/signed-out')
+    ms_logout = (
+        f'https://login.microsoftonline.com/{_TENANT_ID}/oauth2/v2.0/logout'
+        f'?post_logout_redirect_uri=https://support.myticas.com/support/auth/signed-out'
+    )
+    return redirect(ms_logout)
