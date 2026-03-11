@@ -1538,8 +1538,68 @@ if is_primary_worker:
                     f"{result.get('issues_found', 0)} issues, "
                     f"{result.get('revets_triggered', 0)} re-vets"
                 )
+
+                # Write to Automation Hub run history so the user can see each cycle
+                try:
+                    from models import AutomationTask, AutomationLog
+                    from extensions import db
+                    from datetime import datetime
+                    import json as _json
+
+                    task = AutomationTask.query.filter(
+                        AutomationTask.config_json.contains('screening_audit')
+                    ).first()
+                    if task:
+                        issues = result.get('issues_found', 0)
+                        revets = result.get('revets_triggered', 0)
+                        audited = result.get('total_audited', 0)
+                        if issues > 0:
+                            summary = (
+                                f"Audited {audited} result(s) — {issues} issue(s) found, "
+                                f"{revets} re-vet(s) triggered"
+                            )
+                        else:
+                            summary = f"Audited {audited} result(s) — no issues found"
+
+                        log = AutomationLog(
+                            automation_task_id=task.id,
+                            status='success',
+                            message='Screening Quality Audit (Scheduled)',
+                            details_json=_json.dumps({
+                                'source': 'scheduled',
+                                'total_audited': audited,
+                                'issues_found': issues,
+                                'revets_triggered': revets,
+                                'summary': summary
+                            })
+                        )
+                        db.session.add(log)
+                        task.last_run_at = datetime.utcnow()
+                        task.run_count = (task.run_count or 0) + 1
+                        db.session.commit()
+                except Exception as log_err:
+                    app.logger.warning(f"⚠️ Screening audit: could not write run history: {log_err}")
+
             except Exception as e:
                 app.logger.error(f"❌ Screening audit error: {e}")
+                try:
+                    from models import AutomationTask, AutomationLog
+                    from extensions import db
+                    import json as _json
+                    task = AutomationTask.query.filter(
+                        AutomationTask.config_json.contains('screening_audit')
+                    ).first()
+                    if task:
+                        log = AutomationLog(
+                            automation_task_id=task.id,
+                            status='error',
+                            message='Screening Quality Audit (Scheduled)',
+                            details_json=_json.dumps({'source': 'scheduled', 'error': str(e)})
+                        )
+                        db.session.add(log)
+                        db.session.commit()
+                except Exception:
+                    pass
 
     scheduler.add_job(
         func=run_screening_audit,
