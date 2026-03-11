@@ -667,6 +667,12 @@ class CandidateVettingLog(db.Model):
     
     __table_args__ = (
         db.Index('idx_vetting_log_status_created', 'status', 'created_at'),
+        db.Index(
+            'idx_vetting_log_candidate_name_trgm',
+            'candidate_name',
+            postgresql_using='gin',
+            postgresql_ops={'candidate_name': 'gin_trgm_ops'}
+        ),
     )
     
     # Relationship to match results
