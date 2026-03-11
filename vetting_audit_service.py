@@ -164,6 +164,20 @@ class VettingAuditService:
                     elif confidence == 'medium' and finding_type != 'no_issue':
                         action_taken = 'flagged_for_review'
 
+                    summary['total_audited'] += 1
+                    if finding_type != 'no_issue':
+                        summary['issues_found'] += 1
+                        summary['details'].append({
+                            'candidate_id': vetting_log.bullhorn_candidate_id,
+                            'candidate_name': vetting_log.candidate_name,
+                            'job_title': applied_match.job_title,
+                            'original_score': applied_match.match_score,
+                            'finding_type': finding_type,
+                            'confidence': confidence,
+                            'action_taken': action_taken,
+                            'new_score': revet_new_score
+                        })
+
                     audit_log = VettingAuditLog(
                         candidate_vetting_log_id=vetting_log.id,
                         bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
@@ -179,20 +193,6 @@ class VettingAuditService:
                     )
                     db.session.add(audit_log)
                     db.session.commit()
-
-                    summary['total_audited'] += 1
-                    if finding_type != 'no_issue':
-                        summary['issues_found'] += 1
-                        summary['details'].append({
-                            'candidate_id': vetting_log.bullhorn_candidate_id,
-                            'candidate_name': vetting_log.candidate_name,
-                            'job_title': applied_match.job_title,
-                            'original_score': applied_match.match_score,
-                            'finding_type': finding_type,
-                            'confidence': confidence,
-                            'action_taken': action_taken,
-                            'new_score': revet_new_score
-                        })
 
                 except Exception as e:
                     logging.error(
@@ -214,7 +214,7 @@ class VettingAuditService:
                         db.session.rollback()
                     summary['total_audited'] += 1
 
-            if summary['issues_found'] > 0:
+            if summary['issues_found'] > 0 or summary['revets_triggered'] > 0:
                 try:
                     self._send_audit_summary_email(summary)
                 except Exception as e:
@@ -349,6 +349,63 @@ class VettingAuditService:
                         )
                     })
 
+        years_json_str2 = job_match.years_analysis_json
+        if years_json_str2:
+            try:
+                years_data2 = json.loads(years_json_str2) if isinstance(years_json_str2, str) else years_json_str2
+                if isinstance(years_data2, dict):
+                    for skill, data in years_data2.items():
+                        if not isinstance(data, dict):
+                            continue
+                        required = float(data.get('required_years', 0))
+                        estimated = float(data.get('estimated_years', data.get('actual_years', 0)))
+                        meets = data.get('meets_requirement', True)
+                        if required > 0 and estimated >= required and meets is False:
+                            issues.append({
+                                'check_type': 'experience_undercounting',
+                                'description': (
+                                    f"AI's own years_analysis shows {estimated:.1f}yr estimated vs "
+                                    f"{required:.1f}yr required for '{skill}', but meets_requirement=false. "
+                                    f"Direct self-contradiction — candidate may have sufficient experience."
+                                )
+                            })
+                            break
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+
+        if 'employment gap' in gaps:
+            resume_header = ''
+            if vetting_log.resume_text:
+                resume_header = vetting_log.resume_text[:800].lower()
+            employment_current_indicators = ['present', 'current', 'ongoing', 'to date', 'till date']
+            if resume_header and any(indicator in resume_header for indicator in employment_current_indicators):
+                issues.append({
+                    'check_type': 'employment_gap_misfire',
+                    'description': (
+                        f"Gaps mention 'employment gap' but the candidate's resume header "
+                        f"contains current-employment indicators (e.g. 'Present'/'Current'). "
+                        f"Possible false gap penalty on an actively employed candidate."
+                    )
+                })
+
+        auth_flag_phrases = [
+            'work authorization cannot be inferred',
+            'limited us work history',
+            'limited u.s. work history',
+            'work authorization unconfirmed',
+        ]
+        auth_flagged = any(phrase in gaps for phrase in auth_flag_phrases)
+        auth_inferred = 'scout screening infers strong likelihood' in match_summary
+        if auth_flagged and auth_inferred:
+            issues.append({
+                'check_type': 'authorization_misfire',
+                'description': (
+                    f"Gaps flag work authorization concern but match_summary contains "
+                    f"'Scout Screening infers strong likelihood' of authorization. "
+                    f"AI contradicted itself — authorization inference and gap scoring conflict."
+                )
+            })
+
         return issues
 
     def _run_ai_audit(self, job_match, resume_text: str, job_title: str,
@@ -388,10 +445,13 @@ For each issue, consider:
 2. Are any year-of-experience requirements physically impossible given the technology's age?
 3. Does the AI summary contradict the score (positive language but low score)?
 4. Are there skills mentioned in the resume that the AI incorrectly said were missing?
+5. Does the years_analysis data show the candidate MEETS a requirement but the AI marked it as not met?
+6. Was the candidate penalized for an employment gap even though their resume shows "Present" or "Current" employment?
+7. Did the AI flag a work authorization concern but also state it infers strong authorization likelihood?
 
 Respond in JSON format:
 {{
-    "finding_type": "<recency_misfire | platform_age_violation | false_gap_claim | score_inconsistency | no_issue>",
+    "finding_type": "<recency_misfire | platform_age_violation | false_gap_claim | score_inconsistency | experience_undercounting | employment_gap_misfire | authorization_misfire | no_issue>",
     "confidence": "<high | medium | low>",
     "reasoning": "<2-3 sentence explanation of your finding>",
     "recommended_action": "<revet | flag_for_review | no_action>"

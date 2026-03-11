@@ -394,9 +394,8 @@ Resume text:
 {resume_text[:8000]}
 """
 
-            # gpt-4.1-mini: cost-optimized for structured JSON extraction from resumes
             response = self.openai_client.chat.completions.create(
-                model="gpt-4.1-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are an expert resume parser. Extract structured data accurately. Return only valid JSON."},
                     {"role": "user", "content": prompt}

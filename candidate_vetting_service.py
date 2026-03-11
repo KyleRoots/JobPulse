@@ -370,7 +370,7 @@ Format as a bullet-point list. Be specific and concise."""
 
         try:
             response = self.openai_client.chat.completions.create(
-                model="gpt-4.1-mini",  # Cost-optimized: structured extraction (not main vetting)
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are a technical recruiter extracting ONLY explicitly stated mandatory requirements from job descriptions. You must NEVER infer, fabricate, or add requirements that are not directly written in the job description. If the job description does not mention a specific number of years, do NOT add one. Be concise and specific."},
                     {"role": "user", "content": prompt}
