@@ -38,7 +38,9 @@
     .toggle-switch {
         position: relative;
         width: 60px;
+        min-width: 60px;
         height: 30px;
+        flex-shrink: 0;
     }
 
     .toggle-switch input {
@@ -205,7 +207,7 @@
                     onsubmit="showSavingIndicator()">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center gap-3">
                             <div>
                                 <h6 class="mb-1">Enable Scout Screening</h6>
                                 <small class="text-muted">Automatically analyze new job applicants</small>
@@ -219,7 +221,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center gap-3">
                             <div>
                                 <h6 class="mb-1">Send Recruiter Emails</h6>
                                 <small class="text-muted">
@@ -236,14 +238,10 @@
                     </div>
 
                     <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center gap-3">
                             <div>
                                 <h6 class="mb-1">Screening Quality Audit</h6>
-                                <small class="text-muted">
-                                    AI auditor reviews recent Not Qualified results every 15 min for scoring errors
-                                    (recency misfires, platform age violations, false gap claims).
-                                    High-confidence misfires are auto re-screened with Bullhorn note update.
-                                </small>
+                                <small class="text-muted">Auto-reviews Not Qualified results every 15 min and re-screens misfires</small>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" name="screening_audit_enabled" {% if settings.screening_audit_enabled %}checked{% endif %}>
