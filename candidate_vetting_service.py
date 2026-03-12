@@ -2293,15 +2293,22 @@ CRITICAL RULES:
     - "Unrelated" means the role\'s described responsibilities share NO meaningful overlap with
       the job\'s mandatory requirements. Relevance requires that the role\'s ACTUAL DUTIES — not
       just its title — demonstrate hands-on work in the same professional domain as the job.
-    - DOMAIN MISMATCH EXAMPLES (these are ALWAYS unrelated regardless of transferable soft skills):
-      * Food service, hospitality, or restaurant roles → IT, software, engineering, or technical jobs
-      * Retail, sales associate, or cashier roles → IT operations, development, or systems jobs
-      * Administrative assistant or office clerk → engineering, DevOps, or data science jobs
-      * Rideshare driver, delivery, or logistics → software development or cybersecurity jobs
-      * Real estate, insurance sales → cloud architecture or systems administration jobs
-      When the most recent role falls into a completely different professional domain than the
-      job being evaluated, you MUST mark most_recent_role_relevant=false. Do NOT give credit
-      for "transferable skills" like communication or teamwork when assessing domain relevance.
+    - MANDATORY RELEVANCE JUSTIFICATION: When marking most_recent_role_relevant=true, you MUST
+      provide a `relevance_justification` field citing at least ONE specific shared duty, tool,
+      technology, or domain responsibility between the candidate\'s most recent role and the job.
+      Examples of VALID justifications:
+        * "Most recent role involves managing Active Directory and Group Policy, directly relevant to IT Operations job requirements"
+        * "Currently performing ETL pipeline development with Spark, matching the Data Engineer role requirements"
+        * "Role includes patient triage and clinical documentation, relevant to the Medical Assistant position"
+      Examples of INVALID justifications (these MUST result in most_recent_role_relevant=false):
+        * "Candidate has transferable skills like communication and teamwork"
+        * "Has general work experience"
+        * "Shows strong work ethic and reliability"
+        * "Customer-facing experience" (unless the job specifically requires customer service duties)
+      If you cannot cite a specific shared duty/tool/domain, you MUST mark most_recent_role_relevant=false.
+    - DOMAIN MISMATCH: When the most recent role falls into a completely different professional
+      domain than the job being evaluated, mark most_recent_role_relevant=false. Do NOT give
+      credit for "transferable skills" like communication or teamwork when assessing domain relevance.
     - TECHNOLOGY EVOLUTION IN CAREERS — CRITICAL RECENCY RULE: When a job requires a specific
       technology (e.g., Databricks, Snowflake, Kafka), do NOT anchor recency only on roles that
       mention that exact tool by name if the candidate\'s CURRENT role uses the tool actively.
@@ -2511,6 +2518,7 @@ Respond in JSON format with these exact fields:
     "recency_analysis": {{
         "most_recent_role": "<title> at <company> (<start> – <end>)",
         "most_recent_role_relevant": true,
+        "relevance_justification": "<cite specific shared duty/tool/domain overlap — required when most_recent_role_relevant=true, set to 'N/A' when false>",
         "second_recent_role": "<title> at <company> (<start> – <end>)",
         "second_recent_role_relevant": true,
         "last_relevant_role_ended": "<date or \'current\'>",
@@ -2866,71 +2874,6 @@ CRITICAL SCORING RULES:
                         months_since = 0
                         ai_penalty = 0
                 
-                # ── CROSS-VALIDATION: Detect AI recency misclassification ──
-                # When AI reports most_recent_role_relevant=True, cross-check the
-                # most_recent_role string against the job title domain. If they are
-                # in completely different professional domains, override to False.
-                if most_recent_relevant:
-                    _recent_role_str = str(recency_analysis.get('most_recent_role', '')).lower()
-                    _job_title_lower = job_title.lower()
-
-                    _NON_TECH_DOMAINS = [
-                        'restaurant', 'food service', 'barista', 'cook ', 'chef ',
-                        'waiter', 'waitress', 'bartender', 'dishwasher', 'kitchen',
-                        'cashier', 'retail associate', 'sales associate', 'store clerk',
-                        'grocery', 'merchandiser', 'stock clerk',
-                        'uber driver', 'lyft driver', 'rideshare', 'delivery driver', 'courier',
-                        'warehouse worker', 'forklift operator', 'picker packer',
-                        'janitor', 'custodian', 'housekeeper', 'cleaning service',
-                        'landscaping', 'lawn care', 'gardener',
-                        'construction worker', 'general laborer', 'roofer', 'house painter',
-                        'security guard', 'bouncer',
-                        'call center agent', 'telemarketer',
-                        'daycare', 'babysitter', 'nanny', 'childcare',
-                        'hair stylist', 'barber', 'cosmetologist', 'nail technician',
-                        'fitness trainer', 'personal trainer', 'yoga instructor',
-                        'real estate agent', 'realtor',
-                        'insurance agent', 'insurance broker',
-                    ]
-
-                    _TECH_JOB_INDICATORS = [
-                        'it operations', 'it support', 'it manager', 'it director',
-                        'software', 'developer', 'devops', 'sre ',
-                        'systems engineer', 'systems administrator', 'systems support',
-                        'network engineer', 'network administrator',
-                        'cloud engineer', 'cloud architect',
-                        'data engineer', 'data scientist', 'database administrator',
-                        'cybersecurity', 'information security',
-                        'infrastructure engineer', 'solutions architect',
-                        'programmer', 'technical support', 'help desk',
-                        'full stack', 'frontend engineer', 'backend engineer',
-                        'machine learning', 'artificial intelligence',
-                        'site reliability',
-                    ]
-
-                    _role_is_non_tech = any(kw in _recent_role_str for kw in _NON_TECH_DOMAINS)
-                    _job_is_tech = any(kw in _job_title_lower for kw in _TECH_JOB_INDICATORS)
-
-                    if _role_is_non_tech and _job_is_tech:
-                        logging.warning(
-                            f"🔍 RECENCY CROSS-VALIDATION: AI reported most_recent_role_relevant=True "
-                            f"but detected domain mismatch for job {job_id} ({job_title}). "
-                            f"Most recent role: '{recency_analysis.get('most_recent_role', '')}' "
-                            f"appears to be in a non-technical domain. Overriding to relevant=False."
-                        )
-                        most_recent_relevant = False
-                        recency_analysis['most_recent_role_relevant'] = False
-                        if second_recent_relevant:
-                            _second_role_str = str(recency_analysis.get('second_recent_role', '')).lower()
-                            _second_is_non_tech = any(kw in _second_role_str for kw in _NON_TECH_DOMAINS)
-                            if _second_is_non_tech:
-                                logging.warning(
-                                    f"🔍 RECENCY CROSS-VALIDATION: Second recent role also non-technical: "
-                                    f"'{recency_analysis.get('second_recent_role', '')}'"
-                                )
-                                second_recent_relevant = False
-                                recency_analysis['second_recent_role_relevant'] = False
-
                 # Determine the correct penalty tier
                 if not most_recent_relevant and not second_recent_relevant:
                     # Both recent roles unrelated → 15-25 point penalty
@@ -3787,7 +3730,7 @@ CRITICAL SCORING RULES:
                     is_applied_job=is_applied_job,
                     match_summary=analysis.get('match_summary', ''),
                     skills_match=analysis.get('skills_match', ''),
-                    experience_match=analysis.get('experience_match', ''),
+                    experience_match=self._build_experience_match(analysis),
                     gaps_identified=analysis.get('gaps_identified', ''),
                     years_analysis_json=analysis.get('_years_analysis_json')
                 )
