@@ -2648,6 +2648,9 @@ CRITICAL SCORING RULES:
                         "matching the job's country requirement",
                         "same country as the job",
                         "matches the country requirement",
+                        "located in the same country",
+                        "resides in the same country",
+                        "based in the same country",
                     ]
                     def _has_affirmative_evidence(_text, _phrases, _negations):
                         for phrase in _phrases:
