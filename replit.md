@@ -16,70 +16,56 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 ## System Architecture
 
 ### UI/UX Decisions
-- **Template Engine**: Jinja2 with Bootstrap 5 (dark theme) for a responsive and modern user interface.
-- **Client-side**: Vanilla JavaScript for interactive elements.
+- **Template Engine**: Jinja2 with Bootstrap 5 (dark theme).
+- **Client-side**: Vanilla JavaScript.
 - **Icons**: Font Awesome 6.0.
-- **Dual-Domain Architecture**: Supports `app.scoutgenius.ai` (main application), `apply.myticas.com` / `apply.stsigroup.com` (job application forms), and `support.myticas.com` / `support.stsigroup.com` (internal support request forms).
-- **Microsoft SSO (support.myticas.com)**: `support.myticas.com` is protected by Microsoft Entra ID (Office 365) single sign-on via OAuth 2.0 Authorization Code flow. Only `@myticas.com` accounts can authenticate (single-tenant). Auth routes in `routes/support_auth.py`; login template at `templates/support_login.html`. Azure App Registration: "Myticas Support Portal". Secrets: `MICROSOFT_CLIENT_ID`, `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_SECRET`. Redirect URIs: `https://support.myticas.com/support/auth/callback` (sign-in callback), `https://support.myticas.com/support/auth/signed-out` (post-logout redirect — must be registered in Azure). Session timeout: 4 hours of inactivity. Manual logout routes through Microsoft's v2.0 logout endpoint to clear the Microsoft-side token, forcing full re-authentication on next sign-in.
+- **Dual-Domain Architecture**: Supports `app.scoutgenius.ai`, `apply.myticas.com` / `apply.stsigroup.com`, and `support.myticas.com` / `support.stsigroup.com`.
+- **Microsoft SSO**: `support.myticas.com` uses Microsoft Entra ID (Office 365) single sign-on via OAuth 2.0.
 
 ### Technical Implementations
-- **Web Framework**: Flask (Python 3.11) utilizing modular route blueprints.
-- **Database**: PostgreSQL with SQLAlchemy ORM and Alembic for migrations.
-- **Authentication**: Flask-Login for user management, supporting username or email login, with password reset.
-- **Authorization**: Granular module-based access control with route guards.
-- **User Management**: Admin interface for user CRUD, module subscriptions, Bullhorn User ID assignment, and account activation/reset. Includes "View As" impersonation.
-- **Background Processing**: APScheduler manages automated tasks (e.g., tearsheet monitoring, SFTP uploads, `enforce_tearsheet_jobs_public`, Scout Vetting cycle, `candidate_data_cleanup`). Critical scheduled jobs use `misfire_grace_time=300` and `coalesce=False`.
-- **XML Processing**: Custom `lxml` processor for data handling, reference number generation, and HTML consistency.
-- **Email Service**: SendGrid for notifications and delivery logging.
+- **Web Framework**: Flask (Python 3.11) with modular route blueprints.
+- **Database**: PostgreSQL with SQLAlchemy ORM and Alembic.
+- **Authentication**: Flask-Login for user management, with username/email login and password reset.
+- **Authorization**: Granular module-based access control.
+- **User Management**: Admin interface for user CRUD, module subscriptions, Bullhorn User ID assignment, and account activation/reset, including "View As" impersonation.
+- **Background Processing**: APScheduler for automated tasks (e.g., tearsheet monitoring, SFTP uploads, Scout Vetting cycle).
+- **XML Processing**: Custom `lxml` processor for data handling and HTML consistency.
+- **Email Service**: SendGrid for notifications.
 - **AI/LLM Integration**: OpenAI GPT-4o for candidate vetting, job classification, and resume formatting.
 - **Embedding Service**: Used for similarity-based pre-filtering in candidate-job matching.
 - **Error Tracking**: Sentry SDK integration.
 - **Testing**: Comprehensive pytest suite.
-- **Proxy Support**: `ProxyFix` middleware for reverse proxy environments.
+- **Proxy Support**: `ProxyFix` middleware.
 
 ### Feature Specifications
-- **Dual XML Feed System**: Generates two XML files (`myticas-job-feed-v2.xml` with capped jobs, `myticas-job-feed-pando.xml` with all jobs) every 30 minutes.
-- **Dual-Cycle Monitoring**: 5-minute tearsheet monitoring and 30-minute automated SFTP upload cycles with smart cleanup.
-- **Enforce Tearsheet Jobs Public**: Scheduled task to ensure jobs in monitored tearsheets are `isPublic=true` in Bullhorn.
-- **Vetting Scope Alignment**: Ensures `candidate_vetting_service` job scope matches the monitoring service.
+- **Dual XML Feed System**: Generates two XML files (`myticas-job-feed-v2.xml` and `myticas-job-feed-pando.xml`) every 30 minutes.
+- **Dual-Cycle Monitoring**: 5-minute tearsheet monitoring and 30-minute automated SFTP upload cycles.
+- **Enforce Tearsheet Jobs Public**: Scheduled task to ensure jobs in monitored tearsheets are public in Bullhorn.
 - **ATS Credentials Page**: Admin-only interface for managing ATS integration settings.
-- **Feedback Email Sender**: Uses `noreply@scoutgenius.ai`.
 - **Real-Time Notifications**: Email alerts for new jobs.
 - **Environment Isolation**: Separate development and production configurations.
 - **Database-First Reference Numbers**: `JobReferenceNumber` table as the single source of truth.
 - **Job Application Forms**: Public forms with multi-brand support, resume parsing, and Bullhorn integration.
-- **Resume HTML Formatting**: Three-layer process: extraction, normalization, and GPT-4o formatting.
+- **Resume HTML Formatting**: Three-layer process including GPT-4o formatting.
 - **AI Job Classification**: Classifies jobs based on LinkedIn taxonomy.
-- **Zero-Job Detection Safeguard**: Prevents XML corruption.
-- **Zero-Touch Deployment**: Environment-aware database seeding.
-- **Scout Vetting**: AI-powered candidate screening using GPT-4o with embedding pre-filtering, experience-level classification, two-phase scoring (technical_score before location penalty, match_score after), work authorization/security clearance inference, and configurable global screening prompts. `CandidateJobMatch.technical_score` (Float, nullable) stores the location-blind score; location barrier detection uses `technical_score >= threshold-15`. **Employment gap penalty**: candidates unemployed 12–23 months lose 8pts from technical_score; 24–35 months → −12pts; 36+ months → −15pts. No penalty for currently employed or gap < 12 months. No-dates case (resume has no employment dates) → no penalty but a soft recruiter note is added to gaps_identified. Enforced by AI prompt rule 15 only (no Python post-processor — removed to avoid amplifying AI date-extraction errors). `employment_gap_analysis` JSON field in AI response captures is_currently_employed, last_role_end_date, gap_months, and penalty_applied. **Remote location misfire enforcer (Python post-processor)**: After GPT-4o returns its response, a deterministic Python check detects when `gaps_identified` contains "Location mismatch: different country" but `match_summary` contains affirmative same-country evidence (e.g., "matches the remote job's country requirement"). When detected, the location mismatch text is removed from gaps, 25 points are restored to match_score (capped at technical_score), and the correction is logged. This supplements the prompt-level self-consistency check which GPT-4o ignores ~30% of the time. **Proximity-aware location penalty tiers (on-site/hybrid)**: Same-state candidates within ~100 miles of the job city receive a reduced 5-point penalty instead of 15-20 (tier 2b). Full 15-20 point penalty only applies to same-state candidates >100 miles away or different-state candidates (tier 2/2c).
+- **Scout Vetting**: AI-powered candidate screening using GPT-4o with embedding pre-filtering, experience-level classification, two-phase scoring (technical_score before location penalty, match_score after), work authorization/security clearance inference, and configurable global screening prompts. Includes employment gap penalties, mid-career gap penalties, remote location misfire enforcer (Python post-processor), proximity-aware location penalty tiers, and recency cross-validation (Python post-processor).
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
-- **Scout Screening Portal**: Recruiter-facing dashboard for AI match results, scores, and qualification status. **Grouped candidate view**: one expandable parent row per candidate (showing best score, overall status, job count chip) with nested child rows for each individual job match — collapsed by default, click to expand. Route groups `CandidateJobMatch` records by `bullhorn_candidate_id` server-side (up to 200 candidate groups from 2000 match records). Metrics, filters, sorting, and pagination all operate at the candidate level. Both admin and standard users see the same grouped layout (standard users scoped to their assigned jobs). Includes per-candidate "Re-screen" button (admin-only) to trigger immediate re-vetting. **Server-side candidate search**: typing 3+ characters in the search box triggers a debounced AJAX query (`/scout-screening/search`) against the full database (not just the default view), deduplicated to the latest match per candidate-job pair and scoped to the user's assigned jobs (cap 500); results are grouped client-side by candidate_id into the same accordion structure. Under 3 chars falls back to client-side filtering. Trigram index (`gin_trgm_ops`) on `candidate_vetting_log.candidate_name` for fast partial matching (Alembic migration `a2c4e6f8b1d3`).
-- **Scout Screening Quality Auditor**: Background AI audit (every 15 min) that reviews recent Not Qualified results for scoring errors — recency gate misfires, platform age violations, false gap claims, score-evidence inconsistencies, experience under-counting, employment gap misfires, and work authorization misfires. Uses heuristic pre-checks (no API cost) followed by GPT-4o confirmation for flagged results. High-confidence misfires auto-trigger re-vets with Bullhorn note rewrite. Email summary sent to admin when issues found or re-vets triggered. Controlled by `screening_audit_enabled` VettingConfig toggle. Service: `vetting_audit_service.py`, model: `VettingAuditLog`, Automation Hub tool: `screening_audit`.
+- **Scout Screening Portal**: Recruiter-facing dashboard for AI match results, scores, and qualification status with grouped candidate view, server-side candidate search, and a "Re-screen" button.
+- **Scout Screening Quality Auditor**: Background AI audit to review recent "Not Qualified" results for scoring errors, with auto-trigger re-vets and email summaries.
 - **Module Switcher**: UI component for non-admin users with multiple module subscriptions.
-- **Company Admin Role**: Specialized role for managing users within a specific company.
-- **Multi-Company Support**: `company` field on User model; company admins see only users within their company.
-- **Automation Hub (Super-Admin Only)**: Management console for scheduled jobs, built-in automation tools (e.g., `cleanup_ai_notes`, `export_qualified`, `email_extractor`, `resume_reparser`, `retry_recruiter_notifications`), and run history. Long-running built-ins execute in background threads. All Bullhorn HTTP calls from background threads use standalone `requests.get()`/`requests.post()` for thread-safety. Email Extractor and Resume Reparser modals support optional `candidate_ids` field for targeted runs.
-- **Candidate Data Cleanup (Scheduled)**: Background job (every 30 min, batch=50) that automatically extracts missing emails from resume files and reparses empty candidate descriptions. Controlled by `candidate_cleanup_enabled` GlobalSettings toggle visible in the Automation Hub. Off by default; designed to clear the 97K+ candidate backlog over ~20 days at ~$0.15/cycle.
-- **Scout Automation Module (Planned)**: A user-friendly automation module for non-technical users with real-time progress notifications, background processing, and AI vision capabilities.
-- **Activity Log (Super-Admin Only)**: System-wide admin visibility page tracking login history, module usage, email delivery, and active users. Includes an **Active Users** tab showing real-time presence with status dots and 30-second auto-refresh (uses `last_active_at` column on User model, throttled to 1-minute DB writes).
-- **Vetting Sandbox (Super-Admin Only)**: 5-stage wizard for manually testing the AI vetting pipeline in isolation.
-- **Resume Character Limit (Vetting)**: AI vetting reads up to 20,000 characters of resume text (previously 8,000). GAP DESCRIPTION PRECISION prompt: AI must distinguish between a skill being truly absent vs. present-but-insufficient in the resume — eliminates false "no evidence" gap reports.
-- **Experience Estimation (Missing Dates)**: When a resume has no employment date ranges, the AI prompt instructs GPT-4o to: (1) if an education end date is present, estimate professional years as (current year − graduation year), treat as inferred and apply conservative scoring (inferred years alone do not satisfy strict 3+ year requirements); (2) if no dates anywhere, default `total_professional_years` to 2.0. The Python-side fallback default is 3.0 (down from 99.0) for the rare case where AI classification parsing fails entirely — prevents false "experienced" assumptions on undatable resumes.
-- **DOCX Resume Parsing**: Multi-layer extraction from section headers, body paragraphs, table cells, text boxes (w:drawing XML), and full XML w:t fallback — captures emails and content regardless of resume template layout. Supports `.doc` files via antiword conversion. Garbled text detection with fallback to plain-text-to-HTML conversion.
-
-## Commercial Agreements
-
-### OpenAI — Modified Data Retention Amendment
-- **Agreement**: Modified Data Retention Amendment between OpenAI OpCo, LLC and Myticas Consulting ULC.
-- **Org ID**: `org-yOsdUJqxqyaR7msNs3M3ISmW`
-- **Data Handling**: Zero Data Retention / Modified Abuse Monitoring is active — OpenAI does not log, retain, or use API inputs for training or abuse monitoring for this org.
-- **Commercial Terms**: Committed minimum spend agreement in exchange for full, unlimited access to all OpenAI APIs and models.
-- **Model Usage Guidance**: Do NOT apply cost-saving model downgrades (e.g. using mini models to save tokens). Use the highest-quality model available (GPT-4o, o1, o3, etc.) whenever better output accuracy, reasoning, or reliability is warranted. The spend commitment removes the need for conservative model selection.
+- **Company Admin Role**: Manages users within a specific company.
+- **Multi-Company Support**: `company` field on User model.
+- **Automation Hub (Super-Admin Only)**: Management console for scheduled jobs and built-in automation tools.
+- **Candidate Data Cleanup (Scheduled)**: Background job to extract missing emails from resume files and reparse empty candidate descriptions.
+- **Activity Log (Super-Admin Only)**: System-wide admin visibility tracking login history, module usage, email delivery, and active users.
+- **Vetting Sandbox (Super-Admin Only)**: 5-stage wizard for manually testing the AI vetting pipeline.
+- **Resume Character Limit (Vetting)**: AI vetting reads up to 20,000 characters of resume text with improved prompt precision for skill distinction.
+- **Experience Estimation (Missing Dates)**: AI prompt instructs GPT-4o to estimate professional years based on education or default to 2.0 years if no dates are present.
+- **DOCX Resume Parsing**: Multi-layer extraction supporting `.doc` files via antiword conversion and garbled text detection.
 
 ## External Dependencies
 
 - **Python Libraries**: Flask, Flask-Login, Flask-WTF, Flask-SQLAlchemy, lxml, SQLAlchemy, Alembic, APScheduler, gunicorn, SendGrid, OpenAI, tiktoken, PyMuPDF, PyPDF2, python-docx, Paramiko, Requests, httpx, Sentry SDK, bcrypt, BeautifulSoup4.
 - **Frontend Libraries**: Bootstrap 5, Font Awesome 6.
 - **External Services**: PostgreSQL (Neon-hosted), SendGrid, OpenAI, Bullhorn ATS/CRM, Sentry.
-- **AI Models**: OpenAI GPT-4o (primary). Upgrade to o1/o3 freely when higher reasoning quality is needed — no cost barrier.
+- **AI Models**: OpenAI GPT-4o (primary, with capability to upgrade to o1/o3).

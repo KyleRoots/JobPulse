@@ -2291,8 +2291,17 @@ CRITICAL RULES:
     - Roles with NO bullet points or descriptions provide NO evidence of relevant skills.
       Do not assume relevance based on job title alone.
     - "Unrelated" means the role\'s described responsibilities share NO meaningful overlap with
-      the job\'s mandatory requirements. A DevOps engineer\'s role is related to a Cloud Developer
-      job; a real estate consultant\'s role is not.
+      the job\'s mandatory requirements. Relevance requires that the role\'s ACTUAL DUTIES — not
+      just its title — demonstrate hands-on work in the same professional domain as the job.
+    - DOMAIN MISMATCH EXAMPLES (these are ALWAYS unrelated regardless of transferable soft skills):
+      * Food service, hospitality, or restaurant roles → IT, software, engineering, or technical jobs
+      * Retail, sales associate, or cashier roles → IT operations, development, or systems jobs
+      * Administrative assistant or office clerk → engineering, DevOps, or data science jobs
+      * Rideshare driver, delivery, or logistics → software development or cybersecurity jobs
+      * Real estate, insurance sales → cloud architecture or systems administration jobs
+      When the most recent role falls into a completely different professional domain than the
+      job being evaluated, you MUST mark most_recent_role_relevant=false. Do NOT give credit
+      for "transferable skills" like communication or teamwork when assessing domain relevance.
     - TECHNOLOGY EVOLUTION IN CAREERS — CRITICAL RECENCY RULE: When a job requires a specific
       technology (e.g., Databricks, Snowflake, Kafka), do NOT anchor recency only on roles that
       mention that exact tool by name if the candidate\'s CURRENT role uses the tool actively.
@@ -2322,6 +2331,16 @@ CRITICAL RULES:
       "Employment continuity unknown: no employment dates found on resume — recruiter should verify current employment status."
     - Contract, freelance, self-employed, and part-time roles count as employed — treat an
       active end date of "present/current" in any of these as currently employed.
+    - MID-CAREER GAP DETECTION: In addition to checking the gap from the last role to today,
+      scan ALL consecutive role pairs for significant gaps BETWEEN roles. For each pair of
+      consecutive roles (ordered chronologically), calculate the gap between the end date of
+      the earlier role and the start date of the next role. Report the LARGEST such gap.
+      - If the largest mid-career gap is 12–23 months: reduce technical_score by 4 points.
+        Add to gaps_identified: "Mid-career employment gap: [N] months between [Role A end] and [Role B start]."
+      - If the largest mid-career gap is 24+ months: reduce technical_score by 7 points.
+        Add to gaps_identified: "Significant mid-career employment gap: [N] months between [Role A end] and [Role B start]."
+      - If the largest mid-career gap is under 12 months: no penalty.
+      - This penalty stacks with the current-employment gap penalty above (they measure different things).
     - Report your finding in the employment_gap_analysis JSON section.
 
 REQUIREMENTS EVALUATION (when no custom requirements are provided):
@@ -2504,7 +2523,10 @@ Respond in JSON format with these exact fields:
         "last_role_end_date": "<\'present\' | \'YYYY-MM\' | \'unknown\' if no dates on resume>",
         "gap_months": 0,
         "penalty_applied": 0,
-        "note": "<e.g. \'Currently employed — no penalty\' | \'Gap of 14 months — penalty -8pts\' | \'No employment dates found — soft note only\'>"
+        "largest_midcareer_gap_months": 0,
+        "midcareer_gap_between": "<\'Role A (end) → Role B (start)\' | \'none\'>",
+        "midcareer_gap_penalty_applied": 0,
+        "note": "<e.g. \'Currently employed — no penalty\' | \'Gap of 14 months — penalty -8pts\' | \'No employment dates found — soft note only\' | \'Mid-career gap: 18 months between X and Y — penalty -4pts\'>"
     }},
     "experience_level_classification": {{
         "classification": "<FRESH_GRAD | ENTRY | MID | SENIOR>",
@@ -2841,6 +2863,71 @@ CRITICAL SCORING RULES:
                         months_since = 0
                         ai_penalty = 0
                 
+                # ── CROSS-VALIDATION: Detect AI recency misclassification ──
+                # When AI reports most_recent_role_relevant=True, cross-check the
+                # most_recent_role string against the job title domain. If they are
+                # in completely different professional domains, override to False.
+                if most_recent_relevant:
+                    _recent_role_str = str(recency_analysis.get('most_recent_role', '')).lower()
+                    _job_title_lower = job_title.lower()
+
+                    _NON_TECH_DOMAINS = [
+                        'restaurant', 'food service', 'barista', 'cook ', 'chef ',
+                        'waiter', 'waitress', 'bartender', 'dishwasher', 'kitchen',
+                        'cashier', 'retail associate', 'sales associate', 'store clerk',
+                        'grocery', 'merchandiser', 'stock clerk',
+                        'uber driver', 'lyft driver', 'rideshare', 'delivery driver', 'courier',
+                        'warehouse worker', 'forklift operator', 'picker packer',
+                        'janitor', 'custodian', 'housekeeper', 'cleaning service',
+                        'landscaping', 'lawn care', 'gardener',
+                        'construction worker', 'general laborer', 'roofer', 'house painter',
+                        'security guard', 'bouncer',
+                        'call center agent', 'telemarketer',
+                        'daycare', 'babysitter', 'nanny', 'childcare',
+                        'hair stylist', 'barber', 'cosmetologist', 'nail technician',
+                        'fitness trainer', 'personal trainer', 'yoga instructor',
+                        'real estate agent', 'realtor',
+                        'insurance agent', 'insurance broker',
+                    ]
+
+                    _TECH_JOB_INDICATORS = [
+                        'it operations', 'it support', 'it manager', 'it director',
+                        'software', 'developer', 'devops', 'sre ',
+                        'systems engineer', 'systems administrator', 'systems support',
+                        'network engineer', 'network administrator',
+                        'cloud engineer', 'cloud architect',
+                        'data engineer', 'data scientist', 'database administrator',
+                        'cybersecurity', 'information security',
+                        'infrastructure engineer', 'solutions architect',
+                        'programmer', 'technical support', 'help desk',
+                        'full stack', 'frontend engineer', 'backend engineer',
+                        'machine learning', 'artificial intelligence',
+                        'site reliability',
+                    ]
+
+                    _role_is_non_tech = any(kw in _recent_role_str for kw in _NON_TECH_DOMAINS)
+                    _job_is_tech = any(kw in _job_title_lower for kw in _TECH_JOB_INDICATORS)
+
+                    if _role_is_non_tech and _job_is_tech:
+                        logging.warning(
+                            f"🔍 RECENCY CROSS-VALIDATION: AI reported most_recent_role_relevant=True "
+                            f"but detected domain mismatch for job {job_id} ({job_title}). "
+                            f"Most recent role: '{recency_analysis.get('most_recent_role', '')}' "
+                            f"appears to be in a non-technical domain. Overriding to relevant=False."
+                        )
+                        most_recent_relevant = False
+                        recency_analysis['most_recent_role_relevant'] = False
+                        if second_recent_relevant:
+                            _second_role_str = str(recency_analysis.get('second_recent_role', '')).lower()
+                            _second_is_non_tech = any(kw in _second_role_str for kw in _NON_TECH_DOMAINS)
+                            if _second_is_non_tech:
+                                logging.warning(
+                                    f"🔍 RECENCY CROSS-VALIDATION: Second recent role also non-technical: "
+                                    f"'{recency_analysis.get('second_recent_role', '')}'"
+                                )
+                                second_recent_relevant = False
+                                recency_analysis['second_recent_role_relevant'] = False
+
                 # Determine the correct penalty tier
                 if not most_recent_relevant and not second_recent_relevant:
                     # Both recent roles unrelated → 15-25 point penalty
@@ -2880,6 +2967,57 @@ CRITICAL SCORING RULES:
                             result['gaps_identified'] = f"{existing_gaps} | {recency_note}"
                         else:
                             result['gaps_identified'] = recency_note
+
+            # ── POST-PROCESSING: Mid-career employment gap enforcer ──
+            # Validates the AI's mid-career gap reporting and enforces penalties
+            # only when the AI under-applied the correct penalty (idempotent).
+            # Adjusts technical_score first, then recomputes match_score accordingly.
+            _gap_analysis = result.get('employment_gap_analysis', {})
+            if isinstance(_gap_analysis, dict) and _gap_analysis:
+                _midcareer_gap_months = 0
+                try:
+                    _midcareer_gap_months = int(_gap_analysis.get('largest_midcareer_gap_months', 0))
+                except (ValueError, TypeError):
+                    pass
+                _ai_midcareer_penalty = 0
+                try:
+                    _ai_midcareer_penalty = abs(int(_gap_analysis.get('midcareer_gap_penalty_applied', 0)))
+                except (ValueError, TypeError):
+                    pass
+
+                if _midcareer_gap_months >= 24:
+                    _target_midcareer_penalty = 7
+                elif _midcareer_gap_months >= 12:
+                    _target_midcareer_penalty = 4
+                else:
+                    _target_midcareer_penalty = 0
+
+                if _target_midcareer_penalty > 0 and _ai_midcareer_penalty < _target_midcareer_penalty:
+                    _delta = _target_midcareer_penalty - _ai_midcareer_penalty
+                    _tech_before = result.get('technical_score', result['match_score'])
+                    result['technical_score'] = max(0, _tech_before - _delta)
+                    _match_before = result['match_score']
+                    result['match_score'] = max(0, _match_before - _delta)
+                    _gap_between = _gap_analysis.get('midcareer_gap_between', 'unknown')
+                    logging.info(
+                        f"📉 Mid-career gap enforcer: AI applied {_ai_midcareer_penalty}pts but "
+                        f"target is {_target_midcareer_penalty}pts for {_midcareer_gap_months}-month gap. "
+                        f"Added delta {_delta}pts for job {job_id}. "
+                        f"technical_score: {_tech_before}→{result['technical_score']}, "
+                        f"match_score: {_match_before}→{result['match_score']} "
+                        f"(between: {_gap_between})"
+                    )
+
+                    _midcareer_note = (
+                        f"Mid-career employment gap: {_midcareer_gap_months} months between roles "
+                        f"({_gap_between})."
+                    )
+                    existing_gaps = result.get('gaps_identified', '') or ''
+                    if 'mid-career' not in existing_gaps.lower():
+                        if existing_gaps:
+                            result['gaps_identified'] = f"{existing_gaps} | {_midcareer_note}"
+                        else:
+                            result['gaps_identified'] = _midcareer_note
 
             # ── POST-PROCESSING: Experience floor gate (defense-in-depth for fresh-grad profiles) ──
             # Detects candidates with FRESH_GRAD/ENTRY classification matched against roles
