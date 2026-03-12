@@ -3974,8 +3974,10 @@ CRITICAL SCORING RULES:
                 _all_incomplete = all(
                     n.get('action', '') in _INCOMPLETE_ACTIONS for n in existing_notes
                 )
-                _current_is_complete = vetting_log.status == 'completed'
-                if _all_incomplete and _current_is_complete:
+                _has_match_records = CandidateJobMatch.query.filter_by(
+                    vetting_log_id=vetting_log.id
+                ).count() > 0
+                if _all_incomplete and _has_match_records:
                     logging.info(
                         f"ℹ️ DUPLICATE SAFEGUARD OVERRIDE: Candidate {vetting_log.bullhorn_candidate_id} "
                         f"has {len(existing_notes)} Incomplete note(s) in Bullhorn from last 6h. "
