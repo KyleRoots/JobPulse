@@ -387,6 +387,109 @@ def rescreen_recent():
     return redirect(url_for('vetting.vetting_settings'))
 
 
+@vetting_bp.route('/screening/rescreen-remote-misfires', methods=['POST'])
+@login_required
+@csrf.exempt
+def rescreen_remote_misfires():
+    """Find and re-screen candidates with remote location misfires from the last N hours.
+    
+    Identifies CandidateJobMatch records where:
+    - Job work_type is 'Remote'
+    - gaps_identified contains 'different country'
+    - match_summary contains same-country affirmative evidence
+    Then resets the candidate's vetted_at so they get re-vetted with the new enforcer.
+    """
+    from models import CandidateJobMatch, CandidateVettingLog, ParsedEmail
+
+    db = get_db()
+
+    try:
+        hours = int(request.form.get('hours', 48))
+        hours = max(1, min(168, hours))
+        cutoff = datetime.utcnow() - timedelta(hours=hours)
+
+        same_country_phrases = [
+            'matches the remote job',
+            'matches the location requirement',
+            'meets the location requirement',
+            'meets the remote location',
+            'matching the remote job',
+            "matches the job's country",
+            "matches the remote job's country",
+            "matches the job's remote location",
+            "matching the job location requirement",
+            "matching the job's country requirement",
+            "same country as the job",
+            "matches the country requirement",
+        ]
+
+        misfire_matches = CandidateJobMatch.query.join(
+            CandidateVettingLog,
+            CandidateJobMatch.vetting_log_id == CandidateVettingLog.id
+        ).filter(
+            CandidateJobMatch.created_at >= cutoff,
+            CandidateJobMatch.work_type == 'Remote',
+            CandidateJobMatch.gaps_identified.ilike('%different country%'),
+        ).all()
+
+        affected_candidate_ids = set()
+        affected_details = []
+        for match in misfire_matches:
+            summary_lower = (match.match_summary or '').lower()
+            if any(phrase in summary_lower for phrase in same_country_phrases):
+                affected_candidate_ids.add(match.bullhorn_candidate_id)
+                affected_details.append({
+                    'candidate_id': match.bullhorn_candidate_id,
+                    'candidate_name': match.candidate_name,
+                    'job_id': match.bullhorn_job_id,
+                    'job_title': match.job_title,
+                    'match_score': match.match_score,
+                })
+
+        reset_count = 0
+        if affected_candidate_ids:
+            reset_count = ParsedEmail.query.filter(
+                ParsedEmail.bullhorn_candidate_id.in_(list(affected_candidate_ids)),
+                ParsedEmail.vetted_at.isnot(None),
+                ParsedEmail.status == 'completed',
+            ).update({'vetted_at': None}, synchronize_session=False)
+            db.session.commit()
+
+            current_app.logger.info(
+                f"🛡️ REMOTE MISFIRE RE-SCREEN: Found {len(affected_details)} misfire matches "
+                f"across {len(affected_candidate_ids)} candidates in last {hours}h. "
+                f"Reset {reset_count} ParsedEmail records for re-vetting."
+            )
+            for d in affected_details:
+                current_app.logger.info(
+                    f"  → Candidate {d['candidate_id']} ({d['candidate_name']}) "
+                    f"on job {d['job_id']} ({d['job_title']}), score={d['match_score']}"
+                )
+
+            flash(
+                f'Found {len(affected_details)} remote location misfires across '
+                f'{len(affected_candidate_ids)} candidates. Reset {reset_count} for re-screening.',
+                'success'
+            )
+        else:
+            flash(f'No remote location misfires found in the last {hours} hours.', 'info')
+            current_app.logger.info(f"🛡️ REMOTE MISFIRE RE-SCREEN: No misfires found in last {hours}h")
+
+        return jsonify({
+            'success': True,
+            'hours': hours,
+            'misfire_matches': len(affected_details),
+            'candidates_affected': len(affected_candidate_ids),
+            'emails_reset': reset_count,
+            'details': affected_details[:50],
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error during remote misfire rescreen: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @vetting_bp.route('/screening/start-fresh', methods=['POST'])
 @login_required
 def start_fresh():

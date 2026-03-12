@@ -2614,16 +2614,17 @@ CRITICAL SCORING RULES:
                 if 'location mismatch: different country' in _gaps_text or 'different country' in _gaps_text:
                     _same_country_evidence = [
                         'matches the remote job',
-                        'which matches',
-                        'same country',
                         'matches the location requirement',
                         'meets the location requirement',
                         'meets the remote location',
                         'matching the remote job',
                         "matches the job's country",
                         "matches the remote job's country",
-                        'matching the job location',
                         "matches the job's remote location",
+                        "matching the job location requirement",
+                        "matching the job's country requirement",
+                        "same country as the job",
+                        "matches the country requirement",
                     ]
                     if any(phrase in _summary_text for phrase in _same_country_evidence):
                         import re as _re
