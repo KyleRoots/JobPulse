@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "7sY0vobxtWYuMR1Ahp7IG"
+uri = "file://global_screening_instructions_updated.txt"
+type = "text"
+title = "Updated Global Screening Instructions (with Rule 2A)"
