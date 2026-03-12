@@ -5,8 +5,8 @@ channel = "stable-24_05"
 packages = ["cacert", "cargo", "freetype", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "libffi", "libiconv", "libjpeg_turbo", "libxcrypt", "mupdf", "openjpeg", "openssl", "pkg-config", "postgresql", "rustc", "swig", "xcbuild", "xcodebuild", "zlib", "antiword"]
 
 [deployment]
-deploymentTarget = "vm"
-run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "--reload", "main:app"]
+deploymentTarget = "autoscale"
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "main:app"]
 
 [workflows]
 runButton = "Project"

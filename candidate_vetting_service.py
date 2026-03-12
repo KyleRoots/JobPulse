@@ -2186,15 +2186,27 @@ Before applying tier 2, check whether the job location shown above includes a sp
   → Do NOT apply any score penalty.
   → Add this soft note to gaps_identified ONLY: "Job city not specified — recruiter should verify candidate proximity for on-site role."
   → This prevents false penalties when the job's specific location has not been configured in the system.
-- Only proceed to tier 2 if the job location includes a specific city or state/province to compare against.
+- Only proceed to tiers 2/2b if the job location includes a specific city or state/province to compare against.
 
-2. Candidate is in the SAME COUNTRY but a DIFFERENT STATE/PROVINCE (only applies when job city/state IS known):
+2. Candidate is in the SAME STATE/PROVINCE but a DIFFERENT CITY that is FAR from the job city (more than approximately 100 miles / 160 km apart):
    - Add "Location mismatch: candidate not in {job_city or job_state or 'job area'}, on-site required" to gaps_identified.
    - Reduce score by 15–20 points.
    - EXCEPTION — WILLING TO RELOCATE: If the candidate explicitly states willingness to relocate anywhere on their resume (e.g., "open to relocation", "willing to relocate", "open to moving", "relocation considered"):
      → Reduce the deduction to exactly 5 points (not 15–20).
      → Do NOT use the word "mismatch" in the gap note. Instead write: "Location note: candidate not local to [city/area] but explicitly states willingness to relocate — recruiter should verify relocation timeline and logistics."
      → This treats relocation willingness as a logistics item for the recruiter, not a qualification gap.
+
+2b. Candidate is in the SAME STATE/PROVINCE, DIFFERENT CITY, but NEARBY (within approximately 100 miles / 160 km of the job city — commutable or short relocation):
+   - Reduce score by exactly 5 points (not 15–20).
+   - Do NOT use the word "mismatch" in the gap note. Instead write: "Location note: candidate is in [candidate city], approximately [estimated distance] from [job city] — within commuting or short relocation range. Recruiter should confirm logistics."
+   - Examples of nearby cities: Beaumont TX ↔ Houston TX (~85 mi), Fort Worth TX ↔ Dallas TX (~30 mi), San Jose CA ↔ San Francisco CA (~50 mi), Baltimore MD ↔ Washington DC (~40 mi), Tacoma WA ↔ Seattle WA (~35 mi).
+   - Use your knowledge of U.S. and Canadian geography to estimate distances between cities. When uncertain, err on the side of leniency (treat as nearby).
+
+2c. Candidate is in a DIFFERENT STATE/PROVINCE entirely (and does NOT qualify under tier 2 or 2b):
+   - Add "Location mismatch: candidate not in {job_city or job_state or 'job area'}, on-site required" to gaps_identified.
+   - Reduce score by 15–20 points.
+   - The WILLING TO RELOCATE exception from tier 2 also applies here — reduce to 5 points if candidate explicitly states relocation willingness.
+
 3. Candidate is in the SAME CITY or METRO AREA: no deduction, no flag.
 - If candidate is non-local AND doesn't mention relocation willingness, add "Location mismatch: candidate not in {job_city or job_state or 'job area'}" to gaps_identified.
 
@@ -2592,6 +2604,52 @@ CRITICAL SCORING RULES:
             else:
                 result['technical_score'] = result['match_score']
             
+            # ── POST-PROCESSING: Remote location misfire enforcer (Python safety net) ──
+            # GPT-4o sometimes simultaneously says "matches the country requirement" in the
+            # summary while putting "Location mismatch: different country" in gaps_identified.
+            # This deterministic check catches and corrects the contradiction.
+            if work_type == 'Remote':
+                _gaps_text = (result.get('gaps_identified') or '').lower()
+                _summary_text = (result.get('match_summary') or '').lower()
+                if 'location mismatch: different country' in _gaps_text or 'different country' in _gaps_text:
+                    _same_country_evidence = [
+                        'matches the remote job',
+                        'which matches',
+                        'same country',
+                        'matches the location requirement',
+                        'meets the location requirement',
+                        'meets the remote location',
+                        'matching the remote job',
+                        "matches the job's country",
+                        "matches the remote job's country",
+                        'matching the job location',
+                        "matches the job's remote location",
+                    ]
+                    if any(phrase in _summary_text for phrase in _same_country_evidence):
+                        import re as _re
+                        _original_gaps = result.get('gaps_identified', '')
+                        _cleaned_gaps = _re.sub(
+                            r'Location mismatch: different country\.?\s*Technical fit:\s*\d+%\.?\s*Location penalty:\s*-?\d+\s*pts\.?\s*',
+                            '', _original_gaps, flags=_re.IGNORECASE
+                        ).strip()
+                        _cleaned_gaps = _re.sub(
+                            r'Location mismatch: different country\.?\s*',
+                            '', _cleaned_gaps, flags=_re.IGNORECASE
+                        ).strip()
+                        _cleaned_gaps = _re.sub(r'^[\s|.]+|[\s|.]+$', '', _cleaned_gaps).strip()
+                        result['gaps_identified'] = _cleaned_gaps
+                        _restored_score = min(
+                            result['match_score'] + 25,
+                            result.get('technical_score', result['match_score'] + 25)
+                        )
+                        logging.warning(
+                            f"🛡️ REMOTE LOCATION ENFORCER: Fixed misfire for job {job_id}. "
+                            f"AI said same-country in summary but applied different-country penalty in gaps. "
+                            f"Score restored: {result['match_score']}→{_restored_score}. "
+                            f"Gaps cleaned: '{_original_gaps[:100]}' → '{_cleaned_gaps[:100]}'"
+                        )
+                        result['match_score'] = _restored_score
+
             # ── POST-PROCESSING: Years-of-experience hard gate (Option B defense-in-depth) ──
             # Even if the AI prompt correctly penalizes for insufficient years,
             # this code enforces a hard ceiling so inflated scores cannot slip through.
