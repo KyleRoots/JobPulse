@@ -158,6 +158,7 @@ class TestRecencyHardGate:
             recency_analysis={
                 "most_recent_role": "Azure Cloud Engineer at Acme (Jan 2024 - Present)",
                 "most_recent_role_relevant": True,
+                "relevance_justification": "Currently managing Azure cloud infrastructure, deploying ARM templates, and maintaining CI/CD pipelines — directly relevant to Azure Integration Developer role",
                 "second_recent_role": "Cloud Support Specialist at Beta (May 2021 - Dec 2023)",
                 "second_recent_role_relevant": True,
                 "last_relevant_role_ended": "current",
@@ -284,6 +285,131 @@ class TestRecencyHardGate:
             f"Score should reflect larger AI penalty, got {result['match_score']}"
 
 
+class TestJustificationEnforcer:
+    """Test the deterministic justification enforcement post-processor.
+
+    If AI returns most_recent_role_relevant=True but the relevance_justification
+    is missing, too short, or contains weak/generic phrases, the enforcer
+    overrides it to False — triggering the recency penalty path.
+    """
+
+    @pytest.fixture
+    def service(self):
+        with patch.dict('os.environ', {
+            'OPENAI_API_KEY': 'test-key',
+            'DATABASE_URL': 'sqlite:///:memory:'
+        }):
+            mock_app = MagicMock()
+            mock_models = MagicMock()
+            with patch.dict('sys.modules', {
+                'app': mock_app,
+                'models': mock_models,
+            }):
+                from candidate_vetting_service import CandidateVettingService
+                svc = CandidateVettingService.__new__(CandidateVettingService)
+                svc.openai_client = MagicMock()
+                svc.model = 'gpt-4o-mini'
+                svc.logger = MagicMock()
+                return svc
+
+    def _make_ai_response(self, match_score, recency_analysis):
+        return {
+            "match_score": match_score,
+            "match_summary": "Test summary",
+            "skills_match": "Azure, Python",
+            "experience_match": "Cloud engineer",
+            "gaps_identified": "",
+            "key_requirements": "• Azure\n• Python",
+            "years_analysis": {},
+            "recency_analysis": recency_analysis,
+        }
+
+    def _run_analysis(self, service, ai_response, job_id=34517):
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock()]
+        mock_completion.choices[0].message.content = json.dumps(ai_response)
+        service.openai_client.chat.completions.create.return_value = mock_completion
+        job = {
+            'id': job_id,
+            'title': 'Azure Integration Developer',
+            'description': 'Need Azure, Python, CI/CD',
+            'address': {'city': 'Ottawa', 'state': 'ON', 'countryName': 'Canada'},
+            'onSite': 2
+        }
+        with patch.object(service, '_get_job_custom_requirements', return_value=None):
+            return service.analyze_candidate_job_match(
+                resume_text="Sample resume text", job=job,
+                prefetched_requirements="• Azure\n• Python\n• CI/CD"
+            )
+
+    def test_missing_justification_overrides_to_false(self, service):
+        """relevant=True with no justification → enforcer overrides to false, penalty applied."""
+        ai_response = self._make_ai_response(90, {
+            "most_recent_role": "Azure Engineer at Acme (Jan 2024 - Present)",
+            "most_recent_role_relevant": True,
+            "second_recent_role": "Retail Manager (2020-2023)",
+            "second_recent_role_relevant": False,
+            "last_relevant_role_ended": "March 2023",
+            "months_since_relevant_work": 35,
+            "penalty_applied": 0,
+            "reasoning": "Relevant"
+        })
+        result = self._run_analysis(service, ai_response)
+        assert result['match_score'] < 90, \
+            f"Missing justification should trigger penalty, got {result['match_score']}"
+
+    def test_weak_justification_overrides_to_false(self, service):
+        """relevant=True with generic 'transferable skills' justification → penalty."""
+        ai_response = self._make_ai_response(90, {
+            "most_recent_role": "Real Estate Agent (Jan 2024 - Present)",
+            "most_recent_role_relevant": True,
+            "relevance_justification": "Transferable skills such as communication and teamwork",
+            "second_recent_role": "Retail Manager (2020-2023)",
+            "second_recent_role_relevant": False,
+            "last_relevant_role_ended": "March 2023",
+            "months_since_relevant_work": 35,
+            "penalty_applied": 0,
+            "reasoning": "Relevant due to transferable skills"
+        })
+        result = self._run_analysis(service, ai_response)
+        assert result['match_score'] < 90, \
+            f"Weak justification should trigger penalty, got {result['match_score']}"
+
+    def test_strong_justification_passes(self, service):
+        """relevant=True with concrete domain justification → no override."""
+        ai_response = self._make_ai_response(90, {
+            "most_recent_role": "Azure Cloud Engineer at Acme (Jan 2024 - Present)",
+            "most_recent_role_relevant": True,
+            "relevance_justification": "Deploys Azure ARM templates and manages CI/CD pipelines using Azure DevOps, directly matching the job's Azure integration requirements",
+            "second_recent_role": "Cloud Support at Beta (2022-2023)",
+            "second_recent_role_relevant": True,
+            "last_relevant_role_ended": "current",
+            "months_since_relevant_work": 0,
+            "penalty_applied": 0,
+            "reasoning": "Both roles directly relevant"
+        })
+        result = self._run_analysis(service, ai_response)
+        assert result['match_score'] == 90, \
+            f"Strong justification should not trigger penalty, got {result['match_score']}"
+
+    def test_too_short_justification_overrides(self, service):
+        """relevant=True with justification < 15 chars → penalty."""
+        ai_response = self._make_ai_response(90, {
+            "most_recent_role": "Azure Engineer (Jan 2024 - Present)",
+            "most_recent_role_relevant": True,
+            "relevance_justification": "Azure work",
+            "second_recent_role": "Retail (2020-2023)",
+            "second_recent_role_relevant": False,
+            "last_relevant_role_ended": "March 2023",
+            "months_since_relevant_work": 35,
+            "penalty_applied": 0,
+            "reasoning": "Relevant"
+        })
+        result = self._run_analysis(service, ai_response)
+        assert result['match_score'] < 90, \
+            f"Too-short justification should trigger penalty, got {result['match_score']}"
+
+
 class TestRecencyPromptPresence:
     """Test that the prompt includes recency_analysis instructions."""
 
@@ -344,15 +470,14 @@ class TestRecencyPromptPresence:
         system_prompt = messages[0]['content']
         user_prompt = messages[1]['content']
 
-        # Check system prompt contains Rule 14
         assert "RECENCY OF RELEVANT EXPERIENCE" in system_prompt
         assert "career trajectory" in system_prompt
         assert "bullet points" in system_prompt
 
-        # Check user prompt contains recency_analysis schema
-        assert "recency_analysis" in user_prompt
-        assert "most_recent_role_relevant" in user_prompt
-        assert "months_since_relevant_work" in user_prompt
+        assert "recency_analysis" in system_prompt
+        assert "most_recent_role_relevant" in system_prompt
+        assert "months_since_relevant_work" in system_prompt
+        assert "relevance_justification" in system_prompt
 
     def test_scoring_band_mentions_recency(self, service):
         """The 85-100 scoring band should mention recency requirement."""
@@ -387,6 +512,6 @@ class TestRecencyPromptPresence:
 
         call_args = service.openai_client.chat.completions.create.call_args
         messages = call_args.kwargs.get('messages', call_args[1].get('messages', []))
-        user_prompt = messages[1]['content']
+        system_prompt = messages[0]['content']
 
-        assert "practiced relevant skills in a recent role" in user_prompt
+        assert "practiced relevant skills in a recent role" in system_prompt

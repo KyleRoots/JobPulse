@@ -266,6 +266,38 @@ class VettingAuditService:
                     })
                     break
 
+        experience_match = (job_match.experience_match or '')
+        _recency_tag_idx = experience_match.find('[Recency:')
+        if _recency_tag_idx >= 0:
+            _recency_tag = experience_match[_recency_tag_idx:]
+            if 'relevant=yes' in _recency_tag:
+                _justification_idx = _recency_tag.find('justification:')
+                if _justification_idx >= 0:
+                    _justification_text = _recency_tag[_justification_idx + len('justification:'):].rstrip(']').strip()
+                    _WEAK_PHRASES = [
+                        'transferable skills', 'transferable',
+                        'general experience', 'general work experience',
+                        'work ethic', 'reliable', 'reliability',
+                        'communication skills', 'teamwork',
+                        'customer-facing', 'customer facing',
+                        'soft skills', 'people skills',
+                        'has work experience', 'has experience',
+                    ]
+                    _justification_lower = _justification_text.lower()
+                    _is_weak = (
+                        len(_justification_text) < 20
+                        or any(wp in _justification_lower for wp in _WEAK_PHRASES)
+                    )
+                    if _is_weak:
+                        issues.append({
+                            'check_type': 'recency_misfire',
+                            'description': (
+                                f"AI marked most recent role as relevant but justification "
+                                f"is weak or generic: '{_justification_text[:120]}'. "
+                                f"Possible inflated recency classification."
+                            )
+                        })
+
         years_json_str = job_match.years_analysis_json
         if years_json_str:
             try:

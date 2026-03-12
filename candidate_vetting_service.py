@@ -68,6 +68,19 @@ class CandidateVettingService:
         else:
             logging.warning("OPENAI_API_KEY not found - AI matching will not work")
     
+    @staticmethod
+    def _build_experience_match(analysis: dict) -> str:
+        base = analysis.get('experience_match', '') or ''
+        recency = analysis.get('recency_analysis', {})
+        if isinstance(recency, dict):
+            justification = recency.get('relevance_justification', '')
+            most_recent = recency.get('most_recent_role', '')
+            relevant = recency.get('most_recent_role_relevant', False)
+            if justification and justification != 'N/A':
+                tag = f" [Recency: {most_recent} — relevant={'yes' if relevant else 'no'}, justification: {justification}]"
+                return f"{base}{tag}" if base else tag.strip()
+        return base
+
     def _get_bullhorn_service(self) -> BullhornService:
         """Get or create Bullhorn service with current credentials"""
         if self.bullhorn:
@@ -2843,7 +2856,34 @@ CRITICAL SCORING RULES:
                 second_recent_relevant = recency_analysis.get('second_recent_role_relevant', True)
                 months_since = recency_analysis.get('months_since_relevant_work', 0)
                 ai_penalty = recency_analysis.get('penalty_applied', 0)
-                
+
+                # ── JUSTIFICATION ENFORCEMENT: If AI says relevant=True but provides no/weak justification, override to False ──
+                if most_recent_relevant:
+                    _justification = str(recency_analysis.get('relevance_justification', '') or '').strip()
+                    _WEAK_INDICATORS = [
+                        'transferable skills', 'transferable',
+                        'general experience', 'general work experience',
+                        'work ethic', 'reliable', 'reliability',
+                        'communication skills', 'teamwork',
+                        'soft skills', 'people skills',
+                        'has work experience', 'has experience',
+                    ]
+                    _justification_lower = _justification.lower()
+                    _is_invalid = (
+                        not _justification
+                        or _justification == 'N/A'
+                        or len(_justification) < 15
+                        or any(wp in _justification_lower for wp in _WEAK_INDICATORS)
+                    )
+                    if _is_invalid:
+                        logging.warning(
+                            f"🔍 JUSTIFICATION ENFORCER: AI marked most_recent_role_relevant=True "
+                            f"for job {job_id} but justification is missing/weak: '{_justification[:100]}'. "
+                            f"Overriding to relevant=False."
+                        )
+                        most_recent_relevant = False
+                        recency_analysis['most_recent_role_relevant'] = False
+
                 # ── SAFEGUARD: Detect recency gate misfires on technology-evolution careers ──
                 # If the AI marks the most recent role as "not relevant" but reports
                 # months_since_relevant > 24, cross-check against the most_recent_role string.
