@@ -428,16 +428,27 @@ def rescreen_remote_misfires():
             CandidateJobMatch.vetting_log_id == CandidateVettingLog.id
         ).filter(
             CandidateJobMatch.created_at >= cutoff,
-            CandidateJobMatch.work_type == 'Remote',
+            CandidateJobMatch.job_work_type == 'Remote',
             CandidateJobMatch.gaps_identified.ilike('%different country%'),
         ).all()
 
+        negation_words = ['not ', "n't ", 'no ', 'does not ', "doesn't ", 'cannot ', 'outside ']
         affected_candidate_ids = set()
+        affected_vetting_log_ids = set()
         affected_details = []
         for match in misfire_matches:
             summary_lower = (match.match_summary or '').lower()
-            if any(phrase in summary_lower for phrase in same_country_phrases):
+            has_evidence = False
+            for phrase in same_country_phrases:
+                idx = summary_lower.find(phrase)
+                if idx >= 0:
+                    preceding = summary_lower[max(0, idx - 20):idx]
+                    if not any(neg in preceding for neg in negation_words):
+                        has_evidence = True
+                        break
+            if has_evidence:
                 affected_candidate_ids.add(match.bullhorn_candidate_id)
+                affected_vetting_log_ids.add(match.vetting_log_id)
                 affected_details.append({
                     'candidate_id': match.bullhorn_candidate_id,
                     'candidate_name': match.candidate_name,
@@ -447,7 +458,17 @@ def rescreen_remote_misfires():
                 })
 
         reset_count = 0
+        deleted_logs = 0
+        deleted_matches = 0
         if affected_candidate_ids:
+            for log_id in affected_vetting_log_ids:
+                match_del = CandidateJobMatch.query.filter_by(vetting_log_id=log_id).delete()
+                deleted_matches += match_del
+                log_obj = CandidateVettingLog.query.get(log_id)
+                if log_obj:
+                    db.session.delete(log_obj)
+                    deleted_logs += 1
+
             reset_count = ParsedEmail.query.filter(
                 ParsedEmail.bullhorn_candidate_id.in_(list(affected_candidate_ids)),
                 ParsedEmail.vetted_at.isnot(None),
@@ -458,6 +479,7 @@ def rescreen_remote_misfires():
             current_app.logger.info(
                 f"🛡️ REMOTE MISFIRE RE-SCREEN: Found {len(affected_details)} misfire matches "
                 f"across {len(affected_candidate_ids)} candidates in last {hours}h. "
+                f"Deleted {deleted_logs} vetting logs + {deleted_matches} match records. "
                 f"Reset {reset_count} ParsedEmail records for re-vetting."
             )
             for d in affected_details:
@@ -480,6 +502,8 @@ def rescreen_remote_misfires():
             'hours': hours,
             'misfire_matches': len(affected_details),
             'candidates_affected': len(affected_candidate_ids),
+            'vetting_logs_deleted': deleted_logs,
+            'match_records_deleted': deleted_matches,
             'emails_reset': reset_count,
             'details': affected_details[:50],
         })
