@@ -217,8 +217,10 @@ class VettingAuditService:
             if summary['issues_found'] > 0 or summary['revets_triggered'] > 0:
                 try:
                     self._send_audit_summary_email(summary)
+                    summary['email_sent'] = True
                 except Exception as e:
                     logging.error(f"❌ Screening audit email error: {str(e)}")
+                    summary['email_sent'] = False
 
             logging.info(
                 f"✅ Screening audit cycle complete: "

@@ -1555,7 +1555,8 @@ if is_primary_worker:
                         issues = result.get('issues_found', 0)
                         revets = result.get('revets_triggered', 0)
                         audited = result.get('total_audited', 0)
-                        if issues > 0:
+                        email_sent = result.get('email_sent', False)
+                        if issues > 0 or revets > 0:
                             summary = (
                                 f"Audited {audited} result(s) — {issues} issue(s) found, "
                                 f"{revets} re-vet(s) triggered"
@@ -1563,17 +1564,23 @@ if is_primary_worker:
                         else:
                             summary = f"Audited {audited} result(s) — no issues found"
 
+                        log_details = {
+                            'source': 'scheduled',
+                            'total_audited': audited,
+                            'issues_found': issues,
+                            'revets_triggered': revets,
+                            'summary': summary,
+                        }
+                        if email_sent:
+                            log_details['email_delivered'] = True
+                        elif issues > 0 or revets > 0:
+                            log_details['email_delivered'] = False
+
                         log = AutomationLog(
                             automation_task_id=task.id,
                             status='success',
                             message='Screening Quality Audit (Scheduled)',
-                            details_json=_json.dumps({
-                                'source': 'scheduled',
-                                'total_audited': audited,
-                                'issues_found': issues,
-                                'revets_triggered': revets,
-                                'summary': summary
-                            })
+                            details_json=_json.dumps(log_details)
                         )
                         db.session.add(log)
                         task.last_run_at = datetime.utcnow()
