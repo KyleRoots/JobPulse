@@ -2293,6 +2293,11 @@ CRITICAL RULES:
    - A candidate who EVALUATED, ASSESSED, or REVIEWED a system is NOT equivalent to one who BUILT, OPERATED, MANAGED, or DELIVERED that system.
    - When citing evidence in requirement_evidence, explicitly note whether the experience is ADVISORY/AUDIT or DELIVERY/OPERATIONAL — and apply a score penalty (10-15 pts per affected requirement) when advisory experience is cited against a delivery requirement.
    - Budget experience from audit engagements (managing engagement budgets at a consulting firm) is NOT equivalent to owning a technology department budget ($5M+). Note the distinction.
+   - CONTEXTUAL INTERPRETATION OF JOB TERMS: Interpret job requirements in the context of the role\'s domain, not literally or narrowly. For example:
+     * "Implementation" in infrastructure/DBA roles means deploying, configuring, migrating, and operationalizing systems (e.g., implementing failover clusters, implementing Always On AGs, implementing migrations). Do NOT interpret this narrowly as only software project delivery with requirements gathering and go-live milestones.
+     * "Implementation" in software roles may mean end-to-end project delivery. Match the interpretation to the job\'s domain.
+     * Always ask: "What would \'implementation\' mean to a hiring manager for THIS specific role?" and evaluate accordingly.
+   - CLIENT-FACING INFERENCE FROM CONSULTING FIRMS: When a candidate has worked at a recognized consulting, staffing, or professional services firm (e.g., Infosys, Accenture, Deloitte, Wipro, TCS, Capgemini, SkillStorm, TEKsystems, etc.) and the resume indicates placement at a named client (e.g., "Infosys (Client: McKesson)"), this IS client-facing experience. Consulting engagements are inherently client-facing — the consultant works on-site or remotely for external clients. Do NOT require explicit phrases like "interfaced with clients" when the work structure clearly demonstrates client engagement.
 14. RECENCY OF RELEVANT EXPERIENCE: After evaluating requirements, check whether the candidate\'s
     MOST RECENT 2 roles (by date) are relevant to the job requirements being scored.
     - If the candidate\'s most recent role is UNRELATED to the job domain and the most recent
