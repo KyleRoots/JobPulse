@@ -2612,6 +2612,7 @@ CRITICAL SCORING RULES:
                 _gaps_text = (result.get('gaps_identified') or '').lower()
                 _summary_text = (result.get('match_summary') or '').lower()
                 if 'location mismatch: different country' in _gaps_text or 'different country' in _gaps_text:
+                    _negation_words = ['not ', "n't ", 'no ', 'does not ', 'doesn\'t ', 'cannot ', 'outside ']
                     _same_country_evidence = [
                         'matches the remote job',
                         'matches the location requirement',
@@ -2626,7 +2627,16 @@ CRITICAL SCORING RULES:
                         "same country as the job",
                         "matches the country requirement",
                     ]
-                    if any(phrase in _summary_text for phrase in _same_country_evidence):
+                    def _has_affirmative_evidence(_text, _phrases, _negations):
+                        for phrase in _phrases:
+                            idx = _text.find(phrase)
+                            if idx >= 0:
+                                _context_start = max(0, idx - 20)
+                                _preceding = _text[_context_start:idx]
+                                if not any(neg in _preceding for neg in _negations):
+                                    return True
+                        return False
+                    if _has_affirmative_evidence(_summary_text, _same_country_evidence, _negation_words):
                         import re as _re
                         _original_gaps = result.get('gaps_identified', '')
                         _cleaned_gaps = _re.sub(
