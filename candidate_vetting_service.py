@@ -3942,20 +3942,25 @@ CRITICAL SCORING RULES:
         if not bullhorn:
             return False
         
-        # PRE-CREATION SAFEGUARD: Check Bullhorn for existing AI vetting notes (24h window)
-        # This prevents duplicate notes even if upstream dedup logic has a bug
+        # PRE-CREATION SAFEGUARD: Check Bullhorn for existing AI vetting notes (6h window)
+        # This prevents duplicate notes even if upstream dedup logic has a bug.
+        # "Incomplete" notes never block a new complete result — a successful re-screen
+        # must always be able to overwrite a prior failure.
         from datetime import timedelta
+        _INCOMPLETE_ACTIONS = {
+            "Scout Screen - Incomplete",
+            "Scout Screening - Incomplete",
+            "AI Vetting - Incomplete",
+        }
         try:
             existing_notes = bullhorn.get_candidate_notes(
                 vetting_log.bullhorn_candidate_id,
                 action_filter=[
-                    # Current format (≤30 chars for Bullhorn action field)
                     "Scout Screen - Qualified",
                     "Scout Screen - Not Qualified",
                     "Scout Screen - Incomplete",
                     "Scout Screen - Loc Barrier",
-                    "Scout Screen - Location Barrier",  # legacy (was 31 chars, never wrote successfully)
-                    # Backward compat: match legacy action strings
+                    "Scout Screen - Location Barrier",
                     "Scout Screening - Qualified",
                     "Scout Screening - Not Recommended",
                     "Scout Screening - Incomplete",
@@ -3963,18 +3968,29 @@ CRITICAL SCORING RULES:
                     "AI Vetting - Not Recommended",
                     "AI Vetting - Incomplete"
                 ],
-                since=datetime.utcnow() - timedelta(hours=24)
+                since=datetime.utcnow() - timedelta(hours=6)
             )
             if existing_notes:
-                logging.warning(
-                    f"⚠️ DUPLICATE SAFEGUARD: Candidate {vetting_log.bullhorn_candidate_id} already has "
-                    f"{len(existing_notes)} AI vetting note(s) in Bullhorn from last 24h. "
-                    f"Skipping duplicate note creation."
+                _all_incomplete = all(
+                    n.get('action', '') in _INCOMPLETE_ACTIONS for n in existing_notes
                 )
-                vetting_log.note_created = True
-                vetting_log.bullhorn_note_id = existing_notes[0].get('id')
-                db.session.commit()
-                return True
+                _current_is_complete = vetting_log.status == 'completed'
+                if _all_incomplete and _current_is_complete:
+                    logging.info(
+                        f"ℹ️ DUPLICATE SAFEGUARD OVERRIDE: Candidate {vetting_log.bullhorn_candidate_id} "
+                        f"has {len(existing_notes)} Incomplete note(s) in Bullhorn from last 6h. "
+                        f"Allowing new complete result to proceed."
+                    )
+                else:
+                    logging.warning(
+                        f"⚠️ DUPLICATE SAFEGUARD: Candidate {vetting_log.bullhorn_candidate_id} already has "
+                        f"{len(existing_notes)} AI vetting note(s) in Bullhorn from last 6h. "
+                        f"Skipping duplicate note creation."
+                    )
+                    vetting_log.note_created = True
+                    vetting_log.bullhorn_note_id = existing_notes[0].get('id')
+                    db.session.commit()
+                    return True
         except Exception as e:
             # Don't block note creation if the safety check itself fails
             logging.warning(f"Pre-note duplicate check failed (proceeding with creation): {str(e)}")

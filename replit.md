@@ -52,6 +52,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
 - **Scout Screening Portal**: Recruiter-facing dashboard for AI match results, scores, and qualification status with grouped candidate view, server-side candidate search, and a "Re-screen" button.
 - **Scout Screening Quality Auditor**: Background AI audit to review recent "Not Qualified" results for scoring errors, with auto-trigger re-vets and email summaries.
+- **Bullhorn Note Duplicate Safeguard**: Pre-creation check queries Bullhorn for existing Scout Screening notes within a 6-hour window. If all existing notes are "Incomplete" variants, the safeguard is overridden to allow the new complete result to be written. Prevents stale "Incomplete" notes from blocking successful re-screen results.
 - **Module Switcher**: UI component for non-admin users with multiple module subscriptions.
 - **Company Admin Role**: Manages users within a specific company.
 - **Multi-Company Support**: `company` field on User model.
