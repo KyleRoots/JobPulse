@@ -740,14 +740,17 @@ class JobVettingRequirements(db.Model):
         """Return combined requirements for vetting.
 
         When both fields are populated, returns AI-interpreted requirements as the
-        base with the custom recruiter requirements appended as a supplementary
-        section — neither overrides the other.
+        base with the custom recruiter requirements clearly marked as priority
+        overrides. Instructs the AI not to double-count overlapping requirements.
         When only one field is populated, returns that field.
         """
         if self.custom_requirements and self.ai_interpreted_requirements:
             return (
                 f"{self.ai_interpreted_requirements}\n\n"
-                f"ADDITIONAL RECRUITER-SPECIFIED REQUIREMENTS:\n{self.custom_requirements}"
+                f"RECRUITER-SPECIFIED PRIORITY REQUIREMENTS (these take precedence over "
+                f"any overlapping AI-interpreted requirements above — do NOT double-count "
+                f"or double-penalize requirements that appear in both sections):\n"
+                f"{self.custom_requirements}"
             )
         return self.custom_requirements or self.ai_interpreted_requirements
 
