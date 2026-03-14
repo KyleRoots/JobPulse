@@ -2201,6 +2201,14 @@ Before applying tier 2, check whether the job location shown above includes a sp
   → This prevents false penalties when the job's specific location has not been configured in the system.
 - Only proceed to tiers 2/2b if the job location includes a specific city or state/province to compare against.
 
+SPECIAL CASE — JOB HAS STATE/PROVINCE BUT NO CITY:
+Before applying tiers 2/2b, check whether the job location includes a specific city.
+- If the job location shows a state/province (e.g., "Ontario, Canada" or "Texas, United States") but NO specific city, AND the candidate is in that SAME state/province:
+  → Do NOT apply any location penalty. The candidate meets the location requirement.
+  → Do NOT flag "Location mismatch" — the job has no city to mismatch against.
+  → If the candidate is in a DIFFERENT state/province, proceed to tier 2c (different state/province).
+  → This prevents false penalties when the job is posted at the provincial/state level without a specific city.
+
 2. Candidate is in the SAME STATE/PROVINCE but a DIFFERENT CITY that is FAR from the job city (more than approximately 100 miles / 160 km apart):
    - Add "Location mismatch: candidate not in {job_city or job_state or 'job area'}, on-site required" to gaps_identified.
    - Reduce score by 15–20 points.
