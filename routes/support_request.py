@@ -447,6 +447,10 @@ def build_support_email_html(requester_name, requester_email, internal_departmen
                     <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">{internal_department if internal_department else '<span style="color: #94a3b8; font-style: italic;">Not specified</span>'}</td>
                 </tr>
                 <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">Issue Category</td>
+                    <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">{category_icon} {category_label}</td>
+                </tr>
+                <tr>
                     <td style="padding: 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; vertical-align: top;">Priority</td>
                     <td style="padding: 8px 0; font-size: 14px;"><span style="color: {priority_color}; font-weight: 600;">●</span> <span style="color: #1e293b;">{priority_label}</span></td>
                 </tr>
