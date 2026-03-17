@@ -1164,6 +1164,13 @@ def _seed_brand_contacts(db, brand, contact_list):
     existing_by_email = {c.email: c for c in SupportContact.query.filter_by(brand=brand).all()}
     added = 0
     updated = 0
+    removed = 0
+    canonical_emails = {c['email'] for c in contact_list}
+    for email, contact in existing_by_email.items():
+        if email not in canonical_emails:
+            db.session.delete(contact)
+            removed += 1
+            logger.info(f"🗑️ Removed stale {brand} support contact: {contact.first_name} {contact.last_name} ({email})")
     for contact_data in contact_list:
         if contact_data['email'] not in existing_by_email:
             contact = SupportContact(
@@ -1180,9 +1187,9 @@ def _seed_brand_contacts(db, brand, contact_list):
             if contact_data.get('department') and existing.department != contact_data['department']:
                 existing.department = contact_data['department']
                 updated += 1
-    if added > 0 or updated > 0:
+    if added > 0 or updated > 0 or removed > 0:
         db.session.commit()
-        logger.info(f"✅ {brand} support contacts: {added} added, {updated} updated")
+        logger.info(f"✅ {brand} support contacts: {added} added, {updated} updated, {removed} removed")
     else:
         logger.info(f"✅ All {len(contact_list)} {brand} support contacts already up to date")
 
