@@ -1124,7 +1124,7 @@ SUPPORT_CONTACTS_MYTICAS = [
     {"first_name": "Adam", "last_name": "Gebara", "email": "agebara@myticas.com", "department": "MYT-Ottawa"},
     {"first_name": "Amanda", "last_name": "Messina", "email": "amessina@myticas.com", "department": "MYT-Ottawa"},
     {"first_name": "Dean", "last_name": "Theodossiou", "email": "dtheodossiou@myticas.com", "department": "MYT-Ottawa"},
-    {"first_name": "Nick", "last_name": "Theodossiou", "email": "ntheodossiou@myticas.com", "department": "MYT-Ottawa"},
+    {"first_name": "Nick", "last_name": "Theodossiou", "email": "ntheo@myticas.com", "department": "MYT-Ottawa"},
     {"first_name": "Runa", "last_name": "Parmar", "email": "rparmar@myticas.com", "department": "MYT-Ottawa"},
     {"first_name": "Sam", "last_name": "Osman", "email": "sosman@myticas.com", "department": "MYT-Ottawa"},
     {"first_name": "Chris", "last_name": "Halkai", "email": "chalkai@myticas.com", "department": "MYT-Ottawa"},
