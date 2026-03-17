@@ -36,6 +36,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Error Tracking**: Sentry SDK integration.
 - **Testing**: Comprehensive pytest suite.
 - **Proxy Support**: `ProxyFix` middleware.
+- **Screening Engine Architecture**: Modular mixin package (`screening/`) — `CandidateVettingService` inherits from 6 focused mixins: `PromptBuilderMixin` (AI prompts, GPT calls, post-processing), `NoteBuilderMixin` (Bullhorn note formatting), `NotificationMixin` (recruiter emails), `CandidateDetectionMixin` (candidate discovery), `JobManagementMixin` (tearsheet jobs, requirements), `RecoveryMixin` (auto-retry safeguards). Orchestrator in `candidate_vetting_service.py` (~1,068 lines) keeps `__init__`, `process_candidate`, `run_vetting_cycle`, config accessors, and lock management. External imports (`from candidate_vetting_service import CandidateVettingService`) remain unchanged.
 
 ### Feature Specifications
 - **Dual XML Feed System**: Generates two XML files (`myticas-job-feed-v2.xml` and `myticas-job-feed-pando.xml`) every 30 minutes.
