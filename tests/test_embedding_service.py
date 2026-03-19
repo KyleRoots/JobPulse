@@ -825,7 +825,7 @@ class TestEscalationRange:
             service.get_config_value = MagicMock(side_effect=lambda key, default=None: {
                 'escalation_low': '60',
                 'escalation_high': '85',
-                'layer2_model': 'gpt-4o-mini'
+                'layer2_model': 'gpt-5.4'
             }.get(key, default))
             
             assert service.should_escalate_to_gpt4o(60) is True
@@ -841,7 +841,7 @@ class TestEscalationRange:
             service.get_config_value = MagicMock(side_effect=lambda key, default=None: {
                 'escalation_low': '60',
                 'escalation_high': '85',
-                'layer2_model': 'gpt-4o-mini'
+                'layer2_model': 'gpt-5.4'
             }.get(key, default))
             
             assert service.should_escalate_to_gpt4o(59) is False
@@ -859,7 +859,7 @@ class TestEscalationRange:
             service.get_config_value = MagicMock(side_effect=lambda key, default=None: {
                 'escalation_low': '70',
                 'escalation_high': '82',
-                'layer2_model': 'gpt-4o-mini'
+                'layer2_model': 'gpt-5.4'
             }.get(key, default))
             
             assert service.should_escalate_to_gpt4o(65) is False  # Below tightened range

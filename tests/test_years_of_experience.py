@@ -38,7 +38,7 @@ class TestYearsOfExperienceHardGate:
                 from candidate_vetting_service import CandidateVettingService
                 svc = CandidateVettingService.__new__(CandidateVettingService)
                 svc.openai_client = MagicMock()
-                svc.model = 'gpt-4o-mini'
+                svc.model = 'gpt-5.4'
                 svc.logger = MagicMock()
                 return svc
 
@@ -326,7 +326,7 @@ class TestYearsAnalysisPrompt:
                 from candidate_vetting_service import CandidateVettingService
                 svc = CandidateVettingService.__new__(CandidateVettingService)
                 svc.openai_client = MagicMock()
-                svc.model = 'gpt-4o-mini'
+                svc.model = 'gpt-5.4'
                 svc.logger = MagicMock()
                 return svc
     
@@ -400,7 +400,7 @@ class TestYearsOfExperienceRealisticRoles:
                 from candidate_vetting_service import CandidateVettingService
                 svc = CandidateVettingService.__new__(CandidateVettingService)
                 svc.openai_client = MagicMock()
-                svc.model = 'gpt-4o-mini'
+                svc.model = 'gpt-5.4'
                 svc.logger = MagicMock()
                 return svc
 

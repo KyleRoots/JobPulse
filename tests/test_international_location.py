@@ -33,7 +33,7 @@ def vetting_service(app):
     
     service = CandidateVettingService.__new__(CandidateVettingService)
     service.openai_client = MagicMock()
-    service.model = 'gpt-4o-mini'
+    service.model = 'gpt-5.4'
     service.bullhorn = MagicMock()
     return service
 
