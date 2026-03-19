@@ -342,7 +342,7 @@ def optimize_job_requirements(job_id):
         )
 
         response = client.chat.completions.create(
-            model='gpt-4o',
+            model='gpt-5.4',
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': f'Optimize the following custom screening requirements:\n\n{raw}'}

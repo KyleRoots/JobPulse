@@ -355,7 +355,7 @@ def run_test():
     print("=" * 100)
     print("HYBRID YEARS CALCULATION — PROOF OF CONCEPT")
     print(f"Today's date: {today}")
-    print(f"Model: gpt-4o | Temperature: 0.1")
+    print(f"Model: gpt-5.4 | Temperature: 0.1")
     print("=" * 100)
     
     for i, tc in enumerate(TEST_CASES, 1):
@@ -371,7 +371,7 @@ def run_test():
         extraction_confidence = "none"
         try:
             resp1 = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-5.4",
                 messages=[
                     {"role": "system", "content": "You are a resume parser. Extract structured data accurately."},
                     {"role": "user", "content": EXTRACTION_PROMPT.format(resume=tc["resume"])}
@@ -416,7 +416,7 @@ def run_test():
         gpt_years = None
         try:
             resp2 = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-5.4",
                 messages=[
                     {"role": "system", "content": "You are a strict technical recruiter. Calculate experience precisely."},
                     {"role": "user", "content": CALCULATION_PROMPT.format(

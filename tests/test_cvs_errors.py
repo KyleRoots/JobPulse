@@ -42,7 +42,7 @@ def _make_cvs():
     cvs = CandidateVettingService.__new__(CandidateVettingService)
     cvs.bullhorn_service = MagicMock()
     cvs.openai_client = MagicMock()
-    cvs.model = 'gpt-4o'
+    cvs.model = 'gpt-5.4'
     cvs.embedding_model = 'text-embedding-3-small'
     return cvs
 

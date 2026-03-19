@@ -130,18 +130,18 @@ class CandidateVettingService(
     def _get_layer2_model(self) -> str:
         """Get the Layer 2 model from VettingConfig (supports live revert)."""
         try:
-            value = self.get_config_value('layer2_model', 'gpt-4o')
+            value = self.get_config_value('layer2_model', 'gpt-5.4')
             if value and value.strip():
                 return value.strip()
         except Exception:
             pass
-        return 'gpt-4o'
+        return 'gpt-5.4'
     
     def _get_escalation_range(self) -> tuple:
         """Get escalation score range from VettingConfig.
         
         Returns:
-            Tuple of (low, high) — scores within this range trigger GPT-4o re-analysis.
+            Tuple of (low, high) — scores within this range trigger GPT-5.4 re-analysis.
         """
         try:
             low = float(self.get_config_value('escalation_low', '60'))
@@ -670,18 +670,17 @@ class CandidateVettingService(
                     # Layer 3: Escalation check — re-analyze borderline with GPT-4o
                     # Uses pre-fetched escalation_range (no DB access needed)
                     esc_low, esc_high = escalation_range
-                    if esc_low <= mini_score <= esc_high and self.model != 'gpt-4o':
+                    if esc_low <= mini_score <= esc_high and self.model != 'gpt-5.4':
                         job_title = job.get('title', 'Unknown')
                         logging.info(
                             f"⬆️ Escalating {candidate_name} × {job_title}: "
                             f"Layer 2 score={mini_score}% (in escalation range)"
                         )
                         try:
-                            # Thread-safe: pass model_override instead of mutating self.model
                             escalated_analysis = self.analyze_candidate_job_match(
                                 cached_resume_text, job, candidate_location,
                                 prefetched_requirements=prefetched_req,
-                                model_override='gpt-4o',
+                                model_override='gpt-5.4',
                                 prefetched_global_requirements=prefetched_global_reqs
                             )
                             

@@ -290,7 +290,7 @@ Example: ["Question 1?", "Question 2?", "Question 3?"]"""
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-4o',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
                 temperature=0.3,
             )
@@ -486,7 +486,7 @@ RULES:
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-4o',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
                 temperature=0.3,
             )
@@ -596,7 +596,7 @@ RULES:
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-4o',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
                 temperature=0.3,
             )
@@ -881,7 +881,7 @@ Keep it concise — no more than 3-4 short paragraphs."""
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-4o',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
                 temperature=0.3,
             )

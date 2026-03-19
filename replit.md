@@ -31,7 +31,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Background Processing**: APScheduler for automated tasks (e.g., tearsheet monitoring, SFTP uploads, Scout Vetting cycle).
 - **XML Processing**: Custom `lxml` processor for data handling and HTML consistency.
 - **Email Service**: SendGrid for notifications.
-- **AI/LLM Integration**: OpenAI GPT-4o for candidate vetting, job classification, and resume formatting.
+- **AI/LLM Integration**: OpenAI GPT-5.4 for candidate vetting, job classification, and resume formatting.
 - **Embedding Service**: Used for similarity-based pre-filtering in candidate-job matching.
 - **Error Tracking**: Sentry SDK integration.
 - **Testing**: Comprehensive pytest suite.
@@ -47,9 +47,9 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Environment Isolation**: Separate development and production configurations.
 - **Database-First Reference Numbers**: `JobReferenceNumber` table as the single source of truth.
 - **Job Application Forms**: Public forms with multi-brand support, resume parsing, and Bullhorn integration.
-- **Resume HTML Formatting**: Three-layer process including GPT-4o formatting.
+- **Resume HTML Formatting**: Three-layer process including GPT-5.4 formatting.
 - **AI Job Classification**: Classifies jobs based on LinkedIn taxonomy.
-- **Scout Vetting**: AI-powered candidate screening using GPT-4o with embedding pre-filtering, experience-level classification, two-phase scoring (technical_score before location penalty, match_score after), work authorization/security clearance inference, and configurable global screening prompts. Includes employment gap penalties, mid-career gap penalties, remote location misfire enforcer (Python post-processor), and proximity-aware location penalty tiers. **AI-native recency relevance enforcement**: Rule 14 requires a mandatory `relevance_justification` field in `recency_analysis` — GPT-4o must cite specific shared duties/tools/domain overlap before marking a role as relevant. Generic justifications (transferable skills, communication, work ethic) are explicitly disallowed. The Quality Auditor's recency heuristic validates the justification field, flagging weak or missing justifications for AI review and potential re-vet. No Python keyword lists are used — enforcement is entirely AI-driven and works across all job domains.
+- **Scout Vetting**: AI-powered candidate screening using GPT-5.4 with embedding pre-filtering, experience-level classification, two-phase scoring (technical_score before location penalty, match_score after), work authorization/security clearance inference, and configurable global screening prompts. Includes employment gap penalties, mid-career gap penalties, remote location misfire enforcer (Python post-processor), and proximity-aware location penalty tiers. **AI-native recency relevance enforcement**: Rule 14 requires a mandatory `relevance_justification` field in `recency_analysis` — GPT-5.4 must cite specific shared duties/tools/domain overlap before marking a role as relevant. Generic justifications (transferable skills, communication, work ethic) are explicitly disallowed. The Quality Auditor's recency heuristic validates the justification field, flagging weak or missing justifications for AI review and potential re-vet. No Python keyword lists are used — enforcement is entirely AI-driven and works across all job domains.
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
 - **Scout Screening Portal**: Recruiter-facing dashboard for AI match results, scores, and qualification status with grouped candidate view, server-side candidate search, and a "Re-screen" button.
 - **Scout Screening Quality Auditor**: Background AI audit to review recent "Not Qualified" results for scoring errors, with auto-trigger re-vets and email summaries.
@@ -62,7 +62,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Activity Log (Super-Admin Only)**: System-wide admin visibility tracking login history, module usage, email delivery, and active users.
 - **Vetting Sandbox (Super-Admin Only)**: 5-stage wizard for manually testing the AI vetting pipeline.
 - **Resume Character Limit (Vetting)**: AI vetting reads up to 20,000 characters of resume text with improved prompt precision for skill distinction.
-- **Experience Estimation (Missing Dates)**: AI prompt instructs GPT-4o to estimate professional years based on education or default to 2.0 years if no dates are present.
+- **Experience Estimation (Missing Dates)**: AI prompt instructs GPT-5.4 to estimate professional years based on education or default to 2.0 years if no dates are present.
 - **DOCX Resume Parsing**: Multi-layer extraction supporting `.doc` files via antiword conversion and garbled text detection.
 
 ## External Dependencies
@@ -70,4 +70,4 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Python Libraries**: Flask, Flask-Login, Flask-WTF, Flask-SQLAlchemy, lxml, SQLAlchemy, Alembic, APScheduler, gunicorn, SendGrid, OpenAI, tiktoken, PyMuPDF, PyPDF2, python-docx, Paramiko, Requests, httpx, Sentry SDK, bcrypt, BeautifulSoup4.
 - **Frontend Libraries**: Bootstrap 5, Font Awesome 6.
 - **External Services**: PostgreSQL (Neon-hosted), SendGrid, OpenAI, Bullhorn ATS/CRM, Sentry.
-- **AI Models**: OpenAI GPT-4o (primary, with capability to upgrade to o1/o3).
+- **AI Models**: OpenAI GPT-5.4 (primary). Migrated from GPT-4o in March 2026 ahead of API deprecation.

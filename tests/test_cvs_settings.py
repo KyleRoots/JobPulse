@@ -36,7 +36,7 @@ def _make_cvs():
     cvs = CandidateVettingService.__new__(CandidateVettingService)
     cvs.bullhorn_service = MagicMock()
     cvs.openai_client = MagicMock()
-    cvs.model = 'gpt-4o'
+    cvs.model = 'gpt-5.4'
     cvs.embedding_model = 'text-embedding-3-small'
     return cvs
 
@@ -171,20 +171,19 @@ class TestEscalationRange:
 class TestLayer2ModelConfig:
 
     def test_reads_layer2_model_from_db(self, app):
-        _ensure_config(app, 'layer2_model', 'gpt-4o')
+        _ensure_config(app, 'layer2_model', 'gpt-5.4')
         cvs = _make_cvs()
         with app.app_context():
-            assert cvs._get_layer2_model() == 'gpt-4o'
+            assert cvs._get_layer2_model() == 'gpt-5.4'
 
-    def test_defaults_to_gpt4o_if_missing(self, app):
+    def test_defaults_to_gpt54_if_missing(self, app):
         from app import db
         from models import VettingConfig
         cvs = _make_cvs()
         with app.app_context():
             VettingConfig.query.filter_by(setting_key='layer2_model').delete()
             db.session.commit()
-            # Default should be gpt-4o
-            assert cvs._get_layer2_model() == 'gpt-4o'
+            assert cvs._get_layer2_model() == 'gpt-5.4'
 
 
 # ===========================================================================

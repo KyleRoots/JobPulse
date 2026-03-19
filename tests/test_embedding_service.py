@@ -870,14 +870,13 @@ class TestEscalationRange:
 class TestLayer2Model:
     """Tests for Layer 2 model configuration."""
     
-    def test_default_model_is_gpt4o(self, app):
-        """Default Layer 2 model should be gpt-4o."""
+    def test_default_model_is_gpt54(self, app):
+        """Default Layer 2 model should be gpt-5.4."""
         with app.app_context():
             from candidate_vetting_service import CandidateVettingService
             
             service = CandidateVettingService()
-            # With no config, should default to gpt-4o
-            assert service._get_layer2_model() == 'gpt-4o'
+            assert service._get_layer2_model() == 'gpt-5.4'
     
     def test_model_configurable_via_vetting_config(self, app):
         """Layer 2 model should be changeable via VettingConfig."""
@@ -886,10 +885,10 @@ class TestLayer2Model:
             
             service = CandidateVettingService()
             service.get_config_value = MagicMock(side_effect=lambda key, default=None: {
-                'layer2_model': 'gpt-4o',
+                'layer2_model': 'gpt-5.4',
             }.get(key, default))
             
-            assert service._get_layer2_model() == 'gpt-4o'
+            assert service._get_layer2_model() == 'gpt-5.4'
 
 
 class TestModelOverride:
@@ -901,9 +900,8 @@ class TestModelOverride:
             from candidate_vetting_service import CandidateVettingService
             
             service = CandidateVettingService()
-            service.model = 'gpt-4o'
+            service.model = 'gpt-5.4'
             
-            # Mock OpenAI call
             mock_response = MagicMock()
             mock_response.choices = [MagicMock()]
             mock_response.choices[0].message.content = json.dumps({
@@ -924,11 +922,11 @@ class TestModelOverride:
             service.analyze_candidate_job_match(
                 "Python developer resume",
                 job,
-                model_override='gpt-4o'
+                model_override='gpt-5.4'
             )
             
             call_kwargs = mock_client.chat.completions.create.call_args
-            assert call_kwargs[1]['model'] == 'gpt-4o'
+            assert call_kwargs[1]['model'] == 'gpt-5.4'
     
     def test_self_model_used_when_no_override(self, app):
         """self.model should be used when no override is provided."""
@@ -936,7 +934,7 @@ class TestModelOverride:
             from candidate_vetting_service import CandidateVettingService
             
             service = CandidateVettingService()
-            service.model = 'gpt-4o'
+            service.model = 'gpt-5.4'
             
             mock_response = MagicMock()
             mock_response.choices = [MagicMock()]
@@ -961,4 +959,4 @@ class TestModelOverride:
             )
             
             call_kwargs = mock_client.chat.completions.create.call_args
-            assert call_kwargs[1]['model'] == 'gpt-4o'
+            assert call_kwargs[1]['model'] == 'gpt-5.4'
