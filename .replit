@@ -2,7 +2,7 @@ modules = ["python-3.11", "python3", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["cacert", "cargo", "freetype", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "libffi", "libiconv", "libjpeg_turbo", "libxcrypt", "mupdf", "openjpeg", "openssl", "pkg-config", "postgresql", "rustc", "swig", "xcbuild", "xcodebuild", "zlib", "antiword"]
+packages = ["antiword", "cacert", "cargo", "freetype", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "libffi", "libiconv", "libjpeg_turbo", "libxcrypt", "mupdf", "openjpeg", "openssl", "pkg-config", "postgresql", "rustc", "swig", "xcbuild", "xcodebuild", "zlib"]
 
 [deployment]
 deploymentTarget = "autoscale"
