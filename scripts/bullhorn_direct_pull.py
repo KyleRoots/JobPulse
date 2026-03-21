@@ -11,7 +11,8 @@ from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 import xml.etree.ElementTree as ET
-import xml.dom.minidom as minidom
+from defusedxml.ElementTree import parse as safe_parse
+from defusedxml.minidom import parseString as safe_parseString
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -213,7 +214,7 @@ def build_xml(jobs):
     xml_str = ET.tostring(root, encoding='unicode')
     
     # Pretty print
-    dom = minidom.parseString(xml_str)
+    dom = safe_parseString(xml_str)
     pretty_xml = dom.toprettyxml(indent='  ', encoding='UTF-8')
     
     # Fix CDATA sections
@@ -290,7 +291,7 @@ def main():
             print("-" * 40)
             
             # Parse current feed
-            tree = ET.parse(current_feed)
+            tree = safe_parse(current_feed)
             root = tree.getroot()
             current_jobs = set()
             for job_elem in root.findall('.//job'):

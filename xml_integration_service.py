@@ -17,6 +17,12 @@ try:
     from lxml import etree
 except ImportError:
     import xml.etree.ElementTree as etree
+    import defusedxml.ElementTree as _defused_etree
+    _stdlib_parse = etree.parse
+    _stdlib_fromstring = etree.fromstring
+    etree.parse = _defused_etree.parse
+    etree.fromstring = _defused_etree.fromstring
+    etree.iterparse = _defused_etree.iterparse
 from xml_processor import XMLProcessor
 from job_classification_service import JobClassificationService, InternalJobClassifier
 from xml_safeguards import XMLSafeguards
@@ -2027,8 +2033,8 @@ class XMLIntegrationService:
             xml_str = xml_str.replace(']]&gt;', ']]>')
             
             # Add XML declaration and proper formatting
-            from xml.dom import minidom
-            dom = minidom.parseString(xml_str)
+            from defusedxml.minidom import parseString as _safe_parseString
+            dom = _safe_parseString(xml_str)
             pretty_xml = dom.toprettyxml(indent="  ", encoding=None)
             
             # Remove extra blank lines

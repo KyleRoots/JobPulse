@@ -71,7 +71,7 @@ def test_feed_generation():
             xml_content = f.read()
         
         # Count jobs in XML
-        import xml.etree.ElementTree as ET
+        import defusedxml.ElementTree as ET
         root = ET.fromstring(xml_content)
         job_count = len(root.findall('.//job'))
         

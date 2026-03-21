@@ -6,7 +6,7 @@ Validates the uploaded XML file against actual Bullhorn data
 
 import os
 import sys
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from pathlib import Path
 from datetime import datetime
 import json

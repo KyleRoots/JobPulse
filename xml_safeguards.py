@@ -2,7 +2,7 @@
 """
 XML Safeguards Module - Prevents common XML corruption issues
 """
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 import os
 import shutil
 from datetime import datetime
@@ -200,7 +200,7 @@ class XMLSafeguards:
 # Example usage functions
 def remove_duplicates_safely(filepath):
     """Example: Remove duplicate jobs from XML"""
-    import xml.etree.ElementTree as ET
+    import defusedxml.ElementTree as ET
     
     tree = ET.parse(filepath)
     root = tree.getroot()
