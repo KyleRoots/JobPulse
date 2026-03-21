@@ -177,10 +177,13 @@ def save_vetting_settings():
         
         # Validate embedding similarity threshold
         try:
-            emb_thresh = float(embedding_threshold)
-            if emb_thresh < 0.0 or emb_thresh > 1.0:
+            if str(embedding_threshold).strip().lower() == 'nan':
                 emb_thresh = 0.25
-        except ValueError:
+            else:
+                emb_thresh = float(embedding_threshold)
+                if emb_thresh != emb_thresh or emb_thresh < 0.0 or emb_thresh > 1.0:
+                    emb_thresh = 0.25
+        except (ValueError, TypeError):
             emb_thresh = 0.25
         
         # Validate vetting cutoff date (if provided)
@@ -1697,11 +1700,17 @@ def embedding_audit():
     
     # Parse similarity range filter
     try:
-        sim_min = float(request.args.get('sim_min', '0.0'))
+        _sim_min_raw = request.args.get('sim_min', '0.0')
+        sim_min = 0.0 if str(_sim_min_raw).strip().lower() == 'nan' else float(_sim_min_raw)
+        if sim_min != sim_min:
+            sim_min = 0.0
     except (ValueError, TypeError):
         sim_min = 0.0
     try:
-        sim_max = float(request.args.get('sim_max', '1.0'))
+        _sim_max_raw = request.args.get('sim_max', '1.0')
+        sim_max = 1.0 if str(_sim_max_raw).strip().lower() == 'nan' else float(_sim_max_raw)
+        if sim_max != sim_max:
+            sim_max = 1.0
     except (ValueError, TypeError):
         sim_max = 1.0
     
@@ -1827,16 +1836,23 @@ def export_filtered_csv():
     writer.writerow(['Date', 'Candidate ID', 'Candidate Name', 'Job ID', 'Job Title', 
                      'Similarity Score', 'Threshold', 'Resume Snippet'])
     
+    def _sanitize_csv(val):
+        """Prevent CSV formula injection by escaping dangerous leading characters."""
+        s = str(val) if val is not None else ''
+        if s and s[0] in ('=', '+', '-', '@', '\t', '\r'):
+            return "'" + s
+        return s
+
     for log in logs:
         writer.writerow([
             log.filtered_at.strftime('%Y-%m-%d %H:%M') if log.filtered_at else '',
             log.bullhorn_candidate_id,
-            log.candidate_name or '',
+            _sanitize_csv(log.candidate_name or ''),
             log.bullhorn_job_id,
-            log.job_title or '',
+            _sanitize_csv(log.job_title or ''),
             f'{log.similarity_score:.4f}' if log.similarity_score else '',
             f'{log.threshold_used:.2f}' if log.threshold_used else '',
-            (log.resume_snippet or '')[:200]
+            _sanitize_csv((log.resume_snippet or '')[:200])
         ])
     
     response = Response(output.getvalue(), mimetype='text/csv')
@@ -1880,16 +1896,22 @@ def export_escalations_csv():
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Date', 'Candidate ID', 'Candidate Name', 'Job ID', 'Job Title',
-                     'GPT-4o-mini Score', 'GPT-4o Score', 'Delta', 'Material Change', 
+                     'Layer 2 Score', 'Layer 3 Score', 'Delta', 'Material Change', 
                      'Crossed Threshold', 'Threshold'])
     
+    def _sanitize_csv_esc(val):
+        s = str(val) if val is not None else ''
+        if s and s[0] in ('=', '+', '-', '@', '\t', '\r'):
+            return "'" + s
+        return s
+
     for log in logs:
         writer.writerow([
             log.escalated_at.strftime('%Y-%m-%d %H:%M') if log.escalated_at else '',
             log.bullhorn_candidate_id,
-            log.candidate_name or '',
+            _sanitize_csv_esc(log.candidate_name or ''),
             log.bullhorn_job_id,
-            log.job_title or '',
+            _sanitize_csv_esc(log.job_title or ''),
             f'{log.mini_score:.0f}' if log.mini_score else '',
             f'{log.gpt4o_score:.0f}' if log.gpt4o_score else '',
             f'{log.score_delta:+.0f}' if log.score_delta else '',

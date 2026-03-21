@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.valid) {
-                validationMessage.innerHTML = `Valid XML file with ${data.job_count} jobs found`;
+                validationMessage.textContent = `Valid XML file with ${data.job_count} jobs found`;
                 validationResult.style.display = 'block';
                 submitBtn.disabled = false;
                 
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const icon = validationResult.querySelector('i');
                 icon.className = 'fas fa-check-circle text-success me-1';
             } else {
-                validationMessage.innerHTML = `Invalid XML file: ${data.error}`;
+                validationMessage.textContent = `Invalid XML file: ${data.error}`;
                 validationResult.style.display = 'block';
                 submitBtn.disabled = true;
                 
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Validation error:', error);
-            validationMessage.innerHTML = 'Error validating file';
+            validationMessage.textContent = 'Error validating file';
             validationResult.style.display = 'block';
             submitBtn.disabled = true;
             
