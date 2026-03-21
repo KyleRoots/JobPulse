@@ -24,13 +24,7 @@ try:
     from lxml import etree
     LXML_AVAILABLE = True
 except ImportError:
-    import xml.etree.ElementTree as etree
-    import defusedxml.ElementTree as _defused_etree
-    _stdlib_parse = etree.parse
-    _stdlib_fromstring = etree.fromstring
-    etree.parse = _defused_etree.parse
-    etree.fromstring = _defused_etree.fromstring
-    etree.iterparse = _defused_etree.iterparse
+    from xml_safe_compat import safe_etree as etree
     LXML_AVAILABLE = False
 
 class XMLFieldSyncService:

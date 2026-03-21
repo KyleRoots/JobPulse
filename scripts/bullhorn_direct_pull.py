@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
-import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement, tostring
 from defusedxml.ElementTree import parse as safe_parse
 from defusedxml.minidom import parseString as safe_parseString
 
@@ -178,18 +178,18 @@ def format_job_for_xml(job, company):
 
 def build_xml(jobs):
     """Build XML structure from jobs"""
-    root = ET.Element('source')
+    root = Element('source')
     
     # Add publisher info
-    pub = ET.SubElement(root, 'publisher')
+    pub = SubElement(root, 'publisher')
     pub.text = 'Myticas Consulting'
     
-    pub_url = ET.SubElement(root, 'publisherurl')
+    pub_url = SubElement(root, 'publisherurl')
     pub_url.text = 'https://www.myticas.com'
     
     # Add jobs (sorted by ID for consistency)
     for job in sorted(jobs, key=lambda x: int(x.get('bhatsid', 0))):
-        job_elem = ET.SubElement(root, 'job')
+        job_elem = SubElement(root, 'job')
         
         # Define field order
         field_order = [
@@ -200,7 +200,7 @@ def build_xml(jobs):
         ]
         
         for field in field_order:
-            elem = ET.SubElement(job_elem, field)
+            elem = SubElement(job_elem, field)
             value = job.get(field, '')
             
             # Wrap in CDATA for certain fields
@@ -211,7 +211,7 @@ def build_xml(jobs):
                 elem.text = value
     
     # Convert to string with proper formatting
-    xml_str = ET.tostring(root, encoding='unicode')
+    xml_str = tostring(root, encoding='unicode')
     
     # Pretty print
     dom = safe_parseString(xml_str)

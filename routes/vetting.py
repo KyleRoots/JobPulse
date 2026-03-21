@@ -177,12 +177,10 @@ def save_vetting_settings():
         
         # Validate embedding similarity threshold
         try:
-            if str(embedding_threshold).strip().lower() == 'nan':
+            _emb_raw = str(embedding_threshold).strip()
+            emb_thresh = 0.25 if _emb_raw.lower() == 'nan' else float(_emb_raw)
+            if emb_thresh != emb_thresh or emb_thresh < 0.0 or emb_thresh > 1.0:
                 emb_thresh = 0.25
-            else:
-                emb_thresh = float(embedding_threshold)
-                if emb_thresh != emb_thresh or emb_thresh < 0.0 or emb_thresh > 1.0:
-                    emb_thresh = 0.25
         except (ValueError, TypeError):
             emb_thresh = 0.25
         
@@ -1804,7 +1802,7 @@ def export_filtered_csv():
     """Export filtered pairs as CSV."""
     from models import EmbeddingFilterLog
     from flask import Response
-    import csv
+    from defusedcsv import csv
     import io
     
     date_from = request.args.get('date_from', '')
@@ -1866,7 +1864,7 @@ def export_escalations_csv():
     """Export escalations as CSV."""
     from models import EscalationLog
     from flask import Response
-    import csv
+    from defusedcsv import csv
     import io
     
     date_from = request.args.get('date_from', '')
