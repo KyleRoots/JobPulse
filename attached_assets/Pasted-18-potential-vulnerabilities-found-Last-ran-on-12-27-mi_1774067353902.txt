@@ -1,0 +1,228 @@
+18 potential vulnerabilities found.
+Last ran on
+ 
+12:27 midnight, Mar 21, 2026
+Security
+Outdated dependencies have known vulnerabilities
+There are dependencies that have vulnerabilities and may need to be updated.
+These dependencies may cause issues if updated without making additional changes. You can have the Agent update them for you and make any necessary changes.
+cryptography@45.0.5 -> 46.0.5
+pyjwt@2.10.1 -> 2.12.0
+urllib3@2.5.0 -> 2.6.0
+urllib3@2.5.0 -> 2.6.3
+urllib3@2.5.0 -> 2.6.0
+Security
+Dependency has known vulnerabilities
+This dependency has known vulnerabilities and may need to be replaced with something else. You can have the Agent update them for you and make any necessary changes.
+ecdsa@0.19.1
+Security
+Detected subprocess function 'run' without a static string. If this data can be controlled by a malicious actor, it may be an instance of command injection. Audit the use of this call to ensure it is not controllable by an external resource. You may consider using 'shlex.escape()'.
+Detected subprocess function 'run' without a static string. If this data can be controlled by a malicious actor, it may be an instance of command injection. Audit the use of this call to ensure it is not controllable by an external resource. You may consider using 'shlex.escape()'.
+resume_parser.py
+                        result = subprocess.run(
+                            [antiword_path, file_path],
+                            capture_output=True,
+                            timeout=30
+                        )
+Security
+Use of redirect() with unvalidated user input is not allowed as it may lead to open redirect attacks. Validate URLs using urlparse() to check if the 'netloc' property is the same as your site's host name
+Use of redirect() with unvalidated user input is not allowed as it may lead to open redirect attacks. Validate URLs using urlparse() to check if the 'netloc' property is the same as your site's host name
+routes/auth.py
+            next_page = request.args.get('next')
+            if next_page and _is_safe_redirect_url(next_page):
+                return redirect(next_page)
+Security
+Found user input going directly into typecast for bool(), float(), or complex(). This allows an attacker to inject Python's not-a-number (NaN) into the typecast. This results in undefind behavior, particularly when doing comparisons. Either cast to a different type, or add a guard checking for all capitalizations of the string 'nan'.
+Found user input going directly into typecast for bool(), float(), or complex(). This allows an attacker to inject Python's not-a-number (NaN) into the typecast. This results in undefind behavior, particularly when doing comparisons. Either cast to a different type, or add a guard checking for all capitalizations of the string 'nan'.
+routes/vetting.py
+                emb_thresh = float(embedding_threshold)
+Security
+Found user input going directly into typecast for bool(), float(), or complex(). This allows an attacker to inject Python's not-a-number (NaN) into the typecast. This results in undefind behavior, particularly when doing comparisons. Either cast to a different type, or add a guard checking for all capitalizations of the string 'nan'.
+Found user input going directly into typecast for bool(), float(), or complex(). This allows an attacker to inject Python's not-a-number (NaN) into the typecast. This results in undefind behavior, particularly when doing comparisons. Either cast to a different type, or add a guard checking for all capitalizations of the string 'nan'.
+routes/vetting.py
+        sim_min = 0.0 if str(_sim_min_raw).strip().lower() == 'nan' else float(_sim_min_raw)
+Security
+Found user input going directly into typecast for bool(), float(), or complex(). This allows an attacker to inject Python's not-a-number (NaN) into the typecast. This results in undefind behavior, particularly when doing comparisons. Either cast to a different type, or add a guard checking for all capitalizations of the string 'nan'.
+Found user input going directly into typecast for bool(), float(), or complex(). This allows an attacker to inject Python's not-a-number (NaN) into the typecast. This results in undefind behavior, particularly when doing comparisons. Either cast to a different type, or add a guard checking for all capitalizations of the string 'nan'.
+routes/vetting.py
+        sim_max = 1.0 if str(_sim_max_raw).strip().lower() == 'nan' else float(_sim_max_raw)
+Security
+Detected user input into a generated CSV file using the built-in `csv` module. If user data is used to generate the data in this file, it is possible that an attacker could inject a formula when the CSV is imported into a spreadsheet application that runs an attacker script, which could steal data from the importing user or, at worst, install malware on the user's computer. `defusedcsv` is a drop-in replacement with the same API that will attempt to mitigate formula injection attempts. You can use `defusedcsv` instead of `csv` to safely generate CSVs.
+Detected user input into a generated CSV file using the built-in `csv` module. If user data is used to generate the data in this file, it is possible that an attacker could inject a formula when the CSV is imported into a spreadsheet application that runs an attacker script, which could steal data from the importing user or, at worst, install malware on the user's computer. `defusedcsv` is a drop-in replacement with the same API that will attempt to mitigate formula injection attempts. You can use `defusedcsv` instead of `csv` to safely generate CSVs.
+routes/vetting.py
+        writer.writerow([
+            log.filtered_at.strftime('%Y-%m-%d %H:%M') if log.filtered_at else '',
+            log.bullhorn_candidate_id,
+            _sanitize_csv(log.candidate_name or ''),
+            log.bullhorn_job_id,
+            _sanitize_csv(log.job_title or ''),
+            f'{log.similarity_score:.4f}' if log.similarity_score else '',
+            f'{log.threshold_used:.2f}' if log.threshold_used else '',
+            _sanitize_csv((log.resume_snippet or '')[:200])
+        ])
+Security
+Detected user input into a generated CSV file using the built-in `csv` module. If user data is used to generate the data in this file, it is possible that an attacker could inject a formula when the CSV is imported into a spreadsheet application that runs an attacker script, which could steal data from the importing user or, at worst, install malware on the user's computer. `defusedcsv` is a drop-in replacement with the same API that will attempt to mitigate formula injection attempts. You can use `defusedcsv` instead of `csv` to safely generate CSVs.
+Detected user input into a generated CSV file using the built-in `csv` module. If user data is used to generate the data in this file, it is possible that an attacker could inject a formula when the CSV is imported into a spreadsheet application that runs an attacker script, which could steal data from the importing user or, at worst, install malware on the user's computer. `defusedcsv` is a drop-in replacement with the same API that will attempt to mitigate formula injection attempts. You can use `defusedcsv` instead of `csv` to safely generate CSVs.
+routes/vetting.py
+        writer.writerow([
+            log.escalated_at.strftime('%Y-%m-%d %H:%M') if log.escalated_at else '',
+            log.bullhorn_candidate_id,
+            _sanitize_csv_esc(log.candidate_name or ''),
+            log.bullhorn_job_id,
+            _sanitize_csv_esc(log.job_title or ''),
+            f'{log.mini_score:.0f}' if log.mini_score else '',
+            f'{log.gpt4o_score:.0f}' if log.gpt4o_score else '',
+            f'{log.score_delta:+.0f}' if log.score_delta else '',
+            'Yes' if log.material_change else 'No',
+            'Yes' if log.crossed_threshold else 'No',
+            f'{log.threshold_used:.0f}' if log.threshold_used else ''
+        ])
+Security
+Use of redirect() with unvalidated user input is not allowed as it may lead to open redirect attacks. Validate URLs using urlparse() to check if the 'netloc' property is the same as your site's host name
+Use of redirect() with unvalidated user input is not allowed as it may lead to open redirect attacks. Validate URLs using urlparse() to check if the 'netloc' property is the same as your site's host name
+routes/xml_routes.py
+    return redirect(url_for('ats_integration.oauth_callback', **request.args), code=307)
+Security
+The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service.
+The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service.
+scripts/bullhorn_direct_pull.py
+from xml.etree.ElementTree import Element, SubElement, tostring
+Security
+Avoid sqlalchemy.text() with dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. The constructed SQL is passed to the database mostly unchanged, making it vulnerable when user input is involved. Replace f-strings/concatenation with named parameters like `text("... :param_name")` and pass parameters separately to execute().
+Avoid sqlalchemy.text() with dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. The constructed SQL is passed to the database mostly unchanged, making it vulnerable when user input is involved. Replace f-strings/concatenation with named parameters like `text("... :param_name")` and pass parameters separately to execute().
+seed_database.py
+                alter_sql = text('ALTER TABLE ' + table + ' ADD COLUMN ' + column + ' ' + col_type)
+Security
+Avoid sqlalchemy.text() with dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. The constructed SQL is passed to the database mostly unchanged, making it vulnerable when user input is involved. Replace f-strings/concatenation with named parameters like `text("... :param_name")` and pass parameters separately to execute().
+Avoid sqlalchemy.text() with dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. The constructed SQL is passed to the database mostly unchanged, making it vulnerable when user input is involved. Replace f-strings/concatenation with named parameters like `text("... :param_name")` and pass parameters separately to execute().
+seed_database.py
+                drop_sql = text('ALTER TABLE candidate_vetting_log DROP CONSTRAINT ' + constraint_name)
+Security
+The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service.
+The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service.
+xml_field_sync_service.py
+    import xml.etree.ElementTree as etree
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_field_sync_service.py
+                    tree = etree.parse(xml_file_path, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_field_sync_service.py
+                    tree = etree.parse(xml_file_path)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_field_sync_service.py
+                    tree = etree.parse(xml_file_path, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_field_sync_service.py
+                    tree = etree.parse(xml_file_path)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_field_sync_service.py
+                    tree = etree.parse(xml_file_path, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_field_sync_service.py
+                    tree = etree.parse(xml_file_path)
+Security
+The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service.
+The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service.
+xml_integration_service.py
+    import xml.etree.ElementTree as etree
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                tree = etree.parse(f, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                tree = etree.parse(f, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                        tree = etree.parse(xml_file_path, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                        tree = etree.parse(f, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                tree = etree.parse(f, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                tree = etree.parse(f, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                tree = etree.parse(f, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                tree = etree.parse(f, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                tree = etree.parse(f, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+            tree = etree.parse(xml_file_path, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                    tree = etree.parse(xml_file_path, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                    tree = etree.parse(xml_file_path, self._parser)
+Security
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service. Do not use this library to parse untrusted input. Instead the Python documentation recommends using `defusedxml`.
+xml_integration_service.py
+                tree = etree.parse(xml_file_path, self._parser)
+Security
+The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service.
+The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and "XML bombs" can cause denial of service.
+xml_safe_compat.py
+from xml.etree.ElementTree import (
+    Element, SubElement, tostring, ElementTree, Comment, ProcessingInstruction
+Privacy
+Auth Token exposed to Logs Logs
+Auth Token exposed to Logs Logs
+Associated Compliance Framework
+GDPR-A5-32, CCPA, NIST-800-53
+Remediation Strategy:
+Delete the offending code.
+job_application_service.py
+logger.info(f"   SendGrid API key configured: {'yes' if self.sendgrid_api_key else 'no'}")
+Privacy
+Auth Token exposed to OpenAI OpenAI
+Auth Token exposed to OpenAI OpenAI
+Associated Compliance Framework
+GDPR-A5-28, CCPA, NIST-800-53
+Remediation Strategy:
+Verify that shared data aligns with the sensitive data types defined in your privacy notice and data processing agreement. Adjust or restrict sharing as necessary to maintain compliance and minimize privacy risks.
+tasks.py
+openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
