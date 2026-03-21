@@ -1804,7 +1804,7 @@ def export_filtered_csv():
     """Export filtered pairs as CSV."""
     from models import EmbeddingFilterLog
     from flask import Response
-    import defusedcsv as csv
+    import csv
     import io
     
     date_from = request.args.get('date_from', '')
@@ -1866,7 +1866,7 @@ def export_escalations_csv():
     """Export escalations as CSV."""
     from models import EscalationLog
     from flask import Response
-    import defusedcsv as csv
+    import csv
     import io
     
     date_from = request.args.get('date_from', '')
