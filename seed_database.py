@@ -44,6 +44,7 @@ What Gets Seeded:
 import os
 import json
 import logging
+import re
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 
@@ -803,17 +804,21 @@ def run_schema_migrations(db):
         ("candidate_job_match", "years_analysis_json", "TEXT"),
     ]
     
+    _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+    _SAFE_COL_TYPE = re.compile(r'^[A-Z()0-9 ]+$')
+
     for table, column, col_type in migrations:
         try:
-            # Check if column exists
-            check_sql = text(f"""
+            if not (_SAFE_IDENTIFIER.match(table) and _SAFE_IDENTIFIER.match(column) and _SAFE_COL_TYPE.match(col_type)):
+                logger.warning(f"⚠️ Migration skipped: unsafe identifier in {table}.{column} {col_type}")
+                continue
+            check_sql = text("""
                 SELECT column_name FROM information_schema.columns 
                 WHERE table_name = :table AND column_name = :column
             """)
             result = db.session.execute(check_sql, {'table': table, 'column': column})
             if result.fetchone() is None:
-                # Column doesn't exist, add it
-                alter_sql = text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}')
+                alter_sql = text('ALTER TABLE ' + table + ' ADD COLUMN ' + column + ' ' + col_type)
                 db.session.execute(alter_sql)
                 db.session.commit()
                 logger.info(f"✅ Added column {column} to {table}")
@@ -905,8 +910,11 @@ def run_schema_migrations(db):
         constraint = result.fetchone()
         if constraint:
             constraint_name = constraint[0]
-            drop_sql = text(f'ALTER TABLE candidate_vetting_log DROP CONSTRAINT {constraint_name}')
-            db.session.execute(drop_sql)
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', constraint_name):
+                logger.warning(f"⚠️ Unsafe constraint name: {constraint_name}")
+            else:
+                drop_sql = text('ALTER TABLE candidate_vetting_log DROP CONSTRAINT ' + constraint_name)
+                db.session.execute(drop_sql)
             db.session.commit()
             logger.info(f"✅ Dropped UNIQUE constraint {constraint_name} on candidate_vetting_log.bullhorn_candidate_id")
         else:

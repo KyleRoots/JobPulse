@@ -117,7 +117,7 @@ class JobApplicationService:
             logger.info(f"   From: {self.from_email}")
             logger.info(f"   To: {self.to_email}")
             logger.info(f"   Subject: {subject}")
-            logger.info(f"   SendGrid API key present: {bool(self.sendgrid_api_key)}")
+            logger.info(f"   SendGrid API key configured: {'yes' if self.sendgrid_api_key else 'no'}")
             
             response = self.sg.send(message)
             
