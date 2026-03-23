@@ -331,88 +331,51 @@ def submit_support_request():
                     })
 
         brand = request.form.get('brand', 'Myticas').strip()
-        route_email, cc_emails = get_routing_info(category, internal_department, brand=brand)
-        cc_emails.append(requester_email)
         category_label = CATEGORY_LABELS.get(category, category)
-        category_icon = CATEGORY_ICONS.get(category, '📌')
         priority_label = PRIORITY_LABELS.get(priority, priority)
-        priority_color = PRIORITY_COLORS.get(priority, '#ffc107')
+        brand_prefix = 'STSI' if (brand == 'STSI') else 'Myticas'
 
-        is_stsi = (brand == 'STSI')
-        html_content = build_support_email_html(
-            requester_name=requester_name,
-            requester_email=requester_email,
-            internal_department=internal_department,
-            category_label=category_label,
-            category_icon=category_icon,
-            priority_label=priority_label,
-            priority_color=priority_color,
-            subject=subject,
-            description=description,
-            attachments=valid_attachments,
-            brand=brand,
-        )
+        try:
+            import threading
+            from flask import current_app
+            app_ref = current_app._get_current_object()
 
-        brand_prefix = 'STSI' if is_stsi else 'Myticas'
-        email_subject = f"[{brand_prefix} Support] {category_icon} {category_label} — {subject}"
+            def _create_ai_ticket(app_ref, **kwargs):
+                with app_ref.app_context():
+                    try:
+                        from scout_support_service import ScoutSupportService
+                        svc = ScoutSupportService()
+                        ticket = svc.create_ticket(**kwargs)
+                        svc.process_new_ticket(ticket.id)
+                        logger.info(f"🤖 Scout Support ticket {ticket.ticket_number} created and processed")
+                    except Exception as e:
+                        logger.error(f"❌ Scout Support ticket creation failed: {e}")
 
-        success = send_support_email(
-            to_email=route_email,
-            cc_emails=cc_emails,
-            bcc_emails=[_BCC_ALWAYS],
-            reply_to_email=requester_email,
-            subject=email_subject,
-            html_content=html_content,
-            attachments=valid_attachments,
-            brand=brand,
-            requester_name=requester_name,
-        )
+            attachment_info = [{'filename': a['filename']} for a in valid_attachments] if valid_attachments else None
+            thread = threading.Thread(
+                target=_create_ai_ticket,
+                args=(app_ref,),
+                kwargs={
+                    'category': category,
+                    'subject': subject,
+                    'description': description,
+                    'submitter_name': requester_name,
+                    'submitter_email': requester_email,
+                    'submitter_department': internal_department,
+                    'brand': brand,
+                    'priority': priority,
+                    'attachment_info': attachment_info,
+                },
+                daemon=True
+            )
+            thread.start()
 
-        if success:
-            logger.info(f"[{brand_prefix}] Support request submitted by {requester_name} ({requester_email}) — Category: {category_label}, Priority: {priority_label}")
-
-            AI_ELIGIBLE_CATEGORIES = ['ats_issue', 'data_correction']
-            if category in AI_ELIGIBLE_CATEGORIES:
-                try:
-                    import threading
-                    from flask import current_app
-                    app_ref = current_app._get_current_object()
-
-                    def _create_ai_ticket(app_ref, **kwargs):
-                        with app_ref.app_context():
-                            try:
-                                from scout_support_service import ScoutSupportService
-                                svc = ScoutSupportService()
-                                ticket = svc.create_ticket(**kwargs)
-                                svc.process_new_ticket(ticket.id)
-                                logger.info(f"🤖 Scout Support ticket {ticket.ticket_number} created and processed")
-                            except Exception as e:
-                                logger.error(f"❌ Scout Support ticket creation failed: {e}")
-
-                    attachment_info = [{'filename': a['filename']} for a in valid_attachments] if valid_attachments else None
-                    thread = threading.Thread(
-                        target=_create_ai_ticket,
-                        args=(app_ref,),
-                        kwargs={
-                            'category': category,
-                            'subject': subject,
-                            'description': description,
-                            'submitter_name': requester_name,
-                            'submitter_email': requester_email,
-                            'submitter_department': internal_department,
-                            'brand': brand,
-                            'priority': priority,
-                            'attachment_info': attachment_info,
-                        },
-                        daemon=True
-                    )
-                    thread.start()
-                except Exception as e:
-                    logger.error(f"Scout Support ticket creation error: {e}")
-
+            logger.info(f"[{brand_prefix}] Support request submitted to Scout Support by {requester_name} ({requester_email}) — Category: {category_label}, Priority: {priority_label}")
             return jsonify({'success': True, 'message': 'Support request submitted successfully.'})
-        else:
-            return jsonify({'success': False, 'error': 'Failed to send support request. Please try again.'}), 500
+
+        except Exception as e:
+            logger.error(f"Scout Support ticket creation error: {e}")
+            return jsonify({'success': False, 'error': 'Failed to submit support request. Please try again.'}), 500
 
     except Exception as e:
         logger.error(f"Error submitting support request: {e}", exc_info=True)

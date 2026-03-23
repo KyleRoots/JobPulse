@@ -25,11 +25,17 @@ SCOUT_SUPPORT_EMAIL = 'support@scoutgenius.ai'
 SCOUT_SUPPORT_NAME = 'Scout Support'
 DEFAULT_ADMIN_EMAIL = 'kroots@myticas.com'
 
-PILOT_CATEGORIES = ['ats_issue', 'data_correction']
-
 CATEGORY_LABELS = {
     'ats_issue': 'ATS / Bullhorn Issue',
     'data_correction': 'Data Correction Request',
+    'candidate_parsing': 'Candidate Parsing Error',
+    'job_posting': 'Job Posting Issue',
+    'account_access': 'Account / Access Request',
+    'email_notifications': 'Email / Notification Issue',
+    'feature_request': 'Feature Request',
+    'other': 'Other',
+    'backoffice_onboarding': 'Back-Office: Onboarding',
+    'backoffice_finance': 'Back-Office: Finance (BTE)',
 }
 
 
