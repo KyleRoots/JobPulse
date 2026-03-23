@@ -138,7 +138,27 @@ class ScoutSupportService:
         understanding = self._generate_understanding(ticket)
         if not understanding:
             logger.error(f"Failed to generate AI understanding for ticket {ticket.ticket_number}")
+            self._escalate_to_admin(ticket, reason="AI was unable to analyze this ticket due to a processing error.")
             return False
+
+        try:
+            parsed = json.loads(understanding)
+        except (json.JSONDecodeError, TypeError):
+            parsed = {}
+
+        confidence = parsed.get('confidence_level', 'high')
+        can_resolve = parsed.get('can_resolve_autonomously', True)
+
+        if confidence == 'low' or (not can_resolve and confidence != 'high'):
+            ticket.ai_understanding = understanding
+            ticket.status = 'escalated'
+            escalation_reason = parsed.get('escalation_reason', 'AI determined it cannot fully resolve this issue.')
+            ticket.escalation_reason = escalation_reason
+            db.session.commit()
+
+            self._escalate_to_admin(ticket, reason=escalation_reason, understanding=parsed.get('understanding', ''))
+            logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated — AI confidence: {confidence}, can_resolve: {can_resolve}")
+            return True
 
         ticket.ai_understanding = understanding
         ticket.status = 'acknowledged'
@@ -314,9 +334,11 @@ Respond with a JSON object:
     "clarification_needed": true/false,
     "clarification_questions": ["question 1", "question 2"],
     "can_resolve_autonomously": true/false,
+    "confidence_level": "high/medium/low",
     "resolution_approach": "Brief description of how Scout Support could resolve this",
     "requires_bullhorn_api": true/false,
-    "affected_entities": ["candidate", "job", "placement", etc.]
+    "affected_entities": ["candidate", "job", "placement", etc.],
+    "escalation_reason": "If confidence_level is low or can_resolve_autonomously is false, explain why this should be escalated to a human"
 }}"""
 
         try:
@@ -589,6 +611,81 @@ Respond with JSON:
             return SupportTicket.query.filter_by(ticket_number=ticket_number).first()
         return None
 
+    def _escalate_to_admin(self, ticket, reason: str, understanding: str = ''):
+        from extensions import db
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+
+        conversation_summary = ''
+        try:
+            from models import SupportConversation
+            conversations = SupportConversation.query.filter_by(
+                ticket_id=ticket.id
+            ).order_by(SupportConversation.created_at.asc()).all()
+
+            if conversations:
+                summary_parts = []
+                for conv in conversations:
+                    direction = "User" if conv.direction == 'inbound' else "Scout Support"
+                    snippet = (conv.body or '')[:500]
+                    summary_parts.append(f"[{direction}] {snippet}")
+                conversation_summary = "\n---\n".join(summary_parts)
+        except Exception as e:
+            logger.warning(f"Could not build conversation summary for escalation: {e}")
+
+        ticket.status = 'escalated'
+        if not ticket.escalation_reason:
+            ticket.escalation_reason = reason
+        db.session.commit()
+
+        user_body = (
+            f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},\n\n"
+            f"Thank you for your patience regarding ticket **{ticket.ticket_number}**.\n\n"
+            f"After reviewing your request, I've determined that this issue requires direct attention from our team lead. "
+            f"I've escalated your ticket and included a full summary of everything we've discussed so far.\n\n"
+            f"You can expect a follow-up from them shortly.\n\n"
+            f"— Scout Support"
+        )
+
+        self._send_email(
+            to_email=ticket.submitter_email,
+            subject=f"[{ticket.ticket_number}] {ticket.subject}",
+            body=user_body,
+            ticket=ticket,
+            email_type='escalation_user_notice',
+            cc_email=DEFAULT_ADMIN_EMAIL,
+        )
+
+        admin_parts = [
+            f"**Escalated Ticket: {ticket.ticket_number}**\n",
+            f"**Category:** {category_label}",
+            f"**Subject:** {ticket.subject}",
+            f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})",
+            f"**Department:** {ticket.submitter_department or 'Not specified'}",
+            f"**Priority:** {ticket.priority}\n",
+            f"**Escalation Reason:** {reason}\n",
+        ]
+
+        if understanding:
+            admin_parts.append(f"**AI Understanding:** {understanding}\n")
+
+        admin_parts.append(f"**Original Description:**\n{ticket.description}\n")
+
+        if conversation_summary:
+            admin_parts.append(f"**Conversation History:**\n{conversation_summary}")
+
+        admin_body = "\n".join(admin_parts)
+
+        self._send_email(
+            to_email=DEFAULT_ADMIN_EMAIL,
+            subject=f"[ESCALATED] [{ticket.ticket_number}] {ticket.subject}",
+            body=admin_body,
+            ticket=ticket,
+            email_type='escalation_admin_summary',
+        )
+
+        logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated to {DEFAULT_ADMIN_EMAIL}: {reason}")
+
     def _send_acknowledgment_email(self, ticket, understanding_json: str):
         try:
             understanding = json.loads(understanding_json)
@@ -829,10 +926,9 @@ Respond with JSON:
 
             msg_id = f"<scout-support-{uuid.uuid4().hex[:12]}@scoutgenius.ai>"
 
-            headers = {'Reply-To': SCOUT_SUPPORT_EMAIL}
+            in_reply_to = None
             if ticket and ticket.last_message_id:
-                headers['In-Reply-To'] = ticket.last_message_id
-                headers['References'] = ticket.last_message_id
+                in_reply_to = ticket.last_message_id
 
             if cc_emails:
                 cc_list = list(cc_emails)
@@ -841,15 +937,20 @@ Respond with JSON:
             else:
                 cc_list = []
 
-            success = email_svc.send_email(
+            html_body = body.replace('\n', '<br>')
+
+            result = email_svc.send_html_email(
                 to_email=to_email,
                 subject=subject,
-                body=body,
-                from_email=SCOUT_SUPPORT_EMAIL,
+                html_content=html_body,
+                notification_type=email_type,
+                cc_emails=cc_list if cc_list else None,
+                in_reply_to=in_reply_to,
+                reply_to=SCOUT_SUPPORT_EMAIL,
                 from_name=SCOUT_SUPPORT_NAME,
-                cc=cc_list,
-                headers=headers,
             )
+
+            success = result.get('success', False) if isinstance(result, dict) else bool(result)
 
             if ticket:
                 conv = SupportConversation(
