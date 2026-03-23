@@ -274,17 +274,19 @@ class InternalJobClassifier:
                     best_score = score
                     industry = ind
             
-            # Determine seniority with comprehensive keyword matching
-            seniority = "Mid-Senior level"  # Default for most positions
-            if any(kw in title_lower for kw in ['ceo', 'cto', 'cfo', 'chief', 'president', 'vp', 'vice president', 'executive']):
+            def _word_match(keyword, text):
+                return bool(re.search(r'(?<![a-z])' + re.escape(keyword) + r'(?![a-z])', text))
+
+            seniority = "Mid-Senior level"
+            if any(_word_match(kw, title_lower) for kw in ['ceo', 'cto', 'cfo', 'chief', 'president', 'vp', 'vice president', 'executive']):
                 seniority = "Executive"
-            elif any(kw in title_lower for kw in ['director', 'head of', 'managing']):
+            elif any(_word_match(kw, title_lower) for kw in ['director', 'head of', 'managing']):
                 seniority = "Director"
-            elif any(kw in title_lower for kw in ['senior', 'sr.', 'sr ', 'lead', 'principal', 'staff']):
+            elif any(_word_match(kw, title_lower) for kw in ['senior', 'sr.', 'sr ', 'lead', 'principal', 'staff']):
                 seniority = "Mid-Senior level"
-            elif any(kw in title_lower for kw in ['junior', 'jr.', 'jr ', 'entry', 'associate', 'assistant']):
+            elif any(_word_match(kw, title_lower) for kw in ['junior', 'jr.', 'jr ', 'entry', 'associate', 'assistant']):
                 seniority = "Entry level"
-            elif any(kw in title_lower for kw in ['intern', 'internship', 'co-op']):
+            elif any(_word_match(kw, title_lower) for kw in ['intern', 'internship', 'co-op']):
                 seniority = "Internship"
             
             # ALWAYS return success with populated fields
