@@ -2,7 +2,7 @@
 Embedding Service for Scout Genius Cost Optimization
 
 Provides Layer 1 (embedding pre-filter) functionality:
-- Generates text embeddings using OpenAI text-embedding-3-small
+- Generates text embeddings using OpenAI text-embedding-3-large
 - Caches job description embeddings with hash-based change detection
 - Computes cosine similarity between candidate resumes and job descriptions
 - Filters irrelevant job-candidate pairs before expensive GPT analysis
@@ -34,8 +34,8 @@ except ImportError:
 
 # Default configuration constants
 DEFAULT_SIMILARITY_THRESHOLD = 0.25
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
-EMBEDDING_DIMENSIONS = 1536
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
+EMBEDDING_DIMENSIONS = 3072
 MAX_EMBEDDING_TOKENS = 8000  # Model limit is 8192; 192-token safety buffer
 
 
@@ -160,7 +160,7 @@ class EmbeddingService:
         Generate an embedding vector for the given text.
         
         Automatically truncates text exceeding the model's token limit (8192 for
-        text-embedding-3-small). If truncation is applied, logs a WARNING. If
+        text-embedding-3-large). If truncation is applied, logs a WARNING. If
         generation fails entirely, returns None (caller should handle gracefully
         to allow candidate through to Layer 2).
         
@@ -180,7 +180,7 @@ class EmbeddingService:
         
         try:
             # Intelligently truncate to avoid token limits
-            # (text-embedding-3-small supports max 8192 tokens, budget 8000)
+            # (text-embedding-3-large supports max 8192 tokens, budget 8000)
             truncated_text, was_truncated, original_tokens = self._truncate_for_embedding(text)
             
             if was_truncated:

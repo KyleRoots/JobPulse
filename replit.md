@@ -31,8 +31,8 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Background Processing**: APScheduler for automated tasks (e.g., tearsheet monitoring, SFTP uploads, Scout Vetting cycle).
 - **XML Processing**: Custom `lxml` processor for data handling and HTML consistency.
 - **Email Service**: SendGrid for notifications.
-- **AI/LLM Integration**: OpenAI GPT-5.4 for candidate vetting, job classification, and resume formatting. Unlimited API cost structure negotiated — upgrade to GPT-5 or higher models approved when accuracy demands it.
-- **Embedding Service**: Used for similarity-based pre-filtering in candidate-job matching.
+- **AI/LLM Integration**: OpenAI GPT-5 for candidate vetting, screening, resume formatting, quality auditing, and job requirements extraction. GPT-5.4 retained for job classification only. Unlimited API cost structure negotiated — upgrade to higher models approved when accuracy demands it.
+- **Embedding Service**: OpenAI text-embedding-3-large for similarity-based pre-filtering in candidate-job matching (upgraded from text-embedding-3-small).
 - **Error Tracking**: Sentry SDK integration.
 - **Testing**: Comprehensive pytest suite.
 - **Proxy Support**: `ProxyFix` middleware.

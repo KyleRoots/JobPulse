@@ -1,0 +1,56 @@
+<job>
+<title>
+<![CDATA[ Part Time English Teachers ESL Instructor (34790) ]]>
+</title>
+<company>
+<![CDATA[ Myticas Consulting ]]>
+</company>
+<date>
+<![CDATA[ March 19, 2026 ]]>
+</date>
+<referencenumber>
+<![CDATA[ SFXRLEKVVR ]]>
+</referencenumber>
+<bhatsid>
+<![CDATA[ 34790 ]]>
+</bhatsid>
+<url>
+<![CDATA[ https://apply.myticas.com/34790/Part%20Time%20English%20Teachers%20ESL%20Instructor/?source=LinkedIn ]]>
+</url>
+<description>
+<![CDATA[ <p><strong>Myticas's direct client, based in Wallula, WA is currently seeking a Part-Time English Teachers/ESL Instructor for a on-site contract position.</strong></p> <p><strong>Regular Shift/Work Hours: </strong>1st<strong> Shift</strong><br> <strong>Specific Shift Start/End Times:</strong> <strong>Tuesday/Thursday (</strong>2:30PM-5:00PM)<br>  • Total hours per week: 7-15 hours, including instructional time, 30 minutes of prep time for every 2 hours of instruction, recruitment and culminating events, trainings, and regular partner meetings.</p> <p><br> <strong>1. Role Overview:</strong><br> Deliver 6-10 instructional hours per week in a client facility teaching English as a Second Language (ESL) and/or English for Specific Purposes (ESP) courses for frontline team members<br> <br> <strong>Responsibilities:</strong><br>  • Develop instructional materials associated with courses taught<br>  • Attend Upward Academy partner meetings<br>  • Attend all faculty meetings and trainings<br>  • Participate in recruitment events and culminating activities<br>  • Maintain program records, administer testing, and complete grading as needed<br> <br> <strong>Required Qualifications:</strong><br> • Knowledge of<strong> teaching strategies and methods, including grammar, reading, writing, and listening/speaking</strong><br> • Demonstrated<strong> fluency in English, including excellent written and oral communication skills necessary for teaching English language learners</strong><br> • Proficiency in Microsoft Office tools<br> <br> <strong>Preferred Qualifications:</strong><br>  • Bachelor’s degree in English, education, or related field<br>  • <strong>TESOL </strong>certificate<br>  • Minimum of <strong>3 years of teaching</strong> <strong>experience in adult ESL education</strong><br>  • Strong classroom management, organizational, and planning skills, with the ability to provide clear, concise directions and explanations<br>  • Proficiency in a second language<br>  • English for Specific Purposes (ESP) experience (e.g., Economics, Business, Computers, Engineering, etc.)<br>  • Cross-cultural sensitivity<br>  • Excellent technology application skills and experience<br>  • Strong interpersonal skills</p> ]]>
+</description>
+<jobtype>
+<![CDATA[ Contract ]]>
+</jobtype>
+<city>
+<![CDATA[ Wallula ]]>
+</city>
+<state>
+<![CDATA[ Washington ]]>
+</state>
+<country>
+<![CDATA[ United States ]]>
+</country>
+<category>
+<![CDATA[ ]]>
+</category>
+<apply_email>
+<![CDATA[ apply@myticas.com ]]>
+</apply_email>
+<remotetype>
+<![CDATA[ Onsite ]]>
+</remotetype>
+<assignedrecruiter>
+<![CDATA[ #LI-RS1 ]]>
+</assignedrecruiter>
+<jobfunction>
+<![CDATA[ Education ]]>
+</jobfunction>
+<jobindustries>
+<![CDATA[ Education ]]>
+</jobindustries>
+<senioritylevel>
+<![CDATA[ Executive ]]>
+</senioritylevel>
+</job>

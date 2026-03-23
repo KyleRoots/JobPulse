@@ -86,7 +86,7 @@ def run_screening():
         svc = CandidateVettingService(bullhorn_service=None)
 
         global_reqs = VettingConfig.get_value('global_custom_requirements', '')
-        model = VettingConfig.get_value('layer2_model', 'gpt-5.4')
+        model = VettingConfig.get_value('layer2_model', 'gpt-5')
 
         result = svc.analyze_candidate_job_match(
             resume_text=resume_text,

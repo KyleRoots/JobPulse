@@ -228,7 +228,7 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
 
         try:
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model="gpt-5",
                 messages=[
                     {"role": "system", "content": "You are a resume formatting expert. Your job is to convert raw, unstructured resume text into clean, readable HTML while preserving all original content exactly."},
                     {"role": "user", "content": prompt}

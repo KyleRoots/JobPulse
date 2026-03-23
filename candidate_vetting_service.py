@@ -130,12 +130,12 @@ class CandidateVettingService(
     def _get_layer2_model(self) -> str:
         """Get the Layer 2 model from VettingConfig (supports live revert)."""
         try:
-            value = self.get_config_value('layer2_model', 'gpt-5.4')
+            value = self.get_config_value('layer2_model', 'gpt-5')
             if value and value.strip():
                 return value.strip()
         except Exception:
             pass
-        return 'gpt-5.4'
+        return 'gpt-5'
     
     def _get_escalation_range(self) -> tuple:
         """Get escalation score range from VettingConfig.
@@ -667,10 +667,10 @@ class CandidateVettingService(
                     
                     mini_score = analysis.get('match_score', 0)
                     
-                    # Layer 3: Escalation check — re-analyze borderline with GPT-4o
+                    # Layer 3: Escalation check — re-analyze borderline with GPT-5
                     # Uses pre-fetched escalation_range (no DB access needed)
                     esc_low, esc_high = escalation_range
-                    if esc_low <= mini_score <= esc_high and self.model != 'gpt-5.4':
+                    if esc_low <= mini_score <= esc_high and self.model != 'gpt-5':
                         job_title = job.get('title', 'Unknown')
                         logging.info(
                             f"⬆️ Escalating {candidate_name} × {job_title}: "
@@ -680,7 +680,7 @@ class CandidateVettingService(
                             escalated_analysis = self.analyze_candidate_job_match(
                                 cached_resume_text, job, candidate_location,
                                 prefetched_requirements=prefetched_req,
-                                model_override='gpt-5.4',
+                                model_override='gpt-5',
                                 prefetched_global_requirements=prefetched_global_reqs
                             )
                             
@@ -694,7 +694,7 @@ class CandidateVettingService(
                                 'job_title': job_title
                             }
                             
-                            # Use the GPT-4o result as the final analysis
+                            # Use the GPT-5 result as the final analysis
                             analysis = escalated_analysis
                             # Carry over escalation data to the new analysis dict
                             analysis['_escalation_data'] = {

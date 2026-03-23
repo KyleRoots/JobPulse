@@ -572,7 +572,7 @@ IMPORTANT:
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': 'gpt-5.4',
+                    'model': 'gpt-5',
                     'messages': [
                         {'role': 'system', 'content': 'You are a quality auditor. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}

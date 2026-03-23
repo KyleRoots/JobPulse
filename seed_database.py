@@ -520,7 +520,7 @@ def seed_vetting_config(db, VettingConfig):
             'escalation_low': '60',
             'escalation_high': '85',
             # Layer 2 model (revertible via UI if quality drop detected)
-            'layer2_model': 'gpt-5.4',
+            'layer2_model': 'gpt-5',
             # Cutoff date: only process candidates received after this timestamp
             'vetting_cutoff_date': '',             # Empty by default; user sets via UI
             # Screening quality audit
@@ -1393,17 +1393,17 @@ def seed_database(db, User):
         except Exception as e:
             logger.warning(f"⚠️ Failed to check vetting lock: {str(e)}")
         
-        # ONE-TIME: Upgrade layer2_model to gpt-5.4 (Mar 2026)
-        # GPT-4o API deprecated March 31, 2026 — migrate to GPT-5.4
+        # ONE-TIME: Upgrade layer2_model to gpt-5 (Mar 2026)
+        # Upgraded from GPT-5.4 to GPT-5 for maximum accuracy
         try:
             upgrade_flag = VettingConfig.query.filter_by(setting_key='layer2_model_upgraded_to_54').first()
             if not upgrade_flag or upgrade_flag.setting_value != 'true':
                 model_setting = VettingConfig.query.filter_by(setting_key='layer2_model').first()
-                if model_setting and model_setting.setting_value in ('gpt-4o-mini', 'gpt-4o'):
+                if model_setting and model_setting.setting_value in ('gpt-4o-mini', 'gpt-4o', 'gpt-5.4'):
                     old_model = model_setting.setting_value
-                    model_setting.setting_value = 'gpt-5.4'
+                    model_setting.setting_value = 'gpt-5'
                     model_setting.updated_at = datetime.utcnow()
-                    logger.info(f"🔄 Upgraded layer2_model from {old_model} → gpt-5.4")
+                    logger.info(f"🔄 Upgraded layer2_model from {old_model} → gpt-5")
                 
                 if upgrade_flag:
                     upgrade_flag.setting_value = 'true'

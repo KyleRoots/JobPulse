@@ -395,7 +395,7 @@ Resume text:
 """
 
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model="gpt-5",
                 messages=[
                     {"role": "system", "content": "You are an expert resume parser. Extract structured data accurately. Return only valid JSON."},
                     {"role": "user", "content": prompt}

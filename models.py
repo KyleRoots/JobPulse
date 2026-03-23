@@ -979,7 +979,7 @@ class JobEmbedding(db.Model):
     job_title = db.Column(db.String(500), nullable=True)
     description_hash = db.Column(db.String(64), nullable=False)  # SHA-256 of description text
     embedding_vector = db.Column(db.Text, nullable=False)  # JSON-serialized float array (1536 dims)
-    embedding_model = db.Column(db.String(50), nullable=False, default='text-embedding-3-small')
+    embedding_model = db.Column(db.String(50), nullable=False, default='text-embedding-3-large')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
