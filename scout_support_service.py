@@ -38,6 +38,28 @@ CATEGORY_LABELS = {
     'backoffice_finance': 'Back-Office: Finance (BTE)',
 }
 
+AI_FULL_CATEGORIES = ['ats_issue', 'candidate_parsing', 'job_posting', 'account_access', 'data_correction']
+
+HANDOFF_CATEGORIES = ['email_notifications', 'feature_request', 'other']
+
+BACKOFFICE_CATEGORIES = ['backoffice_onboarding', 'backoffice_finance']
+
+
+def get_backoffice_cc(category: str, department: str, brand: str) -> List[str]:
+    cc_list = [DEFAULT_ADMIN_EMAIL]
+    dept = (department or '').strip()
+
+    if brand == 'STSI':
+        cc_list.append('evalentine@stsigroup.com')
+    elif dept == 'MYT-Ottawa':
+        cc_list.append('accounting@myticas.com')
+    elif dept in ('MYT-Chicago', 'MYT-Ohio', 'MYT-Clover'):
+        cc_list.append('ai@myticas.com')
+    else:
+        cc_list.append('accounting@myticas.com')
+
+    return cc_list
+
 
 class ScoutSupportService:
 
@@ -103,6 +125,16 @@ class ScoutSupportService:
             logger.error(f"Ticket {ticket_id} not found")
             return False
 
+        if ticket.category in HANDOFF_CATEGORIES:
+            return self._process_handoff_ticket(ticket)
+        elif ticket.category in BACKOFFICE_CATEGORIES:
+            return self._process_backoffice_ticket(ticket)
+        else:
+            return self._process_ai_full_ticket(ticket)
+
+    def _process_ai_full_ticket(self, ticket) -> bool:
+        from extensions import db
+
         understanding = self._generate_understanding(ticket)
         if not understanding:
             logger.error(f"Failed to generate AI understanding for ticket {ticket.ticket_number}")
@@ -113,7 +145,71 @@ class ScoutSupportService:
         db.session.commit()
 
         self._send_acknowledgment_email(ticket, understanding)
-        logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged, email sent to {ticket.submitter_email}")
+        logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged (AI full), email sent to {ticket.submitter_email}")
+        return True
+
+    def _process_handoff_ticket(self, ticket) -> bool:
+        from extensions import db
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+        ticket.status = 'escalated'
+        ticket.escalation_reason = f"Category '{category_label}' is handled directly by the admin."
+        db.session.commit()
+
+        body = (
+            f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},\n\n"
+            f"Thank you for reaching out. Your support ticket has been received and assigned ticket number **{ticket.ticket_number}**.\n\n"
+            f"**Category:** {category_label}\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"I've documented your request and have copied in our team lead who will handle this directly. "
+            f"You can expect a follow-up from them shortly.\n\n"
+            f"— Scout Support"
+        )
+
+        self._send_email(
+            to_email=ticket.submitter_email,
+            subject=f"[{ticket.ticket_number}] {ticket.subject}",
+            body=body,
+            ticket=ticket,
+            email_type='handoff_acknowledgment',
+            cc_email=DEFAULT_ADMIN_EMAIL,
+        )
+
+        logger.info(f"✅ Ticket {ticket.ticket_number} handed off (category={ticket.category}), CC'd {DEFAULT_ADMIN_EMAIL}")
+        return True
+
+    def _process_backoffice_ticket(self, ticket) -> bool:
+        from extensions import db
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+        cc_list = get_backoffice_cc(ticket.category, ticket.submitter_department, ticket.brand)
+
+        ticket.status = 'escalated'
+        ticket.escalation_reason = f"Back-office category '{category_label}' routed to designated contacts."
+        db.session.commit()
+
+        cc_names = ', '.join(cc_list)
+        body = (
+            f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},\n\n"
+            f"Thank you for reaching out. Your support ticket has been received and assigned ticket number **{ticket.ticket_number}**.\n\n"
+            f"**Category:** {category_label}\n"
+            f"**Department:** {ticket.submitter_department or 'Not specified'}\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"I've documented your request and have copied in the designated back-office team who will handle this directly. "
+            f"You can expect a follow-up from them shortly.\n\n"
+            f"— Scout Support"
+        )
+
+        self._send_email(
+            to_email=ticket.submitter_email,
+            subject=f"[{ticket.ticket_number}] {ticket.subject}",
+            body=body,
+            ticket=ticket,
+            email_type='backoffice_acknowledgment',
+            cc_emails=cc_list,
+        )
+
+        logger.info(f"✅ Ticket {ticket.ticket_number} routed to back-office (category={ticket.category}, dept={ticket.submitter_department}), CC'd {cc_names}")
         return True
 
     def handle_user_reply(self, ticket_id: int, reply_body: str, message_id: str = '') -> bool:
@@ -724,7 +820,8 @@ Respond with JSON:
         )
 
     def _send_email(self, to_email: str, subject: str, body: str, ticket=None,
-                    email_type: str = 'general', cc_email: str = None):
+                    email_type: str = 'general', cc_email: str = None,
+                    cc_emails: Optional[List[str]] = None):
         from extensions import db
         from models import SupportConversation, EmailDeliveryLog
 
@@ -739,7 +836,12 @@ Respond with JSON:
                 headers['In-Reply-To'] = ticket.last_message_id
                 headers['References'] = ticket.last_message_id
 
-            cc_list = [cc_email] if cc_email else []
+            if cc_emails:
+                cc_list = list(cc_emails)
+            elif cc_email:
+                cc_list = [cc_email]
+            else:
+                cc_list = []
 
             success = email_svc.send_email(
                 to_email=to_email,

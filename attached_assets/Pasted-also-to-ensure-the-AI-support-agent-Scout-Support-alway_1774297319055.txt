@@ -1,0 +1,18 @@
+also, to ensure the AI support agent (Scout Support) always responds back to the user and acts accordingly. here is scenarios we can bake in from a guardrail and workflow perspective:
+- if user selects 'ATS / Bullhorn Issue' - Scout Support handles this top to bottom (with final admin approval to execute fix if needed)
+- if user selects 'Candidate Parsing Error' - Scout Support handles this top to bottom (with final admin approval to execute fix if needed)
+- if user selects 'Job Posting Issue' - Scout Support handles this top to bottom (with final admin approval to execute fix if needed)
+- if user selects 'Account / Access Request' - Scout Support handles this top to bottom (with final admin approval to execute fix if needed)
+- if user selects 'Email / Notification Issue' - Scout Support will respond back acknowledging the issue, and immediately copy myself back to the response to the user(kroots@myticas.com) as these types of issue I will handle myself. 
+- if user selects 'Data Correction Request' - Scout Support handles this top to bottom (with final admin approval to execute fix if needed)
+- if user selects 'Feature Request' - Scout Support will respond back acknowledging the request, and immediately copy myself back to the response to the user (kroots@myticas.com) as these types of issue I will handle myself. 
+
+this next part is brand-related:
+For myticas...
+- if user selects 'Back-Office: Onboarding' AND is associated with the 'Internal Department' -> 'MYT-Ottawa' - Scout Support will respond back to the user acknowledging the issue, and immediately copy myself 'kroots@myticas.com)' AND 'accounting@myticas.com' as well, as the designated back-office folks will handle these. 
+- if user selects 'Back-Office: Onboarding' AND is associated with the 'Internal Department' -> 'MYT-Chicago', 'MYT-Ohio', or 'MYT-Clover' - Scout Support will respond back to the user acknowledging the issue, and immediately copy myself 'kroots@myticas.com)' AND 'ai@myticas.com' as well, as the designated back-office folks will handle these.
+- if user selects 'Back-Office: Finance (BTE)' AND is associated with the 'Internal Department' -> 'MYT-Ottawa' - Scout Support will respond back to the user acknowledging the issue, and immediately copy myself 'kroots@myticas.com)' AND 'accounting@myticas.com' as well, as the designated back-office folks will handle these. 
+- if user selects 'Back-Office: Finance (BTE)' AND is associated with the 'Internal Department' -> 'MYT-Chicago', 'MYT-Ohio', or 'MYT-Clover' - Scout Support will respond back to the user acknowledging the issue, and immediately copy myself 'kroots@myticas.com)' AND 'ai@myticas.com' as well, as the designated back-office folks will handle these.
+For STSI...
+- if user selects 'Back-Office: Onboarding' AND is associated with the 'Internal Department' -> 'STS-STSI' - Scout Support will respond back to the user acknowledging the issue, and immediately copy myself 'kroots@myticas.com)' AND 'evalentine@stsigroup.com' as well, as the designated back-office folks will handle these.
+- if user selects 'Back-Office: Finance (BTE)' AND is associated with the 'Internal Department' -> 'STS-STSI' - Scout Support will respond back to the user acknowledging the issue, and immediately copy myself 'kroots@myticas.com)' AND 'evalentine@stsigroup.com' as well, as the designated back-office folks will handle these.
