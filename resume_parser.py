@@ -204,7 +204,7 @@ class ResumeParser:
         if not raw_text or len(raw_text.strip()) < 50:
             return None
         
-        max_text_len = 8000
+        max_text_len = 20000
         truncated_text = raw_text[:max_text_len] if len(raw_text) > max_text_len else raw_text
         
         prompt = f"""Convert this raw resume text into clean, well-structured HTML for display in a web interface.
@@ -234,8 +234,8 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.2,
-                max_tokens=4000,
-                timeout=30.0
+                max_tokens=8000,
+                timeout=45.0
             )
             
             formatted_html = response.choices[0].message.content.strip()

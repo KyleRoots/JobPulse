@@ -391,7 +391,7 @@ Return a JSON object with the following fields (use null for missing data):
 }}
 
 Resume text:
-{resume_text[:8000]}
+{resume_text[:20000]}
 """
 
             response = self.openai_client.chat.completions.create(
@@ -401,7 +401,7 @@ Resume text:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.1,
-                max_tokens=2000
+                max_tokens=4000
             )
             
             content = response.choices[0].message.content.strip()
