@@ -1600,6 +1600,17 @@
             </div>
             {% endif %}
 
+            {% if current_user.is_authenticated and current_user.has_module('scout_support') %}
+            <div class="nav-section" data-section="support">
+                <div class="nav-section-title" style="color: #17a2b8;">Scout Support</div>
+                <a href="{{ url_for('scout_support.scout_support_dashboard') }}"
+                    class="nav-item {% if active_page == 'scout_support' %}active{% endif %}">
+                    <i class="fas fa-headset" style="color: #17a2b8;"></i>
+                    <span>Support Tickets</span>
+                </a>
+            </div>
+            {% endif %}
+
             {% if current_user.is_authenticated and current_user.is_admin %}
             <div class="nav-section" data-section="product-expert">
                 <div class="nav-section-title" style="color: #e8a87c;">Product Expert</div>

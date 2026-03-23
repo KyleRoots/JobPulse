@@ -1,0 +1,255 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Scout Support — {{ ticket.ticket_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="mb-3">
+        <a href="{{ url_for('scout_support.scout_support_dashboard') }}" class="text-info text-decoration-none">
+            <i class="fas fa-arrow-left me-1"></i> Back to Tickets
+        </a>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h3 class="mb-1">
+                <span class="badge bg-info bg-opacity-25 text-info font-monospace me-2">{{ ticket.ticket_number }}</span>
+                {{ ticket.subject }}
+            </h3>
+            <div class="text-muted">
+                Submitted by {{ ticket.submitter_name }} ({{ ticket.submitter_email }})
+                {% if ticket.submitter_department %} — {{ ticket.submitter_department }}{% endif %}
+                &middot; {{ ticket.created_at.strftime('%B %d, %Y at %H:%M UTC') if ticket.created_at else 'Unknown' }}
+            </div>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            {% set status_colors = {
+                'new': 'secondary', 'acknowledged': 'info', 'clarifying': 'primary',
+                'solution_proposed': 'primary', 'awaiting_user_approval': 'warning',
+                'awaiting_admin_approval': 'danger', 'approved': 'success',
+                'executing': 'info', 'completed': 'success', 'on_hold': 'warning',
+                'closed': 'secondary', 'escalated': 'danger'
+            } %}
+            {% set status_labels = {
+                'new': 'New', 'acknowledged': 'Acknowledged', 'clarifying': 'Clarifying',
+                'solution_proposed': 'Solution Proposed', 'awaiting_user_approval': 'User Approval',
+                'awaiting_admin_approval': 'Admin Approval', 'approved': 'Approved',
+                'executing': 'Executing', 'completed': 'Completed', 'on_hold': 'On Hold',
+                'closed': 'Closed', 'escalated': 'Escalated'
+            } %}
+            <span class="badge bg-{{ status_colors.get(ticket.status, 'secondary') }} fs-6">
+                {{ status_labels.get(ticket.status, ticket.status) }}
+            </span>
+            {% if ticket.priority == 'high' %}<span class="badge bg-danger fs-6">High Priority</span>
+            {% elif ticket.priority == 'medium' %}<span class="badge bg-warning text-dark fs-6">Medium</span>
+            {% else %}<span class="badge bg-success fs-6">Low</span>{% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            {% if ai_understanding %}
+            <div class="card bg-dark border-info mb-4">
+                <div class="card-header bg-dark border-info">
+                    <h5 class="mb-0"><i class="fas fa-robot text-info me-2"></i>AI Understanding</h5>
+                </div>
+                <div class="card-body">
+                    {% if ai_understanding is mapping %}
+                    <p>{{ ai_understanding.get('understanding', ai_understanding.get('updated_understanding', '')) }}</p>
+                    {% if ai_understanding.get('resolution_approach') %}
+                    <div class="mt-3 p-3 bg-dark border border-secondary rounded">
+                        <strong class="text-info">Resolution Approach:</strong>
+                        <p class="mb-0 mt-1">{{ ai_understanding.resolution_approach }}</p>
+                    </div>
+                    {% endif %}
+                    {% if ai_understanding.get('affected_entities') %}
+                    <div class="mt-2">
+                        <strong class="text-muted small">Affected Entities:</strong>
+                        {% for entity in ai_understanding.affected_entities %}
+                        <span class="badge bg-secondary me-1">{{ entity }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <p>{{ ai_understanding }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-comments me-2"></i>Conversation</h5>
+                </div>
+                <div class="card-body">
+                    {% if conversations %}
+                    {% for conv in conversations %}
+                    <div class="d-flex mb-3 {% if conv.direction == 'outbound' %}justify-content-start{% else %}justify-content-end{% endif %}">
+                        <div class="p-3 rounded-3 {% if conv.direction == 'outbound' %}bg-info bg-opacity-10 border border-info border-opacity-25{% else %}bg-secondary bg-opacity-25 border border-secondary{% endif %}" style="max-width: 80%;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="fw-bold {% if conv.direction == 'outbound' %}text-info{% else %}text-light{% endif %}">
+                                    {% if conv.direction == 'outbound' %}
+                                    <i class="fas fa-robot me-1"></i>Scout Support
+                                    {% else %}
+                                    <i class="fas fa-user me-1"></i>{{ conv.sender_email }}
+                                    {% endif %}
+                                </small>
+                                <small class="text-muted ms-3">{{ conv.created_at.strftime('%b %d, %H:%M') if conv.created_at else '' }}</small>
+                            </div>
+                            <div style="white-space: pre-wrap; word-break: break-word;">{{ conv.body }}</div>
+                            {% if conv.email_type %}
+                            <small class="text-muted mt-1 d-block"><i class="fas fa-tag me-1"></i>{{ conv.email_type }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted text-center">No conversation history yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if actions %}
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Execution Log</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-dark mb-0">
+                        <thead>
+                            <tr>
+                                <th>Action</th>
+                                <th>Entity</th>
+                                <th>Field</th>
+                                <th>Before</th>
+                                <th>After</th>
+                                <th>Result</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for action in actions %}
+                            <tr>
+                                <td><span class="badge bg-primary">{{ action.action_type }}</span></td>
+                                <td>{{ action.entity_type or '—' }} {% if action.entity_id %}#{{ action.entity_id }}{% endif %}</td>
+                                <td class="font-monospace small">{{ action.field_name or '—' }}</td>
+                                <td class="small">{{ (action.old_value or '—')[:40] }}</td>
+                                <td class="small">{{ (action.new_value or '—')[:40] }}</td>
+                                <td>
+                                    {% if action.success %}
+                                    <span class="badge bg-success">Success</span>
+                                    {% else %}
+                                    <span class="badge bg-danger" title="{{ action.error_message or '' }}">Failed</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ action.executed_at.strftime('%H:%M:%S') if action.executed_at else '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Ticket Details</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-dark table-sm mb-0">
+                        <tr><td class="text-muted">Category</td><td>
+                            {% if ticket.category == 'ats_issue' %}ATS / Bullhorn Issue
+                            {% elif ticket.category == 'data_correction' %}Data Correction
+                            {% else %}{{ ticket.category }}{% endif %}
+                        </td></tr>
+                        <tr><td class="text-muted">Brand</td><td>{{ ticket.brand }}</td></tr>
+                        <tr><td class="text-muted">Department</td><td>{{ ticket.submitter_department or '—' }}</td></tr>
+                        <tr><td class="text-muted">Admin</td><td>{{ ticket.admin_email }}</td></tr>
+                        {% if ticket.user_approved_at %}
+                        <tr><td class="text-muted">User Approved</td><td>{{ ticket.user_approved_at.strftime('%b %d, %H:%M') }}</td></tr>
+                        {% endif %}
+                        {% if ticket.admin_approved_at %}
+                        <tr><td class="text-muted">Admin Approved</td><td>{{ ticket.admin_approved_at.strftime('%b %d, %H:%M') }}</td></tr>
+                        {% endif %}
+                        {% if ticket.resolved_at %}
+                        <tr><td class="text-muted">Resolved</td><td>{{ ticket.resolved_at.strftime('%b %d, %H:%M') }}</td></tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h6 class="mb-0"><i class="fas fa-file-alt me-2"></i>Original Description</h6>
+                </div>
+                <div class="card-body">
+                    <div style="white-space: pre-wrap; word-break: break-word;" class="small">{{ ticket.description }}</div>
+                </div>
+            </div>
+
+            {% if ticket.proposed_solution %}
+            <div class="card bg-dark border-success mb-4">
+                <div class="card-header bg-dark border-success">
+                    <h6 class="mb-0"><i class="fas fa-lightbulb text-success me-2"></i>Proposed Solution</h6>
+                </div>
+                <div class="card-body small">
+                    {% set solution = ticket.proposed_solution %}
+                    <div style="white-space: pre-wrap; word-break: break-word;">{{ solution }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if ticket.execution_proof %}
+            <div class="card bg-dark border-success mb-4">
+                <div class="card-header bg-dark border-success">
+                    <h6 class="mb-0"><i class="fas fa-check-double text-success me-2"></i>Execution Proof</h6>
+                </div>
+                <div class="card-body small">
+                    <div style="white-space: pre-wrap; word-break: break-word;">{{ ticket.execution_proof }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if current_user.is_admin and ticket.status not in ('completed', 'closed', 'escalated') %}
+            <div class="card bg-dark border-danger">
+                <div class="card-header bg-dark border-danger">
+                    <h6 class="mb-0"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Admin Actions</h6>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-outline-danger btn-sm w-100" onclick="escalateTicket()">
+                        <i class="fas fa-level-up-alt me-1"></i>Escalate Ticket
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if current_user.is_admin %}
+<script>
+function escalateTicket() {
+    const reason = prompt('Enter escalation reason:');
+    if (!reason) return;
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    fetch('/api/scout-support/escalate/{{ ticket.ticket_number }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({reason: reason})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed to escalate: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(err => alert('Error: ' + err));
+}
+</script>
+{% endif %}
+{% endblock %}

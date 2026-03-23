@@ -1,0 +1,162 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Scout Support — Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-headset text-info me-2"></i>Scout Support</h2>
+            <p class="text-muted mb-0">AI-powered ATS support ticket management</p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-info">{{ stats.total }}</div>
+                    <div class="text-muted small">Total Tickets</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-warning">{{ stats.open }}</div>
+                    <div class="text-muted small">Open</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-success">{{ stats.completed }}</div>
+                    <div class="text-muted small">Completed</div>
+                </div>
+            </div>
+        </div>
+        {% if current_user.is_admin %}
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-danger">{{ stats.pending_approval }}</div>
+                    <div class="text-muted small">Awaiting Approval</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card bg-dark border-secondary">
+        <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Support Tickets</h5>
+            <div class="d-flex gap-2">
+                <select id="statusFilter" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;" onchange="filterTickets()">
+                    <option value="all">All Statuses</option>
+                    <option value="open">Open</option>
+                    <option value="completed">Completed</option>
+                    <option value="closed">Closed</option>
+                </select>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if tickets %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Ticket #</th>
+                            <th>Subject</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            {% if current_user.is_admin %}<th>Submitter</th>{% endif %}
+                            <th>Created</th>
+                            <th>Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ticket in tickets %}
+                        <tr class="ticket-row" data-status="{{ ticket.status }}" style="cursor: pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'">
+                            <td><span class="badge bg-info bg-opacity-25 text-info font-monospace">{{ ticket.ticket_number }}</span></td>
+                            <td>{{ ticket.subject[:60] }}{% if ticket.subject|length > 60 %}...{% endif %}</td>
+                            <td>
+                                {% if ticket.category == 'ats_issue' %}<span class="badge bg-primary bg-opacity-25 text-primary">ATS Issue</span>
+                                {% elif ticket.category == 'data_correction' %}<span class="badge bg-warning bg-opacity-25 text-warning">Data Correction</span>
+                                {% else %}<span class="badge bg-secondary">{{ ticket.category }}</span>{% endif %}
+                            </td>
+                            <td>
+                                {% if ticket.priority == 'high' %}<span class="badge bg-danger">High</span>
+                                {% elif ticket.priority == 'medium' %}<span class="badge bg-warning text-dark">Medium</span>
+                                {% else %}<span class="badge bg-success">Low</span>{% endif %}
+                            </td>
+                            <td>
+                                {% set status_colors = {
+                                    'new': 'secondary',
+                                    'acknowledged': 'info',
+                                    'clarifying': 'primary',
+                                    'solution_proposed': 'primary',
+                                    'awaiting_user_approval': 'warning',
+                                    'awaiting_admin_approval': 'danger',
+                                    'approved': 'success',
+                                    'executing': 'info',
+                                    'completed': 'success',
+                                    'on_hold': 'warning',
+                                    'closed': 'secondary',
+                                    'escalated': 'danger'
+                                } %}
+                                {% set status_labels = {
+                                    'new': 'New',
+                                    'acknowledged': 'Acknowledged',
+                                    'clarifying': 'Clarifying',
+                                    'solution_proposed': 'Solution Proposed',
+                                    'awaiting_user_approval': 'User Approval',
+                                    'awaiting_admin_approval': 'Admin Approval',
+                                    'approved': 'Approved',
+                                    'executing': 'Executing',
+                                    'completed': 'Completed',
+                                    'on_hold': 'On Hold',
+                                    'closed': 'Closed',
+                                    'escalated': 'Escalated'
+                                } %}
+                                <span class="badge bg-{{ status_colors.get(ticket.status, 'secondary') }}">
+                                    {{ status_labels.get(ticket.status, ticket.status) }}
+                                </span>
+                            </td>
+                            {% if current_user.is_admin %}
+                            <td class="text-muted small">{{ ticket.submitter_name }}</td>
+                            {% endif %}
+                            <td class="text-muted small">{{ ticket.created_at.strftime('%b %d, %H:%M') if ticket.created_at else '—' }}</td>
+                            <td class="text-muted small">{{ ticket.updated_at.strftime('%b %d, %H:%M') if ticket.updated_at else '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p>No support tickets yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function filterTickets() {
+    const filter = document.getElementById('statusFilter').value;
+    document.querySelectorAll('.ticket-row').forEach(row => {
+        const status = row.dataset.status;
+        if (filter === 'all') {
+            row.style.display = '';
+        } else if (filter === 'open') {
+            row.style.display = ['completed', 'closed'].includes(status) ? 'none' : '';
+        } else {
+            row.style.display = status === filter ? '' : 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

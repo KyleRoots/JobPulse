@@ -370,6 +370,46 @@ def submit_support_request():
 
         if success:
             logger.info(f"[{brand_prefix}] Support request submitted by {requester_name} ({requester_email}) — Category: {category_label}, Priority: {priority_label}")
+
+            AI_ELIGIBLE_CATEGORIES = ['ats_issue', 'data_correction']
+            if category in AI_ELIGIBLE_CATEGORIES:
+                try:
+                    import threading
+                    from flask import current_app
+                    app_ref = current_app._get_current_object()
+
+                    def _create_ai_ticket(app_ref, **kwargs):
+                        with app_ref.app_context():
+                            try:
+                                from scout_support_service import ScoutSupportService
+                                svc = ScoutSupportService()
+                                ticket = svc.create_ticket(**kwargs)
+                                svc.process_new_ticket(ticket.id)
+                                logger.info(f"🤖 Scout Support ticket {ticket.ticket_number} created and processed")
+                            except Exception as e:
+                                logger.error(f"❌ Scout Support ticket creation failed: {e}")
+
+                    attachment_info = [{'filename': a['filename']} for a in valid_attachments] if valid_attachments else None
+                    thread = threading.Thread(
+                        target=_create_ai_ticket,
+                        args=(app_ref,),
+                        kwargs={
+                            'category': category,
+                            'subject': subject,
+                            'description': description,
+                            'submitter_name': requester_name,
+                            'submitter_email': requester_email,
+                            'submitter_department': internal_department,
+                            'brand': brand,
+                            'priority': priority,
+                            'attachment_info': attachment_info,
+                        },
+                        daemon=True
+                    )
+                    thread.start()
+                except Exception as e:
+                    logger.error(f"Scout Support ticket creation error: {e}")
+
             return jsonify({'success': True, 'message': 'Support request submitted successfully.'})
         else:
             return jsonify({'success': False, 'error': 'Failed to send support request. Please try again.'}), 500

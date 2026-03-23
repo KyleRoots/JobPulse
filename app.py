@@ -183,6 +183,7 @@ from routes.scout_inbound import scout_inbound_bp
 from routes.scout_screening import scout_screening_bp
 from routes.support_request import support_request_bp
 from routes.support_auth import support_auth_bp
+from routes.scout_support import scout_support_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(health_bp)
 app.register_blueprint(settings_bp)
@@ -203,6 +204,7 @@ app.register_blueprint(scout_inbound_bp)
 app.register_blueprint(scout_screening_bp)
 app.register_blueprint(support_request_bp)
 app.register_blueprint(support_auth_bp)
+app.register_blueprint(scout_support_bp)
 
 from routes.vetting_sandbox import vetting_sandbox_bp
 app.register_blueprint(vetting_sandbox_bp)
@@ -221,6 +223,7 @@ _MODULE_MAP = {
     '/automations': 'scout_automation',
     '/workbench': 'scout_automation',
     '/scout-automation': 'scout_automation',
+    '/scout-support': 'scout_support',
     '/settings': 'system',
     '/email-logs': 'system',
     '/log-monitoring': 'system',

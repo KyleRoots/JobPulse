@@ -110,20 +110,31 @@ def email_inbound_webhook():
                 }
         
         to_field = payload.get('to', '')
-        is_scout = 'scout-vetting@parse.lyntrix.ai' in to_field.lower()
+        is_scout_vetting = 'scout-vetting@parse.lyntrix.ai' in to_field.lower()
+        is_scout_support = 'support@scoutgenius.ai' in to_field.lower()
         
-        if is_scout:
+        if is_scout_vetting:
             logger.info("📧 Routing to Scout Vetting inbound handler (background)")
+        elif is_scout_support:
+            logger.info("📧 Routing to Scout Support inbound handler (background)")
         
         subject = payload.get('subject', 'unknown')
         logger.info(f"📧 Queuing email for background processing: {subject[:80]}")
         
         app_ref = current_app._get_current_object()
-        thread = threading.Thread(
-            target=_process_email_in_background,
-            args=(app_ref, payload, is_scout),
-            daemon=True
-        )
+
+        if is_scout_support:
+            thread = threading.Thread(
+                target=_handle_scout_support_inbound_bg,
+                args=(app_ref, payload),
+                daemon=True
+            )
+        else:
+            thread = threading.Thread(
+                target=_process_email_in_background,
+                args=(app_ref, payload, is_scout_vetting),
+                daemon=True
+            )
         thread.start()
         
         return jsonify({'success': True, 'message': 'Email accepted for processing'}), 200
@@ -235,6 +246,49 @@ def _handle_scout_vetting_inbound_bg(app_ref, payload):
         logger.error(f"❌ [BG] Scout Vetting inbound error: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
+
+
+def _handle_scout_support_inbound_bg(app_ref, payload):
+    with app_ref.app_context():
+        try:
+            from scout_support_service import ScoutSupportService
+
+            sender_email = payload.get('from', '')
+            subject = payload.get('subject', '')
+            text_body = payload.get('text', '')
+            html_body = payload.get('html', '')
+
+            email_match = re.search(r'[\w.+-]+@[\w.-]+', sender_email)
+            sender_clean = email_match.group(0) if email_match else sender_email
+
+            body = text_body
+            if not body and html_body:
+                body = re.sub(r'<[^>]+>', '', html_body)
+
+            message_id = payload.get('Message-ID') or payload.get('message-id', '')
+
+            logger.info(f"🔍 [BG] Scout Support inbound from {sender_clean}, subject: {subject}")
+
+            svc = ScoutSupportService()
+            ticket = svc.find_ticket_by_email_subject(subject)
+
+            if not ticket:
+                logger.warning(f"⚠️ [BG] Scout Support: No ticket found for subject: {subject}")
+                return
+
+            if sender_clean.lower() == ticket.admin_email.lower():
+                svc.handle_admin_reply(ticket.id, body, message_id)
+                logger.info(f"✅ [BG] Scout Support admin reply processed for ticket {ticket.ticket_number}")
+            elif sender_clean.lower() == ticket.submitter_email.lower():
+                svc.handle_user_reply(ticket.id, body, message_id)
+                logger.info(f"✅ [BG] Scout Support user reply processed for ticket {ticket.ticket_number}")
+            else:
+                logger.warning(f"⚠️ [BG] Scout Support: Sender {sender_clean} not authorized for ticket {ticket.ticket_number}")
+
+        except Exception as e:
+            logger.error(f"❌ [BG] Scout Support inbound error: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
 
 
 @email_bp.route('/email-parsing')
