@@ -64,10 +64,27 @@ def get_backoffice_cc(category: str, department: str, brand: str) -> List[str]:
 class ScoutSupportService:
 
     def __init__(self, bullhorn_service=None):
-        self.bullhorn_service = bullhorn_service
+        if bullhorn_service:
+            self.bullhorn_service = bullhorn_service
+        else:
+            self.bullhorn_service = self._init_bullhorn()
         api_key = os.environ.get('OPENAI_API_KEY')
         self.openai_client = OpenAI(api_key=api_key) if api_key else None
-        logger.info("Scout Support Service initialized")
+        logger.info(f"Scout Support Service initialized (Bullhorn: {'connected' if self.bullhorn_service else 'unavailable'})")
+
+    def _init_bullhorn(self):
+        try:
+            from utils.bullhorn_helpers import get_bullhorn_service
+            svc = get_bullhorn_service()
+            if svc and svc.authenticate():
+                logger.info("Bullhorn service authenticated for Scout Support")
+                return svc
+            else:
+                logger.warning("Bullhorn authentication failed — execution disabled")
+                return None
+        except Exception as e:
+            logger.warning(f"Could not initialize Bullhorn service: {e}")
+            return None
 
     def create_ticket(self, category: str, subject: str, description: str,
                       submitter_name: str, submitter_email: str,
@@ -383,7 +400,16 @@ Respond with a JSON object:
     "resolution_approach": "Brief description of how Scout Support could resolve this",
     "proposed_solution_user": "A simple, plain-language explanation of what you will do to fix the issue, written for a non-technical user. Example: 'I will update the candidate status from Online Applicant to New Lead in the system and verify that the change sticks.' Do NOT mention APIs, endpoints, entity IDs, POST/GET requests, or any technical implementation details. Leave empty string if clarification is needed first.",
     "proposed_solution_admin": "The full technical details of the fix for the administrator. Include API endpoints, entity types, entity IDs, field names, values, and verification steps. Leave empty string if clarification is needed first.",
-    "execution_steps": [],
+    "execution_steps": [
+        {{
+            "action": "update_entity",
+            "entity_type": "Candidate",
+            "entity_id": 12345,
+            "field": "status",
+            "new_value": "New Lead",
+            "description": "Update candidate status from Online Applicant to New Lead"
+        }}
+    ],
     "requires_bullhorn_api": true/false,
     "affected_entities": ["candidate", "job", "placement", etc.],
     "underlying_concerns_user": "If there might be deeper issues, explain them in simple terms for the user. Example: 'There may be an automated process in the system that is overriding your manual changes, which could cause this to happen again.' Empty string if no concerns.",
@@ -542,7 +568,16 @@ Respond with JSON:
     "proposed_solution_admin": "If fully understood, describe the full technical fix for the administrator. Include API endpoints, entity types, entity IDs, field names, values, and verification steps. Empty string if not fully understood.",
     "follow_up": "If not fully understood, your next clarification question to the user",
     "can_execute": true/false,
-    "execution_steps": [],
+    "execution_steps": [
+        {{
+            "action": "update_entity",
+            "entity_type": "Candidate",
+            "entity_id": 12345,
+            "field": "status",
+            "new_value": "New Lead",
+            "description": "Update candidate status from Online Applicant to New Lead"
+        }}
+    ],
     "resolution_type": "full/partial/escalate",
     "underlying_concerns_user": "If there might be deeper issues, explain in simple terms for the user. Empty string if no concerns.",
     "underlying_concerns_admin": "Technical details of underlying concerns for the administrator. Empty string if no concerns."
@@ -646,10 +681,23 @@ resolution_type guide:
             solution_data = {'description': ticket.proposed_solution}
 
         execution_steps = solution_data.get('execution_steps', [])
-        requires_bullhorn = understanding.get('requires_bullhorn_api', False)
+        requires_bullhorn = (
+            solution_data.get('requires_bullhorn', False)
+            or understanding.get('requires_bullhorn_api', False)
+        )
 
-        if requires_bullhorn and self.bullhorn_service:
+        if requires_bullhorn and self.bullhorn_service and execution_steps:
             proof_items = self._execute_bullhorn_actions(ticket, solution_data)
+        elif requires_bullhorn and not self.bullhorn_service:
+            logger.warning(f"Ticket {ticket.ticket_number} requires Bullhorn but service unavailable — re-initializing")
+            self.bullhorn_service = self._init_bullhorn()
+            if self.bullhorn_service and execution_steps:
+                proof_items = self._execute_bullhorn_actions(ticket, solution_data)
+            else:
+                proof_items = [{'step': 'Bullhorn execution failed', 'result': 'Could not connect to Bullhorn — manual resolution required'}]
+        elif requires_bullhorn and not execution_steps:
+            logger.warning(f"Ticket {ticket.ticket_number} requires Bullhorn but no execution steps defined")
+            proof_items = [{'step': 'No execution steps defined', 'result': 'Manual resolution required — AI did not generate actionable steps'}]
         else:
             proof_items = [{'step': 'Manual guidance provided', 'result': 'User-side resolution'}]
 
@@ -671,41 +719,61 @@ resolution_type guide:
         steps = solution_data.get('execution_steps', [])
 
         for step in steps:
+            action_type = step.get('action', 'unknown')
+            entity_type = step.get('entity_type', 'Candidate')
+            entity_id = step.get('entity_id')
+            field = step.get('field')
+            new_value = step.get('new_value')
+
             action = SupportAction(
                 ticket_id=ticket.id,
-                action_type=step.get('action', 'unknown'),
-                entity_type=step.get('entity_type'),
-                entity_id=step.get('entity_id'),
-                field_name=step.get('field'),
+                action_type=action_type,
+                entity_type=entity_type,
+                entity_id=str(entity_id) if entity_id else None,
+                field_name=field,
                 old_value=step.get('old_value'),
-                new_value=step.get('new_value'),
+                new_value=str(new_value) if new_value is not None else None,
                 summary=step.get('description', ''),
             )
 
             try:
-                if self.bullhorn_service and step.get('action') == 'update_entity':
-                    entity_type = step.get('entity_type', 'Candidate')
-                    entity_id = step.get('entity_id')
-                    field = step.get('field')
-                    new_value = step.get('new_value')
+                if action_type == 'update_entity' and entity_id and field:
+                    entity_id_int = int(entity_id)
 
-                    if entity_id and field:
-                        current = self.bullhorn_service.get_entity(entity_type, entity_id, fields=field)
+                    if entity_type == 'Candidate':
+                        current = self.bullhorn_service.get_candidate(entity_id_int)
                         if current:
                             action.old_value = str(current.get(field, ''))
 
-                        self.bullhorn_service.update_entity(entity_type, entity_id, {field: new_value})
-                        action.success = True
-                        proof_items.append({
-                            'step': f"Updated {entity_type} #{entity_id}: {field}",
-                            'old_value': action.old_value,
-                            'new_value': str(new_value),
-                            'result': 'Success'
-                        })
+                        result = self.bullhorn_service.update_candidate(entity_id_int, {field: new_value})
+                        if result:
+                            verified = self.bullhorn_service.get_candidate(entity_id_int)
+                            verified_value = verified.get(field, '') if verified else 'unknown'
+                            action.success = True
+                            proof_items.append({
+                                'step': f"Updated {entity_type} #{entity_id}: {field}",
+                                'old_value': action.old_value,
+                                'new_value': str(new_value),
+                                'verified_value': str(verified_value),
+                                'result': 'Success'
+                            })
+                            logger.info(f"✅ Bullhorn update: {entity_type} #{entity_id} {field}: {action.old_value} → {new_value} (verified: {verified_value})")
+                        else:
+                            action.success = False
+                            action.error_message = 'Bullhorn API returned failure'
+                            proof_items.append({'step': f"Update {entity_type} #{entity_id}: {field}", 'result': 'Failed — API returned error'})
+                            logger.error(f"❌ Bullhorn update failed: {entity_type} #{entity_id} {field}")
                     else:
                         action.success = False
-                        action.error_message = 'Missing entity_id or field'
-                        proof_items.append({'step': step.get('description', 'Unknown'), 'result': 'Failed — missing data'})
+                        action.error_message = f'Unsupported entity type: {entity_type}'
+                        proof_items.append({'step': step.get('description', 'Unknown'), 'result': f'Skipped — unsupported entity type: {entity_type}'})
+                        logger.warning(f"Unsupported entity type for Scout Support execution: {entity_type}")
+
+                elif action_type == 'update_entity' and (not entity_id or not field):
+                    action.success = False
+                    action.error_message = 'Missing entity_id or field'
+                    proof_items.append({'step': step.get('description', 'Unknown'), 'result': 'Failed — missing entity ID or field name'})
+
                 else:
                     action.success = True
                     action.summary = step.get('description', 'Guidance step')
