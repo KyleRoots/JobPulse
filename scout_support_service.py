@@ -1704,14 +1704,6 @@ Respond with ONLY a JSON object:
                     note_data['candidates'] = [{'id': int(entity_id)}]
                 elif entity_type == 'ClientContact':
                     note_data['personReference'] = {'id': int(entity_id)}
-                elif entity_type == 'JobOrder':
-                    if api_user_id:
-                        note_data['personReference'] = {'id': int(api_user_id)}
-                    note_data['jobOrders'] = [{'id': int(entity_id)}]
-                elif entity_type == 'Placement':
-                    if api_user_id:
-                        note_data['personReference'] = {'id': int(api_user_id)}
-                    note_data['placements'] = [{'id': int(entity_id)}]
                 else:
                     if api_user_id:
                         note_data['personReference'] = {'id': int(api_user_id)}
@@ -1726,7 +1718,10 @@ Respond with ONLY a JSON object:
                 if response.status_code in (200, 201):
                     data = response.json() if response.text else {}
                     note_id = data.get('changedEntityId', 'unknown')
-                    logger.info(f"📝 Audit note #{note_id} created and linked to {entity_type} #{entity_id} for ticket {ticket.ticket_number}")
+                    logger.info(f"📝 Audit note #{note_id} created for {entity_type} #{entity_id} for ticket {ticket.ticket_number}")
+
+                    if entity_type in ('JobOrder', 'Placement') and note_id and note_id != 'unknown':
+                        self._link_note_via_note_entity(note_id, entity_type, entity_id, params)
                 else:
                     logger.warning(f"⚠️ Audit note failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {response.text[:200] if response.text else ''}")
 
@@ -1834,10 +1829,6 @@ Respond with ONLY a JSON object:
             note_data['candidates'] = [{'id': int(entity_id)}]
         elif entity_type == 'ClientContact':
             note_data['personReference'] = {'id': int(entity_id)}
-        elif entity_type == 'JobOrder':
-            note_data['jobOrders'] = [{'id': int(entity_id)}]
-        elif entity_type == 'Placement':
-            note_data['placements'] = [{'id': int(entity_id)}]
 
         url = f"{self.bullhorn_service.base_url}entity/Note"
         params = {'BhRestToken': self.bullhorn_service.rest_token}
@@ -1856,7 +1847,10 @@ Respond with ONLY a JSON object:
         if response.status_code in (200, 201):
             data = response.json() if response.text else {}
             note_id = data.get('changedEntityId', 'unknown')
-            logger.info(f"📝 Note #{note_id} created and linked to {entity_type} #{entity_id}")
+            logger.info(f"📝 Note #{note_id} created for {entity_type} #{entity_id}")
+
+            if entity_type in ('JobOrder', 'Placement') and note_id and note_id != 'unknown':
+                self._link_note_via_note_entity(note_id, entity_type, entity_id, params)
 
             action.success = True
             action.new_value = f"Note #{note_id}"
@@ -1867,6 +1861,24 @@ Respond with ONLY a JSON object:
             action.error_message = f'Note creation failed: HTTP {response.status_code} — {error_detail}'
             logger.error(f"❌ Note creation failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {error_detail}")
             return {'step': f"Create note on {entity_type} #{entity_id}", 'result': f'Failed — HTTP {response.status_code}'}
+
+    def _link_note_via_note_entity(self, note_id, entity_type: str, entity_id: int, params: dict):
+        note_entity_data = {
+            'note': {'id': int(note_id)},
+            'targetEntityID': int(entity_id),
+            'targetEntityName': entity_type,
+        }
+        ne_url = f"{self.bullhorn_service.base_url}entity/NoteEntity"
+        try:
+            ne_resp = self.bullhorn_service.session.put(ne_url, params=params, json=note_entity_data, timeout=30)
+            if ne_resp.status_code in (200, 201):
+                ne_data = ne_resp.json() if ne_resp.text else {}
+                ne_id = ne_data.get('changedEntityId', 'unknown')
+                logger.info(f"📝 NoteEntity #{ne_id} linked Note #{note_id} → {entity_type} #{entity_id}")
+            else:
+                logger.warning(f"⚠️ NoteEntity creation failed for Note #{note_id} → {entity_type} #{entity_id}: HTTP {ne_resp.status_code} — {ne_resp.text[:200] if ne_resp.text else ''}")
+        except Exception as e:
+            logger.warning(f"⚠️ NoteEntity linking error for Note #{note_id}: {e}")
 
     def _exec_create_submission(self, action, step: dict) -> Dict:
         candidate_id = step.get('candidate_id')
