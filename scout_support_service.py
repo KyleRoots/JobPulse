@@ -400,22 +400,31 @@ Respond with a JSON object:
     "resolution_approach": "Brief description of how Scout Support could resolve this",
     "proposed_solution_user": "A simple, plain-language explanation of what you will do to fix the issue, written for a non-technical user. Example: 'I will update the candidate status from Online Applicant to New Lead in the system and verify that the change sticks.' Do NOT mention APIs, endpoints, entity IDs, POST/GET requests, or any technical implementation details. Leave empty string if clarification is needed first.",
     "proposed_solution_admin": "The full technical details of the fix for the administrator. Include API endpoints, entity types, entity IDs, field names, values, and verification steps. Leave empty string if clarification is needed first.",
-    "execution_steps": [
-        {{
-            "action": "update_entity",
-            "entity_type": "Candidate",
-            "entity_id": 12345,
-            "field": "status",
-            "new_value": "New Lead",
-            "description": "Update candidate status from Online Applicant to New Lead"
-        }}
-    ],
+    "execution_steps": [],
     "requires_bullhorn_api": true/false,
     "affected_entities": ["candidate", "job", "placement", etc.],
     "underlying_concerns_user": "If there might be deeper issues, explain them in simple terms for the user. Example: 'There may be an automated process in the system that is overriding your manual changes, which could cause this to happen again.' Empty string if no concerns.",
     "underlying_concerns_admin": "Technical details of the underlying concerns for the administrator. Include specifics about workflow automations, field validation rules, permission configurations, etc. Empty string if no concerns.",
     "escalation_reason": "If confidence_level is low or can_resolve_autonomously is false, explain why this should be escalated to a human"
 }}
+
+execution_steps format — populate this array with the specific Bullhorn API actions to execute.
+Supported actions:
+1. update_entity — Update any field on any Bullhorn entity:
+   {{"action": "update_entity", "entity_type": "Candidate", "entity_id": 4649182, "field": "status", "new_value": "New Lead", "description": "Change candidate status to New Lead"}}
+   Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientContact, ClientCorporation, Lead, Opportunity, Note, Sendout, Appointment, Task.
+2. create_note — Add a note to a candidate record:
+   {{"action": "create_note", "entity_id": 4649182, "note_text": "Status corrected per support ticket SS-2026-0001", "note_action": "Scout Support", "description": "Add audit note to candidate"}}
+3. create_submission — Submit a candidate to a job:
+   {{"action": "create_submission", "candidate_id": 4649182, "job_id": 34500, "source": "Scout Support", "description": "Submit candidate to job"}}
+4. get_entity — Read an entity to verify data:
+   {{"action": "get_entity", "entity_type": "Candidate", "entity_id": 4649182, "fields": "id,status,firstName,lastName", "description": "Verify candidate record"}}
+5. search_entity — Search for entities:
+   {{"action": "search_entity", "entity_type": "Candidate", "query": "email:user@example.com", "description": "Find candidate by email"}}
+6. remove_from_tearsheet — Remove a job from a tearsheet:
+   {{"action": "remove_from_tearsheet", "tearsheet_id": 100, "job_id": 34500, "description": "Remove job from tearsheet"}}
+
+Always include entity IDs from the user's ticket when available. Use the actual values mentioned in the issue description.
 
 resolution_type guide:
 - "full": You can fully resolve this issue with no concerns about deeper problems.
@@ -568,20 +577,29 @@ Respond with JSON:
     "proposed_solution_admin": "If fully understood, describe the full technical fix for the administrator. Include API endpoints, entity types, entity IDs, field names, values, and verification steps. Empty string if not fully understood.",
     "follow_up": "If not fully understood, your next clarification question to the user",
     "can_execute": true/false,
-    "execution_steps": [
-        {{
-            "action": "update_entity",
-            "entity_type": "Candidate",
-            "entity_id": 12345,
-            "field": "status",
-            "new_value": "New Lead",
-            "description": "Update candidate status from Online Applicant to New Lead"
-        }}
-    ],
+    "execution_steps": [],
     "resolution_type": "full/partial/escalate",
     "underlying_concerns_user": "If there might be deeper issues, explain in simple terms for the user. Empty string if no concerns.",
     "underlying_concerns_admin": "Technical details of underlying concerns for the administrator. Empty string if no concerns."
 }}
+
+execution_steps format — populate this array with the specific Bullhorn API actions to execute.
+Supported actions:
+1. update_entity — Update any field on any Bullhorn entity:
+   {{"action": "update_entity", "entity_type": "Candidate", "entity_id": 4649182, "field": "status", "new_value": "New Lead", "description": "Change candidate status to New Lead"}}
+   Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientContact, ClientCorporation, Lead, Opportunity, Note, Sendout, Appointment, Task.
+2. create_note — Add a note to a candidate record:
+   {{"action": "create_note", "entity_id": 4649182, "note_text": "Status corrected per support ticket", "note_action": "Scout Support", "description": "Add audit note"}}
+3. create_submission — Submit a candidate to a job:
+   {{"action": "create_submission", "candidate_id": 4649182, "job_id": 34500, "source": "Scout Support", "description": "Submit candidate to job"}}
+4. get_entity — Read an entity to verify data:
+   {{"action": "get_entity", "entity_type": "Candidate", "entity_id": 4649182, "fields": "id,status", "description": "Verify candidate record"}}
+5. search_entity — Search for entities:
+   {{"action": "search_entity", "entity_type": "Candidate", "query": "email:user@example.com", "description": "Find candidate by email"}}
+6. remove_from_tearsheet — Remove a job from a tearsheet:
+   {{"action": "remove_from_tearsheet", "tearsheet_id": 100, "job_id": 34500, "description": "Remove job from tearsheet"}}
+
+Always include entity IDs from the conversation when available.
 
 resolution_type guide:
 - "full": You can fully resolve this issue with no concerns about deeper problems.
@@ -724,6 +742,7 @@ resolution_type guide:
             entity_id = step.get('entity_id')
             field = step.get('field')
             new_value = step.get('new_value')
+            desc = step.get('description', 'Unknown step')
 
             action = SupportAction(
                 ticket_id=ticket.id,
@@ -733,62 +752,154 @@ resolution_type guide:
                 field_name=field,
                 old_value=step.get('old_value'),
                 new_value=str(new_value) if new_value is not None else None,
-                summary=step.get('description', ''),
+                summary=desc,
             )
 
             try:
                 if action_type == 'update_entity' and entity_id and field:
-                    entity_id_int = int(entity_id)
+                    result = self._exec_update_entity(action, entity_type, int(entity_id), field, new_value)
+                    proof_items.append(result)
 
-                    if entity_type == 'Candidate':
-                        current = self.bullhorn_service.get_candidate(entity_id_int)
-                        if current:
-                            action.old_value = str(current.get(field, ''))
+                elif action_type == 'create_note' and entity_id:
+                    result = self._exec_create_note(action, int(entity_id), step)
+                    proof_items.append(result)
 
-                        result = self.bullhorn_service.update_candidate(entity_id_int, {field: new_value})
-                        if result:
-                            verified = self.bullhorn_service.get_candidate(entity_id_int)
-                            verified_value = verified.get(field, '') if verified else 'unknown'
-                            action.success = True
-                            proof_items.append({
-                                'step': f"Updated {entity_type} #{entity_id}: {field}",
-                                'old_value': action.old_value,
-                                'new_value': str(new_value),
-                                'verified_value': str(verified_value),
-                                'result': 'Success'
-                            })
-                            logger.info(f"✅ Bullhorn update: {entity_type} #{entity_id} {field}: {action.old_value} → {new_value} (verified: {verified_value})")
-                        else:
-                            action.success = False
-                            action.error_message = 'Bullhorn API returned failure'
-                            proof_items.append({'step': f"Update {entity_type} #{entity_id}: {field}", 'result': 'Failed — API returned error'})
-                            logger.error(f"❌ Bullhorn update failed: {entity_type} #{entity_id} {field}")
-                    else:
-                        action.success = False
-                        action.error_message = f'Unsupported entity type: {entity_type}'
-                        proof_items.append({'step': step.get('description', 'Unknown'), 'result': f'Skipped — unsupported entity type: {entity_type}'})
-                        logger.warning(f"Unsupported entity type for Scout Support execution: {entity_type}")
+                elif action_type == 'create_submission':
+                    result = self._exec_create_submission(action, step)
+                    proof_items.append(result)
 
-                elif action_type == 'update_entity' and (not entity_id or not field):
-                    action.success = False
-                    action.error_message = 'Missing entity_id or field'
-                    proof_items.append({'step': step.get('description', 'Unknown'), 'result': 'Failed — missing entity ID or field name'})
+                elif action_type == 'search_entity':
+                    result = self._exec_search_entity(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'get_entity' and entity_id:
+                    result = self._exec_get_entity(action, entity_type, int(entity_id), step)
+                    proof_items.append(result)
+
+                elif action_type == 'remove_from_tearsheet':
+                    result = self._exec_remove_from_tearsheet(action, step)
+                    proof_items.append(result)
 
                 else:
                     action.success = True
-                    action.summary = step.get('description', 'Guidance step')
-                    proof_items.append({'step': step.get('description', 'Step completed'), 'result': 'Guidance provided'})
+                    action.summary = desc
+                    proof_items.append({'step': desc, 'result': 'Guidance provided'})
 
             except Exception as e:
                 action.success = False
                 action.error_message = str(e)
-                proof_items.append({'step': step.get('description', 'Unknown'), 'result': f'Failed: {str(e)}'})
+                proof_items.append({'step': desc, 'result': f'Failed: {str(e)}'})
                 logger.error(f"Bullhorn action failed for ticket {ticket.ticket_number}: {e}")
 
             db.session.add(action)
 
         db.session.commit()
         return proof_items
+
+    def _exec_update_entity(self, action, entity_type: str, entity_id: int, field: str, new_value) -> Dict:
+        current = self.bullhorn_service.get_entity(entity_type, entity_id)
+        if current:
+            action.old_value = str(current.get(field, ''))
+
+        success = self.bullhorn_service.update_entity(entity_type, entity_id, {field: new_value})
+        if success:
+            verified = self.bullhorn_service.get_entity(entity_type, entity_id, fields=f'id,{field}')
+            verified_value = verified.get(field, 'unknown') if verified else 'unknown'
+            action.success = True
+            logger.info(f"✅ Bullhorn update: {entity_type} #{entity_id} {field}: {action.old_value} → {new_value} (verified: {verified_value})")
+            return {
+                'step': f"Updated {entity_type} #{entity_id}: {field}",
+                'old_value': action.old_value,
+                'new_value': str(new_value),
+                'verified_value': str(verified_value),
+                'result': 'Success',
+            }
+        else:
+            action.success = False
+            action.error_message = 'Bullhorn API returned failure'
+            logger.error(f"❌ Bullhorn update failed: {entity_type} #{entity_id} {field}")
+            return {'step': f"Update {entity_type} #{entity_id}: {field}", 'result': 'Failed — API returned error'}
+
+    def _exec_create_note(self, action, candidate_id: int, step: dict) -> Dict:
+        note_text = step.get('note_text', step.get('new_value', ''))
+        note_action = step.get('note_action', 'Scout Support')
+        if not note_text:
+            action.success = False
+            action.error_message = 'Missing note_text'
+            return {'step': step.get('description', 'Create note'), 'result': 'Failed — no note text provided'}
+
+        note_id = self.bullhorn_service.create_candidate_note(candidate_id, note_text, action=note_action)
+        if note_id:
+            action.success = True
+            action.new_value = f"Note #{note_id}"
+            logger.info(f"✅ Created note #{note_id} on Candidate #{candidate_id}")
+            return {'step': f"Created note on Candidate #{candidate_id}", 'note_id': note_id, 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = 'Note creation failed'
+            return {'step': f"Create note on Candidate #{candidate_id}", 'result': 'Failed — API error'}
+
+    def _exec_create_submission(self, action, step: dict) -> Dict:
+        candidate_id = step.get('candidate_id')
+        job_id = step.get('job_id')
+        source = step.get('source', 'Scout Support')
+        if not candidate_id or not job_id:
+            action.success = False
+            action.error_message = 'Missing candidate_id or job_id'
+            return {'step': step.get('description', 'Create submission'), 'result': 'Failed — missing candidate or job ID'}
+
+        submission_id = self.bullhorn_service.create_job_submission(int(candidate_id), int(job_id), source=source)
+        if submission_id:
+            action.success = True
+            action.new_value = f"Submission #{submission_id}"
+            logger.info(f"✅ Created submission #{submission_id}: Candidate #{candidate_id} → Job #{job_id}")
+            return {'step': f"Submitted Candidate #{candidate_id} to Job #{job_id}", 'submission_id': submission_id, 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = 'Submission creation failed'
+            return {'step': step.get('description', 'Create submission'), 'result': 'Failed — API error'}
+
+    def _exec_search_entity(self, action, entity_type: str, step: dict) -> Dict:
+        query = step.get('query', '')
+        if not query:
+            action.success = False
+            action.error_message = 'Missing search query'
+            return {'step': step.get('description', 'Search'), 'result': 'Failed — no query provided'}
+
+        results = self.bullhorn_service.search_entity(entity_type, query, count=step.get('count', 10))
+        action.success = True
+        action.new_value = f"{len(results)} results"
+        return {'step': f"Searched {entity_type}: {query}", 'result_count': len(results), 'results': results[:5], 'result': 'Success'}
+
+    def _exec_get_entity(self, action, entity_type: str, entity_id: int, step: dict) -> Dict:
+        fields = step.get('fields')
+        data = self.bullhorn_service.get_entity(entity_type, entity_id, fields=fields)
+        if data:
+            action.success = True
+            action.new_value = json.dumps(data)[:500]
+            return {'step': f"Retrieved {entity_type} #{entity_id}", 'data': data, 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = f'{entity_type} #{entity_id} not found'
+            return {'step': f"Get {entity_type} #{entity_id}", 'result': 'Failed — entity not found'}
+
+    def _exec_remove_from_tearsheet(self, action, step: dict) -> Dict:
+        tearsheet_id = step.get('tearsheet_id')
+        job_id = step.get('job_id')
+        if not tearsheet_id or not job_id:
+            action.success = False
+            action.error_message = 'Missing tearsheet_id or job_id'
+            return {'step': step.get('description', 'Remove from tearsheet'), 'result': 'Failed — missing IDs'}
+
+        success = self.bullhorn_service.remove_job_from_tearsheet(int(tearsheet_id), int(job_id))
+        if success:
+            action.success = True
+            logger.info(f"✅ Removed Job #{job_id} from Tearsheet #{tearsheet_id}")
+            return {'step': f"Removed Job #{job_id} from Tearsheet #{tearsheet_id}", 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = 'Remove from tearsheet failed'
+            return {'step': step.get('description', 'Remove from tearsheet'), 'result': 'Failed — API error'}
 
     def escalate_ticket(self, ticket_id: int, reason: str) -> bool:
         from extensions import db

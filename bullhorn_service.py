@@ -1976,3 +1976,126 @@ class BullhornService:
         
         logging.error(f"❌ All note creation approaches failed for candidate {candidate_id}")
         return None
+
+    SUPPORTED_ENTITY_TYPES = {
+        'Candidate', 'JobOrder', 'Placement', 'JobSubmission', 'ClientContact',
+        'ClientCorporation', 'Lead', 'Opportunity', 'Note', 'Sendout',
+        'Appointment', 'Task',
+    }
+
+    ENTITY_DEFAULT_FIELDS = {
+        'Candidate': 'id,firstName,lastName,email,status,source,occupation,companyName,owner(id,firstName,lastName)',
+        'JobOrder': 'id,title,status,isOpen,isDeleted,isPublic,employmentType,clientCorporation(id,name),owner(id,firstName,lastName)',
+        'Placement': 'id,status,dateBegin,dateEnd,salary,payRate,candidate(id,firstName,lastName),jobOrder(id,title)',
+        'JobSubmission': 'id,status,dateWebResponse,candidate(id,firstName,lastName),jobOrder(id,title)',
+        'ClientContact': 'id,firstName,lastName,email,phone,status,clientCorporation(id,name)',
+        'ClientCorporation': 'id,name,status,phone,address(city,state)',
+        'Note': 'id,action,comments,dateAdded,personReference(id,firstName,lastName)',
+    }
+
+    def get_entity(self, entity_type: str, entity_id: int, fields: str = None) -> Optional[Dict]:
+        if entity_type not in self.SUPPORTED_ENTITY_TYPES:
+            logging.error(f"Unsupported entity type: {entity_type}")
+            return None
+
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+
+        if not fields:
+            fields = self.ENTITY_DEFAULT_FIELDS.get(entity_type, 'id')
+
+        try:
+            url = f"{self.base_url}entity/{entity_type}/{entity_id}"
+            params = {'fields': fields, 'BhRestToken': self.rest_token}
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return None
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('data', {})
+            else:
+                logging.error(f"Failed to get {entity_type} {entity_id}: {response.status_code}")
+                return None
+        except Exception as e:
+            logging.error(f"Error getting {entity_type} {entity_id}: {e}")
+            return None
+
+    def update_entity(self, entity_type: str, entity_id: int, data: Dict) -> bool:
+        if entity_type not in self.SUPPORTED_ENTITY_TYPES:
+            logging.error(f"Unsupported entity type for update: {entity_type}")
+            return False
+
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return False
+
+        try:
+            url = f"{self.base_url}entity/{entity_type}/{entity_id}"
+            params = {'BhRestToken': self.rest_token}
+            response = self.session.post(url, params=params, json=data, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.post(url, params=params, json=data, timeout=30)
+                else:
+                    return False
+
+            if response.status_code == 200:
+                logging.info(f"Updated {entity_type} {entity_id}: {list(data.keys())}")
+                return True
+            else:
+                logging.error(f"Failed to update {entity_type} {entity_id}: {response.status_code} - {response.text[:300]}")
+                return False
+        except Exception as e:
+            logging.error(f"Error updating {entity_type} {entity_id}: {e}")
+            return False
+
+    def search_entity(self, entity_type: str, query: str, fields: str = None, count: int = 10) -> List[Dict]:
+        if entity_type not in self.SUPPORTED_ENTITY_TYPES:
+            logging.error(f"Unsupported entity type for search: {entity_type}")
+            return []
+
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+
+        if not fields:
+            fields = self.ENTITY_DEFAULT_FIELDS.get(entity_type, 'id')
+
+        try:
+            url = f"{self.base_url}search/{entity_type}"
+            params = {
+                'query': query,
+                'fields': fields,
+                'count': count,
+                'BhRestToken': self.rest_token,
+            }
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return []
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('data', [])
+            else:
+                logging.error(f"Search {entity_type} failed: {response.status_code}")
+                return []
+        except Exception as e:
+            logging.error(f"Error searching {entity_type}: {e}")
+            return []
