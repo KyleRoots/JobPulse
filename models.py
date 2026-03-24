@@ -1307,6 +1307,9 @@ class SupportTicket(db.Model):
     admin_approved_at = db.Column(db.DateTime, nullable=True)
     admin_response = db.Column(db.Text, nullable=True)
 
+    resolution_note = db.Column(db.Text, nullable=True)
+    resolved_by = db.Column(db.String(255), nullable=True)
+
     last_message_id = db.Column(db.String(255), nullable=True)
     last_reminder_at = db.Column(db.DateTime, nullable=True)
     reminder_count = db.Column(db.Integer, nullable=False, default=0)

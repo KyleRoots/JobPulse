@@ -896,6 +896,21 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for scout_vetting_session.is_sandbox: {str(e)}")
 
+    # Add resolution_note and resolved_by columns to support_ticket
+    for col_name, col_type in [('resolution_note', 'TEXT'), ('resolved_by', 'VARCHAR(255)')]:
+        try:
+            check = text(f"SELECT column_name FROM information_schema.columns WHERE table_name='support_ticket' AND column_name='{col_name}'")
+            exists = db.session.execute(check).fetchone()
+            if not exists:
+                db.session.execute(text(f"ALTER TABLE support_ticket ADD COLUMN {col_name} {col_type}"))
+                db.session.commit()
+                logger.info(f"✅ Added column {col_name} to support_ticket table")
+            else:
+                logger.info(f"ℹ️ Column {col_name} already exists on support_ticket table")
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"⚠️ Migration skipped for support_ticket.{col_name}: {str(e)}")
+
     # Drop UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id
     # (Feb 2026 - allow multiple vetting logs per candidate for re-applications)
     try:

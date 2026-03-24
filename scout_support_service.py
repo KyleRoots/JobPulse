@@ -1587,6 +1587,60 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
             action.error_message = 'File deletion failed'
             return {'step': step.get('description', 'Delete file'), 'result': 'Failed — API error'}
 
+    def close_ticket(self, ticket_id: int, resolution_note: str, closed_by: str, new_status: str = 'closed') -> bool:
+        from extensions import db
+        from models import SupportTicket
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return False
+
+        ticket.status = new_status
+        ticket.resolution_note = resolution_note
+        ticket.resolved_by = closed_by
+        ticket.resolved_at = datetime.utcnow()
+        db.session.commit()
+
+        status_label = 'resolved' if new_status == 'completed' else 'closed'
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+
+        user_body = (
+            f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},\n\n"
+            f"Your support ticket **{ticket.ticket_number}** has been {status_label}.\n\n"
+            f"**Category:** {category_label}\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"**Resolution:**\n{resolution_note}\n\n"
+            f"If you have any further questions or the issue persists, feel free to submit a new support ticket.\n\n"
+            f"— Scout Support"
+        )
+
+        self._send_email(
+            to_email=ticket.submitter_email,
+            subject=f"[{ticket.ticket_number}] {'Issue Resolved ✅' if new_status == 'completed' else 'Ticket Closed'}",
+            body=user_body,
+            ticket=ticket,
+            email_type=f'manual_{status_label}',
+        )
+
+        stakeholder_body = (
+            f"**Ticket {status_label.title()}:** {ticket.ticket_number}\n\n"
+            f"**Subject:** {ticket.subject}\n"
+            f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+            f"**Category:** {category_label}\n"
+            f"**{status_label.title()} by:** {closed_by}\n\n"
+            f"**Resolution:**\n{resolution_note}\n\n"
+            f"— Scout Support"
+        )
+        self._notify_stakeholders(
+            ticket,
+            subject=f"[{ticket.ticket_number}] {status_label.title()}",
+            body=stakeholder_body,
+            email_type=f'stakeholder_{status_label}',
+        )
+
+        logger.info(f"{'✅' if new_status == 'completed' else '🔒'} Ticket {ticket.ticket_number} {status_label} by {closed_by}: {resolution_note[:100]}")
+        return True
+
     def escalate_ticket(self, ticket_id: int, reason: str) -> bool:
         from extensions import db
         from models import SupportTicket

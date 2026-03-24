@@ -113,6 +113,39 @@ def api_escalate_ticket(ticket_number):
     return jsonify({'success': success})
 
 
+@scout_support_bp.route('/api/scout-support/close/<ticket_number>', methods=['POST'])
+@login_required
+def api_close_ticket(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support_service import ScoutSupportService
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    data = request.json or {}
+    resolution_note = data.get('resolution_note', '').strip()
+    action = data.get('action', 'close')
+
+    if not resolution_note:
+        return jsonify({'error': 'A resolution note is required'}), 400
+
+    new_status = 'completed' if action == 'resolve' else 'closed'
+
+    svc = ScoutSupportService()
+    success = svc.close_ticket(
+        ticket_id=ticket.id,
+        resolution_note=resolution_note,
+        closed_by=current_user.email,
+        new_status=new_status,
+    )
+
+    return jsonify({'success': success})
+
+
 @scout_support_bp.route('/scout-support/ticket/<ticket_number>/delete', methods=['POST'])
 @login_required
 def delete_ticket(ticket_number):

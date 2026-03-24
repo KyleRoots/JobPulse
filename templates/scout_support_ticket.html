@@ -212,15 +212,43 @@
             </div>
             {% endif %}
 
-            {% if current_user.is_admin and ticket.status not in ('completed', 'closed', 'escalated') %}
-            <div class="card bg-dark border-danger">
-                <div class="card-header bg-dark border-danger">
-                    <h6 class="mb-0"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Admin Actions</h6>
+            {% if current_user.is_admin and ticket.status not in ('completed', 'closed') %}
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h6 class="mb-0"><i class="fas fa-tools text-info me-2"></i>Admin Actions</h6>
                 </div>
                 <div class="card-body">
-                    <button class="btn btn-outline-danger btn-sm w-100" onclick="escalateTicket()">
+                    {% if ticket.status != 'escalated' %}
+                    <button class="btn btn-outline-danger btn-sm w-100 mb-2" onclick="escalateTicket()">
                         <i class="fas fa-level-up-alt me-1"></i>Escalate Ticket
                     </button>
+                    {% endif %}
+                    <hr class="border-secondary my-2">
+                    <label class="form-label text-muted small mb-1">Resolution Note</label>
+                    <textarea id="resolutionNote" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
+                              rows="3" placeholder="Describe what was done to resolve this issue..."></textarea>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-success btn-sm flex-fill" onclick="closeTicket('resolve')">
+                            <i class="fas fa-check-circle me-1"></i>Resolve
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="closeTicket('close')">
+                            <i class="fas fa-times-circle me-1"></i>Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if ticket.resolution_note %}
+            <div class="card bg-dark border-success">
+                <div class="card-header bg-dark border-success">
+                    <h6 class="mb-0"><i class="fas fa-clipboard-check text-success me-2"></i>Resolution</h6>
+                </div>
+                <div class="card-body">
+                    <div style="white-space: pre-wrap; word-break: break-word;">{{ ticket.resolution_note }}</div>
+                    {% if ticket.resolved_by %}
+                    <small class="text-muted mt-2 d-block">Resolved by: {{ ticket.resolved_by }}</small>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -246,6 +274,34 @@ function escalateTicket() {
             location.reload();
         } else {
             alert('Failed to escalate: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+function closeTicket(action) {
+    const note = document.getElementById('resolutionNote').value.trim();
+    if (!note) {
+        alert('Please enter a resolution note before ' + (action === 'resolve' ? 'resolving' : 'closing') + ' the ticket.');
+        document.getElementById('resolutionNote').focus();
+        return;
+    }
+
+    const label = action === 'resolve' ? 'resolve' : 'close';
+    if (!confirm('Are you sure you want to ' + label + ' this ticket? The user will be notified.')) return;
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    fetch('/api/scout-support/close/{{ ticket.ticket_number }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({resolution_note: note, action: action})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed: ' + (data.error || 'Unknown error'));
         }
     })
     .catch(err => alert('Error: ' + err));
