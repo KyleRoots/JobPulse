@@ -150,7 +150,8 @@ class ScoutSupportService:
         can_resolve = parsed.get('can_resolve_autonomously', True)
         has_clarification = parsed.get('clarification_needed', False)
         resolution_type = parsed.get('resolution_type', 'full')
-        underlying_concerns = parsed.get('underlying_concerns', '')
+        concerns_user = parsed.get('underlying_concerns_user', '') or parsed.get('underlying_concerns', '')
+        concerns_admin = parsed.get('underlying_concerns_admin', '') or parsed.get('underlying_concerns', '')
 
         if resolution_type == 'escalate' or (confidence == 'low' and not has_clarification):
             ticket.ai_understanding = understanding
@@ -164,22 +165,25 @@ class ScoutSupportService:
             return True
 
         if confidence == 'high' and can_resolve and not has_clarification:
-            proposed = parsed.get('proposed_solution', '')
-            if proposed:
+            proposed_user = parsed.get('proposed_solution_user', '') or parsed.get('proposed_solution', '')
+            proposed_admin = parsed.get('proposed_solution_admin', '') or parsed.get('proposed_solution', '')
+            if proposed_user:
                 ticket.ai_understanding = understanding
                 ticket.proposed_solution = json.dumps({
-                    'description': proposed,
+                    'description_user': proposed_user,
+                    'description_admin': proposed_admin,
                     'can_execute': True,
                     'requires_bullhorn': parsed.get('requires_bullhorn_api', False),
                     'affected_entities': parsed.get('affected_entities', []),
                     'execution_steps': parsed.get('execution_steps', []),
                     'resolution_type': resolution_type,
-                    'underlying_concerns': underlying_concerns,
+                    'underlying_concerns_user': concerns_user,
+                    'underlying_concerns_admin': concerns_admin,
                 })
                 ticket.status = 'awaiting_user_approval'
                 db.session.commit()
 
-                self._send_solution_proposal_email(ticket, proposed, underlying_concerns=underlying_concerns)
+                self._send_solution_proposal_email(ticket, proposed_user, underlying_concerns=concerns_user)
                 logger.info(f"✅ Ticket {ticket.ticket_number} — high confidence, solution proposed immediately (resolution_type={resolution_type})")
                 return True
 
@@ -370,24 +374,26 @@ field validation rules, permission configurations, data sync issues).
 
 Respond with a JSON object:
 {{
-    "understanding": "A clear summary of what the user's issue is, written back to the user for confirmation",
+    "understanding": "A clear summary of what the user's issue is, written back to the user for confirmation. Use plain, non-technical language.",
     "clarification_needed": true/false,
     "clarification_questions": ["question 1", "question 2"],
     "can_resolve_autonomously": true/false,
     "confidence_level": "high/medium/low",
     "resolution_type": "full/partial/escalate",
     "resolution_approach": "Brief description of how Scout Support could resolve this",
-    "proposed_solution": "If confidence is high and you can resolve this, describe the exact fix. If it requires Bullhorn API changes, specify the entity type, entity ID, fields, and values. Leave empty string if clarification is needed first.",
+    "proposed_solution_user": "A simple, plain-language explanation of what you will do to fix the issue, written for a non-technical user. Example: 'I will update the candidate status from Online Applicant to New Lead in the system and verify that the change sticks.' Do NOT mention APIs, endpoints, entity IDs, POST/GET requests, or any technical implementation details. Leave empty string if clarification is needed first.",
+    "proposed_solution_admin": "The full technical details of the fix for the administrator. Include API endpoints, entity types, entity IDs, field names, values, and verification steps. Leave empty string if clarification is needed first.",
     "execution_steps": [],
     "requires_bullhorn_api": true/false,
     "affected_entities": ["candidate", "job", "placement", etc.],
-    "underlying_concerns": "If there might be deeper systemic issues beyond the immediate fix (workflow automations, field validation rules, permission problems, recurring patterns), describe them here. Empty string if the fix is straightforward with no deeper concerns.",
+    "underlying_concerns_user": "If there might be deeper issues, explain them in simple terms for the user. Example: 'There may be an automated process in the system that is overriding your manual changes, which could cause this to happen again.' Empty string if no concerns.",
+    "underlying_concerns_admin": "Technical details of the underlying concerns for the administrator. Include specifics about workflow automations, field validation rules, permission configurations, etc. Empty string if no concerns.",
     "escalation_reason": "If confidence_level is low or can_resolve_autonomously is false, explain why this should be escalated to a human"
 }}
 
 resolution_type guide:
 - "full": You can fully resolve this issue with no concerns about deeper problems.
-- "partial": You can fix the immediate problem, but there may be underlying issues that need human investigation or Bullhorn support involvement. Always populate underlying_concerns when using this.
+- "partial": You can fix the immediate problem, but there may be underlying issues that need human investigation or Bullhorn support involvement. Always populate both underlying_concerns fields when using this.
 - "escalate": This is completely outside Scout Support's capability and must be escalated."""
 
         for attempt in range(2):
@@ -448,28 +454,32 @@ resolution_type guide:
 
         if parsed.get('fully_understood', False):
             ticket.ai_understanding = json.dumps(parsed)
-            solution = parsed.get('proposed_solution', '')
+            solution_user = parsed.get('proposed_solution_user', '') or parsed.get('proposed_solution', '')
+            solution_admin = parsed.get('proposed_solution_admin', '') or parsed.get('proposed_solution', '')
             resolution_type = parsed.get('resolution_type', 'full')
-            underlying_concerns = parsed.get('underlying_concerns', '')
+            concerns_user = parsed.get('underlying_concerns_user', '') or parsed.get('underlying_concerns', '')
+            concerns_admin = parsed.get('underlying_concerns_admin', '') or parsed.get('underlying_concerns', '')
 
             if resolution_type == 'escalate':
-                escalation_reason = parsed.get('underlying_concerns', '') or 'AI determined this requires human intervention after clarification.'
+                escalation_reason = concerns_admin or 'AI determined this requires human intervention after clarification.'
                 self._escalate_to_admin(ticket, reason=escalation_reason, understanding=parsed.get('updated_understanding', ''))
                 logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated after clarification (resolution_type=escalate)")
                 return True
 
-            if solution:
+            if solution_user:
                 ticket.proposed_solution = json.dumps({
-                    'description': solution,
+                    'description_user': solution_user,
+                    'description_admin': solution_admin,
                     'can_execute': parsed.get('can_execute', False),
                     'requires_bullhorn': True,
                     'execution_steps': parsed.get('execution_steps', []),
                     'resolution_type': resolution_type,
-                    'underlying_concerns': underlying_concerns,
+                    'underlying_concerns_user': concerns_user,
+                    'underlying_concerns_admin': concerns_admin,
                 })
                 ticket.status = 'awaiting_user_approval'
                 db.session.commit()
-                self._send_solution_proposal_email(ticket, solution, underlying_concerns=underlying_concerns)
+                self._send_solution_proposal_email(ticket, solution_user, underlying_concerns=concerns_user)
             else:
                 ticket.status = 'clarifying'
                 db.session.commit()
@@ -528,17 +538,19 @@ Respond with JSON:
 {{
     "fully_understood": true/false,
     "updated_understanding": "Your current understanding of the full issue",
-    "proposed_solution": "If fully understood, describe the exact steps to resolve this. If it requires Bullhorn API changes, specify the entity type, entity ID, fields, and values.",
+    "proposed_solution_user": "If fully understood, describe the fix in simple, plain language for the user. Example: 'I will update the candidate status to New Lead and monitor it to make sure it stays.' Do NOT mention APIs, endpoints, entity IDs, or technical implementation details. Empty string if not fully understood.",
+    "proposed_solution_admin": "If fully understood, describe the full technical fix for the administrator. Include API endpoints, entity types, entity IDs, field names, values, and verification steps. Empty string if not fully understood.",
     "follow_up": "If not fully understood, your next clarification question to the user",
     "can_execute": true/false,
-    "execution_steps": ["step 1", "step 2"],
+    "execution_steps": [],
     "resolution_type": "full/partial/escalate",
-    "underlying_concerns": "If there might be deeper systemic issues beyond the immediate fix, describe them here. Empty string if the fix is straightforward."
+    "underlying_concerns_user": "If there might be deeper issues, explain in simple terms for the user. Empty string if no concerns.",
+    "underlying_concerns_admin": "Technical details of underlying concerns for the administrator. Empty string if no concerns."
 }}
 
 resolution_type guide:
 - "full": You can fully resolve this issue with no concerns about deeper problems.
-- "partial": You can fix the immediate problem, but there may be underlying issues. Always populate underlying_concerns.
+- "partial": You can fix the immediate problem, but there may be underlying issues. Always populate both underlying_concerns fields.
 - "escalate": Completely outside Scout Support's capability."""
 
         for attempt in range(2):
@@ -838,19 +850,31 @@ resolution_type guide:
             body_parts.append("Please reply to this email with your answers so I can move forward with resolving your issue.")
             ticket.status = 'clarifying'
         else:
-            proposed = understanding.get('resolution_approach', '')
-            if proposed:
+            proposed_user = understanding.get('proposed_solution_user', '') or understanding.get('resolution_approach', '')
+            proposed_admin = understanding.get('proposed_solution_admin', '') or understanding.get('resolution_approach', '')
+            concerns_user = understanding.get('underlying_concerns_user', '') or understanding.get('underlying_concerns', '')
+            concerns_admin = understanding.get('underlying_concerns_admin', '') or understanding.get('underlying_concerns', '')
+            resolution_type = understanding.get('resolution_type', 'full')
+            if proposed_user:
                 body_parts.append("")
                 body_parts.append("**Proposed Resolution:**")
-                body_parts.append(proposed)
+                body_parts.append(proposed_user)
+                if concerns_user:
+                    body_parts.append("")
+                    body_parts.append(f"**Please Note:** {concerns_user}")
                 body_parts.append("")
                 body_parts.append("If this looks correct, please reply with **\"Yes, go ahead\"** to approve, or let me know if anything needs to be adjusted.")
                 ticket.status = 'awaiting_user_approval'
                 ticket.proposed_solution = json.dumps({
-                    'description': proposed,
+                    'description_user': proposed_user,
+                    'description_admin': proposed_admin,
                     'can_execute': understanding.get('can_resolve_autonomously', False),
                     'requires_bullhorn': understanding.get('requires_bullhorn_api', False),
                     'affected_entities': understanding.get('affected_entities', []),
+                    'execution_steps': understanding.get('execution_steps', []),
+                    'resolution_type': resolution_type,
+                    'underlying_concerns_user': concerns_user,
+                    'underlying_concerns_admin': concerns_admin,
                 })
             else:
                 body_parts.append("")
@@ -950,7 +974,7 @@ resolution_type guide:
             solution = {'description': ticket.proposed_solution or 'N/A'}
 
         resolution_type = solution.get('resolution_type', 'full')
-        underlying_concerns = solution.get('underlying_concerns', '')
+        concerns_admin = solution.get('underlying_concerns_admin', '') or solution.get('underlying_concerns', '')
 
         body_parts = [
             f"Hi,",
@@ -966,15 +990,15 @@ resolution_type guide:
             f"**Issue Summary:**",
             f"{understanding.get('understanding', ticket.description)}",
             f"",
-            f"**Proposed Solution:**",
-            f"{solution.get('description', 'N/A')}",
+            f"**Proposed Solution (Technical):**",
+            f"{solution.get('description_admin', '') or solution.get('description', 'N/A')}",
         ]
 
-        if underlying_concerns:
+        if concerns_admin:
             body_parts.extend([
                 f"",
                 f"**⚠️ Underlying Concerns (Partial Resolution):**",
-                f"{underlying_concerns}",
+                f"{concerns_admin}",
                 f"",
                 f"Scout Support can execute the immediate fix, but the concern above may require further investigation by your team or Bullhorn Support.",
             ])
@@ -1018,7 +1042,8 @@ resolution_type guide:
         except (json.JSONDecodeError, TypeError):
             solution_data = {}
         resolution_type = solution_data.get('resolution_type', 'full')
-        underlying_concerns = solution_data.get('underlying_concerns', '')
+        concerns_user = solution_data.get('underlying_concerns_user', '') or solution_data.get('underlying_concerns', '')
+        concerns_admin = solution_data.get('underlying_concerns_admin', '') or solution_data.get('underlying_concerns', '')
 
         user_body_parts = [
             f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},",
@@ -1029,18 +1054,17 @@ resolution_type guide:
             f"{proof_text}",
         ]
 
-        if underlying_concerns:
+        if concerns_user:
             user_body_parts.extend([
                 f"",
-                f"**Please Note:** While the immediate fix has been applied, there may be an underlying factor worth being aware of:",
-                f"{underlying_concerns}",
+                f"**Please Note:** {concerns_user}",
                 f"",
-                f"If this issue recurs, it could indicate a deeper configuration that needs attention.",
+                f"If this issue happens again, please submit a new ticket and we'll investigate further.",
             ])
 
         user_body_parts.extend([
             f"",
-            f"If you have any further issues, feel free to submit a new support ticket.",
+            f"If you have any other issues, feel free to submit a new support ticket.",
             f"",
             f"— Scout Support",
         ])
@@ -1064,11 +1088,11 @@ resolution_type guide:
             f"{proof_text}",
         ]
 
-        if underlying_concerns:
+        if concerns_admin:
             admin_body_parts.extend([
                 f"",
                 f"**⚠️ Admin Advisory — Underlying Concerns:**",
-                f"{underlying_concerns}",
+                f"{concerns_admin}",
                 f"",
                 f"The immediate fix was applied successfully, but the above concern may require further investigation. Consider reaching out to Bullhorn Support if the issue is systemic or recurring.",
             ])
@@ -1080,7 +1104,7 @@ resolution_type guide:
 
         self._send_email(
             to_email=ticket.admin_email,
-            subject=f"[{ticket.ticket_number}] Completed ✅" if not underlying_concerns else f"[{ticket.ticket_number}] Completed ✅ (Advisory Included)",
+            subject=f"[{ticket.ticket_number}] Completed ✅" if not concerns_admin else f"[{ticket.ticket_number}] Completed ✅ (Advisory Included)",
             body="\n".join(admin_body_parts),
             ticket=ticket,
             email_type='completion_admin',
