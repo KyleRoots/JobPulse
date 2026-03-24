@@ -27,15 +27,15 @@
                 'new': 'secondary', 'acknowledged': 'info', 'clarifying': 'primary',
                 'solution_proposed': 'primary', 'awaiting_user_approval': 'warning',
                 'awaiting_admin_approval': 'danger', 'approved': 'success',
-                'executing': 'info', 'completed': 'success', 'on_hold': 'warning',
-                'closed': 'secondary', 'escalated': 'danger'
+                'executing': 'info', 'completed': 'success', 'execution_failed': 'danger',
+                'on_hold': 'warning', 'closed': 'secondary', 'escalated': 'danger'
             } %}
             {% set status_labels = {
                 'new': 'New', 'acknowledged': 'Acknowledged', 'clarifying': 'Clarifying',
                 'solution_proposed': 'Solution Proposed', 'awaiting_user_approval': 'User Approval',
                 'awaiting_admin_approval': 'Admin Approval', 'approved': 'Approved',
-                'executing': 'Executing', 'completed': 'Completed', 'on_hold': 'On Hold',
-                'closed': 'Closed', 'escalated': 'Escalated'
+                'executing': 'Executing', 'completed': 'Completed', 'execution_failed': 'Execution Failed',
+                'on_hold': 'On Hold', 'closed': 'Closed', 'escalated': 'Escalated'
             } %}
             <span class="badge bg-{{ status_colors.get(ticket.status, 'secondary') }} fs-6">
                 {{ status_labels.get(ticket.status, ticket.status) }}

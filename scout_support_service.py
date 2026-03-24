@@ -1476,13 +1476,25 @@ Respond with ONLY a JSON object:
 
         proof_summary = json.dumps(proof_items, indent=2)
         ticket.execution_proof = proof_summary
-        ticket.status = 'completed'
-        ticket.resolved_at = datetime.utcnow()
-        db.session.commit()
 
-        self._send_completion_email(ticket, proof_items)
-        logger.info(f"✅ Ticket {ticket.ticket_number} completed successfully")
-        return True
+        has_failures = any(
+            'fail' in item.get('result', '').lower()
+            for item in proof_items
+        )
+
+        if has_failures:
+            ticket.status = 'execution_failed'
+            db.session.commit()
+            self._send_execution_failure_email(ticket, proof_items)
+            logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution had failures — admin notified, user not contacted")
+            return False
+        else:
+            ticket.status = 'completed'
+            ticket.resolved_at = datetime.utcnow()
+            db.session.commit()
+            self._send_completion_email(ticket, proof_items)
+            logger.info(f"✅ Ticket {ticket.ticket_number} completed successfully")
+            return True
 
     def _execute_bullhorn_actions(self, ticket, solution_data: dict) -> List[Dict]:
         from extensions import db
@@ -2538,6 +2550,49 @@ Respond with ONLY a JSON object:
             email_type='admin_approval_request',
         )
 
+    def _send_execution_failure_email(self, ticket, proof_items: List[Dict]):
+        proof_lines = []
+        for item in proof_items:
+            step = item.get('step', 'Unknown step')
+            result = item.get('result', 'N/A')
+            old_val = item.get('old_value', '')
+            new_val = item.get('new_value', '')
+            proof_lines.append(f"• {step}: {result}")
+            if old_val and new_val:
+                proof_lines.append(f"  Before: {old_val}")
+                proof_lines.append(f"  After: {new_val}")
+
+        proof_text = "\n".join(proof_lines) if proof_lines else "No details available."
+
+        successful = [i for i in proof_items if 'success' in i.get('result', '').lower()]
+        failed = [i for i in proof_items if 'fail' in i.get('result', '').lower()]
+
+        admin_body_parts = [
+            f"⚠️ Ticket **{ticket.ticket_number}** execution encountered errors.",
+            f"",
+            f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})",
+            f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}",
+            f"",
+            f"**Execution Summary:** {len(successful)} succeeded, {len(failed)} failed",
+            f"",
+            f"**Execution Details:**",
+            f"{proof_text}",
+            f"",
+            f"The user has **not** been notified. The ticket status is set to **execution_failed** and awaits your review.",
+            f"",
+            f"You can retry the ticket from the Scout Support dashboard, manually resolve it, or close it.",
+            f"",
+            f"— Scout Support",
+        ]
+
+        self._send_email(
+            to_email=ticket.admin_email,
+            subject=f"[{ticket.ticket_number}] Execution Failed ⚠️ — Action Required",
+            body="\n".join(admin_body_parts),
+            ticket=ticket,
+            email_type='admin_execution_failure',
+        )
+
     def _send_completion_email(self, ticket, proof_items: List[Dict]):
         proof_lines = []
         for item in proof_items:
@@ -2735,6 +2790,7 @@ Respond with ONLY a JSON object:
         ADMIN_ONLY_EMAIL_TYPES = {
             'admin_approval_request', 'admin_reply', 'admin_clarification_response',
             'admin_new_ticket_notification', 'completion_admin',
+            'admin_execution_failure',
             'stakeholder_new_ticket', 'stakeholder_completed',
             'stakeholder_escalated', 'stakeholder_status_update',
             'escalation_admin_summary',
@@ -2781,7 +2837,7 @@ Respond with ONLY a JSON object:
     ADMIN_FACING_EMAIL_TYPES = {
         'admin_approval_request', 'admin_reply', 'admin_clarification_response',
         'admin_new_ticket_notification', 'completion_admin',
-        'escalation_admin_summary',
+        'escalation_admin_summary', 'admin_execution_failure',
     }
 
     def _send_email(self, to_email: str, subject: str, body: str, ticket=None,
