@@ -1699,11 +1699,19 @@ Respond with ONLY a JSON object:
                     'comments': note_text,
                     'isDeleted': False,
                 }
-                if assoc_field == 'candidates':
+                if entity_type == 'Candidate':
                     note_data['personReference'] = {'id': int(entity_id)}
                     note_data['candidates'] = [{'id': int(entity_id)}]
-                elif assoc_field == 'clientContact':
+                elif entity_type == 'ClientContact':
                     note_data['personReference'] = {'id': int(entity_id)}
+                elif entity_type == 'JobOrder':
+                    if api_user_id:
+                        note_data['personReference'] = {'id': int(api_user_id)}
+                    note_data['jobOrders'] = [{'id': int(entity_id)}]
+                elif entity_type == 'Placement':
+                    if api_user_id:
+                        note_data['personReference'] = {'id': int(api_user_id)}
+                    note_data['placements'] = [{'id': int(entity_id)}]
                 else:
                     if api_user_id:
                         note_data['personReference'] = {'id': int(api_user_id)}
@@ -1718,18 +1726,7 @@ Respond with ONLY a JSON object:
                 if response.status_code in (200, 201):
                     data = response.json() if response.text else {}
                     note_id = data.get('changedEntityId', 'unknown')
-                    logger.info(f"📝 Audit note #{note_id} added to {entity_type} #{entity_id} for ticket {ticket.ticket_number}")
-
-                    if entity_type in ('JobOrder', 'Placement') and note_id and note_id != 'unknown':
-                        assoc_plural = {'JobOrder': 'jobOrders', 'Placement': 'placements'}
-                        assoc_name = assoc_plural.get(entity_type)
-                        if assoc_name:
-                            assoc_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}/{assoc_name}/{entity_id}"
-                            assoc_resp = self.bullhorn_service.session.put(assoc_url, params=params, timeout=30)
-                            if assoc_resp.status_code in (200, 201):
-                                logger.info(f"📝 Linked note #{note_id} to {entity_type} #{entity_id}")
-                            else:
-                                logger.warning(f"⚠️ Note #{note_id} created but failed to link to {entity_type} #{entity_id}: HTTP {assoc_resp.status_code}")
+                    logger.info(f"📝 Audit note #{note_id} created and linked to {entity_type} #{entity_id} for ticket {ticket.ticket_number}")
                 else:
                     logger.warning(f"⚠️ Audit note failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {response.text[:200] if response.text else ''}")
 
@@ -1837,6 +1834,10 @@ Respond with ONLY a JSON object:
             note_data['candidates'] = [{'id': int(entity_id)}]
         elif entity_type == 'ClientContact':
             note_data['personReference'] = {'id': int(entity_id)}
+        elif entity_type == 'JobOrder':
+            note_data['jobOrders'] = [{'id': int(entity_id)}]
+        elif entity_type == 'Placement':
+            note_data['placements'] = [{'id': int(entity_id)}]
 
         url = f"{self.bullhorn_service.base_url}entity/Note"
         params = {'BhRestToken': self.bullhorn_service.rest_token}
@@ -1855,17 +1856,7 @@ Respond with ONLY a JSON object:
         if response.status_code in (200, 201):
             data = response.json() if response.text else {}
             note_id = data.get('changedEntityId', 'unknown')
-            logger.info(f"📝 Note #{note_id} created for {entity_type} #{entity_id}")
-
-            assoc_map = {'JobOrder': 'jobOrders', 'Placement': 'placements'}
-            assoc_name = assoc_map.get(entity_type)
-            if assoc_name and note_id and note_id != 'unknown':
-                assoc_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}/{assoc_name}/{entity_id}"
-                assoc_resp = self.bullhorn_service.session.put(assoc_url, params=params, timeout=30)
-                if assoc_resp.status_code in (200, 201):
-                    logger.info(f"📝 Linked note #{note_id} to {entity_type} #{entity_id}")
-                else:
-                    logger.warning(f"⚠️ Note #{note_id} created but link to {entity_type} #{entity_id} failed: HTTP {assoc_resp.status_code}")
+            logger.info(f"📝 Note #{note_id} created and linked to {entity_type} #{entity_id}")
 
             action.success = True
             action.new_value = f"Note #{note_id}"
@@ -2261,11 +2252,6 @@ Respond with ONLY a JSON object:
         logger.info(f"🔄 Retrying execution for ticket {ticket.ticket_number} — cleared previous actions")
 
         success = self._execute_solution(ticket)
-
-        try:
-            self._add_audit_notes(ticket)
-        except Exception as e:
-            logger.warning(f"⚠️ Audit notes failed during retry for {ticket.ticket_number}: {e}")
 
         return {
             'success': success,
