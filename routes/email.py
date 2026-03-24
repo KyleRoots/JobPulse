@@ -291,6 +291,12 @@ def _handle_scout_support_inbound_bg(app_ref, payload):
                 body = re.sub(r'<[^>]+>', '', html_body)
 
             message_id = payload.get('Message-ID') or payload.get('message-id', '')
+            if not message_id:
+                raw_headers = payload.get('headers', '')
+                if raw_headers:
+                    mid_match = re.search(r'Message-ID:\s*(<[^>]+>)', raw_headers, re.IGNORECASE)
+                    if mid_match:
+                        message_id = mid_match.group(1)
 
             logger.info(f"🔍 [BG] Scout Support inbound from {sender_clean}, subject: {subject}")
 

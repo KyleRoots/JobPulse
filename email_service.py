@@ -1205,7 +1205,8 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                         reply_to: str = None,
                         from_name: str = None,
                         from_email: str = None,
-                        changes_summary: str = None):
+                        changes_summary: str = None,
+                        message_id: str = None):
         try:
             if not self.api_key:
                 logging.warning("SendGrid API key not configured - cannot send email")
@@ -1229,8 +1230,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 from sendgrid.helpers.mail import ReplyTo
                 message.reply_to = ReplyTo(reply_to)
             
+            from sendgrid.helpers.mail import Header
+            if message_id:
+                message.header = Header('Message-ID', message_id)
             if in_reply_to or references:
-                from sendgrid.helpers.mail import Header
                 if in_reply_to:
                     message.header = Header('In-Reply-To', in_reply_to)
                 refs = references or in_reply_to

@@ -348,7 +348,8 @@ class ScoutSupportService:
             email_type='user_reply',
         )
         db.session.add(conv)
-        ticket.last_message_id = message_id
+        if message_id:
+            ticket.last_message_id = message_id
         db.session.commit()
 
         attachment_content = ''
@@ -388,7 +389,8 @@ class ScoutSupportService:
             email_type='admin_reply',
         )
         db.session.add(conv)
-        ticket.last_message_id = message_id
+        if message_id:
+            ticket.last_message_id = message_id
         db.session.commit()
 
         decision = self._classify_admin_response(reply_body)
@@ -2238,24 +2240,33 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
         except (json.JSONDecodeError, TypeError):
             solution_data = {}
         resolution_type = solution_data.get('resolution_type', 'full')
+        solution_user_desc = solution_data.get('description_user', '') or solution_data.get('description', '')
         concerns_user = solution_data.get('underlying_concerns_user', '') or solution_data.get('underlying_concerns', '')
         concerns_admin = solution_data.get('underlying_concerns_admin', '') or solution_data.get('underlying_concerns', '')
 
+        all_success = all(item.get('result', '').lower() == 'success' for item in proof_items) if proof_items else False
+
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
         user_body_parts = [
-            f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},",
+            f"Hi {first_name},",
             f"",
-            f"Great news — your support ticket **{ticket.ticket_number}** has been resolved.",
-            f"",
-            f"**What was done:**",
-            f"{proof_text}",
         ]
+
+        if all_success:
+            user_body_parts.append(f"Your support ticket **{ticket.ticket_number}** has been resolved. The issue has been corrected.")
+        else:
+            user_body_parts.append(f"Your support ticket **{ticket.ticket_number}** has been addressed.")
+
+        if solution_user_desc:
+            user_body_parts.extend([
+                f"",
+                f"**What was done:** {solution_user_desc}",
+            ])
 
         if concerns_user:
             user_body_parts.extend([
                 f"",
                 f"**Please Note:** {concerns_user}",
-                f"",
-                f"If this issue happens again, please submit a new ticket and we'll investigate further.",
             ])
 
         user_body_parts.extend([
@@ -2437,6 +2448,7 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
                 reply_to=SCOUT_SUPPORT_EMAIL,
                 from_name=SCOUT_SUPPORT_NAME,
                 from_email=SCOUT_SUPPORT_EMAIL,
+                message_id=msg_id,
             )
 
             success = result.get('success', False) if isinstance(result, dict) else bool(result)
