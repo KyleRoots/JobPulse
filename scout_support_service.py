@@ -354,22 +354,37 @@ Respond with a JSON object:
     "escalation_reason": "If confidence_level is low or can_resolve_autonomously is false, explain why this should be escalated to a human"
 }}"""
 
-        try:
-            response = self.openai_client.chat.completions.create(
-                model='gpt-5',
-                messages=[
-                    {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You help internal users resolve their ATS problems. Respond only in valid JSON.'},
-                    {'role': 'user', 'content': prompt}
-                ],
-                max_completion_tokens=2000,
-                response_format={'type': 'json_object'},
-            )
-            content = response.choices[0].message.content.strip()
-            parsed = json.loads(content)
-            return json.dumps(parsed)
-        except Exception as e:
-            logger.error(f"AI understanding generation failed: {e}")
-            return None
+        for attempt in range(2):
+            try:
+                response = self.openai_client.chat.completions.create(
+                    model='gpt-5',
+                    messages=[
+                        {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You help internal users resolve their ATS problems. Respond only in valid JSON.'},
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    max_completion_tokens=2000,
+                    response_format={'type': 'json_object'},
+                )
+                content = response.choices[0].message.content
+                if not content or not content.strip():
+                    finish_reason = response.choices[0].finish_reason if response.choices else 'unknown'
+                    logger.warning(f"AI understanding returned empty content (attempt {attempt+1}/2, finish_reason={finish_reason})")
+                    if attempt == 0:
+                        continue
+                    return None
+                parsed = json.loads(content.strip())
+                return json.dumps(parsed)
+            except json.JSONDecodeError as e:
+                logger.error(f"AI understanding JSON parse failed (attempt {attempt+1}/2): {e}")
+                if attempt == 0:
+                    continue
+                return None
+            except Exception as e:
+                logger.error(f"AI understanding generation failed (attempt {attempt+1}/2): {e}")
+                if attempt == 0:
+                    continue
+                return None
+        return None
 
     MAX_CLARIFICATION_ROUNDS = 3
 
@@ -462,20 +477,31 @@ Respond with JSON:
     "execution_steps": ["step 1", "step 2"]
 }}"""
 
-        try:
-            response = self.openai_client.chat.completions.create(
-                model='gpt-5',
-                messages=[
-                    {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. Respond only in valid JSON.'},
-                    {'role': 'user', 'content': prompt}
-                ],
-                max_completion_tokens=2000,
-                response_format={'type': 'json_object'},
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"Clarification analysis failed: {e}")
-            return None
+        for attempt in range(2):
+            try:
+                response = self.openai_client.chat.completions.create(
+                    model='gpt-5',
+                    messages=[
+                        {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. Respond only in valid JSON.'},
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    max_completion_tokens=2000,
+                    response_format={'type': 'json_object'},
+                )
+                content = response.choices[0].message.content
+                if not content or not content.strip():
+                    finish_reason = response.choices[0].finish_reason if response.choices else 'unknown'
+                    logger.warning(f"Clarification analysis returned empty content (attempt {attempt+1}/2, finish_reason={finish_reason})")
+                    if attempt == 0:
+                        continue
+                    return None
+                return content.strip()
+            except Exception as e:
+                logger.error(f"Clarification analysis failed (attempt {attempt+1}/2): {e}")
+                if attempt == 0:
+                    continue
+                return None
+        return None
 
     def _handle_user_approval_response(self, ticket, reply_body: str) -> bool:
         from extensions import db
