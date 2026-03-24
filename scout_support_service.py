@@ -173,10 +173,12 @@ class ScoutSupportService:
         from extensions import db
 
         attachment_content = ''
+        attachment_ack = ''
         if hasattr(self, '_attachment_data') and self._attachment_data:
             logger.info(f"📎 Ticket {ticket.ticket_number}: Processing {len(self._attachment_data)} attachment(s)")
             attachment_content = self._extract_attachment_content(self._attachment_data)
             self._attachment_data = None
+            attachment_ack = self._build_attachment_acknowledgment()
             if attachment_content:
                 logger.info(f"📎 Ticket {ticket.ticket_number}: Extracted {len(attachment_content)} chars of attachment content")
             else:
@@ -232,7 +234,7 @@ class ScoutSupportService:
             ticket.status = 'awaiting_user_approval'
             db.session.commit()
 
-            self._send_solution_proposal_email(ticket, proposed_user, underlying_concerns=concerns_user)
+            self._send_solution_proposal_email(ticket, proposed_user, underlying_concerns=concerns_user, attachment_ack=attachment_ack)
             logger.info(f"✅ Ticket {ticket.ticket_number} — {confidence} confidence, solution proposed (resolution_type={resolution_type})")
             return True
 
@@ -252,7 +254,7 @@ class ScoutSupportService:
         ticket.status = 'acknowledged'
         db.session.commit()
 
-        self._send_acknowledgment_email(ticket, understanding)
+        self._send_acknowledgment_email(ticket, understanding, attachment_ack=attachment_ack)
         logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged (AI full, confidence={confidence}, resolution_type={resolution_type}, clarify_first={needs_clarification_first}), email sent to {ticket.submitter_email}")
         return True
 
@@ -350,15 +352,17 @@ class ScoutSupportService:
         db.session.commit()
 
         attachment_content = ''
+        attachment_ack = ''
         if attachment_data:
             attachment_content = self._extract_attachment_content(attachment_data)
+            attachment_ack = self._build_attachment_acknowledgment()
             if attachment_content:
                 logger.info(f"📎 Extracted {len(attachment_content)} chars from {len(attachment_data)} attachment(s) on reply to {ticket.ticket_number}")
 
         if ticket.status == 'awaiting_user_approval':
             return self._handle_user_approval_response(ticket, reply_body)
         elif ticket.status in ('acknowledged', 'clarifying'):
-            return self._handle_clarification_reply(ticket, reply_body, attachment_content=attachment_content)
+            return self._handle_clarification_reply(ticket, reply_body, attachment_content=attachment_content, attachment_ack=attachment_ack)
 
         return True
 
@@ -423,6 +427,7 @@ class ScoutSupportService:
         if not attachment_data:
             return ''
 
+        self._attachment_results = []
         extracted_parts = []
         for att in attachment_data:
             filename = att.get('filename', 'unknown')
@@ -435,39 +440,95 @@ class ScoutSupportService:
                     text = data.decode('utf-8', errors='replace').strip()
                     if text:
                         extracted_parts.append(f"[File: {filename}]\n{text[:10000]}")
+                        self._attachment_results.append({'filename': filename, 'status': 'read', 'type': 'text'})
+                    else:
+                        self._attachment_results.append({'filename': filename, 'status': 'empty', 'type': 'text'})
 
                 elif ext == 'csv' or content_type == 'text/csv':
                     text = data.decode('utf-8', errors='replace').strip()
                     if text:
                         lines = text.split('\n')[:100]
                         extracted_parts.append(f"[File: {filename} — CSV, {len(text.split(chr(10)))} rows]\n{chr(10).join(lines)}")
+                        self._attachment_results.append({'filename': filename, 'status': 'read', 'type': 'csv'})
+                    else:
+                        self._attachment_results.append({'filename': filename, 'status': 'empty', 'type': 'csv'})
 
                 elif ext == 'pdf' or content_type == 'application/pdf':
                     text = self._extract_pdf_text(data)
                     if text:
                         extracted_parts.append(f"[File: {filename}]\n{text[:10000]}")
+                        self._attachment_results.append({'filename': filename, 'status': 'read', 'type': 'document'})
+                    else:
+                        self._attachment_results.append({'filename': filename, 'status': 'failed', 'type': 'document'})
 
                 elif ext in ('doc', 'docx') or 'word' in content_type:
                     text = self._extract_docx_text(data, ext)
                     if text:
                         extracted_parts.append(f"[File: {filename}]\n{text[:10000]}")
+                        self._attachment_results.append({'filename': filename, 'status': 'read', 'type': 'document'})
+                    else:
+                        self._attachment_results.append({'filename': filename, 'status': 'failed', 'type': 'document'})
 
                 elif ext in ('png', 'jpg', 'jpeg', 'gif') or content_type.startswith('image/'):
                     description = self._describe_image(data, content_type, filename)
-                    if description:
+                    if description and 'vision analysis failed' not in description and 'vision not available' not in description:
                         extracted_parts.append(f"[Image: {filename}]\n{description}")
+                        self._attachment_results.append({'filename': filename, 'status': 'read', 'type': 'image'})
+                    else:
+                        extracted_parts.append(f"[Image: {filename}]\n{description}")
+                        self._attachment_results.append({'filename': filename, 'status': 'failed', 'type': 'image'})
 
                 elif ext == 'xlsx' or 'spreadsheet' in content_type:
                     extracted_parts.append(f"[File: {filename} — Excel spreadsheet attached, content not extracted]")
+                    self._attachment_results.append({'filename': filename, 'status': 'unsupported', 'type': 'spreadsheet'})
 
                 else:
                     extracted_parts.append(f"[File: {filename} — {content_type}, content not extracted]")
+                    self._attachment_results.append({'filename': filename, 'status': 'unsupported', 'type': content_type})
 
             except Exception as e:
                 logger.warning(f"Failed to extract content from {filename}: {e}")
                 extracted_parts.append(f"[File: {filename} — extraction failed: {str(e)[:100]}]")
+                self._attachment_results.append({'filename': filename, 'status': 'failed', 'type': ext or 'unknown'})
 
         return '\n\n'.join(extracted_parts) if extracted_parts else ''
+
+    def _build_attachment_acknowledgment(self, attachment_results: List[Dict] = None) -> str:
+        results = attachment_results or getattr(self, '_attachment_results', None)
+        if not results:
+            return ''
+
+        read_files = [r for r in results if r['status'] == 'read']
+        failed_files = [r for r in results if r['status'] == 'failed']
+        empty_files = [r for r in results if r['status'] == 'empty']
+        unsupported_files = [r for r in results if r['status'] == 'unsupported']
+
+        parts = []
+
+        if read_files:
+            if len(read_files) == 1:
+                f = read_files[0]
+                if f['type'] == 'image':
+                    parts.append(f"I have reviewed the attached screenshot ({f['filename']}) and used it to inform my analysis.")
+                elif f['type'] == 'document':
+                    parts.append(f"I have read the attached document ({f['filename']}) and used its contents to inform my analysis.")
+                else:
+                    parts.append(f"I have read the attached file ({f['filename']}) and used its contents to inform my analysis.")
+            else:
+                names = ', '.join(f['filename'] for f in read_files)
+                parts.append(f"I have reviewed the attached files ({names}) and used their contents to inform my analysis.")
+
+        problem_files = failed_files + empty_files + unsupported_files
+        if problem_files:
+            for f in problem_files:
+                if f['status'] == 'failed':
+                    parts.append(f"I was unable to read the attached file ({f['filename']}). If it contains important details, please include that information in your reply.")
+                elif f['status'] == 'empty':
+                    parts.append(f"The attached file ({f['filename']}) appears to be empty. If this was unintentional, please re-attach it in your reply.")
+                elif f['status'] == 'unsupported':
+                    parts.append(f"The attached file ({f['filename']}) is in a format I cannot read directly. If it contains important details, please describe them in your reply or attach it in a different format (e.g., PDF, image, or text).")
+
+        return '\n'.join(parts)
 
     def _extract_pdf_text(self, data: bytes) -> str:
         import tempfile
@@ -759,7 +820,7 @@ resolution_type guide:
 
     MAX_CLARIFICATION_ROUNDS = 3
 
-    def _handle_clarification_reply(self, ticket, reply_body: str, attachment_content: str = '') -> bool:
+    def _handle_clarification_reply(self, ticket, reply_body: str, attachment_content: str = '', attachment_ack: str = '') -> bool:
         from extensions import db
         from models import SupportConversation
 
@@ -808,11 +869,11 @@ resolution_type guide:
                 })
                 ticket.status = 'awaiting_user_approval'
                 db.session.commit()
-                self._send_solution_proposal_email(ticket, solution_user, underlying_concerns=concerns_user)
+                self._send_solution_proposal_email(ticket, solution_user, underlying_concerns=concerns_user, attachment_ack=attachment_ack)
             else:
                 ticket.status = 'clarifying'
                 db.session.commit()
-                self._send_clarification_email(ticket, parsed.get('follow_up', ''))
+                self._send_clarification_email(ticket, parsed.get('follow_up', ''), attachment_ack=attachment_ack)
         else:
             if clarification_count >= self.MAX_CLARIFICATION_ROUNDS:
                 self._escalate_to_admin(
@@ -826,7 +887,7 @@ resolution_type guide:
             ticket.status = 'clarifying'
             db.session.commit()
             follow_up = parsed.get('follow_up', 'Could you provide more details about the issue?')
-            self._send_clarification_email(ticket, follow_up)
+            self._send_clarification_email(ticket, follow_up, attachment_ack=attachment_ack)
 
         return True
 
@@ -1769,7 +1830,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
 
         logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated to {DEFAULT_ADMIN_EMAIL}: {reason}")
 
-    def _send_acknowledgment_email(self, ticket, understanding_json: str):
+    def _send_acknowledgment_email(self, ticket, understanding_json: str, attachment_ack: str = ''):
         try:
             understanding = json.loads(understanding_json)
         except (json.JSONDecodeError, TypeError):
@@ -1783,10 +1844,17 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
             f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},",
             f"",
             f"Thank you for reaching out. Your support ticket has been received and assigned ticket number **{ticket.ticket_number}**.",
+        ]
+
+        if attachment_ack:
+            body_parts.append("")
+            body_parts.append(f"**Attachments:** {attachment_ack}")
+
+        body_parts.extend([
             f"",
             f"**My Understanding of Your Issue:**",
             f"{summary}",
-        ]
+        ])
 
         if clarification_needed and questions:
             body_parts.append("")
@@ -1851,32 +1919,51 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
                 return [contact]
         return None
 
-    def _send_clarification_email(self, ticket, follow_up_text: str):
-        body = (
-            f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},\n\n"
-            f"Regarding your ticket **{ticket.ticket_number}**:\n\n"
-            f"{follow_up_text}\n\n"
-            f"Please reply to this email with the additional details so I can move forward.\n\n"
-            f"— Scout Support"
-        )
+    def _send_clarification_email(self, ticket, follow_up_text: str, attachment_ack: str = ''):
+        body_parts = [
+            f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},",
+            f"",
+            f"Regarding your ticket **{ticket.ticket_number}**:",
+        ]
+
+        if attachment_ack:
+            body_parts.append("")
+            body_parts.append(f"**Attachments:** {attachment_ack}")
+
+        body_parts.extend([
+            f"",
+            f"{follow_up_text}",
+            f"",
+            f"Please reply to this email with the additional details so I can move forward.",
+            f"",
+            f"— Scout Support",
+        ])
+
         self._send_email(
             to_email=ticket.submitter_email,
             subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             cc_emails=self._get_immediate_escalation_cc(ticket),
-            body=body,
+            body="\n".join(body_parts),
             ticket=ticket,
             email_type='clarification',
         )
 
-    def _send_solution_proposal_email(self, ticket, solution_text: str, underlying_concerns: str = ''):
+    def _send_solution_proposal_email(self, ticket, solution_text: str, underlying_concerns: str = '', attachment_ack: str = ''):
         body_parts = [
             f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},",
             f"",
             f"After reviewing your issue ({ticket.ticket_number}), here is my proposed solution:",
+        ]
+
+        if attachment_ack:
+            body_parts.append("")
+            body_parts.append(f"**Attachments:** {attachment_ack}")
+
+        body_parts.extend([
             f"",
             f"**Proposed Fix:**",
             f"{solution_text}",
-        ]
+        ])
 
         if underlying_concerns:
             body_parts.extend([
