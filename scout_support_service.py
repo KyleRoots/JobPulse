@@ -301,7 +301,8 @@ class ScoutSupportService:
         logger.info(f"✅ Ticket {ticket.ticket_number} routed to back-office (category={ticket.category}, dept={ticket.submitter_department}), CC'd {cc_names}")
         return True
 
-    def handle_user_reply(self, ticket_id: int, reply_body: str, message_id: str = '') -> bool:
+    def handle_user_reply(self, ticket_id: int, reply_body: str, message_id: str = '',
+                          attachment_data: Optional[List[Dict]] = None) -> bool:
         from extensions import db
         from models import SupportTicket, SupportConversation
 
@@ -310,13 +311,18 @@ class ScoutSupportService:
             logger.error(f"Ticket {ticket_id} not found for reply handling")
             return False
 
+        attachment_note = ''
+        if attachment_data:
+            filenames = [a.get('filename', 'unknown') for a in attachment_data]
+            attachment_note = f"\n\n[Attachments: {', '.join(filenames)}]"
+
         conv = SupportConversation(
             ticket_id=ticket.id,
             direction='inbound',
             sender_email=ticket.submitter_email,
             recipient_email=SCOUT_SUPPORT_EMAIL,
             subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
-            body=reply_body,
+            body=reply_body + attachment_note,
             message_id=message_id,
             email_type='user_reply',
         )
@@ -324,10 +330,16 @@ class ScoutSupportService:
         ticket.last_message_id = message_id
         db.session.commit()
 
+        attachment_content = ''
+        if attachment_data:
+            attachment_content = self._extract_attachment_content(attachment_data)
+            if attachment_content:
+                logger.info(f"📎 Extracted {len(attachment_content)} chars from {len(attachment_data)} attachment(s) on reply to {ticket.ticket_number}")
+
         if ticket.status == 'awaiting_user_approval':
             return self._handle_user_approval_response(ticket, reply_body)
         elif ticket.status in ('acknowledged', 'clarifying'):
-            return self._handle_clarification_reply(ticket, reply_body)
+            return self._handle_clarification_reply(ticket, reply_body, attachment_content=attachment_content)
 
         return True
 
@@ -687,7 +699,7 @@ resolution_type guide:
 
     MAX_CLARIFICATION_ROUNDS = 3
 
-    def _handle_clarification_reply(self, ticket, reply_body: str) -> bool:
+    def _handle_clarification_reply(self, ticket, reply_body: str, attachment_content: str = '') -> bool:
         from extensions import db
         from models import SupportConversation
 
@@ -697,7 +709,7 @@ resolution_type guide:
             email_type='clarification',
         ).count()
 
-        analysis = self._analyze_clarification(ticket, reply_body)
+        analysis = self._analyze_clarification(ticket, reply_body, attachment_content=attachment_content)
         if not analysis:
             if clarification_count >= self.MAX_CLARIFICATION_ROUNDS:
                 self._escalate_to_admin(ticket, reason=f"AI could not analyze the issue after {clarification_count} clarification rounds.")
@@ -758,7 +770,7 @@ resolution_type guide:
 
         return True
 
-    def _analyze_clarification(self, ticket, reply_body: str) -> Optional[str]:
+    def _analyze_clarification(self, ticket, reply_body: str, attachment_content: str = '') -> Optional[str]:
         if not self.openai_client:
             return None
 
@@ -771,6 +783,16 @@ resolution_type guide:
         for conv in conversations:
             history.append(f"[{conv.direction.upper()}] {conv.sender_email}: {conv.body[:500]}")
 
+        attachment_section = ''
+        if attachment_content:
+            attachment_section = f"""
+
+Attached Files in Latest Reply:
+{attachment_content}
+
+IMPORTANT: The user included attachments with their reply. Use the extracted content above as additional
+context. Screenshots may show error messages, field values, or Bullhorn screens that help diagnose the issue."""
+
         prompt = f"""You are Scout Support. You've been working on ticket {ticket.ticket_number}.
 
 Original issue: {ticket.subject}
@@ -780,7 +802,7 @@ Conversation history:
 {chr(10).join(history)}
 
 Latest reply from user:
-{reply_body}
+{reply_body}{attachment_section}
 
 Current AI understanding: {ticket.ai_understanding or 'Not yet established'}
 

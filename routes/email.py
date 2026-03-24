@@ -304,11 +304,24 @@ def _handle_scout_support_inbound_bg(app_ref, payload):
             is_admin = sender_clean.lower() == ticket.admin_email.lower()
             is_submitter = sender_clean.lower() == ticket.submitter_email.lower()
 
+            reply_attachments = []
+            for key in list(payload.keys()):
+                info_key = f'{key}_info'
+                if info_key in payload and isinstance(payload.get(key), bytes):
+                    file_info = payload[info_key]
+                    reply_attachments.append({
+                        'filename': file_info.get('filename', 'attachment'),
+                        'data': payload[key],
+                        'content_type': file_info.get('content_type', 'application/octet-stream'),
+                    })
+            if reply_attachments:
+                logger.info(f"📎 [BG] Scout Support reply has {len(reply_attachments)} attachment(s): {[a['filename'] for a in reply_attachments]}")
+
             if is_admin and ticket.status == 'awaiting_admin_approval':
                 svc.handle_admin_reply(ticket.id, body, message_id)
                 logger.info(f"✅ [BG] Scout Support admin reply processed for ticket {ticket.ticket_number}")
             elif is_submitter:
-                svc.handle_user_reply(ticket.id, body, message_id)
+                svc.handle_user_reply(ticket.id, body, message_id, attachment_data=reply_attachments or None)
                 logger.info(f"✅ [BG] Scout Support user reply processed for ticket {ticket.ticket_number}")
             elif is_admin:
                 svc.handle_admin_reply(ticket.id, body, message_id)
