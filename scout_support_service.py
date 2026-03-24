@@ -1081,8 +1081,21 @@ resolution_type guide:
         fresh_text = self._strip_quoted_text(text)
         if not fresh_text:
             fresh_text = text.split('\n')[0] if text else ''
-        text_lower = fresh_text.lower().strip()
-        logger.info(f"🔍 User response classification input ({len(text_lower)} chars): {text_lower[:200]}")
+        logger.info(f"🔍 User response classification input ({len(fresh_text)} chars): {fresh_text[:300]}")
+
+        if self.openai_client:
+            try:
+                ai_decision = self._ai_classify_response(fresh_text, role='user')
+                if ai_decision:
+                    logger.info(f"🤖 AI classified user response as: {ai_decision}")
+                    return ai_decision
+            except Exception as e:
+                logger.warning(f"AI classification failed, falling back to keyword: {e}")
+
+        return self._keyword_classify_user(fresh_text)
+
+    def _keyword_classify_user(self, text: str) -> str:
+        text_lower = text.lower().strip()
 
         approve_keywords = ['yes', 'approve', 'confirmed', 'go ahead', 'proceed', 'looks good', 'agree', 'correct', 'that works']
         if any(kw in text_lower for kw in approve_keywords):
@@ -1220,8 +1233,77 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
         fresh_text = self._strip_quoted_text(text)
         if not fresh_text:
             fresh_text = text.split('\n')[0] if text else ''
-        text_lower = fresh_text.lower().strip()
-        logger.info(f"🔍 Admin response classification input ({len(text_lower)} chars): {text_lower[:200]}")
+        logger.info(f"🔍 Admin response classification input ({len(fresh_text)} chars): {fresh_text[:300]}")
+
+        if self.openai_client:
+            try:
+                ai_decision = self._ai_classify_response(fresh_text, role='admin')
+                if ai_decision:
+                    logger.info(f"🤖 AI classified admin response as: {ai_decision}")
+                    return ai_decision
+            except Exception as e:
+                logger.warning(f"AI classification failed, falling back to keyword: {e}")
+
+        return self._keyword_classify_admin(fresh_text)
+
+    def _ai_classify_response(self, text: str, role: str = 'admin') -> Optional[str]:
+        if role == 'admin':
+            options_desc = (
+                "- 'approved' — The admin is giving permission to proceed with the fix. This includes explicit approvals "
+                "(\"Approved\", \"Yes\", \"Go ahead\") AND natural language consent (\"Okay, make that change\", "
+                "\"Sure, do it\", \"Let's just ensure the field is changed... you can go ahead\"). "
+                "The response may also include additional context, notes, caveats, or instructions alongside the approval — "
+                "that still counts as approved. If the admin says to proceed with the fix in ANY way, classify as approved.\n"
+                "- 'hold' — The admin explicitly wants to pause or defer the ticket (\"Hold off\", \"Let's wait\", \"Put this on hold\").\n"
+                "- 'closed' — The admin explicitly wants to cancel or reject the fix (\"Reject this\", \"Cancel\", \"Do not proceed\", \"Close the ticket\").\n"
+                "- 'admin_question' — The admin is asking a question or requesting more information before deciding. "
+                "They have NOT given approval yet."
+            )
+        else:
+            options_desc = (
+                "- 'approved' — The user is agreeing to the proposed solution (\"Yes\", \"Go ahead\", \"Looks good\", \"That works\").\n"
+                "- 'rejected' — The user explicitly wants to cancel (\"No thanks\", \"Cancel\", \"Close this\").\n"
+                "- 'needs_changes' — The user wants modifications to the proposed solution before approving."
+            )
+
+        prompt = f"""Classify this email reply from the {role}. Read the FULL message and determine the {role}'s PRIMARY INTENT.
+
+The {role}'s reply:
+\"\"\"
+{text[:3000]}
+\"\"\"
+
+Classification options:
+{options_desc}
+
+IMPORTANT:
+- Focus on the {role}'s actual intent, not individual words.
+- Replies often contain approval PLUS additional context, notes, or instructions — that is still an approval.
+- Only classify as a question/hold/close if the {role} is genuinely NOT giving permission to proceed.
+
+Respond with ONLY the classification label (one word, lowercase). Nothing else."""
+
+        response = self.openai_client.chat.completions.create(
+            model='o4-mini',
+            messages=[{'role': 'user', 'content': prompt}],
+            max_completion_tokens=20,
+        )
+        result = (response.choices[0].message.content or '').strip().lower().strip("'\"")
+
+        valid_labels = {
+            'admin': {'approved', 'hold', 'closed', 'admin_question'},
+            'user': {'approved', 'rejected', 'needs_changes'},
+        }
+        if result in valid_labels.get(role, set()):
+            return result
+        for label in valid_labels.get(role, set()):
+            if label in result:
+                return label
+        logger.warning(f"AI classification returned unexpected label: {result}")
+        return None
+
+    def _keyword_classify_admin(self, text: str) -> str:
+        text_lower = text.lower().strip()
         words = set(re.findall(r'\b\w+\b', text_lower))
 
         approve_phrases = [
