@@ -820,19 +820,20 @@ resolution_type guide:
 
         for attempt in range(2):
             try:
+                token_limit = 8192 if attempt == 0 else 12288
                 response = self.openai_client.chat.completions.create(
                     model='gpt-5',
                     messages=[
                         {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You help internal users resolve their ATS problems. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
                     ],
-                    max_completion_tokens=4096,
+                    max_completion_tokens=token_limit,
                     response_format={'type': 'json_object'},
                 )
                 content = response.choices[0].message.content
                 if not content or not content.strip():
                     finish_reason = response.choices[0].finish_reason if response.choices else 'unknown'
-                    logger.warning(f"AI understanding returned empty content (attempt {attempt+1}/2, finish_reason={finish_reason})")
+                    logger.warning(f"AI understanding returned empty content (attempt {attempt+1}/2, finish_reason={finish_reason}, token_limit={token_limit})")
                     if attempt == 0:
                         continue
                     return None
@@ -1041,7 +1042,7 @@ resolution_type guide:
                         {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
                     ],
-                    max_completion_tokens=4096,
+                    max_completion_tokens=8192,
                     response_format={'type': 'json_object'},
                 )
                 content = response.choices[0].message.content
