@@ -1534,7 +1534,7 @@ Respond with ONLY a JSON object:
                     proof_items.append(result)
 
                 elif action_type == 'create_note' and entity_id:
-                    result = self._exec_create_note(action, int(entity_id), step)
+                    result = self._exec_create_note(action, entity_type, int(entity_id), step)
                     proof_items.append(result)
 
                 elif action_type == 'create_submission':
@@ -1734,6 +1734,34 @@ Respond with ONLY a JSON object:
                 pass
         return value
 
+    def _exec_update_entity_api(self, entity_type: str, entity_id: int, field: str, new_value) -> Dict:
+        try:
+            url = f"{self.bullhorn_service.base_url}entity/{entity_type}/{entity_id}"
+            params = {'BhRestToken': self.bullhorn_service.rest_token}
+            response = self.bullhorn_service.session.post(url, params=params, json={field: new_value}, timeout=30)
+
+            if response.status_code == 401:
+                if self.bullhorn_service.authenticate():
+                    params['BhRestToken'] = self.bullhorn_service.rest_token
+                    response = self.bullhorn_service.session.post(url, params=params, json={field: new_value}, timeout=30)
+                else:
+                    return {'success': False, 'error': 'Authentication failed'}
+
+            if response.status_code == 200:
+                return {'success': True}
+            else:
+                error_text = ''
+                try:
+                    resp_data = response.json()
+                    error_text = resp_data.get('errorMessage', resp_data.get('message', ''))
+                    if not error_text and 'errors' in resp_data:
+                        error_text = '; '.join(str(e) for e in resp_data['errors'][:3])
+                except Exception:
+                    error_text = response.text[:200] if response.text else ''
+                return {'success': False, 'error': f'HTTP {response.status_code}: {error_text}' if error_text else f'HTTP {response.status_code}'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
     def _exec_update_entity(self, action, entity_type: str, entity_id: int, field: str, new_value) -> Dict:
         new_value = self._coerce_bullhorn_value(field, new_value)
 
@@ -1741,8 +1769,8 @@ Respond with ONLY a JSON object:
         if current:
             action.old_value = str(current.get(field, ''))
 
-        success = self.bullhorn_service.update_entity(entity_type, entity_id, {field: new_value})
-        if success:
+        update_result = self._exec_update_entity_api(entity_type, entity_id, field, new_value)
+        if update_result['success']:
             verified = self.bullhorn_service.get_entity(entity_type, entity_id, fields=f'id,{field}')
             verified_value = verified.get(field, 'unknown') if verified else 'unknown'
             action.success = True
@@ -1755,12 +1783,13 @@ Respond with ONLY a JSON object:
                 'result': 'Success',
             }
         else:
+            error_detail = update_result.get('error', 'Bullhorn API returned failure')
             action.success = False
-            action.error_message = 'Bullhorn API returned failure'
-            logger.error(f"❌ Bullhorn update failed: {entity_type} #{entity_id} {field}")
-            return {'step': f"Update {entity_type} #{entity_id}: {field}", 'result': 'Failed — API returned error'}
+            action.error_message = error_detail
+            logger.error(f"❌ Bullhorn update failed: {entity_type} #{entity_id} {field} — {error_detail}")
+            return {'step': f"Update {entity_type} #{entity_id}: {field}", 'result': f'Failed — {error_detail}'}
 
-    def _exec_create_note(self, action, candidate_id: int, step: dict) -> Dict:
+    def _exec_create_note(self, action, entity_type: str, entity_id: int, step: dict) -> Dict:
         note_text = step.get('note_text', step.get('new_value', ''))
         note_action = step.get('note_action', 'Scout Support')
         if not note_text:
@@ -1768,16 +1797,56 @@ Respond with ONLY a JSON object:
             action.error_message = 'Missing note_text'
             return {'step': step.get('description', 'Create note'), 'result': 'Failed — no note text provided'}
 
-        note_id = self.bullhorn_service.create_candidate_note(candidate_id, note_text, action=note_action)
-        if note_id:
-            action.success = True
-            action.new_value = f"Note #{note_id}"
-            logger.info(f"✅ Created note #{note_id} on Candidate #{candidate_id}")
-            return {'step': f"Created note on Candidate #{candidate_id}", 'note_id': note_id, 'result': 'Success'}
+        if entity_type in ('Candidate', 'ClientContact'):
+            note_id = self.bullhorn_service.create_candidate_note(entity_id, note_text, action=note_action)
+            if note_id:
+                action.success = True
+                action.new_value = f"Note #{note_id}"
+                logger.info(f"✅ Created note #{note_id} on {entity_type} #{entity_id}")
+                return {'step': f"Created note on {entity_type} #{entity_id}", 'note_id': note_id, 'result': 'Success'}
+            else:
+                action.success = False
+                action.error_message = 'Note creation failed'
+                return {'step': f"Create note on {entity_type} #{entity_id}", 'result': 'Failed — API error'}
         else:
-            action.success = False
-            action.error_message = 'Note creation failed'
-            return {'step': f"Create note on Candidate #{candidate_id}", 'result': 'Failed — API error'}
+            api_user_id = self.bullhorn_service.user_id
+            note_data = {
+                'action': note_action,
+                'comments': note_text,
+                'isDeleted': False,
+            }
+            if api_user_id:
+                note_data['personReference'] = {'id': int(api_user_id)}
+                note_data['commentingPerson'] = {'id': int(api_user_id)}
+
+            url = f"{self.bullhorn_service.base_url}entity/Note"
+            params = {'BhRestToken': self.bullhorn_service.rest_token}
+            response = self.bullhorn_service.session.put(url, params=params, json=note_data, timeout=60)
+
+            if response.status_code in (200, 201):
+                data = response.json() if response.text else {}
+                note_id = data.get('changedEntityId', 'unknown')
+                logger.info(f"📝 Note #{note_id} created for {entity_type} #{entity_id}")
+
+                assoc_map = {'JobOrder': 'jobOrders', 'Placement': 'placements'}
+                assoc_name = assoc_map.get(entity_type)
+                if assoc_name and note_id and note_id != 'unknown':
+                    assoc_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}/{assoc_name}/{entity_id}"
+                    assoc_resp = self.bullhorn_service.session.put(assoc_url, params=params, timeout=30)
+                    if assoc_resp.status_code in (200, 201):
+                        logger.info(f"📝 Linked note #{note_id} to {entity_type} #{entity_id}")
+                    else:
+                        logger.warning(f"⚠️ Note #{note_id} created but link to {entity_type} #{entity_id} failed: HTTP {assoc_resp.status_code}")
+
+                action.success = True
+                action.new_value = f"Note #{note_id}"
+                return {'step': f"Created note on {entity_type} #{entity_id}", 'note_id': note_id, 'result': 'Success'}
+            else:
+                error_detail = response.text[:200] if response.text else 'No response body'
+                action.success = False
+                action.error_message = f'Note creation failed: HTTP {response.status_code} — {error_detail}'
+                logger.error(f"❌ Note creation failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {error_detail}")
+                return {'step': f"Create note on {entity_type} #{entity_id}", 'result': f'Failed — HTTP {response.status_code}'}
 
     def _exec_create_submission(self, action, step: dict) -> Dict:
         candidate_id = step.get('candidate_id')
