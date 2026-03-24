@@ -1284,7 +1284,7 @@ IMPORTANT:
 Respond with ONLY the classification label (one word, lowercase). Nothing else."""
 
         response = self.openai_client.chat.completions.create(
-            model='o4-mini',
+            model='gpt-5',
             messages=[{'role': 'user', 'content': prompt}],
             max_completion_tokens=20,
         )
