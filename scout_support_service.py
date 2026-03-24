@@ -149,7 +149,7 @@ class ScoutSupportService:
         confidence = parsed.get('confidence_level', 'high')
         can_resolve = parsed.get('can_resolve_autonomously', True)
 
-        if confidence == 'low' or (not can_resolve and confidence != 'high'):
+        if confidence == 'low' and not parsed.get('clarification_needed', False):
             ticket.ai_understanding = understanding
             ticket.status = 'escalated'
             escalation_reason = parsed.get('escalation_reason', 'AI determined it cannot fully resolve this issue.')
@@ -165,7 +165,7 @@ class ScoutSupportService:
         db.session.commit()
 
         self._send_acknowledgment_email(ticket, understanding)
-        logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged (AI full), email sent to {ticket.submitter_email}")
+        logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged (AI full, confidence={confidence}), email sent to {ticket.submitter_email}")
         return True
 
     def _process_handoff_ticket(self, ticket) -> bool:
@@ -358,11 +358,23 @@ Respond with a JSON object:
             logger.error(f"AI understanding generation failed: {e}")
             return None
 
+    MAX_CLARIFICATION_ROUNDS = 3
+
     def _handle_clarification_reply(self, ticket, reply_body: str) -> bool:
         from extensions import db
+        from models import SupportConversation
+
+        clarification_count = SupportConversation.query.filter_by(
+            ticket_id=ticket.id,
+            direction='outbound',
+            email_type='clarification',
+        ).count()
 
         analysis = self._analyze_clarification(ticket, reply_body)
         if not analysis:
+            if clarification_count >= self.MAX_CLARIFICATION_ROUNDS:
+                self._escalate_to_admin(ticket, reason=f"AI could not analyze the issue after {clarification_count} clarification rounds.")
+                return True
             return False
 
         try:
@@ -383,6 +395,15 @@ Respond with a JSON object:
                 db.session.commit()
                 self._send_clarification_email(ticket, parsed.get('follow_up', ''))
         else:
+            if clarification_count >= self.MAX_CLARIFICATION_ROUNDS:
+                self._escalate_to_admin(
+                    ticket,
+                    reason=f"Unable to fully understand the issue after {clarification_count} clarification rounds.",
+                    understanding=parsed.get('updated_understanding', ''),
+                )
+                logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated after {clarification_count} clarification rounds")
+                return True
+
             ticket.status = 'clarifying'
             db.session.commit()
             follow_up = parsed.get('follow_up', 'Could you provide more details about the issue?')
@@ -948,6 +969,7 @@ Respond with JSON:
                 in_reply_to=in_reply_to,
                 reply_to=SCOUT_SUPPORT_EMAIL,
                 from_name=SCOUT_SUPPORT_NAME,
+                from_email=SCOUT_SUPPORT_EMAIL,
             )
 
             success = result.get('success', False) if isinstance(result, dict) else bool(result)

@@ -1203,31 +1203,14 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                         in_reply_to: str = None,
                         reply_to: str = None,
                         from_name: str = None,
+                        from_email: str = None,
                         changes_summary: str = None):
-        """
-        Send an HTML email (for test emails, custom notifications, etc.)
-        
-        Args:
-            to_email: Primary recipient email address
-            subject: Email subject line
-            html_content: HTML content for the email body
-            notification_type: Type of notification for logging purposes
-            cc_emails: Optional list of email addresses to CC on the email
-            bcc_emails: Optional list of email addresses to BCC on the email
-            in_reply_to: Optional Message-ID for email threading (adds In-Reply-To + References headers)
-            reply_to: Optional Reply-To address (overrides default from_email for replies)
-            from_name: Optional display name for the From field
-            
-        Returns:
-            dict: {'success': bool, 'message_id': str or None}  — truthy when success is True
-        """
         try:
             if not self.api_key:
                 logging.warning("SendGrid API key not configured - cannot send email")
                 return {'success': False, 'message_id': None}
 
-            # Build From field with optional display name
-            from_addr = self.from_email
+            from_addr = from_email or self.from_email
             if from_name:
                 from_email_obj = Email(from_addr, from_name)
             else:
