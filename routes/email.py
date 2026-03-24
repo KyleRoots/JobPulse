@@ -317,7 +317,7 @@ def _handle_scout_support_inbound_bg(app_ref, payload):
             if reply_attachments:
                 logger.info(f"📎 [BG] Scout Support reply has {len(reply_attachments)} attachment(s): {[a['filename'] for a in reply_attachments]}")
 
-            if is_admin and ticket.status == 'awaiting_admin_approval':
+            if is_admin and ticket.status in ('awaiting_admin_approval', 'admin_clarifying'):
                 svc.handle_admin_reply(ticket.id, body, message_id)
                 logger.info(f"✅ [BG] Scout Support admin reply processed for ticket {ticket.ticket_number}")
             elif is_submitter:

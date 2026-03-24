@@ -348,7 +348,10 @@ class ScoutSupportService:
         from models import SupportTicket, SupportConversation
 
         ticket = SupportTicket.query.get(ticket_id)
-        if not ticket or ticket.status != 'awaiting_admin_approval':
+        if not ticket:
+            return False
+
+        if ticket.status not in ('awaiting_admin_approval', 'admin_clarifying'):
             return False
 
         conv = SupportConversation(
@@ -362,6 +365,8 @@ class ScoutSupportService:
             email_type='admin_reply',
         )
         db.session.add(conv)
+        ticket.last_message_id = message_id
+        db.session.commit()
 
         decision = self._classify_admin_response(reply_body)
 
@@ -379,6 +384,12 @@ class ScoutSupportService:
             db.session.commit()
             self._send_status_email(ticket, 'on_hold')
             logger.info(f"⏸️ Admin placed ticket {ticket.ticket_number} on hold")
+            return True
+        elif decision == 'admin_question':
+            ticket.status = 'admin_clarifying'
+            db.session.commit()
+            self._handle_admin_question(ticket, reply_body)
+            logger.info(f"💬 Admin asked a question on ticket {ticket.ticket_number} — Scout Support responding")
             return True
         else:
             ticket.status = 'closed'
@@ -939,16 +950,125 @@ resolution_type guide:
             return 'needs_changes'
         return 'needs_changes'
 
+    def _handle_admin_question(self, ticket, admin_message: str):
+        from extensions import db
+        from models import SupportConversation
+
+        conversations = ticket.conversations.order_by(
+            db.text('created_at ASC')
+        ).all()
+
+        history = []
+        for conv in conversations:
+            role = "Admin" if conv.sender_email == ticket.admin_email else ("User" if conv.sender_email == ticket.submitter_email else "Scout Support")
+            history.append(f"[{role}] {conv.body[:500]}")
+
+        try:
+            understanding = json.loads(ticket.ai_understanding) if ticket.ai_understanding else {}
+        except (json.JSONDecodeError, TypeError):
+            understanding = {}
+
+        try:
+            solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
+        except (json.JSONDecodeError, TypeError):
+            solution_data = {}
+
+        prompt = f"""You are Scout Support, an AI assistant for internal ATS (Bullhorn) support operations.
+
+The administrator is reviewing ticket {ticket.ticket_number} for final approval and has a question or comment.
+You need to respond with a clear, thorough answer to help them make their approval decision.
+
+Ticket Details:
+- Subject: {ticket.subject}
+- Category: {CATEGORY_LABELS.get(ticket.category, ticket.category)}
+- Priority: {ticket.priority}
+- Submitted by: {ticket.submitter_name} ({ticket.submitter_email})
+- Department: {ticket.submitter_department or 'Not specified'}
+
+Original Issue:
+{ticket.description}
+
+AI Understanding:
+{understanding.get('understanding', 'Not available')}
+
+Proposed Solution (Technical):
+{solution_data.get('description_admin', solution_data.get('description_user', 'Not available'))}
+
+Execution Steps:
+{json.dumps(solution_data.get('execution_steps', []), indent=2)}
+
+Conversation History:
+{chr(10).join(history)}
+
+Admin's Question/Comment:
+{admin_message}
+
+Respond directly to the admin's question. Be thorough and technical — this is the administrator, not an end user.
+Include any relevant Bullhorn entity details, field names, potential risks, or alternative approaches if applicable.
+
+After answering, remind them they can:
+- Reply "Approved" or "Go ahead" to authorize execution
+- Reply "Hold" to pause the ticket
+- Reply "Reject" or "Close" to cancel
+- Or continue asking questions
+
+Keep your response focused and professional. Do not wrap in JSON — respond in plain text."""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model='gpt-5',
+                messages=[
+                    {'role': 'system', 'content': 'You are Scout Support, an AI ATS support assistant responding to an administrator\'s question during the approval review stage.'},
+                    {'role': 'user', 'content': prompt},
+                ],
+                max_completion_tokens=2048,
+            )
+            answer = response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"❌ Failed to generate admin question response for {ticket.ticket_number}: {e}")
+            answer = (
+                f"I apologize, but I encountered an error while processing your question. "
+                f"Please try rephrasing, or you can:\n"
+                f"- Reply \"Approved\" to authorize the proposed solution\n"
+                f"- Reply \"Hold\" to pause this ticket\n"
+                f"- Reply \"Reject\" to cancel"
+            )
+
+        self._send_email(
+            to_email=ticket.admin_email,
+            subject=f"[{ticket.ticket_number}] {ticket.subject}",
+            body=answer,
+            ticket=ticket,
+            email_type='admin_clarification_response',
+        )
+
+        ticket.status = 'awaiting_admin_approval'
+        db.session.commit()
+        logger.info(f"💬 Responded to admin question on ticket {ticket.ticket_number}")
+
     def _classify_admin_response(self, text: str) -> str:
         text_lower = text.lower().strip()
-        approve_keywords = ['approved', 'approve', 'yes', 'go ahead', 'proceed', 'authorized', 'green light']
-        hold_keywords = ['hold', 'wait', 'pause', 'defer', 'later']
+        words = set(re.findall(r'\b\w+\b', text_lower))
 
-        if any(kw in text_lower for kw in approve_keywords):
-            return 'approved'
-        if any(kw in text_lower for kw in hold_keywords):
+        reject_phrases = ['reject', 'denied', 'deny', 'close this', 'cancel', 'do not proceed', "don't proceed"]
+        if any(phrase in text_lower for phrase in reject_phrases):
+            return 'closed'
+
+        hold_phrases = ['hold', 'wait', 'pause', 'defer', 'hold off']
+        if any(phrase in text_lower for phrase in hold_phrases):
             return 'hold'
-        return 'closed'
+
+        approve_exact_starts = ['approved', 'approve', 'yes', 'go ahead', 'proceed', 'authorized', 'green light', 'looks good']
+        if text_lower in approve_exact_starts or any(text_lower.startswith(kw) for kw in approve_exact_starts):
+            return 'approved'
+        approve_words = {'approved', 'approve', 'authorized'}
+        if words & approve_words and len(text_lower) < 80:
+            return 'approved'
+        approve_phrases = ['go ahead', 'green light', 'looks good, proceed', 'yes, proceed', 'yes, go ahead']
+        if any(phrase in text_lower for phrase in approve_phrases):
+            return 'approved'
+
+        return 'admin_question'
 
     def _execute_solution(self, ticket) -> bool:
         from extensions import db
