@@ -2654,7 +2654,7 @@ Respond with ONLY a JSON object:
             email_type='stakeholder_status_update',
         )
 
-    def _build_quoted_history(self, ticket) -> str:
+    def _build_quoted_history(self, ticket, recipient_email: str = None, is_admin_facing: bool = False) -> str:
         from models import SupportConversation
         convos = SupportConversation.query.filter_by(
             ticket_id=ticket.id,
@@ -2663,8 +2663,24 @@ Respond with ONLY a JSON object:
         if not convos:
             return ''
 
+        ADMIN_ONLY_EMAIL_TYPES = {
+            'admin_approval_request', 'admin_reply', 'admin_clarification_response',
+            'admin_new_ticket_notification', 'completion_admin',
+            'stakeholder_new_ticket', 'stakeholder_completed',
+            'stakeholder_escalated', 'stakeholder_status_update',
+            'escalation_admin_summary',
+        }
+
+        is_user_facing = not is_admin_facing
+
         parts = []
         for c in convos:
+            if is_user_facing and c.email_type in ADMIN_ONLY_EMAIL_TYPES:
+                continue
+            if is_user_facing and c.direction == 'inbound' and c.sender_email and ticket.admin_email:
+                if c.sender_email.lower() == ticket.admin_email.lower():
+                    continue
+
             direction_label = c.sender_email if c.direction == 'inbound' else f"Scout Support ({SCOUT_SUPPORT_EMAIL})"
             timestamp = c.created_at.strftime('%b %d, %Y at %I:%M %p') if c.created_at else ''
             body_text = (c.body or '').strip()
@@ -2692,6 +2708,12 @@ Respond with ONLY a JSON object:
             f'{quoted_html}'
             '</div>'
         )
+
+    ADMIN_FACING_EMAIL_TYPES = {
+        'admin_approval_request', 'admin_reply', 'admin_clarification_response',
+        'admin_new_ticket_notification', 'completion_admin',
+        'escalation_admin_summary',
+    }
 
     def _send_email(self, to_email: str, subject: str, body: str, ticket=None,
                     email_type: str = 'general', cc_email: str = None,
@@ -2724,7 +2746,8 @@ Respond with ONLY a JSON object:
 
             quoted_history = ''
             if ticket:
-                quoted_history = self._build_quoted_history(ticket)
+                is_admin_facing = email_type in self.ADMIN_FACING_EMAIL_TYPES
+                quoted_history = self._build_quoted_history(ticket, recipient_email=to_email, is_admin_facing=is_admin_facing)
 
             html_body = body.replace('\n', '<br>')
             if quoted_history:
