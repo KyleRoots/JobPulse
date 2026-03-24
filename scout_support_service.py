@@ -29,8 +29,8 @@ STSI_STAKEHOLDER_EMAIL = 'jbocek@stsigroup.com'
 
 STSI_ESCALATION_CONTACTS = {
     'email_notifications': 'doneil@q-staffing.com',
-    'backoffice_onboarding': 'evalentine@stsigroup.com',
-    'backoffice_finance': 'evalentine@stsigroup.com',
+    'backoffice_onboarding': 'evalentine@stsigroup.com',  # Emma Valentine
+    'backoffice_finance': 'evalentine@stsigroup.com',  # Emma Valentine
 }
 
 CATEGORY_LABELS = {
