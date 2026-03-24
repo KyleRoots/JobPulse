@@ -276,12 +276,18 @@ def _handle_scout_support_inbound_bg(app_ref, payload):
                 logger.warning(f"⚠️ [BG] Scout Support: No ticket found for subject: {subject}")
                 return
 
-            if sender_clean.lower() == ticket.admin_email.lower():
+            is_admin = sender_clean.lower() == ticket.admin_email.lower()
+            is_submitter = sender_clean.lower() == ticket.submitter_email.lower()
+
+            if is_admin and ticket.status == 'awaiting_admin_approval':
                 svc.handle_admin_reply(ticket.id, body, message_id)
                 logger.info(f"✅ [BG] Scout Support admin reply processed for ticket {ticket.ticket_number}")
-            elif sender_clean.lower() == ticket.submitter_email.lower():
+            elif is_submitter:
                 svc.handle_user_reply(ticket.id, body, message_id)
                 logger.info(f"✅ [BG] Scout Support user reply processed for ticket {ticket.ticket_number}")
+            elif is_admin:
+                svc.handle_admin_reply(ticket.id, body, message_id)
+                logger.info(f"✅ [BG] Scout Support admin reply processed for ticket {ticket.ticket_number}")
             else:
                 logger.warning(f"⚠️ [BG] Scout Support: Sender {sender_clean} not authorized for ticket {ticket.ticket_number}")
 
