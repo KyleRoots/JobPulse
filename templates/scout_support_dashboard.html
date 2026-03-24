@@ -73,6 +73,9 @@
                 <table class="table table-dark table-hover mb-0">
                     <thead>
                         <tr>
+                            {% if current_user.is_admin %}
+                            <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll(this)"></th>
+                            {% endif %}
                             <th>Ticket #</th>
                             <th>Subject</th>
                             <th>Category</th>
@@ -81,13 +84,19 @@
                             {% if current_user.is_admin %}<th>Submitter</th>{% endif %}
                             <th>Created</th>
                             <th>Updated</th>
+                            {% if current_user.is_admin %}<th style="width: 50px;"></th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for ticket in tickets %}
-                        <tr class="ticket-row" data-status="{{ ticket.status }}" style="cursor: pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'">
-                            <td><span class="badge bg-info bg-opacity-25 text-info font-monospace">{{ ticket.ticket_number }}</span></td>
-                            <td>{{ ticket.subject[:60] }}{% if ticket.subject|length > 60 %}...{% endif %}</td>
+                        <tr class="ticket-row" data-status="{{ ticket.status }}" data-ticket="{{ ticket.ticket_number }}">
+                            {% if current_user.is_admin %}
+                            <td onclick="event.stopPropagation();">
+                                <input type="checkbox" class="form-check-input ticket-checkbox" value="{{ ticket.ticket_number }}" onchange="updateBulkActions()">
+                            </td>
+                            {% endif %}
+                            <td style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'"><span class="badge bg-info bg-opacity-25 text-info font-monospace">{{ ticket.ticket_number }}</span></td>
+                            <td style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'">{{ ticket.subject[:60] }}{% if ticket.subject|length > 60 %}...{% endif %}</td>
                             <td>
                                 {% if ticket.category == 'ats_issue' %}<span class="badge bg-primary bg-opacity-25 text-primary">ATS Issue</span>
                                 {% elif ticket.category == 'data_correction' %}<span class="badge bg-warning bg-opacity-25 text-warning">Data Correction</span>
@@ -134,8 +143,15 @@
                             {% if current_user.is_admin %}
                             <td class="text-muted small">{{ ticket.submitter_name }}</td>
                             {% endif %}
-                            <td class="text-muted small">{{ ticket.created_at.strftime('%b %d, %H:%M') if ticket.created_at else '—' }}</td>
-                            <td class="text-muted small">{{ ticket.updated_at.strftime('%b %d, %H:%M') if ticket.updated_at else '—' }}</td>
+                            <td class="text-muted small" style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'">{{ ticket.created_at.strftime('%b %d, %H:%M') if ticket.created_at else '—' }}</td>
+                            <td class="text-muted small" style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'">{{ ticket.updated_at.strftime('%b %d, %H:%M') if ticket.updated_at else '—' }}</td>
+                            {% if current_user.is_admin %}
+                            <td onclick="event.stopPropagation();">
+                                <button class="btn btn-sm btn-outline-danger border-0 px-2 py-1" onclick="deleteSingle('{{ ticket.ticket_number }}')" title="Delete ticket">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -164,6 +180,53 @@ function filterTickets() {
             row.style.display = status === filter ? '' : 'none';
         }
     });
+}
+
+function toggleSelectAll(el) {
+    document.querySelectorAll('.ticket-checkbox').forEach(cb => { cb.checked = el.checked; });
+    updateBulkActions();
+}
+
+function updateBulkActions() {
+    const checked = document.querySelectorAll('.ticket-checkbox:checked');
+    const bulkDiv = document.getElementById('bulkActions');
+    const countSpan = document.getElementById('selectedCount');
+    if (bulkDiv) {
+        if (checked.length > 0) {
+            bulkDiv.classList.remove('d-none');
+            countSpan.textContent = checked.length;
+        } else {
+            bulkDiv.classList.add('d-none');
+        }
+    }
+}
+
+async function deleteSingle(ticketNumber) {
+    if (!confirm('Delete ticket ' + ticketNumber + '? This cannot be undone.')) return;
+    const res = await fetch('/scout-support/ticket/' + ticketNumber + '/delete', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        const row = document.querySelector(`tr[data-ticket="${ticketNumber}"]`);
+        if (row) row.remove();
+    } else {
+        alert('Failed to delete: ' + (data.error || 'Unknown error'));
+    }
+}
+
+async function deleteSelected() {
+    const checked = document.querySelectorAll('.ticket-checkbox:checked');
+    if (checked.length === 0) return;
+    if (!confirm('Delete ' + checked.length + ' ticket(s)? This cannot be undone.')) return;
+    for (const cb of checked) {
+        const res = await fetch('/scout-support/ticket/' + cb.value + '/delete', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            const row = document.querySelector(`tr[data-ticket="${cb.value}"]`);
+            if (row) row.remove();
+        }
+    }
+    updateBulkActions();
+    location.reload();
 }
 </script>
 {% endblock %}
