@@ -925,7 +925,7 @@ resolution_type guide:
 
         history = []
         for conv in conversations:
-            history.append(f"[{conv.direction.upper()}] {conv.sender_email}: {conv.body[:2000]}")
+            history.append(f"[{conv.direction.upper()}] {conv.sender_email}: {conv.body[:10000]}")
 
         attachment_section = ''
         if attachment_content:
