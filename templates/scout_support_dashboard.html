@@ -206,8 +206,7 @@ async function deleteSingle(ticketNumber) {
     const res = await fetch('/scout-support/ticket/' + ticketNumber + '/delete', { method: 'POST' });
     const data = await res.json();
     if (data.success) {
-        const row = document.querySelector(`tr[data-ticket="${ticketNumber}"]`);
-        if (row) row.remove();
+        location.reload();
     } else {
         alert('Failed to delete: ' + (data.error || 'Unknown error'));
     }
