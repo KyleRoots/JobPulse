@@ -1190,7 +1190,17 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
                 ],
                 max_completion_tokens=2048,
             )
-            answer = response.choices[0].message.content.strip()
+            answer = (response.choices[0].message.content or '').strip()
+            if not answer:
+                logger.warning(f"⚠️ AI returned empty response for admin question on {ticket.ticket_number}")
+                answer = (
+                    f"Thank you for your feedback. If you're ready to proceed, please reply with "
+                    f"\"Approved\" or \"Go ahead\" to authorize execution of the proposed fix.\n\n"
+                    f"You can also:\n"
+                    f"- Reply \"Hold\" to pause this ticket\n"
+                    f"- Reply \"Reject\" or \"Close\" to cancel\n"
+                    f"- Or ask any questions about the proposed solution"
+                )
         except Exception as e:
             logger.error(f"❌ Failed to generate admin question response for {ticket.ticket_number}: {e}")
             answer = (
@@ -1258,7 +1268,9 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
             options_desc = (
                 "- 'approved' — The admin is giving permission to proceed with the fix. This includes explicit approvals "
                 "(\"Approved\", \"Yes\", \"Go ahead\") AND natural language consent (\"Okay, make that change\", "
-                "\"Sure, do it\", \"Let's just ensure the field is changed... you can go ahead\"). "
+                "\"Sure, do it\", \"Let's just ensure the field is changed... you can go ahead\") AND short positive "
+                "affirmations (\"Good\", \"Good.\", \"Ok\", \"Fine\", \"Perfect\", \"Great\", \"Sounds good\", \"Correct\", "
+                "\"Yep\", \"Sure\", \"Absolutely\"). "
                 "The response may also include additional context, notes, caveats, or instructions alongside the approval — "
                 "that still counts as approved. If the admin says to proceed with the fix in ANY way, classify as approved.\n"
                 "- 'hold' — The admin explicitly wants to pause or defer the ticket (\"Hold off\", \"Let's wait\", \"Put this on hold\").\n"
@@ -1317,11 +1329,16 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
             'go ahead', 'green light', 'looks good', 'yes, proceed', 'yes, go ahead',
             'proceed', 'you can go ahead', 'approved', 'approve', 'authorize',
             'do it', 'execute', 'make the change', 'yes please', 'that is correct',
+            'sounds good', 'that works', "that's fine", 'all good', 'no issues',
+            'good to go', 'lgtm', 'ship it',
         ]
         if any(phrase in text_lower for phrase in approve_phrases):
             return 'approved'
 
-        approve_exact_starts = ['approved', 'approve', 'yes', 'go ahead', 'proceed', 'authorized', 'green light', 'looks good']
+        approve_exact_starts = ['approved', 'approve', 'yes', 'go ahead', 'proceed', 'authorized',
+                                'green light', 'looks good', 'good', 'ok', 'okay', 'fine',
+                                'sure', 'perfect', 'great', 'agreed', 'confirmed', 'affirmative',
+                                'yep', 'yup', 'absolutely', 'correct']
         if text_lower in approve_exact_starts or any(text_lower.startswith(kw) for kw in approve_exact_starts):
             return 'approved'
         approve_words = {'approved', 'approve', 'authorized'}
