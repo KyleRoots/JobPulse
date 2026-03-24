@@ -1695,7 +1695,7 @@ Respond with ONLY a JSON object:
                 assoc_field = note_entity_map[entity_type]
                 api_user_id = self.bullhorn_service.user_id
                 note_data = {
-                    'action': 'Scout Support',
+                    'action': self._get_bullhorn_note_action(entity_type),
                     'comments': note_text,
                     'isDeleted': False,
                 }
@@ -1817,7 +1817,7 @@ Respond with ONLY a JSON object:
             return {'step': step.get('description', 'Create note'), 'result': 'Failed — no API user ID'}
 
         note_data = {
-            'action': note_action or 'Scout Support',
+            'action': self._get_bullhorn_note_action(entity_type),
             'comments': note_text,
             'isDeleted': False,
             'personReference': {'id': int(api_user_id)},
@@ -1862,6 +1862,16 @@ Respond with ONLY a JSON object:
             logger.error(f"❌ Note creation failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {error_detail}")
             return {'step': f"Create note on {entity_type} #{entity_id}", 'result': f'Failed — HTTP {response.status_code}'}
 
+    BULLHORN_NOTE_ACTIONS = {
+        'JobOrder': 'Job Update',
+        'Candidate': 'General Notes',
+        'ClientContact': 'General Notes',
+        'Placement': 'General Notes',
+    }
+
+    def _get_bullhorn_note_action(self, entity_type: str) -> str:
+        return self.BULLHORN_NOTE_ACTIONS.get(entity_type, 'General Notes')
+
     def _link_note_via_note_entity(self, note_id, entity_type: str, entity_id: int, params: dict):
         logger.info(f"📝 Attempting to link Note #{note_id} → {entity_type} #{entity_id}")
 
@@ -1873,45 +1883,13 @@ Respond with ONLY a JSON object:
         ne_url = f"{self.bullhorn_service.base_url}entity/NoteEntity"
         try:
             ne_resp = self.bullhorn_service.session.put(ne_url, params=params, json=note_entity_data, timeout=30)
-            ne_body = ne_resp.text[:500] if ne_resp.text else 'empty'
-            logger.info(f"📝 [1/4] NoteEntity PUT: HTTP {ne_resp.status_code} — {ne_body}")
+            if ne_resp.status_code == 200:
+                logger.info(f"📝 NoteEntity link OK: Note #{note_id} → {entity_type} #{entity_id}")
+            else:
+                ne_body = ne_resp.text[:300] if ne_resp.text else 'empty'
+                logger.warning(f"⚠️ NoteEntity link HTTP {ne_resp.status_code}: {ne_body}")
         except Exception as e:
-            logger.warning(f"⚠️ [1/4] NoteEntity PUT error: {e}")
-
-        assoc_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}/jobOrders/{entity_id}"
-        try:
-            assoc_resp = self.bullhorn_service.session.put(assoc_url, params=params, timeout=30)
-            assoc_body = assoc_resp.text[:500] if assoc_resp.text else 'empty'
-            logger.info(f"📝 [2/4] Association PUT: HTTP {assoc_resp.status_code} — {assoc_body}")
-        except Exception as e:
-            logger.warning(f"⚠️ [2/4] Association PUT error: {e}")
-
-        post_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}"
-        post_data = {'jobOrders': {'replaceAll': [{'id': int(entity_id)}]}}
-        try:
-            post_resp = self.bullhorn_service.session.post(post_url, params=params, json=post_data, timeout=30)
-            post_body = post_resp.text[:500] if post_resp.text else 'empty'
-            logger.info(f"📝 [3/4] POST replaceAll: HTTP {post_resp.status_code} — {post_body}")
-        except Exception as e:
-            logger.warning(f"⚠️ [3/4] POST replaceAll error: {e}")
-
-        verify_note_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}"
-        verify_params = {**params, 'fields': 'id,action,comments,personReference,jobOrders,isDeleted'}
-        try:
-            verify_resp = self.bullhorn_service.session.get(verify_note_url, params=verify_params, timeout=30)
-            verify_body = verify_resp.text[:800] if verify_resp.text else 'empty'
-            logger.info(f"📝 [4/4] VERIFY Note #{note_id}: HTTP {verify_resp.status_code} — {verify_body}")
-        except Exception as e:
-            logger.warning(f"⚠️ [4/4] VERIFY error: {e}")
-
-        verify_jo_url = f"{self.bullhorn_service.base_url}entity/JobOrder/{entity_id}/notes"
-        verify_jo_params = {**params, 'fields': 'id,action,comments', 'count': '10'}
-        try:
-            verify_jo_resp = self.bullhorn_service.session.get(verify_jo_url, params=verify_jo_params, timeout=30)
-            verify_jo_body = verify_jo_resp.text[:800] if verify_jo_resp.text else 'empty'
-            logger.info(f"📝 [VERIFY-JO] JobOrder #{entity_id} notes: HTTP {verify_jo_resp.status_code} — {verify_jo_body}")
-        except Exception as e:
-            logger.warning(f"⚠️ [VERIFY-JO] error: {e}")
+            logger.warning(f"⚠️ NoteEntity link error: {e}")
 
     def _exec_create_submission(self, action, step: dict) -> Dict:
         candidate_id = step.get('candidate_id')
