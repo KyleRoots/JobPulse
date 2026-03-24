@@ -2579,7 +2579,7 @@ Respond with ONLY a JSON object:
 
         self._send_email(
             to_email=ticket.admin_email,
-            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            subject=f"[{ticket.ticket_number}] Admin Approval Required",
             body="\n".join(body_parts),
             ticket=ticket,
             email_type='admin_approval_request',
@@ -2622,7 +2622,7 @@ Respond with ONLY a JSON object:
 
         self._send_email(
             to_email=ticket.admin_email,
-            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            subject=f"[{ticket.ticket_number}] Execution Failed ⚠️ — Action Required",
             body="\n".join(admin_body_parts),
             ticket=ticket,
             email_type='admin_execution_failure',
@@ -2930,6 +2930,7 @@ Respond with ONLY a JSON object:
             success = result.get('success', False) if isinstance(result, dict) else bool(result)
 
             if ticket:
+                is_admin = email_type in self.ADMIN_FACING_EMAIL_TYPES
                 conv = SupportConversation(
                     ticket_id=ticket.id,
                     direction='outbound',
@@ -2943,7 +2944,8 @@ Respond with ONLY a JSON object:
                 db.session.add(conv)
                 if not getattr(ticket, 'thread_message_id', None):
                     ticket.thread_message_id = msg_id
-                ticket.last_message_id = msg_id
+                if not is_admin:
+                    ticket.last_message_id = msg_id
                 db.session.commit()
 
             if success:
