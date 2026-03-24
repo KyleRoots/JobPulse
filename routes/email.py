@@ -258,6 +258,31 @@ def _handle_scout_support_inbound_bg(app_ref, payload):
             text_body = payload.get('text', '')
             html_body = payload.get('html', '')
 
+            if not text_body and not html_body:
+                raw_email = payload.get('email', '')
+                if raw_email:
+                    import email as email_lib
+                    if isinstance(raw_email, bytes):
+                        msg = email_lib.message_from_bytes(raw_email)
+                    else:
+                        msg = email_lib.message_from_string(raw_email)
+                    if not sender_email:
+                        sender_email = msg.get('From', '')
+                    if not subject:
+                        subject = msg.get('Subject', '')
+                    if msg.is_multipart():
+                        for part in msg.walk():
+                            ctype = part.get_content_type()
+                            if ctype == 'text/plain' and not text_body:
+                                text_body = part.get_payload(decode=True).decode('utf-8', errors='replace')
+                            elif ctype == 'text/html' and not html_body:
+                                html_body = part.get_payload(decode=True).decode('utf-8', errors='replace')
+                    else:
+                        payload_text = msg.get_payload(decode=True)
+                        if payload_text:
+                            text_body = payload_text.decode('utf-8', errors='replace')
+                    logger.info(f"📨 [BG] Parsed raw MIME for Scout Support: text={len(text_body or '')} chars, html={len(html_body or '')} chars")
+
             email_match = re.search(r'[\w.+-]+@[\w.-]+', sender_email)
             sender_clean = email_match.group(0) if email_match else sender_email
 
