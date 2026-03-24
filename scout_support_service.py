@@ -25,6 +25,14 @@ SCOUT_SUPPORT_EMAIL = 'support@scoutgenius.ai'
 SCOUT_SUPPORT_NAME = 'Scout Support'
 DEFAULT_ADMIN_EMAIL = 'kroots@myticas.com'
 
+STSI_STAKEHOLDER_EMAIL = 'jbocek@stsigroup.com'
+
+STSI_ESCALATION_CONTACTS = {
+    'email_notifications': 'doneil@q-staffing.com',
+    'backoffice_onboarding': 'evalentine@stsigroup.com',
+    'backoffice_finance': 'evalentine@stsigroup.com',
+}
+
 CATEGORY_LABELS = {
     'ats_issue': 'ATS / Bullhorn Issue',
     'data_correction': 'Data Correction Request',
@@ -38,11 +46,13 @@ CATEGORY_LABELS = {
     'backoffice_finance': 'Back-Office: Finance (BTE)',
 }
 
-AI_FULL_CATEGORIES = ['ats_issue', 'candidate_parsing', 'job_posting', 'account_access', 'data_correction']
+AI_FULL_CATEGORIES = ['ats_issue', 'candidate_parsing', 'job_posting', 'account_access', 'data_correction',
+                      'email_notifications', 'feature_request', 'other',
+                      'backoffice_onboarding', 'backoffice_finance']
 
-HANDOFF_CATEGORIES = ['email_notifications', 'feature_request', 'other']
+HANDOFF_CATEGORIES = []
 
-BACKOFFICE_CATEGORIES = ['backoffice_onboarding', 'backoffice_finance']
+BACKOFFICE_CATEGORIES = []
 
 
 def get_backoffice_cc(category: str, department: str, brand: str) -> List[str]:
@@ -546,6 +556,26 @@ class ScoutSupportService:
             logger.warning(f"GPT vision image description failed for {filename}: {e}")
             return f"[Image attached: {filename} — vision analysis failed]"
 
+    def _get_stakeholder_emails(self, ticket) -> List[str]:
+        if ticket.brand == 'STSI':
+            return [STSI_STAKEHOLDER_EMAIL]
+        return []
+
+    def _notify_stakeholders(self, ticket, subject: str, body: str, email_type: str):
+        stakeholders = self._get_stakeholder_emails(ticket)
+        for email in stakeholders:
+            try:
+                self._send_email(
+                    to_email=email,
+                    subject=subject,
+                    body=body,
+                    ticket=None,
+                    email_type=email_type,
+                )
+                logger.info(f"📧 Stakeholder notification ({email_type}) sent to {email} for {ticket.ticket_number}")
+            except Exception as e:
+                logger.warning(f"Failed to send stakeholder notification to {email} for {ticket.ticket_number}: {e}")
+
     def _send_admin_new_ticket_notification(self, ticket):
         try:
             category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
@@ -558,7 +588,8 @@ class ScoutSupportService:
                 f"**Priority:** {priority_label}\n"
                 f"**Subject:** {ticket.subject}\n"
                 f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})\n"
-                f"**Department:** {ticket.submitter_department or 'Not specified'}\n\n"
+                f"**Department:** {ticket.submitter_department or 'Not specified'}\n"
+                f"**Brand:** {ticket.brand}\n\n"
                 f"Scout Support AI is now processing this ticket. You will receive updates as the ticket progresses."
             )
 
@@ -569,6 +600,14 @@ class ScoutSupportService:
                 ticket=None,
                 email_type='admin_new_ticket_notification',
             )
+
+            self._notify_stakeholders(
+                ticket,
+                subject=f"[New Ticket] [{ticket.ticket_number}] {ticket.subject}",
+                body=body,
+                email_type='stakeholder_new_ticket',
+            )
+
             logger.info(f"📧 Admin notification sent for new ticket {ticket.ticket_number}")
         except Exception as e:
             logger.warning(f"Failed to send admin notification for {ticket.ticket_number}: {e}")
@@ -1636,12 +1675,32 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
 
         admin_body = "\n".join(admin_parts)
 
+        escalation_admin_cc = []
+        stsi_escalation = STSI_ESCALATION_CONTACTS.get(ticket.category) if ticket.brand == 'STSI' else None
+        if stsi_escalation:
+            escalation_admin_cc.append(stsi_escalation)
+
         self._send_email(
             to_email=DEFAULT_ADMIN_EMAIL,
             subject=f"[ESCALATED] [{ticket.ticket_number}] {ticket.subject}",
             body=admin_body,
             ticket=ticket,
             email_type='escalation_admin_summary',
+            cc_emails=escalation_admin_cc if escalation_admin_cc else None,
+        )
+
+        self._notify_stakeholders(
+            ticket,
+            subject=f"[{ticket.ticket_number}] Escalated",
+            body=(
+                f"**Ticket Escalated:** {ticket.ticket_number}\n\n"
+                f"**Subject:** {ticket.subject}\n"
+                f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+                f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}\n"
+                f"**Reason:** {reason}\n\n"
+                f"— Scout Support"
+            ),
+            email_type='stakeholder_escalated',
         )
 
         logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated to {DEFAULT_ADMIN_EMAIL}: {reason}")
@@ -1934,6 +1993,22 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
             email_type='completion_admin',
         )
 
+        stakeholder_body = (
+            f"**Ticket Resolved:** {ticket.ticket_number}\n\n"
+            f"**Subject:** {ticket.subject}\n"
+            f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+            f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}\n"
+            f"**Resolution Type:** {resolution_type.upper()}\n\n"
+            f"**What was done:**\n{proof_text}\n\n"
+            f"— Scout Support"
+        )
+        self._notify_stakeholders(
+            ticket,
+            subject=f"[{ticket.ticket_number}] Resolved ✅",
+            body=stakeholder_body,
+            email_type='stakeholder_completed',
+        )
+
     def _send_escalation_email(self, ticket, reason: str):
         user_body = (
             f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},\n\n"
@@ -1943,13 +2018,33 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
             f"Someone from the team will follow up with you directly.\n\n"
             f"— Scout Support"
         )
+        escalation_cc = [ticket.admin_email]
+        stsi_escalation = STSI_ESCALATION_CONTACTS.get(ticket.category) if ticket.brand == 'STSI' else None
+        if stsi_escalation:
+            escalation_cc.append(stsi_escalation)
+
         self._send_email(
             to_email=ticket.submitter_email,
-            cc_email=ticket.admin_email,
+            cc_emails=escalation_cc,
             subject=f"[{ticket.ticket_number}] Escalated to Support Team",
             body=user_body,
             ticket=ticket,
             email_type='escalation',
+        )
+
+        stakeholder_body = (
+            f"**Ticket Escalated:** {ticket.ticket_number}\n\n"
+            f"**Subject:** {ticket.subject}\n"
+            f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+            f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}\n"
+            f"**Reason:** {reason}\n\n"
+            f"— Scout Support"
+        )
+        self._notify_stakeholders(
+            ticket,
+            subject=f"[{ticket.ticket_number}] Escalated",
+            body=stakeholder_body,
+            email_type='stakeholder_escalated',
         )
 
     def _send_status_email(self, ticket, new_status: str):
@@ -1971,6 +2066,20 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
             body=body,
             ticket=ticket,
             email_type='status_update',
+        )
+
+        stakeholder_body = (
+            f"**Ticket Status Update:** {ticket.ticket_number}\n\n"
+            f"**Subject:** {ticket.subject}\n"
+            f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+            f"**New Status:** {new_status.replace('_', ' ').title()}\n\n"
+            f"— Scout Support"
+        )
+        self._notify_stakeholders(
+            ticket,
+            subject=f"[{ticket.ticket_number}] {new_status.replace('_', ' ').title()}",
+            body=stakeholder_body,
+            email_type='stakeholder_status_update',
         )
 
     def _send_email(self, to_email: str, subject: str, body: str, ticket=None,

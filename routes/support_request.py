@@ -57,8 +57,8 @@ _TECH_SUPPORT_EMAIL = 'techsupport@myticas.com'
 _BCC_ALWAYS = 'kroots@myticas.com'
 _CC_ALWAYS = []
 
-_STSI_CC_ALWAYS = ['jbocek@stsigroup.com']
-_STSI_DEFAULT_EMAIL = 'jbocek@stsigroup.com'
+_STSI_CC_ALWAYS = []
+_STSI_DEFAULT_EMAIL = 'kroots@myticas.com'
 _STSI_EMAIL_NOTIFICATIONS_EMAIL = 'doneil@q-staffing.com'
 _STSI_BACKOFFICE_EMAIL = 'evalentine@stsigroup.com'
 
