@@ -2249,8 +2249,9 @@ Respond with ONLY a JSON object:
         if not ticket:
             return {'success': False, 'error': 'Ticket not found'}
 
-        if ticket.status != 'execution_failed':
-            return {'success': False, 'error': f'Cannot retry — ticket status is "{ticket.status}", expected "execution_failed"'}
+        retryable_statuses = ('execution_failed', 'completed')
+        if ticket.status not in retryable_statuses:
+            return {'success': False, 'error': f'Cannot retry — ticket status is "{ticket.status}"'}
 
         SupportAction.query.filter_by(ticket_id=ticket.id).delete()
         ticket.execution_proof = None
