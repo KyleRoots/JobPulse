@@ -111,3 +111,24 @@ def api_escalate_ticket(ticket_number):
     success = svc.escalate_ticket(ticket.id, reason)
 
     return jsonify({'success': success})
+
+
+@scout_support_bp.route('/scout-support/ticket/<ticket_number>/delete', methods=['POST'])
+@login_required
+def delete_ticket(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket, SupportConversation, SupportAction
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    SupportAction.query.filter_by(ticket_id=ticket.id).delete()
+    SupportConversation.query.filter_by(ticket_id=ticket.id).delete()
+    db.session.delete(ticket)
+    db.session.commit()
+
+    logger.info(f"🗑️ Admin deleted ticket {ticket_number}")
+    return jsonify({'success': True, 'message': f'Ticket {ticket_number} deleted'})

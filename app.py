@@ -348,6 +348,10 @@ from routes.health import cron_send_digest, cron_scout_vetting_followups
 csrf.exempt(cron_send_digest)
 csrf.exempt(cron_scout_vetting_followups)
 
+# Exempt Scout Support admin JSON endpoints from CSRF (behind login + admin check)
+from routes.scout_support import delete_ticket
+csrf.exempt(delete_ticket)
+
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
