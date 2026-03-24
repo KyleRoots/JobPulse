@@ -1704,9 +1704,10 @@ Respond with ONLY a JSON object:
                     note_data['candidates'] = [{'id': int(entity_id)}]
                 elif entity_type == 'ClientContact':
                     note_data['personReference'] = {'id': int(entity_id)}
-                else:
-                    if api_user_id:
-                        note_data['personReference'] = {'id': int(api_user_id)}
+                elif entity_type == 'JobOrder':
+                    note_data['jobOrders'] = [{'id': int(entity_id)}]
+                elif entity_type == 'Placement':
+                    note_data['placements'] = [{'id': int(entity_id)}]
 
                 if api_user_id:
                     note_data['commentingPerson'] = {'id': int(api_user_id)}
@@ -1719,9 +1720,6 @@ Respond with ONLY a JSON object:
                     data = response.json() if response.text else {}
                     note_id = data.get('changedEntityId', 'unknown')
                     logger.info(f"📝 Audit note #{note_id} created for {entity_type} #{entity_id} for ticket {ticket.ticket_number}")
-
-                    if entity_type in ('JobOrder', 'Placement') and note_id and note_id != 'unknown':
-                        self._link_note_via_note_entity(note_id, entity_type, entity_id, params)
                 else:
                     logger.warning(f"⚠️ Audit note failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {response.text[:200] if response.text else ''}")
 
@@ -1820,7 +1818,6 @@ Respond with ONLY a JSON object:
             'action': self._get_bullhorn_note_action(entity_type),
             'comments': note_text,
             'isDeleted': False,
-            'personReference': {'id': int(api_user_id)},
             'commentingPerson': {'id': int(api_user_id)},
         }
 
@@ -1829,6 +1826,10 @@ Respond with ONLY a JSON object:
             note_data['candidates'] = [{'id': int(entity_id)}]
         elif entity_type == 'ClientContact':
             note_data['personReference'] = {'id': int(entity_id)}
+        elif entity_type == 'JobOrder':
+            note_data['jobOrders'] = [{'id': int(entity_id)}]
+        elif entity_type == 'Placement':
+            note_data['placements'] = [{'id': int(entity_id)}]
 
         url = f"{self.bullhorn_service.base_url}entity/Note"
         params = {'BhRestToken': self.bullhorn_service.rest_token}
@@ -1848,9 +1849,6 @@ Respond with ONLY a JSON object:
             data = response.json() if response.text else {}
             note_id = data.get('changedEntityId', 'unknown')
             logger.info(f"📝 Note #{note_id} created for {entity_type} #{entity_id}")
-
-            if entity_type in ('JobOrder', 'Placement') and note_id and note_id != 'unknown':
-                self._link_note_via_note_entity(note_id, entity_type, entity_id, params)
 
             action.success = True
             action.new_value = f"Note #{note_id}"
