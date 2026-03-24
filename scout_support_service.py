@@ -166,12 +166,12 @@ class ScoutSupportService:
         )
 
         if needs_clarification_first:
-            if not has_clarification:
-                parsed['clarification_needed'] = True
-                parsed.setdefault('clarification_questions', [
+            parsed['clarification_needed'] = True
+            if not parsed.get('clarification_questions'):
+                parsed['clarification_questions'] = [
                     'Could you provide any additional details or context about this issue?'
-                ])
-                understanding = json.dumps(parsed)
+                ]
+            understanding = json.dumps(parsed)
 
         ticket.ai_understanding = understanding
         ticket.status = 'acknowledged'
