@@ -1201,6 +1201,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                         cc_emails: list = None,
                         bcc_emails: list = None,
                         in_reply_to: str = None,
+                        references: str = None,
                         reply_to: str = None,
                         from_name: str = None,
                         from_email: str = None,
@@ -1228,11 +1229,13 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 from sendgrid.helpers.mail import ReplyTo
                 message.reply_to = ReplyTo(reply_to)
             
-            # Add In-Reply-To and References headers (for email threading)
-            if in_reply_to:
+            if in_reply_to or references:
                 from sendgrid.helpers.mail import Header
-                message.header = Header('In-Reply-To', in_reply_to)
-                message.header = Header('References', in_reply_to)
+                if in_reply_to:
+                    message.header = Header('In-Reply-To', in_reply_to)
+                refs = references or in_reply_to
+                if refs:
+                    message.header = Header('References', refs)
             
             # Add CC recipients if provided
             if cc_emails:

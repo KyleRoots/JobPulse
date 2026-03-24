@@ -471,11 +471,13 @@ class ScoutSupportService:
 
                 elif ext in ('png', 'jpg', 'jpeg', 'gif') or content_type.startswith('image/'):
                     description = self._describe_image(data, content_type, filename)
-                    if description and 'vision analysis failed' not in description and 'vision not available' not in description:
+                    is_failure = not description or any(marker in (description or '') for marker in [
+                        'vision analysis failed', 'vision not available', 'vision analysis returned empty'
+                    ])
+                    if not is_failure:
                         extracted_parts.append(f"[Image: {filename}]\n{description}")
                         self._attachment_results.append({'filename': filename, 'status': 'read', 'type': 'image'})
                     else:
-                        extracted_parts.append(f"[Image: {filename}]\n{description}")
                         self._attachment_results.append({'filename': filename, 'status': 'failed', 'type': 'image'})
 
                 elif ext == 'xlsx' or 'spreadsheet' in content_type:
@@ -597,35 +599,56 @@ class ScoutSupportService:
         mime = content_type if content_type.startswith('image/') else 'image/png'
         logger.info(f"🖼️ Sending {filename} ({len(data)} bytes, {mime}) to GPT-5 vision...")
 
-        try:
-            response = self.openai_client.chat.completions.create(
-                model='gpt-5',
-                messages=[
-                    {
-                        'role': 'user',
-                        'content': [
-                            {
-                                'type': 'text',
-                                'text': (
-                                    'This image was attached to an internal ATS (Bullhorn) support ticket. '
-                                    'Describe what you see in detail — focus on any error messages, field values, '
-                                    'record IDs, status values, screen names, or other information that would help '
-                                    'diagnose and resolve the issue. Be specific and factual.'
-                                ),
-                            },
-                            {
-                                'type': 'image_url',
-                                'image_url': {'url': f"data:{mime};base64,{b64}"},
-                            },
-                        ],
-                    }
-                ],
-                max_completion_tokens=1024,
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.warning(f"GPT vision image description failed for {filename}: {e}")
-            return f"[Image attached: {filename} — vision analysis failed]"
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = self.openai_client.chat.completions.create(
+                    model='gpt-5',
+                    messages=[
+                        {
+                            'role': 'user',
+                            'content': [
+                                {
+                                    'type': 'text',
+                                    'text': (
+                                        'This image was attached to an internal ATS (Bullhorn) support ticket. '
+                                        'Describe what you see in detail — focus on any error messages, field values, '
+                                        'record IDs, status values, screen names, or other information that would help '
+                                        'diagnose and resolve the issue. Be specific and factual.'
+                                    ),
+                                },
+                                {
+                                    'type': 'image_url',
+                                    'image_url': {'url': f"data:{mime};base64,{b64}"},
+                                },
+                            ],
+                        }
+                    ],
+                    max_completion_tokens=1024,
+                )
+                content = None
+                if response.choices and response.choices[0].message:
+                    content = response.choices[0].message.content
+                description = (content or '').strip()
+                if description:
+                    logger.info(f"🖼️ Vision success for {filename} (attempt {attempt}): {len(description)} chars")
+                    return description
+                else:
+                    refusal = getattr(response.choices[0].message, 'refusal', None) if response.choices else None
+                    logger.warning(f"🖼️ Vision returned empty for {filename} (attempt {attempt}), refusal={refusal}")
+                    if attempt < max_attempts:
+                        import time
+                        time.sleep(2)
+                        continue
+                    return f"[Image attached: {filename} — vision analysis returned empty]"
+            except Exception as e:
+                logger.warning(f"GPT vision image description failed for {filename} (attempt {attempt}): {e}")
+                if attempt < max_attempts:
+                    import time
+                    time.sleep(2)
+                    continue
+                return f"[Image attached: {filename} — vision analysis failed]"
+        return f"[Image attached: {filename} — vision analysis failed]"
 
     def _get_stakeholder_emails(self, ticket) -> List[str]:
         if ticket.brand == 'STSI':
@@ -902,7 +925,7 @@ resolution_type guide:
 
         history = []
         for conv in conversations:
-            history.append(f"[{conv.direction.upper()}] {conv.sender_email}: {conv.body[:500]}")
+            history.append(f"[{conv.direction.upper()}] {conv.sender_email}: {conv.body[:2000]}")
 
         attachment_section = ''
         if attachment_content:
@@ -919,15 +942,21 @@ context. Screenshots may show error messages, field values, or Bullhorn screens 
 Original issue: {ticket.subject}
 Category: {CATEGORY_LABELS.get(ticket.category, ticket.category)}
 
-Conversation history:
+Full conversation history (oldest first):
 {chr(10).join(history)}
 
-Latest reply from user:
+Latest reply from user (may include quoted text with inline answers):
 {reply_body}{attachment_section}
 
 Current AI understanding: {ticket.ai_understanding or 'Not yet established'}
 
 Analyze whether you now fully understand the issue and can propose a solution.
+
+CRITICAL — Do NOT re-ask questions the user has already answered:
+- Read the FULL conversation history carefully, including quoted text and inline replies.
+- Users often reply by inserting answers directly below each question in the quoted email.
+- If the user has answered a question (even partially), acknowledge that answer and do NOT ask it again.
+- Only ask NEW clarification questions about genuinely missing information.
 
 Important: Consider whether there might be deeper underlying issues beyond the immediate fix.
 Many ATS problems have both an immediate resolution AND a root cause that may need the
@@ -1685,7 +1714,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
 
         self._send_email(
             to_email=ticket.submitter_email,
-            subject=f"[{ticket.ticket_number}] {'Issue Resolved ✅' if new_status == 'completed' else 'Ticket Closed'}",
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body=user_body,
             ticket=ticket,
             email_type=f'manual_{status_label}',
@@ -1773,7 +1802,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
 
         self._send_email(
             to_email=ticket.submitter_email,
-            subject=f"[{ticket.ticket_number}] {ticket.subject}",
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body=user_body,
             ticket=ticket,
             email_type='escalation_user_notice',
@@ -1984,7 +2013,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
 
         self._send_email(
             to_email=ticket.submitter_email,
-            subject=f"Re: [{ticket.ticket_number}] Solution Proposed",
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body="\n".join(body_parts),
             ticket=ticket,
             email_type='solution_proposal',
@@ -2001,7 +2030,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
         )
         self._send_email(
             to_email=ticket.submitter_email,
-            subject=f"Re: [{ticket.ticket_number}] Approval Received",
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body=body,
             ticket=ticket,
             email_type='user_confirmation',
@@ -2116,7 +2145,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
 
         self._send_email(
             to_email=ticket.submitter_email,
-            subject=f"[{ticket.ticket_number}] Issue Resolved ✅",
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body="\n".join(user_body_parts),
             ticket=ticket,
             email_type='completion_user',
@@ -2257,8 +2286,14 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
             msg_id = f"<scout-support-{uuid.uuid4().hex[:12]}@scoutgenius.ai>"
 
             in_reply_to = None
+            references = None
             if ticket and ticket.last_message_id:
                 in_reply_to = ticket.last_message_id
+                thread_id = getattr(ticket, 'thread_message_id', None) or ''
+                if thread_id and thread_id != in_reply_to:
+                    references = f"{thread_id} {in_reply_to}"
+                else:
+                    references = in_reply_to
 
             if cc_emails:
                 cc_list = list(cc_emails)
@@ -2276,6 +2311,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
                 notification_type=email_type,
                 cc_emails=cc_list if cc_list else None,
                 in_reply_to=in_reply_to,
+                references=references,
                 reply_to=SCOUT_SUPPORT_EMAIL,
                 from_name=SCOUT_SUPPORT_NAME,
                 from_email=SCOUT_SUPPORT_EMAIL,
@@ -2295,6 +2331,8 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
                     email_type=email_type,
                 )
                 db.session.add(conv)
+                if not getattr(ticket, 'thread_message_id', None):
+                    ticket.thread_message_id = msg_id
                 ticket.last_message_id = msg_id
                 db.session.commit()
 
