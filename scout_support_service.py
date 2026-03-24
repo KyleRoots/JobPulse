@@ -1387,6 +1387,7 @@ Important:
 Respond with ONLY a JSON object:
 {{"execution_steps": [...], "description_user": "Updated plain-language description of what will happen", "description_admin": "Updated technical description"}}"""
 
+        try:
             response = self.openai_client.chat.completions.create(
                 model='gpt-5',
                 messages=[
