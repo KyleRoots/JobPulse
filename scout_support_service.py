@@ -148,8 +148,9 @@ class ScoutSupportService:
 
         confidence = parsed.get('confidence_level', 'high')
         can_resolve = parsed.get('can_resolve_autonomously', True)
+        has_clarification = parsed.get('clarification_needed', False)
 
-        if confidence == 'low' and not parsed.get('clarification_needed', False):
+        if confidence == 'low' and not has_clarification:
             ticket.ai_understanding = understanding
             ticket.status = 'escalated'
             escalation_reason = parsed.get('escalation_reason', 'AI determined it cannot fully resolve this issue.')
@@ -160,12 +161,24 @@ class ScoutSupportService:
             logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated — AI confidence: {confidence}, can_resolve: {can_resolve}")
             return True
 
+        needs_clarification_first = (
+            confidence in ('low', 'medium') or not can_resolve
+        )
+
+        if needs_clarification_first:
+            if not has_clarification:
+                parsed['clarification_needed'] = True
+                parsed.setdefault('clarification_questions', [
+                    'Could you provide any additional details or context about this issue?'
+                ])
+                understanding = json.dumps(parsed)
+
         ticket.ai_understanding = understanding
         ticket.status = 'acknowledged'
         db.session.commit()
 
         self._send_acknowledgment_email(ticket, understanding)
-        logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged (AI full, confidence={confidence}), email sent to {ticket.submitter_email}")
+        logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged (AI full, confidence={confidence}, clarify_first={needs_clarification_first}), email sent to {ticket.submitter_email}")
         return True
 
     def _process_handoff_ticket(self, ticket) -> bool:
