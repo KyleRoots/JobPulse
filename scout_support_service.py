@@ -174,8 +174,15 @@ class ScoutSupportService:
 
         attachment_content = ''
         if hasattr(self, '_attachment_data') and self._attachment_data:
+            logger.info(f"📎 Ticket {ticket.ticket_number}: Processing {len(self._attachment_data)} attachment(s)")
             attachment_content = self._extract_attachment_content(self._attachment_data)
             self._attachment_data = None
+            if attachment_content:
+                logger.info(f"📎 Ticket {ticket.ticket_number}: Extracted {len(attachment_content)} chars of attachment content")
+            else:
+                logger.warning(f"📎 Ticket {ticket.ticket_number}: Attachment extraction returned empty content")
+        else:
+            logger.info(f"📎 Ticket {ticket.ticket_number}: No attachments to process")
 
         understanding = self._generate_understanding(ticket, attachment_content=attachment_content)
         if not understanding:
@@ -527,6 +534,7 @@ class ScoutSupportService:
         import base64
         b64 = base64.b64encode(data).decode('utf-8')
         mime = content_type if content_type.startswith('image/') else 'image/png'
+        logger.info(f"🖼️ Sending {filename} ({len(data)} bytes, {mime}) to GPT-5 vision...")
 
         try:
             response = self.openai_client.chat.completions.create(
