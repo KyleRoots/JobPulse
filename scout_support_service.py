@@ -1999,6 +1999,38 @@ Respond with ONLY a JSON object:
 
     def _exec_create_entity(self, action, entity_type: str, step: dict) -> Dict:
         entity_data = step.get('entity_data', {})
+
+        if entity_type == 'Note':
+            target_entity_id = step.get('target_entity_id') or step.get('entity_id')
+            target_entity_type = step.get('target_entity_type', 'JobOrder')
+            note_text = entity_data.get('comments', entity_data.get('note_text', step.get('note_text', '')))
+            note_action = entity_data.get('action', 'Scout Support')
+
+            if not target_entity_id:
+                for assoc_field in ('jobOrders', 'candidates', 'clientContacts', 'placements'):
+                    assoc_val = entity_data.get(assoc_field)
+                    if assoc_val:
+                        if isinstance(assoc_val, list) and len(assoc_val) > 0:
+                            target_entity_id = assoc_val[0].get('id') if isinstance(assoc_val[0], dict) else assoc_val[0]
+                        elif isinstance(assoc_val, dict):
+                            target_entity_id = assoc_val.get('id')
+                        type_map = {'jobOrders': 'JobOrder', 'candidates': 'Candidate', 'clientContacts': 'ClientContact', 'placements': 'Placement'}
+                        target_entity_type = type_map.get(assoc_field, target_entity_type)
+                        break
+
+            note_step = {
+                'note_text': note_text,
+                'note_action': note_action,
+                'description': step.get('description', 'Create note'),
+            }
+            if target_entity_id:
+                return self._exec_create_note(action, target_entity_type, int(target_entity_id), note_step)
+
+            api_user_id = self.bullhorn_service.user_id
+            if api_user_id and 'personReference' not in entity_data:
+                entity_data['personReference'] = {'id': int(api_user_id)}
+                entity_data['commentingPerson'] = {'id': int(api_user_id)}
+
         if not entity_data:
             action.success = False
             action.error_message = 'Missing entity_data'
