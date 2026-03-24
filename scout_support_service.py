@@ -1583,6 +1583,15 @@ Respond with ONLY a JSON object:
                     proof_items.append(result)
 
                 elif action_type == 'create_entity':
+                    if entity_type == 'Note' and not step.get('entity_id') and not step.get('target_entity_id'):
+                        for ctx_key in runtime_context:
+                            if '_' in ctx_key and not ctx_key.count('_') > 1:
+                                parts = ctx_key.split('_', 1)
+                                if parts[0] in ('JobOrder', 'Candidate', 'ClientContact', 'Placement') and parts[1].isdigit():
+                                    step['target_entity_type'] = parts[0]
+                                    step['target_entity_id'] = int(parts[1])
+                                    logger.info(f"🔄 Auto-detected note target from runtime context: {parts[0]} #{parts[1]}")
+                                    break
                     result = self._exec_create_entity(action, entity_type, step)
                     proof_items.append(result)
 
@@ -2251,7 +2260,11 @@ Respond with ONLY a JSON object:
         logger.info(f"🔄 Retrying execution for ticket {ticket.ticket_number} — cleared previous actions")
 
         success = self._execute_solution(ticket)
-        self._add_audit_notes(ticket)
+
+        try:
+            self._add_audit_notes(ticket)
+        except Exception as e:
+            logger.warning(f"⚠️ Audit notes failed during retry for {ticket.ticket_number}: {e}")
 
         return {
             'success': success,
