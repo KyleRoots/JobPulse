@@ -213,31 +213,31 @@ class ScoutSupportService:
             logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated — AI confidence: {confidence}, resolution_type: {resolution_type}")
             return True
 
-        if confidence == 'high' and can_resolve and not has_clarification:
-            proposed_user = parsed.get('proposed_solution_user', '') or parsed.get('proposed_solution', '')
-            proposed_admin = parsed.get('proposed_solution_admin', '') or parsed.get('proposed_solution', '')
-            if proposed_user:
-                ticket.ai_understanding = understanding
-                ticket.proposed_solution = json.dumps({
-                    'description_user': proposed_user,
-                    'description_admin': proposed_admin,
-                    'can_execute': True,
-                    'requires_bullhorn': parsed.get('requires_bullhorn_api', False),
-                    'affected_entities': parsed.get('affected_entities', []),
-                    'execution_steps': parsed.get('execution_steps', []),
-                    'resolution_type': resolution_type,
-                    'underlying_concerns_user': concerns_user,
-                    'underlying_concerns_admin': concerns_admin,
-                })
-                ticket.status = 'awaiting_user_approval'
-                db.session.commit()
+        proposed_user = parsed.get('proposed_solution_user', '') or parsed.get('proposed_solution', '')
+        proposed_admin = parsed.get('proposed_solution_admin', '') or parsed.get('proposed_solution', '')
 
-                self._send_solution_proposal_email(ticket, proposed_user, underlying_concerns=concerns_user)
-                logger.info(f"✅ Ticket {ticket.ticket_number} — high confidence, solution proposed immediately (resolution_type={resolution_type})")
-                return True
+        if confidence in ('high', 'medium') and can_resolve and not has_clarification and proposed_user:
+            ticket.ai_understanding = understanding
+            ticket.proposed_solution = json.dumps({
+                'description_user': proposed_user,
+                'description_admin': proposed_admin,
+                'can_execute': True,
+                'requires_bullhorn': parsed.get('requires_bullhorn_api', False),
+                'affected_entities': parsed.get('affected_entities', []),
+                'execution_steps': parsed.get('execution_steps', []),
+                'resolution_type': resolution_type,
+                'underlying_concerns_user': concerns_user,
+                'underlying_concerns_admin': concerns_admin,
+            })
+            ticket.status = 'awaiting_user_approval'
+            db.session.commit()
+
+            self._send_solution_proposal_email(ticket, proposed_user, underlying_concerns=concerns_user)
+            logger.info(f"✅ Ticket {ticket.ticket_number} — {confidence} confidence, solution proposed (resolution_type={resolution_type})")
+            return True
 
         needs_clarification_first = (
-            confidence in ('low', 'medium') or not can_resolve
+            confidence == 'low' or not can_resolve or has_clarification
         )
 
         if needs_clarification_first:
