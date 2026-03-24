@@ -1699,6 +1699,10 @@ Respond with ONLY a JSON object:
                     'comments': note_text,
                     'isDeleted': False,
                 }
+                if api_user_id:
+                    note_data['personReference'] = {'id': int(api_user_id)}
+                    note_data['commentingPerson'] = {'id': int(api_user_id)}
+
                 if entity_type == 'Candidate':
                     note_data['personReference'] = {'id': int(entity_id)}
                     note_data['candidates'] = [{'id': int(entity_id)}]
@@ -1708,9 +1712,6 @@ Respond with ONLY a JSON object:
                     note_data['jobOrders'] = [{'id': int(entity_id)}]
                 elif entity_type == 'Placement':
                     note_data['placements'] = [{'id': int(entity_id)}]
-
-                if api_user_id:
-                    note_data['commentingPerson'] = {'id': int(api_user_id)}
 
                 url = f"{self.bullhorn_service.base_url}entity/Note"
                 params = {'BhRestToken': self.bullhorn_service.rest_token}
@@ -1818,6 +1819,7 @@ Respond with ONLY a JSON object:
             'action': self._get_bullhorn_note_action(entity_type),
             'comments': note_text,
             'isDeleted': False,
+            'personReference': {'id': int(api_user_id)},
             'commentingPerson': {'id': int(api_user_id)},
         }
 
