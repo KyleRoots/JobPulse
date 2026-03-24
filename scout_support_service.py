@@ -401,6 +401,11 @@ class ScoutSupportService:
             ticket.admin_response = reply_body
             db.session.commit()
             logger.info(f"✅ Admin approved ticket {ticket.ticket_number}")
+
+            fresh_text = self._strip_quoted_text(reply_body)
+            if fresh_text and len(fresh_text.split()) > 5:
+                self._refine_execution_with_admin_instructions(ticket, fresh_text)
+
             self._execute_solution(ticket)
             return True
         elif decision == 'hold':
@@ -1333,6 +1338,86 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
 
         return 'admin_question'
 
+    def _refine_execution_with_admin_instructions(self, ticket, admin_text: str):
+        from extensions import db
+        if not self.openai_client:
+            return
+
+        try:
+            solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
+        except (json.JSONDecodeError, TypeError):
+            return
+
+        original_steps = solution_data.get('execution_steps', [])
+        if not original_steps:
+            return
+
+        try:
+            understanding = json.loads(ticket.ai_understanding) if ticket.ai_understanding else {}
+        except (json.JSONDecodeError, TypeError):
+            understanding = {}
+
+        prompt = f"""You are Scout Support. The admin has approved a solution but included additional instructions or conditions.
+
+Original ticket:
+- Subject: {ticket.subject}
+- Description: {ticket.description}
+- AI understanding: {understanding.get('understanding', '')}
+
+Original execution steps:
+{json.dumps(original_steps, indent=2)}
+
+Admin's approval message (with additional instructions):
+\"\"\"{admin_text}\"\"\"
+
+Your task:
+1. Keep the original execution steps as a base.
+2. Incorporate the admin's additional instructions/conditions into the execution plan.
+3. If the admin wants a conditional check (e.g., "if field X is empty, use field Y"), add a get_entity step first to check the condition, then add/modify the update steps accordingly.
+4. Return the FULL updated execution_steps array in JSON format.
+
+Important:
+- Use the exact same step format as the original steps.
+- Add any new steps needed to fulfill the admin's instructions.
+- If the admin's instructions change a step, update that step.
+- If the admin's instructions add a condition, add a get_entity step FIRST to retrieve the data, then use it in the update step.
+- For conditional updates where the new value depends on a retrieved field, set `new_value` to `"{{{{EntityType_entityId_fieldName}}}}"` to reference runtime context from a prior get_entity step (e.g., `"{{{{JobOrder_34711_description}}}}"` to use the description field retrieved from JobOrder 34711).
+- You can also add `"fallback_field": "fieldName"` to an update_entity step — if the primary new_value is empty, it will use that field's value from a prior get_entity of the same entity.
+
+Respond with ONLY a JSON object:
+{{"execution_steps": [...], "description_user": "Updated plain-language description of what will happen", "description_admin": "Updated technical description"}}"""
+
+            response = self.openai_client.chat.completions.create(
+                model='gpt-5',
+                messages=[
+                    {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS. Respond only in valid JSON.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                max_completion_tokens=4096,
+                response_format={'type': 'json_object'},
+            )
+            content = response.choices[0].message.content
+            if not content or not content.strip():
+                logger.warning("Admin instruction refinement returned empty content")
+                return
+
+            parsed = json.loads(content.strip())
+            new_steps = parsed.get('execution_steps', [])
+            if new_steps:
+                solution_data['execution_steps'] = new_steps
+                if parsed.get('description_user'):
+                    solution_data['description_user'] = parsed['description_user']
+                if parsed.get('description_admin'):
+                    solution_data['description_admin'] = parsed['description_admin']
+                ticket.proposed_solution = json.dumps(solution_data)
+                db.session.commit()
+                logger.info(f"🔄 Refined execution steps for {ticket.ticket_number} with admin instructions ({len(original_steps)} → {len(new_steps)} steps)")
+            else:
+                logger.info(f"Admin instructions did not change execution steps for {ticket.ticket_number}")
+
+        except Exception as e:
+            logger.warning(f"Failed to refine execution with admin instructions: {e}")
+
     def _execute_solution(self, ticket) -> bool:
         from extensions import db
         from models import SupportAction
@@ -1386,6 +1471,7 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
 
         proof_items = []
         steps = solution_data.get('execution_steps', [])
+        runtime_context = {}
 
         for step in steps:
             action_type = step.get('action', 'unknown')
@@ -1394,6 +1480,23 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
             field = step.get('field')
             new_value = step.get('new_value')
             desc = step.get('description', 'Unknown step')
+
+            if isinstance(new_value, str) and new_value.startswith('{{') and new_value.endswith('}}'):
+                ref_key = new_value[2:-2].strip()
+                resolved = runtime_context.get(ref_key)
+                if resolved is not None:
+                    new_value = resolved
+                    logger.info(f"🔄 Resolved runtime reference {ref_key} → {str(new_value)[:100]}")
+
+            fallback_field = step.get('fallback_field')
+            if fallback_field and entity_id and (not new_value or new_value == ''):
+                ctx_key = f"{entity_type}_{entity_id}"
+                entity_data = runtime_context.get(ctx_key, {})
+                if entity_data:
+                    fallback_val = entity_data.get(fallback_field)
+                    if fallback_val:
+                        new_value = fallback_val
+                        logger.info(f"🔄 Used fallback field {fallback_field} for {entity_type} #{entity_id}")
 
             action = SupportAction(
                 ticket_id=ticket.id,
@@ -1426,6 +1529,11 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
                 elif action_type == 'get_entity' and entity_id:
                     result = self._exec_get_entity(action, entity_type, int(entity_id), step)
                     proof_items.append(result)
+                    if result.get('data'):
+                        ctx_key = f"{entity_type}_{entity_id}"
+                        runtime_context[ctx_key] = result['data']
+                        for k, v in result['data'].items():
+                            runtime_context[f"{entity_type}_{entity_id}_{k}"] = v
 
                 elif action_type == 'remove_from_tearsheet':
                     result = self._exec_remove_from_tearsheet(action, step)
@@ -1545,6 +1653,7 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
                 note_text = f"Scout Support ({ticket.ticket_number}): {changes_text}"
 
                 assoc_field = note_entity_map[entity_type]
+                api_user_id = self.bullhorn_service.user_id
                 note_data = {
                     'action': 'Scout Support',
                     'comments': note_text,
@@ -1553,11 +1662,14 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
                 if assoc_field == 'candidates':
                     note_data['personReference'] = {'id': int(entity_id)}
                     note_data['candidates'] = [{'id': int(entity_id)}]
+                elif assoc_field == 'clientContact':
+                    note_data['personReference'] = {'id': int(entity_id)}
                 else:
-                    note_data[assoc_field] = {'id': int(entity_id)}
+                    if api_user_id:
+                        note_data['personReference'] = {'id': int(api_user_id)}
 
-                if self.bullhorn_service.user_id:
-                    note_data['commentingPerson'] = {'id': int(self.bullhorn_service.user_id)}
+                if api_user_id:
+                    note_data['commentingPerson'] = {'id': int(api_user_id)}
 
                 url = f"{self.bullhorn_service.base_url}entity/Note"
                 params = {'BhRestToken': self.bullhorn_service.rest_token}
@@ -1567,13 +1679,45 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
                     data = response.json() if response.text else {}
                     note_id = data.get('changedEntityId', 'unknown')
                     logger.info(f"📝 Audit note #{note_id} added to {entity_type} #{entity_id} for ticket {ticket.ticket_number}")
+
+                    if entity_type in ('JobOrder', 'Placement') and note_id and note_id != 'unknown':
+                        assoc_plural = {'JobOrder': 'jobOrders', 'Placement': 'placements'}
+                        assoc_name = assoc_plural.get(entity_type)
+                        if assoc_name:
+                            assoc_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}/{assoc_name}/{entity_id}"
+                            assoc_resp = self.bullhorn_service.session.put(assoc_url, params=params, timeout=30)
+                            if assoc_resp.status_code in (200, 201):
+                                logger.info(f"📝 Linked note #{note_id} to {entity_type} #{entity_id}")
+                            else:
+                                logger.warning(f"⚠️ Note #{note_id} created but failed to link to {entity_type} #{entity_id}: HTTP {assoc_resp.status_code}")
                 else:
-                    logger.warning(f"⚠️ Audit note failed for {entity_type} #{entity_id}: HTTP {response.status_code}")
+                    logger.warning(f"⚠️ Audit note failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {response.text[:200] if response.text else ''}")
 
             except Exception as e:
                 logger.warning(f"⚠️ Audit note error for {entity_type} #{entity_id}: {e}")
 
+    def _coerce_bullhorn_value(self, field: str, value):
+        bool_int_fields = {
+            'ispublic', 'isopen', 'isdeleted', 'isprivate', 'islockedout',
+            'isbillablechargecardentry', 'isinterviewrequired', 'isclientcontact',
+        }
+        if field.lower() in bool_int_fields:
+            if isinstance(value, bool):
+                return 1 if value else 0
+            if isinstance(value, str) and value.lower() in ('true', 'false'):
+                return 1 if value.lower() == 'true' else 0
+        if isinstance(value, str):
+            try:
+                if '.' in value:
+                    return float(value)
+                return int(value)
+            except (ValueError, TypeError):
+                pass
+        return value
+
     def _exec_update_entity(self, action, entity_type: str, entity_id: int, field: str, new_value) -> Dict:
+        new_value = self._coerce_bullhorn_value(field, new_value)
+
         current = self.bullhorn_service.get_entity(entity_type, entity_id)
         if current:
             action.old_value = str(current.get(field, ''))
@@ -1651,6 +1795,9 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
     def _exec_get_entity(self, action, entity_type: str, entity_id: int, step: dict) -> Dict:
         fields = step.get('fields')
         data = self.bullhorn_service.get_entity(entity_type, entity_id, fields=fields)
+        if not data and fields:
+            logger.warning(f"⚠️ GET {entity_type} #{entity_id} failed with custom fields, retrying with defaults")
+            data = self.bullhorn_service.get_entity(entity_type, entity_id)
         if data:
             action.success = True
             action.new_value = json.dumps(data)[:500]
@@ -2488,6 +2635,45 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
             email_type='stakeholder_status_update',
         )
 
+    def _build_quoted_history(self, ticket) -> str:
+        from models import SupportConversation
+        convos = SupportConversation.query.filter_by(
+            ticket_id=ticket.id,
+        ).order_by(SupportConversation.created_at.desc()).limit(10).all()
+
+        if not convos:
+            return ''
+
+        parts = []
+        for c in convos:
+            direction_label = c.sender_email if c.direction == 'inbound' else f"Scout Support ({SCOUT_SUPPORT_EMAIL})"
+            timestamp = c.created_at.strftime('%b %d, %Y at %I:%M %p') if c.created_at else ''
+            body_text = (c.body or '').strip()
+            if not body_text:
+                continue
+            body_html = body_text.replace('\n', '<br>')
+            parts.append(
+                f'<b>From:</b> {direction_label}<br>'
+                f'<b>Date:</b> {timestamp}<br>'
+                f'<b>Subject:</b> {c.subject or ""}<br><br>'
+                f'{body_html}'
+            )
+
+        if not parts:
+            return ''
+
+        quoted_html = '<br>'.join(
+            f'<div style="border-left:2px solid #ccc;padding-left:10px;margin:10px 0;color:#555;">{p}</div>'
+            for p in parts
+        )
+        return (
+            '<br><br>'
+            '<div style="border-top:1px solid #ddd;margin-top:20px;padding-top:10px;">'
+            '<span style="color:#888;font-size:12px;">— Previous messages —</span><br>'
+            f'{quoted_html}'
+            '</div>'
+        )
+
     def _send_email(self, to_email: str, subject: str, body: str, ticket=None,
                     email_type: str = 'general', cc_email: str = None,
                     cc_emails: Optional[List[str]] = None):
@@ -2517,7 +2703,13 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
             else:
                 cc_list = []
 
+            quoted_history = ''
+            if ticket:
+                quoted_history = self._build_quoted_history(ticket)
+
             html_body = body.replace('\n', '<br>')
+            if quoted_history:
+                html_body += quoted_history
 
             result = email_svc.send_html_email(
                 to_email=to_email,
