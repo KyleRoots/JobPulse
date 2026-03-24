@@ -597,13 +597,15 @@ class ScoutSupportService:
         import base64
         b64 = base64.b64encode(data).decode('utf-8')
         mime = content_type if content_type.startswith('image/') else 'image/png'
-        logger.info(f"🖼️ Sending {filename} ({len(data)} bytes, {mime}) to GPT-5 vision...")
+        logger.info(f"🖼️ Sending {filename} ({len(data)} bytes, {mime}) to vision...")
 
         max_attempts = 2
+        vision_models = ['o4-mini', 'gpt-5']
         for attempt in range(1, max_attempts + 1):
+            model = vision_models[attempt - 1] if attempt <= len(vision_models) else vision_models[-1]
             try:
                 response = self.openai_client.chat.completions.create(
-                    model='gpt-5',
+                    model=model,
                     messages=[
                         {
                             'role': 'user',
@@ -619,7 +621,7 @@ class ScoutSupportService:
                                 },
                                 {
                                     'type': 'image_url',
-                                    'image_url': {'url': f"data:{mime};base64,{b64}"},
+                                    'image_url': {'url': f"data:{mime};base64,{b64}", 'detail': 'high'},
                                 },
                             ],
                         }
@@ -631,18 +633,18 @@ class ScoutSupportService:
                     content = response.choices[0].message.content
                 description = (content or '').strip()
                 if description:
-                    logger.info(f"🖼️ Vision success for {filename} (attempt {attempt}): {len(description)} chars")
+                    logger.info(f"🖼️ Vision success for {filename} ({model}, attempt {attempt}): {len(description)} chars")
                     return description
                 else:
                     refusal = getattr(response.choices[0].message, 'refusal', None) if response.choices else None
-                    logger.warning(f"🖼️ Vision returned empty for {filename} (attempt {attempt}), refusal={refusal}")
+                    logger.warning(f"🖼️ Vision returned empty for {filename} ({model}, attempt {attempt}), refusal={refusal}")
                     if attempt < max_attempts:
                         import time
                         time.sleep(2)
                         continue
                     return f"[Image attached: {filename} — vision analysis returned empty]"
             except Exception as e:
-                logger.warning(f"GPT vision image description failed for {filename} (attempt {attempt}): {e}")
+                logger.warning(f"Vision failed for {filename} ({model}, attempt {attempt}): {e}")
                 if attempt < max_attempts:
                     import time
                     time.sleep(2)
@@ -1076,15 +1078,21 @@ resolution_type guide:
             return True
 
     def _classify_user_response(self, text: str) -> str:
-        text_lower = text.lower().strip()
-        approve_keywords = ['yes', 'approve', 'confirmed', 'go ahead', 'proceed', 'looks good', 'agree', 'correct', 'that works']
-        reject_keywords = ['no', 'cancel', 'close', 'reject', 'decline', 'stop', 'nevermind']
-        change_keywords = ['change', 'modify', 'adjust', 'update', 'instead', 'actually', 'but', 'however']
+        fresh_text = self._strip_quoted_text(text)
+        if not fresh_text:
+            fresh_text = text.split('\n')[0] if text else ''
+        text_lower = fresh_text.lower().strip()
+        logger.info(f"🔍 User response classification input ({len(text_lower)} chars): {text_lower[:200]}")
 
+        approve_keywords = ['yes', 'approve', 'confirmed', 'go ahead', 'proceed', 'looks good', 'agree', 'correct', 'that works']
         if any(kw in text_lower for kw in approve_keywords):
             return 'approved'
+
+        reject_keywords = ['no thanks', 'cancel', 'close this', 'reject', 'decline', 'stop', 'nevermind']
         if any(kw in text_lower for kw in reject_keywords):
             return 'rejected'
+
+        change_keywords = ['change', 'modify', 'adjust', 'instead', 'actually', 'however']
         if any(kw in text_lower for kw in change_keywords):
             return 'needs_changes'
         return 'needs_changes'
@@ -1185,27 +1193,59 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
         db.session.commit()
         logger.info(f"💬 Responded to admin question on ticket {ticket.ticket_number}")
 
+    def _strip_quoted_text(self, text: str) -> str:
+        lines = text.split('\n')
+        fresh_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith('>'):
+                continue
+            if stripped.startswith('On ') and stripped.endswith('wrote:'):
+                break
+            if re.match(r'^-{3,}', stripped) or re.match(r'^_{3,}', stripped):
+                break
+            if stripped.lower().startswith('from:') and any(kw in stripped.lower() for kw in ['scout support', 'scoutgenius']):
+                break
+            if stripped.lower().startswith('subject:') and '[ss-' in stripped.lower():
+                break
+            if re.match(r'^(sent|date|from|to|subject):\s', stripped, re.IGNORECASE) and len(fresh_lines) > 2:
+                header_cluster = sum(1 for fl in fresh_lines[-3:] if re.match(r'^(sent|date|from|to|subject):\s', fl.strip(), re.IGNORECASE))
+                if header_cluster >= 1:
+                    fresh_lines = fresh_lines[:-3]
+                    break
+            fresh_lines.append(line)
+        return '\n'.join(fresh_lines).strip()
+
     def _classify_admin_response(self, text: str) -> str:
-        text_lower = text.lower().strip()
+        fresh_text = self._strip_quoted_text(text)
+        if not fresh_text:
+            fresh_text = text.split('\n')[0] if text else ''
+        text_lower = fresh_text.lower().strip()
+        logger.info(f"🔍 Admin response classification input ({len(text_lower)} chars): {text_lower[:200]}")
         words = set(re.findall(r'\b\w+\b', text_lower))
 
-        reject_phrases = ['reject', 'denied', 'deny', 'close this', 'cancel', 'do not proceed', "don't proceed"]
-        if any(phrase in text_lower for phrase in reject_phrases):
-            return 'closed'
-
-        hold_phrases = ['hold', 'wait', 'pause', 'defer', 'hold off']
-        if any(phrase in text_lower for phrase in hold_phrases):
-            return 'hold'
+        approve_phrases = [
+            'go ahead', 'green light', 'looks good', 'yes, proceed', 'yes, go ahead',
+            'proceed', 'you can go ahead', 'approved', 'approve', 'authorize',
+            'do it', 'execute', 'make the change', 'yes please', 'that is correct',
+        ]
+        if any(phrase in text_lower for phrase in approve_phrases):
+            return 'approved'
 
         approve_exact_starts = ['approved', 'approve', 'yes', 'go ahead', 'proceed', 'authorized', 'green light', 'looks good']
         if text_lower in approve_exact_starts or any(text_lower.startswith(kw) for kw in approve_exact_starts):
             return 'approved'
         approve_words = {'approved', 'approve', 'authorized'}
-        if words & approve_words and len(text_lower) < 80:
+        if words & approve_words:
             return 'approved'
-        approve_phrases = ['go ahead', 'green light', 'looks good, proceed', 'yes, proceed', 'yes, go ahead']
-        if any(phrase in text_lower for phrase in approve_phrases):
-            return 'approved'
+
+        reject_phrases = ['reject', 'denied', 'deny', 'close this', 'cancel', 'do not proceed', "don't proceed"]
+        if any(phrase in text_lower for phrase in reject_phrases):
+            return 'closed'
+
+        hold_phrases = ['hold off', 'put on hold', 'place on hold', 'wait', 'pause', 'defer']
+        if any(phrase in text_lower for phrase in hold_phrases):
+            return 'hold'
 
         return 'admin_question'
 
@@ -2253,7 +2293,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
         )
         self._send_email(
             to_email=ticket.submitter_email,
-            subject=f"[{ticket.ticket_number}] Status Update",
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body=body,
             ticket=ticket,
             email_type='status_update',
