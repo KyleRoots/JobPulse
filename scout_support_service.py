@@ -90,6 +90,7 @@ class ScoutSupportService:
                       submitter_name: str, submitter_email: str,
                       submitter_department: str = '', brand: str = 'Myticas',
                       priority: str = 'medium',
+                      attachment_data: Optional[List[Dict]] = None,
                       attachment_info: Optional[List[Dict]] = None) -> 'SupportTicket':
         from extensions import db
         from models import SupportTicket, SupportConversation
@@ -126,11 +127,18 @@ class ScoutSupportService:
         )
         db.session.add(initial_conv)
 
-        if attachment_info:
-            ticket.description += f"\n\n[Attachments: {', '.join(a.get('filename', 'unknown') for a in attachment_info)}]"
+        effective_attachments = attachment_data or attachment_info
+        if effective_attachments:
+            filenames = [a.get('filename', 'unknown') for a in effective_attachments]
+            ticket.description += f"\n\n[Attachments: {', '.join(filenames)}]"
+
+        self._attachment_data = attachment_data
 
         db.session.commit()
         logger.info(f"📋 Created support ticket {ticket_number} from {submitter_email}: {subject}")
+
+        self._send_admin_new_ticket_notification(ticket)
+
         return ticket
 
     def process_new_ticket(self, ticket_id: int) -> bool:
@@ -152,7 +160,12 @@ class ScoutSupportService:
     def _process_ai_full_ticket(self, ticket) -> bool:
         from extensions import db
 
-        understanding = self._generate_understanding(ticket)
+        attachment_content = ''
+        if hasattr(self, '_attachment_data') and self._attachment_data:
+            attachment_content = self._extract_attachment_content(self._attachment_data)
+            self._attachment_data = None
+
+        understanding = self._generate_understanding(ticket, attachment_content=attachment_content)
         if not understanding:
             logger.error(f"Failed to generate AI understanding for ticket {ticket.ticket_number}")
             self._escalate_to_admin(ticket, reason="AI was unable to analyze this ticket due to a processing error.")
@@ -364,11 +377,195 @@ class ScoutSupportService:
             logger.info(f"❌ Admin closed ticket {ticket.ticket_number}")
             return True
 
-    def _generate_understanding(self, ticket) -> Optional[str]:
+    def _extract_attachment_content(self, attachment_data: List[Dict]) -> str:
+        if not attachment_data:
+            return ''
+
+        extracted_parts = []
+        for att in attachment_data:
+            filename = att.get('filename', 'unknown')
+            data = att.get('data', b'')
+            content_type = att.get('content_type', 'application/octet-stream')
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+
+            try:
+                if ext == 'txt' or content_type == 'text/plain':
+                    text = data.decode('utf-8', errors='replace').strip()
+                    if text:
+                        extracted_parts.append(f"[File: {filename}]\n{text[:10000]}")
+
+                elif ext == 'csv' or content_type == 'text/csv':
+                    text = data.decode('utf-8', errors='replace').strip()
+                    if text:
+                        lines = text.split('\n')[:100]
+                        extracted_parts.append(f"[File: {filename} — CSV, {len(text.split(chr(10)))} rows]\n{chr(10).join(lines)}")
+
+                elif ext == 'pdf' or content_type == 'application/pdf':
+                    text = self._extract_pdf_text(data)
+                    if text:
+                        extracted_parts.append(f"[File: {filename}]\n{text[:10000]}")
+
+                elif ext in ('doc', 'docx') or 'word' in content_type:
+                    text = self._extract_docx_text(data, ext)
+                    if text:
+                        extracted_parts.append(f"[File: {filename}]\n{text[:10000]}")
+
+                elif ext in ('png', 'jpg', 'jpeg', 'gif') or content_type.startswith('image/'):
+                    description = self._describe_image(data, content_type, filename)
+                    if description:
+                        extracted_parts.append(f"[Image: {filename}]\n{description}")
+
+                elif ext == 'xlsx' or 'spreadsheet' in content_type:
+                    extracted_parts.append(f"[File: {filename} — Excel spreadsheet attached, content not extracted]")
+
+                else:
+                    extracted_parts.append(f"[File: {filename} — {content_type}, content not extracted]")
+
+            except Exception as e:
+                logger.warning(f"Failed to extract content from {filename}: {e}")
+                extracted_parts.append(f"[File: {filename} — extraction failed: {str(e)[:100]}]")
+
+        return '\n\n'.join(extracted_parts) if extracted_parts else ''
+
+    def _extract_pdf_text(self, data: bytes) -> str:
+        import tempfile
+        try:
+            import fitz
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=True) as tmp:
+                tmp.write(data)
+                tmp.flush()
+                doc = fitz.open(tmp.name)
+                text_parts = []
+                for page in doc:
+                    page_text = page.get_text("text")
+                    if page_text:
+                        text_parts.append(page_text)
+                doc.close()
+                return '\n'.join(text_parts)
+        except Exception as e:
+            logger.warning(f"PyMuPDF PDF extraction failed: {e}")
+
+        try:
+            import PyPDF2
+            import io
+            reader = PyPDF2.PdfReader(io.BytesIO(data))
+            text_parts = []
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(page_text)
+            return '\n'.join(text_parts)
+        except Exception as e:
+            logger.warning(f"PyPDF2 PDF extraction failed: {e}")
+            return ''
+
+    def _extract_docx_text(self, data: bytes, ext: str) -> str:
+        import io
+        if ext == 'docx':
+            try:
+                import docx
+                doc = docx.Document(io.BytesIO(data))
+                return '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
+            except Exception as e:
+                logger.warning(f"DOCX extraction failed: {e}")
+                return ''
+        elif ext == 'doc':
+            import tempfile, subprocess
+            try:
+                with tempfile.NamedTemporaryFile(suffix='.doc', delete=True) as tmp:
+                    tmp.write(data)
+                    tmp.flush()
+                    result = subprocess.run(
+                        ['antiword', tmp.name], capture_output=True, text=True, timeout=15
+                    )
+                    if result.returncode == 0:
+                        return result.stdout.strip()
+            except Exception as e:
+                logger.warning(f"DOC extraction via antiword failed: {e}")
+            return ''
+        return ''
+
+    def _describe_image(self, data: bytes, content_type: str, filename: str) -> str:
+        if not self.openai_client:
+            return f"[Image attached: {filename} — AI vision not available]"
+
+        import base64
+        b64 = base64.b64encode(data).decode('utf-8')
+        mime = content_type if content_type.startswith('image/') else 'image/png'
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model='gpt-5',
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': [
+                            {
+                                'type': 'text',
+                                'text': (
+                                    'This image was attached to an internal ATS (Bullhorn) support ticket. '
+                                    'Describe what you see in detail — focus on any error messages, field values, '
+                                    'record IDs, status values, screen names, or other information that would help '
+                                    'diagnose and resolve the issue. Be specific and factual.'
+                                ),
+                            },
+                            {
+                                'type': 'image_url',
+                                'image_url': {'url': f"data:{mime};base64,{b64}"},
+                            },
+                        ],
+                    }
+                ],
+                max_completion_tokens=1024,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.warning(f"GPT vision image description failed for {filename}: {e}")
+            return f"[Image attached: {filename} — vision analysis failed]"
+
+    def _send_admin_new_ticket_notification(self, ticket):
+        try:
+            category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+            priority_label = {'low': 'Low', 'medium': 'Medium', 'high': 'High', 'urgent': 'Urgent'}.get(ticket.priority, ticket.priority)
+
+            body = (
+                f"**New Scout Support Ticket Created**\n\n"
+                f"**Ticket:** {ticket.ticket_number}\n"
+                f"**Category:** {category_label}\n"
+                f"**Priority:** {priority_label}\n"
+                f"**Subject:** {ticket.subject}\n"
+                f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+                f"**Department:** {ticket.submitter_department or 'Not specified'}\n\n"
+                f"Scout Support AI is now processing this ticket. You will receive updates as the ticket progresses."
+            )
+
+            self._send_email(
+                to_email=DEFAULT_ADMIN_EMAIL,
+                subject=f"[New Ticket] [{ticket.ticket_number}] {ticket.subject}",
+                body=body,
+                ticket=None,
+                email_type='admin_new_ticket_notification',
+            )
+            logger.info(f"📧 Admin notification sent for new ticket {ticket.ticket_number}")
+        except Exception as e:
+            logger.warning(f"Failed to send admin notification for {ticket.ticket_number}: {e}")
+
+    def _generate_understanding(self, ticket, attachment_content: str = '') -> Optional[str]:
         if not self.openai_client:
             return None
 
         category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+
+        attachment_section = ''
+        if attachment_content:
+            attachment_section = f"""
+
+Attached Files Content:
+{attachment_content}
+
+IMPORTANT: The user attached files to this ticket. Use the extracted content above as additional context
+when analyzing the issue. If the attachments contain screenshots, the image descriptions will help you
+understand what the user is seeing. If documents are attached, their text content is included above."""
 
         prompt = f"""You are Scout Support, an AI assistant for internal ATS (Bullhorn) support issues.
 
@@ -382,7 +579,7 @@ Ticket Details:
 - Department: {ticket.submitter_department or 'Not specified'}
 
 User's Description:
-{ticket.description}
+{ticket.description}{attachment_section}
 
 Important: Determine not just whether you can fix this, but also whether there might be deeper
 underlying issues. Many ATS problems have both an immediate fix AND a root cause that may need

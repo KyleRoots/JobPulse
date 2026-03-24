@@ -351,7 +351,13 @@ def submit_support_request():
                     except Exception as e:
                         logger.error(f"❌ Scout Support ticket creation failed: {e}")
 
-            attachment_info = [{'filename': a['filename']} for a in valid_attachments] if valid_attachments else None
+            attachment_data = []
+            for a in valid_attachments:
+                attachment_data.append({
+                    'filename': a['filename'],
+                    'data': a['data'],
+                    'content_type': a.get('content_type', 'application/octet-stream'),
+                })
             thread = threading.Thread(
                 target=_create_ai_ticket,
                 args=(app_ref,),
@@ -364,7 +370,7 @@ def submit_support_request():
                     'submitter_department': internal_department,
                     'brand': brand,
                     'priority': priority,
-                    'attachment_info': attachment_info,
+                    'attachment_data': attachment_data if attachment_data else None,
                 },
                 daemon=True
             )
