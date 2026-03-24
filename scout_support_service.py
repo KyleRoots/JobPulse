@@ -435,6 +435,19 @@ Supported actions:
     {{"action": "add_association", "entity_type": "JobOrder", "entity_id": 34500, "association_field": "categories", "associated_ids": [10, 20], "description": "Add categories to job"}}
 12. remove_association — Unlink entities from a to-many association field:
     {{"action": "remove_association", "entity_type": "JobOrder", "entity_id": 34500, "association_field": "categories", "associated_ids": [10], "description": "Remove category from job"}}
+13. add_to_tearsheet — Add a job or candidate to a tearsheet:
+    {{"action": "add_to_tearsheet", "tearsheet_id": 100, "job_id": 34500, "description": "Add job to tearsheet"}}
+    {{"action": "add_to_tearsheet", "tearsheet_id": 100, "candidate_id": 4649182, "description": "Add candidate to tearsheet"}}
+14. query_entity — Query entities using Bullhorn Query Language (BQL WHERE clause):
+    {{"action": "query_entity", "entity_type": "Candidate", "where": "status='Active' AND owner.id=12345", "fields": "id,firstName,lastName,status", "count": 50, "description": "Find active candidates owned by user"}}
+15. get_associations — Get related entities via a to-many field:
+    {{"action": "get_associations", "entity_type": "Candidate", "entity_id": 4649182, "association_field": "submissions", "fields": "id,status,jobOrder(id,title)", "description": "Get candidate's job submissions"}}
+16. get_files — List all files/attachments on a record:
+    {{"action": "get_files", "entity_type": "Candidate", "entity_id": 4649182, "description": "List candidate's files"}}
+17. delete_file — Remove a specific file/attachment from a record:
+    {{"action": "delete_file", "entity_type": "Candidate", "entity_id": 4649182, "file_id": 999, "description": "Delete duplicate resume file"}}
+
+Supported entity_types for all actions: Candidate, JobOrder, Placement, JobSubmission, ClientContact, ClientCorporation, Lead, Opportunity, Note, Sendout, Appointment, Task, Tearsheet, CorporateUser, CandidateEducation, CandidateWorkHistory, CandidateReference, Skill, Category, BusinessSector, PlacementChangeRequest.
 
 Always include entity IDs from the user's ticket when available. Use the actual values mentioned in the issue description.
 
@@ -622,6 +635,18 @@ Supported actions:
     {{"action": "add_association", "entity_type": "JobOrder", "entity_id": 34500, "association_field": "categories", "associated_ids": [10, 20], "description": "Add categories to job"}}
 12. remove_association — Unlink entities from association field:
     {{"action": "remove_association", "entity_type": "JobOrder", "entity_id": 34500, "association_field": "categories", "associated_ids": [10], "description": "Remove category from job"}}
+13. add_to_tearsheet — Add job or candidate to tearsheet:
+    {{"action": "add_to_tearsheet", "tearsheet_id": 100, "job_id": 34500, "description": "Add job to tearsheet"}}
+14. query_entity — Query using BQL WHERE clause:
+    {{"action": "query_entity", "entity_type": "Candidate", "where": "status='Active' AND owner.id=12345", "description": "Find active candidates"}}
+15. get_associations — Get related entities via to-many field:
+    {{"action": "get_associations", "entity_type": "Candidate", "entity_id": 4649182, "association_field": "submissions", "description": "Get submissions"}}
+16. get_files — List files/attachments on a record:
+    {{"action": "get_files", "entity_type": "Candidate", "entity_id": 4649182, "description": "List files"}}
+17. delete_file — Remove a file/attachment:
+    {{"action": "delete_file", "entity_type": "Candidate", "entity_id": 4649182, "file_id": 999, "description": "Delete file"}}
+
+Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientContact, ClientCorporation, Lead, Opportunity, Note, Sendout, Appointment, Task, Tearsheet, CorporateUser, CandidateEducation, CandidateWorkHistory, CandidateReference, Skill, Category, BusinessSector, PlacementChangeRequest.
 
 Always include entity IDs from the conversation when available.
 
@@ -826,6 +851,26 @@ resolution_type guide:
 
                 elif action_type == 'remove_association':
                     result = self._exec_remove_association(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'add_to_tearsheet':
+                    result = self._exec_add_to_tearsheet(action, step)
+                    proof_items.append(result)
+
+                elif action_type == 'query_entity':
+                    result = self._exec_query_entity(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'get_associations':
+                    result = self._exec_get_associations(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'get_files':
+                    result = self._exec_get_files(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'delete_file':
+                    result = self._exec_delete_file(action, entity_type, step)
                     proof_items.append(result)
 
                 else:
@@ -1068,6 +1113,99 @@ resolution_type guide:
             action.success = False
             action.error_message = 'Association remove failed'
             return {'step': step.get('description', 'Remove association'), 'result': 'Failed — API error'}
+
+    def _exec_add_to_tearsheet(self, action, step: dict) -> Dict:
+        tearsheet_id = step.get('tearsheet_id')
+        job_id = step.get('job_id')
+        candidate_id = step.get('candidate_id')
+        if not tearsheet_id:
+            action.success = False
+            action.error_message = 'Missing tearsheet_id'
+            return {'step': step.get('description', 'Add to tearsheet'), 'result': 'Failed — missing tearsheet ID'}
+
+        if job_id:
+            success = self.bullhorn_service.add_job_to_tearsheet(int(tearsheet_id), int(job_id))
+            label = f"Job #{job_id}"
+        elif candidate_id:
+            success = self.bullhorn_service.add_candidate_to_tearsheet(int(tearsheet_id), int(candidate_id))
+            label = f"Candidate #{candidate_id}"
+        else:
+            action.success = False
+            action.error_message = 'Missing job_id or candidate_id'
+            return {'step': step.get('description', 'Add to tearsheet'), 'result': 'Failed — need job_id or candidate_id'}
+
+        if success:
+            action.success = True
+            logger.info(f"✅ Added {label} to Tearsheet #{tearsheet_id}")
+            return {'step': f"Added {label} to Tearsheet #{tearsheet_id}", 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = 'Add to tearsheet failed'
+            return {'step': step.get('description', 'Add to tearsheet'), 'result': 'Failed — API error'}
+
+    def _exec_query_entity(self, action, entity_type: str, step: dict) -> Dict:
+        where = step.get('where', '')
+        if not where:
+            action.success = False
+            action.error_message = 'Missing where clause'
+            return {'step': step.get('description', 'Query'), 'result': 'Failed — no where clause'}
+
+        results = self.bullhorn_service.query_entities(
+            entity_type, where,
+            fields=step.get('fields'),
+            count=step.get('count', 50),
+            order_by=step.get('order_by'),
+        )
+        action.success = True
+        action.new_value = f"{len(results)} results"
+        return {'step': f"Queried {entity_type}: {where}", 'result_count': len(results), 'results': results[:10], 'result': 'Success'}
+
+    def _exec_get_associations(self, action, entity_type: str, step: dict) -> Dict:
+        entity_id = step.get('entity_id')
+        association_field = step.get('association_field')
+        if not entity_id or not association_field:
+            action.success = False
+            action.error_message = 'Missing entity_id or association_field'
+            return {'step': step.get('description', 'Get associations'), 'result': 'Failed — missing parameters'}
+
+        results = self.bullhorn_service.get_entity_associations(
+            entity_type, int(entity_id), association_field,
+            fields=step.get('fields', 'id'),
+            count=step.get('count', 100),
+        )
+        action.success = True
+        action.new_value = f"{len(results)} associations"
+        return {'step': f"Retrieved {association_field} on {entity_type} #{entity_id}", 'result_count': len(results), 'results': results[:20], 'result': 'Success'}
+
+    def _exec_get_files(self, action, entity_type: str, step: dict) -> Dict:
+        entity_id = step.get('entity_id')
+        if not entity_id:
+            action.success = False
+            action.error_message = 'Missing entity_id'
+            return {'step': step.get('description', 'Get files'), 'result': 'Failed — missing entity ID'}
+
+        files = self.bullhorn_service.get_entity_files(entity_type, int(entity_id))
+        action.success = True
+        action.new_value = f"{len(files)} files"
+        return {'step': f"Retrieved files on {entity_type} #{entity_id}", 'file_count': len(files), 'files': files, 'result': 'Success'}
+
+    def _exec_delete_file(self, action, entity_type: str, step: dict) -> Dict:
+        entity_id = step.get('entity_id')
+        file_id = step.get('file_id')
+        if not entity_id or not file_id:
+            action.success = False
+            action.error_message = 'Missing entity_id or file_id'
+            return {'step': step.get('description', 'Delete file'), 'result': 'Failed — missing IDs'}
+
+        success = self.bullhorn_service.delete_entity_file(entity_type, int(entity_id), int(file_id))
+        if success:
+            action.success = True
+            logger.info(f"✅ Deleted file #{file_id} from {entity_type} #{entity_id}")
+            return {'step': f"Deleted file #{file_id} from {entity_type} #{entity_id}", 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = 'File deletion failed'
+            return {'step': step.get('description', 'Delete file'), 'result': 'Failed — API error'}
 
     def escalate_ticket(self, ticket_id: int, reason: str) -> bool:
         from extensions import db

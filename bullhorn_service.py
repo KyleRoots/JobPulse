@@ -1980,17 +1980,31 @@ class BullhornService:
     SUPPORTED_ENTITY_TYPES = {
         'Candidate', 'JobOrder', 'Placement', 'JobSubmission', 'ClientContact',
         'ClientCorporation', 'Lead', 'Opportunity', 'Note', 'Sendout',
-        'Appointment', 'Task',
+        'Appointment', 'Task', 'Tearsheet', 'CorporateUser',
+        'CandidateEducation', 'CandidateWorkHistory', 'CandidateReference',
+        'Skill', 'Category', 'BusinessSector', 'PlacementChangeRequest',
+        'JobSubmissionHistory', 'NoteEntity',
     }
 
     ENTITY_DEFAULT_FIELDS = {
-        'Candidate': 'id,firstName,lastName,email,status,source,occupation,companyName,owner(id,firstName,lastName)',
-        'JobOrder': 'id,title,status,isOpen,isDeleted,isPublic,employmentType,clientCorporation(id,name),owner(id,firstName,lastName)',
-        'Placement': 'id,status,dateBegin,dateEnd,salary,payRate,candidate(id,firstName,lastName),jobOrder(id,title)',
-        'JobSubmission': 'id,status,dateWebResponse,candidate(id,firstName,lastName),jobOrder(id,title)',
-        'ClientContact': 'id,firstName,lastName,email,phone,status,clientCorporation(id,name)',
-        'ClientCorporation': 'id,name,status,phone,address(city,state)',
-        'Note': 'id,action,comments,dateAdded,personReference(id,firstName,lastName)',
+        'Candidate': 'id,firstName,lastName,email,phone,mobile,status,source,occupation,companyName,skillSet,owner(id,firstName,lastName),address(address1,city,state,zip,countryName)',
+        'JobOrder': 'id,title,status,isOpen,isDeleted,isPublic,employmentType,salary,salaryUnit,skillList,clientCorporation(id,name),owner(id,firstName,lastName),address(city,state,countryName)',
+        'Placement': 'id,status,dateBegin,dateEnd,salary,payRate,billingFrequency,candidate(id,firstName,lastName),jobOrder(id,title),approvingClientContact(id,firstName,lastName)',
+        'JobSubmission': 'id,status,dateWebResponse,source,candidate(id,firstName,lastName),jobOrder(id,title),sendingUser(id,firstName,lastName)',
+        'ClientContact': 'id,firstName,lastName,email,phone,status,occupation,clientCorporation(id,name),owner(id,firstName,lastName)',
+        'ClientCorporation': 'id,name,status,phone,companyURL,address(city,state,countryName),billingContact(id,firstName,lastName)',
+        'Note': 'id,action,comments,dateAdded,personReference(id,firstName,lastName),commentingPerson(id,firstName,lastName)',
+        'Tearsheet': 'id,name,description,owner(id,firstName,lastName)',
+        'CorporateUser': 'id,firstName,lastName,email,username,isDeleted,enabled,primaryDepartment(id,name),occupation',
+        'CandidateEducation': 'id,school,degree,major,graduationDate,candidate(id,firstName,lastName)',
+        'CandidateWorkHistory': 'id,companyName,title,startDate,endDate,isLastJob,candidate(id,firstName,lastName)',
+        'CandidateReference': 'id,referenceFirstName,referenceLastName,companyName,referencePhone,referenceEmail,candidate(id,firstName,lastName)',
+        'Skill': 'id,name',
+        'Category': 'id,name,occupation',
+        'BusinessSector': 'id,name',
+        'PlacementChangeRequest': 'id,status,requestType,placement(id),requestingUser(id,firstName,lastName)',
+        'Lead': 'id,firstName,lastName,email,phone,status,company(id,name)',
+        'Opportunity': 'id,title,status,clientCorporation(id,name),owner(id,firstName,lastName)',
     }
 
     def get_entity(self, entity_type: str, entity_id: int, fields: str = None) -> Optional[Dict]:
@@ -2244,3 +2258,153 @@ class BullhornService:
         except Exception as e:
             logging.error(f"Error removing association on {entity_type} #{entity_id}: {e}")
             return False
+
+    def add_job_to_tearsheet(self, tearsheet_id: int, job_id: int) -> bool:
+        return self.add_entity_to_association('Tearsheet', tearsheet_id, 'jobOrders', [job_id])
+
+    def add_candidate_to_tearsheet(self, tearsheet_id: int, candidate_id: int) -> bool:
+        return self.add_entity_to_association('Tearsheet', tearsheet_id, 'candidates', [candidate_id])
+
+    def remove_candidate_from_tearsheet(self, tearsheet_id: int, candidate_id: int) -> bool:
+        return self.remove_entity_from_association('Tearsheet', tearsheet_id, 'candidates', [candidate_id])
+
+    def get_entity_associations(self, entity_type: str, entity_id: int,
+                                 association_field: str, fields: str = 'id',
+                                 count: int = 100) -> List[Dict]:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+
+        try:
+            url = f"{self.base_url}entity/{entity_type}/{entity_id}/{association_field}"
+            params = {'fields': fields, 'count': count, 'BhRestToken': self.rest_token}
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return []
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('data', [])
+            else:
+                logging.error(f"Failed to get {association_field} on {entity_type} #{entity_id}: {response.status_code}")
+                return []
+        except Exception as e:
+            logging.error(f"Error getting associations {entity_type} #{entity_id}/{association_field}: {e}")
+            return []
+
+    def query_entities(self, entity_type: str, where: str, fields: str = None,
+                       count: int = 50, order_by: str = None) -> List[Dict]:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+
+        if not fields:
+            fields = self.ENTITY_DEFAULT_FIELDS.get(entity_type, 'id')
+
+        try:
+            url = f"{self.base_url}query/{entity_type}"
+            params = {
+                'where': where,
+                'fields': fields,
+                'count': count,
+                'BhRestToken': self.rest_token,
+            }
+            if order_by:
+                params['orderBy'] = order_by
+
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return []
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('data', [])
+            else:
+                logging.error(f"Query {entity_type} failed: {response.status_code} - {response.text[:300]}")
+                return []
+        except Exception as e:
+            logging.error(f"Error querying {entity_type}: {e}")
+            return []
+
+    def get_entity_files(self, entity_type: str, entity_id: int) -> List[Dict]:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+
+        try:
+            url = f"{self.base_url}entityFiles/{entity_type}/{entity_id}"
+            params = {'BhRestToken': self.rest_token}
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return []
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('EntityFiles', data.get('entityFiles', []))
+            else:
+                logging.error(f"Failed to get files for {entity_type} #{entity_id}: {response.status_code}")
+                return []
+        except Exception as e:
+            logging.error(f"Error getting files for {entity_type} #{entity_id}: {e}")
+            return []
+
+    def delete_entity_file(self, entity_type: str, entity_id: int, file_id: int) -> bool:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return False
+
+        try:
+            url = f"{self.base_url}file/{entity_type}/{entity_id}/{file_id}"
+            params = {'BhRestToken': self.rest_token}
+            response = self.session.delete(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.delete(url, params=params, timeout=30)
+                else:
+                    return False
+
+            if response.status_code in (200, 204):
+                logging.info(f"Deleted file #{file_id} from {entity_type} #{entity_id}")
+                return True
+            else:
+                logging.error(f"Failed to delete file #{file_id}: {response.status_code}")
+                return False
+        except Exception as e:
+            logging.error(f"Error deleting file #{file_id} from {entity_type} #{entity_id}: {e}")
+            return False
+
+    def update_job_order(self, job_id: int, data: Dict) -> bool:
+        return self.update_entity('JobOrder', job_id, data)
+
+    def update_placement(self, placement_id: int, data: Dict) -> bool:
+        return self.update_entity('Placement', placement_id, data)
+
+    def update_client_contact(self, contact_id: int, data: Dict) -> bool:
+        return self.update_entity('ClientContact', contact_id, data)
+
+    def update_client_corporation(self, company_id: int, data: Dict) -> bool:
+        return self.update_entity('ClientCorporation', company_id, data)
+
+    def update_corporate_user(self, user_id: int, data: Dict) -> bool:
+        return self.update_entity('CorporateUser', user_id, data)
