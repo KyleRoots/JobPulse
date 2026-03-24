@@ -1489,7 +1489,89 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
             db.session.add(action)
 
         db.session.commit()
+
+        self._add_audit_notes(ticket, proof_items, steps)
+
         return proof_items
+
+    def _add_audit_notes(self, ticket, proof_items: List[Dict], steps: list):
+        has_successful_changes = any(
+            item.get('result', '').lower() == 'success'
+            and not item.get('step', '').lower().startswith(('retrieved', 'searched', 'queried', 'get '))
+            for item in proof_items
+        )
+        if not has_successful_changes:
+            return
+
+        noted_entities = set()
+        note_entity_map = {
+            'Candidate': 'candidates',
+            'JobOrder': 'jobOrder',
+            'ClientContact': 'clientContact',
+            'Placement': 'placement',
+        }
+
+        for step in steps:
+            entity_type = step.get('entity_type', '')
+            entity_id = step.get('entity_id')
+            action_type = step.get('action', '')
+
+            if action_type in ('get_entity', 'search_entity', 'query_entity', 'get_associations', 'get_files'):
+                continue
+            if not entity_id or entity_type not in note_entity_map:
+                continue
+
+            key = (entity_type, str(entity_id))
+            if key in noted_entities:
+                continue
+            noted_entities.add(key)
+
+            try:
+                change_lines = []
+                for item in proof_items:
+                    step_text = item.get('step', '')
+                    if str(entity_id) in step_text and item.get('result', '').lower() == 'success':
+                        old_val = item.get('old_value', '')
+                        new_val = item.get('new_value', '')
+                        if old_val and new_val:
+                            change_lines.append(f"{step_text} (was: {old_val}, now: {new_val})")
+                        else:
+                            change_lines.append(step_text)
+
+                if not change_lines:
+                    continue
+
+                changes_text = "; ".join(change_lines)
+                note_text = f"Scout Support ({ticket.ticket_number}): {changes_text}"
+
+                assoc_field = note_entity_map[entity_type]
+                note_data = {
+                    'action': 'Scout Support',
+                    'comments': note_text,
+                    'isDeleted': False,
+                }
+                if assoc_field == 'candidates':
+                    note_data['personReference'] = {'id': int(entity_id)}
+                    note_data['candidates'] = [{'id': int(entity_id)}]
+                else:
+                    note_data[assoc_field] = {'id': int(entity_id)}
+
+                if self.bullhorn_service.user_id:
+                    note_data['commentingPerson'] = {'id': int(self.bullhorn_service.user_id)}
+
+                url = f"{self.bullhorn_service.base_url}entity/Note"
+                params = {'BhRestToken': self.bullhorn_service.rest_token}
+                response = self.bullhorn_service.session.put(url, params=params, json=note_data, timeout=60)
+
+                if response.status_code in (200, 201):
+                    data = response.json() if response.text else {}
+                    note_id = data.get('changedEntityId', 'unknown')
+                    logger.info(f"📝 Audit note #{note_id} added to {entity_type} #{entity_id} for ticket {ticket.ticket_number}")
+                else:
+                    logger.warning(f"⚠️ Audit note failed for {entity_type} #{entity_id}: HTTP {response.status_code}")
+
+            except Exception as e:
+                logger.warning(f"⚠️ Audit note error for {entity_type} #{entity_id}: {e}")
 
     def _exec_update_entity(self, action, entity_type: str, entity_id: int, field: str, new_value) -> Dict:
         current = self.bullhorn_service.get_entity(entity_type, entity_id)
