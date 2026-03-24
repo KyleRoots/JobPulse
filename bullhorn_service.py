@@ -2099,3 +2099,148 @@ class BullhornService:
         except Exception as e:
             logging.error(f"Error searching {entity_type}: {e}")
             return []
+
+    def delete_entity(self, entity_type: str, entity_id: int, soft_delete: bool = True) -> bool:
+        if entity_type not in self.SUPPORTED_ENTITY_TYPES:
+            logging.error(f"Unsupported entity type for delete: {entity_type}")
+            return False
+
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return False
+
+        try:
+            if soft_delete:
+                return self.update_entity(entity_type, entity_id, {'isDeleted': True})
+            else:
+                url = f"{self.base_url}entity/{entity_type}/{entity_id}"
+                params = {'BhRestToken': self.rest_token}
+                response = self.session.delete(url, params=params, timeout=30)
+
+                if response.status_code == 401:
+                    self.rest_token = None
+                    if self.authenticate():
+                        params['BhRestToken'] = self.rest_token
+                        response = self.session.delete(url, params=params, timeout=30)
+                    else:
+                        return False
+
+                if response.status_code in (200, 204):
+                    logging.info(f"Hard-deleted {entity_type} {entity_id}")
+                    return True
+                else:
+                    logging.error(f"Failed to delete {entity_type} {entity_id}: {response.status_code} - {response.text[:300]}")
+                    return False
+        except Exception as e:
+            logging.error(f"Error deleting {entity_type} {entity_id}: {e}")
+            return False
+
+    def bulk_update_entities(self, entity_type: str, entity_ids: List[int], data: Dict) -> Dict[int, bool]:
+        results = {}
+        for eid in entity_ids:
+            results[eid] = self.update_entity(entity_type, eid, data)
+        succeeded = sum(1 for v in results.values() if v)
+        logging.info(f"Bulk update {entity_type}: {succeeded}/{len(entity_ids)} succeeded")
+        return results
+
+    def bulk_delete_entities(self, entity_type: str, entity_ids: List[int], soft_delete: bool = True) -> Dict[int, bool]:
+        results = {}
+        for eid in entity_ids:
+            results[eid] = self.delete_entity(entity_type, eid, soft_delete=soft_delete)
+        succeeded = sum(1 for v in results.values() if v)
+        logging.info(f"Bulk delete {entity_type} (soft={soft_delete}): {succeeded}/{len(entity_ids)} succeeded")
+        return results
+
+    def create_entity(self, entity_type: str, data: Dict) -> Optional[int]:
+        if entity_type not in self.SUPPORTED_ENTITY_TYPES:
+            logging.error(f"Unsupported entity type for create: {entity_type}")
+            return None
+
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+
+        try:
+            url = f"{self.base_url}entity/{entity_type}"
+            params = {'BhRestToken': self.rest_token}
+            response = self.session.put(url, params=params, json=data, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.put(url, params=params, json=data, timeout=30)
+                else:
+                    return None
+
+            if response.status_code in (200, 201):
+                result = self._safe_json_parse(response)
+                entity_id = result.get('changedEntityId')
+                logging.info(f"Created {entity_type} #{entity_id}")
+                return entity_id
+            else:
+                logging.error(f"Failed to create {entity_type}: {response.status_code} - {response.text[:300]}")
+                return None
+        except Exception as e:
+            logging.error(f"Error creating {entity_type}: {e}")
+            return None
+
+    def add_entity_to_association(self, entity_type: str, entity_id: int,
+                                  association_field: str, associated_ids: List[int]) -> bool:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return False
+
+        try:
+            ids_str = ','.join(str(i) for i in associated_ids)
+            url = f"{self.base_url}entity/{entity_type}/{entity_id}/{association_field}/{ids_str}"
+            params = {'BhRestToken': self.rest_token}
+            response = self.session.put(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.put(url, params=params, timeout=30)
+                else:
+                    return False
+
+            if response.status_code == 200:
+                logging.info(f"Added {association_field} association on {entity_type} #{entity_id}: {ids_str}")
+                return True
+            else:
+                logging.error(f"Failed to add association: {response.status_code} - {response.text[:300]}")
+                return False
+        except Exception as e:
+            logging.error(f"Error adding association on {entity_type} #{entity_id}: {e}")
+            return False
+
+    def remove_entity_from_association(self, entity_type: str, entity_id: int,
+                                       association_field: str, associated_ids: List[int]) -> bool:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return False
+
+        try:
+            ids_str = ','.join(str(i) for i in associated_ids)
+            url = f"{self.base_url}entity/{entity_type}/{entity_id}/{association_field}/{ids_str}"
+            params = {'BhRestToken': self.rest_token}
+            response = self.session.delete(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.delete(url, params=params, timeout=30)
+                else:
+                    return False
+
+            if response.status_code == 200:
+                logging.info(f"Removed {association_field} association on {entity_type} #{entity_id}: {ids_str}")
+                return True
+            else:
+                logging.error(f"Failed to remove association: {response.status_code} - {response.text[:300]}")
+                return False
+        except Exception as e:
+            logging.error(f"Error removing association on {entity_type} #{entity_id}: {e}")
+            return False

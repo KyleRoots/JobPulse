@@ -423,6 +423,18 @@ Supported actions:
    {{"action": "search_entity", "entity_type": "Candidate", "query": "email:user@example.com", "description": "Find candidate by email"}}
 6. remove_from_tearsheet — Remove a job from a tearsheet:
    {{"action": "remove_from_tearsheet", "tearsheet_id": 100, "job_id": 34500, "description": "Remove job from tearsheet"}}
+7. delete_entity — Soft-delete (default) or hard-delete a record:
+   {{"action": "delete_entity", "entity_type": "Candidate", "entity_id": 12345, "soft_delete": true, "description": "Soft-delete duplicate candidate record"}}
+8. bulk_update — Update the same field(s) across multiple records at once:
+   {{"action": "bulk_update", "entity_type": "Candidate", "entity_ids": [111, 222, 333], "update_data": {{"status": "Inactive"}}, "description": "Set 3 candidates to Inactive"}}
+9. bulk_delete — Soft-delete (default) or hard-delete multiple records at once:
+   {{"action": "bulk_delete", "entity_type": "Note", "entity_ids": [444, 555], "soft_delete": true, "description": "Remove duplicate notes"}}
+10. create_entity — Create a new Bullhorn entity:
+    {{"action": "create_entity", "entity_type": "Note", "entity_data": {{"personReference": {{"id": 12345}}, "action": "Scout Support", "comments": "Status corrected"}}, "description": "Create audit note"}}
+11. add_association — Link entities via a to-many association field (e.g., add categories to a job):
+    {{"action": "add_association", "entity_type": "JobOrder", "entity_id": 34500, "association_field": "categories", "associated_ids": [10, 20], "description": "Add categories to job"}}
+12. remove_association — Unlink entities from a to-many association field:
+    {{"action": "remove_association", "entity_type": "JobOrder", "entity_id": 34500, "association_field": "categories", "associated_ids": [10], "description": "Remove category from job"}}
 
 Always include entity IDs from the user's ticket when available. Use the actual values mentioned in the issue description.
 
@@ -598,6 +610,18 @@ Supported actions:
    {{"action": "search_entity", "entity_type": "Candidate", "query": "email:user@example.com", "description": "Find candidate by email"}}
 6. remove_from_tearsheet — Remove a job from a tearsheet:
    {{"action": "remove_from_tearsheet", "tearsheet_id": 100, "job_id": 34500, "description": "Remove job from tearsheet"}}
+7. delete_entity — Soft-delete or hard-delete a record:
+   {{"action": "delete_entity", "entity_type": "Candidate", "entity_id": 12345, "soft_delete": true, "description": "Soft-delete duplicate candidate"}}
+8. bulk_update — Update the same field(s) across multiple records:
+   {{"action": "bulk_update", "entity_type": "Candidate", "entity_ids": [111, 222, 333], "update_data": {{"status": "Inactive"}}, "description": "Set 3 candidates to Inactive"}}
+9. bulk_delete — Delete multiple records at once:
+   {{"action": "bulk_delete", "entity_type": "Note", "entity_ids": [444, 555], "soft_delete": true, "description": "Remove duplicate notes"}}
+10. create_entity — Create a new Bullhorn entity:
+    {{"action": "create_entity", "entity_type": "Note", "entity_data": {{"personReference": {{"id": 12345}}, "action": "Scout Support", "comments": "Audit note"}}, "description": "Create audit note"}}
+11. add_association — Link entities via association field:
+    {{"action": "add_association", "entity_type": "JobOrder", "entity_id": 34500, "association_field": "categories", "associated_ids": [10, 20], "description": "Add categories to job"}}
+12. remove_association — Unlink entities from association field:
+    {{"action": "remove_association", "entity_type": "JobOrder", "entity_id": 34500, "association_field": "categories", "associated_ids": [10], "description": "Remove category from job"}}
 
 Always include entity IDs from the conversation when available.
 
@@ -780,6 +804,30 @@ resolution_type guide:
                     result = self._exec_remove_from_tearsheet(action, step)
                     proof_items.append(result)
 
+                elif action_type == 'delete_entity' and entity_id:
+                    result = self._exec_delete_entity(action, entity_type, int(entity_id), step)
+                    proof_items.append(result)
+
+                elif action_type == 'bulk_update':
+                    result = self._exec_bulk_update(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'bulk_delete':
+                    result = self._exec_bulk_delete(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'create_entity':
+                    result = self._exec_create_entity(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'add_association':
+                    result = self._exec_add_association(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'remove_association':
+                    result = self._exec_remove_association(action, entity_type, step)
+                    proof_items.append(result)
+
                 else:
                     action.success = True
                     action.summary = desc
@@ -900,6 +948,126 @@ resolution_type guide:
             action.success = False
             action.error_message = 'Remove from tearsheet failed'
             return {'step': step.get('description', 'Remove from tearsheet'), 'result': 'Failed — API error'}
+
+    def _exec_delete_entity(self, action, entity_type: str, entity_id: int, step: dict) -> Dict:
+        soft = step.get('soft_delete', True)
+        current = self.bullhorn_service.get_entity(entity_type, entity_id)
+        if current:
+            action.old_value = json.dumps({k: v for k, v in current.items() if k in ('id', 'status', 'isDeleted', 'firstName', 'lastName', 'title', 'name')})[:500]
+
+        success = self.bullhorn_service.delete_entity(entity_type, entity_id, soft_delete=soft)
+        mode = 'soft-deleted' if soft else 'hard-deleted'
+        if success:
+            action.success = True
+            logger.info(f"✅ {mode.title()} {entity_type} #{entity_id}")
+            return {'step': f"{mode.title()} {entity_type} #{entity_id}", 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = f'{mode.title()} failed'
+            return {'step': f"Delete {entity_type} #{entity_id}", 'result': f'Failed — {mode} error'}
+
+    def _exec_bulk_update(self, action, entity_type: str, step: dict) -> Dict:
+        entity_ids = step.get('entity_ids', [])
+        update_data = step.get('update_data', {})
+        if not entity_ids or not update_data:
+            action.success = False
+            action.error_message = 'Missing entity_ids or update_data'
+            return {'step': step.get('description', 'Bulk update'), 'result': 'Failed — missing IDs or data'}
+
+        int_ids = [int(eid) for eid in entity_ids]
+        results = self.bullhorn_service.bulk_update_entities(entity_type, int_ids, update_data)
+        succeeded = sum(1 for v in results.values() if v)
+        failed = len(int_ids) - succeeded
+        action.success = failed == 0
+        action.new_value = f"{succeeded}/{len(int_ids)} succeeded"
+        if failed > 0:
+            action.error_message = f"{failed} updates failed"
+        logger.info(f"{'✅' if failed == 0 else '⚠️'} Bulk update {entity_type}: {succeeded}/{len(int_ids)} succeeded")
+        return {
+            'step': f"Bulk updated {entity_type}: {list(update_data.keys())}",
+            'total': len(int_ids), 'succeeded': succeeded, 'failed': failed,
+            'result': 'Success' if failed == 0 else f'Partial — {failed} failed',
+        }
+
+    def _exec_bulk_delete(self, action, entity_type: str, step: dict) -> Dict:
+        entity_ids = step.get('entity_ids', [])
+        soft = step.get('soft_delete', True)
+        if not entity_ids:
+            action.success = False
+            action.error_message = 'Missing entity_ids'
+            return {'step': step.get('description', 'Bulk delete'), 'result': 'Failed — no IDs provided'}
+
+        int_ids = [int(eid) for eid in entity_ids]
+        results = self.bullhorn_service.bulk_delete_entities(entity_type, int_ids, soft_delete=soft)
+        succeeded = sum(1 for v in results.values() if v)
+        failed = len(int_ids) - succeeded
+        mode = 'soft-deleted' if soft else 'hard-deleted'
+        action.success = failed == 0
+        action.new_value = f"{succeeded}/{len(int_ids)} {mode}"
+        if failed > 0:
+            action.error_message = f"{failed} deletes failed"
+        logger.info(f"{'✅' if failed == 0 else '⚠️'} Bulk {mode} {entity_type}: {succeeded}/{len(int_ids)}")
+        return {
+            'step': f"Bulk {mode} {entity_type}",
+            'total': len(int_ids), 'succeeded': succeeded, 'failed': failed,
+            'result': 'Success' if failed == 0 else f'Partial — {failed} failed',
+        }
+
+    def _exec_create_entity(self, action, entity_type: str, step: dict) -> Dict:
+        entity_data = step.get('entity_data', {})
+        if not entity_data:
+            action.success = False
+            action.error_message = 'Missing entity_data'
+            return {'step': step.get('description', 'Create entity'), 'result': 'Failed — no data provided'}
+
+        new_id = self.bullhorn_service.create_entity(entity_type, entity_data)
+        if new_id:
+            action.success = True
+            action.new_value = f"{entity_type} #{new_id}"
+            logger.info(f"✅ Created {entity_type} #{new_id}")
+            return {'step': f"Created {entity_type} #{new_id}", 'entity_id': new_id, 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = 'Entity creation failed'
+            return {'step': step.get('description', 'Create entity'), 'result': 'Failed — API error'}
+
+    def _exec_add_association(self, action, entity_type: str, step: dict) -> Dict:
+        entity_id = step.get('entity_id')
+        association_field = step.get('association_field')
+        associated_ids = step.get('associated_ids', [])
+        if not entity_id or not association_field or not associated_ids:
+            action.success = False
+            action.error_message = 'Missing entity_id, association_field, or associated_ids'
+            return {'step': step.get('description', 'Add association'), 'result': 'Failed — missing parameters'}
+
+        success = self.bullhorn_service.add_entity_to_association(entity_type, int(entity_id), association_field, [int(i) for i in associated_ids])
+        if success:
+            action.success = True
+            logger.info(f"✅ Added {association_field} association on {entity_type} #{entity_id}")
+            return {'step': f"Added {association_field} on {entity_type} #{entity_id}: {associated_ids}", 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = 'Association add failed'
+            return {'step': step.get('description', 'Add association'), 'result': 'Failed — API error'}
+
+    def _exec_remove_association(self, action, entity_type: str, step: dict) -> Dict:
+        entity_id = step.get('entity_id')
+        association_field = step.get('association_field')
+        associated_ids = step.get('associated_ids', [])
+        if not entity_id or not association_field or not associated_ids:
+            action.success = False
+            action.error_message = 'Missing entity_id, association_field, or associated_ids'
+            return {'step': step.get('description', 'Remove association'), 'result': 'Failed — missing parameters'}
+
+        success = self.bullhorn_service.remove_entity_from_association(entity_type, int(entity_id), association_field, [int(i) for i in associated_ids])
+        if success:
+            action.success = True
+            logger.info(f"✅ Removed {association_field} association on {entity_type} #{entity_id}")
+            return {'step': f"Removed {association_field} on {entity_type} #{entity_id}: {associated_ids}", 'result': 'Success'}
+        else:
+            action.success = False
+            action.error_message = 'Association remove failed'
+            return {'step': step.get('description', 'Remove association'), 'result': 'Failed — API error'}
 
     def escalate_ticket(self, ticket_id: int, reason: str) -> bool:
         from extensions import db
