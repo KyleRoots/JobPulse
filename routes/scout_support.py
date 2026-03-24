@@ -146,6 +146,25 @@ def api_close_ticket(ticket_number):
     return jsonify({'success': success})
 
 
+@scout_support_bp.route('/api/scout-support/retry/<ticket_number>', methods=['POST'])
+@login_required
+def api_retry_execution(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support_service import ScoutSupportService
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    svc = ScoutSupportService()
+    result = svc.retry_execution(ticket.id)
+
+    return jsonify(result)
+
+
 @scout_support_bp.route('/scout-support/ticket/<ticket_number>/delete', methods=['POST'])
 @login_required
 def delete_ticket(ticket_number):

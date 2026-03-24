@@ -149,6 +149,11 @@
                             <td class="text-muted small" style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'">{{ ticket.updated_at.strftime('%b %d, %H:%M') if ticket.updated_at else '—' }}</td>
                             {% if current_user.is_admin %}
                             <td onclick="event.stopPropagation();">
+                                {% if ticket.status == 'execution_failed' %}
+                                <button class="btn btn-sm btn-outline-warning border-0 px-2 py-1" onclick="retryTicket('{{ ticket.ticket_number }}')" title="Retry execution">
+                                    <i class="fas fa-redo"></i>
+                                </button>
+                                {% endif %}
                                 <button class="btn btn-sm btn-outline-danger border-0 px-2 py-1" onclick="deleteSingle('{{ ticket.ticket_number }}')" title="Delete ticket">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
@@ -200,6 +205,22 @@ function updateBulkActions() {
         } else {
             bulkDiv.classList.add('d-none');
         }
+    }
+}
+
+async function retryTicket(ticketNumber) {
+    if (!confirm('Retry execution for ticket ' + ticketNumber + '? Previous results will be cleared.')) return;
+    const res = await fetch('/api/scout-support/retry/' + ticketNumber, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    });
+    const data = await res.json();
+    if (data.success) {
+        alert('Execution completed successfully!');
+        location.reload();
+    } else {
+        alert('Retry result: ' + (data.message || data.error || 'Check execution log'));
+        location.reload();
     }
 }
 

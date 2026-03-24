@@ -1809,56 +1809,64 @@ Respond with ONLY a JSON object:
             action.error_message = 'Missing note_text'
             return {'step': step.get('description', 'Create note'), 'result': 'Failed — no note text provided'}
 
-        if entity_type in ('Candidate', 'ClientContact'):
-            note_id = self.bullhorn_service.create_candidate_note(entity_id, note_text, action=note_action)
-            if note_id:
-                action.success = True
-                action.new_value = f"Note #{note_id}"
-                logger.info(f"✅ Created note #{note_id} on {entity_type} #{entity_id}")
-                return {'step': f"Created note on {entity_type} #{entity_id}", 'note_id': note_id, 'result': 'Success'}
+        api_user_id = self.bullhorn_service.user_id
+        if not api_user_id:
+            action.success = False
+            action.error_message = 'No Bullhorn API user ID available for note creation'
+            return {'step': step.get('description', 'Create note'), 'result': 'Failed — no API user ID'}
+
+        note_data = {
+            'action': note_action,
+            'comments': note_text,
+            'isDeleted': False,
+            'personReference': {'id': int(api_user_id)},
+            'commentingPerson': {'id': int(api_user_id)},
+        }
+
+        if entity_type == 'Candidate':
+            note_data['personReference'] = {'id': int(entity_id)}
+            note_data['candidates'] = [{'id': int(entity_id)}]
+        elif entity_type == 'ClientContact':
+            note_data['personReference'] = {'id': int(entity_id)}
+
+        url = f"{self.bullhorn_service.base_url}entity/Note"
+        params = {'BhRestToken': self.bullhorn_service.rest_token}
+        response = self.bullhorn_service.session.put(url, params=params, json=note_data, timeout=60)
+
+        if response.status_code == 401:
+            if self.bullhorn_service.authenticate():
+                params['BhRestToken'] = self.bullhorn_service.rest_token
+                url = f"{self.bullhorn_service.base_url}entity/Note"
+                response = self.bullhorn_service.session.put(url, params=params, json=note_data, timeout=60)
             else:
                 action.success = False
-                action.error_message = 'Note creation failed'
-                return {'step': f"Create note on {entity_type} #{entity_id}", 'result': 'Failed — API error'}
+                action.error_message = 'Bullhorn re-authentication failed'
+                return {'step': step.get('description', 'Create note'), 'result': 'Failed — authentication error'}
+
+        if response.status_code in (200, 201):
+            data = response.json() if response.text else {}
+            note_id = data.get('changedEntityId', 'unknown')
+            logger.info(f"📝 Note #{note_id} created for {entity_type} #{entity_id}")
+
+            assoc_map = {'JobOrder': 'jobOrders', 'Placement': 'placements'}
+            assoc_name = assoc_map.get(entity_type)
+            if assoc_name and note_id and note_id != 'unknown':
+                assoc_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}/{assoc_name}/{entity_id}"
+                assoc_resp = self.bullhorn_service.session.put(assoc_url, params=params, timeout=30)
+                if assoc_resp.status_code in (200, 201):
+                    logger.info(f"📝 Linked note #{note_id} to {entity_type} #{entity_id}")
+                else:
+                    logger.warning(f"⚠️ Note #{note_id} created but link to {entity_type} #{entity_id} failed: HTTP {assoc_resp.status_code}")
+
+            action.success = True
+            action.new_value = f"Note #{note_id}"
+            return {'step': f"Created note on {entity_type} #{entity_id}", 'note_id': note_id, 'result': 'Success'}
         else:
-            api_user_id = self.bullhorn_service.user_id
-            note_data = {
-                'action': note_action,
-                'comments': note_text,
-                'isDeleted': False,
-            }
-            if api_user_id:
-                note_data['personReference'] = {'id': int(api_user_id)}
-                note_data['commentingPerson'] = {'id': int(api_user_id)}
-
-            url = f"{self.bullhorn_service.base_url}entity/Note"
-            params = {'BhRestToken': self.bullhorn_service.rest_token}
-            response = self.bullhorn_service.session.put(url, params=params, json=note_data, timeout=60)
-
-            if response.status_code in (200, 201):
-                data = response.json() if response.text else {}
-                note_id = data.get('changedEntityId', 'unknown')
-                logger.info(f"📝 Note #{note_id} created for {entity_type} #{entity_id}")
-
-                assoc_map = {'JobOrder': 'jobOrders', 'Placement': 'placements'}
-                assoc_name = assoc_map.get(entity_type)
-                if assoc_name and note_id and note_id != 'unknown':
-                    assoc_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}/{assoc_name}/{entity_id}"
-                    assoc_resp = self.bullhorn_service.session.put(assoc_url, params=params, timeout=30)
-                    if assoc_resp.status_code in (200, 201):
-                        logger.info(f"📝 Linked note #{note_id} to {entity_type} #{entity_id}")
-                    else:
-                        logger.warning(f"⚠️ Note #{note_id} created but link to {entity_type} #{entity_id} failed: HTTP {assoc_resp.status_code}")
-
-                action.success = True
-                action.new_value = f"Note #{note_id}"
-                return {'step': f"Created note on {entity_type} #{entity_id}", 'note_id': note_id, 'result': 'Success'}
-            else:
-                error_detail = response.text[:200] if response.text else 'No response body'
-                action.success = False
-                action.error_message = f'Note creation failed: HTTP {response.status_code} — {error_detail}'
-                logger.error(f"❌ Note creation failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {error_detail}")
-                return {'step': f"Create note on {entity_type} #{entity_id}", 'result': f'Failed — HTTP {response.status_code}'}
+            error_detail = response.text[:200] if response.text else 'No response body'
+            action.success = False
+            action.error_message = f'Note creation failed: HTTP {response.status_code} — {error_detail}'
+            logger.error(f"❌ Note creation failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {error_detail}")
+            return {'step': f"Create note on {entity_type} #{entity_id}", 'result': f'Failed — HTTP {response.status_code}'}
 
     def _exec_create_submission(self, action, step: dict) -> Dict:
         candidate_id = step.get('candidate_id')
@@ -2191,6 +2199,33 @@ Respond with ONLY a JSON object:
 
         logger.info(f"{'✅' if new_status == 'completed' else '🔒'} Ticket {ticket.ticket_number} {status_label} by {closed_by}: {resolution_note[:100]}")
         return True
+
+    def retry_execution(self, ticket_id: int) -> Dict:
+        from extensions import db
+        from models import SupportTicket, SupportAction
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return {'success': False, 'error': 'Ticket not found'}
+
+        if ticket.status != 'execution_failed':
+            return {'success': False, 'error': f'Cannot retry — ticket status is "{ticket.status}", expected "execution_failed"'}
+
+        SupportAction.query.filter_by(ticket_id=ticket.id).delete()
+        ticket.execution_proof = None
+        ticket.status = 'approved'
+        db.session.commit()
+
+        logger.info(f"🔄 Retrying execution for ticket {ticket.ticket_number} — cleared previous actions")
+
+        success = self._execute_solution(ticket)
+        self._add_audit_notes(ticket)
+
+        return {
+            'success': success,
+            'status': ticket.status,
+            'message': f'Execution {"completed successfully" if success else "encountered failures — check execution log"}'
+        }
 
     def escalate_ticket(self, ticket_id: int, reason: str) -> bool:
         from extensions import db
@@ -2544,7 +2579,7 @@ Respond with ONLY a JSON object:
 
         self._send_email(
             to_email=ticket.admin_email,
-            subject=f"[{ticket.ticket_number}] Admin Approval Required",
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body="\n".join(body_parts),
             ticket=ticket,
             email_type='admin_approval_request',
@@ -2587,7 +2622,7 @@ Respond with ONLY a JSON object:
 
         self._send_email(
             to_email=ticket.admin_email,
-            subject=f"[{ticket.ticket_number}] Execution Failed ⚠️ — Action Required",
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body="\n".join(admin_body_parts),
             ticket=ticket,
             email_type='admin_execution_failure',
