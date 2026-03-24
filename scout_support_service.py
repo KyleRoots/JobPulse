@@ -1817,7 +1817,7 @@ Respond with ONLY a JSON object:
             return {'step': step.get('description', 'Create note'), 'result': 'Failed — no API user ID'}
 
         note_data = {
-            'action': note_action,
+            'action': note_action or 'Scout Support',
             'comments': note_text,
             'isDeleted': False,
             'personReference': {'id': int(api_user_id)},
