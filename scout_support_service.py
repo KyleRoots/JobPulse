@@ -33,6 +33,8 @@ STSI_ESCALATION_CONTACTS = {
     'backoffice_finance': 'evalentine@stsigroup.com',  # Emma Valentine
 }
 
+IMMEDIATE_ESCALATION_CATEGORIES = ['email_notifications', 'backoffice_onboarding', 'backoffice_finance']
+
 CATEGORY_LABELS = {
     'ats_issue': 'ATS / Bullhorn Issue',
     'data_correction': 'Data Correction Request',
@@ -1770,13 +1772,22 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
         db.session.commit()
 
         body = "\n".join(body_parts)
+
         self._send_email(
             to_email=ticket.submitter_email,
             subject=f"[{ticket.ticket_number}] {ticket.subject}",
             body=body,
             ticket=ticket,
             email_type='acknowledgment',
+            cc_emails=self._get_immediate_escalation_cc(ticket),
         )
+
+    def _get_immediate_escalation_cc(self, ticket) -> Optional[List[str]]:
+        if ticket.brand == 'STSI' and ticket.category in IMMEDIATE_ESCALATION_CATEGORIES:
+            contact = STSI_ESCALATION_CONTACTS.get(ticket.category)
+            if contact:
+                return [contact]
+        return None
 
     def _send_clarification_email(self, ticket, follow_up_text: str):
         body = (
@@ -1789,6 +1800,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
         self._send_email(
             to_email=ticket.submitter_email,
             subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            cc_emails=self._get_immediate_escalation_cc(ticket),
             body=body,
             ticket=ticket,
             email_type='clarification',
@@ -1827,6 +1839,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
             body="\n".join(body_parts),
             ticket=ticket,
             email_type='solution_proposal',
+            cc_emails=self._get_immediate_escalation_cc(ticket),
         )
 
     def _send_user_confirmation_email(self, ticket, message: str):
