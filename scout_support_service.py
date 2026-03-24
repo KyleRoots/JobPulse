@@ -362,7 +362,7 @@ Respond with a JSON object:
                         {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You help internal users resolve their ATS problems. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
                     ],
-                    max_completion_tokens=2000,
+                    max_completion_tokens=4096,
                     response_format={'type': 'json_object'},
                 )
                 content = response.choices[0].message.content
@@ -485,7 +485,7 @@ Respond with JSON:
                         {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
                     ],
-                    max_completion_tokens=2000,
+                    max_completion_tokens=4096,
                     response_format={'type': 'json_object'},
                 )
                 content = response.choices[0].message.content
