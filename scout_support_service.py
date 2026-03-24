@@ -1863,6 +1863,8 @@ Respond with ONLY a JSON object:
             return {'step': f"Create note on {entity_type} #{entity_id}", 'result': f'Failed — HTTP {response.status_code}'}
 
     def _link_note_via_note_entity(self, note_id, entity_type: str, entity_id: int, params: dict):
+        logger.info(f"📝 Attempting to link Note #{note_id} → {entity_type} #{entity_id} via NoteEntity")
+
         note_entity_data = {
             'note': {'id': int(note_id)},
             'targetEntityID': int(entity_id),
@@ -1871,14 +1873,31 @@ Respond with ONLY a JSON object:
         ne_url = f"{self.bullhorn_service.base_url}entity/NoteEntity"
         try:
             ne_resp = self.bullhorn_service.session.put(ne_url, params=params, json=note_entity_data, timeout=30)
+            ne_body = ne_resp.text[:500] if ne_resp.text else 'empty'
+            logger.info(f"📝 NoteEntity PUT response: HTTP {ne_resp.status_code} — {ne_body}")
             if ne_resp.status_code in (200, 201):
                 ne_data = ne_resp.json() if ne_resp.text else {}
                 ne_id = ne_data.get('changedEntityId', 'unknown')
-                logger.info(f"📝 NoteEntity #{ne_id} linked Note #{note_id} → {entity_type} #{entity_id}")
-            else:
-                logger.warning(f"⚠️ NoteEntity creation failed for Note #{note_id} → {entity_type} #{entity_id}: HTTP {ne_resp.status_code} — {ne_resp.text[:200] if ne_resp.text else ''}")
+                logger.info(f"📝 NoteEntity #{ne_id} created, linking Note #{note_id} → {entity_type} #{entity_id}")
         except Exception as e:
-            logger.warning(f"⚠️ NoteEntity linking error for Note #{note_id}: {e}")
+            logger.warning(f"⚠️ NoteEntity PUT error for Note #{note_id}: {e}")
+
+        assoc_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}/jobOrders/{entity_id}"
+        try:
+            assoc_resp = self.bullhorn_service.session.put(assoc_url, params=params, timeout=30)
+            assoc_body = assoc_resp.text[:500] if assoc_resp.text else 'empty'
+            logger.info(f"📝 Association PUT response: HTTP {assoc_resp.status_code} — {assoc_body}")
+        except Exception as e:
+            logger.warning(f"⚠️ Association PUT error for Note #{note_id}: {e}")
+
+        post_url = f"{self.bullhorn_service.base_url}entity/Note/{note_id}"
+        post_data = {'jobOrders': {'replaceAll': [{'id': int(entity_id)}]}}
+        try:
+            post_resp = self.bullhorn_service.session.post(post_url, params=params, json=post_data, timeout=30)
+            post_body = post_resp.text[:500] if post_resp.text else 'empty'
+            logger.info(f"📝 POST update response: HTTP {post_resp.status_code} — {post_body}")
+        except Exception as e:
+            logger.warning(f"⚠️ POST update error for Note #{note_id}: {e}")
 
     def _exec_create_submission(self, action, step: dict) -> Dict:
         candidate_id = step.get('candidate_id')
