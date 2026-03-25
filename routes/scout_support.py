@@ -246,6 +246,13 @@ def _compute_analytics(days=90):
     }
     category_labels_map = {
         'ats_issue': 'ATS Issue', 'data_correction': 'Data Correction',
+        'candidate_parsing': 'Candidate Parsing', 'job_posting': 'Job Posting',
+        'account_access': 'Account Access', 'email_notifications': 'Email/Notifications',
+        'feature_request': 'Feature Request', 'other': 'Other',
+        'backoffice_onboarding': 'Back-Office: Onboarding',
+        'backoffice_finance': 'Back-Office: Finance',
+        'platform_bug': 'Platform Bug', 'platform_feature': 'Platform Feature',
+        'platform_question': 'Platform Question', 'platform_other': 'Platform Feedback',
     }
 
     return {

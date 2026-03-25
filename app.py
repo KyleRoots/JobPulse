@@ -208,6 +208,9 @@ app.register_blueprint(support_auth_bp)
 app.register_blueprint(scout_support_bp)
 app.register_blueprint(knowledge_hub_bp)
 
+from routes.platform_support import platform_support_bp
+app.register_blueprint(platform_support_bp)
+
 from routes.vetting_sandbox import vetting_sandbox_bp
 app.register_blueprint(vetting_sandbox_bp)
 

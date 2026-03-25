@@ -1741,7 +1741,9 @@
                     style="display:none;">
                     <i class="fas fa-book-open me-1"></i>Help Guide
                 </a>
-                <!-- Feedback Button -->
+                <a href="/my-tickets" class="btn btn-outline-light btn-sm ms-2" title="View My Tickets">
+                    <i class="fas fa-ticket-alt me-1"></i>My Tickets
+                </a>
                 <button class="btn btn-outline-light btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#feedbackModal"
                     title="Send Feedback">
                     <i class="fas fa-comment-dots me-1"></i>Feedback
@@ -1889,9 +1891,33 @@
     </div>
 
     <script>
-        // Feedback modal - set current page
         document.getElementById('feedbackModal').addEventListener('show.bs.modal', function () {
             document.getElementById('feedbackPage').value = window.location.pathname;
+        });
+
+        document.getElementById('feedbackModal').addEventListener('hidden.bs.modal', function () {
+            const formEl = document.getElementById('feedbackForm');
+            const btn = document.getElementById('submitFeedbackBtn');
+            if (!formEl.querySelector('select')) {
+                formEl.innerHTML = '<div class="mb-3">'
+                    + '<label for="feedbackType" class="form-label">What type of feedback?</label>'
+                    + '<select class="form-select" id="feedbackType" required style="background-color: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); color: #e0e0e0;">'
+                    + '<option value="">Select type...</option>'
+                    + '<option value="bug">Bug Report</option>'
+                    + '<option value="feature">Feature Request</option>'
+                    + '<option value="question">Question</option>'
+                    + '<option value="other">Other</option>'
+                    + '</select></div>'
+                    + '<div class="mb-3">'
+                    + '<label for="feedbackMessage" class="form-label">Your Message</label>'
+                    + '<textarea class="form-control" id="feedbackMessage" rows="4" required placeholder="Please describe your feedback in detail..." style="background-color: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); color: #e0e0e0;"></textarea></div>'
+                    + '<div class="mb-3">'
+                    + '<label for="feedbackPage" class="form-label">Current Page (optional)</label>'
+                    + '<input type="text" class="form-control" id="feedbackPage" readonly style="background-color: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1); color: #999;"></div>';
+                btn.style.display = '';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send Feedback';
+            }
         });
 
         function submitFeedback() {
@@ -1906,7 +1932,7 @@
 
             const btn = document.getElementById('submitFeedbackBtn');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
 
             fetch('/api/feedback', {
                 method: 'POST',
@@ -1914,28 +1940,30 @@
                 body: JSON.stringify({
                     type: feedbackType,
                     message: feedbackMessage,
-                    page: feedbackPage,
-                    user: '{{ current_user.username if current_user.is_authenticated else "Unknown" }}'
+                    page: feedbackPage
                 })
             })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Show success
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('feedbackModal'));
-                        modal.hide();
-                        document.getElementById('feedbackForm').reset();
-
-                        // Show toast or alert
-                        alert('Thank you! Your feedback has been submitted.');
+                        const formEl = document.getElementById('feedbackForm');
+                        const ticketNum = data.ticket_number || '';
+                        formEl.innerHTML = '<div class="text-center py-4">'
+                            + '<i class="fas fa-check-circle fa-3x mb-3" style="color: #4a9678;"></i>'
+                            + '<h5 class="mb-2">Feedback Submitted!</h5>'
+                            + (ticketNum ? '<p class="mb-1">Ticket: <strong>' + ticketNum + '</strong></p>' : '')
+                            + '<p class="text-muted small mb-3">You\'ll receive a confirmation email shortly.</p>'
+                            + '<a href="/my-tickets" class="btn btn-sm btn-outline-light"><i class="fas fa-ticket-alt me-1"></i>View My Tickets</a>'
+                            + '</div>';
+                        btn.style.display = 'none';
                     } else {
                         alert('Error submitting feedback: ' + (data.error || 'Unknown error'));
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send Feedback';
                     }
                 })
                 .catch(error => {
                     alert('Error submitting feedback: ' + error.message);
-                })
-                .finally(() => {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send Feedback';
                 });

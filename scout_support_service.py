@@ -61,7 +61,13 @@ CATEGORY_LABELS = {
     'other': 'Other',
     'backoffice_onboarding': 'Back-Office: Onboarding',
     'backoffice_finance': 'Back-Office: Finance (BTE)',
+    'platform_bug': 'Platform Bug Report',
+    'platform_feature': 'Platform Feature Request',
+    'platform_question': 'Platform Question',
+    'platform_other': 'Platform Feedback',
 }
+
+PLATFORM_CATEGORIES = ['platform_bug', 'platform_feature', 'platform_question', 'platform_other']
 
 AI_FULL_CATEGORIES = ['ats_issue', 'candidate_parsing', 'job_posting', 'account_access', 'data_correction',
                       'email_notifications', 'feature_request', 'other',
@@ -183,7 +189,9 @@ class ScoutSupportService(
             logger.error(f"Ticket {ticket_id} not found")
             return False
 
-        if ticket.category in HANDOFF_CATEGORIES:
+        if ticket.category in PLATFORM_CATEGORIES:
+            return self._process_platform_ticket(ticket)
+        elif ticket.category in HANDOFF_CATEGORIES:
             return self._process_handoff_ticket(ticket)
         elif ticket.category in BACKOFFICE_CATEGORIES:
             return self._process_backoffice_ticket(ticket)
@@ -278,6 +286,117 @@ class ScoutSupportService(
         self._send_acknowledgment_email(ticket, understanding, attachment_ack=attachment_ack)
         logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged (AI full, confidence={confidence}, resolution_type={resolution_type}, clarify_first={needs_clarification_first}), email sent to {ticket.submitter_email}")
         return True
+
+    def _process_platform_ticket(self, ticket) -> bool:
+        from extensions import db
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+
+        ticket.status = 'acknowledged'
+        ticket.ai_understanding = json.dumps({
+            'understanding': f"Platform feedback received: {ticket.subject}",
+            'category': ticket.category,
+            'is_platform_ticket': True,
+        })
+        db.session.commit()
+
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
+        page_info = ''
+        if ticket.description and 'Page:' in ticket.description:
+            for line in ticket.description.split('\n'):
+                if line.strip().startswith('Page:'):
+                    page_info = f"\n**{line.strip()}**"
+                    break
+
+        body = (
+            f"Hi {first_name},\n\n"
+            f"Thank you for your feedback! Your submission has been received and assigned ticket number **{ticket.ticket_number}**.\n\n"
+            f"**Type:** {category_label}\n"
+            f"**Subject:** {ticket.subject}{page_info}\n\n"
+            f"Our team has been notified and will review your feedback. "
+            f"You can track the status of this and all your submissions from the **My Tickets** page.\n\n"
+            f"— Scout Genius"
+        )
+
+        self._send_platform_email(
+            to_email=ticket.submitter_email,
+            subject=f"[{ticket.ticket_number}] {ticket.subject}",
+            body=body,
+            ticket=ticket,
+            email_type='platform_acknowledgment',
+        )
+
+        logger.info(f"🎫 Platform ticket {ticket.ticket_number} ({category_label}) acknowledged")
+        return True
+
+    def _send_platform_email(self, to_email: str, subject: str, body: str, ticket=None,
+                              email_type: str = 'general'):
+        import re
+        import uuid as _uuid
+        from extensions import db
+        from models import SupportConversation, EmailDeliveryLog
+        from email_service import EmailService
+
+        try:
+            email_svc = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
+            msg_id = f"<scout-platform-{_uuid.uuid4().hex[:12]}@scoutgenius.ai>"
+
+            html_body = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', body)
+            html_body = html_body.replace('\n', '<br>')
+
+            branded_html = (
+                '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 640px; margin: 0 auto;">'
+                '<div style="background: linear-gradient(135deg, #4a9678, #3d7d64); padding: 16px 24px; border-radius: 8px 8px 0 0;">'
+                '<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>'
+                '<td style="color: #ffffff; font-size: 18px; font-weight: 600;">Scout Genius</td>'
+                '<td align="right" style="color: rgba(255,255,255,0.8); font-size: 12px;">Platform Support</td>'
+                '</tr></table>'
+                '</div>'
+                '<div style="padding: 24px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none;">'
+                f'{html_body}'
+                '</div>'
+                '<div style="padding: 12px 24px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; text-align: center;">'
+                '<span style="color: #9ca3af; font-size: 11px;">Powered by Scout Genius&trade; &mdash; support@scoutgenius.ai</span>'
+                '</div>'
+                '</div>'
+            )
+
+            result = email_svc.send_html_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=branded_html,
+                notification_type=email_type,
+                reply_to='support@scoutgenius.ai',
+                from_name='Scout Genius',
+                from_email='support@scoutgenius.ai',
+                message_id=msg_id,
+            )
+
+            success = result.get('success', False) if isinstance(result, dict) else bool(result)
+
+            if ticket:
+                conv = SupportConversation(
+                    ticket_id=ticket.id,
+                    direction='outbound',
+                    sender_email='support@scoutgenius.ai',
+                    recipient_email=to_email,
+                    subject=subject,
+                    body=body,
+                    message_id=msg_id,
+                    email_type=email_type,
+                )
+                db.session.add(conv)
+                if not getattr(ticket, 'thread_message_id', None):
+                    ticket.thread_message_id = msg_id
+                db.session.commit()
+
+            if success:
+                logger.info(f"📧 Platform email sent: {subject} → {to_email}")
+            else:
+                logger.error(f"❌ Platform email failed: {subject} → {to_email}")
+
+        except Exception as e:
+            logger.error(f"❌ Platform email error: {e}")
 
     def _process_handoff_ticket(self, ticket) -> bool:
         from extensions import db

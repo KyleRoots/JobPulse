@@ -1,0 +1,151 @@
+{% extends "base_layout.html" %}
+
+{% block title %}My Tickets{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-ticket-alt me-2" style="color: #4a9678;"></i>My Tickets</h2>
+            <p class="text-muted mb-0">Track your feedback submissions and support requests</p>
+        </div>
+        <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#feedbackModal">
+            <i class="fas fa-plus me-1"></i>New Feedback
+        </button>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="text-muted small mb-1"><i class="fas fa-ticket-alt me-1"></i>Total</div>
+                <div class="fs-2 fw-bold" style="color: #4a9678;">{{ stats.total }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="text-muted small mb-1"><i class="fas fa-desktop me-1"></i>Platform</div>
+                <div class="fs-2 fw-bold text-info">{{ stats.platform }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="text-muted small mb-1"><i class="fas fa-headset me-1"></i>ATS Support</div>
+                <div class="fs-2 fw-bold" style="color: #a78bfa;">{{ stats.ats }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="text-muted small mb-1"><i class="fas fa-clock me-1"></i>Open</div>
+                <div class="fs-2 fw-bold text-warning">{{ stats.open }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+        <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>All Tickets</h5>
+            <select id="tierFilter" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;" onchange="filterByTier()">
+                <option value="all">All Types</option>
+                <option value="platform">Platform Feedback</option>
+                <option value="ats">ATS Support</option>
+            </select>
+        </div>
+        <div class="card-body p-0">
+            {% if tickets %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Ticket #</th>
+                            <th>Type</th>
+                            <th>Subject</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ticket in tickets %}
+                        {% set is_platform = ticket.category in platform_categories %}
+                        <tr class="ticket-row" data-tier="{{ 'platform' if is_platform else 'ats' }}" style="cursor:pointer;"
+                            onclick="window.location='{{ url_for('platform_support.my_ticket_detail', ticket_number=ticket.ticket_number) }}'">
+                            <td>
+                                <span class="badge font-monospace" style="background: rgba({{ '74, 150, 120' if is_platform else '139, 92, 246' }}, 0.2); color: {{ '#6ec9a5' if is_platform else '#a78bfa' }};">
+                                    {{ ticket.ticket_number }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if is_platform %}
+                                <span class="badge" style="background: rgba(74, 150, 120, 0.2); color: #6ec9a5;">
+                                    <i class="fas fa-desktop me-1"></i>Platform
+                                </span>
+                                {% else %}
+                                <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;">
+                                    <i class="fas fa-headset me-1"></i>ATS
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ ticket.subject[:60] }}{% if ticket.subject|length > 60 %}...{% endif %}</td>
+                            <td>
+                                <span class="badge bg-secondary bg-opacity-50">{{ category_labels.get(ticket.category, ticket.category) }}</span>
+                            </td>
+                            <td>
+                                {% if ticket.priority == 'high' or ticket.priority == 'urgent' %}
+                                <span class="badge bg-danger">{{ ticket.priority|capitalize }}</span>
+                                {% elif ticket.priority == 'medium' %}
+                                <span class="badge bg-warning text-dark">Medium</span>
+                                {% else %}
+                                <span class="badge bg-success">Low</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set status_colors = {
+                                    'new': 'secondary', 'acknowledged': 'info', 'clarifying': 'primary',
+                                    'solution_proposed': 'primary', 'awaiting_user_approval': 'warning',
+                                    'awaiting_admin_approval': 'danger', 'approved': 'success',
+                                    'executing': 'info', 'completed': 'success', 'execution_failed': 'danger',
+                                    'on_hold': 'warning', 'closed': 'secondary', 'escalated': 'danger'
+                                } %}
+                                {% set status_labels = {
+                                    'new': 'New', 'acknowledged': 'Received', 'clarifying': 'In Review',
+                                    'solution_proposed': 'Solution Proposed', 'awaiting_user_approval': 'Your Approval',
+                                    'awaiting_admin_approval': 'Processing', 'approved': 'Approved',
+                                    'executing': 'In Progress', 'completed': 'Completed',
+                                    'execution_failed': 'Needs Attention', 'on_hold': 'On Hold',
+                                    'closed': 'Closed', 'escalated': 'Under Review'
+                                } %}
+                                <span class="badge bg-{{ status_colors.get(ticket.status, 'secondary') }}">
+                                    {{ status_labels.get(ticket.status, ticket.status) }}
+                                </span>
+                            </td>
+                            <td class="text-muted small">{{ ticket.created_at.strftime('%b %d, %H:%M') if ticket.created_at else '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p class="mb-2">No tickets yet.</p>
+                <p class="small">Use the <strong>Feedback</strong> button in the header to submit your first one.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function filterByTier() {
+    const filter = document.getElementById('tierFilter').value;
+    document.querySelectorAll('.ticket-row').forEach(row => {
+        if (filter === 'all') {
+            row.style.display = '';
+        } else {
+            row.style.display = row.dataset.tier === filter ? '' : 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -243,82 +243,61 @@ def api_log_monitoring_runs():
 @log_monitoring_bp.route('/api/feedback', methods=['POST'])
 @login_required
 def api_submit_feedback():
-    """Submit user feedback via email."""
+    """Submit user feedback as a platform support ticket."""
     try:
         data = request.get_json()
         feedback_type = data.get('type', 'other')
         message = data.get('message', '')
         page = data.get('page', 'Unknown')
-        user = data.get('user', 'Unknown')
-        
-        type_labels = {
-            'feature': '💡 Feature Enhancement Idea',
-            'bug': '🐛 Bug Report',
-            'question': '❓ Question About System',
-            'other': '📝 Other Feedback'
+
+        if not message or not message.strip():
+            return jsonify({"success": False, "error": "Message is required"}), 400
+
+        category_map = {
+            'bug': 'platform_bug',
+            'feature': 'platform_feature',
+            'question': 'platform_question',
+            'other': 'platform_other',
         }
-        type_label = type_labels.get(feedback_type, '📝 Other Feedback')
-        
-        from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail, Email, To, Content
-        
-        sg_api_key = os.environ.get('SENDGRID_API_KEY')
-        admin_email = os.environ.get('ADMIN_EMAIL', 'kroots@myticas.com')
-        
-        if sg_api_key:
-            sg = SendGridAPIClient(sg_api_key)
-            
-            email_content = f"""
-Scout Genius™ User Feedback Received
+        category = category_map.get(feedback_type, 'platform_other')
 
-Type: {type_label}
-From: {user}
-Page: {page}
-Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        type_labels = {
+            'feature': 'Feature Request',
+            'bug': 'Bug Report',
+            'question': 'Question',
+            'other': 'Feedback',
+        }
+        type_label = type_labels.get(feedback_type, 'Feedback')
 
-Message:
-{message}
+        subject = f"{type_label}: {message[:80]}{'...' if len(message) > 80 else ''}"
+        description = f"{message}\n\nPage: {page}"
 
----
-This feedback was submitted via the Scout Genius™ Feedback system.
-            """
-            
-            html_content = f"""
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #1e3a5f 0%, #0d2847 100%); padding: 20px; border-radius: 8px;">
-                    <h2 style="color: #60a5fa; margin: 0;">📬 Scout Genius™ Feedback</h2>
-                </div>
-                <div style="padding: 20px; background: #f8fafc; border-radius: 0 0 8px 8px;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr><td style="padding: 8px 0; color: #64748b;"><strong>Type:</strong></td><td style="padding: 8px 0;">{type_label}</td></tr>
-                        <tr><td style="padding: 8px 0; color: #64748b;"><strong>From:</strong></td><td style="padding: 8px 0;">{user}</td></tr>
-                        <tr><td style="padding: 8px 0; color: #64748b;"><strong>Page:</strong></td><td style="padding: 8px 0;">{page}</td></tr>
-                        <tr><td style="padding: 8px 0; color: #64748b;"><strong>Time:</strong></td><td style="padding: 8px 0;">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
-                    </table>
-                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-                    <h3 style="color: #1e3a5f; margin-bottom: 10px;">Message:</h3>
-                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                        {message.replace(chr(10), '<br>')}
-                    </div>
-                </div>
-            </div>
-            """
-            
-            mail = Mail(
-                from_email=Email("noreply@scoutgenius.ai", "Scout Genius Feedback"),
-                to_emails=To(admin_email),
-                subject=f"[Scout Genius Feedback] {type_label} from {user}",
-                plain_text_content=Content("text/plain", email_content),
-                html_content=Content("text/html", html_content)
-            )
-            
-            response = sg.send(mail)
-            logger.info(f"Feedback email sent: {response.status_code}")
-        
-        logger.info(f"User Feedback - Type: {feedback_type}, User: {user}, Page: {page}")
-        
-        return jsonify({"success": True, "message": "Feedback submitted successfully"})
-        
+        user_company = getattr(current_user, 'company', None) or 'Myticas'
+        brand = 'STSI' if user_company and 'stsi' in user_company.lower() else 'Myticas'
+
+        from scout_support_service import ScoutSupportService
+        svc = ScoutSupportService()
+        ticket = svc.create_ticket(
+            category=category,
+            subject=subject,
+            description=description,
+            submitter_name=current_user.full_name if hasattr(current_user, 'full_name') and current_user.full_name else current_user.username,
+            submitter_email=current_user.email,
+            submitter_department=getattr(current_user, 'department', None),
+            brand=brand,
+            priority='medium' if feedback_type == 'bug' else 'low',
+        )
+
+        svc.process_new_ticket(ticket.id)
+
+        logger.info(f"Platform feedback ticket created: {ticket.ticket_number} by {current_user.email}")
+
+        return jsonify({
+            "success": True,
+            "message": "Your feedback has been submitted as a support ticket.",
+            "ticket_number": ticket.ticket_number,
+        })
+
     except Exception as e:
         logger.error(f"Error submitting feedback: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
