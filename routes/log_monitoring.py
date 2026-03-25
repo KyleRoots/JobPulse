@@ -288,7 +288,10 @@ def api_submit_feedback():
             priority='medium' if feedback_type == 'bug' else 'low',
         )
 
-        svc.process_new_ticket(ticket.id)
+        try:
+            svc.process_new_ticket(ticket.id)
+        except Exception as proc_err:
+            logger.error(f"Platform ticket AI processing failed for {ticket.ticket_number}: {proc_err}")
 
         logger.info(f"Platform feedback ticket created: {ticket.ticket_number} by {current_user.email}")
 

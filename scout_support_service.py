@@ -287,12 +287,58 @@ class ScoutSupportService(
         logger.info(f"✅ Ticket {ticket.ticket_number} acknowledged (AI full, confidence={confidence}, resolution_type={resolution_type}, clarify_first={needs_clarification_first}), email sent to {ticket.submitter_email}")
         return True
 
+    def _generate_platform_understanding(self, ticket) -> str:
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+
+        prompt = f"""You are Scout Genius, a platform support assistant. A user has submitted platform feedback. Analyze and summarize it.
+
+Feedback Details:
+- Category: {category_label}
+- Subject: {ticket.subject}
+- Submitted by: {ticket.submitter_name} ({ticket.submitter_email})
+
+User's Message:
+{ticket.description}
+
+Respond with a JSON object:
+{{
+    "understanding": "A clear summary of what the user is asking for or reporting, written back to them for confirmation.",
+    "clarification_needed": true/false,
+    "clarification_questions": ["question 1"],
+    "is_platform_ticket": true
+}}"""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model='gpt-5.4',
+                messages=[
+                    {'role': 'system', 'content': 'You are a helpful platform support assistant. Respond only in valid JSON.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                temperature=0.4,
+                max_completion_tokens=500,
+                response_format={'type': 'json_object'},
+            )
+            content = response.choices[0].message.content
+            if content and content.strip():
+                parsed = json.loads(content.strip())
+                parsed['is_platform_ticket'] = True
+                return json.dumps(parsed)
+        except Exception as e:
+            logger.warning(f"Platform AI analysis failed for {ticket.ticket_number}: {e}")
+
+        return json.dumps({
+            'understanding': f"Platform feedback received: {ticket.subject}",
+            'is_platform_ticket': True,
+            'clarification_needed': False,
+        })
+
     def _process_platform_ticket(self, ticket) -> bool:
         from extensions import db
 
         category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
 
-        understanding = self._generate_understanding(ticket)
+        understanding = self._generate_platform_understanding(ticket)
         if not understanding:
             logger.warning(f"AI analysis failed for platform ticket {ticket.ticket_number}, using fallback")
             understanding = json.dumps({

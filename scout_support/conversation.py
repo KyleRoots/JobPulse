@@ -30,6 +30,10 @@ class ConversationMixin:
 
     MAX_CLARIFICATION_ROUNDS = 3
 
+    def _is_platform_ticket(self, ticket) -> bool:
+        from scout_support_service import PLATFORM_CATEGORIES
+        return ticket.category in PLATFORM_CATEGORIES
+
     def handle_user_reply(self, ticket_id: int, reply_body: str, message_id: str = '',
                           attachment_data: Optional[List[Dict]] = None) -> bool:
         from extensions import db
@@ -69,6 +73,9 @@ class ConversationMixin:
             if attachment_content:
                 logger.info(f"📎 Extracted {len(attachment_content)} chars from {len(attachment_data)} attachment(s) on reply to {ticket.ticket_number}")
 
+        if self._is_platform_ticket(ticket):
+            return self._handle_platform_reply(ticket, reply_body, attachment_content=attachment_content)
+
         if ticket.status == 'awaiting_user_approval':
             return self._handle_user_approval_response(ticket, reply_body)
         elif ticket.status in ('acknowledged', 'clarifying'):
@@ -83,6 +90,10 @@ class ConversationMixin:
 
         ticket = SupportTicket.query.get(ticket_id)
         if not ticket:
+            return False
+
+        if self._is_platform_ticket(ticket):
+            logger.warning(f"Admin reply ignored for platform ticket {ticket.ticket_number} — platform tickets do not use approval flow")
             return False
 
         if ticket.status not in ('awaiting_admin_approval', 'admin_clarifying'):
@@ -209,6 +220,100 @@ class ConversationMixin:
             follow_up = parsed.get('follow_up', 'Could you provide more details about the issue?')
             self._send_clarification_email(ticket, follow_up, attachment_ack=attachment_ack)
 
+        return True
+
+    def _handle_platform_reply(self, ticket, reply_body: str, attachment_content: str = '') -> bool:
+        from extensions import db
+        from models import SupportConversation
+        from scout_support_service import CATEGORY_LABELS
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+
+        conversations = ticket.conversations.order_by(db.text('created_at ASC')).all()
+        history = []
+        for conv in conversations:
+            role = "User" if conv.sender_email == ticket.submitter_email else "Scout Genius"
+            history.append(f"[{role}] {conv.body[:500]}")
+
+        prompt = f"""You are Scout Genius, a helpful platform support assistant. A user submitted platform feedback ({category_label}) and has sent a follow-up reply.
+
+Ticket: {ticket.ticket_number}
+Subject: {ticket.subject}
+Original Description: {ticket.description}
+
+Conversation History:
+{chr(10).join(history[-10:])}
+
+Latest Reply from User:
+{reply_body}
+
+{f'Attachment Content: {attachment_content[:2000]}' if attachment_content else ''}
+
+IMPORTANT: This is a PLATFORM feedback ticket (not an ATS/Bullhorn support ticket). You must NOT propose any Bullhorn API actions, execution steps, or system modifications. Your role is to:
+1. Acknowledge the user's follow-up
+2. Provide helpful information or ask clarifying questions
+3. Let them know the team has been notified if it requires human action
+
+Respond with a JSON object:
+{{
+    "response": "Your helpful reply to the user in plain language",
+    "needs_more_info": true/false,
+    "follow_up_question": "Optional question if more info is needed",
+    "can_close": true/false,
+    "close_reason": "Optional reason if the conversation is naturally complete"
+}}"""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-5.4",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.4,
+                max_completion_tokens=1000,
+            )
+            raw = response.choices[0].message.content.strip()
+            if raw.startswith('```'):
+                raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+            parsed = json.loads(raw)
+        except Exception as e:
+            logger.error(f"Platform reply AI analysis failed for {ticket.ticket_number}: {e}")
+            parsed = {
+                'response': 'Thank you for your follow-up. Our team has been notified and will review your feedback.',
+                'needs_more_info': False,
+                'can_close': False,
+            }
+
+        ai_response = parsed.get('response', 'Thank you for your follow-up.')
+        can_close = parsed.get('can_close', False)
+
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
+        body_parts = [
+            f"Hi {first_name},",
+            "",
+            ai_response,
+        ]
+
+        if parsed.get('needs_more_info') and parsed.get('follow_up_question'):
+            body_parts.extend(["", parsed['follow_up_question']])
+
+        if can_close:
+            body_parts.extend(["", "This ticket will now be marked as resolved. If you need anything else, feel free to submit new feedback anytime."])
+            ticket.status = 'closed'
+            ticket.resolved_at = datetime.utcnow()
+        else:
+            ticket.status = 'clarifying'
+
+        body_parts.extend(["", "— Scout Genius"])
+        db.session.commit()
+
+        self._send_platform_email(
+            to_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            body="\n".join(body_parts),
+            ticket=ticket,
+            email_type='platform_reply',
+        )
+
+        logger.info(f"💬 Platform ticket {ticket.ticket_number} reply handled (close={can_close})")
         return True
 
     def _handle_user_approval_response(self, ticket, reply_body: str) -> bool:
