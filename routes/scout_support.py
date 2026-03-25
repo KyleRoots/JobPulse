@@ -229,48 +229,49 @@ def diag_create_test_note(job_id):
     params = {'BhRestToken': bh.rest_token}
     results = {}
 
-    note_data_v1 = {
-        'action': 'Job Update',
-        'comments': f'[DIAG-V1] Test note with jobOrders array — {datetime.utcnow().isoformat()}',
-        'isDeleted': False,
-        'personReference': {'id': int(bh.user_id)},
-        'commentingPerson': {'id': int(bh.user_id)},
-        'jobOrders': [{'id': int(job_id)}],
-    }
-    r1 = bh.session.put(f"{bh.base_url}entity/Note", params=params, json=note_data_v1, timeout=30)
-    results['v1_jobOrders_array'] = {'status': r1.status_code, 'body': r1.json() if r1.text else {}}
+    jo_url = f"{bh.base_url}entity/JobOrder/{job_id}?fields=id,clientContact"
+    jo_resp = bh.session.get(jo_url, params=params, timeout=30)
+    jo_data = jo_resp.json().get('data', {}) if jo_resp.text else {}
+    contact_id = jo_data.get('clientContact', {}).get('id') if jo_data.get('clientContact') else None
+    results['job_data'] = {'id': job_id, 'clientContact_id': contact_id}
 
-    note_data_v2 = {
+    note_data_v4 = {
         'action': 'Job Update',
-        'comments': f'[DIAG-V2] Test note — NoteEntity link only — {datetime.utcnow().isoformat()}',
+        'comments': f'[DIAG-V4] personReference=ClientContact — {datetime.utcnow().isoformat()}',
         'isDeleted': False,
-        'personReference': {'id': int(bh.user_id)},
         'commentingPerson': {'id': int(bh.user_id)},
     }
-    r2 = bh.session.put(f"{bh.base_url}entity/Note", params=params, json=note_data_v2, timeout=30)
-    r2_data = r2.json() if r2.text else {}
-    results['v2_noteentity_only'] = {'status': r2.status_code, 'body': r2_data}
-    v2_note_id = r2_data.get('changedEntityId')
-    if v2_note_id:
-        ne_data = {'note': {'id': int(v2_note_id)}, 'targetEntityID': int(job_id), 'targetEntityName': 'JobOrder'}
-        r2b = bh.session.put(f"{bh.base_url}entity/NoteEntity", params=params, json=ne_data, timeout=30)
-        results['v2_noteentity_link'] = {'status': r2b.status_code, 'body': r2b.json() if r2b.text else {}}
+    if contact_id:
+        note_data_v4['personReference'] = {'id': int(contact_id)}
+    else:
+        note_data_v4['personReference'] = {'id': int(bh.user_id)}
+    r4 = bh.session.put(f"{bh.base_url}entity/Note", params=params, json=note_data_v4, timeout=30)
+    r4_data = r4.json() if r4.text else {}
+    results['v4_clientcontact_ref'] = {'status': r4.status_code, 'body': r4_data}
+    v4_note_id = r4_data.get('changedEntityId')
+    if v4_note_id:
+        ne_data = {'note': {'id': int(v4_note_id)}, 'targetEntityID': int(job_id), 'targetEntityName': 'JobOrder'}
+        r4b = bh.session.put(f"{bh.base_url}entity/NoteEntity", params=params, json=ne_data, timeout=30)
+        results['v4_noteentity_link'] = {'status': r4b.status_code, 'body': r4b.json() if r4b.text else {}}
 
-    note_data_v3 = {
+    note_data_v5 = {
         'action': 'Job Update',
-        'comments': f'[DIAG-V3] Test note — jobOrders + NoteEntity — {datetime.utcnow().isoformat()}',
+        'comments': f'[DIAG-V5] personReference=ClientContact + clientContacts array — {datetime.utcnow().isoformat()}',
         'isDeleted': False,
-        'personReference': {'id': int(bh.user_id)},
         'commentingPerson': {'id': int(bh.user_id)},
-        'jobOrders': [{'id': int(job_id)}],
     }
-    r3 = bh.session.put(f"{bh.base_url}entity/Note", params=params, json=note_data_v3, timeout=30)
-    r3_data = r3.json() if r3.text else {}
-    results['v3_both'] = {'status': r3.status_code, 'body': r3_data}
-    v3_note_id = r3_data.get('changedEntityId')
-    if v3_note_id:
-        ne_data = {'note': {'id': int(v3_note_id)}, 'targetEntityID': int(job_id), 'targetEntityName': 'JobOrder'}
-        r3b = bh.session.put(f"{bh.base_url}entity/NoteEntity", params=params, json=ne_data, timeout=30)
-        results['v3_noteentity_link'] = {'status': r3b.status_code, 'body': r3b.json() if r3b.text else {}}
+    if contact_id:
+        note_data_v5['personReference'] = {'id': int(contact_id)}
+        note_data_v5['clientContacts'] = [{'id': int(contact_id)}]
+    else:
+        note_data_v5['personReference'] = {'id': int(bh.user_id)}
+    r5 = bh.session.put(f"{bh.base_url}entity/Note", params=params, json=note_data_v5, timeout=30)
+    r5_data = r5.json() if r5.text else {}
+    results['v5_clientcontact_plus_array'] = {'status': r5.status_code, 'body': r5_data}
+    v5_note_id = r5_data.get('changedEntityId')
+    if v5_note_id:
+        ne_data = {'note': {'id': int(v5_note_id)}, 'targetEntityID': int(job_id), 'targetEntityName': 'JobOrder'}
+        r5b = bh.session.put(f"{bh.base_url}entity/NoteEntity", params=params, json=ne_data, timeout=30)
+        results['v5_noteentity_link'] = {'status': r5b.status_code, 'body': r5b.json() if r5b.text else {}}
 
     return jsonify(results)
