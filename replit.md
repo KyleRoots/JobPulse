@@ -66,6 +66,43 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **DOCX Resume Parsing**: Multi-layer extraction supporting `.doc` files via antiword conversion and garbled text detection.
 - **Scout Support**: AI-powered internal ATS support ticket module with two-tier approval workflow. Tickets (SS-YYYY-NNNN format) are created from the support form for `ats_issue` and `data_correction` categories. AI intake generates understanding summaries, clarification loops, and solution proposals via email. User approves solution → admin (kroots@myticas.com) gives final authorization → AI executes Bullhorn API actions with full audit trail. Inbound email replies routed via support@scoutgenius.ai. Dashboard at `/scout-support` shows ticket list, conversation history, and execution proof. Module-gated via `scout_support` subscription.
 
+## Bullhorn Note Creation — Critical Requirements
+
+Any ScoutGenius module that writes notes to Bullhorn records must follow these rules. Failure to comply results in notes that exist in the API but are invisible in the Bullhorn UI.
+
+### personReference (REQUIRED)
+- Bullhorn requires `personReference` on every Note entity. Omitting it returns HTTP 400.
+- **CRITICAL**: `personReference` must point to a **Person** entity (Candidate or ClientContact), **NOT** a CorporateUser. Bullhorn silently accepts CorporateUser IDs but the UI will not display those notes.
+- Use `_resolve_person_reference()` in `scout_support_service.py` as the reference implementation.
+
+### Entity-Specific Payloads
+
+| Target Entity | personReference | Association Method | Action Type |
+|---|---|---|---|
+| **Candidate** | Candidate ID | `candidates: [{'id': candidateId}]` in PUT payload | Per-module (e.g., "Scout Screen - Qualified") |
+| **ClientContact** | ClientContact ID | Automatic via personReference | "General Notes" |
+| **JobOrder** | Job's ClientContact ID (fetch from `entity/JobOrder/{id}?fields=clientContact`) | NoteEntity PUT after creation | "Job Update" |
+| **Placement** | Placement's Candidate ID (fetch from `entity/Placement/{id}?fields=candidate`) | NoteEntity PUT after creation | "General Notes" |
+
+### To-Many Fields (jobOrders, candidates, etc.)
+- `candidates` array CAN be set during PUT (creation) — Bullhorn accepts it.
+- `jobOrders`, `clientContacts`, `placements` arrays CANNOT be set during PUT — Bullhorn returns `ATTEMPT_TO_SET_TO_MANY` warning and silently ignores them.
+- For JobOrder/Placement notes, use **NoteEntity** to link after creation:
+  ```
+  PUT entity/NoteEntity
+  {'note': {'id': noteId}, 'targetEntityID': entityId, 'targetEntityName': 'JobOrder'}
+  ```
+
+### Standard Fields
+- `commentingPerson`: Set to the API user's CorporateUser ID (1147490). This is the "Author" in the UI.
+- `action`: Must be a registered Note Action type in Bullhorn Admin. Current approved actions: Call-Connected, Call-Left VM, Prescreen, Text Message, Job Update, General Notes, Email, Intake Call, Interview Prep/Debrief Notes, Meeting Notes, Client Meeting/Lunch, Sales Presentation/Proposal, Linkedin Direct Message, Linkedin InMail, Other, Reference Check, Skill Testing Results, Application, Automated Touchpoint, AI Vetter - Accept, AI Vetter - Reject, New Hire, Background Check, Separation Details, Sales Lead Provided, Candidate Referral Given, Important Notes.
+- `isDeleted`: Always set to `False`.
+
+### Key Implementation Files
+- `scout_support_service.py`: `_resolve_person_reference()`, `_exec_create_note()`, `_add_audit_notes()`, `_link_note_via_note_entity()`
+- `bullhorn_service.py`: `create_candidate_note()` (used by Scout Screening — Candidate-only, uses candidates array)
+- `screening/note_builder.py`: `create_candidate_note()` mixin (Scout Screening note formatting + creation)
+
 ## External Dependencies
 
 - **Python Libraries**: Flask, Flask-Login, Flask-WTF, Flask-SQLAlchemy, lxml, SQLAlchemy, Alembic, APScheduler, gunicorn, SendGrid, OpenAI, tiktoken, PyMuPDF, PyPDF2, python-docx, Paramiko, Requests, httpx, Sentry SDK, bcrypt, BeautifulSoup4.
