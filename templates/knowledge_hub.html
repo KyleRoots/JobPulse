@@ -413,8 +413,9 @@ async function searchKnowledge() {
         const res = await fetch('/scout-support/knowledge/search?q=' + encodeURIComponent(query));
         const data = await res.json();
 
+        const closeBtn = '<div class="text-end mb-2"><button class="btn btn-sm btn-outline-secondary border-0" onclick="closeSearch()" title="Close results"><i class="fas fa-times me-1"></i>Close</button></div>';
         if (data.results && data.results.length > 0) {
-            let html = '<div class="list-group">';
+            let html = closeBtn + '<div class="list-group">';
             data.results.forEach(function(r) {
                 const sim = (r.similarity * 100).toFixed(0);
                 const typeLabel = r.doc_type === 'ticket_resolution' ? 'Learned' : (r.doc_type === 'onedrive_sync' ? 'OneDrive' : 'Uploaded');
@@ -432,11 +433,18 @@ async function searchKnowledge() {
             html += '</div>';
             resultsDiv.innerHTML = html;
         } else {
-            resultsDiv.innerHTML = '<div class="text-center text-muted py-3">No matching knowledge found for "' + escapeHtml(query) + '"</div>';
+            resultsDiv.innerHTML = closeBtn + '<div class="text-center text-muted py-3">No matching knowledge found for "' + escapeHtml(query) + '"</div>';
         }
     } catch (e) {
         resultsDiv.innerHTML = '<div class="text-center text-danger py-3">Search failed: ' + e.message + '</div>';
     }
+}
+
+function closeSearch() {
+    const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.style.display = 'none';
+    resultsDiv.innerHTML = '';
+    document.getElementById('knowledgeSearch').value = '';
 }
 
 function applyFilters() {
