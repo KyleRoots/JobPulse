@@ -911,6 +911,20 @@ def run_schema_migrations(db):
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for support_ticket.{col_name}: {str(e)}")
 
+    for col_name, col_type in [('onedrive_item_id', 'VARCHAR(255)'), ('onedrive_etag', 'VARCHAR(255)'), ('onedrive_folder_id', 'VARCHAR(255)')]:
+        try:
+            check = text(f"SELECT column_name FROM information_schema.columns WHERE table_name='knowledge_document' AND column_name='{col_name}'")
+            exists = db.session.execute(check).fetchone()
+            if not exists:
+                db.session.execute(text(f"ALTER TABLE knowledge_document ADD COLUMN {col_name} {col_type}"))
+                db.session.commit()
+                logger.info(f"✅ Added column {col_name} to knowledge_document table")
+            else:
+                logger.info(f"ℹ️ Column {col_name} already exists on knowledge_document table")
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"⚠️ Migration skipped for knowledge_document.{col_name}: {str(e)}")
+
     # Drop UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id
     # (Feb 2026 - allow multiple vetting logs per candidate for re-applications)
     try:

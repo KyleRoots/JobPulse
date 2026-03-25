@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {'pdf', 'docx', 'doc', 'txt'}
 
+def _get_onedrive_status():
+    try:
+        from onedrive_service import OneDriveService
+        svc = OneDriveService()
+        connected = svc.is_connected()
+        user_info = svc.get_user_info() if connected else None
+        return {"connected": connected, "user": user_info}
+    except Exception:
+        return {"connected": False, "user": None}
+
 
 def _allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -42,12 +52,20 @@ def knowledge_hub():
     ks = KnowledgeService()
     stats = ks.get_stats()
 
+    from models import OneDriveSyncFolder
+    onedrive_status = _get_onedrive_status()
+    sync_folders = OneDriveSyncFolder.query.order_by(OneDriveSyncFolder.created_at.desc()).all()
+    onedrive_doc_count = KnowledgeDocument.query.filter_by(doc_type='onedrive_sync', status='active').count()
+
     return render_template('knowledge_hub.html',
                            documents=documents,
                            stats=stats,
                            categories=KNOWLEDGE_CATEGORIES,
                            doc_type_filter=doc_type_filter,
                            category_filter=category_filter,
+                           onedrive_status=onedrive_status,
+                           sync_folders=sync_folders,
+                           onedrive_doc_count=onedrive_doc_count,
                            active_page='knowledge_hub')
 
 
@@ -179,4 +197,162 @@ def learn_from_tickets():
         'success': True,
         'learned': learned,
         'message': f'Learned from {learned} resolved ticket(s)',
+    })
+
+
+@knowledge_hub_bp.route('/scout-support/knowledge/onedrive/browse')
+@login_required
+def onedrive_browse():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    folder_id = request.args.get('folder_id', '')
+
+    try:
+        from onedrive_service import OneDriveService
+        svc = OneDriveService()
+
+        if folder_id:
+            items = svc.list_folder_items(folder_id)
+            folder_path = svc.get_folder_path(folder_id)
+        else:
+            items = svc.list_root_items()
+            folder_path = "/"
+
+        folders = [i for i in items if i['is_folder']]
+        files = [i for i in items if not i['is_folder']]
+
+        return jsonify({
+            'success': True,
+            'folder_id': folder_id or 'root',
+            'folder_path': folder_path,
+            'folders': folders,
+            'files': files,
+        })
+    except ConnectionError as e:
+        return jsonify({'error': str(e)}), 503
+    except Exception as e:
+        logger.error(f"OneDrive browse error: {e}")
+        return jsonify({'error': 'Failed to browse OneDrive'}), 500
+
+
+@knowledge_hub_bp.route('/scout-support/knowledge/onedrive/add-folder', methods=['POST'])
+@login_required
+def onedrive_add_folder():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = request.get_json()
+    folder_id = data.get('folder_id', '').strip()
+    folder_name = data.get('folder_name', '').strip()
+
+    if not folder_id or not folder_name:
+        return jsonify({'error': 'Folder ID and name are required'}), 400
+
+    from models import OneDriveSyncFolder
+    existing = OneDriveSyncFolder.query.filter_by(onedrive_folder_id=folder_id).first()
+    if existing:
+        if not existing.sync_enabled:
+            existing.sync_enabled = True
+            db.session.commit()
+            return jsonify({'success': True, 'message': f'Re-enabled sync for "{folder_name}"'})
+        return jsonify({'error': f'Folder "{folder_name}" is already being synced'}), 409
+
+    try:
+        from onedrive_service import OneDriveService
+        svc = OneDriveService()
+        folder_path = svc.get_folder_path(folder_id)
+    except Exception:
+        folder_path = f"/{folder_name}"
+
+    sync_folder = OneDriveSyncFolder(
+        onedrive_folder_id=folder_id,
+        folder_name=folder_name,
+        folder_path=folder_path,
+        sync_enabled=True,
+        added_by=current_user.email,
+    )
+    db.session.add(sync_folder)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Added "{folder_name}" for syncing. Click "Sync Now" to import documents.',
+        'folder': {
+            'id': sync_folder.id,
+            'folder_name': folder_name,
+            'folder_path': folder_path,
+        },
+    })
+
+
+@knowledge_hub_bp.route('/scout-support/knowledge/onedrive/remove-folder', methods=['POST'])
+@login_required
+def onedrive_remove_folder():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = request.get_json()
+    folder_id = data.get('folder_id', '').strip()
+
+    if not folder_id:
+        return jsonify({'error': 'Folder ID is required'}), 400
+
+    from models import OneDriveSyncFolder
+    sync_folder = OneDriveSyncFolder.query.filter_by(onedrive_folder_id=folder_id).first()
+    if not sync_folder:
+        return jsonify({'error': 'Sync folder not found'}), 404
+
+    sync_folder.sync_enabled = False
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': f'Stopped syncing "{sync_folder.folder_name}"'})
+
+
+@knowledge_hub_bp.route('/scout-support/knowledge/onedrive/sync', methods=['POST'])
+@login_required
+def onedrive_sync():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = request.get_json() or {}
+    folder_id = data.get('folder_id', '').strip()
+
+    try:
+        from onedrive_service import OneDriveService
+        svc = OneDriveService()
+
+        if folder_id:
+            result = svc.sync_folder_to_knowledge(folder_id)
+        else:
+            result = svc.sync_all_folders()
+
+        return jsonify({'success': True, **result})
+    except ConnectionError as e:
+        return jsonify({'error': str(e)}), 503
+    except Exception as e:
+        logger.error(f"OneDrive sync error: {e}")
+        return jsonify({'error': f'Sync failed: {str(e)}'}), 500
+
+
+@knowledge_hub_bp.route('/scout-support/knowledge/onedrive/status')
+@login_required
+def onedrive_status():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    status = _get_onedrive_status()
+    from models import OneDriveSyncFolder
+    folders = OneDriveSyncFolder.query.filter_by(sync_enabled=True).all()
+
+    return jsonify({
+        'connected': status['connected'],
+        'user': status['user'],
+        'sync_folders': [{
+            'id': f.id,
+            'folder_name': f.folder_name,
+            'folder_path': f.folder_path,
+            'last_synced_at': f.last_synced_at.isoformat() if f.last_synced_at else None,
+            'last_sync_files': f.last_sync_files or 0,
+        } for f in folders],
     })

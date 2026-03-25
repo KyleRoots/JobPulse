@@ -217,6 +217,7 @@ class KnowledgeService:
         total_docs = KnowledgeDocument.query.filter_by(status='active').count()
         uploaded = KnowledgeDocument.query.filter_by(status='active', doc_type='uploaded').count()
         learned = KnowledgeDocument.query.filter_by(status='active', doc_type='ticket_resolution').count()
+        onedrive = KnowledgeDocument.query.filter_by(status='active', doc_type='onedrive_sync').count()
         total_entries = KnowledgeEntry.query.join(KnowledgeDocument).filter(
             KnowledgeDocument.status == 'active'
         ).count()
@@ -225,6 +226,7 @@ class KnowledgeService:
             'total_documents': total_docs,
             'uploaded_documents': uploaded,
             'learned_resolutions': learned,
+            'onedrive_documents': onedrive,
             'total_entries': total_entries,
         }
 

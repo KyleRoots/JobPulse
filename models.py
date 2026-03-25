@@ -1409,6 +1409,9 @@ class KnowledgeDocument(db.Model):
     raw_text = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), nullable=False, default='active')
     uploaded_by = db.Column(db.String(255), nullable=True)
+    onedrive_item_id = db.Column(db.String(255), nullable=True, index=True)
+    onedrive_etag = db.Column(db.String(255), nullable=True)
+    onedrive_folder_id = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1444,6 +1447,23 @@ class KnowledgeEntry(db.Model):
 
     def __repr__(self):
         return f'<KnowledgeEntry {self.id} doc={self.document_id} chunk={self.chunk_index}>'
+
+
+class OneDriveSyncFolder(db.Model):
+    __tablename__ = 'onedrive_sync_folder'
+
+    id = db.Column(db.Integer, primary_key=True)
+    onedrive_folder_id = db.Column(db.String(255), nullable=False, unique=True)
+    folder_name = db.Column(db.String(500), nullable=False)
+    folder_path = db.Column(db.String(1000), nullable=True)
+    sync_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    last_synced_at = db.Column(db.DateTime, nullable=True)
+    last_sync_files = db.Column(db.Integer, nullable=True, default=0)
+    added_by = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<OneDriveSyncFolder {self.id} "{self.folder_name}">'
 
 
 class CandidateMergeLog(db.Model):

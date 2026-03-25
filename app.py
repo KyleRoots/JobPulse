@@ -1431,6 +1431,35 @@ if is_primary_worker:
         print(f"❌ SCHEDULER INIT: Failed to register duplicate merge check: {e}", flush=True)
         app.logger.error(f"Failed to register duplicate merge check: {e}")
 
+    def run_onedrive_sync():
+        try:
+            with app.app_context():
+                from onedrive_service import OneDriveService
+                from models import OneDriveSyncFolder
+                folders = OneDriveSyncFolder.query.filter_by(sync_enabled=True).count()
+                if folders > 0:
+                    svc = OneDriveService()
+                    stats = svc.sync_all_folders()
+                    total = stats.get('total_synced', 0) + stats.get('total_updated', 0)
+                    if total > 0:
+                        app.logger.info(f"☁️ OneDrive sync: {stats.get('total_synced', 0)} new, {stats.get('total_updated', 0)} updated across {stats.get('folders_synced', 0)} folder(s)")
+        except Exception as e:
+            app.logger.error(f"OneDrive sync error: {e}")
+
+    try:
+        scheduler.add_job(
+            func=run_onedrive_sync,
+            trigger=IntervalTrigger(hours=4),
+            id='onedrive_knowledge_sync',
+            name='OneDrive Knowledge Sync (Every 4 Hours)',
+            replace_existing=True
+        )
+        print("✅ SCHEDULER INIT: OneDrive knowledge sync registered (every 4 hours)", flush=True)
+        app.logger.info("☁️ Scheduled OneDrive knowledge sync every 4 hours")
+    except Exception as e:
+        print(f"❌ SCHEDULER INIT: Failed to register OneDrive sync: {e}", flush=True)
+        app.logger.error(f"Failed to register OneDrive sync: {e}")
+
     # Schedule reference refresh every 120 hours — NEVER fires inline on startup.
     # On restart, we reconstruct next_run from persisted RefreshLog state.
     # If overdue, we defer to now + 5min so the scheduler handles it, not startup.

@@ -52,6 +52,103 @@
         </div>
     </div>
 
+    <div class="card bg-dark mb-4" style="border: 1px solid rgba(0,120,215,0.35);">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background: rgba(0,120,215,0.08); border-bottom: 1px solid rgba(0,120,215,0.2);">
+            <h5 class="mb-0">
+                <i class="fab fa-microsoft me-2" style="color: #0078d4;"></i>OneDrive Integration
+                {% if onedrive_status.connected %}
+                <span class="badge bg-success bg-opacity-25 text-success ms-2" style="font-size: 0.65rem;">Connected</span>
+                {% else %}
+                <span class="badge bg-secondary bg-opacity-25 text-secondary ms-2" style="font-size: 0.65rem;">Not Connected</span>
+                {% endif %}
+            </h5>
+            <div class="d-flex gap-2 align-items-center">
+                {% if onedrive_status.connected and onedrive_status.user %}
+                <span class="text-muted small me-2"><i class="fas fa-user me-1"></i>{{ onedrive_status.user.email }}</span>
+                {% endif %}
+                {% if onedrive_status.connected %}
+                <button class="btn btn-sm" onclick="browseOneDrive()" style="background: rgba(0,120,215,0.15); border: 1px solid rgba(0,120,215,0.4); color: #0078d4;">
+                    <i class="fas fa-folder-plus me-1"></i>Add Folder
+                </button>
+                {% if sync_folders %}
+                <button class="btn btn-sm" onclick="syncAllFolders()" id="syncAllBtn" style="background: rgba(40,167,69,0.15); border: 1px solid rgba(40,167,69,0.4); color: #28a745;">
+                    <i class="fas fa-sync-alt me-1"></i>Sync Now
+                </button>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            {% if not onedrive_status.connected %}
+            <div class="text-center py-3">
+                <i class="fab fa-microsoft fa-2x mb-2" style="color: rgba(0,120,215,0.5);"></i>
+                <p class="text-muted mb-1">OneDrive is not connected.</p>
+                <p class="small text-muted">Connect OneDrive in the Replit integrations panel to sync reference documents automatically.</p>
+            </div>
+            {% elif not sync_folders %}
+            <div class="text-center py-3">
+                <i class="fas fa-folder-open fa-2x mb-2" style="color: rgba(0,120,215,0.5);"></i>
+                <p class="text-muted mb-1">No folders synced yet.</p>
+                <p class="small text-muted">Click "Add Folder" to browse your OneDrive and select folders to sync.</p>
+            </div>
+            {% else %}
+            <div class="table-responsive">
+                <table class="table table-dark table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Folder</th>
+                            <th>Path</th>
+                            <th>Last Synced</th>
+                            <th>Files</th>
+                            <th>Status</th>
+                            <th style="width: 120px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sf in sync_folders %}
+                        <tr id="syncRow_{{ sf.onedrive_folder_id }}">
+                            <td>
+                                <i class="fas fa-folder me-1" style="color: #0078d4;"></i>
+                                {{ sf.folder_name }}
+                            </td>
+                            <td class="text-muted small">{{ sf.folder_path or '/' }}</td>
+                            <td class="text-muted small">
+                                {% if sf.last_synced_at %}
+                                {{ sf.last_synced_at.strftime('%b %d, %H:%M') }}
+                                {% else %}
+                                Never
+                                {% endif %}
+                            </td>
+                            <td class="text-muted">{{ sf.last_sync_files or 0 }}</td>
+                            <td>
+                                {% if sf.sync_enabled %}
+                                <span class="badge bg-success bg-opacity-25 text-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-25 text-secondary">Disabled</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info border-0 px-2 py-0" onclick="syncFolder('{{ sf.onedrive_folder_id }}')" title="Sync now">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger border-0 px-2 py-0" onclick="removeFolder('{{ sf.onedrive_folder_id }}', '{{ sf.folder_name | e }}')" title="Stop syncing">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if onedrive_doc_count > 0 %}
+            <div class="mt-2">
+                <span class="text-muted small"><i class="fab fa-microsoft me-1" style="color: #0078d4;"></i>{{ onedrive_doc_count }} document{{ 's' if onedrive_doc_count != 1 else '' }} synced from OneDrive</span>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
     <div class="card bg-dark border-secondary mb-4">
         <div class="card-header bg-dark border-secondary">
             <h5 class="mb-0"><i class="fas fa-search me-2"></i>Search Knowledge Base</h5>
@@ -76,6 +173,7 @@
                     <option value="all" {% if doc_type_filter == 'all' %}selected{% endif %}>All Types</option>
                     <option value="uploaded" {% if doc_type_filter == 'uploaded' %}selected{% endif %}>Uploaded</option>
                     <option value="ticket_resolution" {% if doc_type_filter == 'ticket_resolution' %}selected{% endif %}>Learned</option>
+                    <option value="onedrive_sync" {% if doc_type_filter == 'onedrive_sync' %}selected{% endif %}>OneDrive</option>
                 </select>
                 <select id="categoryFilter" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;" onchange="applyFilters()">
                     <option value="all" {% if category_filter == 'all' %}selected{% endif %}>All Categories</option>
@@ -107,6 +205,8 @@
                                 <a href="{{ url_for('knowledge_hub.document_detail', doc_id=doc.id) }}" class="text-info text-decoration-none">
                                     {% if doc.doc_type == 'ticket_resolution' %}
                                     <i class="fas fa-lightbulb text-success me-1"></i>
+                                    {% elif doc.doc_type == 'onedrive_sync' %}
+                                    <i class="fab fa-microsoft me-1" style="color: #0078d4;"></i>
                                     {% else %}
                                     <i class="fas fa-file-alt text-primary me-1"></i>
                                     {% endif %}
@@ -121,6 +221,8 @@
                                 <span class="badge bg-primary bg-opacity-25 text-primary">Uploaded</span>
                                 {% elif doc.doc_type == 'ticket_resolution' %}
                                 <span class="badge bg-success bg-opacity-25 text-success">Learned</span>
+                                {% elif doc.doc_type == 'onedrive_sync' %}
+                                <span class="badge" style="background: rgba(0,120,215,0.15); color: #0078d4;">OneDrive</span>
                                 {% else %}
                                 <span class="badge bg-secondary">{{ doc.doc_type }}</span>
                                 {% endif %}
@@ -203,7 +305,49 @@
     </div>
 </div>
 
+<div class="modal fade" id="oneDriveBrowseModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark" style="border: 1px solid rgba(0,120,215,0.4);">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(0,120,215,0.2); background: rgba(0,120,215,0.08);">
+                <h5 class="modal-title"><i class="fab fa-microsoft me-2" style="color: #0078d4;"></i>Browse OneDrive</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="oneDriveBreadcrumb" class="mb-3">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0" id="folderBreadcrumb">
+                            <li class="breadcrumb-item"><a href="#" onclick="browseOneDrive(); return false;" style="color: #0078d4;">My Drive</a></li>
+                        </ol>
+                    </nav>
+                </div>
+                <div id="oneDriveContent" style="min-height: 200px;">
+                    <div class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x" style="color: #0078d4;"></i>
+                        <p class="text-muted mt-2">Loading OneDrive...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid rgba(0,120,215,0.2);">
+                <div class="w-100 d-flex justify-content-between align-items-center">
+                    <span class="text-muted small" id="oneDriveCurrentPath">/</span>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-sm" id="addFolderBtn" onclick="addCurrentFolder()" disabled
+                                style="background: rgba(0,120,215,0.15); border: 1px solid rgba(0,120,215,0.4); color: #0078d4;">
+                            <i class="fas fa-plus me-1"></i>Sync This Folder
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+let currentBrowseFolderId = '';
+let currentBrowseFolderName = '';
+let breadcrumbPath = [];
+
 async function uploadDocument() {
     const form = document.getElementById('uploadForm');
     const formData = new FormData(form);
@@ -270,13 +414,15 @@ async function searchKnowledge() {
             let html = '<div class="list-group">';
             data.results.forEach(function(r) {
                 const sim = (r.similarity * 100).toFixed(0);
+                const typeLabel = r.doc_type === 'ticket_resolution' ? 'Learned' : (r.doc_type === 'onedrive_sync' ? 'OneDrive' : 'Uploaded');
+                const typeColor = r.doc_type === 'ticket_resolution' ? 'success' : (r.doc_type === 'onedrive_sync' ? 'info' : 'primary');
                 html += '<div class="list-group-item bg-dark border-secondary text-light mb-1">' +
                     '<div class="d-flex justify-content-between align-items-start mb-1">' +
                     '<strong class="text-info">' + escapeHtml(r.title) + '</strong>' +
                     '<span class="badge bg-' + (sim >= 50 ? 'success' : sim >= 30 ? 'warning text-dark' : 'secondary') + '">' + sim + '% match</span>' +
                     '</div>' +
                     '<div class="small text-muted mb-1"><span class="badge bg-info bg-opacity-25 text-info me-1">' + escapeHtml(r.category || 'other') + '</span>' +
-                    '<span class="badge bg-' + (r.doc_type === 'ticket_resolution' ? 'success' : 'primary') + ' bg-opacity-25 text-' + (r.doc_type === 'ticket_resolution' ? 'success' : 'primary') + '">' + (r.doc_type === 'ticket_resolution' ? 'Learned' : 'Uploaded') + '</span></div>' +
+                    '<span class="badge bg-' + typeColor + ' bg-opacity-25 text-' + typeColor + '">' + typeLabel + '</span></div>' +
                     '<div class="small" style="white-space: pre-wrap; max-height: 150px; overflow-y: auto;">' + escapeHtml(r.content.substring(0, 500)) + (r.content.length > 500 ? '...' : '') + '</div>' +
                     '</div>';
             });
@@ -289,7 +435,6 @@ async function searchKnowledge() {
         resultsDiv.innerHTML = '<div class="text-center text-danger py-3">Search failed: ' + e.message + '</div>';
     }
 }
-
 
 function applyFilters() {
     const type = document.getElementById('typeFilter').value;
@@ -309,5 +454,202 @@ function escapeHtml(text) {
 document.getElementById('searchQuery').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') searchKnowledge();
 });
+
+async function browseOneDrive(folderId, folderName) {
+    const modal = new bootstrap.Modal(document.getElementById('oneDriveBrowseModal'));
+    modal.show();
+
+    if (!folderId) {
+        breadcrumbPath = [];
+        currentBrowseFolderId = '';
+        currentBrowseFolderName = '';
+    } else {
+        currentBrowseFolderId = folderId;
+        currentBrowseFolderName = folderName || folderId;
+        const existingIdx = breadcrumbPath.findIndex(b => b.id === folderId);
+        if (existingIdx >= 0) {
+            breadcrumbPath = breadcrumbPath.slice(0, existingIdx + 1);
+        } else {
+            breadcrumbPath.push({ id: folderId, name: folderName || folderId });
+        }
+    }
+
+    updateBreadcrumb();
+
+    const content = document.getElementById('oneDriveContent');
+    content.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x" style="color: #0078d4;"></i><p class="text-muted mt-2">Loading...</p></div>';
+
+    try {
+        const url = '/scout-support/knowledge/onedrive/browse' + (folderId ? '?folder_id=' + encodeURIComponent(folderId) : '');
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.error) {
+            content.innerHTML = '<div class="text-center py-4 text-danger"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><p>' + escapeHtml(data.error) + '</p></div>';
+            return;
+        }
+
+        document.getElementById('oneDriveCurrentPath').textContent = data.folder_path || '/';
+        document.getElementById('addFolderBtn').disabled = !folderId;
+
+        let html = '<div class="list-group">';
+
+        if (data.folders.length === 0 && data.files.length === 0) {
+            html += '<div class="text-center py-4 text-muted"><i class="fas fa-folder-open fa-2x mb-2"></i><p>This folder is empty</p></div>';
+        }
+
+        data.folders.forEach(function(f) {
+            html += '<a href="#" class="list-group-item list-group-item-action bg-dark text-light border-secondary d-flex align-items-center" onclick="browseOneDrive(\'' + f.id + '\', \'' + escapeHtml(f.name).replace(/'/g, "\\'") + '\'); return false;">' +
+                '<i class="fas fa-folder me-3 fs-5" style="color: #0078d4;"></i>' +
+                '<div class="flex-grow-1">' +
+                '<div>' + escapeHtml(f.name) + '</div>' +
+                '<div class="text-muted small">' + f.child_count + ' item' + (f.child_count !== 1 ? 's' : '') + '</div>' +
+                '</div>' +
+                '<i class="fas fa-chevron-right text-muted"></i>' +
+                '</a>';
+        });
+
+        data.files.forEach(function(f) {
+            const sizeKB = Math.round(f.size / 1024);
+            const sizeStr = sizeKB >= 1024 ? (sizeKB / 1024).toFixed(1) + ' MB' : sizeKB + ' KB';
+            const supportedClass = f.is_supported ? 'text-success' : 'text-muted';
+            const icon = f.is_supported ? 'fa-file-alt' : 'fa-file';
+
+            html += '<div class="list-group-item bg-dark text-light border-secondary d-flex align-items-center">' +
+                '<i class="fas ' + icon + ' me-3 fs-5 ' + supportedClass + '"></i>' +
+                '<div class="flex-grow-1">' +
+                '<div>' + escapeHtml(f.name) + '</div>' +
+                '<div class="text-muted small">' + sizeStr + (f.is_supported ? '' : ' &middot; <span class="text-warning">Unsupported format</span>') + '</div>' +
+                '</div>' +
+                '</div>';
+        });
+
+        html += '</div>';
+
+        if (data.files.some(f => f.is_supported)) {
+            const supported = data.files.filter(f => f.is_supported).length;
+            html += '<div class="mt-2 text-muted small"><i class="fas fa-info-circle me-1"></i>' + supported + ' supported file' + (supported !== 1 ? 's' : '') + ' (PDF, DOCX, DOC, TXT) will be synced from this folder.</div>';
+        }
+
+        content.innerHTML = html;
+    } catch (e) {
+        content.innerHTML = '<div class="text-center py-4 text-danger"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><p>Failed to browse OneDrive: ' + escapeHtml(e.message) + '</p></div>';
+    }
+}
+
+function updateBreadcrumb() {
+    const ol = document.getElementById('folderBreadcrumb');
+    let html = '<li class="breadcrumb-item"><a href="#" onclick="browseOneDrive(); return false;" style="color: #0078d4;">My Drive</a></li>';
+    breadcrumbPath.forEach(function(b, i) {
+        if (i === breadcrumbPath.length - 1) {
+            html += '<li class="breadcrumb-item active text-light">' + escapeHtml(b.name) + '</li>';
+        } else {
+            html += '<li class="breadcrumb-item"><a href="#" onclick="browseOneDrive(\'' + b.id + '\', \'' + escapeHtml(b.name).replace(/'/g, "\\'") + '\'); return false;" style="color: #0078d4;">' + escapeHtml(b.name) + '</a></li>';
+        }
+    });
+    ol.innerHTML = html;
+}
+
+async function addCurrentFolder() {
+    if (!currentBrowseFolderId) return;
+
+    const btn = document.getElementById('addFolderBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Adding...';
+
+    try {
+        const res = await fetch('/scout-support/knowledge/onedrive/add-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+            body: JSON.stringify({ folder_id: currentBrowseFolderId, folder_name: currentBrowseFolderName }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to add folder'));
+        }
+    } catch (e) {
+        alert('Failed to add folder: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-plus me-1"></i>Sync This Folder';
+    }
+}
+
+async function syncFolder(folderId) {
+    const row = document.getElementById('syncRow_' + folderId);
+    if (row) {
+        const statusCell = row.querySelector('td:nth-child(5)');
+        if (statusCell) statusCell.innerHTML = '<span class="badge bg-warning bg-opacity-25 text-warning"><i class="fas fa-spinner fa-spin me-1"></i>Syncing...</span>';
+    }
+
+    try {
+        const res = await fetch('/scout-support/knowledge/onedrive/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+            body: JSON.stringify({ folder_id: folderId }),
+        });
+        const data = await res.json();
+        if (data.success || !data.error) {
+            const msg = 'Sync complete: ' + (data.synced || 0) + ' new, ' + (data.updated || 0) + ' updated, ' + (data.removed || 0) + ' removed';
+            alert(msg);
+            location.reload();
+        } else {
+            alert('Sync error: ' + data.error);
+            location.reload();
+        }
+    } catch (e) {
+        alert('Sync failed: ' + e.message);
+        location.reload();
+    }
+}
+
+async function syncAllFolders() {
+    const btn = document.getElementById('syncAllBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Syncing...';
+
+    try {
+        const res = await fetch('/scout-support/knowledge/onedrive/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+            body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (data.success || !data.error) {
+            const msg = 'Sync complete: ' + (data.total_synced || 0) + ' new, ' + (data.total_updated || 0) + ' updated, ' + (data.total_removed || 0) + ' removed across ' + (data.folders_synced || 0) + ' folder(s)';
+            alert(msg);
+            location.reload();
+        } else {
+            alert('Sync error: ' + (data.error || 'Unknown error'));
+            location.reload();
+        }
+    } catch (e) {
+        alert('Sync failed: ' + e.message);
+        location.reload();
+    }
+}
+
+async function removeFolder(folderId, folderName) {
+    if (!confirm('Stop syncing "' + folderName + '"? Existing synced documents will remain in the knowledge base.')) return;
+
+    try {
+        const res = await fetch('/scout-support/knowledge/onedrive/remove-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+            body: JSON.stringify({ folder_id: folderId }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to remove folder'));
+        }
+    } catch (e) {
+        alert('Failed: ' + e.message);
+    }
+}
 </script>
 {% endblock %}
