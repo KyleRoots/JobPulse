@@ -57,7 +57,7 @@
             <h5 class="mb-0">
                 <i class="fab fa-microsoft me-2" style="color: #0078d4;"></i>OneDrive Integration
                 {% if onedrive_status.connected %}
-                <span class="badge bg-success bg-opacity-25 text-success ms-2" style="font-size: 0.65rem;">Connected</span>
+                <span class="badge bg-success bg-opacity-25 ms-2" style="font-size: 0.65rem; color: #cac6d8;">Connected</span>
                 {% else %}
                 <span class="badge bg-secondary bg-opacity-25 text-secondary ms-2" style="font-size: 0.65rem;">Not Connected</span>
                 {% endif %}
@@ -122,7 +122,7 @@
                             <td class="text-muted">{{ sf.last_sync_files or 0 }}</td>
                             <td>
                                 {% if sf.sync_enabled %}
-                                <span class="badge bg-success bg-opacity-25 text-success">Active</span>
+                                <span class="badge bg-success bg-opacity-25" style="color: #cac6d8;">Active</span>
                                 {% else %}
                                 <span class="badge bg-secondary bg-opacity-25 text-secondary">Disabled</span>
                                 {% endif %}
@@ -578,6 +578,22 @@ async function addCurrentFolder() {
     }
 }
 
+function pollSyncStatus(onComplete) {
+    const interval = setInterval(async () => {
+        try {
+            const res = await fetch('/scout-support/knowledge/onedrive/sync-status');
+            const data = await res.json();
+            if (!data.running) {
+                clearInterval(interval);
+                onComplete(data.last_result);
+            }
+        } catch (e) {
+            clearInterval(interval);
+            onComplete(null);
+        }
+    }, 3000);
+}
+
 async function syncFolder(folderId) {
     const row = document.getElementById('syncRow_' + folderId);
     if (row) {
@@ -592,11 +608,19 @@ async function syncFolder(folderId) {
             body: JSON.stringify({ folder_id: folderId }),
         });
         const data = await res.json();
-        if (data.success || !data.error) {
-            const msg = 'Sync complete: ' + (data.synced || 0) + ' new, ' + (data.updated || 0) + ' updated, ' + (data.removed || 0) + ' removed';
-            alert(msg);
-            location.reload();
-        } else {
+        if (data.status === 'started' || data.status === 'running') {
+            pollSyncStatus(function(result) {
+                if (result && !result.error) {
+                    const msg = 'Sync complete: ' + (result.synced || 0) + ' new, ' + (result.updated || 0) + ' updated, ' + (result.removed || 0) + ' removed';
+                    alert(msg);
+                } else if (result && result.error) {
+                    alert('Sync error: ' + result.error);
+                } else {
+                    alert('Sync completed. Refresh to see results.');
+                }
+                location.reload();
+            });
+        } else if (data.error) {
             alert('Sync error: ' + data.error);
             location.reload();
         }
@@ -618,17 +642,26 @@ async function syncAllFolders() {
             body: JSON.stringify({}),
         });
         const data = await res.json();
-        if (data.success || !data.error) {
-            const msg = 'Sync complete: ' + (data.total_synced || 0) + ' new, ' + (data.total_updated || 0) + ' updated, ' + (data.total_removed || 0) + ' removed across ' + (data.folders_synced || 0) + ' folder(s)';
-            alert(msg);
-            location.reload();
-        } else {
-            alert('Sync error: ' + (data.error || 'Unknown error'));
+        if (data.status === 'started' || data.status === 'running') {
+            pollSyncStatus(function(result) {
+                if (result && !result.error) {
+                    const msg = 'Sync complete: ' + (result.total_synced || 0) + ' new, ' + (result.total_updated || 0) + ' updated, ' + (result.total_removed || 0) + ' removed across ' + (result.folders_synced || 0) + ' folder(s)';
+                    alert(msg);
+                } else if (result && result.error) {
+                    alert('Sync error: ' + result.error);
+                } else {
+                    alert('Sync completed. Refresh to see results.');
+                }
+                location.reload();
+            });
+        } else if (data.error) {
+            alert('Sync error: ' + data.error);
             location.reload();
         }
     } catch (e) {
         alert('Sync failed: ' + e.message);
-        location.reload();
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Sync Now';
     }
 }
 

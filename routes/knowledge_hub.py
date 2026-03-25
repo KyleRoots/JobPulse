@@ -309,11 +309,16 @@ def onedrive_remove_folder():
     return jsonify({'success': True, 'message': f'Stopped syncing "{sync_folder.folder_name}"'})
 
 
+_onedrive_sync_status = {"running": False, "last_result": None, "started_at": None}
+
 @knowledge_hub_bp.route('/scout-support/knowledge/onedrive/sync', methods=['POST'])
 @login_required
 def onedrive_sync():
     if not current_user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
+
+    if _onedrive_sync_status["running"]:
+        return jsonify({'success': True, 'message': 'Sync is already in progress...', 'status': 'running'})
 
     data = request.get_json() or {}
     folder_id = data.get('folder_id', '').strip()
@@ -321,18 +326,55 @@ def onedrive_sync():
     try:
         from onedrive_service import OneDriveService
         svc = OneDriveService()
-
-        if folder_id:
-            result = svc.sync_folder_to_knowledge(folder_id)
-        else:
-            result = svc.sync_all_folders()
-
-        return jsonify({'success': True, **result})
+        if not svc.is_connected():
+            return jsonify({'error': 'OneDrive is not connected'}), 503
     except ConnectionError as e:
         return jsonify({'error': str(e)}), 503
     except Exception as e:
-        logger.error(f"OneDrive sync error: {e}")
-        return jsonify({'error': f'Sync failed: {str(e)}'}), 500
+        logger.error(f"OneDrive sync connection check error: {e}")
+        return jsonify({'error': f'Connection check failed: {str(e)}'}), 500
+
+    import threading
+    from flask import current_app
+
+    app = current_app._get_current_object()
+
+    def run_sync():
+        _onedrive_sync_status["running"] = True
+        _onedrive_sync_status["started_at"] = datetime.utcnow().isoformat()
+        try:
+            with app.app_context():
+                from onedrive_service import OneDriveService
+                sync_svc = OneDriveService()
+                if folder_id:
+                    result = sync_svc.sync_folder_to_knowledge(folder_id)
+                else:
+                    result = sync_svc.sync_all_folders()
+                _onedrive_sync_status["last_result"] = result
+                logger.info(f"OneDrive background sync complete: {result}")
+        except Exception as e:
+            logger.error(f"OneDrive background sync error: {e}")
+            _onedrive_sync_status["last_result"] = {"error": str(e)}
+        finally:
+            _onedrive_sync_status["running"] = False
+
+    thread = threading.Thread(target=run_sync, daemon=True)
+    thread.start()
+
+    return jsonify({'success': True, 'message': 'Sync started in the background. Refresh the page in a moment to see results.', 'status': 'started'})
+
+
+@knowledge_hub_bp.route('/scout-support/knowledge/onedrive/sync-status')
+@login_required
+def onedrive_sync_status():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    return jsonify({
+        'running': _onedrive_sync_status['running'],
+        'started_at': _onedrive_sync_status['started_at'],
+        'last_result': _onedrive_sync_status['last_result'],
+    })
 
 
 @knowledge_hub_bp.route('/scout-support/knowledge/onedrive/status')

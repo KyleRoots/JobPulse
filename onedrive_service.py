@@ -226,8 +226,17 @@ class OneDriveService:
 
     def list_supported_files_in_folder(self, folder_id: str, recursive: bool = False) -> List[Dict]:
         items = self.list_folder_items(folder_id)
-        supported = [i for i in items if not i["is_folder"] and i["is_supported"]
-                     and i["size"] <= MAX_FILE_SIZE_MB * 1024 * 1024]
+        supported = []
+        for i in items:
+            if i["is_folder"]:
+                continue
+            if not i["is_supported"]:
+                logger.debug(f"OneDrive sync: Skipping unsupported file '{i['name']}' (type: .{i['extension']})")
+                continue
+            if i["size"] > MAX_FILE_SIZE_MB * 1024 * 1024:
+                logger.info(f"OneDrive sync: Skipping '{i['name']}' — exceeds {MAX_FILE_SIZE_MB}MB limit ({i['size'] / 1024 / 1024:.1f}MB)")
+                continue
+            supported.append(i)
 
         if recursive:
             subfolders = [i for i in items if i["is_folder"]]
