@@ -1394,3 +1394,53 @@ class SupportAction(db.Model):
 
     def __repr__(self):
         return f'<SupportAction {self.id} ticket={self.ticket_id} type={self.action_type}>'
+
+
+class KnowledgeDocument(db.Model):
+    __tablename__ = 'knowledge_document'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(500), nullable=False)
+    filename = db.Column(db.String(255), nullable=True)
+    doc_type = db.Column(db.String(50), nullable=False, default='uploaded')
+    category = db.Column(db.String(100), nullable=True, index=True)
+    description = db.Column(db.Text, nullable=True)
+    source_ticket_id = db.Column(db.Integer, db.ForeignKey('support_ticket.id'), nullable=True)
+    raw_text = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='active')
+    uploaded_by = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    entries = db.relationship('KnowledgeEntry', backref='document', lazy='dynamic',
+                              cascade='all, delete-orphan')
+    source_ticket = db.relationship('SupportTicket', backref='knowledge_documents')
+
+    __table_args__ = (
+        db.Index('idx_knowledge_doc_status', 'status'),
+        db.Index('idx_knowledge_doc_type', 'doc_type'),
+    )
+
+    def __repr__(self):
+        return f'<KnowledgeDocument {self.id} "{self.title[:40]}">'
+
+
+class KnowledgeEntry(db.Model):
+    __tablename__ = 'knowledge_entry'
+
+    id = db.Column(db.Integer, primary_key=True)
+    document_id = db.Column(db.Integer, db.ForeignKey('knowledge_document.id'), nullable=False, index=True)
+    chunk_index = db.Column(db.Integer, nullable=False, default=0)
+    content = db.Column(db.Text, nullable=False)
+    content_hash = db.Column(db.String(64), nullable=True, index=True)
+    embedding_vector = db.Column(db.Text, nullable=True)
+    embedding_model = db.Column(db.String(50), nullable=True, default='text-embedding-3-large')
+    metadata_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index('idx_knowledge_entry_doc_chunk', 'document_id', 'chunk_index'),
+    )
+
+    def __repr__(self):
+        return f'<KnowledgeEntry {self.id} doc={self.document_id} chunk={self.chunk_index}>'

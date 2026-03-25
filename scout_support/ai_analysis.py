@@ -40,6 +40,16 @@ IMPORTANT: The user attached files to this ticket. Use the extracted content abo
 when analyzing the issue. If the attachments contain screenshots, the image descriptions will help you
 understand what the user is seeing. If documents are attached, their text content is included above."""
 
+        knowledge_section = ''
+        try:
+            from scout_support.knowledge import KnowledgeService
+            ks = KnowledgeService()
+            knowledge_section = ks.build_knowledge_context(
+                ticket.subject, ticket.description, ticket.category
+            )
+        except Exception as e:
+            logger.warning(f"Knowledge retrieval failed for ticket {ticket.ticket_number}: {e}")
+
         prompt = f"""You are Scout Support, an AI assistant for internal ATS (Bullhorn) support issues.
 
 A user has submitted a support ticket. Analyze the issue and provide a clear, concise summary of your understanding.
@@ -52,7 +62,7 @@ Ticket Details:
 - Department: {ticket.submitter_department or 'Not specified'}
 
 User's Description:
-{ticket.description}{attachment_section}
+{ticket.description}{attachment_section}{knowledge_section}
 
 Important: Determine not just whether you can fix this, but also whether there might be deeper
 underlying issues. Many ATS problems have both an immediate fix AND a root cause that may need
@@ -184,6 +194,16 @@ Attached Files in Latest Reply:
 IMPORTANT: The user included attachments with their reply. Use the extracted content above as additional
 context. Screenshots may show error messages, field values, or Bullhorn screens that help diagnose the issue."""
 
+        knowledge_section = ''
+        try:
+            from scout_support.knowledge import KnowledgeService
+            ks = KnowledgeService()
+            knowledge_section = ks.build_knowledge_context(
+                ticket.subject, f"{ticket.description}\n{reply_body}", ticket.category
+            )
+        except Exception as e:
+            logger.warning(f"Knowledge retrieval failed during clarification for ticket {ticket.ticket_number}: {e}")
+
         prompt = f"""You are Scout Support. You've been working on ticket {ticket.ticket_number}.
 
 Original issue: {ticket.subject}
@@ -193,7 +213,7 @@ Full conversation history (oldest first):
 {chr(10).join(history)}
 
 Latest reply from user (may include quoted text with inline answers):
-{reply_body}{attachment_section}
+{reply_body}{attachment_section}{knowledge_section}
 
 Current AI understanding: {ticket.ai_understanding or 'Not yet established'}
 

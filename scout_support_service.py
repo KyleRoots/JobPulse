@@ -362,6 +362,15 @@ class ScoutSupportService(
         db.session.commit()
 
         status_label = 'resolved' if new_status == 'completed' else 'closed'
+
+        if new_status == 'completed':
+            try:
+                from scout_support.knowledge import KnowledgeService
+                ks = KnowledgeService()
+                ks.learn_from_ticket(ticket.id)
+            except Exception as e:
+                logger.warning(f"Knowledge learning failed for ticket {ticket.ticket_number}: {e}")
+
         category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
 
         user_body = (

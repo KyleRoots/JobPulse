@@ -1,0 +1,121 @@
+{% extends "base_layout.html" %}
+
+{% block title %}{{ document.title }} — Knowledge Hub{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{{ url_for('knowledge_hub.knowledge_hub') }}" class="text-info text-decoration-none small">
+                <i class="fas fa-arrow-left me-1"></i>Back to Knowledge Hub
+            </a>
+            <h2 class="mb-1 mt-2">
+                {% if document.doc_type == 'ticket_resolution' %}
+                <i class="fas fa-lightbulb text-success me-2"></i>
+                {% else %}
+                <i class="fas fa-file-alt text-primary me-2"></i>
+                {% endif %}
+                {{ document.title }}
+            </h2>
+            {% if document.description %}
+            <p class="text-muted mb-0">{{ document.description }}</p>
+            {% endif %}
+        </div>
+        <button class="btn btn-outline-danger btn-sm" onclick="deleteDoc()">
+            <i class="fas fa-trash-alt me-1"></i>Delete
+        </button>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body">
+                    <div class="text-muted small">Type</div>
+                    <div>
+                        {% if document.doc_type == 'uploaded' %}
+                        <span class="badge bg-primary bg-opacity-25 text-primary">Uploaded</span>
+                        {% elif document.doc_type == 'ticket_resolution' %}
+                        <span class="badge bg-success bg-opacity-25 text-success">Learned from Ticket</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body">
+                    <div class="text-muted small">Category</div>
+                    <div><span class="badge bg-info bg-opacity-25 text-info">{{ categories.get(document.category, document.category or 'Other') }}</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body">
+                    <div class="text-muted small">Knowledge Chunks</div>
+                    <div class="fs-4 fw-bold text-warning">{{ entries|length }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body">
+                    <div class="text-muted small">Created</div>
+                    <div>{{ document.created_at.strftime('%b %d, %Y %H:%M') if document.created_at else '—' }}</div>
+                    {% if document.filename %}
+                    <div class="text-muted small mt-1">File: {{ document.filename }}</div>
+                    {% endif %}
+                    {% if document.source_ticket %}
+                    <div class="mt-1">
+                        <a href="{{ url_for('scout_support.ticket_detail', ticket_number=document.source_ticket.ticket_number) }}"
+                           class="text-info text-decoration-none small">
+                            <i class="fas fa-ticket-alt me-1"></i>{{ document.source_ticket.ticket_number }}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+        <div class="card-header bg-dark border-secondary">
+            <h5 class="mb-0"><i class="fas fa-puzzle-piece me-2"></i>Knowledge Chunks</h5>
+        </div>
+        <div class="card-body">
+            {% for entry in entries %}
+            <div class="border border-secondary rounded p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-secondary">Chunk {{ entry.chunk_index + 1 }}</span>
+                    <span class="text-muted small">
+                        {{ entry.content|length }} chars
+                        {% if entry.embedding_vector %}<i class="fas fa-check-circle text-success ms-2" title="Embedding generated"></i>{% endif %}
+                    </span>
+                </div>
+                <div class="small" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto;">{{ entry.content }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+async function deleteDoc() {
+    if (!confirm('Delete this document and all its knowledge entries?')) return;
+    try {
+        const res = await fetch('/scout-support/knowledge/{{ document.id }}/delete', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token() }}' }
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.location.href = '{{ url_for("knowledge_hub.knowledge_hub") }}';
+        } else {
+            alert('Error: ' + (data.error || 'Delete failed'));
+        }
+    } catch (e) {
+        alert('Delete failed: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

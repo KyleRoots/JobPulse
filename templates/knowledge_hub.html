@@ -1,0 +1,334 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Knowledge Hub — Scout Support{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-book text-info me-2"></i>Knowledge Hub</h2>
+            <p class="text-muted mb-0">Reference documents and learned resolution patterns for Scout Support AI</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-info btn-sm" onclick="learnFromTickets()">
+                <i class="fas fa-graduation-cap me-1"></i>Learn from Resolved Tickets
+            </button>
+            <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="fas fa-upload me-1"></i>Upload Document
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-info">{{ stats.total_documents }}</div>
+                    <div class="text-muted small">Total Documents</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-primary">{{ stats.uploaded_documents }}</div>
+                    <div class="text-muted small">Uploaded</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-success">{{ stats.learned_resolutions }}</div>
+                    <div class="text-muted small">Learned Resolutions</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-warning">{{ stats.total_entries }}</div>
+                    <div class="text-muted small">Knowledge Chunks</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-dark border-secondary mb-4">
+        <div class="card-header bg-dark border-secondary">
+            <h5 class="mb-0"><i class="fas fa-search me-2"></i>Search Knowledge Base</h5>
+        </div>
+        <div class="card-body">
+            <div class="input-group">
+                <input type="text" id="searchQuery" class="form-control bg-dark text-light border-secondary"
+                       placeholder="Search for solutions, procedures, or guides..." minlength="3">
+                <button class="btn btn-info" onclick="searchKnowledge()">
+                    <i class="fas fa-search me-1"></i>Search
+                </button>
+            </div>
+            <div id="searchResults" class="mt-3" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+        <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-folder-open me-2"></i>Documents</h5>
+            <div class="d-flex gap-2">
+                <select id="typeFilter" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;" onchange="applyFilters()">
+                    <option value="all" {% if doc_type_filter == 'all' %}selected{% endif %}>All Types</option>
+                    <option value="uploaded" {% if doc_type_filter == 'uploaded' %}selected{% endif %}>Uploaded</option>
+                    <option value="ticket_resolution" {% if doc_type_filter == 'ticket_resolution' %}selected{% endif %}>Learned</option>
+                </select>
+                <select id="categoryFilter" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;" onchange="applyFilters()">
+                    <option value="all" {% if category_filter == 'all' %}selected{% endif %}>All Categories</option>
+                    {% for key, label in categories.items() %}
+                    <option value="{{ key }}" {% if category_filter == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if documents %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Chunks</th>
+                            <th>Uploaded By</th>
+                            <th>Created</th>
+                            <th style="width: 80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('knowledge_hub.document_detail', doc_id=doc.id) }}" class="text-info text-decoration-none">
+                                    {% if doc.doc_type == 'ticket_resolution' %}
+                                    <i class="fas fa-lightbulb text-success me-1"></i>
+                                    {% else %}
+                                    <i class="fas fa-file-alt text-primary me-1"></i>
+                                    {% endif %}
+                                    {{ doc.title[:80] }}{% if doc.title|length > 80 %}...{% endif %}
+                                </a>
+                                {% if doc.description %}
+                                <div class="text-muted small mt-1">{{ doc.description[:120] }}{% if doc.description|length > 120 %}...{% endif %}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if doc.doc_type == 'uploaded' %}
+                                <span class="badge bg-primary bg-opacity-25 text-primary">Uploaded</span>
+                                {% elif doc.doc_type == 'ticket_resolution' %}
+                                <span class="badge bg-success bg-opacity-25 text-success">Learned</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ doc.doc_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info bg-opacity-25 text-info">
+                                    {{ categories.get(doc.category, doc.category or 'Other') }}
+                                </span>
+                            </td>
+                            <td class="text-muted">{{ doc.entries.count() }}</td>
+                            <td class="text-muted small">{{ doc.uploaded_by or '—' }}</td>
+                            <td class="text-muted small">{{ doc.created_at.strftime('%b %d, %H:%M') if doc.created_at else '—' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger border-0 px-2 py-1"
+                                        onclick="deleteDocument({{ doc.id }}, '{{ doc.title[:50] | e }}')"
+                                        title="Delete document">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-book-open fa-3x mb-3"></i>
+                <p>No knowledge documents yet.</p>
+                <p class="small">Upload reference documents or learn from resolved tickets to build the knowledge base.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fas fa-upload me-2 text-info"></i>Upload Knowledge Document</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">Document Title</label>
+                        <input type="text" name="title" class="form-control bg-dark text-light border-secondary"
+                               placeholder="e.g., Candidate Status Change SOP">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select name="category" class="form-select bg-dark text-light border-secondary">
+                            {% for key, label in categories.items() %}
+                            {% if key != 'resolution_pattern' %}
+                            <option value="{{ key }}">{{ label }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description <span class="text-muted">(optional)</span></label>
+                        <textarea name="description" class="form-control bg-dark text-light border-secondary" rows="2"
+                                  placeholder="Brief description of this document's contents"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">File</label>
+                        <input type="file" name="file" class="form-control bg-dark text-light border-secondary"
+                               accept=".pdf,.docx,.doc,.txt" required>
+                        <div class="form-text text-muted">Supported: PDF, DOCX, DOC, TXT</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info btn-sm" onclick="uploadDocument()" id="uploadBtn">
+                    <i class="fas fa-upload me-1"></i>Upload & Process
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function uploadDocument() {
+    const form = document.getElementById('uploadForm');
+    const formData = new FormData(form);
+    const btn = document.getElementById('uploadBtn');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+
+    try {
+        const res = await fetch('{{ url_for("knowledge_hub.upload_document") }}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token() }}' }
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Upload failed'));
+        }
+    } catch (e) {
+        alert('Upload failed: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload me-1"></i>Upload & Process';
+    }
+}
+
+async function deleteDocument(docId, title) {
+    if (!confirm('Delete "' + title + '"? This will remove all associated knowledge entries.')) return;
+    try {
+        const res = await fetch('/scout-support/knowledge/' + docId + '/delete', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token() }}' }
+        });
+        const data = await res.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Delete failed'));
+        }
+    } catch (e) {
+        alert('Delete failed: ' + e.message);
+    }
+}
+
+async function searchKnowledge() {
+    const query = document.getElementById('searchQuery').value.trim();
+    if (query.length < 3) {
+        alert('Please enter at least 3 characters');
+        return;
+    }
+
+    const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Searching...</div>';
+
+    try {
+        const res = await fetch('/scout-support/knowledge/search?q=' + encodeURIComponent(query));
+        const data = await res.json();
+
+        if (data.results && data.results.length > 0) {
+            let html = '<div class="list-group">';
+            data.results.forEach(function(r) {
+                const sim = (r.similarity * 100).toFixed(0);
+                html += '<div class="list-group-item bg-dark border-secondary text-light mb-1">' +
+                    '<div class="d-flex justify-content-between align-items-start mb-1">' +
+                    '<strong class="text-info">' + escapeHtml(r.title) + '</strong>' +
+                    '<span class="badge bg-' + (sim >= 50 ? 'success' : sim >= 30 ? 'warning text-dark' : 'secondary') + '">' + sim + '% match</span>' +
+                    '</div>' +
+                    '<div class="small text-muted mb-1"><span class="badge bg-info bg-opacity-25 text-info me-1">' + escapeHtml(r.category || 'other') + '</span>' +
+                    '<span class="badge bg-' + (r.doc_type === 'ticket_resolution' ? 'success' : 'primary') + ' bg-opacity-25 text-' + (r.doc_type === 'ticket_resolution' ? 'success' : 'primary') + '">' + (r.doc_type === 'ticket_resolution' ? 'Learned' : 'Uploaded') + '</span></div>' +
+                    '<div class="small" style="white-space: pre-wrap; max-height: 150px; overflow-y: auto;">' + escapeHtml(r.content.substring(0, 500)) + (r.content.length > 500 ? '...' : '') + '</div>' +
+                    '</div>';
+            });
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        } else {
+            resultsDiv.innerHTML = '<div class="text-center text-muted py-3">No matching knowledge found for "' + escapeHtml(query) + '"</div>';
+        }
+    } catch (e) {
+        resultsDiv.innerHTML = '<div class="text-center text-danger py-3">Search failed: ' + e.message + '</div>';
+    }
+}
+
+async function learnFromTickets() {
+    if (!confirm('Extract resolution patterns from all completed tickets that haven\'t been learned yet?')) return;
+
+    try {
+        const res = await fetch('{{ url_for("knowledge_hub.learn_from_tickets") }}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token() }}' }
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message);
+            if (data.learned > 0) location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Learning failed'));
+        }
+    } catch (e) {
+        alert('Learning failed: ' + e.message);
+    }
+}
+
+function applyFilters() {
+    const type = document.getElementById('typeFilter').value;
+    const category = document.getElementById('categoryFilter').value;
+    const params = new URLSearchParams();
+    if (type !== 'all') params.set('type', type);
+    if (category !== 'all') params.set('category', category);
+    window.location.href = '{{ url_for("knowledge_hub.knowledge_hub") }}' + (params.toString() ? '?' + params.toString() : '');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.getElementById('searchQuery').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchKnowledge();
+});
+</script>
+{% endblock %}

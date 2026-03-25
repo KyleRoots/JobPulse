@@ -1608,6 +1608,13 @@
                     <i class="fas fa-headset" style="color: #17a2b8;"></i>
                     <span>Support Tickets</span>
                 </a>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('knowledge_hub.knowledge_hub') }}"
+                    class="nav-item {% if active_page == 'knowledge_hub' %}active{% endif %}">
+                    <i class="fas fa-book" style="color: #17a2b8;"></i>
+                    <span>Knowledge Hub</span>
+                </a>
+                {% endif %}
             </div>
             {% endif %}
 
