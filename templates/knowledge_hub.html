@@ -221,17 +221,17 @@
                             </td>
                             <td>
                                 {% if doc.doc_type == 'uploaded' %}
-                                <span class="badge bg-primary bg-opacity-25 text-primary">Uploaded</span>
+                                <span class="badge bg-primary bg-opacity-25" style="color: #cac6d8;">Uploaded</span>
                                 {% elif doc.doc_type == 'ticket_resolution' %}
-                                <span class="badge bg-success bg-opacity-25 text-success">Learned</span>
+                                <span class="badge bg-success bg-opacity-25" style="color: #cac6d8;">Learned</span>
                                 {% elif doc.doc_type == 'onedrive_sync' %}
-                                <span class="badge" style="background: rgba(0,120,215,0.15); color: #0078d4;">OneDrive</span>
+                                <span class="badge" style="background: rgba(0,120,215,0.15); color: #cac6d8;">OneDrive</span>
                                 {% else %}
                                 <span class="badge bg-secondary">{{ doc.doc_type }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge bg-info bg-opacity-25 text-info">
+                                <span class="badge bg-info bg-opacity-25" style="color: #cac6d8;">
                                     {{ categories.get(doc.category, doc.category or 'Other') }}
                                 </span>
                             </td>
@@ -425,8 +425,8 @@ async function searchKnowledge() {
                     '<strong class="text-info">' + escapeHtml(r.title) + '</strong>' +
                     '<span class="badge bg-' + (sim >= 50 ? 'success' : sim >= 30 ? 'warning text-dark' : 'secondary') + '">' + sim + '% match</span>' +
                     '</div>' +
-                    '<div class="small text-muted mb-1"><span class="badge bg-info bg-opacity-25 text-info me-1">' + escapeHtml(r.category || 'other') + '</span>' +
-                    '<span class="badge bg-' + typeColor + ' bg-opacity-25 text-' + typeColor + '">' + typeLabel + '</span></div>' +
+                    '<div class="small text-muted mb-1"><span class="badge bg-info bg-opacity-25 me-1" style="color: #cac6d8;">' + escapeHtml(r.category || 'other') + '</span>' +
+                    '<span class="badge bg-' + typeColor + ' bg-opacity-25" style="color: #cac6d8;">' + typeLabel + '</span></div>' +
                     '<div class="small" style="white-space: pre-wrap; max-height: 150px; overflow-y: auto;">' + escapeHtml(r.content.substring(0, 500)) + (r.content.length > 500 ? '...' : '') + '</div>' +
                     '</div>';
             });
