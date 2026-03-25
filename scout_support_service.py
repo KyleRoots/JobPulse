@@ -1686,14 +1686,31 @@ Respond with ONLY a JSON object:
                 if not change_lines:
                     continue
 
-                changes_summary = "\n".join(f"• {line}" for line in change_lines)
+                friendly_lines = []
+                for line in change_lines:
+                    friendly = self._humanize_change_line(line, entity_type, entity_id)
+                    if friendly:
+                        friendly_lines.append(friendly)
+
+                if not friendly_lines:
+                    continue
+
+                changes_summary = "\n".join(f"• {line}" for line in friendly_lines)
+                category_labels = {
+                    'ats_issue': 'ATS Issue',
+                    'data_correction': 'Data Correction',
+                    'job_posting': 'Job Posting',
+                    'candidate_issue': 'Candidate Issue',
+                    'placement_issue': 'Placement Issue',
+                }
+                category_display = category_labels.get(ticket.category, ticket.category or 'General')
                 note_text = (
                     f"━━━ Scout Support ━━━\n"
                     f"Ticket: {ticket.ticket_number}\n"
-                    f"Issue: {ticket.subject}\n"
-                    f"Category: {ticket.category or 'N/A'}\n"
-                    f"\nActions Taken:\n{changes_summary}\n"
-                    f"\nResolved automatically via Scout Support AI."
+                    f"Request: {ticket.subject}\n"
+                    f"Type: {category_display}\n"
+                    f"\nWhat was done:\n{changes_summary}\n"
+                    f"\nResolved by Scout Support AI."
                 )
 
                 assoc_field = note_entity_map[entity_type]
@@ -1728,6 +1745,68 @@ Respond with ONLY a JSON object:
 
             except Exception as e:
                 logger.warning(f"⚠️ Audit note error for {entity_type} #{entity_id}: {e}")
+
+    FIELD_LABELS = {
+        'ispublic': 'Published to Web',
+        'isopen': 'Open Status',
+        'isdeleted': 'Deleted',
+        'status': 'Status',
+        'employmenttype': 'Employment Type',
+        'title': 'Title',
+        'payrate': 'Pay Rate',
+        'clientbillrate': 'Client Bill Rate',
+        'salary': 'Salary',
+        'salaryunit': 'Salary Unit',
+        'startdate': 'Start Date',
+        'dateclosed': 'Date Closed',
+        'address': 'Location',
+        'description': 'Description',
+        'publicdescription': 'Public Description',
+        'numOpenings': 'Number of Openings',
+        'reasonclosed': 'Reason Closed',
+        'customtext1': 'Custom Text 1',
+        'customtext2': 'Custom Text 2',
+        'customtext3': 'Custom Text 3',
+    }
+
+    VALUE_LABELS = {
+        ('ispublic', '1'): 'Yes',
+        ('ispublic', '0'): 'No',
+        ('ispublic', 'True'): 'Yes',
+        ('ispublic', 'False'): 'No',
+        ('isopen', '1'): 'Yes',
+        ('isopen', '0'): 'No',
+        ('isdeleted', '1'): 'Yes',
+        ('isdeleted', '0'): 'No',
+    }
+
+    def _humanize_change_line(self, line: str, entity_type: str, entity_id) -> Optional[str]:
+        lower = line.lower()
+        if lower.startswith('retrieved') or lower.startswith('searched') or lower.startswith('queried'):
+            return None
+        if 'deferred' in lower:
+            return None
+
+        import re
+        update_match = re.search(r'Updated \w+ #\d+:\s*(\w+)\s*\(was:\s*(.+?),\s*now:\s*(.+?)\)', line)
+        if update_match:
+            field_raw = update_match.group(1)
+            old_val = update_match.group(2).strip()
+            new_val = update_match.group(3).strip()
+
+            field_label = self.FIELD_LABELS.get(field_raw.lower(), field_raw)
+            old_display = self.VALUE_LABELS.get((field_raw.lower(), old_val), old_val)
+            new_display = self.VALUE_LABELS.get((field_raw.lower(), new_val), new_val)
+
+            return f"Changed {field_label} from {old_display} to {new_display}"
+
+        create_match = re.search(r'Created (\w+) on', line)
+        if create_match:
+            return line
+
+        line = re.sub(r'(?:JobOrder|Candidate|ClientContact|Placement) #\d+', '', line).strip()
+        line = re.sub(r'\s+', ' ', line).strip(' :')
+        return line if line else None
 
     def _coerce_bullhorn_value(self, field: str, value):
         bool_int_fields = {
