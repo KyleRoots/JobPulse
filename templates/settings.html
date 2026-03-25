@@ -222,7 +222,7 @@
                                         {% endif %}
                                         {% for mod in platform_user.get_modules() %}
                                         <span class="badge" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: 0.7rem;">
-                                            {% if mod == 'scout_inbound' %}Scout Inbound{% elif mod == 'scout_screening' %}Scout Screening{% elif mod == 'scout_vetting' %}Scout Vetting{% else %}{{ mod }}{% endif %}
+                                            {% if mod == 'scout_inbound' %}Scout Inbound{% elif mod == 'scout_screening' %}Scout Screening{% elif mod == 'scout_vetting' %}Scout Vetting{% elif mod == 'scout_support' %}Support{% else %}{{ mod }}{% endif %}
                                         </span>
                                         {% endfor %}
                                     </div>
@@ -296,7 +296,7 @@
                                         {% endif %}
                                         {% for mod in platform_user.get_modules() %}
                                         <span class="badge" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: 0.7rem;">
-                                            {% if mod == 'scout_inbound' %}Scout Inbound{% elif mod == 'scout_screening' %}Scout Screening{% elif mod == 'scout_vetting' %}Scout Vetting{% else %}{{ mod }}{% endif %}
+                                            {% if mod == 'scout_inbound' %}Scout Inbound{% elif mod == 'scout_screening' %}Scout Screening{% elif mod == 'scout_vetting' %}Scout Vetting{% elif mod == 'scout_support' %}Support{% else %}{{ mod }}{% endif %}
                                         </span>
                                         {% endfor %}
                                     </div>
@@ -381,6 +381,8 @@
                                 <i class="fas fa-brain text-info me-1"></i> Scout Screening
                                 {% elif mod == 'scout_vetting' %}
                                 <i class="fas fa-comments me-1" style="color: #7cc5c5;"></i> Scout Vetting
+                                {% elif mod == 'scout_support' %}
+                                <i class="fas fa-headset me-1" style="color: #8b5cf6;"></i> Support
                                 {% else %}
                                 {{ mod }}
                                 {% endif %}
@@ -513,7 +515,7 @@
                                        {% if mod in user.get_modules() and not user.is_admin %}checked{% endif %}
                                        {% if user.is_admin %}checked disabled{% endif %}>
                                 <label class="form-check-label small" for="mod_{{ user.id }}_{{ mod }}">
-                                    {% if mod == 'scout_inbound' %}Inbound{% elif mod == 'scout_screening' %}Screening{% elif mod == 'scout_vetting' %}Vetting{% else %}{{ mod }}{% endif %}
+                                    {% if mod == 'scout_inbound' %}Inbound{% elif mod == 'scout_screening' %}Screening{% elif mod == 'scout_vetting' %}Vetting{% elif mod == 'scout_support' %}Support{% else %}{{ mod }}{% endif %}
                                 </label>
                             </div>
                             {% endfor %}
@@ -605,7 +607,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-semibold text-uppercase mb-2" style="color: rgba(255,255,255,0.45); letter-spacing: 0.05em;">Modules</label>
-                    {% set module_labels = {'scout_inbound': 'Scout Inbound', 'scout_screening': 'Scout Screening', 'scout_vetting': 'Scout Vetting'} %}
+                    {% set module_labels = {'scout_inbound': 'Scout Inbound', 'scout_screening': 'Scout Screening', 'scout_vetting': 'Scout Vetting', 'scout_support': 'Support'} %}
                     <div class="d-flex flex-column gap-2">
                         {% for mod in available_modules %}
                         <div class="form-check">
