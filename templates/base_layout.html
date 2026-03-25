@@ -1514,6 +1514,9 @@
                 {% elif active_page in ['vetting'] %}
                 <img src="{{ url_for('static', filename='images/scout-vetting-logo.png') }}" alt="Scout Vetting"
                     class="sidebar-logo-full">
+                {% elif active_page in ['scout_support', 'scout_support_knowledge'] %}
+                <img src="{{ url_for('static', filename='images/scout-support-logo.png') }}" alt="Scout Support"
+                    class="sidebar-logo-full">
                 {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
                     class="sidebar-logo-full">
@@ -1526,6 +1529,9 @@
                     class="sidebar-logo-compact">
                 {% elif active_page in ['vetting'] %}
                 <img src="{{ url_for('static', filename='images/scout-vetting-icon.png') }}" alt="Scout Vetting"
+                    class="sidebar-logo-compact">
+                {% elif active_page in ['scout_support', 'scout_support_knowledge'] %}
+                <img src="{{ url_for('static', filename='images/scout-support-icon.png') }}" alt="Scout Support"
                     class="sidebar-logo-compact">
                 {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-icon.png') }}" alt="Scout Genius"
