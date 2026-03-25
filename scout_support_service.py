@@ -755,6 +755,44 @@ Respond with a JSON object:
         logger.info(f"✅ Platform ticket {ticket.ticket_number} resolved by {closed_by}: {resolution_note[:100]}")
         return True
 
+    def reply_to_platform_ticket(self, ticket_id: int, reply_body: str, replied_by: str) -> bool:
+        from extensions import db
+        from models import SupportTicket
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return False
+
+        if ticket.status in ('completed', 'closed'):
+            return False
+
+        if ticket.status == 'new':
+            ticket.status = 'acknowledged'
+            db.session.commit()
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
+
+        email_body = (
+            f"Hi {first_name},\n\n"
+            f"{reply_body}\n\n"
+            f"**Ticket:** {ticket.ticket_number}\n"
+            f"**Type:** {category_label}\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"— Scout Genius Support"
+        )
+
+        self._send_platform_email(
+            to_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            body=email_body,
+            ticket=ticket,
+            email_type='admin_reply',
+        )
+
+        logger.info(f"💬 Admin reply on platform ticket {ticket.ticket_number} by {replied_by}: {reply_body[:80]}")
+        return True
+
     def check_stale_platform_tickets(self):
         from models import SupportTicket
 

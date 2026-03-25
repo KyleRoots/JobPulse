@@ -250,6 +250,37 @@ def api_close_platform_ticket(ticket_number):
     return jsonify({'success': success})
 
 
+@scout_support_bp.route('/api/scout-support/platform-reply/<ticket_number>', methods=['POST'])
+@login_required
+def api_reply_platform_ticket(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support_service import ScoutSupportService, PLATFORM_CATEGORIES
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    if ticket.category not in PLATFORM_CATEGORIES:
+        return jsonify({'error': 'This endpoint is for platform tickets only'}), 400
+
+    if ticket.status in ('completed', 'closed'):
+        return jsonify({'error': 'Cannot reply to a resolved ticket'}), 400
+
+    data = request.json or {}
+    reply_body = data.get('reply', '').strip()
+
+    if not reply_body:
+        return jsonify({'error': 'Reply message is required'}), 400
+
+    svc = ScoutSupportService()
+    success = svc.reply_to_platform_ticket(ticket.id, reply_body, current_user.email)
+
+    return jsonify({'success': success})
+
+
 @scout_support_bp.route('/scout-support/ticket/<ticket_number>/delete', methods=['POST'])
 @login_required
 def delete_ticket(ticket_number):

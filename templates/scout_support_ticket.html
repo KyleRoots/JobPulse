@@ -90,7 +90,9 @@
                         <div class="p-3 rounded-3 {% if conv.direction == 'outbound' %}scout-msg{% else %}user-msg{% endif %}" style="max-width: 80%;">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <small class="fw-bold" {% if conv.direction == 'outbound' %}style="color: var(--module-support-text);"{% endif %}>
-                                    {% if conv.direction == 'outbound' %}
+                                    {% if conv.email_type == 'admin_reply' %}
+                                    <i class="fas fa-user-shield me-1"></i>Admin
+                                    {% elif conv.direction == 'outbound' %}
                                     <i class="fas fa-robot me-1"></i>Scout Support
                                     {% else %}
                                     <i class="fas fa-user me-1"></i>{{ conv.sender_email }}
@@ -203,6 +205,13 @@
                         <i class="fas fa-trash me-1"></i>Delete Ticket
                     </button>
                     {% if ticket.status not in ('completed', 'closed') %}
+                    <hr class="border-secondary my-2">
+                    <label class="form-label text-muted small mb-1"><i class="fas fa-reply me-1"></i>Reply to User</label>
+                    <textarea id="platformReplyBody" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
+                              rows="3" placeholder="Type your response to the user..."></textarea>
+                    <button class="btn btn-sm w-100 mb-3" id="sendReplyBtn" style="background-color: #4a9678; color: white;" onclick="sendPlatformReply()">
+                        <i class="fas fa-paper-plane me-1"></i>Send Reply
+                    </button>
                     <hr class="border-secondary my-2">
                     <label class="form-label text-muted small mb-1">Resolution Note</label>
                     <textarea id="platformResolutionNote" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
@@ -392,6 +401,42 @@ function updatePlatformStatus(status) {
         }
     })
     .catch(err => alert('Error: ' + err));
+}
+
+function sendPlatformReply() {
+    const reply = document.getElementById('platformReplyBody').value.trim();
+    if (!reply) {
+        alert('Please enter a reply message.');
+        document.getElementById('platformReplyBody').focus();
+        return;
+    }
+    if (!confirm('Send this reply to the user? They will receive an email.')) return;
+
+    const btn = document.getElementById('sendReplyBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    fetch('/api/scout-support/platform-reply/{{ ticket.ticket_number }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({reply: reply})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed to send reply: ' + (data.error || 'Unknown error'));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send Reply';
+        }
+    })
+    .catch(err => {
+        alert('Error: ' + err);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send Reply';
+    });
 }
 
 function closePlatformTicket() {
