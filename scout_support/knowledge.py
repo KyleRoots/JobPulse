@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 EMBEDDING_MODEL = "text-embedding-3-large"
 EMBEDDING_DIMENSIONS = 3072
-CHUNK_SIZE = 1500
-CHUNK_OVERLAP = 200
+CHUNK_SIZE = 4000
+CHUNK_OVERLAP = 300
 MAX_KNOWLEDGE_RESULTS = 5
 SIMILARITY_THRESHOLD = 0.30
 
@@ -305,6 +305,10 @@ class KnowledgeService:
         for line in lines:
             stripped = line.strip()
             if stripped in boilerplate:
+                continue
+            if re.match(r'^.*?[\.\s]{5,}\s*\d+\s*[a-z]?\.?\s*$', stripped):
+                continue
+            if re.match(r'^\.{5,}', stripped):
                 continue
             cleaned_lines.append(line)
 
