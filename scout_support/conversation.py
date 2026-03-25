@@ -288,6 +288,16 @@ class ConversationMixin:
         except (json.JSONDecodeError, TypeError):
             solution_data = {}
 
+        knowledge_section = ''
+        try:
+            from scout_support.knowledge import KnowledgeService
+            ks = KnowledgeService()
+            knowledge_section = ks.build_knowledge_context(
+                ticket.subject, f"{ticket.description}\n{admin_message}", ticket.category
+            )
+        except Exception as e:
+            logger.warning(f"Knowledge retrieval failed during admin Q&A for ticket {ticket.ticket_number}: {e}")
+
         prompt = f"""You are Scout Support, an AI assistant for internal ATS (Bullhorn) support operations.
 
 The administrator is reviewing ticket {ticket.ticket_number} for final approval and has a question or comment.
@@ -313,7 +323,7 @@ Execution Steps:
 {json.dumps(solution_data.get('execution_steps', []), indent=2)}
 
 Conversation History:
-{chr(10).join(history)}
+{chr(10).join(history)}{knowledge_section}
 
 Admin's Question/Comment:
 {admin_message}
