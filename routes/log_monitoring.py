@@ -245,7 +245,9 @@ def api_log_monitoring_runs():
 def api_submit_feedback():
     """Submit user feedback as a platform support ticket."""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"success": False, "error": "Invalid request data"}), 400
         feedback_type = data.get('type', 'other')
         message = data.get('message', '')
         page = data.get('page', 'Unknown')
