@@ -1271,7 +1271,7 @@ def seed_stsi_users(db, User):
                 password_hash='!locked',
                 created_at=datetime.utcnow(),
             )
-            user.set_modules(['scout_inbound'])
+            user.set_modules(['scout_inbound', 'scout_support'])
             db.session.add(user)
             existing_usernames.add(username)
             existing_emails.add(c['email'])
