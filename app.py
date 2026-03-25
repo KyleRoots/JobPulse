@@ -1381,6 +1381,31 @@ if is_primary_worker:
         print(f"❌ SCHEDULER INIT: Failed to register Sales Rep sync job: {e}", flush=True)
         app.logger.error(f"Failed to register Sales Rep sync job: {e}")
 
+    def run_stale_platform_ticket_check():
+        try:
+            with app.app_context():
+                from scout_support_service import ScoutSupportService
+                svc = ScoutSupportService()
+                count = svc.check_stale_platform_tickets()
+                if count > 0:
+                    app.logger.info(f"⏰ Stale platform ticket check: {count} ticket(s) escalated to admin")
+        except Exception as e:
+            app.logger.error(f"Stale platform ticket check error: {e}")
+
+    try:
+        scheduler.add_job(
+            func=run_stale_platform_ticket_check,
+            trigger=IntervalTrigger(hours=6),
+            id='stale_platform_ticket_check',
+            name='Stale Platform Ticket Escalation Check (Every 6 Hours)',
+            replace_existing=True
+        )
+        print("✅ SCHEDULER INIT: Stale platform ticket check registered (every 6 hours)", flush=True)
+        app.logger.info("⏰ Scheduled stale platform ticket escalation check every 6 hours")
+    except Exception as e:
+        print(f"❌ SCHEDULER INIT: Failed to register stale platform ticket check: {e}", flush=True)
+        app.logger.error(f"Failed to register stale platform ticket check: {e}")
+
     # Schedule reference refresh every 120 hours — NEVER fires inline on startup.
     # On restart, we reconstruct next_run from persisted RefreshLog state.
     # If overdue, we defer to now + 5min so the scheduler handles it, not startup.

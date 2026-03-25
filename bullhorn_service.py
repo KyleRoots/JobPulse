@@ -1316,7 +1316,9 @@ class BullhornService:
     def search_candidates(self, email: str = None, phone: str = None, 
                           first_name: str = None, last_name: str = None) -> List[Dict]:
         """
-        Search for candidates by email, phone, or name
+        Search for candidates by email, phone, or name.
+        Email search covers email, email2, and email3 fields with case-insensitive matching.
+        Includes one retry on timeout/error.
         
         Args:
             email: Candidate email address
@@ -1331,51 +1333,62 @@ class BullhornService:
             if not self.authenticate():
                 return []
         
-        try:
-            # Build search query
-            query_parts = []
-            
-            if email:
-                query_parts.append(f'email:"{email}"')
-            if phone:
-                # Search with normalized phone
-                phone_digits = ''.join(filter(str.isdigit, phone))
-                if len(phone_digits) >= 10:
-                    query_parts.append(f'phone:"{phone_digits}"')
-            if first_name and last_name:
-                query_parts.append(f'firstName:"{first_name}" AND lastName:"{last_name}"')
-            elif first_name:
-                query_parts.append(f'firstName:"{first_name}"')
-            elif last_name:
-                query_parts.append(f'lastName:"{last_name}"')
-            
-            if not query_parts:
-                return []
-            
-            query = " OR ".join(query_parts)
-            
-            url = f"{self.base_url}search/Candidate"
-            params = {
-                'query': query,
-                'fields': 'id,firstName,lastName,email,phone,mobile,address,status,source,occupation',
-                'count': 10,
-                'BhRestToken': self.rest_token
-            }
-            
-            response = self.session.get(url, params=params, timeout=30)
-            
-            if response.status_code == 200:
-                data = self._safe_json_parse(response)
-                results = data.get('data', [])
-                logging.info(f"Candidate search returned {len(results)} results")
-                return results
-            else:
-                logging.error(f"Candidate search failed: {response.status_code} - {response.text}")
-                return []
-                
-        except Exception as e:
-            logging.error(f"Error searching candidates: {str(e)}")
+        query_parts = []
+        
+        if email:
+            normalized_email = email.strip().lower()
+            query_parts.append(f'(email:"{normalized_email}" OR email2:"{normalized_email}" OR email3:"{normalized_email}")')
+        if phone:
+            phone_digits = ''.join(filter(str.isdigit, phone))
+            if len(phone_digits) >= 10:
+                query_parts.append(f'(phone:"{phone_digits}" OR mobile:"{phone_digits}")')
+        if first_name and last_name:
+            query_parts.append(f'(firstName:"{first_name}" AND lastName:"{last_name}")')
+        elif first_name:
+            query_parts.append(f'firstName:"{first_name}"')
+        elif last_name:
+            query_parts.append(f'lastName:"{last_name}"')
+        
+        if not query_parts:
             return []
+        
+        query = " OR ".join(query_parts)
+        
+        url = f"{self.base_url}search/Candidate"
+        params = {
+            'query': query,
+            'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,address,status,source,occupation',
+            'count': 10,
+            'BhRestToken': self.rest_token
+        }
+        
+        for attempt in range(2):
+            try:
+                logging.info(f"🔍 Candidate search (attempt {attempt+1}/2): query={query}")
+                response = self.session.get(url, params=params, timeout=30)
+                
+                if response.status_code == 200:
+                    data = self._safe_json_parse(response)
+                    results = data.get('data', [])
+                    logging.info(f"🔍 Candidate search returned {len(results)} results")
+                    return results
+                else:
+                    logging.error(f"Candidate search failed (attempt {attempt+1}/2): {response.status_code} - {response.text}")
+                    if attempt == 0:
+                        import time
+                        time.sleep(1)
+                        continue
+                    return []
+                    
+            except Exception as e:
+                logging.error(f"Error searching candidates (attempt {attempt+1}/2): {str(e)}")
+                if attempt == 0:
+                    import time
+                    time.sleep(1)
+                    continue
+                return []
+        
+        return []
     
     def create_candidate(self, candidate_data: Dict) -> Optional[int]:
         """

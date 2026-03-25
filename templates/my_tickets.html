@@ -104,14 +104,16 @@
                             <td>
                                 {% set status_colors = {
                                     'new': 'secondary', 'acknowledged': 'info', 'clarifying': 'primary',
-                                    'solution_proposed': 'primary', 'awaiting_user_approval': 'warning',
+                                    'in_progress': 'info', 'solution_proposed': 'primary',
+                                    'awaiting_user_approval': 'warning',
                                     'awaiting_admin_approval': 'danger', 'approved': 'success',
                                     'executing': 'info', 'completed': 'success', 'execution_failed': 'danger',
                                     'on_hold': 'warning', 'closed': 'secondary', 'escalated': 'danger'
                                 } %}
                                 {% set status_labels = {
                                     'new': 'New', 'acknowledged': 'Received', 'clarifying': 'In Review',
-                                    'solution_proposed': 'Solution Proposed', 'awaiting_user_approval': 'Your Approval',
+                                    'in_progress': 'In Progress', 'solution_proposed': 'Solution Proposed',
+                                    'awaiting_user_approval': 'Your Approval',
                                     'awaiting_admin_approval': 'Processing', 'approved': 'Approved',
                                     'executing': 'In Progress', 'completed': 'Completed',
                                     'execution_failed': 'Needs Attention', 'on_hold': 'On Hold',

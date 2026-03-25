@@ -407,7 +407,25 @@ Respond with a JSON object:
             email_type='platform_acknowledgment',
         )
 
-        logger.info(f"🎫 Platform ticket {ticket.ticket_number} ({category_label}) acknowledged via AI analysis")
+        admin_body = (
+            f"**New Platform Feedback:** {ticket.ticket_number}\n\n"
+            f"**Type:** {category_label}\n"
+            f"**Subject:** {ticket.subject}\n"
+            f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+            f"**Brand:** {ticket.brand or 'Myticas'}\n\n"
+            f"**Message:**\n{ticket.description}\n\n"
+            f"**AI Summary:**\n{ai_summary}\n\n"
+            f"View and manage this ticket from the Scout Support dashboard."
+        )
+        self._send_platform_email(
+            to_email=DEFAULT_ADMIN_EMAIL,
+            subject=f"[Platform] {ticket.ticket_number} — {category_label}",
+            body=admin_body,
+            ticket=None,
+            email_type='platform_admin_notification',
+        )
+
+        logger.info(f"🎫 Platform ticket {ticket.ticket_number} ({category_label}) acknowledged via AI analysis, admin notified")
         return True
 
     def _send_platform_email(self, to_email: str, subject: str, body: str, ticket=None,
@@ -653,6 +671,121 @@ Respond with a JSON object:
         self._send_escalation_email(ticket, reason)
         logger.info(f"⬆️ Ticket {ticket.ticket_number} escalated: {reason}")
         return True
+
+    def reopen_ticket(self, ticket_id: int, reopened_by: str) -> bool:
+        from extensions import db
+        from models import SupportTicket
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return False
+
+        previous_status = ticket.status
+        ticket.status = 'acknowledged'
+        ticket.resolution_note = None
+        ticket.resolved_by = None
+        ticket.resolved_at = None
+        db.session.commit()
+
+        logger.info(f"🔄 Ticket {ticket.ticket_number} reopened by {reopened_by} (was: {previous_status})")
+        return True
+
+    def update_platform_ticket_status(self, ticket_id: int, new_status: str, updated_by: str) -> bool:
+        from extensions import db
+        from models import SupportTicket
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return False
+
+        allowed_transitions = {
+            'new': ['acknowledged', 'in_progress'],
+            'acknowledged': ['in_progress', 'completed', 'closed'],
+            'clarifying': ['in_progress', 'completed', 'closed'],
+            'in_progress': ['completed', 'closed'],
+        }
+
+        allowed = allowed_transitions.get(ticket.status, [])
+        if new_status not in allowed:
+            logger.warning(f"Invalid status transition for {ticket.ticket_number}: {ticket.status} -> {new_status}")
+            return False
+
+        ticket.status = new_status
+        db.session.commit()
+
+        logger.info(f"📋 Platform ticket {ticket.ticket_number} status updated: {new_status} by {updated_by}")
+        return True
+
+    def close_platform_ticket(self, ticket_id: int, resolution_note: str, closed_by: str) -> bool:
+        from extensions import db
+        from models import SupportTicket
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return False
+
+        ticket.status = 'completed'
+        ticket.resolution_note = resolution_note
+        ticket.resolved_by = closed_by
+        ticket.resolved_at = datetime.utcnow()
+        db.session.commit()
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
+
+        user_body = (
+            f"Hi {first_name},\n\n"
+            f"Your feedback ticket **{ticket.ticket_number}** has been resolved.\n\n"
+            f"**Type:** {category_label}\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"**Resolution:**\n{resolution_note}\n\n"
+            f"Thank you for helping us improve Scout Genius! If you have any further questions, "
+            f"feel free to submit another feedback ticket.\n\n"
+            f"— Scout Genius"
+        )
+
+        self._send_platform_email(
+            to_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            body=user_body,
+            ticket=ticket,
+            email_type='platform_resolution',
+        )
+
+        logger.info(f"✅ Platform ticket {ticket.ticket_number} resolved by {closed_by}: {resolution_note[:100]}")
+        return True
+
+    def check_stale_platform_tickets(self):
+        from models import SupportTicket
+
+        stale_cutoff = datetime.utcnow() - timedelta(hours=48)
+        stale_tickets = SupportTicket.query.filter(
+            SupportTicket.category.in_(PLATFORM_CATEGORIES),
+            SupportTicket.status.in_(['new', 'acknowledged', 'clarifying']),
+            SupportTicket.created_at < stale_cutoff,
+        ).all()
+
+        if not stale_tickets:
+            return 0
+
+        lines = [f"**⏰ {len(stale_tickets)} Platform Ticket(s) Need Attention**\n"]
+        for t in stale_tickets:
+            age_hours = int((datetime.utcnow() - t.created_at).total_seconds() / 3600)
+            category_label = CATEGORY_LABELS.get(t.category, t.category)
+            lines.append(f"- **{t.ticket_number}** — {category_label}: {t.subject} "
+                        f"(submitted {age_hours}h ago by {t.submitter_name}, status: {t.status})")
+
+        lines.extend(["", "Please review these tickets from the Scout Support dashboard.", "", "— Scout Genius"])
+
+        self._send_platform_email(
+            to_email=DEFAULT_ADMIN_EMAIL,
+            subject=f"[Scout Genius] {len(stale_tickets)} Stale Platform Ticket(s) — Action Required",
+            body="\n".join(lines),
+            email_type='platform_escalation',
+        )
+
+        logger.info(f"⏰ Escalation: {len(stale_tickets)} stale platform tickets notified to admin")
+        return len(stale_tickets)
 
     def find_ticket_by_email_subject(self, subject: str) -> Optional['SupportTicket']:
         from models import SupportTicket

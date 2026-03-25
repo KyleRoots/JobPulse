@@ -64,11 +64,15 @@ def ticket_detail(ticket_number):
         except (json.JSONDecodeError, TypeError):
             ai_understanding = {'understanding': ticket.ai_understanding}
 
+    from scout_support_service import PLATFORM_CATEGORIES
+    is_platform = ticket.category in PLATFORM_CATEGORIES
+
     return render_template('scout_support_ticket.html',
                            ticket=ticket,
                            conversations=conversations,
                            actions=actions,
                            ai_understanding=ai_understanding,
+                           is_platform=is_platform,
                            active_page='scout_support')
 
 
@@ -166,6 +170,84 @@ def api_retry_execution(ticket_number):
     result = svc.retry_execution(ticket.id)
 
     return jsonify(result)
+
+
+@scout_support_bp.route('/api/scout-support/reopen/<ticket_number>', methods=['POST'])
+@login_required
+def api_reopen_ticket(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support_service import ScoutSupportService
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    svc = ScoutSupportService()
+    success = svc.reopen_ticket(ticket.id, current_user.email)
+
+    return jsonify({'success': success})
+
+
+@scout_support_bp.route('/api/scout-support/platform-status/<ticket_number>', methods=['POST'])
+@login_required
+def api_update_platform_status(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support_service import ScoutSupportService, PLATFORM_CATEGORIES
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    if ticket.category not in PLATFORM_CATEGORIES:
+        return jsonify({'error': 'This endpoint is for platform tickets only'}), 400
+
+    data = request.json or {}
+    new_status = data.get('status', '')
+
+    if not new_status:
+        return jsonify({'error': 'Status is required'}), 400
+
+    svc = ScoutSupportService()
+    success = svc.update_platform_ticket_status(ticket.id, new_status, current_user.email)
+
+    if not success:
+        return jsonify({'error': 'Invalid status transition'}), 400
+
+    return jsonify({'success': True, 'new_status': new_status})
+
+
+@scout_support_bp.route('/api/scout-support/platform-close/<ticket_number>', methods=['POST'])
+@login_required
+def api_close_platform_ticket(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support_service import ScoutSupportService, PLATFORM_CATEGORIES
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    if ticket.category not in PLATFORM_CATEGORIES:
+        return jsonify({'error': 'This endpoint is for platform tickets only'}), 400
+
+    data = request.json or {}
+    resolution_note = data.get('resolution_note', '').strip()
+
+    if not resolution_note:
+        return jsonify({'error': 'A resolution note is required'}), 400
+
+    svc = ScoutSupportService()
+    success = svc.close_platform_ticket(ticket.id, resolution_note, current_user.email)
+
+    return jsonify({'success': success})
 
 
 @scout_support_bp.route('/scout-support/ticket/<ticket_number>/delete', methods=['POST'])

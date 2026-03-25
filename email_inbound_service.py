@@ -435,53 +435,84 @@ Resume text:
     def find_duplicate_candidate(self, email: str, phone: str, first_name: str, last_name: str, 
                                   bullhorn_service) -> Tuple[Optional[int], float]:
         """
-        Search Bullhorn for existing candidate
+        Search Bullhorn for existing candidate using multi-layer matching.
         
         Returns:
             Tuple of (candidate_id, confidence_score)
-            confidence_score: 1.0 for exact email match, 0.9 for phone match, 
-                            0.7+ for fuzzy name match
+            confidence_score: 1.0 for exact primary email match, 0.95 for email2/email3 match,
+                            0.9 for phone match, 0.7+ for fuzzy name match
         """
+        normalized_email = email.strip().lower() if email else ''
+        normalized_phone = re.sub(r'\D', '', phone) if phone else ''
+        
+        self.logger.info(f"🔍 DUPLICATE CHECK: email='{normalized_email}', phone='{normalized_phone}', name='{first_name} {last_name}'")
+        
         try:
-            # First, search by email (most reliable)
-            if email:
-                results = bullhorn_service.search_candidates(email=email)
+            if normalized_email:
+                results = bullhorn_service.search_candidates(email=normalized_email)
+                if results and len(results) > 0:
+                    match = results[0]
+                    candidate_id = match.get('id')
+                    matched_field = 'email'
+                    existing_email = (match.get('email') or '').strip().lower()
+                    existing_email2 = (match.get('email2') or '').strip().lower()
+                    existing_email3 = (match.get('email3') or '').strip().lower()
+                    
+                    if normalized_email == existing_email:
+                        confidence = 1.0
+                        matched_field = 'email (primary)'
+                    elif normalized_email == existing_email2:
+                        confidence = 0.95
+                        matched_field = 'email2'
+                    elif normalized_email == existing_email3:
+                        confidence = 0.95
+                        matched_field = 'email3'
+                    else:
+                        confidence = 0.95
+                        matched_field = 'email (search match)'
+                    
+                    self.logger.info(f"✅ DUPLICATE FOUND by {matched_field}: candidate {candidate_id} "
+                                   f"(existing: {match.get('firstName')} {match.get('lastName')}, "
+                                   f"email={existing_email}), confidence={confidence}")
+                    return candidate_id, confidence
+                else:
+                    self.logger.info(f"❌ No email match found for '{normalized_email}' across email/email2/email3")
+            
+            if normalized_phone and len(normalized_phone) >= 10:
+                results = bullhorn_service.search_candidates(phone=normalized_phone)
                 if results and len(results) > 0:
                     candidate_id = results[0].get('id')
-                    self.logger.info(f"Found duplicate candidate by email: {candidate_id}")
-                    return candidate_id, 1.0
+                    self.logger.info(f"✅ DUPLICATE FOUND by phone: candidate {candidate_id} "
+                                   f"(existing: {results[0].get('firstName')} {results[0].get('lastName')}, "
+                                   f"phone={results[0].get('phone')}), confidence=0.9")
+                    return candidate_id, 0.9
+                else:
+                    self.logger.info(f"❌ No phone match found for '{normalized_phone}'")
             
-            # Second, search by phone
-            if phone:
-                # Normalize phone for search
-                phone_digits = re.sub(r'\D', '', phone)
-                if len(phone_digits) >= 10:
-                    results = bullhorn_service.search_candidates(phone=phone_digits)
-                    if results and len(results) > 0:
-                        candidate_id = results[0].get('id')
-                        self.logger.info(f"Found duplicate candidate by phone: {candidate_id}")
-                        return candidate_id, 0.9
-            
-            # Third, search by name (less reliable, requires AI validation)
             if first_name and last_name:
                 results = bullhorn_service.search_candidates(
                     first_name=first_name, 
                     last_name=last_name
                 )
                 if results and len(results) > 0:
-                    # Use AI to validate if this is truly a duplicate
                     confidence = self._ai_validate_duplicate(
                         first_name, last_name, email, phone, results[0]
                     )
                     if confidence >= 0.7:
                         candidate_id = results[0].get('id')
-                        self.logger.info(f"Found potential duplicate by name with confidence {confidence}: {candidate_id}")
+                        self.logger.info(f"✅ DUPLICATE FOUND by name+AI: candidate {candidate_id} "
+                                       f"(existing: {results[0].get('firstName')} {results[0].get('lastName')}), "
+                                       f"confidence={confidence}")
                         return candidate_id, confidence
+                    else:
+                        self.logger.info(f"❌ Name match found but AI confidence too low ({confidence}): "
+                                       f"{results[0].get('firstName')} {results[0].get('lastName')} (ID: {results[0].get('id')})")
             
+            self.logger.info(f"❌ DUPLICATE CHECK COMPLETE: No duplicate found for {first_name} {last_name} ({normalized_email})")
             return None, 0.0
             
         except Exception as e:
-            self.logger.error(f"Error searching for duplicate candidate: {e}")
+            self.logger.error(f"❌ DUPLICATE CHECK ERROR: {type(e).__name__}: {e} — falling through to new candidate creation")
             return None, 0.0
     
     def _ai_validate_duplicate(self, first_name: str, last_name: str, email: str, 
@@ -533,6 +564,59 @@ Consider: name spelling variations, nicknames, contact info matches.
         except Exception as e:
             self.logger.error(f"AI duplicate validation error: {e}")
             return 0.5
+    
+    def _build_enrichment_update(self, existing: Optional[Dict], new_data: Dict) -> Dict:
+        """
+        Build an enrichment-only update payload. Only includes fields that are
+        blank/missing/empty on the existing record but populated in new_data.
+        Never overwrites existing populated fields.
+        
+        Special handling:
+        - 'description' (Resume pane): always update with latest resume HTML (approved overwrite)
+        - 'address': merge sub-fields individually (city, state, etc.)
+        - 'status': never change existing status
+        
+        If existing is None (API fetch failed), returns only the description update
+        to avoid accidentally overwriting populated fields with a full payload.
+        """
+        if not existing:
+            self.logger.warning("⚠️ Could not fetch existing candidate — limiting update to description only to prevent overwrites")
+            if new_data.get('description'):
+                return {'description': new_data['description']}
+            return {}
+        
+        enrichable_fields = [
+            'phone', 'mobile', 'occupation', 'companyName', 'skillSet',
+            'employmentPreference', 'email2', 'email3',
+        ]
+        
+        enriched = {}
+        
+        for field in enrichable_fields:
+            existing_val = existing.get(field)
+            new_val = new_data.get(field)
+            if new_val and not existing_val:
+                enriched[field] = new_val
+                self.logger.info(f"  📝 Enriching blank field '{field}' with: {str(new_val)[:80]}")
+        
+        existing_addr = existing.get('address') or {}
+        new_addr = new_data.get('address') or {}
+        if new_addr and isinstance(new_addr, dict):
+            addr_update = {}
+            for addr_field in ['address1', 'address2', 'city', 'state', 'zip', 'countryID', 'countryName']:
+                existing_addr_val = existing_addr.get(addr_field)
+                new_addr_val = new_addr.get(addr_field)
+                if new_addr_val and not existing_addr_val:
+                    addr_update[addr_field] = new_addr_val
+                    self.logger.info(f"  📝 Enriching blank address.{addr_field} with: {new_addr_val}")
+            if addr_update:
+                enriched['address'] = addr_update
+        
+        if new_data.get('description'):
+            enriched['description'] = new_data['description']
+            self.logger.info(f"  📝 Updating description (Resume pane) with latest resume ({len(new_data['description'])} chars)")
+        
+        return enriched
     
     def map_to_bullhorn_fields(self, email_data: Dict, resume_data: Dict, 
                                 source: str, work_auth: str = None) -> Dict[str, Any]:
@@ -902,12 +986,16 @@ Consider: name spelling variations, nicknames, contact info matches.
             self.logger.info(f"  - employmentPreference: {bullhorn_data.get('employmentPreference')}")
             self.logger.info(f"  - description (Resume pane) length: {len(bullhorn_data.get('description', ''))} chars")
             
-            # Create or update candidate in Bullhorn
-            if duplicate_id and confidence >= 0.85:
-                # Update existing candidate with new info
-                candidate_id = bullhorn.update_candidate(duplicate_id, bullhorn_data)
+            if duplicate_id and confidence >= 0.80:
+                existing_candidate = bullhorn.get_candidate(duplicate_id)
+                enriched_data = self._build_enrichment_update(existing_candidate, bullhorn_data)
+                if enriched_data:
+                    candidate_id = bullhorn.update_candidate(duplicate_id, enriched_data)
+                    self.logger.info(f"✅ Enriched existing candidate {candidate_id} with {len(enriched_data)} fields: {list(enriched_data.keys())}")
+                else:
+                    candidate_id = duplicate_id
+                    self.logger.info(f"ℹ️ Existing candidate {candidate_id} already has all fields populated — no enrichment needed")
                 result['is_duplicate'] = True
-                self.logger.info(f"Updated existing candidate {candidate_id}")
             else:
                 # Create new candidate
                 candidate_id = bullhorn.create_candidate(bullhorn_data)
@@ -1032,15 +1120,15 @@ Consider: name spelling variations, nicknames, contact info matches.
                     self.logger.warning(f"Failed to upload resume to Bullhorn for candidate {candidate_id}")
                 parsed_email.resume_file_id = file_id
             
-            # Create job submission if we have job ID
-            self.logger.info(f"🔗 Job submission check: job_id={job_id}, candidate_id={candidate_id}")
+            is_returning = result.get('is_duplicate', False)
+            self.logger.info(f"🔗 Job submission check: job_id={job_id}, candidate_id={candidate_id}, returning_applicant={is_returning}")
             if job_id and candidate_id:
-                self.logger.info(f"📤 Attempting to create job submission: candidate {candidate_id} -> job {job_id}")
+                self.logger.info(f"📤 Creating job submission for {'RETURNING' if is_returning else 'NEW'} applicant: candidate {candidate_id} -> job {job_id}")
                 submission_id = bullhorn.create_job_submission(candidate_id, job_id, source)
                 if submission_id:
                     parsed_email.bullhorn_submission_id = submission_id
                     result['submission_id'] = submission_id
-                    self.logger.info(f"✅ Created job submission {submission_id} for candidate {candidate_id} -> job {job_id}")
+                    self.logger.info(f"✅ Created job submission {submission_id} for candidate {candidate_id} -> job {job_id} (pipeline entry confirmed)")
                 else:
                     self.logger.warning(f"⚠️ Failed to create job submission for candidate {candidate_id} -> job {job_id}")
             elif not job_id:
