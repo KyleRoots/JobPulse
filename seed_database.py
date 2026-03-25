@@ -1234,12 +1234,43 @@ def seed_support_contacts(db):
         logger.warning(f"⚠️ Failed to seed support contacts: {str(e)}")
 
 
+def ensure_module_subscriptions(db, User):
+    """
+    Ensure all non-admin users have scout_support and scout_screening in their
+    module subscriptions. One-time upgrade — idempotent, only adds missing modules.
+    """
+    try:
+        import json
+        updated = 0
+        users = User.query.filter_by(is_admin=False).all()
+        for user in users:
+            current = user.get_modules()
+            if not current:
+                continue
+            needed = set()
+            if 'scout_screening' not in current:
+                needed.add('scout_screening')
+            if 'scout_support' not in current:
+                needed.add('scout_support')
+            if needed:
+                user.set_modules(current + list(needed))
+                updated += 1
+        if updated > 0:
+            db.session.commit()
+            logger.info(f"✅ Module subscriptions: added missing modules to {updated} users")
+        else:
+            logger.info(f"✅ All users already have correct module subscriptions")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to update module subscriptions: {str(e)}")
+
+
 def seed_stsi_users(db, User):
     """
     Create locked login accounts for all STSI support contacts.
     Idempotent — skips contacts whose email already has a User account.
-    All accounts are subscribed to scout_inbound and locked until a welcome
-    email is sent by the admin.
+    All accounts are subscribed to scout_inbound, scout_screening, scout_support
+    and locked until a welcome email is sent by the admin.
     """
     try:
         from datetime import datetime
@@ -1444,6 +1475,8 @@ def seed_database(db, User):
         seed_support_contacts(db)
 
         seed_stsi_users(db, User)
+
+        ensure_module_subscriptions(db, User)
 
         logger.info(f"✅ Database seeding completed successfully for {env_type}")
         
