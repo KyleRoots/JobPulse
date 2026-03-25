@@ -1,0 +1,293 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Scout Support — Analytics{% endblock %}
+{% block body_attrs %}data-module="support"{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-chart-bar me-2" style="color: var(--module-support-text);"></i>Ticket Analytics</h2>
+            <p class="text-muted mb-0">Performance metrics and ticket volume insights</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <select id="daysFilter" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;" onchange="changePeriod(this.value)">
+                <option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 days</option>
+                <option value="60" {% if selected_days == 60 %}selected{% endif %}>Last 60 days</option>
+                <option value="90" {% if selected_days == 90 %}selected{% endif %}>Last 90 days</option>
+                <option value="180" {% if selected_days == 180 %}selected{% endif %}>Last 6 months</option>
+                <option value="365" {% if selected_days == 365 %}selected{% endif %}>Last year</option>
+            </select>
+            <a href="{{ url_for('scout_support.analytics_export', days=selected_days) }}" class="btn btn-outline-info btn-sm">
+                <i class="fas fa-download me-1"></i>Export CSV
+            </a>
+            <a href="{{ url_for('scout_support.scout_support_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-2">
+            <div class="support-stat-card text-center">
+                <div class="text-muted small mb-1"><i class="fas fa-ticket-alt me-1"></i>Total Tickets</div>
+                <div class="fs-3 fw-bold" style="color: var(--module-support-text);">{{ analytics.total }}</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="support-stat-card text-center">
+                <div class="text-muted small mb-1"><i class="fas fa-clock me-1"></i>Avg Resolution</div>
+                <div class="fs-3 fw-bold" style="color: var(--module-support-text);">{{ analytics.avg_resolution_hrs }}h</div>
+                <div class="text-muted" style="font-size: 0.7rem;">median {{ analytics.median_resolution_hrs }}h</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="support-stat-card text-center">
+                <div class="text-muted small mb-1"><i class="fas fa-bolt me-1"></i>First-Contact</div>
+                <div class="fs-3 fw-bold text-success">{{ analytics.fcr_rate }}%</div>
+                <div class="text-muted" style="font-size: 0.7rem;">{{ analytics.first_contact_resolved }}/{{ analytics.resolved_count }} resolved</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="support-stat-card text-center">
+                <div class="text-muted small mb-1"><i class="fas fa-comments me-1"></i>Avg Loops</div>
+                <div class="fs-3 fw-bold" style="color: var(--module-support-text);">{{ analytics.avg_clarifications }}</div>
+                <div class="text-muted" style="font-size: 0.7rem;">clarification rounds</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="support-stat-card text-center">
+                <div class="text-muted small mb-1"><i class="fas fa-level-up-alt me-1"></i>Escalation</div>
+                <div class="fs-3 fw-bold {% if analytics.escalation_rate > 20 %}text-danger{% elif analytics.escalation_rate > 10 %}text-warning{% else %}text-success{% endif %}">{{ analytics.escalation_rate }}%</div>
+                <div class="text-muted" style="font-size: 0.7rem;">{{ analytics.escalated_count }} escalated</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="support-stat-card text-center">
+                <div class="text-muted small mb-1"><i class="fas fa-check-double me-1"></i>Resolved</div>
+                <div class="fs-3 fw-bold text-success">{{ analytics.resolved_count }}</div>
+                <div class="text-muted" style="font-size: 0.7rem;">of {{ analytics.total }} total</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>Weekly Ticket Volume</h6>
+                </div>
+                <div class="card-body">
+                    {% if analytics.volume_labels %}
+                    <canvas id="volumeChart" height="260"></canvas>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-chart-line fa-2x mb-2"></i>
+                        <p>No ticket data available for this period.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>By Category</h6>
+                </div>
+                <div class="card-body">
+                    {% if analytics.category_labels %}
+                    <canvas id="categoryChart" height="220"></canvas>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <p class="small">No data</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>Status Distribution</h6>
+                </div>
+                <div class="card-body">
+                    {% if analytics.status_labels %}
+                    <canvas id="statusChart" height="240"></canvas>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <p class="small">No data</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h6 class="mb-0"><i class="fas fa-flag me-2"></i>By Priority</h6>
+                </div>
+                <div class="card-body">
+                    {% if analytics.priority_labels %}
+                    <canvas id="priorityChart" height="220"></canvas>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <p class="small">No data</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h6 class="mb-0"><i class="fas fa-building me-2"></i>By Brand</h6>
+                </div>
+                <div class="card-body">
+                    {% if analytics.brand_labels %}
+                    <canvas id="brandChart" height="220"></canvas>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <p class="small">No data</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+function changePeriod(days) {
+    window.location.href = '/scout-support/analytics?days=' + days;
+}
+
+const chartColors = {
+    purple: '#8b5cf6',
+    purpleLight: 'rgba(139, 92, 246, 0.3)',
+    purpleBorder: 'rgba(139, 92, 246, 0.8)',
+    doughnut: ['#8b5cf6', '#f59e0b', '#ef4444', '#10b981', '#06b6d4', '#f43f5e', '#6366f1', '#ec4899', '#14b8a6', '#f97316', '#84cc16', '#a855f7', '#64748b'],
+};
+
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+{% if analytics.volume_labels %}
+new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ analytics.volume_labels | tojson }},
+        datasets: [{
+            label: 'Tickets',
+            data: {{ analytics.volume_values | tojson }},
+            backgroundColor: chartColors.purpleLight,
+            borderColor: chartColors.purpleBorder,
+            borderWidth: 1,
+            borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+{% endif %}
+
+{% if analytics.category_labels %}
+new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+        labels: {{ analytics.category_labels | tojson }},
+        datasets: [{
+            data: {{ analytics.category_values | tojson }},
+            backgroundColor: chartColors.doughnut.slice(0, {{ analytics.category_labels | length }}),
+            borderWidth: 0,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } }
+        }
+    }
+});
+{% endif %}
+
+{% if analytics.status_labels %}
+new Chart(document.getElementById('statusChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ analytics.status_labels | tojson }},
+        datasets: [{
+            label: 'Count',
+            data: {{ analytics.status_values | tojson }},
+            backgroundColor: chartColors.doughnut.slice(0, {{ analytics.status_labels | length }}),
+            borderWidth: 0,
+            borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { beginAtZero: true, ticks: { stepSize: 1 } },
+            y: { grid: { display: false } }
+        }
+    }
+});
+{% endif %}
+
+{% if analytics.priority_labels %}
+new Chart(document.getElementById('priorityChart'), {
+    type: 'doughnut',
+    data: {
+        labels: {{ analytics.priority_labels | tojson }},
+        datasets: [{
+            data: {{ analytics.priority_values | tojson }},
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+            borderWidth: 0,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } }
+        }
+    }
+});
+{% endif %}
+
+{% if analytics.brand_labels %}
+new Chart(document.getElementById('brandChart'), {
+    type: 'doughnut',
+    data: {
+        labels: {{ analytics.brand_labels | tojson }},
+        datasets: [{
+            data: {{ analytics.brand_values | tojson }},
+            backgroundColor: ['#8b5cf6', '#06b6d4', '#f59e0b', '#10b981'],
+            borderWidth: 0,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

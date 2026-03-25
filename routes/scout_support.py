@@ -1,8 +1,11 @@
+import csv
+import io
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+from collections import Counter, defaultdict
 
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for
+from flask import Blueprint, render_template, jsonify, request, redirect, url_for, Response
 from flask_login import login_required, current_user
 from extensions import db
 from routes import register_module_guard
@@ -184,6 +187,196 @@ def delete_ticket(ticket_number):
 
     logger.info(f"🗑️ Admin deleted ticket {ticket_number}")
     return jsonify({'success': True, 'message': f'Ticket {ticket_number} deleted'})
+
+
+def _compute_analytics(days=90):
+    from models import SupportTicket, SupportConversation
+    from sqlalchemy import func
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    all_tickets = SupportTicket.query.filter(SupportTicket.created_at >= cutoff).all()
+    total = len(all_tickets)
+
+    status_counts = Counter(t.status for t in all_tickets)
+    category_counts = Counter(t.category for t in all_tickets)
+    priority_counts = Counter(t.priority for t in all_tickets)
+    brand_counts = Counter(t.brand for t in all_tickets)
+
+    resolved = [t for t in all_tickets if t.resolved_at and t.created_at]
+    resolution_times = [(t.resolved_at - t.created_at).total_seconds() / 3600 for t in resolved]
+    avg_resolution_hrs = round(sum(resolution_times) / len(resolution_times), 1) if resolution_times else 0
+    median_resolution_hrs = round(sorted(resolution_times)[len(resolution_times) // 2], 1) if resolution_times else 0
+
+    escalated = sum(1 for t in all_tickets if t.status == 'escalated' or t.escalation_reason)
+    escalation_rate = round((escalated / total) * 100, 1) if total else 0
+
+    first_contact_resolved = 0
+    for t in resolved:
+        clarify_convos = SupportConversation.query.filter_by(
+            ticket_id=t.id, email_type='clarification'
+        ).count()
+        if clarify_convos == 0:
+            first_contact_resolved += 1
+    fcr_rate = round((first_contact_resolved / len(resolved)) * 100, 1) if resolved else 0
+
+    clarification_counts = []
+    for t in all_tickets:
+        c_count = SupportConversation.query.filter_by(
+            ticket_id=t.id, email_type='clarification'
+        ).count()
+        clarification_counts.append(c_count)
+    avg_clarifications = round(sum(clarification_counts) / len(clarification_counts), 1) if clarification_counts else 0
+
+    weekly_data = defaultdict(int)
+    for t in all_tickets:
+        week_start = t.created_at - timedelta(days=t.created_at.weekday())
+        week_key = week_start.strftime('%Y-%m-%d')
+        weekly_data[week_key] += 1
+
+    sorted_weeks = sorted(weekly_data.keys())
+    volume_labels = [datetime.strptime(w, '%Y-%m-%d').strftime('%b %d') for w in sorted_weeks]
+    volume_values = [weekly_data[w] for w in sorted_weeks]
+
+    status_labels_map = {
+        'new': 'New', 'acknowledged': 'Acknowledged', 'clarifying': 'Clarifying',
+        'solution_proposed': 'Solution Proposed', 'awaiting_user_approval': 'User Approval',
+        'awaiting_admin_approval': 'Admin Approval', 'approved': 'Approved',
+        'executing': 'Executing', 'completed': 'Completed', 'execution_failed': 'Failed',
+        'on_hold': 'On Hold', 'closed': 'Closed', 'escalated': 'Escalated',
+    }
+    category_labels_map = {
+        'ats_issue': 'ATS Issue', 'data_correction': 'Data Correction',
+    }
+
+    return {
+        'total': total,
+        'days': days,
+        'status_labels': [status_labels_map.get(s, s) for s in status_counts.keys()],
+        'status_values': list(status_counts.values()),
+        'category_labels': [category_labels_map.get(c, c) for c in category_counts.keys()],
+        'category_values': list(category_counts.values()),
+        'priority_labels': [p.capitalize() for p in priority_counts.keys()],
+        'priority_values': list(priority_counts.values()),
+        'brand_labels': list(brand_counts.keys()),
+        'brand_values': list(brand_counts.values()),
+        'avg_resolution_hrs': avg_resolution_hrs,
+        'median_resolution_hrs': median_resolution_hrs,
+        'escalation_rate': escalation_rate,
+        'escalated_count': escalated,
+        'fcr_rate': fcr_rate,
+        'first_contact_resolved': first_contact_resolved,
+        'resolved_count': len(resolved),
+        'avg_clarifications': avg_clarifications,
+        'volume_labels': volume_labels,
+        'volume_values': volume_values,
+        'tickets': all_tickets,
+    }
+
+
+@scout_support_bp.route('/scout-support/analytics')
+@login_required
+def analytics_dashboard():
+    if not current_user.is_admin:
+        return redirect(url_for('scout_support.scout_support_dashboard'))
+
+    days = request.args.get('days', 90, type=int)
+    if days not in (30, 60, 90, 180, 365):
+        days = 90
+
+    analytics = _compute_analytics(days)
+    analytics.pop('tickets', None)
+
+    return render_template('scout_support_analytics.html',
+                           analytics=analytics,
+                           selected_days=days,
+                           active_page='scout_support')
+
+
+@scout_support_bp.route('/api/scout-support/analytics')
+@login_required
+def api_analytics():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    days = request.args.get('days', 90, type=int)
+    if days not in (30, 60, 90, 180, 365):
+        days = 90
+
+    analytics = _compute_analytics(days)
+    analytics.pop('tickets', None)
+    return jsonify(analytics)
+
+
+@scout_support_bp.route('/scout-support/analytics/export')
+@login_required
+def analytics_export():
+    if not current_user.is_admin:
+        return redirect(url_for('scout_support.scout_support_dashboard'))
+
+    days = request.args.get('days', 90, type=int)
+    if days not in (30, 60, 90, 180, 365):
+        days = 90
+
+    analytics = _compute_analytics(days)
+    tickets = analytics.pop('tickets', [])
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(['Scout Support Analytics Report'])
+    writer.writerow([f'Period: Last {days} days', f'Generated: {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}'])
+    writer.writerow([])
+
+    writer.writerow(['Summary Metrics'])
+    writer.writerow(['Metric', 'Value'])
+    writer.writerow(['Total Tickets', analytics['total']])
+    writer.writerow(['Avg Resolution Time (hrs)', analytics['avg_resolution_hrs']])
+    writer.writerow(['Median Resolution Time (hrs)', analytics['median_resolution_hrs']])
+    writer.writerow(['First-Contact Resolution Rate', f"{analytics['fcr_rate']}%"])
+    writer.writerow(['Escalation Rate', f"{analytics['escalation_rate']}%"])
+    writer.writerow(['Avg Clarification Loops', analytics['avg_clarifications']])
+    writer.writerow([])
+
+    writer.writerow(['Status Distribution'])
+    writer.writerow(['Status', 'Count'])
+    for label, val in zip(analytics['status_labels'], analytics['status_values']):
+        writer.writerow([label, val])
+    writer.writerow([])
+
+    writer.writerow(['Category Distribution'])
+    writer.writerow(['Category', 'Count'])
+    for label, val in zip(analytics['category_labels'], analytics['category_values']):
+        writer.writerow([label, val])
+    writer.writerow([])
+
+    writer.writerow(['Weekly Volume'])
+    writer.writerow(['Week Starting', 'Tickets'])
+    for label, val in zip(analytics['volume_labels'], analytics['volume_values']):
+        writer.writerow([label, val])
+    writer.writerow([])
+
+    writer.writerow(['Ticket Details'])
+    writer.writerow(['Ticket #', 'Subject', 'Category', 'Priority', 'Status', 'Brand',
+                     'Submitter', 'Created', 'Resolved', 'Resolution (hrs)'])
+    for t in tickets:
+        res_hrs = ''
+        if t.resolved_at and t.created_at:
+            res_hrs = round((t.resolved_at - t.created_at).total_seconds() / 3600, 1)
+        writer.writerow([
+            t.ticket_number, t.subject, t.category, t.priority, t.status, t.brand,
+            t.submitter_name,
+            t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '',
+            t.resolved_at.strftime('%Y-%m-%d %H:%M') if t.resolved_at else '',
+            res_hrs,
+        ])
+
+    output.seek(0)
+    filename = f'scout_support_analytics_{days}d_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
 
 
 @scout_support_bp.route('/scout-support/diag/note/<int:note_id>')
