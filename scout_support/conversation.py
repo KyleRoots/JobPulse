@@ -45,6 +45,14 @@ class ConversationMixin:
             logger.error(f"Ticket {ticket_id} not found for reply handling")
             return False
 
+        if message_id:
+            existing = SupportConversation.query.filter_by(
+                ticket_id=ticket_id, message_id=message_id
+            ).first()
+            if existing:
+                logger.info(f"⏭️ Duplicate inbound message_id {message_id} for ticket {ticket.ticket_number} — skipping")
+                return True
+
         attachment_note = ''
         if attachment_data:
             filenames = [a.get('filename', 'unknown') for a in attachment_data]
@@ -91,6 +99,14 @@ class ConversationMixin:
         ticket = SupportTicket.query.get(ticket_id)
         if not ticket:
             return False
+
+        if message_id:
+            existing = SupportConversation.query.filter_by(
+                ticket_id=ticket_id, message_id=message_id
+            ).first()
+            if existing:
+                logger.info(f"⏭️ Duplicate admin inbound message_id {message_id} for ticket {ticket.ticket_number} — skipping")
+                return True
 
         if self._is_platform_ticket(ticket):
             logger.warning(f"Admin reply ignored for platform ticket {ticket.ticket_number} — platform tickets do not use approval flow")
@@ -224,7 +240,54 @@ class ConversationMixin:
 
     def _handle_platform_reply(self, ticket, reply_body: str, attachment_content: str = '') -> bool:
         from extensions import db
-        from models import SupportConversation
+        from scout_support_service import CATEGORY_LABELS, DEFAULT_ADMIN_EMAIL
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+
+        if ticket.status not in ('clarifying', 'in_progress'):
+            ticket.status = 'clarifying'
+            db.session.commit()
+
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
+        user_body = (
+            f"Hi {first_name},\n\n"
+            f"Thank you for your reply. Our team has been notified and will "
+            f"review your message shortly.\n\n"
+            f"**Ticket:** {ticket.ticket_number}\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"— Scout Genius"
+        )
+
+        self._send_platform_email(
+            to_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            body=user_body,
+            ticket=ticket,
+            email_type='platform_reply_ack',
+        )
+
+        admin_body = (
+            f"**📩 User Reply on Platform Ticket {ticket.ticket_number}**\n\n"
+            f"**From:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+            f"**Type:** {category_label}\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"**User's Reply:**\n{reply_body}\n\n"
+            f"{f'**Attachment Content:**{chr(10)}{attachment_content[:2000]}{chr(10)}{chr(10)}' if attachment_content else ''}"
+            f"Reply to this ticket from the Scout Support dashboard."
+        )
+
+        self._send_platform_email(
+            to_email=DEFAULT_ADMIN_EMAIL,
+            subject=f"[Reply] {ticket.ticket_number} — {ticket.subject}",
+            body=admin_body,
+            email_type='platform_user_reply_notification',
+        )
+
+        logger.info(f"💬 Platform ticket {ticket.ticket_number} user reply recorded, admin notified")
+        return True
+
+    def _handle_platform_reply_ai(self, ticket, reply_body: str, attachment_content: str = '') -> bool:
+        from extensions import db
         from scout_support_service import CATEGORY_LABELS
 
         category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
@@ -313,7 +376,7 @@ Respond with a JSON object:
             email_type='platform_reply',
         )
 
-        logger.info(f"💬 Platform ticket {ticket.ticket_number} reply handled (close={can_close})")
+        logger.info(f"💬 Platform ticket {ticket.ticket_number} AI reply handled (close={can_close})")
         return True
 
     def _handle_user_approval_response(self, ticket, reply_body: str) -> bool:

@@ -51,7 +51,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Activity Log (Super-Admin Only)**: System-wide admin visibility tracking login history, module usage, email delivery, and active users.
 - **Vetting Sandbox (Super-Admin Only)**: 5-stage wizard for manually testing the AI vetting pipeline.
 - **Scout Support**: AI-powered internal ATS support ticket module with two-tier approval workflow, AI intake, clarification loops, solution proposals, and Bullhorn API execution. Includes Knowledge Hub for self-learning via uploaded documents (PDF, DOCX, TXT) and OneDrive integration for document synchronization.
-- **Platform Support (Feedback-to-Ticket)**: User feedback creates `SupportTicket` records with platform categories, simplified workflow, and a "My Tickets" page for users to view their tickets.
+- **Platform Support (Feedback-to-Ticket)**: User feedback creates `SupportTicket` records with platform categories, simplified workflow, and a "My Tickets" page for users to view their tickets. Admin can reply to users directly from the ticket detail page, creating a full conversation thread with audit trail. User email replies are routed via SendGrid inbound webhook, recorded in the conversation, and the admin is notified. AI auto-response is preserved in `_handle_platform_reply_ai()` for future activation.
 
 ### Bullhorn Note Creation — Critical Requirements
 - **`personReference` (REQUIRED)**: Must point to a **Person** entity (Candidate or ClientContact), not a CorporateUser, to be visible in Bullhorn UI.
