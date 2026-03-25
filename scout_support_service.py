@@ -606,10 +606,8 @@ class ScoutSupportService:
         mime = content_type if content_type.startswith('image/') else 'image/png'
         logger.info(f"🖼️ Sending {filename} ({len(data)} bytes, {mime}) to vision...")
 
-        max_attempts = 2
-        vision_models = ['o4-mini', 'gpt-5']
-        for attempt in range(1, max_attempts + 1):
-            model = vision_models[attempt - 1] if attempt <= len(vision_models) else vision_models[-1]
+        vision_models = ['gpt-5', 'gpt-5.4']
+        for attempt, model in enumerate(vision_models, 1):
             try:
                 response = self.openai_client.chat.completions.create(
                     model=model,
@@ -637,22 +635,25 @@ class ScoutSupportService:
                 )
                 content = None
                 if response.choices and response.choices[0].message:
-                    content = response.choices[0].message.content
+                    msg = response.choices[0].message
+                    content = msg.content
+                    if not content:
+                        content = getattr(msg, 'output_text', None)
                 description = (content or '').strip()
                 if description:
                     logger.info(f"🖼️ Vision success for {filename} ({model}, attempt {attempt}): {len(description)} chars")
                     return description
                 else:
                     refusal = getattr(response.choices[0].message, 'refusal', None) if response.choices else None
-                    logger.warning(f"🖼️ Vision returned empty for {filename} ({model}, attempt {attempt}), refusal={refusal}")
-                    if attempt < max_attempts:
+                    logger.warning(f"🖼️ Vision returned empty for {filename} ({model}, attempt {attempt}), refusal={refusal}, finish_reason={response.choices[0].finish_reason if response.choices else 'N/A'}")
+                    if attempt < len(vision_models):
                         import time
                         time.sleep(2)
                         continue
                     return f"[Image attached: {filename} — vision analysis returned empty]"
             except Exception as e:
                 logger.warning(f"Vision failed for {filename} ({model}, attempt {attempt}): {e}")
-                if attempt < max_attempts:
+                if attempt < len(vision_models):
                     import time
                     time.sleep(2)
                     continue
@@ -1546,8 +1547,11 @@ Respond with ONLY a JSON object:
                     proof_items.append(result)
 
                 elif action_type == 'create_note' and entity_id:
-                    result = self._exec_create_note(action, entity_type, int(entity_id), step)
-                    proof_items.append(result)
+                    logger.info(f"📝 Skipping AI-generated create_note step — audit note will be created automatically")
+                    action.success = True
+                    action.new_value = 'Deferred to audit note'
+                    proof_items.append({'step': step.get('description', 'Create note'), 'result': 'Deferred — audit note handles this'})
+                    continue
 
                 elif action_type == 'create_submission':
                     result = self._exec_create_submission(action, step)
@@ -1696,14 +1700,7 @@ Respond with ONLY a JSON object:
                     continue
 
                 changes_summary = "\n".join(f"• {line}" for line in friendly_lines)
-                category_labels = {
-                    'ats_issue': 'ATS Issue',
-                    'data_correction': 'Data Correction',
-                    'job_posting': 'Job Posting',
-                    'candidate_issue': 'Candidate Issue',
-                    'placement_issue': 'Placement Issue',
-                }
-                category_display = category_labels.get(ticket.category, ticket.category or 'General')
+                category_display = CATEGORY_LABELS.get(ticket.category, ticket.category or 'General')
                 note_text = (
                     f"━━━ Scout Support ━━━\n"
                     f"Ticket: {ticket.ticket_number}\n"
@@ -1802,6 +1799,9 @@ Respond with ONLY a JSON object:
 
         create_match = re.search(r'Created (\w+) on', line)
         if create_match:
+            created_type = create_match.group(1).lower()
+            if created_type in ('note', 'notes'):
+                return None
             return line
 
         line = re.sub(r'(?:JobOrder|Candidate|ClientContact|Placement) #\d+', '', line).strip()
@@ -2832,9 +2832,22 @@ Respond with ONLY a JSON object:
             user_body_parts.append(f"Your support ticket **{ticket.ticket_number}** has been addressed.")
 
         if solution_user_desc:
+            import re as _re
+            clean_desc = _re.sub(
+                r'\s*\((?:[^)]*@[^)]*|[^)]*\+\d[\d\s\-]*|[^)]*hihello[^)]*|[^)]*bookwithme[^)]*|[^)]*outlook\.office[^)]*)\)',
+                '', solution_user_desc, flags=_re.IGNORECASE
+            )
+            clean_desc = _re.sub(r'\.\s*(HiHello card|Book time|Contact):?\s*https?://\S+', '.', clean_desc, flags=_re.IGNORECASE)
+            clean_desc = _re.sub(r'(HiHello card|Book time|Contact):?\s*https?://\S+', '', clean_desc, flags=_re.IGNORECASE)
+            clean_desc = _re.sub(
+                r'[Aa]pproved by admin:?\s*(\w+(?:\s+\w+)?)\s*(?:\([^)]*\))?\.?',
+                r'Admin \1 also reviewed and approved.',
+                clean_desc
+            )
+            clean_desc = _re.sub(r'\s{2,}', ' ', clean_desc).strip()
             user_body_parts.extend([
                 f"",
-                f"**What was done:** {solution_user_desc}",
+                f"**What was done:** {clean_desc}",
             ])
 
         if concerns_user:
@@ -3076,7 +3089,9 @@ Respond with ONLY a JSON object:
                 is_admin_facing = email_type in self.ADMIN_FACING_EMAIL_TYPES
                 quoted_history = self._build_quoted_history(ticket, recipient_email=to_email, is_admin_facing=is_admin_facing)
 
-            html_body = body.replace('\n', '<br>')
+            import re as _re
+            html_body = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', body)
+            html_body = html_body.replace('\n', '<br>')
             if quoted_history:
                 html_body += quoted_history
 
