@@ -279,14 +279,27 @@ class KnowledgeService:
         line_counts = {}
         for line in lines:
             stripped = line.strip()
-            if stripped and len(stripped) > 15:
+            if stripped and len(stripped) > 10:
                 line_counts[stripped] = line_counts.get(stripped, 0) + 1
 
         total_lines = max(len([l for l in lines if l.strip()]), 1)
         boilerplate = set()
         for line_text, count in line_counts.items():
-            if count >= 3 and count / total_lines > 0.05:
+            if count >= 3 and count / total_lines > 0.03:
                 boilerplate.add(line_text)
+
+        block_size = 4
+        non_empty = [l.strip() for l in lines if l.strip()]
+        if len(non_empty) >= block_size * 3:
+            block_counts = {}
+            for i in range(len(non_empty) - block_size + 1):
+                block = '\n'.join(non_empty[i:i + block_size])
+                block_counts[block] = block_counts.get(block, 0) + 1
+            for block_text, count in block_counts.items():
+                if count >= 3:
+                    for bl in block_text.split('\n'):
+                        if bl.strip():
+                            boilerplate.add(bl.strip())
 
         cleaned_lines = []
         for line in lines:
@@ -349,10 +362,11 @@ class KnowledgeService:
 
     def _chunk_text(self, text: str) -> List[str]:
         if len(text) <= CHUNK_SIZE:
-            return [text]
+            return [text] if len(text.strip()) >= 50 else []
 
         chunks = []
         start = 0
+        min_advance = max(CHUNK_SIZE // 4, 200)
         while start < len(text):
             end = start + CHUNK_SIZE
 
@@ -365,11 +379,21 @@ class KnowledgeService:
                 if break_point > start:
                     end = break_point + 1
 
-            chunks.append(text[start:end].strip())
-            start = max(start + 1, end - CHUNK_OVERLAP)
+            chunk_text = text[start:end].strip()
+            if len(chunk_text) >= 50:
+                chunks.append(chunk_text)
+            start = max(start + min_advance, end - CHUNK_OVERLAP)
 
-        chunks = [c for c in chunks if len(c) >= 50]
-        return chunks
+        seen_hashes = set()
+        deduped = []
+        for chunk in chunks:
+            normalized = ' '.join(chunk.lower().split())
+            h = hashlib.sha256(normalized.encode()).hexdigest()[:16]
+            if h not in seen_hashes:
+                seen_hashes.add(h)
+                deduped.append(chunk)
+
+        return deduped
 
     def _create_entries_with_embeddings(self, doc, chunks: List[str]):
         from extensions import db
