@@ -292,13 +292,30 @@ class ScoutSupportService(
 
         category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
 
+        understanding = self._generate_understanding(ticket)
+        if not understanding:
+            logger.warning(f"AI analysis failed for platform ticket {ticket.ticket_number}, using fallback")
+            understanding = json.dumps({
+                'understanding': f"Platform feedback received: {ticket.subject}",
+                'is_platform_ticket': True,
+                'clarification_needed': False,
+            })
+
+        try:
+            parsed = json.loads(understanding)
+        except (json.JSONDecodeError, TypeError):
+            parsed = {'understanding': 'We have received your feedback and are reviewing it.'}
+
+        parsed['is_platform_ticket'] = True
+        understanding = json.dumps(parsed)
+
+        ticket.ai_understanding = understanding
         ticket.status = 'acknowledged'
-        ticket.ai_understanding = json.dumps({
-            'understanding': f"Platform feedback received: {ticket.subject}",
-            'category': ticket.category,
-            'is_platform_ticket': True,
-        })
         db.session.commit()
+
+        ai_summary = parsed.get('understanding', 'We have received your feedback and are reviewing it.')
+        has_clarification = parsed.get('clarification_needed', False)
+        questions = parsed.get('clarification_questions', [])
 
         first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
         page_info = ''
@@ -308,25 +325,43 @@ class ScoutSupportService(
                     page_info = f"\n**{line.strip()}**"
                     break
 
-        body = (
-            f"Hi {first_name},\n\n"
-            f"Thank you for your feedback! Your submission has been received and assigned ticket number **{ticket.ticket_number}**.\n\n"
-            f"**Type:** {category_label}\n"
-            f"**Subject:** {ticket.subject}{page_info}\n\n"
-            f"Our team has been notified and will review your feedback. "
-            f"You can track the status of this and all your submissions from the **My Tickets** page.\n\n"
-            f"— Scout Genius"
-        )
+        body_parts = [
+            f"Hi {first_name},",
+            "",
+            f"Thank you for your feedback! Your submission has been received and assigned ticket number **{ticket.ticket_number}**.",
+            "",
+            f"**Type:** {category_label}",
+            f"**Subject:** {ticket.subject}{page_info}",
+            "",
+            f"**My Understanding:**",
+            f"{ai_summary}",
+        ]
+
+        if has_clarification and questions:
+            body_parts.append("")
+            body_parts.append("To help us address this more effectively, could you clarify:")
+            for i, q in enumerate(questions, 1):
+                body_parts.append(f"{i}. {q}")
+            body_parts.append("")
+            body_parts.append("Please reply to this email with your answers.")
+            ticket.status = 'clarifying'
+            db.session.commit()
+        else:
+            body_parts.append("")
+            body_parts.append("Our team has been notified and will review your feedback. "
+                              "You can track the status of this and all your submissions from the **My Tickets** page.")
+
+        body_parts.extend(["", "— Scout Genius"])
 
         self._send_platform_email(
             to_email=ticket.submitter_email,
             subject=f"[{ticket.ticket_number}] {ticket.subject}",
-            body=body,
+            body="\n".join(body_parts),
             ticket=ticket,
             email_type='platform_acknowledgment',
         )
 
-        logger.info(f"🎫 Platform ticket {ticket.ticket_number} ({category_label}) acknowledged")
+        logger.info(f"🎫 Platform ticket {ticket.ticket_number} ({category_label}) acknowledged via AI analysis")
         return True
 
     def _send_platform_email(self, to_email: str, subject: str, body: str, ticket=None,
@@ -335,11 +370,28 @@ class ScoutSupportService(
         import uuid as _uuid
         from extensions import db
         from models import SupportConversation, EmailDeliveryLog
-        from email_service import EmailService
+
+        msg_id = f"<scout-platform-{_uuid.uuid4().hex[:12]}@scoutgenius.ai>"
+
+        if ticket:
+            conv = SupportConversation(
+                ticket_id=ticket.id,
+                direction='outbound',
+                sender_email='support@scoutgenius.ai',
+                recipient_email=to_email,
+                subject=subject,
+                body=body,
+                message_id=msg_id,
+                email_type=email_type,
+            )
+            db.session.add(conv)
+            if not getattr(ticket, 'thread_message_id', None):
+                ticket.thread_message_id = msg_id
+            db.session.commit()
 
         try:
+            from email_service import EmailService
             email_svc = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
-            msg_id = f"<scout-platform-{_uuid.uuid4().hex[:12]}@scoutgenius.ai>"
 
             html_body = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', body)
             html_body = html_body.replace('\n', '<br>')
@@ -373,22 +425,6 @@ class ScoutSupportService(
             )
 
             success = result.get('success', False) if isinstance(result, dict) else bool(result)
-
-            if ticket:
-                conv = SupportConversation(
-                    ticket_id=ticket.id,
-                    direction='outbound',
-                    sender_email='support@scoutgenius.ai',
-                    recipient_email=to_email,
-                    subject=subject,
-                    body=body,
-                    message_id=msg_id,
-                    email_type=email_type,
-                )
-                db.session.add(conv)
-                if not getattr(ticket, 'thread_message_id', None):
-                    ticket.thread_message_id = msg_id
-                db.session.commit()
 
             if success:
                 logger.info(f"📧 Platform email sent: {subject} → {to_email}")

@@ -47,7 +47,9 @@
             <select id="tierFilter" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;" onchange="filterByTier()">
                 <option value="all">All Types</option>
                 <option value="platform">Platform Feedback</option>
+                {% if has_support_module %}
                 <option value="ats">ATS Support</option>
+                {% endif %}
             </select>
         </div>
         <div class="card-body p-0">
