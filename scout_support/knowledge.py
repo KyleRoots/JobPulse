@@ -246,7 +246,15 @@ class KnowledgeService:
             import fitz
             doc = fitz.open(stream=file_bytes, filetype='pdf')
             for page in doc:
-                text += page.get_text() + '\n'
+                blocks = page.get_text("blocks", sort=True)
+                page_lines = []
+                for block in blocks:
+                    if block[6] == 0:
+                        block_text = block[4].strip()
+                        if block_text and len(block_text) >= 3:
+                            page_lines.append(block_text)
+                if page_lines:
+                    text += '\n'.join(page_lines) + '\n\n'
             doc.close()
         except Exception as e:
             logger.warning(f"PyMuPDF failed for {filename}: {e}")
@@ -260,7 +268,55 @@ class KnowledgeService:
                         text += page_text + '\n'
             except Exception as e2:
                 logger.error(f"All PDF extraction failed for {filename}: {e2}")
+        text = self._clean_extracted_text(text)
         return text.strip()
+
+    def _clean_extracted_text(self, text: str) -> str:
+        import re
+
+        lines = text.split('\n')
+
+        line_counts = {}
+        for line in lines:
+            stripped = line.strip()
+            if stripped and len(stripped) > 15:
+                line_counts[stripped] = line_counts.get(stripped, 0) + 1
+
+        total_lines = max(len([l for l in lines if l.strip()]), 1)
+        boilerplate = set()
+        for line_text, count in line_counts.items():
+            if count >= 3 and count / total_lines > 0.05:
+                boilerplate.add(line_text)
+
+        cleaned_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped in boilerplate:
+                continue
+            cleaned_lines.append(line)
+
+        text = '\n'.join(cleaned_lines)
+
+        text = re.sub(r'\n{4,}', '\n\n\n', text)
+        text = re.sub(r'[ \t]{2,}', ' ', text)
+
+        lines = text.split('\n')
+        merged_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                merged_lines.append('')
+                continue
+
+            if (merged_lines
+                    and merged_lines[-1].strip()
+                    and len(stripped) < 40
+                    and stripped[0].islower()):
+                merged_lines[-1] = merged_lines[-1].rstrip() + ' ' + stripped
+            else:
+                merged_lines.append(line)
+
+        return '\n'.join(merged_lines)
 
     def _extract_docx_text(self, file_bytes: bytes, ext: str, filename: str) -> str:
         text = ''
@@ -312,7 +368,7 @@ class KnowledgeService:
             chunks.append(text[start:end].strip())
             start = max(start + 1, end - CHUNK_OVERLAP)
 
-        chunks = [c for c in chunks if len(c) >= 20]
+        chunks = [c for c in chunks if len(c) >= 50]
         return chunks
 
     def _create_entries_with_embeddings(self, doc, chunks: List[str]):

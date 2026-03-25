@@ -74,6 +74,9 @@
                 <button class="btn btn-sm" onclick="syncAllFolders()" id="syncAllBtn" style="background: rgba(40,167,69,0.15); border: 1px solid rgba(40,167,69,0.4); color: #28a745;">
                     <i class="fas fa-sync-alt me-1"></i>Sync Now
                 </button>
+                <button class="btn btn-sm" onclick="forceResyncAll()" id="forceResyncBtn" style="background: rgba(255,193,7,0.15); border: 1px solid rgba(255,193,7,0.4); color: #ffc107;" title="Re-download and re-process all documents with improved extraction">
+                    <i class="fas fa-redo me-1"></i>Force Re-sync
+                </button>
                 {% endif %}
                 {% endif %}
             </div>
@@ -662,6 +665,46 @@ async function syncAllFolders() {
         alert('Sync failed: ' + e.message);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Sync Now';
+    }
+}
+
+async function forceResyncAll() {
+    if (!confirm('This will re-download and re-process ALL OneDrive documents with improved text extraction. This may take several minutes. Continue?')) return;
+
+    const btn = document.getElementById('forceResyncBtn');
+    const syncBtn = document.getElementById('syncAllBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Re-syncing...';
+    if (syncBtn) syncBtn.disabled = true;
+
+    try {
+        const res = await fetch('/scout-support/knowledge/onedrive/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+            body: JSON.stringify({ force_resync: true }),
+        });
+        const data = await res.json();
+        if (data.status === 'started' || data.status === 'running') {
+            pollSyncStatus(function(result) {
+                if (result && !result.error) {
+                    const msg = 'Force re-sync complete: ' + (result.total_updated || 0) + ' documents re-processed across ' + (result.folders_synced || 0) + ' folder(s)';
+                    alert(msg);
+                } else if (result && result.error) {
+                    alert('Re-sync error: ' + result.error);
+                } else {
+                    alert('Re-sync completed. Refresh to see results.');
+                }
+                location.reload();
+            });
+        } else if (data.error) {
+            alert('Re-sync error: ' + data.error);
+            location.reload();
+        }
+    } catch (e) {
+        alert('Re-sync failed: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-redo me-1"></i>Force Re-sync';
+        if (syncBtn) syncBtn.disabled = false;
     }
 }
 

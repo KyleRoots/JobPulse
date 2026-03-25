@@ -322,6 +322,7 @@ def onedrive_sync():
 
     data = request.get_json() or {}
     folder_id = data.get('folder_id', '').strip()
+    force_resync = data.get('force_resync', False)
 
     try:
         from onedrive_service import OneDriveService
@@ -333,6 +334,20 @@ def onedrive_sync():
     except Exception as e:
         logger.error(f"OneDrive sync connection check error: {e}")
         return jsonify({'error': f'Connection check failed: {str(e)}'}), 500
+
+    if force_resync:
+        try:
+            from extensions import db
+            from models import KnowledgeDocument
+            cleared = KnowledgeDocument.query.filter(
+                KnowledgeDocument.doc_type == 'onedrive_sync',
+                KnowledgeDocument.status == 'active',
+                KnowledgeDocument.onedrive_etag.isnot(None),
+            ).update({'onedrive_etag': None})
+            db.session.commit()
+            logger.info(f"Force re-sync: cleared etags on {cleared} OneDrive documents")
+        except Exception as e:
+            logger.error(f"Force re-sync etag clear failed: {e}")
 
     import threading
     from flask import current_app
