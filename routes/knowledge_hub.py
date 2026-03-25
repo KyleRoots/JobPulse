@@ -66,7 +66,7 @@ def knowledge_hub():
                            onedrive_status=onedrive_status,
                            sync_folders=sync_folders,
                            onedrive_doc_count=onedrive_doc_count,
-                           active_page='knowledge_hub')
+                           active_page='scout_support_knowledge')
 
 
 @knowledge_hub_bp.route('/scout-support/knowledge/upload', methods=['POST'])
@@ -130,7 +130,7 @@ def document_detail(doc_id):
                            document=doc,
                            entries=entries,
                            categories=KNOWLEDGE_CATEGORIES,
-                           active_page='knowledge_hub')
+                           active_page='scout_support_knowledge')
 
 
 @knowledge_hub_bp.route('/scout-support/knowledge/<int:doc_id>/delete', methods=['POST'])

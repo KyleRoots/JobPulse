@@ -1616,7 +1616,7 @@
                 </a>
                 {% if current_user.is_admin %}
                 <a href="{{ url_for('knowledge_hub.knowledge_hub') }}"
-                    class="nav-item {% if active_page == 'knowledge_hub' %}active{% endif %}">
+                    class="nav-item {% if active_page == 'scout_support_knowledge' %}active{% endif %}">
                     <i class="fas fa-book" style="color: #a78bfa;"></i>
                     <span>Knowledge Hub</span>
                 </a>
@@ -1717,7 +1717,21 @@
         <header class="page-header">
             <div>
                 <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
-                {% block page_subtitle %}<p class="page-subtitle">Welcome back to Scout Genius</p>{% endblock %}
+                {% block page_subtitle %}
+                <p class="page-subtitle">
+                    {% if active_page in ['scout_support', 'scout_support_knowledge'] %}
+                    Welcome back to Scout Support
+                    {% elif active_page in ['screening', 'screening_config'] %}
+                    Welcome back to Scout Screening
+                    {% elif active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config'] %}
+                    Welcome back to Scout Inbound
+                    {% elif active_page in ['vetting'] %}
+                    Welcome back to Scout Vetting
+                    {% else %}
+                    Welcome back to Scout Genius
+                    {% endif %}
+                </p>
+                {% endblock %}
             </div>
             <div class="page-actions">
                 {% if current_user.is_authenticated and not current_user.is_admin and current_user.get_modules()|length > 1 %}
