@@ -1406,6 +1406,31 @@ if is_primary_worker:
         print(f"❌ SCHEDULER INIT: Failed to register stale platform ticket check: {e}", flush=True)
         app.logger.error(f"Failed to register stale platform ticket check: {e}")
 
+    def run_duplicate_merge_check():
+        try:
+            with app.app_context():
+                from duplicate_merge_service import DuplicateMergeService
+                svc = DuplicateMergeService()
+                stats = svc.run_scheduled_check()
+                if stats['merged'] > 0:
+                    app.logger.info(f"🔀 Scheduled dedup: merged {stats['merged']} duplicate(s)")
+        except Exception as e:
+            app.logger.error(f"Scheduled duplicate merge check error: {e}")
+
+    try:
+        scheduler.add_job(
+            func=run_duplicate_merge_check,
+            trigger=IntervalTrigger(minutes=60),
+            id='duplicate_merge_check',
+            name='Duplicate Candidate Merge Check (Every 60 Minutes)',
+            replace_existing=True
+        )
+        print("✅ SCHEDULER INIT: Duplicate merge check registered (every 60 minutes)", flush=True)
+        app.logger.info("🔀 Scheduled duplicate candidate merge check every 60 minutes")
+    except Exception as e:
+        print(f"❌ SCHEDULER INIT: Failed to register duplicate merge check: {e}", flush=True)
+        app.logger.error(f"Failed to register duplicate merge check: {e}")
+
     # Schedule reference refresh every 120 hours — NEVER fires inline on startup.
     # On restart, we reconstruct next_run from persisted RefreshLog state.
     # If overdue, we defer to now + 5min so the scheduler handles it, not startup.

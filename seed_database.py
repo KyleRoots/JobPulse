@@ -1071,6 +1071,12 @@ BUILTIN_AUTOMATIONS = [
         "automation_type": "one-time",
         "builtin_key": "screening_audit",
     },
+    {
+        "name": "Duplicate Candidate Merge",
+        "description": "Scan all Bullhorn candidates for duplicates (matching email, phone) and auto-merge at 85%+ confidence. Transfers submissions, notes, and files to the primary record, then archives the duplicate. Skips candidates with active placements on both records.",
+        "automation_type": "one-time",
+        "builtin_key": "duplicate_merge_scan",
+    },
 ]
 
 STALE_BUILTIN_KEYS = set()

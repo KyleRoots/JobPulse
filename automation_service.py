@@ -18,6 +18,7 @@ LONG_RUNNING_BUILTINS = {
     "email_extractor",
     "retry_recruiter_notifications",
     "screening_audit",
+    "duplicate_merge_scan",
 }
 
 NO_BULLHORN_BUILTINS = {
@@ -154,6 +155,7 @@ class AutomationService:
             "email_extractor": self._builtin_email_extractor,
             "retry_recruiter_notifications": self._builtin_retry_recruiter_notifications,
             "screening_audit": self._builtin_screening_audit,
+            "duplicate_merge_scan": self._builtin_duplicate_merge_scan,
         }
 
         handler = handlers.get(name)
@@ -1503,4 +1505,31 @@ class AutomationService:
             "issues_found": result["issues_found"],
             "revets_triggered": result["revets_triggered"],
             "details": result.get("details", []),
+        }
+
+    def _builtin_duplicate_merge_scan(self, params):
+        from duplicate_merge_service import DuplicateMergeService
+
+        merge_service = DuplicateMergeService()
+
+        def progress_cb(stats):
+            logger.info(f"🔀 Bulk merge progress: scanned={stats['candidates_scanned']}, merged={stats['merged']}")
+
+        stats = merge_service.run_bulk_scan(progress_callback=progress_cb)
+
+        return {
+            "summary": (
+                f"Bulk duplicate scan complete. "
+                f"Scanned {stats['candidates_scanned']} candidates, "
+                f"found {stats['duplicates_found']} duplicates, "
+                f"merged {stats['merged']}, "
+                f"skipped (placement conflict) {stats['skipped_both_placements']}, "
+                f"errors {stats['errors']}."
+            ),
+            "candidates_scanned": stats['candidates_scanned'],
+            "duplicates_found": stats['duplicates_found'],
+            "merged": stats['merged'],
+            "skipped_both_placements": stats['skipped_both_placements'],
+            "skipped_below_threshold": stats['skipped_below_threshold'],
+            "errors": stats['errors'],
         }

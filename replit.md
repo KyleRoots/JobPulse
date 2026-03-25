@@ -58,6 +58,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Company Admin Role**: Manages users within a specific company.
 - **Multi-Company Support**: `company` field on User model.
 - **Automation Hub (Super-Admin Only)**: Management console for scheduled jobs and built-in automation tools.
+- **Automated Duplicate Candidate Merge**: Two-mode system — one-time bulk scan (Automation Hub tool) and recurring 60-minute scheduled check. Auto-merges at 85%+ confidence by transferring submissions, notes, and files to the primary record (most recent, unless older record has active placement). Both-active-placements pairs are skipped for manual review. Duplicates archived after merge. Audit trail via `CandidateMergeLog` model. Service: `duplicate_merge_service.py`.
 - **Candidate Data Cleanup (Scheduled)**: Background job to extract missing emails from resume files and reparse empty candidate descriptions.
 - **Activity Log (Super-Admin Only)**: System-wide admin visibility tracking login history, module usage, email delivery, and active users.
 - **Vetting Sandbox (Super-Admin Only)**: 5-stage wizard for manually testing the AI vetting pipeline.

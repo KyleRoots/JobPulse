@@ -33,6 +33,7 @@ def automations_dashboard():
             'cleanup_ai_notes',
             'email_extractor',
             'resume_reparser',
+            'duplicate_merge_scan',
         ],
         'Reporting': [
             'export_qualified',
@@ -221,6 +222,7 @@ VISIBLE_JOBS = {
     'reference_number_refresh': 'Reference Number Refresh',
     'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
     'requirements_maintenance': 'Requirements Maintenance',
+    'duplicate_merge_check': 'Duplicate Candidate Merge',
 }
 
 PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetting_health_check'}

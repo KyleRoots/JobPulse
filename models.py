@@ -1444,3 +1444,30 @@ class KnowledgeEntry(db.Model):
 
     def __repr__(self):
         return f'<KnowledgeEntry {self.id} doc={self.document_id} chunk={self.chunk_index}>'
+
+
+class CandidateMergeLog(db.Model):
+    __tablename__ = 'candidate_merge_log'
+    id = db.Column(db.Integer, primary_key=True)
+    primary_candidate_id = db.Column(db.Integer, nullable=False)
+    duplicate_candidate_id = db.Column(db.Integer, nullable=False)
+    primary_name = db.Column(db.String(200), nullable=True)
+    duplicate_name = db.Column(db.String(200), nullable=True)
+    confidence_score = db.Column(db.Float, nullable=False)
+    match_field = db.Column(db.String(50), nullable=True)
+    merge_type = db.Column(db.String(20), nullable=False, default='scheduled')
+    items_transferred = db.Column(db.Text, nullable=True)
+    merged_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    merged_by = db.Column(db.String(100), nullable=True, default='system')
+    skipped = db.Column(db.Boolean, nullable=False, default=False)
+    skip_reason = db.Column(db.String(500), nullable=True)
+
+    __table_args__ = (
+        db.Index('idx_merge_log_primary', 'primary_candidate_id'),
+        db.Index('idx_merge_log_duplicate', 'duplicate_candidate_id'),
+        db.Index('idx_merge_log_merged_at', 'merged_at'),
+    )
+
+    def __repr__(self):
+        action = 'SKIPPED' if self.skipped else 'MERGED'
+        return f'<CandidateMergeLog {self.id}: {action} {self.duplicate_candidate_id} -> {self.primary_candidate_id}>'
