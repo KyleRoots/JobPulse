@@ -11,9 +11,6 @@
             <p class="text-muted mb-0">Reference documents and learned resolution patterns for Scout Support AI</p>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-info btn-sm" onclick="learnFromTickets()">
-                <i class="fas fa-graduation-cap me-1"></i>Learn from Resolved Tickets
-            </button>
             <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
                 <i class="fas fa-upload me-1"></i>Upload Document
             </button>
@@ -152,7 +149,7 @@
             <div class="text-center py-5 text-muted">
                 <i class="fas fa-book-open fa-3x mb-3"></i>
                 <p>No knowledge documents yet.</p>
-                <p class="small">Upload reference documents or learn from resolved tickets to build the knowledge base.</p>
+                <p class="small">Upload reference documents to build the knowledge base.</p>
             </div>
             {% endif %}
         </div>
@@ -293,25 +290,6 @@ async function searchKnowledge() {
     }
 }
 
-async function learnFromTickets() {
-    if (!confirm('Extract resolution patterns from all completed tickets that haven\'t been learned yet?')) return;
-
-    try {
-        const res = await fetch('{{ url_for("knowledge_hub.learn_from_tickets") }}', {
-            method: 'POST',
-            headers: { 'X-CSRFToken': '{{ csrf_token() }}' }
-        });
-        const data = await res.json();
-        if (data.success) {
-            alert(data.message);
-            if (data.learned > 0) location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Learning failed'));
-        }
-    } catch (e) {
-        alert('Learning failed: ' + e.message);
-    }
-}
 
 function applyFilters() {
     const type = document.getElementById('typeFilter').value;
