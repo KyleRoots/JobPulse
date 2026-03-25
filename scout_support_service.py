@@ -1583,15 +1583,12 @@ Respond with ONLY a JSON object:
                     proof_items.append(result)
 
                 elif action_type == 'create_entity':
-                    if entity_type == 'Note' and not step.get('entity_id') and not step.get('target_entity_id'):
-                        for ctx_key in runtime_context:
-                            if '_' in ctx_key and not ctx_key.count('_') > 1:
-                                parts = ctx_key.split('_', 1)
-                                if parts[0] in ('JobOrder', 'Candidate', 'ClientContact', 'Placement') and parts[1].isdigit():
-                                    step['target_entity_type'] = parts[0]
-                                    step['target_entity_id'] = int(parts[1])
-                                    logger.info(f"🔄 Auto-detected note target from runtime context: {parts[0]} #{parts[1]}")
-                                    break
+                    if entity_type == 'Note':
+                        logger.info(f"📝 Skipping AI-generated note step — audit note will be created automatically")
+                        action.success = True
+                        action.new_value = 'Deferred to audit note'
+                        proof_items.append({'step': step.get('description', 'Create note'), 'result': 'Deferred — audit note handles this'})
+                        continue
                     result = self._exec_create_entity(action, entity_type, step)
                     proof_items.append(result)
 
@@ -1689,8 +1686,15 @@ Respond with ONLY a JSON object:
                 if not change_lines:
                     continue
 
-                changes_text = "; ".join(change_lines)
-                note_text = f"Scout Support ({ticket.ticket_number}): {changes_text}"
+                changes_summary = "\n".join(f"• {line}" for line in change_lines)
+                note_text = (
+                    f"━━━ Scout Support ━━━\n"
+                    f"Ticket: {ticket.ticket_number}\n"
+                    f"Issue: {ticket.subject}\n"
+                    f"Category: {ticket.category or 'N/A'}\n"
+                    f"\nActions Taken:\n{changes_summary}\n"
+                    f"\nResolved automatically via Scout Support AI."
+                )
 
                 assoc_field = note_entity_map[entity_type]
                 api_user_id = self.bullhorn_service.user_id
