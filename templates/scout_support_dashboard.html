@@ -1,48 +1,53 @@
 {% extends "base_layout.html" %}
 
 {% block title %}Scout Support — Dashboard{% endblock %}
+{% block body_attrs %}data-module="support"{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4 py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="mb-1"><i class="fas fa-headset text-info me-2"></i>Scout Support</h2>
+            <h2 class="mb-1"><i class="fas fa-headset me-2" style="color: var(--module-support-text);"></i>Scout Support</h2>
             <p class="text-muted mb-0">AI-powered ATS support ticket management</p>
         </div>
     </div>
 
     <div class="row g-3 mb-4">
         <div class="col-md-3">
-            <div class="card bg-dark border-secondary">
-                <div class="card-body text-center">
-                    <div class="fs-2 fw-bold text-info">{{ stats.total }}</div>
-                    <div class="text-muted small">Total Tickets</div>
+            <div class="support-stat-card text-center">
+                <div class="d-flex align-items-center justify-content-center mb-2">
+                    <i class="fas fa-ticket-alt me-2" style="color: var(--module-support-text); font-size: 1.1rem;"></i>
+                    <span class="text-muted small">Total Tickets</span>
                 </div>
+                <div class="fs-2 fw-bold" style="color: var(--module-support-text);">{{ stats.total }}</div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-dark border-secondary">
-                <div class="card-body text-center">
-                    <div class="fs-2 fw-bold text-warning">{{ stats.open }}</div>
-                    <div class="text-muted small">Open</div>
+            <div class="support-stat-card text-center">
+                <div class="d-flex align-items-center justify-content-center mb-2">
+                    <i class="fas fa-clock me-2 text-warning" style="font-size: 1.1rem;"></i>
+                    <span class="text-muted small">Open</span>
                 </div>
+                <div class="fs-2 fw-bold text-warning">{{ stats.open }}</div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-dark border-secondary">
-                <div class="card-body text-center">
-                    <div class="fs-2 fw-bold text-success">{{ stats.completed }}</div>
-                    <div class="text-muted small">Completed</div>
+            <div class="support-stat-card text-center">
+                <div class="d-flex align-items-center justify-content-center mb-2">
+                    <i class="fas fa-check-circle me-2 text-success" style="font-size: 1.1rem;"></i>
+                    <span class="text-muted small">Completed</span>
                 </div>
+                <div class="fs-2 fw-bold text-success">{{ stats.completed }}</div>
             </div>
         </div>
         {% if current_user.is_admin %}
         <div class="col-md-3">
-            <div class="card bg-dark border-secondary">
-                <div class="card-body text-center">
-                    <div class="fs-2 fw-bold text-danger">{{ stats.pending_approval }}</div>
-                    <div class="text-muted small">Awaiting Approval</div>
+            <div class="support-stat-card text-center">
+                <div class="d-flex align-items-center justify-content-center mb-2">
+                    <i class="fas fa-exclamation-triangle me-2 text-danger" style="font-size: 1.1rem;"></i>
+                    <span class="text-muted small">Awaiting Approval</span>
                 </div>
+                <div class="fs-2 fw-bold text-danger">{{ stats.pending_approval }}</div>
             </div>
         </div>
         {% endif %}
@@ -95,7 +100,7 @@
                                 <input type="checkbox" class="form-check-input ticket-checkbox" value="{{ ticket.ticket_number }}" onchange="updateBulkActions()">
                             </td>
                             {% endif %}
-                            <td style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'"><span class="badge bg-info bg-opacity-25 text-info font-monospace">{{ ticket.ticket_number }}</span></td>
+                            <td style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'"><span class="badge font-monospace" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;">{{ ticket.ticket_number }}</span></td>
                             <td style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'">{{ ticket.subject[:60] }}{% if ticket.subject|length > 60 %}...{% endif %}</td>
                             <td>
                                 {% if ticket.category == 'ats_issue' %}<span class="badge bg-primary bg-opacity-25 text-primary">ATS Issue</span>

@@ -1602,16 +1602,16 @@
 
             {% if current_user.is_authenticated and current_user.has_module('scout_support') %}
             <div class="nav-section" data-section="support">
-                <div class="nav-section-title" style="color: #17a2b8;">Scout Support</div>
+                <div class="nav-section-title" style="color: #8b5cf6;">Scout Support</div>
                 <a href="{{ url_for('scout_support.scout_support_dashboard') }}"
                     class="nav-item {% if active_page == 'scout_support' %}active{% endif %}">
-                    <i class="fas fa-headset" style="color: #17a2b8;"></i>
+                    <i class="fas fa-headset" style="color: #a78bfa;"></i>
                     <span>Support Tickets</span>
                 </a>
                 {% if current_user.is_admin %}
                 <a href="{{ url_for('knowledge_hub.knowledge_hub') }}"
                     class="nav-item {% if active_page == 'knowledge_hub' %}active{% endif %}">
-                    <i class="fas fa-book" style="color: #17a2b8;"></i>
+                    <i class="fas fa-book" style="color: #a78bfa;"></i>
                     <span>Knowledge Hub</span>
                 </a>
                 {% endif %}
@@ -1718,7 +1718,8 @@
                 {% set _mod_map = {
                     'scout_inbound':   {'label': 'Inbound',   'icon': 'fa-inbox',    'url': url_for('scout_inbound.scout_inbound_dashboard'), 'page': 'scout_inbound'},
                     'scout_screening': {'label': 'Screening', 'icon': 'fa-brain',    'url': url_for('scout_screening.dashboard'),             'page': 'screening'},
-                    'scout_vetting':   {'label': 'Vetting',   'icon': 'fa-comments', 'url': url_for('email.scout_vetting_dashboard'),          'page': 'vetting'}
+                    'scout_vetting':   {'label': 'Vetting',   'icon': 'fa-comments', 'url': url_for('email.scout_vetting_dashboard'),          'page': 'vetting'},
+                    'scout_support':   {'label': 'Support',   'icon': 'fa-headset',  'url': url_for('scout_support.scout_support_dashboard'),  'page': 'scout_support'}
                 } %}
                 <div class="module-switcher me-2" role="group" aria-label="Module navigation">
                 {% for mod in current_user.get_modules() %}{% if mod in _mod_map %}

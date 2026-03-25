@@ -153,6 +153,18 @@
    --module-vetting-card-bg: linear-gradient(145deg, rgba(10, 30, 38, 0.9), rgba(6, 18, 24, 0.95));
    --module-vetting-card-hover-bg: linear-gradient(145deg, rgba(14, 38, 48, 0.95), rgba(8, 24, 30, 0.98));
 
+   /* Scout Support – Purple/Violet */
+   --module-support-accent: #8b5cf6;
+   --module-support-bg: rgba(139, 92, 246, 0.12);
+   --module-support-border: rgba(139, 92, 246, 0.22);
+   --module-support-text: #a78bfa;
+   --module-support-glow: rgba(139, 92, 246, 0.10);
+   --module-support-gradient: linear-gradient(135deg, #8b5cf6, #7c3aed);
+   --module-support-subtle: rgba(139, 92, 246, 0.08);
+   --module-support-border-strong: rgba(139, 92, 246, 0.3);
+   --module-support-card-bg: linear-gradient(145deg, rgba(28, 16, 46, 0.9), rgba(16, 10, 28, 0.95));
+   --module-support-card-hover-bg: linear-gradient(145deg, rgba(36, 20, 58, 0.95), rgba(22, 14, 36, 0.98));
+
    /* Active module accent (set dynamically by data-module) */
    --module-accent: var(--brand-primary);
    --module-bg: var(--sidebar-active);

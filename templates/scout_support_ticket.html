@@ -1,11 +1,12 @@
 {% extends "base_layout.html" %}
 
 {% block title %}Scout Support — {{ ticket.ticket_number }}{% endblock %}
+{% block body_attrs %}data-module="support"{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4 py-4">
     <div class="mb-3">
-        <a href="{{ url_for('scout_support.scout_support_dashboard') }}" class="text-info text-decoration-none">
+        <a href="{{ url_for('scout_support.scout_support_dashboard') }}" class="text-decoration-none" style="color: var(--module-support-text);">
             <i class="fas fa-arrow-left me-1"></i> Back to Tickets
         </a>
     </div>
@@ -13,7 +14,7 @@
     <div class="d-flex justify-content-between align-items-start mb-4">
         <div>
             <h3 class="mb-1">
-                <span class="badge bg-info bg-opacity-25 text-info font-monospace me-2">{{ ticket.ticket_number }}</span>
+                <span class="badge font-monospace me-2" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;">{{ ticket.ticket_number }}</span>
                 {{ ticket.subject }}
             </h3>
             <div class="text-muted">
@@ -49,16 +50,16 @@
     <div class="row g-4">
         <div class="col-lg-8">
             {% if ai_understanding %}
-            <div class="card bg-dark border-info mb-4">
-                <div class="card-header bg-dark border-info">
-                    <h5 class="mb-0"><i class="fas fa-robot text-info me-2"></i>AI Understanding</h5>
+            <div class="card bg-dark mb-4" style="border-color: rgba(139, 92, 246, 0.3);">
+                <div class="card-header bg-dark" style="border-color: rgba(139, 92, 246, 0.3);">
+                    <h5 class="mb-0"><i class="fas fa-robot me-2" style="color: var(--module-support-text);"></i>AI Understanding</h5>
                 </div>
                 <div class="card-body">
                     {% if ai_understanding is mapping %}
                     <p>{{ ai_understanding.get('understanding', ai_understanding.get('updated_understanding', '')) }}</p>
                     {% if ai_understanding.get('resolution_approach') %}
                     <div class="mt-3 p-3 bg-dark border border-secondary rounded">
-                        <strong class="text-info">Resolution Approach:</strong>
+                        <strong style="color: var(--module-support-text);">Resolution Approach:</strong>
                         <p class="mb-0 mt-1">{{ ai_understanding.resolution_approach }}</p>
                     </div>
                     {% endif %}
@@ -85,9 +86,9 @@
                     {% if conversations %}
                     {% for conv in conversations %}
                     <div class="d-flex mb-3 {% if conv.direction == 'outbound' %}justify-content-start{% else %}justify-content-end{% endif %}">
-                        <div class="p-3 rounded-3 {% if conv.direction == 'outbound' %}bg-info bg-opacity-10 border border-info border-opacity-25{% else %}bg-secondary bg-opacity-25 border border-secondary{% endif %}" style="max-width: 80%;">
+                        <div class="p-3 rounded-3 {% if conv.direction == 'outbound' %}scout-msg{% else %}user-msg{% endif %}" style="max-width: 80%;">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <small class="fw-bold {% if conv.direction == 'outbound' %}text-info{% else %}text-light{% endif %}">
+                                <small class="fw-bold" {% if conv.direction == 'outbound' %}style="color: var(--module-support-text);"{% endif %}>
                                     {% if conv.direction == 'outbound' %}
                                     <i class="fas fa-robot me-1"></i>Scout Support
                                     {% else %}
@@ -181,9 +182,9 @@
             </div>
 
             {% if current_user.is_admin and ticket.status not in ('closed',) %}
-            <div class="card bg-dark border-info mb-4">
-                <div class="card-header bg-dark border-info">
-                    <h6 class="mb-0"><i class="fas fa-tools text-info me-2"></i>Admin Actions</h6>
+            <div class="card bg-dark mb-4" style="border-color: rgba(139, 92, 246, 0.3);">
+                <div class="card-header bg-dark" style="border-color: rgba(139, 92, 246, 0.3);">
+                    <h6 class="mb-0"><i class="fas fa-tools me-2" style="color: var(--module-support-text);"></i>Admin Actions</h6>
                 </div>
                 <div class="card-body">
                     {% if ticket.status in ('execution_failed', 'completed') %}

@@ -1,12 +1,13 @@
 {% extends "base_layout.html" %}
 
 {% block title %}{{ document.title }} — Knowledge Hub{% endblock %}
+{% block body_attrs %}data-module="support"{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4 py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <a href="{{ url_for('knowledge_hub.knowledge_hub') }}" class="text-info text-decoration-none small">
+            <a href="{{ url_for('knowledge_hub.knowledge_hub') }}" class="text-decoration-none small" style="color: var(--module-support-text);">
                 <i class="fas fa-arrow-left me-1"></i>Back to Knowledge Hub
             </a>
             <h2 class="mb-1 mt-2">

@@ -776,13 +776,31 @@ class EmailMixin:
 
             html_body = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', body)
             html_body = html_body.replace('\n', '<br>')
+
+            branded_html = (
+                '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 640px; margin: 0 auto;">'
+                '<div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 16px 24px; border-radius: 8px 8px 0 0;">'
+                '<table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>'
+                '<td style="color: #ffffff; font-size: 18px; font-weight: 600;">Scout Support</td>'
+                '<td align="right" style="color: rgba(255,255,255,0.8); font-size: 12px;">AI-Powered ATS Support</td>'
+                '</tr></table>'
+                '</div>'
+                '<div style="padding: 24px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none;">'
+                f'{html_body}'
+                '</div>'
+                '<div style="padding: 12px 24px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; text-align: center;">'
+                '<span style="color: #9ca3af; font-size: 11px;">Powered by Scout Genius&trade; &mdash; support@scoutgenius.ai</span>'
+                '</div>'
+                '</div>'
+            )
+
             if quoted_history:
-                html_body += quoted_history
+                branded_html += quoted_history
 
             result = email_svc.send_html_email(
                 to_email=to_email,
                 subject=subject,
-                html_content=html_body,
+                html_content=branded_html,
                 notification_type=email_type,
                 cc_emails=cc_list if cc_list else None,
                 in_reply_to=in_reply_to,
