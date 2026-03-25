@@ -1694,24 +1694,19 @@ Respond with ONLY a JSON object:
 
                 assoc_field = note_entity_map[entity_type]
                 api_user_id = self.bullhorn_service.user_id
+                person_ref_id = self._resolve_person_reference(entity_type, int(entity_id), int(api_user_id) if api_user_id else 0)
+
                 note_data = {
                     'action': self._get_bullhorn_note_action(entity_type),
                     'comments': note_text,
                     'isDeleted': False,
+                    'personReference': {'id': int(person_ref_id)},
                 }
                 if api_user_id:
-                    note_data['personReference'] = {'id': int(api_user_id)}
                     note_data['commentingPerson'] = {'id': int(api_user_id)}
 
                 if entity_type == 'Candidate':
-                    note_data['personReference'] = {'id': int(entity_id)}
                     note_data['candidates'] = [{'id': int(entity_id)}]
-                elif entity_type == 'ClientContact':
-                    note_data['personReference'] = {'id': int(entity_id)}
-                elif entity_type == 'JobOrder':
-                    note_data['jobOrders'] = [{'id': int(entity_id)}]
-                elif entity_type == 'Placement':
-                    note_data['placements'] = [{'id': int(entity_id)}]
 
                 url = f"{self.bullhorn_service.base_url}entity/Note"
                 params = {'BhRestToken': self.bullhorn_service.rest_token}
@@ -1721,6 +1716,9 @@ Respond with ONLY a JSON object:
                     data = response.json() if response.text else {}
                     note_id = data.get('changedEntityId', 'unknown')
                     logger.info(f"📝 Audit note #{note_id} created for {entity_type} #{entity_id} for ticket {ticket.ticket_number}")
+
+                    if entity_type in ('JobOrder', 'Placement') and note_id and note_id != 'unknown':
+                        self._link_note_via_note_entity(note_id, entity_type, entity_id, params)
                 else:
                     logger.warning(f"⚠️ Audit note failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {response.text[:200] if response.text else ''}")
 
@@ -1815,23 +1813,18 @@ Respond with ONLY a JSON object:
             action.error_message = 'No Bullhorn API user ID available for note creation'
             return {'step': step.get('description', 'Create note'), 'result': 'Failed — no API user ID'}
 
+        person_ref_id = self._resolve_person_reference(entity_type, entity_id, api_user_id)
+
         note_data = {
             'action': self._get_bullhorn_note_action(entity_type),
             'comments': note_text,
             'isDeleted': False,
-            'personReference': {'id': int(api_user_id)},
+            'personReference': {'id': int(person_ref_id)},
             'commentingPerson': {'id': int(api_user_id)},
         }
 
         if entity_type == 'Candidate':
-            note_data['personReference'] = {'id': int(entity_id)}
             note_data['candidates'] = [{'id': int(entity_id)}]
-        elif entity_type == 'ClientContact':
-            note_data['personReference'] = {'id': int(entity_id)}
-        elif entity_type == 'JobOrder':
-            note_data['jobOrders'] = [{'id': int(entity_id)}]
-        elif entity_type == 'Placement':
-            note_data['placements'] = [{'id': int(entity_id)}]
 
         url = f"{self.bullhorn_service.base_url}entity/Note"
         params = {'BhRestToken': self.bullhorn_service.rest_token}
@@ -1852,6 +1845,9 @@ Respond with ONLY a JSON object:
             note_id = data.get('changedEntityId', 'unknown')
             logger.info(f"📝 Note #{note_id} created for {entity_type} #{entity_id}")
 
+            if entity_type in ('JobOrder', 'Placement') and note_id and note_id != 'unknown':
+                self._link_note_via_note_entity(note_id, entity_type, entity_id, params)
+
             action.success = True
             action.new_value = f"Note #{note_id}"
             return {'step': f"Created note on {entity_type} #{entity_id}", 'note_id': note_id, 'result': 'Success'}
@@ -1861,6 +1857,39 @@ Respond with ONLY a JSON object:
             action.error_message = f'Note creation failed: HTTP {response.status_code} — {error_detail}'
             logger.error(f"❌ Note creation failed for {entity_type} #{entity_id}: HTTP {response.status_code} — {error_detail}")
             return {'step': f"Create note on {entity_type} #{entity_id}", 'result': f'Failed — HTTP {response.status_code}'}
+
+    def _resolve_person_reference(self, entity_type: str, entity_id: int, fallback_user_id: int) -> int:
+        if entity_type == 'Candidate':
+            return entity_id
+        if entity_type == 'ClientContact':
+            return entity_id
+        if entity_type == 'JobOrder':
+            try:
+                params = {'BhRestToken': self.bullhorn_service.rest_token}
+                url = f"{self.bullhorn_service.base_url}entity/JobOrder/{entity_id}?fields=clientContact"
+                resp = self.bullhorn_service.session.get(url, params=params, timeout=15)
+                if resp.status_code == 200:
+                    data = resp.json().get('data', {})
+                    contact = data.get('clientContact', {})
+                    if contact and contact.get('id'):
+                        logger.info(f"📝 Resolved personReference for JobOrder #{entity_id}: ClientContact #{contact['id']}")
+                        return contact['id']
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to resolve ClientContact for JobOrder #{entity_id}: {e}")
+        if entity_type == 'Placement':
+            try:
+                params = {'BhRestToken': self.bullhorn_service.rest_token}
+                url = f"{self.bullhorn_service.base_url}entity/Placement/{entity_id}?fields=candidate"
+                resp = self.bullhorn_service.session.get(url, params=params, timeout=15)
+                if resp.status_code == 200:
+                    data = resp.json().get('data', {})
+                    candidate = data.get('candidate', {})
+                    if candidate and candidate.get('id'):
+                        logger.info(f"📝 Resolved personReference for Placement #{entity_id}: Candidate #{candidate['id']}")
+                        return candidate['id']
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to resolve Candidate for Placement #{entity_id}: {e}")
+        return fallback_user_id
 
     BULLHORN_NOTE_ACTIONS = {
         'JobOrder': 'Job Update',
