@@ -5,6 +5,7 @@ Handles job application form processing and email submission
 import logging
 import os
 import base64
+import requests
 from datetime import datetime
 from typing import Dict, List, Optional
 from werkzeug.datastructures import FileStorage
@@ -73,7 +74,8 @@ class JobApplicationService:
             if not self.sg:
                 raise ValueError("Email service not available - no SendGrid API key")
             
-            # Create email content - decode URL encoding and format subject properly
+            self._check_and_clear_suppression(self.to_email)
+            
             import urllib.parse
             clean_job_title = urllib.parse.unquote(application_data['jobTitle']).replace('+', ' ')
             source = application_data.get('source', 'Website')
@@ -144,6 +146,80 @@ class JobApplicationService:
                 'success': False,
                 'error': f'Error submitting application: {str(e)}'
             }
+    
+    def _check_and_clear_suppression(self, email: str):
+        if not self.sendgrid_api_key:
+            return
+        
+        headers = {
+            'Authorization': f'Bearer {self.sendgrid_api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        suppression_types = {
+            'bounces': f'https://api.sendgrid.com/v3/suppression/bounces/{email}',
+            'blocks': f'https://api.sendgrid.com/v3/suppression/blocks/{email}',
+            'invalid_emails': f'https://api.sendgrid.com/v3/suppression/invalid_emails/{email}',
+        }
+        
+        cleared = []
+        
+        for sup_type, url in suppression_types.items():
+            try:
+                resp = requests.get(url, headers=headers, timeout=5)
+                if resp.status_code == 200 and resp.json():
+                    logger.warning(f"⚠️ SendGrid suppression found: {email} is on the {sup_type} list")
+                    del_resp = requests.delete(url, headers=headers, timeout=5)
+                    if del_resp.status_code in (200, 204):
+                        logger.info(f"✅ Auto-cleared {email} from SendGrid {sup_type} list")
+                        cleared.append(sup_type)
+                    else:
+                        logger.error(f"❌ Failed to clear {email} from {sup_type}: HTTP {del_resp.status_code}")
+            except Exception as e:
+                logger.error(f"Error checking SendGrid {sup_type} for {email}: {str(e)}")
+        
+        if cleared:
+            self._send_suppression_alert(email, cleared)
+    
+    def _send_suppression_alert(self, suppressed_email: str, cleared_types: List[str]):
+        try:
+            from extensions import db
+            from models import VettingSetting
+            with db.session.no_autoflush:
+                setting = VettingSetting.query.first()
+                admin_email = setting.admin_notification_email if setting else 'kroots@myticas.com'
+            
+            types_str = ', '.join(cleared_types)
+            subject = f"⚠️ Scout Genius Alert: Email Suppression Auto-Cleared for {suppressed_email}"
+            html_content = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: #dc3545; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0;">
+                    <h2 style="margin: 0;">Email Delivery Alert</h2>
+                </div>
+                <div style="background: #fff; border: 1px solid #dee2e6; padding: 20px; border-radius: 0 0 8px 8px;">
+                    <p><strong>{suppressed_email}</strong> was found on SendGrid's suppression list and has been <strong>automatically cleared</strong>.</p>
+                    <p><strong>Suppression type(s):</strong> {types_str}</p>
+                    <p>This means emails to this address were being silently dropped by SendGrid. 
+                    The suppression has been removed and delivery should resume normally.</p>
+                    <hr style="border: none; border-top: 1px solid #dee2e6; margin: 15px 0;">
+                    <p style="color: #6c757d; font-size: 13px;"><strong>Action recommended:</strong> Check your SendGrid dashboard 
+                    to review the original bounce/block reason and address the root cause if needed 
+                    (e.g., attachment file type restrictions in Microsoft 365).</p>
+                </div>
+            </div>
+            """
+            
+            message = Mail(
+                from_email=Email(self.from_email),
+                to_emails=To(admin_email),
+                subject=subject,
+                html_content=Content("text/html", html_content)
+            )
+            
+            self.sg.send(message)
+            logger.info(f"📧 Suppression alert sent to {admin_email}")
+        except Exception as e:
+            logger.error(f"Failed to send suppression alert email: {str(e)}")
     
     def _build_application_email_html(self, data: Dict, is_stsi: bool = False) -> str:
         """Build HTML email content for job application"""
