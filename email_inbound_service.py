@@ -884,16 +884,21 @@ Consider: name spelling variations, nicknames, contact info matches.
                     self.logger.info(f"  - Current Title: {resume_data.get('current_title')}")
                     self.logger.info(f"  - Current Company: {resume_data.get('current_company')}")
                     self.logger.info(f"  - Years Experience: {resume_data.get('years_experience')}")
-                    self.logger.info(f"  - Skills Count: {len(resume_data.get('skills', []))}")
-                    if resume_data.get('skills'):
-                        self.logger.info(f"  - Skills (first 10): {resume_data.get('skills', [])[:10]}")
-                    self.logger.info(f"  - Education Count: {len(resume_data.get('education', []))}")
-                    if resume_data.get('education'):
-                        for edu in resume_data.get('education', []):
+                    skills = resume_data.get('skills') or []
+                    education = resume_data.get('education') or []
+                    work_history = resume_data.get('work_history') or []
+                    raw_text_len = len(resume_data.get('raw_text') or '')
+                    html_len = len(resume_data.get('formatted_html') or '')
+                    self.logger.info(f"  - Skills Count: {len(skills)}")
+                    if skills:
+                        self.logger.info(f"  - Skills (first 10): {skills[:10]}")
+                    self.logger.info(f"  - Education Count: {len(education)}")
+                    if education:
+                        for edu in education:
                             self.logger.info(f"    - {edu.get('degree')} from {edu.get('institution')} ({edu.get('year')})")
-                    self.logger.info(f"  - Work History Count: {len(resume_data.get('work_history', []))}")
-                    self.logger.info(f"  - Raw Resume Text Length: {len(resume_data.get('raw_text', ''))} chars")
-                    self.logger.info(f"  - Formatted HTML Length: {len(resume_data.get('formatted_html', ''))} chars")
+                    self.logger.info(f"  - Work History Count: {len(work_history)}")
+                    self.logger.info(f"  - Raw Resume Text Length: {raw_text_len} chars")
+                    self.logger.info(f"  - Formatted HTML Length: {html_len} chars")
             
             db.session.commit()
             
