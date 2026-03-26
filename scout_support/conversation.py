@@ -409,25 +409,32 @@ Respond with a JSON object:
                     logger.info(f"✅ Ticket {ticket.ticket_number} executed successfully after user approval")
                     self._send_admin_approval_request(ticket, execution_complete=True)
                 else:
-                    logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution failed — escalating to admin")
+                    attempts_made = ticket.execution_attempts or 1
+                    logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution failed after {attempts_made} attempt(s) — escalating to admin")
                     ticket.status = 'awaiting_admin_approval'
                     db.session.commit()
 
                     try:
-                        proof_items = json.loads(ticket.execution_proof) if ticket.execution_proof else []
+                        history = json.loads(ticket.execution_history) if ticket.execution_history else []
                     except (json.JSONDecodeError, TypeError):
-                        proof_items = []
-                    proof_summary = '; '.join(
-                        f"{p.get('step', 'Step')}: {p.get('result', 'Unknown')}" for p in proof_items[:5]
-                    ) if proof_items else 'No details available'
+                        history = []
 
-                    self._send_user_confirmation_email(
-                        ticket,
-                        f'I attempted the proposed fix but some steps could not be completed automatically. '
-                        f'The issue has been escalated to the administrator for manual resolution. '
-                        f'You will be notified once the fix is finalized.'
-                    )
-                    self._send_admin_approval_request(ticket, execution_failed=True, failure_summary=proof_summary)
+                    if attempts_made > 1:
+                        user_msg = (
+                            f'I attempted {attempts_made} different approaches to fix this issue, '
+                            f'but was unable to resolve it automatically. '
+                            f'The issue has been escalated to the administrator with full diagnostic details from all attempts. '
+                            f'You will be notified once the fix is finalized.'
+                        )
+                    else:
+                        user_msg = (
+                            f'I attempted the proposed fix but some steps could not be completed automatically. '
+                            f'The issue has been escalated to the administrator for manual resolution. '
+                            f'You will be notified once the fix is finalized.'
+                        )
+
+                    self._send_user_confirmation_email(ticket, user_msg)
+                    self._send_admin_approval_request(ticket, execution_failed=True, failure_history=history)
             else:
                 ticket.status = 'awaiting_admin_approval'
                 db.session.commit()

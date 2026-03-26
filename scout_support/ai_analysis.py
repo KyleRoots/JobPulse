@@ -172,10 +172,23 @@ Supported actions:
     {{"action": "get_files", "entity_type": "Candidate", "entity_id": 4649182, "description": "List candidate's files"}}
 17. delete_file — Remove a specific file/attachment from a record:
     {{"action": "delete_file", "entity_type": "Candidate", "entity_id": 4649182, "file_id": 999, "description": "Delete duplicate resume file"}}
+18. get_entity_meta — Get field definitions, required fields, validation rules for an entity type:
+    {{"action": "get_entity_meta", "entity_type": "Note", "fields": "action,comments,personReference", "description": "Check Note field definitions and validation rules"}}
+    Use this to investigate field-level configuration issues: which fields are required, hidden, read-only, or have validation rules.
+19. get_options — Get picklist/dropdown values for a Bullhorn option type (e.g., NoteAction, CandidateStatus, JobOrderStatus):
+    {{"action": "get_options", "option_type": "NoteAction", "description": "List all available Note action types"}}
+    Use this to verify that a specific picklist value exists and is valid before trying to set it.
+20. get_settings — Get a Bullhorn system setting value:
+    {{"action": "get_settings", "setting_key": "allPrivateOwners", "description": "Check system privacy settings"}}
+    Use this to investigate system-level configuration that might be causing issues.
 
 Supported entity_types for all actions: Candidate, JobOrder, Placement, JobSubmission, ClientContact, ClientCorporation, Lead, Opportunity, Note, Sendout, Appointment, Task, Tearsheet, CorporateUser, CandidateEducation, CandidateWorkHistory, CandidateReference, Skill, Category, BusinessSector, PlacementChangeRequest.
 
 Always include entity IDs from the user's ticket when available. Use the actual values mentioned in the issue description.
+
+IMPORTANT: When you suspect a configuration or validation issue (e.g., a field won't save, a dropdown value doesn't work,
+an action type causes errors), use get_entity_meta and get_options as diagnostic steps BEFORE attempting the fix.
+This gives the system evidence about what's misconfigured, which is critical for retry logic and admin escalation.
 
 resolution_type guide:
 - "full": You can fully resolve this issue with no concerns about deeper problems.
@@ -385,10 +398,18 @@ Supported actions:
     {{"action": "get_files", "entity_type": "Candidate", "entity_id": 4649182, "description": "List files"}}
 17. delete_file — Remove a file/attachment:
     {{"action": "delete_file", "entity_type": "Candidate", "entity_id": 4649182, "file_id": 999, "description": "Delete file"}}
+18. get_entity_meta — Get field definitions, required fields, validation rules:
+    {{"action": "get_entity_meta", "entity_type": "Note", "fields": "action,comments", "description": "Check Note field rules"}}
+19. get_options — Get picklist/dropdown values:
+    {{"action": "get_options", "option_type": "NoteAction", "description": "List Note action types"}}
+20. get_settings — Get a Bullhorn system setting:
+    {{"action": "get_settings", "setting_key": "allPrivateOwners", "description": "Check privacy settings"}}
 
 Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientContact, ClientCorporation, Lead, Opportunity, Note, Sendout, Appointment, Task, Tearsheet, CorporateUser, CandidateEducation, CandidateWorkHistory, CandidateReference, Skill, Category, BusinessSector, PlacementChangeRequest.
 
 Always include entity IDs from the conversation when available.
+
+IMPORTANT: When you suspect a configuration or validation issue, use get_entity_meta and get_options as diagnostic steps.
 
 resolution_type guide:
 - "full": You can fully resolve this issue with no concerns about deeper problems.
@@ -432,6 +453,141 @@ resolution_type guide:
                     continue
                 return None
         return None
+
+    MAX_RETRY_ATTEMPTS = 2
+
+    def _generate_retry_analysis(self, ticket, failed_proof: list, attempt_number: int) -> Optional[str]:
+        if not self.openai_client:
+            return None
+
+        from scout_support_service import CATEGORY_LABELS
+
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+
+        try:
+            understanding = json.loads(ticket.ai_understanding) if ticket.ai_understanding else {}
+        except (json.JSONDecodeError, TypeError):
+            understanding = {}
+
+        try:
+            previous_solution = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
+        except (json.JSONDecodeError, TypeError):
+            previous_solution = {}
+
+        try:
+            history = json.loads(ticket.execution_history) if ticket.execution_history else []
+        except (json.JSONDecodeError, TypeError):
+            history = []
+
+        successful_steps = []
+        failed_steps = []
+        diagnostic_data = {}
+        for item in failed_proof:
+            if 'fail' in item.get('result', '').lower():
+                failed_steps.append(item)
+            else:
+                successful_steps.append(item)
+                if item.get('data'):
+                    diagnostic_data[item.get('step', 'unknown')] = item['data']
+                if item.get('results'):
+                    diagnostic_data[item.get('step', 'unknown')] = item['results']
+
+        attempt_history_text = ''
+        if history:
+            parts = []
+            for i, attempt in enumerate(history, 1):
+                parts.append(f"--- Attempt {i} ---")
+                for step in attempt.get('proof', []):
+                    parts.append(f"  • {step.get('step', 'Step')}: {step.get('result', 'Unknown')}")
+            attempt_history_text = '\n'.join(parts)
+
+        prompt = f"""You are Scout Support. A previous execution attempt FAILED for ticket {ticket.ticket_number}.
+You must analyze the failure and propose an ALTERNATIVE approach.
+
+=== TICKET CONTEXT ===
+Category: {category_label}
+Subject: {ticket.subject}
+Description: {ticket.description}
+AI Understanding: {understanding.get('understanding', 'N/A')}
+
+=== PREVIOUS SOLUTION THAT WAS ATTEMPTED ===
+User-facing: {previous_solution.get('description_user', 'N/A')}
+Technical: {previous_solution.get('description_admin', 'N/A')}
+
+=== ATTEMPT {attempt_number} RESULTS ===
+Successful steps (data gathered):
+{json.dumps(successful_steps, indent=2)[:3000]}
+
+Failed steps (errors encountered):
+{json.dumps(failed_steps, indent=2)[:3000]}
+
+Diagnostic data from successful steps:
+{json.dumps(diagnostic_data, indent=2)[:4000]}
+
+{f'=== FULL ATTEMPT HISTORY ==={chr(10)}{attempt_history_text}' if attempt_history_text else ''}
+
+=== YOUR TASK ===
+Based on the failure evidence above, you MUST:
+1. Analyze WHY the previous approach failed (e.g., wrong entity type, missing permissions, field validation rule, incorrect API endpoint, wrong field name)
+2. Determine if the data gathered by successful diagnostic steps reveals a DIFFERENT root cause than originally assumed
+3. Propose an ALTERNATIVE execution strategy that avoids the same failure
+4. If the issue is genuinely unfixable via API (e.g., requires Bullhorn Admin UI changes), say so clearly and set can_retry=false
+
+CRITICAL RULES:
+- Do NOT repeat the same steps that already failed — you must try a DIFFERENT approach
+- USE the diagnostic data from successful steps to inform your new strategy
+- If a field update failed, consider: Is the field name correct? Is the value in the right format? Is there a different field that controls this?
+- If entity not found, consider: Is the entity type correct? Should you search first?
+- You have access to admin-level investigation tools: get_entity_meta (field definitions), get_options (picklist values), get_settings (system config)
+
+Respond with JSON:
+{{
+    "failure_analysis": "Why the previous attempt failed",
+    "alternative_strategy": "What you will try differently",
+    "can_retry": true/false,
+    "cannot_retry_reason": "If can_retry is false, explain why this genuinely cannot be fixed via API",
+    "proposed_solution_user": "Updated plain-language description for the user",
+    "proposed_solution_admin": "Updated technical description for admin",
+    "execution_steps": [],
+    "resolution_type": "full/partial/escalate",
+    "underlying_concerns_user": "",
+    "underlying_concerns_admin": ""
+}}
+
+execution_steps format — same supported actions as before:
+1. update_entity, 2. create_note, 3. create_submission, 4. get_entity, 5. search_entity,
+6. remove_from_tearsheet, 7. delete_entity, 8. bulk_update, 9. bulk_delete, 10. create_entity,
+11. add_association, 12. remove_association, 13. add_to_tearsheet, 14. query_entity,
+15. get_associations, 16. get_files, 17. delete_file
+18. get_entity_meta — Get field definitions, required fields, validation rules for an entity type:
+    {{"action": "get_entity_meta", "entity_type": "Note", "fields": "action,comments,personReference", "description": "Check Note field definitions and validation rules"}}
+19. get_options — Get picklist/dropdown values for a Bullhorn option type:
+    {{"action": "get_options", "option_type": "NoteAction", "description": "List all available Note action types"}}
+20. get_settings — Get a Bullhorn system setting value:
+    {{"action": "get_settings", "setting_key": "allPrivateOwners", "description": "Check system privacy settings"}}
+
+Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientContact, ClientCorporation, Lead, Opportunity, Note, Sendout, Appointment, Task, Tearsheet, CorporateUser, CandidateEducation, CandidateWorkHistory, CandidateReference, Skill, Category, BusinessSector, PlacementChangeRequest."""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model='gpt-5',
+                messages=[
+                    {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You are analyzing a FAILED execution attempt and must propose an alternative approach. Respond only in valid JSON.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                max_completion_tokens=8192,
+                response_format={'type': 'json_object'},
+            )
+            content = response.choices[0].message.content
+            if not content or not content.strip():
+                logger.warning(f"Retry analysis returned empty content for {ticket.ticket_number}")
+                return None
+            parsed = json.loads(content.strip())
+            logger.info(f"🔄 Retry analysis for {ticket.ticket_number} (attempt {attempt_number}): can_retry={parsed.get('can_retry')}, strategy={parsed.get('alternative_strategy', '')[:200]}")
+            return json.dumps(parsed)
+        except Exception as e:
+            logger.error(f"Retry analysis failed for {ticket.ticket_number}: {e}")
+            return None
 
     def _extract_attachment_content(self, attachment_data: List[Dict]) -> str:
         if not attachment_data:

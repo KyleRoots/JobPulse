@@ -2489,3 +2489,89 @@ class BullhornService:
 
     def update_corporate_user(self, user_id: int, data: Dict) -> bool:
         return self.update_entity('CorporateUser', user_id, data)
+
+    def get_entity_meta(self, entity_type: str, fields: str = None) -> Optional[Dict]:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+
+        try:
+            url = f"{self.base_url}meta/{entity_type}"
+            params = {'BhRestToken': self.rest_token}
+            if fields:
+                params['fields'] = fields
+
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return None
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data
+            else:
+                logging.warning(f"get_entity_meta({entity_type}) failed: HTTP {response.status_code}")
+                return None
+        except Exception as e:
+            logging.error(f"get_entity_meta({entity_type}) error: {e}")
+            return None
+
+    def get_options(self, option_type: str) -> Optional[List[Dict]]:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+
+        try:
+            url = f"{self.base_url}options/{option_type}"
+            params = {'BhRestToken': self.rest_token}
+
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return None
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('data', data.get('optionList', []))
+            else:
+                logging.warning(f"get_options({option_type}) failed: HTTP {response.status_code}")
+                return None
+        except Exception as e:
+            logging.error(f"get_options({option_type}) error: {e}")
+            return None
+
+    def get_settings(self, setting_key: str) -> Optional[Any]:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return None
+
+        try:
+            url = f"{self.base_url}settings/{setting_key}"
+            params = {'BhRestToken': self.rest_token}
+
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return None
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data
+            else:
+                logging.warning(f"get_settings({setting_key}) failed: HTTP {response.status_code}")
+                return None
+        except Exception as e:
+            logging.error(f"get_settings({setting_key}) error: {e}")
+            return None

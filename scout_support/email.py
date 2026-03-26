@@ -274,7 +274,7 @@ class EmailMixin:
             email_type='user_confirmation',
         )
 
-    def _send_admin_approval_request(self, ticket, execution_complete=False, execution_failed=False, failure_summary='', needs_manual=False):
+    def _send_admin_approval_request(self, ticket, execution_complete=False, execution_failed=False, failure_summary='', failure_history=None, needs_manual=False):
         from scout_support_service import CATEGORY_LABELS
 
         try:
@@ -328,21 +328,58 @@ class EmailMixin:
             subject = f"[{ticket.ticket_number}] Executed ✅ (Advisory Included)" if concerns_admin else f"[{ticket.ticket_number}] Executed ✅"
 
         elif execution_failed:
+            attempts_made = ticket.execution_attempts or 1
+            history = failure_history or []
+
             body_parts = [
                 f"Hi,",
                 f"",
-                f"Scout Support **attempted** to execute the fix for ticket **{ticket.ticket_number}** but encountered issues.",
+                f"Scout Support **attempted {attempts_made} approach{'es' if attempts_made > 1 else ''}** to resolve ticket **{ticket.ticket_number}** but was unable to fix it automatically.",
                 f"",
                 f"**Ticket:** {ticket.ticket_number}",
                 f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}",
                 f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})",
                 f"**Status:** Execution Failed — Needs Manual Resolution",
+                f"**Attempts:** {attempts_made}",
                 f"",
-                f"**What was attempted:**",
+                f"**Original Solution:**",
                 f"{solution.get('description_admin', '') or solution.get('description', 'N/A')}",
-                f"",
-                f"**Execution Results:**",
-                f"{failure_summary}",
+            ]
+
+            if solution.get('retry_strategy'):
+                body_parts.extend([
+                    f"",
+                    f"**Final Retry Strategy:**",
+                    f"{solution.get('retry_strategy')}",
+                ])
+
+            if history:
+                for attempt_entry in history:
+                    attempt_num = attempt_entry.get('attempt', '?')
+                    body_parts.extend([
+                        f"",
+                        f"---",
+                        f"**Attempt {attempt_num}** ({attempt_entry.get('timestamp', 'N/A')}):",
+                    ])
+                    for step in (attempt_entry.get('proof', []) or []):
+                        step_desc = step.get('step', 'Step')
+                        step_result = step.get('result', 'Unknown')
+                        icon = '✅' if 'success' in step_result.lower() else '❌' if 'fail' in step_result.lower() else '➡️'
+                        body_parts.append(f"  {icon} {step_desc}: {step_result}")
+                        if step.get('data'):
+                            data_preview = json.dumps(step['data'])[:300]
+                            body_parts.append(f"    Data: {data_preview}")
+            else:
+                try:
+                    proof_items = json.loads(ticket.execution_proof) if ticket.execution_proof else []
+                except (json.JSONDecodeError, TypeError):
+                    proof_items = []
+                if proof_items:
+                    body_parts.extend([f"", f"**Execution Results:**"])
+                    for item in (proof_items if isinstance(proof_items, list) else []):
+                        body_parts.append(f"• {item.get('step', 'Step')}: {item.get('result', 'Done')}")
+
+            body_parts.extend([
                 f"",
                 f"The user has been notified that the issue was escalated to you.",
                 f"",
@@ -352,8 +389,8 @@ class EmailMixin:
                 f"- **\"Close\"** — Close this ticket with a manual resolution note",
                 f"",
                 f"— Scout Support",
-            ]
-            subject = f"[{ticket.ticket_number}] Execution Failed — Manual Resolution Needed"
+            ])
+            subject = f"[{ticket.ticket_number}] Execution Failed ({attempts_made} attempt{'s' if attempts_made > 1 else ''}) — Manual Resolution Needed"
 
         elif needs_manual:
             body_parts = [

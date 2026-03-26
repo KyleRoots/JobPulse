@@ -1301,6 +1301,8 @@ class SupportTicket(db.Model):
     ai_understanding = db.Column(db.Text, nullable=True)
     proposed_solution = db.Column(db.Text, nullable=True)
     execution_proof = db.Column(db.Text, nullable=True)
+    execution_attempts = db.Column(db.Integer, nullable=False, default=0)
+    execution_history = db.Column(db.Text, nullable=True)
     escalation_reason = db.Column(db.Text, nullable=True)
 
     user_approved_at = db.Column(db.DateTime, nullable=True)
@@ -1335,7 +1337,8 @@ class SupportTicket(db.Model):
     VALID_STATUSES = [
         'new', 'acknowledged', 'clarifying', 'solution_proposed',
         'awaiting_user_approval', 'awaiting_admin_approval',
-        'approved', 'executing', 'completed', 'on_hold', 'closed', 'escalated'
+        'approved', 'executing', 'retrying', 'execution_failed',
+        'completed', 'on_hold', 'closed', 'escalated'
     ]
 
     @staticmethod

@@ -1,8 +1,11 @@
 """
-Execution — Bullhorn API action execution, entity CRUD, note creation.
+Execution — Bullhorn API action execution, entity CRUD, note creation, retry logic.
 
 Contains:
-- _execute_solution: Top-level execution orchestrator
+- _execute_solution: Top-level execution orchestrator with retry loop
+- _has_actionable_failures: Distinguishes diagnostic vs actionable failures
+- _record_attempt_history: Tracks execution attempts in JSON history
+- _attempt_retry: Generates retry analysis and re-executes with new strategy
 - _execute_bullhorn_actions: Iterates execution steps with runtime context
 - _exec_update_entity_api: Raw Bullhorn entity update API call
 - _exec_update_entity: Update with before/after capture and verification
@@ -18,6 +21,9 @@ Contains:
 - _exec_add_association: To-many association add
 - _exec_remove_association: To-many association remove
 - _exec_add_to_tearsheet: Tearsheet add (job or candidate)
+- _exec_get_meta: Entity field metadata retrieval
+- _exec_get_options: Picklist/option values retrieval
+- _exec_get_settings: System settings retrieval
 - _exec_query_entity: BQL query
 - _exec_get_associations: To-many field read
 - _exec_get_files: File listing
@@ -44,6 +50,11 @@ class ExecutionMixin:
         'Candidate': 'General Notes',
         'ClientContact': 'General Notes',
         'Placement': 'General Notes',
+    }
+
+    DIAGNOSTIC_ACTIONS = {
+        'get_entity', 'search_entity', 'query_entity', 'get_associations',
+        'get_files', 'get_entity_meta', 'get_options', 'get_settings',
     }
 
     def _execute_solution(self, ticket) -> bool:
@@ -86,22 +97,42 @@ class ExecutionMixin:
         proof_summary = json.dumps(proof_items, indent=2)
         ticket.execution_proof = proof_summary
 
-        has_failures = any(
+        has_failures = self._has_actionable_failures(proof_items, execution_steps)
+
+        diagnostic_only = all(
+            step.get('action') in self.DIAGNOSTIC_ACTIONS
+            for step in execution_steps
+        ) if execution_steps else False
+
+        has_any_failure = any(
             'fail' in item.get('result', '').lower()
             for item in proof_items
         )
 
-        diagnostic_only = all(
-            step.get('action') in ('get_entity', 'search_entity', 'query_entity', 'get_associations', 'get_files')
-            for step in execution_steps
-        ) if execution_steps else False
-
         if has_failures:
+            ticket.execution_attempts = (ticket.execution_attempts or 0) + 1
+            self._record_attempt_history(ticket, proof_items)
+            db.session.commit()
+
+            max_retries = getattr(self, 'MAX_RETRY_ATTEMPTS', 2)
+            if ticket.execution_attempts < max_retries and requires_bullhorn and self.bullhorn_service:
+                logger.info(f"🔄 Ticket {ticket.ticket_number} attempt {ticket.execution_attempts}/{max_retries} failed — initiating retry analysis")
+                retry_result = self._attempt_retry(ticket, proof_items)
+                if retry_result is not None:
+                    return retry_result
+
             ticket.status = 'execution_failed'
             db.session.commit()
-            logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution had failures")
+            logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution failed after {ticket.execution_attempts} attempt(s)")
             return False
         elif diagnostic_only and execution_steps:
+            ticket.execution_attempts = (ticket.execution_attempts or 0) + 1
+            self._record_attempt_history(ticket, proof_items)
+            if has_any_failure:
+                ticket.status = 'execution_failed'
+                db.session.commit()
+                logger.warning(f"⚠️ Ticket {ticket.ticket_number} diagnostic steps failed — escalating")
+                return False
             ticket.status = 'completed'
             ticket.resolved_at = datetime.utcnow()
             resolution_type = solution_data.get('resolution_type', 'full')
@@ -112,12 +143,86 @@ class ExecutionMixin:
             logger.info(f"✅ Ticket {ticket.ticket_number} completed (diagnostic steps executed, resolution_type={resolution_type})")
             return True
         else:
+            ticket.execution_attempts = (ticket.execution_attempts or 0) + 1
+            self._record_attempt_history(ticket, proof_items)
             ticket.status = 'completed'
             ticket.resolved_at = datetime.utcnow()
             db.session.commit()
             self._send_completion_email(ticket, proof_items)
             logger.info(f"✅ Ticket {ticket.ticket_number} completed successfully")
             return True
+
+    def _has_actionable_failures(self, proof_items: list, execution_steps: list) -> bool:
+        for i, item in enumerate(proof_items):
+            if 'fail' not in item.get('result', '').lower():
+                continue
+            if i < len(execution_steps):
+                step_action = execution_steps[i].get('action', '')
+                if step_action in self.DIAGNOSTIC_ACTIONS:
+                    continue
+            return True
+        return False
+
+    def _record_attempt_history(self, ticket, proof_items: list):
+        try:
+            history = json.loads(ticket.execution_history) if ticket.execution_history else []
+        except (json.JSONDecodeError, TypeError):
+            history = []
+
+        history.append({
+            'attempt': ticket.execution_attempts,
+            'timestamp': datetime.utcnow().isoformat(),
+            'proof': proof_items,
+        })
+        ticket.execution_history = json.dumps(history)
+
+    def _attempt_retry(self, ticket, failed_proof: list):
+        from extensions import db
+
+        ticket.status = 'retrying'
+        db.session.commit()
+
+        logger.info(f"🔄 Generating retry analysis for {ticket.ticket_number} (attempt {ticket.execution_attempts + 1})")
+
+        retry_json = self._generate_retry_analysis(ticket, failed_proof, ticket.execution_attempts)
+        if not retry_json:
+            logger.warning(f"⚠️ Retry analysis returned nothing for {ticket.ticket_number}")
+            return None
+
+        try:
+            retry_data = json.loads(retry_json)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(f"⚠️ Retry analysis JSON parse failed for {ticket.ticket_number}")
+            return None
+
+        if not retry_data.get('can_retry', False):
+            reason = retry_data.get('cannot_retry_reason', 'AI determined this cannot be fixed via API')
+            logger.info(f"🚫 AI says no retry possible for {ticket.ticket_number}: {reason}")
+            return None
+
+        new_steps = retry_data.get('execution_steps', [])
+        if not new_steps:
+            logger.warning(f"⚠️ Retry analysis returned no execution steps for {ticket.ticket_number}")
+            return None
+
+        try:
+            solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
+        except (json.JSONDecodeError, TypeError):
+            solution_data = {}
+
+        solution_data['execution_steps'] = new_steps
+        solution_data['description_user'] = retry_data.get('proposed_solution_user', solution_data.get('description_user', ''))
+        solution_data['description_admin'] = retry_data.get('proposed_solution_admin', solution_data.get('description_admin', ''))
+        solution_data['resolution_type'] = retry_data.get('resolution_type', solution_data.get('resolution_type', 'partial'))
+        solution_data['underlying_concerns_user'] = retry_data.get('underlying_concerns_user', '') or solution_data.get('underlying_concerns_user', '')
+        solution_data['underlying_concerns_admin'] = retry_data.get('underlying_concerns_admin', '') or solution_data.get('underlying_concerns_admin', '')
+        solution_data['retry_strategy'] = retry_data.get('alternative_strategy', '')
+        ticket.proposed_solution = json.dumps(solution_data)
+        db.session.commit()
+
+        logger.info(f"🔄 Retrying execution for {ticket.ticket_number} with new strategy: {retry_data.get('alternative_strategy', '')[:200]}")
+
+        return self._execute_solution(ticket)
 
     def _execute_bullhorn_actions(self, ticket, solution_data: dict) -> List[Dict]:
         from extensions import db
@@ -244,6 +349,18 @@ class ExecutionMixin:
 
                 elif action_type == 'delete_file':
                     result = self._exec_delete_file(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'get_entity_meta':
+                    result = self._exec_get_meta(action, entity_type, step)
+                    proof_items.append(result)
+
+                elif action_type == 'get_options':
+                    result = self._exec_get_options(action, step)
+                    proof_items.append(result)
+
+                elif action_type == 'get_settings':
+                    result = self._exec_get_settings(action, step)
                     proof_items.append(result)
 
                 else:
@@ -756,3 +873,107 @@ class ExecutionMixin:
             action.success = False
             action.error_message = 'File deletion failed'
             return {'step': step.get('description', 'Delete file'), 'result': 'Failed — API error'}
+
+    def _exec_get_meta(self, action, entity_type: str, step: dict) -> Dict:
+        fields_filter = step.get('fields', None)
+        try:
+            meta = self.bullhorn_service.get_entity_meta(entity_type, fields=fields_filter)
+        except Exception as e:
+            action.success = False
+            action.error_message = f'Exception: {str(e)[:200]}'
+            return {'step': step.get('description', f'Get meta for {entity_type}'), 'result': f'Failed — {str(e)[:200]}'}
+        if meta is not None and isinstance(meta, dict):
+            field_list = meta.get('fields', []) or []
+            if not isinstance(field_list, list):
+                field_list = []
+            summary_fields = []
+            for f in field_list[:50]:
+                if not isinstance(f, dict):
+                    continue
+                f_info = {
+                    'name': f.get('name', ''),
+                    'label': f.get('label', ''),
+                    'type': f.get('type', ''),
+                    'required': f.get('required', False),
+                    'readOnly': f.get('readOnly', False),
+                    'hidden': f.get('hidden', False),
+                }
+                options = f.get('options')
+                if options and isinstance(options, list):
+                    f_info['options'] = options[:20]
+                summary_fields.append(f_info)
+            action.success = True
+            action.new_value = f"{len(field_list)} fields"
+            logger.info(f"✅ Got meta for {entity_type}: {len(field_list)} fields")
+            return {
+                'step': f"Retrieved field metadata for {entity_type}",
+                'field_count': len(field_list),
+                'fields': summary_fields,
+                'result': 'Success',
+                'data': {'fields': summary_fields, 'entity': meta.get('entity', entity_type)},
+            }
+        else:
+            action.success = False
+            action.error_message = f'Could not retrieve meta for {entity_type}'
+            return {'step': step.get('description', f'Get meta for {entity_type}'), 'result': 'Failed — API error'}
+
+    def _exec_get_options(self, action, step: dict) -> Dict:
+        option_type = step.get('option_type', '')
+        if not option_type:
+            action.success = False
+            action.error_message = 'Missing option_type'
+            return {'step': step.get('description', 'Get options'), 'result': 'Failed — no option_type specified'}
+
+        try:
+            options = self.bullhorn_service.get_options(option_type)
+        except Exception as e:
+            action.success = False
+            action.error_message = f'Exception: {str(e)[:200]}'
+            return {'step': step.get('description', f'Get options for {option_type}'), 'result': f'Failed — {str(e)[:200]}'}
+        if options is not None:
+            if not isinstance(options, list):
+                options = []
+            action.success = True
+            action.new_value = f"{len(options)} options"
+            logger.info(f"✅ Got options for {option_type}: {len(options)} values")
+            return {
+                'step': f"Retrieved options for {option_type}",
+                'option_count': len(options),
+                'options': options[:50],
+                'result': 'Success',
+                'data': {'option_type': option_type, 'options': options[:50]},
+            }
+        else:
+            action.success = False
+            action.error_message = f'Could not retrieve options for {option_type}'
+            return {'step': step.get('description', f'Get options for {option_type}'), 'result': 'Failed — API error'}
+
+    def _exec_get_settings(self, action, step: dict) -> Dict:
+        setting_key = step.get('setting_key', '')
+        if not setting_key:
+            action.success = False
+            action.error_message = 'Missing setting_key'
+            return {'step': step.get('description', 'Get settings'), 'result': 'Failed — no setting_key specified'}
+
+        try:
+            settings_data = self.bullhorn_service.get_settings(setting_key)
+        except Exception as e:
+            action.success = False
+            action.error_message = f'Exception: {str(e)[:200]}'
+            return {'step': step.get('description', f'Get setting {setting_key}'), 'result': f'Failed — {str(e)[:200]}'}
+        if settings_data is not None:
+            action.success = True
+            try:
+                action.new_value = json.dumps(settings_data)[:500] if settings_data else 'empty'
+            except (TypeError, ValueError):
+                action.new_value = str(settings_data)[:500]
+            logger.info(f"✅ Got setting {setting_key}")
+            return {
+                'step': f"Retrieved setting: {setting_key}",
+                'result': 'Success',
+                'data': settings_data,
+            }
+        else:
+            action.success = False
+            action.error_message = f'Could not retrieve setting {setting_key}'
+            return {'step': step.get('description', f'Get setting {setting_key}'), 'result': 'Failed — API error'}
