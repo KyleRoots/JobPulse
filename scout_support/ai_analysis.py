@@ -64,6 +64,18 @@ Ticket Details:
 User's Description:
 {ticket.description}{attachment_section}{knowledge_section}
 
+=== CLARIFICATION RULES ===
+Only ask clarification questions when you GENUINELY cannot proceed without the answer.
+- If the user's description + any screenshots give you enough context to understand the issue,
+  set clarification_needed=false and propose a solution immediately.
+- Limit clarification questions to a MAXIMUM of 3, and only ask what is truly essential.
+- Do NOT ask generic diagnostic questions like "can you reproduce in another browser?" or
+  "what time did this happen?" unless that specific information is critical to your resolution.
+- Prefer proposing a solution with underlying_concerns over asking clarification questions.
+  A partial fix + flagging a potential deeper issue is more helpful than interrogating the user.
+- If screenshots are attached, extract the information directly — do NOT ask the user to
+  describe what you can already see in the screenshot.
+
 Important: Determine not just whether you can fix this, but also whether there might be deeper
 underlying issues. Many ATS problems have both an immediate fix AND a root cause that may need
 the Bullhorn support team to investigate (e.g., workflow automations overriding manual changes,
@@ -73,7 +85,7 @@ Respond with a JSON object:
 {{
     "understanding": "A clear summary of what the user's issue is, written back to the user for confirmation. Use plain, non-technical language.",
     "clarification_needed": true/false,
-    "clarification_questions": ["question 1", "question 2"],
+    "clarification_questions": ["Only include truly essential questions, max 3. Empty array if clarification_needed is false."],
     "can_resolve_autonomously": true/false,
     "confidence_level": "high/medium/low",
     "resolution_type": "full/partial/escalate",
@@ -181,18 +193,31 @@ resolution_type guide:
         ).all()
 
         history = []
+        outbound_questions = []
         for conv in conversations:
             history.append(f"[{conv.direction.upper()}] {conv.sender_email}: {conv.body[:10000]}")
+            if conv.direction == 'outbound' and conv.email_type in ('clarification', 'acknowledgment'):
+                outbound_questions.append(conv.body[:5000])
+
+        previous_questions_section = ''
+        if outbound_questions:
+            previous_questions_section = f"""
+
+=== QUESTIONS YOU PREVIOUSLY ASKED (these must be mapped against the user's reply) ===
+{chr(10).join(f'--- Email {i+1} ---{chr(10)}{q}' for i, q in enumerate(outbound_questions))}
+=== END OF PREVIOUS QUESTIONS ==="""
 
         attachment_section = ''
         if attachment_content:
             attachment_section = f"""
 
-Attached Files in Latest Reply:
+=== ATTACHMENTS FROM LATEST REPLY ===
 {attachment_content}
 
-IMPORTANT: The user included attachments with their reply. Use the extracted content above as additional
-context. Screenshots may show error messages, field values, or Bullhorn screens that help diagnose the issue."""
+These attachments are ANSWERS to your questions. Screenshots show the actual Bullhorn screens,
+field values, error states, and configuration the user is seeing. Extract specific details from
+them: record IDs, field values, error messages, screen names, button states, dropdown selections.
+=== END OF ATTACHMENTS ==="""
 
         knowledge_section = ''
         try:
@@ -211,32 +236,55 @@ Category: {CATEGORY_LABELS.get(ticket.category, ticket.category)}
 
 Full conversation history (oldest first):
 {chr(10).join(history)}
+{previous_questions_section}
 
-Latest reply from user (may include quoted text with inline answers):
+Latest reply from user:
 {reply_body}{attachment_section}{knowledge_section}
 
 Current AI understanding: {ticket.ai_understanding or 'Not yet established'}
 
-Analyze whether you now fully understand the issue and can propose a solution.
+=== MANDATORY ANALYSIS STEPS ===
+STEP 1 — ANSWER EXTRACTION: Before doing ANYTHING else, go through EACH question you previously
+asked and identify the user's answer from their reply text AND from the attachment descriptions.
+Users answer questions in different ways:
+  - Direct text answers in the reply body
+  - Inline answers inserted below quoted questions
+  - Screenshots that visually demonstrate the answer (e.g., showing the field value, the error, the screen)
+  - Providing context that implicitly answers the question
 
-CRITICAL — Do NOT re-ask questions the user has already answered:
-- Read the FULL conversation history carefully, including quoted text and inline replies.
-- Users often reply by inserting answers directly below each question in the quoted email.
-- If the user has answered a question (even partially), acknowledge that answer and do NOT ask it again.
-- Only ask NEW clarification questions about genuinely missing information.
+STEP 2 — GAP ANALYSIS: After extracting all answers, identify what is GENUINELY still unknown.
+A question is answered if the user provided ANY relevant information about it, even indirectly
+through screenshots or contextual description. Do NOT re-ask a question just because the answer
+wasn't in the exact format you expected.
+
+STEP 3 — DECISION: If you have enough information to understand the issue and propose a solution
+(even a partial one), set fully_understood=true and propose the solution. Prefer proposing a
+solution with underlying_concerns over asking another round of questions. Only set
+fully_understood=false if critical information is genuinely missing and you cannot even propose
+a partial solution.
+
+CRITICAL RULES:
+- NEVER repeat a question the user has already addressed in any form (text, screenshot, or context).
+- If screenshots show the exact screen/field/error you asked about, that IS the answer.
+- When in doubt, propose a solution rather than asking more questions. Users lose trust when
+  AI keeps asking instead of acting.
+- If you must ask follow-up questions, they must be NEW and specific — not rephrased versions
+  of previous questions.
 
 Important: Consider whether there might be deeper underlying issues beyond the immediate fix.
-Many ATS problems have both an immediate resolution AND a root cause that may need the
-Bullhorn support team to investigate (workflow automations, field validation rules, permission
-configurations, data sync issues, etc.).
 
 Respond with JSON:
 {{
+    "answers_extracted": {{
+        "question_1_summary": "answer found (or 'NOT ANSWERED' if genuinely unanswered)",
+        "question_2_summary": "answer found (or 'NOT ANSWERED' if genuinely unanswered)"
+    }},
+    "genuinely_unanswered": ["List ONLY questions that have NO answer anywhere in the reply, screenshots, or context. Empty array if all questions are addressed."],
     "fully_understood": true/false,
-    "updated_understanding": "Your current understanding of the full issue",
+    "updated_understanding": "Your current understanding of the full issue, incorporating ALL answers extracted above",
     "proposed_solution_user": "If fully understood, describe the fix in simple, plain language for the user. Example: 'I will update the candidate status to New Lead and monitor it to make sure it stays.' Do NOT mention APIs, endpoints, entity IDs, or technical implementation details. Empty string if not fully understood.",
     "proposed_solution_admin": "If fully understood, describe the full technical fix for the administrator. Include API endpoints, entity types, entity IDs, field names, values, and verification steps. Empty string if not fully understood.",
-    "follow_up": "If not fully understood, your next clarification question to the user",
+    "follow_up": "If not fully understood, ask ONLY about items listed in genuinely_unanswered. NEVER repeat a question already covered by answers_extracted.",
     "can_execute": true/false,
     "execution_steps": [],
     "resolution_type": "full/partial/escalate",
@@ -309,7 +357,19 @@ resolution_type guide:
                     if attempt == 0:
                         continue
                     return None
-                return content.strip()
+                result = content.strip()
+                try:
+                    parsed_log = json.loads(result)
+                    answers = parsed_log.get('answers_extracted', {})
+                    unanswered = parsed_log.get('genuinely_unanswered', [])
+                    understood = parsed_log.get('fully_understood', False)
+                    logger.info(f"🧠 Clarification analysis for {ticket.ticket_number}: fully_understood={understood}, answers_extracted={len(answers)} items, genuinely_unanswered={unanswered}")
+                    if answers:
+                        for q_key, a_val in answers.items():
+                            logger.info(f"   📋 {q_key}: {str(a_val)[:200]}")
+                except Exception:
+                    pass
+                return result
             except Exception as e:
                 logger.error(f"Clarification analysis failed (attempt {attempt+1}/2): {e}")
                 if attempt == 0:
