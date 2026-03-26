@@ -100,6 +100,31 @@ Respond with a JSON object:
     "escalation_reason": "If confidence_level is low or can_resolve_autonomously is false, explain why this should be escalated to a human"
 }}
 
+=== EXECUTION STEPS — MANDATORY ===
+You MUST populate execution_steps for ANY ticket where requires_bullhorn_api is true. An empty
+execution_steps array is NOT acceptable when you are proposing a solution. Follow this priority:
+
+PRIORITY 1 — INVESTIGATE FIRST: Always start with diagnostic steps to gather data before making
+changes. Use get_entity, search_entity, query_entity, or get_associations to examine the current
+state of the affected records. This gives the system hard evidence about what's wrong.
+
+PRIORITY 2 — FIX IT: If the investigation reveals something fixable via API (wrong field value,
+missing association, incorrect status, etc.), include the update/create/delete steps to fix it.
+
+PRIORITY 3 — VERIFY: After fix steps, include a verification get_entity or search_entity to
+confirm the change took effect.
+
+Even if you believe the root cause is a Bullhorn admin configuration issue (field interactions,
+validation rules, action type settings), you MUST still include diagnostic steps to investigate
+and document the current state. The system will attempt your steps, and if the fix portion fails,
+it will escalate to the administrator WITH the diagnostic results as evidence.
+
+Example for a Note Action issue: search for the action type values, check the entity configuration,
+try to create a test note with that action type to see what happens, then report findings.
+
+NEVER leave execution_steps empty when proposing a solution. The system executes these steps
+automatically after user approval — empty steps means the user gets told "nothing was done."
+
 execution_steps format — populate this array with the specific Bullhorn API actions to execute.
 Supported actions:
 1. update_entity — Update any field on any Bullhorn entity:
@@ -291,6 +316,28 @@ Respond with JSON:
     "underlying_concerns_user": "If there might be deeper issues, explain in simple terms for the user. Empty string if no concerns.",
     "underlying_concerns_admin": "Technical details of underlying concerns for the administrator. Empty string if no concerns."
 }}
+
+=== EXECUTION STEPS — MANDATORY ===
+You MUST populate execution_steps when fully_understood is true. An empty execution_steps array
+is NOT acceptable when you are proposing a solution. Follow this priority:
+
+PRIORITY 1 — INVESTIGATE FIRST: Always start with diagnostic steps to gather data before making
+changes. Use get_entity, search_entity, query_entity, or get_associations to examine the current
+state of the affected records. This gives the system hard evidence about what's wrong.
+
+PRIORITY 2 — FIX IT: If the investigation reveals something fixable via API (wrong field value,
+missing association, incorrect status, etc.), include the update/create/delete steps to fix it.
+
+PRIORITY 3 — VERIFY: After fix steps, include a verification get_entity or search_entity to
+confirm the change took effect.
+
+Even if you believe the root cause is a Bullhorn admin configuration issue (field interactions,
+validation rules, action type settings), you MUST still include diagnostic steps to investigate
+and document the current state. The system will attempt your steps, and if the fix portion fails,
+it will escalate to the administrator WITH the diagnostic results as evidence.
+
+NEVER leave execution_steps empty when proposing a solution. The system executes these steps
+automatically after user approval — empty steps means the user gets told "nothing was done."
 
 execution_steps format — populate this array with the specific Bullhorn API actions to execute.
 Supported actions:

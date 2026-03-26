@@ -76,10 +76,10 @@ class ExecutionMixin:
             if self.bullhorn_service and execution_steps:
                 proof_items = self._execute_bullhorn_actions(ticket, solution_data)
             else:
-                proof_items = [{'step': 'Bullhorn execution failed', 'result': 'Could not connect to Bullhorn — manual resolution required'}]
+                proof_items = [{'step': 'Bullhorn connection failed', 'result': 'Failed: Could not connect to Bullhorn — manual resolution required'}]
         elif requires_bullhorn and not execution_steps:
             logger.warning(f"Ticket {ticket.ticket_number} requires Bullhorn but no execution steps defined")
-            proof_items = [{'step': 'No execution steps defined', 'result': 'Manual resolution required — AI did not generate actionable steps'}]
+            proof_items = [{'step': 'No execution steps defined', 'result': 'Failed: AI did not generate actionable steps — manual resolution required'}]
         else:
             proof_items = [{'step': 'Manual guidance provided', 'result': 'User-side resolution'}]
 
@@ -91,12 +91,26 @@ class ExecutionMixin:
             for item in proof_items
         )
 
+        diagnostic_only = all(
+            step.get('action') in ('get_entity', 'search_entity', 'query_entity', 'get_associations', 'get_files')
+            for step in execution_steps
+        ) if execution_steps else False
+
         if has_failures:
             ticket.status = 'execution_failed'
             db.session.commit()
-            self._send_execution_failure_email(ticket, proof_items)
-            logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution had failures — admin notified, user not contacted")
+            logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution had failures")
             return False
+        elif diagnostic_only and execution_steps:
+            ticket.status = 'completed'
+            ticket.resolved_at = datetime.utcnow()
+            resolution_type = solution_data.get('resolution_type', 'full')
+            if resolution_type == 'partial':
+                ticket.status = 'completed'
+            db.session.commit()
+            self._send_completion_email(ticket, proof_items)
+            logger.info(f"✅ Ticket {ticket.ticket_number} completed (diagnostic steps executed, resolution_type={resolution_type})")
+            return True
         else:
             ticket.status = 'completed'
             ticket.resolved_at = datetime.utcnow()

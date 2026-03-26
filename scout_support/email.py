@@ -274,7 +274,7 @@ class EmailMixin:
             email_type='user_confirmation',
         )
 
-    def _send_admin_approval_request(self, ticket):
+    def _send_admin_approval_request(self, ticket, execution_complete=False, execution_failed=False, failure_summary='', needs_manual=False):
         from scout_support_service import CATEGORY_LABELS
 
         try:
@@ -290,48 +290,149 @@ class EmailMixin:
         resolution_type = solution.get('resolution_type', 'full')
         concerns_admin = solution.get('underlying_concerns_admin', '') or solution.get('underlying_concerns', '')
 
-        body_parts = [
-            f"Hi,",
-            f"",
-            f"A support ticket requires your approval before Scout Support can execute the fix.",
-            f"",
-            f"**Ticket:** {ticket.ticket_number}",
-            f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}",
-            f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})",
-            f"**Priority:** {ticket.priority.upper()}",
-            f"**Resolution Type:** {resolution_type.upper()}",
-            f"",
-            f"**Issue Summary:**",
-            f"{understanding.get('understanding', ticket.description)}",
-            f"",
-            f"**Proposed Solution (Technical):**",
-            f"{solution.get('description_admin', '') or solution.get('description', 'N/A')}",
-        ]
+        if execution_complete:
+            try:
+                proof_items = json.loads(ticket.execution_proof) if ticket.execution_proof else []
+            except (json.JSONDecodeError, TypeError):
+                proof_items = []
+            proof_lines = []
+            for item in (proof_items if isinstance(proof_items, list) else []):
+                proof_lines.append(f"• {item.get('step', 'Step')}: {item.get('result', 'Done')}")
+            proof_text = "\n".join(proof_lines) if proof_lines else "Execution completed."
 
-        if concerns_admin:
+            body_parts = [
+                f"Hi,",
+                f"",
+                f"Scout Support has **automatically executed** the fix for ticket **{ticket.ticket_number}** after user approval.",
+                f"",
+                f"**Ticket:** {ticket.ticket_number}",
+                f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}",
+                f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})",
+                f"**Status:** Completed ✅",
+                f"",
+                f"**Execution Results:**",
+                f"{proof_text}",
+            ]
+            if concerns_admin:
+                body_parts.extend([
+                    f"",
+                    f"**⚠️ Underlying Concerns:**",
+                    f"{concerns_admin}",
+                ])
             body_parts.extend([
                 f"",
-                f"**⚠️ Underlying Concerns (Partial Resolution):**",
-                f"{concerns_admin}",
+                f"The user has been notified of the successful resolution. No action required unless you want to investigate the underlying concerns.",
                 f"",
-                f"Scout Support can execute the immediate fix, but the concern above may require further investigation by your team or Bullhorn Support.",
+                f"— Scout Support",
             ])
+            subject = f"[{ticket.ticket_number}] Executed ✅ (Advisory Included)" if concerns_admin else f"[{ticket.ticket_number}] Executed ✅"
 
-        body_parts.extend([
-            f"",
-            f"**User has approved this solution.**",
-            f"",
-            f"Please reply with one of:",
-            f"- **\"Approved\"** — Scout Support will execute the fix",
-            f"- **\"Hold\"** — Place this ticket on hold",
-            f"- **\"Close\"** — Close this ticket without action",
-            f"",
-            f"— Scout Support",
-        ])
+        elif execution_failed:
+            body_parts = [
+                f"Hi,",
+                f"",
+                f"Scout Support **attempted** to execute the fix for ticket **{ticket.ticket_number}** but encountered issues.",
+                f"",
+                f"**Ticket:** {ticket.ticket_number}",
+                f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}",
+                f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})",
+                f"**Status:** Execution Failed — Needs Manual Resolution",
+                f"",
+                f"**What was attempted:**",
+                f"{solution.get('description_admin', '') or solution.get('description', 'N/A')}",
+                f"",
+                f"**Execution Results:**",
+                f"{failure_summary}",
+                f"",
+                f"The user has been notified that the issue was escalated to you.",
+                f"",
+                f"Please reply with one of:",
+                f"- **\"Approved\"** — Retry the automated execution",
+                f"- **\"Hold\"** — Place this ticket on hold",
+                f"- **\"Close\"** — Close this ticket with a manual resolution note",
+                f"",
+                f"— Scout Support",
+            ]
+            subject = f"[{ticket.ticket_number}] Execution Failed — Manual Resolution Needed"
+
+        elif needs_manual:
+            body_parts = [
+                f"Hi,",
+                f"",
+                f"A support ticket requires **manual intervention** — the issue could not be resolved through automated API actions.",
+                f"",
+                f"**Ticket:** {ticket.ticket_number}",
+                f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}",
+                f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})",
+                f"**Priority:** {ticket.priority.upper()}",
+                f"",
+                f"**Issue Summary:**",
+                f"{understanding.get('understanding', ticket.description)}",
+                f"",
+                f"**Proposed Solution (Technical):**",
+                f"{solution.get('description_admin', '') or solution.get('description', 'N/A')}",
+            ]
+            if concerns_admin:
+                body_parts.extend([
+                    f"",
+                    f"**⚠️ Underlying Concerns:**",
+                    f"{concerns_admin}",
+                ])
+            body_parts.extend([
+                f"",
+                f"**User has approved the proposed solution.** This requires manual Bullhorn admin action (not available via API).",
+                f"",
+                f"Please reply with one of:",
+                f"- **\"Approved\"** — Confirm you've manually applied the fix (will notify the user)",
+                f"- **\"Hold\"** — Place this ticket on hold",
+                f"- **\"Close\"** — Close this ticket without action",
+                f"",
+                f"— Scout Support",
+            ])
+            subject = f"[{ticket.ticket_number}] Manual Resolution Required"
+
+        else:
+            body_parts = [
+                f"Hi,",
+                f"",
+                f"A support ticket requires your approval before Scout Support can execute the fix.",
+                f"",
+                f"**Ticket:** {ticket.ticket_number}",
+                f"**Category:** {CATEGORY_LABELS.get(ticket.category, ticket.category)}",
+                f"**Submitted by:** {ticket.submitter_name} ({ticket.submitter_email})",
+                f"**Priority:** {ticket.priority.upper()}",
+                f"**Resolution Type:** {resolution_type.upper()}",
+                f"",
+                f"**Issue Summary:**",
+                f"{understanding.get('understanding', ticket.description)}",
+                f"",
+                f"**Proposed Solution (Technical):**",
+                f"{solution.get('description_admin', '') or solution.get('description', 'N/A')}",
+            ]
+            if concerns_admin:
+                body_parts.extend([
+                    f"",
+                    f"**⚠️ Underlying Concerns (Partial Resolution):**",
+                    f"{concerns_admin}",
+                    f"",
+                    f"Scout Support can execute the immediate fix, but the concern above may require further investigation by your team or Bullhorn Support.",
+                ])
+            body_parts.extend([
+                f"",
+                f"**User has approved this solution.**",
+                f"",
+                f"Please reply with one of:",
+                f"- **\"Approved\"** — Scout Support will execute the fix",
+                f"- **\"Hold\"** — Place this ticket on hold",
+                f"- **\"Close\"** — Close this ticket without action",
+                f"",
+                f"— Scout Support",
+            ])
+            subject = f"[{ticket.ticket_number}] Admin Approval Required"
 
         self._send_email(
             to_email=ticket.admin_email,
-            subject=f"[{ticket.ticket_number}] Admin Approval Required",
+            subject=subject,
             body="\n".join(body_parts),
             ticket=ticket,
             email_type='admin_approval_request',

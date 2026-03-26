@@ -385,12 +385,60 @@ Respond with a JSON object:
         approval = self._classify_user_response(reply_body)
 
         if approval == 'approved':
-            ticket.status = 'awaiting_admin_approval'
             ticket.user_approved_at = datetime.utcnow()
+            ticket.status = 'approved'
             db.session.commit()
-            self._send_admin_approval_request(ticket)
-            self._send_user_confirmation_email(ticket, 'Your approval has been received. The proposed solution has been forwarded to the administrator for final authorization.')
-            logger.info(f"👤 User approved ticket {ticket.ticket_number}, forwarding to admin")
+            logger.info(f"👤 User approved ticket {ticket.ticket_number} — attempting execution")
+
+            try:
+                solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
+            except (json.JSONDecodeError, TypeError):
+                solution_data = {}
+
+            execution_steps = solution_data.get('execution_steps', [])
+
+            if execution_steps:
+                self._send_user_confirmation_email(
+                    ticket,
+                    'Your approval has been received. I am now executing the proposed fix — you will receive a confirmation once it is complete.'
+                )
+
+                success = self._execute_solution(ticket)
+
+                if success:
+                    logger.info(f"✅ Ticket {ticket.ticket_number} executed successfully after user approval")
+                    self._send_admin_approval_request(ticket, execution_complete=True)
+                else:
+                    logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution failed — escalating to admin")
+                    ticket.status = 'awaiting_admin_approval'
+                    db.session.commit()
+
+                    try:
+                        proof_items = json.loads(ticket.execution_proof) if ticket.execution_proof else []
+                    except (json.JSONDecodeError, TypeError):
+                        proof_items = []
+                    proof_summary = '; '.join(
+                        f"{p.get('step', 'Step')}: {p.get('result', 'Unknown')}" for p in proof_items[:5]
+                    ) if proof_items else 'No details available'
+
+                    self._send_user_confirmation_email(
+                        ticket,
+                        f'I attempted the proposed fix but some steps could not be completed automatically. '
+                        f'The issue has been escalated to the administrator for manual resolution. '
+                        f'You will be notified once the fix is finalized.'
+                    )
+                    self._send_admin_approval_request(ticket, execution_failed=True, failure_summary=proof_summary)
+            else:
+                ticket.status = 'awaiting_admin_approval'
+                db.session.commit()
+                self._send_user_confirmation_email(
+                    ticket,
+                    'Your approval has been received. This issue requires manual intervention by the administrator. '
+                    'You will receive a confirmation once the fix has been applied.'
+                )
+                self._send_admin_approval_request(ticket, needs_manual=True)
+                logger.info(f"👤 Ticket {ticket.ticket_number} has no execution steps — forwarded to admin for manual resolution")
+
             return True
         elif approval == 'needs_changes':
             ticket.status = 'clarifying'
