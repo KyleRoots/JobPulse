@@ -233,6 +233,19 @@ class ScoutSupportService(
         concerns_user = parsed.get('underlying_concerns_user', '') or parsed.get('underlying_concerns', '')
         concerns_admin = parsed.get('underlying_concerns_admin', '') or parsed.get('underlying_concerns', '')
 
+        proposed_user = parsed.get('proposed_solution_user', '') or parsed.get('proposed_solution', '')
+        proposed_admin = parsed.get('proposed_solution_admin', '') or parsed.get('proposed_solution', '')
+        execution_steps = parsed.get('execution_steps', []) or []
+
+        has_actionable_solution = bool(proposed_user and execution_steps)
+        if has_actionable_solution and has_clarification:
+            logger.info(f"🔧 Ticket {ticket.ticket_number}: AI asked for clarification but provided a solution with {len(execution_steps)} execution steps — overriding to propose solution directly")
+            has_clarification = False
+            parsed['clarification_needed'] = False
+            can_resolve = True
+            parsed['can_resolve_autonomously'] = True
+            understanding = json.dumps(parsed)
+
         if resolution_type == 'escalate' or (confidence == 'low' and not has_clarification):
             ticket.ai_understanding = understanding
             ticket.status = 'escalated'
@@ -243,9 +256,6 @@ class ScoutSupportService(
             self._escalate_to_admin(ticket, reason=escalation_reason, understanding=parsed.get('understanding', ''))
             logger.info(f"⚠️ Ticket {ticket.ticket_number} escalated — AI confidence: {confidence}, resolution_type: {resolution_type}")
             return True
-
-        proposed_user = parsed.get('proposed_solution_user', '') or parsed.get('proposed_solution', '')
-        proposed_admin = parsed.get('proposed_solution_admin', '') or parsed.get('proposed_solution', '')
 
         if confidence in ('high', 'medium') and can_resolve and not has_clarification and proposed_user:
             ticket.ai_understanding = understanding
