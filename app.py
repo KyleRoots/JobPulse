@@ -1412,8 +1412,11 @@ if is_primary_worker:
                 from duplicate_merge_service import DuplicateMergeService
                 svc = DuplicateMergeService()
                 stats = svc.run_scheduled_check()
-                if stats['merged'] > 0:
-                    app.logger.info(f"🔀 Scheduled dedup: merged {stats['merged']} duplicate(s)")
+                app.logger.info(
+                    f"🔀 Scheduled dedup: checked={stats.get('candidates_checked', 0)}, "
+                    f"merged={stats.get('merged', 0)}, skipped={stats.get('skipped', 0)}, "
+                    f"errors={stats.get('errors', 0)}"
+                )
         except Exception as e:
             app.logger.error(f"Scheduled duplicate merge check error: {e}")
 
