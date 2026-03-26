@@ -1412,11 +1412,52 @@ if is_primary_worker:
                 from duplicate_merge_service import DuplicateMergeService
                 svc = DuplicateMergeService()
                 stats = svc.run_scheduled_check()
+                checked = stats.get('candidates_checked', 0)
+                merged = stats.get('merged', 0)
+                skipped = stats.get('skipped_below_threshold', stats.get('skipped', 0))
+                errors = stats.get('errors', 0)
                 app.logger.info(
-                    f"🔀 Scheduled dedup: checked={stats.get('candidates_checked', 0)}, "
-                    f"merged={stats.get('merged', 0)}, skipped={stats.get('skipped', 0)}, "
-                    f"errors={stats.get('errors', 0)}"
+                    f"🔀 Scheduled dedup: checked={checked}, "
+                    f"merged={merged}, skipped={skipped}, errors={errors}"
                 )
+
+                try:
+                    from models import AutomationTask, AutomationLog
+                    from extensions import db
+                    from datetime import datetime
+                    import json as _json
+
+                    task = AutomationTask.query.filter(
+                        AutomationTask.config_json.contains('duplicate_merge_scan')
+                    ).first()
+                    if task:
+                        if merged > 0:
+                            summary = f"Checked {checked} candidate(s) — {merged} merged, {skipped} skipped"
+                        else:
+                            summary = f"Checked {checked} candidate(s) — no duplicates found"
+                        if errors > 0:
+                            summary += f", {errors} error(s)"
+
+                        log = AutomationLog(
+                            automation_task_id=task.id,
+                            status='success' if errors == 0 else 'warning',
+                            message='Duplicate Merge Check (Scheduled)',
+                            details_json=_json.dumps({
+                                'source': 'scheduled',
+                                'candidates_checked': checked,
+                                'merged': merged,
+                                'skipped': skipped,
+                                'errors': errors,
+                                'summary': summary,
+                            })
+                        )
+                        db.session.add(log)
+                        task.last_run_at = datetime.utcnow()
+                        task.run_count = (task.run_count or 0) + 1
+                        db.session.commit()
+                except Exception as log_err:
+                    app.logger.warning(f"⚠️ Dedup check: could not write run history: {log_err}")
+
         except Exception as e:
             app.logger.error(f"Scheduled duplicate merge check error: {e}")
 
