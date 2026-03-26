@@ -115,7 +115,7 @@ class ExecutionMixin:
             db.session.commit()
 
             max_retries = getattr(self, 'MAX_RETRY_ATTEMPTS', 2)
-            if ticket.execution_attempts < max_retries and requires_bullhorn and self.bullhorn_service:
+            if ticket.execution_attempts <= max_retries and requires_bullhorn and self.bullhorn_service:
                 logger.info(f"🔄 Ticket {ticket.ticket_number} attempt {ticket.execution_attempts}/{max_retries} failed — initiating retry analysis")
                 retry_result = self._attempt_retry(ticket, proof_items)
                 if retry_result is not None:
@@ -181,6 +181,13 @@ class ExecutionMixin:
 
         ticket.status = 'retrying'
         db.session.commit()
+
+        self._send_user_confirmation_email(
+            ticket,
+            f'The initial approach did not fully resolve the issue. '
+            f'I am now trying an alternative approach (retry {ticket.execution_attempts} of {getattr(self, "MAX_RETRY_ATTEMPTS", 2)}) '
+            f'— you will be notified once this is complete.'
+        )
 
         logger.info(f"🔄 Generating retry analysis for {ticket.ticket_number} (attempt {ticket.execution_attempts + 1})")
 
