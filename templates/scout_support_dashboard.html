@@ -108,7 +108,7 @@
                             <td style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'"><span class="badge font-monospace" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;">{{ ticket.ticket_number }}</span></td>
                             <td style="cursor:pointer;" onclick="window.location='{{ url_for('scout_support.ticket_detail', ticket_number=ticket.ticket_number) }}'">{{ ticket.subject[:60] }}{% if ticket.subject|length > 60 %}...{% endif %}</td>
                             <td>
-                                {% if ticket.category == 'ats_issue' %}<span class="badge bg-primary bg-opacity-25 text-primary">ATS Issue</span>
+                                {% if ticket.category == 'ats_issue' %}<span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd;">ATS Issue</span>
                                 {% elif ticket.category == 'data_correction' %}<span class="badge bg-warning bg-opacity-25 text-warning">Data Correction</span>
                                 {% elif ticket.category == 'platform_bug' %}<span class="badge" style="background: rgba(220, 53, 69, 0.15); color: #f87171;">Platform Bug</span>
                                 {% elif ticket.category == 'platform_feature' %}<span class="badge" style="background: rgba(74, 150, 120, 0.2); color: #6ec9a5;">Platform Feature</span>

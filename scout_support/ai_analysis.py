@@ -517,7 +517,7 @@ resolution_type guide:
                             ],
                         }
                     ],
-                    max_completion_tokens=1024,
+                    max_completion_tokens=4096,
                 )
                 content = None
                 if response.choices and response.choices[0].message:
