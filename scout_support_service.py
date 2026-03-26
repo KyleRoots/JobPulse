@@ -282,12 +282,43 @@ class ScoutSupportService(
         )
 
         if needs_clarification_first:
-            parsed['clarification_needed'] = True
-            if not parsed.get('clarification_questions'):
-                parsed['clarification_questions'] = [
-                    'Could you provide any additional details or context about this issue?'
-                ]
-            understanding = json.dumps(parsed)
+            clarification_questions = parsed.get('clarification_questions') or []
+            specific_questions = [q for q in clarification_questions if q and len(q) > 10 and 'additional details' not in q.lower() and 'more detail' not in q.lower() and 'anything else' not in q.lower() and 'more context' not in q.lower()]
+
+            if not specific_questions and proposed_user:
+                logger.info(f"🔧 Ticket {ticket.ticket_number}: No specific clarification questions available but solution exists — proposing solution instead of asking generic questions")
+                parsed['clarification_needed'] = False
+                parsed['can_resolve_autonomously'] = True
+                understanding = json.dumps(parsed)
+                ticket.ai_understanding = understanding
+                ticket.proposed_solution = json.dumps({
+                    'description_user': proposed_user,
+                    'description_admin': proposed_admin,
+                    'can_execute': True,
+                    'requires_bullhorn': parsed.get('requires_bullhorn_api', False),
+                    'affected_entities': parsed.get('affected_entities', []) or [],
+                    'execution_steps': execution_steps,
+                    'resolution_type': resolution_type,
+                    'underlying_concerns_user': concerns_user,
+                    'underlying_concerns_admin': concerns_admin,
+                })
+                ticket.status = 'awaiting_user_approval'
+                db.session.commit()
+                self._send_solution_proposal_email(ticket, proposed_user, underlying_concerns=concerns_user, attachment_ack=attachment_ack)
+                logger.info(f"✅ Ticket {ticket.ticket_number} — override to solution proposal (had generic clarification questions)")
+                return True
+            elif not specific_questions:
+                logger.info(f"🔧 Ticket {ticket.ticket_number}: No specific clarification questions and no solution — escalating to admin")
+                ticket.ai_understanding = json.dumps(parsed)
+                ticket.status = 'escalated'
+                ticket.escalation_reason = 'AI could not determine specific questions to ask or propose a solution.'
+                db.session.commit()
+                self._escalate_to_admin(ticket, reason=ticket.escalation_reason, understanding=parsed.get('understanding', ''))
+                return True
+            else:
+                parsed['clarification_needed'] = True
+                parsed['clarification_questions'] = specific_questions
+                understanding = json.dumps(parsed)
 
         ticket.ai_understanding = understanding
         ticket.status = 'acknowledged'

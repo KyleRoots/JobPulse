@@ -68,7 +68,16 @@ User's Description:
 Only ask clarification questions when you GENUINELY cannot proceed without the answer.
 - If the user's description + any screenshots give you enough context to understand the issue,
   set clarification_needed=false and propose a solution immediately.
+- CRITICAL: If you have enough information to populate proposed_solution_user AND execution_steps,
+  you MUST set clarification_needed=false. Having a solution ready means you do NOT need more info.
 - Limit clarification questions to a MAXIMUM of 3, and only ask what is truly essential.
+- Every clarification question MUST be specific and actionable. Examples of GOOD questions:
+  "Which candidate record is affected? Please share the candidate ID or name."
+  "Is this happening on a specific job order, or across all job orders?"
+  Examples of BAD questions (NEVER ask these):
+  "Could you provide any additional details or context about this issue?"
+  "Can you describe the problem in more detail?"
+  "Is there anything else you'd like to add?"
 - Do NOT ask generic diagnostic questions like "can you reproduce in another browser?" or
   "what time did this happen?" unless that specific information is critical to your resolution.
 - Prefer proposing a solution with underlying_concerns over asking clarification questions.
