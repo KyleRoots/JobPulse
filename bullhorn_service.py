@@ -2162,6 +2162,39 @@ class BullhornService:
             logging.error(f"Error searching {entity_type}: {e}")
             return []
 
+    def query_entity(self, entity_type: str, where: str, fields: str = 'id', count: int = 50) -> List[Dict]:
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+
+        try:
+            url = f"{self.base_url}query/{entity_type}"
+            params = {
+                'where': where,
+                'fields': fields,
+                'count': count,
+                'BhRestToken': self.rest_token,
+            }
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 401:
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
+                else:
+                    return []
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('data', [])
+            else:
+                logging.error(f"Query {entity_type} failed: {response.status_code}")
+                return []
+        except Exception as e:
+            logging.error(f"Error querying {entity_type}: {e}")
+            return []
+
     def delete_entity(self, entity_type: str, entity_id: int, soft_delete: bool = True) -> bool:
         if entity_type not in self.SUPPORTED_ENTITY_TYPES:
             logging.error(f"Unsupported entity type for delete: {entity_type}")
