@@ -7,7 +7,7 @@ from extensions import db
 
 logger = logging.getLogger(__name__)
 
-CONFIDENCE_THRESHOLD = 0.85
+CONFIDENCE_THRESHOLD = 0.80
 BATCH_SIZE = 200
 RECENT_WINDOW_HOURS = 2
 
