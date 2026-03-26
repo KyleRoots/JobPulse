@@ -118,8 +118,8 @@ Respond in JSON format:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.0,  # Maximum determinism for arithmetic
-                max_tokens=800
+                temperature=0.0,
+                max_completion_tokens=800
             )
             
             recheck = json.loads(response.choices[0].message.content)
@@ -232,8 +232,7 @@ Format as a bullet-point list. Be specific and concise."""
                     {"role": "system", "content": "You are a technical recruiter extracting ONLY explicitly stated mandatory requirements from job descriptions. You must NEVER infer, fabricate, or add requirements that are not directly written in the job description. If the job description does not mention a specific number of years, do NOT add one. Be concise and specific."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.1,
-                max_tokens=500
+                max_completion_tokens=500
             )
             
             requirements = response.choices[0].message.content.strip()
@@ -829,8 +828,7 @@ CRITICAL SCORING RULES:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.1,  # Lower temperature for more deterministic/accurate responses
-                max_tokens=2500  # Increased to accommodate requirement_evidence + work_authorization_analysis in response
+                max_completion_tokens=2500
             )
 
             # ── Prompt cache hit logging ──

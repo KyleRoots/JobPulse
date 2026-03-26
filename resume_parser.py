@@ -233,8 +233,7 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                     {"role": "system", "content": "You are a resume formatting expert. Your job is to convert raw, unstructured resume text into clean, readable HTML while preserving all original content exactly."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.2,
-                max_tokens=8000,
+                max_completion_tokens=8000,
                 timeout=45.0
             )
             

@@ -400,8 +400,7 @@ Resume text:
                     {"role": "system", "content": "You are an expert resume parser. Extract structured data accurately. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.1,
-                max_tokens=4000
+                max_completion_tokens=4000
             )
             
             content = response.choices[0].message.content.strip()
@@ -547,7 +546,6 @@ Return only a number between 0.0 and 1.0 representing the probability these are 
 Consider: name spelling variations, nicknames, contact info matches.
 """
 
-            # gpt-4.1-mini: cost-optimized for simple deduplication confidence scoring
             response = self.openai_client.chat.completions.create(
                 model="gpt-4.1-mini",
                 messages=[
@@ -555,7 +553,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.0,
-                max_tokens=10
+                max_completion_tokens=10
             )
             
             confidence = float(response.choices[0].message.content.strip())

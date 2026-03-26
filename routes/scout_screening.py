@@ -347,8 +347,7 @@ def optimize_job_requirements(job_id):
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': f'Optimize the following custom screening requirements:\n\n{raw}'}
             ],
-            max_tokens=600,
-            temperature=0.3
+            max_completion_tokens=600
         )
 
         optimized = response.choices[0].message.content.strip()
