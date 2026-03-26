@@ -1367,6 +1367,13 @@ class BullhornService:
                 logging.info(f"🔍 Candidate search (attempt {attempt+1}/2): query={query}")
                 response = self.session.get(url, params=params, timeout=30)
                 
+                if response.status_code == 401:
+                    logging.info("Token expired during search_candidates, re-authenticating...")
+                    self.rest_token = None
+                    if self.authenticate():
+                        params['BhRestToken'] = self.rest_token
+                        response = self.session.get(url, params=params, timeout=30)
+                
                 if response.status_code == 200:
                     data = self._safe_json_parse(response)
                     results = data.get('data', [])
@@ -1410,6 +1417,13 @@ class BullhornService:
             
             response = self.session.put(url, params=params, json=candidate_data, timeout=30)
             
+            if response.status_code == 401:
+                logging.info("Token expired during create_candidate, re-authenticating...")
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.put(url, params=params, json=candidate_data, timeout=30)
+            
             if response.status_code in [200, 201]:
                 data = self._safe_json_parse(response)
                 candidate_id = data.get('changedEntityId')
@@ -1443,6 +1457,13 @@ class BullhornService:
             params = {'BhRestToken': self.rest_token}
             
             response = self.session.post(url, params=params, json=candidate_data, timeout=30)
+            
+            if response.status_code == 401:
+                logging.info("Token expired during update_candidate, re-authenticating...")
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.post(url, params=params, json=candidate_data, timeout=30)
             
             if response.status_code == 200:
                 logging.info(f"Updated candidate {candidate_id}")
@@ -1668,6 +1689,13 @@ class BullhornService:
             
             response = self.session.put(url, params=params, json=submission_data, timeout=30)
             
+            if response.status_code == 401:
+                logging.info("Token expired during create_job_submission, re-authenticating...")
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.put(url, params=params, json=submission_data, timeout=30)
+            
             if response.status_code in [200, 201]:
                 data = self._safe_json_parse(response)
                 submission_id = data.get('changedEntityId')
@@ -1703,6 +1731,13 @@ class BullhornService:
             }
             
             response = self.session.get(url, params=params, timeout=30)
+            
+            if response.status_code == 401:
+                logging.info("Token expired during get_candidate, re-authenticating...")
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
                 data = self._safe_json_parse(response)

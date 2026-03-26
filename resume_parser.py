@@ -234,7 +234,7 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=8000,
-                timeout=45.0
+                timeout=60.0
             )
             
             formatted_html = response.choices[0].message.content.strip()
