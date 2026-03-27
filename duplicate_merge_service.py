@@ -388,9 +388,16 @@ class DuplicateMergeService:
             }
             resp = self.bullhorn.session.get(url, params=params, timeout=60)
             if resp.status_code == 200:
-                return resp.json().get('data', [])
+                data = resp.json().get('data', [])
+                logger.info(f"🔍 Bulk scan batch: start={start}, returned {len(data)} candidate(s)")
+                return data
+            else:
+                logger.error(
+                    f"🔍 Bulk scan: Bullhorn query/Candidate returned status {resp.status_code} "
+                    f"at start={start}: {resp.text[:500]}"
+                )
         except Exception as e:
-            logger.error(f"Error fetching candidate batch at start={start}: {e}")
+            logger.error(f"Error fetching candidate batch at start={start}: {e}", exc_info=True)
         return []
 
     def _search_recent_candidates(self, hours=RECENT_WINDOW_HOURS):
