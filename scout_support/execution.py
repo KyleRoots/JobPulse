@@ -184,13 +184,6 @@ class ExecutionMixin:
         ticket.status = 'retrying'
         db.session.commit()
 
-        self._send_user_confirmation_email(
-            ticket,
-            f'The initial approach did not fully resolve the issue. '
-            f'I am now trying an alternative approach (retry {ticket.execution_attempts} of {getattr(self, "MAX_RETRY_ATTEMPTS", 2)}) '
-            f'— you will be notified once this is complete.'
-        )
-
         logger.info(f"🔄 Generating retry analysis for {ticket.ticket_number} (attempt {ticket.execution_attempts + 1})")
 
         retry_json = self._generate_retry_analysis(ticket, failed_proof, ticket.execution_attempts)
@@ -213,6 +206,20 @@ class ExecutionMixin:
         if not new_steps:
             logger.warning(f"⚠️ Retry analysis returned no execution steps for {ticket.ticket_number}")
             return None
+
+        failure_summary = retry_data.get('failure_analysis', '') or ''
+        new_approach = retry_data.get('proposed_solution_user', '') or retry_data.get('alternative_strategy', '') or ''
+
+        retry_msg = (
+            f'The initial approach did not fully resolve the issue. '
+            f'I am now trying an alternative approach (retry {ticket.execution_attempts} of {getattr(self, "MAX_RETRY_ATTEMPTS", 2)}).'
+        )
+        if failure_summary:
+            retry_msg += f'\n\n**Previous attempt:** {failure_summary}'
+        if new_approach:
+            retry_msg += f'\n\n**New approach:** {new_approach}'
+
+        self._send_user_confirmation_email(ticket, retry_msg)
 
         try:
             solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}

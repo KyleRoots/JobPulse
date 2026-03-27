@@ -398,11 +398,6 @@ Respond with a JSON object:
             execution_steps = solution_data.get('execution_steps', [])
 
             if execution_steps:
-                self._send_user_confirmation_email(
-                    ticket,
-                    'Your approval has been received. I am now executing the proposed fix — you will receive a confirmation once it is complete.'
-                )
-
                 success = self._execute_solution(ticket)
 
                 if success:

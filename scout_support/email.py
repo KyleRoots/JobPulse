@@ -263,7 +263,6 @@ class EmailMixin:
             f"Hi {ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'},\n\n"
             f"Regarding ticket **{ticket.ticket_number}**:\n\n"
             f"{message}\n\n"
-            f"You'll receive a confirmation once the fix has been executed.\n\n"
             f"— Scout Support"
         )
         self._send_email(
