@@ -97,21 +97,17 @@ class ExecutionMixin:
         proof_summary = json.dumps(proof_items, indent=2)
         ticket.execution_proof = proof_summary
 
-        has_failures = self._has_actionable_failures(proof_items, execution_steps)
-
-        diagnostic_only = all(
-            step.get('action') in self.DIAGNOSTIC_ACTIONS
-            for step in execution_steps
-        ) if execution_steps else False
-
         has_any_failure = any(
             'fail' in item.get('result', '').lower()
             for item in proof_items
         )
 
-        if has_failures:
-            ticket.execution_attempts = (ticket.execution_attempts or 0) + 1
-            self._record_attempt_history(ticket, proof_items)
+        ticket.execution_attempts = (ticket.execution_attempts or 0) + 1
+        self._record_attempt_history(ticket, proof_items)
+
+        has_successful_fix = self._has_successful_fix(proof_items, execution_steps)
+
+        if has_any_failure and not has_successful_fix:
             db.session.commit()
 
             max_retries = getattr(self, 'MAX_RETRY_ATTEMPTS', 2)
@@ -125,26 +121,14 @@ class ExecutionMixin:
             db.session.commit()
             logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution failed after {ticket.execution_attempts} attempt(s)")
             return False
-        elif diagnostic_only and execution_steps:
-            ticket.execution_attempts = (ticket.execution_attempts or 0) + 1
-            self._record_attempt_history(ticket, proof_items)
-            if has_any_failure:
-                ticket.status = 'execution_failed'
-                db.session.commit()
-                logger.warning(f"⚠️ Ticket {ticket.ticket_number} diagnostic steps failed — escalating")
-                return False
+        elif has_any_failure and has_successful_fix:
             ticket.status = 'completed'
             ticket.resolved_at = datetime.utcnow()
-            resolution_type = solution_data.get('resolution_type', 'full')
-            if resolution_type == 'partial':
-                ticket.status = 'completed'
             db.session.commit()
             self._send_completion_email(ticket, proof_items)
-            logger.info(f"✅ Ticket {ticket.ticket_number} completed (diagnostic steps executed, resolution_type={resolution_type})")
+            logger.info(f"✅ Ticket {ticket.ticket_number} completed (partial — some diagnostic steps failed but fix was applied)")
             return True
         else:
-            ticket.execution_attempts = (ticket.execution_attempts or 0) + 1
-            self._record_attempt_history(ticket, proof_items)
             ticket.status = 'completed'
             ticket.resolved_at = datetime.utcnow()
             db.session.commit()
@@ -161,6 +145,24 @@ class ExecutionMixin:
                 if step_action in self.DIAGNOSTIC_ACTIONS:
                     continue
             return True
+        return False
+
+    def _has_successful_fix(self, proof_items: list, execution_steps: list) -> bool:
+        GUIDANCE_RESULTS = {'guidance provided', 'user-side resolution'}
+        for i, item in enumerate(proof_items):
+            result = item.get('result', '').lower()
+            if 'fail' in result:
+                continue
+            if result.strip() in GUIDANCE_RESULTS:
+                continue
+            if i < len(execution_steps):
+                step_action = execution_steps[i].get('action', '')
+                if step_action in self.DIAGNOSTIC_ACTIONS:
+                    continue
+                return True
+            else:
+                if 'success' in result:
+                    return True
         return False
 
     def _record_attempt_history(self, ticket, proof_items: list):

@@ -2497,9 +2497,7 @@ class BullhornService:
 
         try:
             url = f"{self.base_url}meta/{entity_type}"
-            params = {'BhRestToken': self.rest_token}
-            if fields:
-                params['fields'] = fields
+            params = {'BhRestToken': self.rest_token, 'fields': fields or '*'}
 
             response = self.session.get(url, params=params, timeout=30)
 
@@ -2541,12 +2539,47 @@ class BullhornService:
             if response.status_code == 200:
                 data = self._safe_json_parse(response)
                 return data.get('data', data.get('optionList', []))
+
+            if response.status_code == 400:
+                logging.info(f"get_options({option_type}) returned 400 — trying meta field lookup instead")
+                meta_options = self._get_options_from_meta(option_type)
+                if meta_options is not None:
+                    return meta_options
+                logging.warning(f"get_options({option_type}) failed: not available via /options/ or meta")
+                return None
             else:
                 logging.warning(f"get_options({option_type}) failed: HTTP {response.status_code}")
                 return None
         except Exception as e:
             logging.error(f"get_options({option_type}) error: {e}")
             return None
+
+    def _get_options_from_meta(self, option_type: str) -> Optional[List[Dict]]:
+        OPTION_TYPE_TO_META = {
+            'NoteAction': ('Note', 'action'),
+            'CandidateStatus': ('Candidate', 'status'),
+            'JobOrderStatus': ('JobOrder', 'status'),
+            'PlacementStatus': ('Placement', 'status'),
+            'SubmissionStatus': ('JobSubmission', 'status'),
+            'LeadStatus': ('Lead', 'status'),
+            'OpportunityStatus': ('Opportunity', 'status'),
+        }
+
+        mapping = OPTION_TYPE_TO_META.get(option_type)
+        if not mapping:
+            return None
+
+        entity_type, field_name = mapping
+        meta = self.get_entity_meta(entity_type, fields=field_name)
+        if meta and isinstance(meta, dict):
+            fields = meta.get('fields', [])
+            if isinstance(fields, list):
+                for f in fields:
+                    if isinstance(f, dict) and f.get('name') == field_name:
+                        options = f.get('options', [])
+                        if isinstance(options, list):
+                            return options
+        return None
 
     def get_settings(self, setting_key: str) -> Optional[Any]:
         if not self.base_url or not self.rest_token:
