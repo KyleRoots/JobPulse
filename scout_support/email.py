@@ -541,11 +541,11 @@ class EmailMixin:
         except (json.JSONDecodeError, TypeError):
             solution_data = {}
         resolution_type = solution_data.get('resolution_type', 'full')
-        solution_user_desc = solution_data.get('description_user', '') or solution_data.get('description', '')
         concerns_user = solution_data.get('underlying_concerns_user', '') or solution_data.get('underlying_concerns', '')
         concerns_admin = solution_data.get('underlying_concerns_admin', '') or solution_data.get('underlying_concerns', '')
 
-        all_success = all(item.get('result', '').lower() == 'success' for item in proof_items) if proof_items else False
+        successful_steps = [item for item in proof_items if 'success' in item.get('result', '').lower()]
+        failed_steps = [item for item in proof_items if 'fail' in item.get('result', '').lower()]
 
         first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
         user_body_parts = [
@@ -553,28 +553,16 @@ class EmailMixin:
             f"",
         ]
 
-        if all_success:
+        if not failed_steps and successful_steps:
             user_body_parts.append(f"Your support ticket **{ticket.ticket_number}** has been resolved. The issue has been corrected.")
         else:
             user_body_parts.append(f"Your support ticket **{ticket.ticket_number}** has been addressed.")
 
-        if solution_user_desc:
-            clean_desc = re.sub(
-                r'\s*\((?:[^)]*@[^)]*|[^)]*\+\d[\d\s\-]*|[^)]*hihello[^)]*|[^)]*bookwithme[^)]*|[^)]*outlook\.office[^)]*)\)',
-                '', solution_user_desc, flags=re.IGNORECASE
-            )
-            clean_desc = re.sub(r'\.\s*(HiHello card|Book time|Contact):?\s*https?://\S+', '.', clean_desc, flags=re.IGNORECASE)
-            clean_desc = re.sub(r'(HiHello card|Book time|Contact):?\s*https?://\S+', '', clean_desc, flags=re.IGNORECASE)
-            clean_desc = re.sub(
-                r'[Aa]pproved by admin:?\s*(\w+(?:\s+\w+)?)\s*(?:\([^)]*\))?\.?',
-                r'Admin \1 also reviewed and approved.',
-                clean_desc
-            )
-            clean_desc = re.sub(r'\s{2,}', ' ', clean_desc).strip()
-            user_body_parts.extend([
-                f"",
-                f"**What was done:** {clean_desc}",
-            ])
+        user_body_parts.extend([f"", f"**What was done:**"])
+        for item in proof_items:
+            step = item.get('step', 'Step')
+            result = item.get('result', 'Done')
+            user_body_parts.append(f"• {step}: {result}")
 
         if concerns_user:
             user_body_parts.extend([

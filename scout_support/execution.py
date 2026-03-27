@@ -283,11 +283,8 @@ class ExecutionMixin:
                     proof_items.append(result)
 
                 elif action_type == 'create_note' and entity_id:
-                    logger.info(f"📝 Skipping AI-generated create_note step — audit note will be created automatically")
-                    action.success = True
-                    action.new_value = 'Deferred to audit note'
-                    proof_items.append({'step': step.get('description', 'Create note'), 'result': 'Deferred — audit note handles this'})
-                    continue
+                    result = self._exec_create_note(action, entity_type, int(entity_id), step)
+                    proof_items.append(result)
 
                 elif action_type == 'create_submission':
                     result = self._exec_create_submission(action, step)
@@ -323,12 +320,6 @@ class ExecutionMixin:
                     proof_items.append(result)
 
                 elif action_type == 'create_entity':
-                    if entity_type == 'Note':
-                        logger.info(f"📝 Skipping AI-generated note step — audit note will be created automatically")
-                        action.success = True
-                        action.new_value = 'Deferred to audit note'
-                        proof_items.append({'step': step.get('description', 'Create note'), 'result': 'Deferred — audit note handles this'})
-                        continue
                     result = self._exec_create_entity(action, entity_type, step)
                     proof_items.append(result)
 

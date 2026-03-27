@@ -407,7 +407,6 @@ Respond with a JSON object:
 
                 if success:
                     logger.info(f"✅ Ticket {ticket.ticket_number} executed successfully after user approval")
-                    self._send_admin_approval_request(ticket, execution_complete=True)
                 else:
                     attempts_made = ticket.execution_attempts or 1
                     logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution failed after {attempts_made} attempt(s) — escalating to admin")
