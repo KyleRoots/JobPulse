@@ -396,19 +396,28 @@ class DuplicateMergeService:
     def _search_recent_candidates(self, hours=RECENT_WINDOW_HOURS):
         try:
             cutoff_ms = int((datetime.utcnow() - timedelta(hours=hours)).timestamp() * 1000)
+            where_clause = f"isDeleted=false AND status<>'Archive' AND dateAdded>{cutoff_ms}"
             url = f"{self.bullhorn.base_url}query/Candidate"
             params = {
-                'where': f"isDeleted=false AND status<>'Archive' AND dateAdded>{cutoff_ms}",
+                'where': where_clause,
                 'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
                 'count': 500,
                 'orderBy': '-dateAdded',
                 'BhRestToken': self.bullhorn.rest_token
             }
+            logger.info(f"🔍 Dedup: querying recent candidates (last {hours}h), cutoff_ms={cutoff_ms}")
             resp = self.bullhorn.session.get(url, params=params, timeout=60)
             if resp.status_code == 200:
-                return resp.json().get('data', [])
+                data = resp.json().get('data', [])
+                logger.info(f"🔍 Dedup: found {len(data)} recent candidate(s)")
+                return data
+            else:
+                logger.error(
+                    f"🔍 Dedup: Bullhorn query/Candidate returned status {resp.status_code}: "
+                    f"{resp.text[:500]}"
+                )
         except Exception as e:
-            logger.error(f"Error fetching recent candidates: {e}")
+            logger.error(f"Error fetching recent candidates: {e}", exc_info=True)
         return []
 
     def _find_matches_for_candidate(self, candidate):
