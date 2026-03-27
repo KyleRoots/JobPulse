@@ -796,6 +796,55 @@ Respond with a JSON object:
         logger.info(f"✅ Platform ticket {ticket.ticket_number} resolved by {closed_by}: {resolution_note[:100]}")
         return True
 
+    def reply_to_ticket(self, ticket_id: int, reply_body: str, replied_by: str) -> bool:
+        from extensions import db
+        from models import SupportTicket, SupportConversation
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return False
+
+        if ticket.status in ('completed', 'closed'):
+            return False
+
+        if ticket.status != 'admin_handling':
+            ticket.status = 'admin_handling'
+            db.session.commit()
+
+        conv = SupportConversation(
+            ticket_id=ticket.id,
+            direction='outbound',
+            sender_email=replied_by,
+            recipient_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            body=reply_body,
+            email_type='admin_direct_reply',
+        )
+        db.session.add(conv)
+        db.session.commit()
+
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
+
+        email_body = (
+            f"Hi {first_name},\n\n"
+            f"{reply_body}\n\n"
+            f"**Ticket:** {ticket.ticket_number}\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"If you have questions, you can reply directly to this email.\n\n"
+            f"— Scout Support"
+        )
+
+        self._send_email(
+            to_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            body=email_body,
+            ticket=ticket,
+            email_type='admin_direct_reply',
+        )
+
+        logger.info(f"💬 Admin reply on ticket {ticket.ticket_number} by {replied_by}: {reply_body[:80]}")
+        return True
+
     def reply_to_platform_ticket(self, ticket_id: int, reply_body: str, replied_by: str) -> bool:
         from extensions import db
         from models import SupportTicket

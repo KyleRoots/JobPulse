@@ -130,13 +130,16 @@
                                     'solution_proposed': 'primary',
                                     'awaiting_user_approval': 'warning',
                                     'awaiting_admin_approval': 'danger',
+                                    'admin_handling': 'info',
+                                    'admin_clarifying': 'info',
                                     'approved': 'success',
                                     'executing': 'info',
                                     'completed': 'success',
                                     'execution_failed': 'danger',
                                     'on_hold': 'warning',
                                     'closed': 'secondary',
-                                    'escalated': 'danger'
+                                    'escalated': 'danger',
+                                    'retrying': 'warning'
                                 } %}
                                 {% set status_labels = {
                                     'new': 'New',
@@ -146,13 +149,16 @@
                                     'solution_proposed': 'Solution Proposed',
                                     'awaiting_user_approval': 'User Approval',
                                     'awaiting_admin_approval': 'Admin Approval',
+                                    'admin_handling': 'Admin Handling',
+                                    'admin_clarifying': 'Admin Clarifying',
                                     'approved': 'Approved',
                                     'executing': 'Executing',
                                     'completed': 'Completed',
                                     'execution_failed': 'Execution Failed',
                                     'on_hold': 'On Hold',
                                     'closed': 'Closed',
-                                    'escalated': 'Escalated'
+                                    'escalated': 'Escalated',
+                                    'retrying': 'Retrying'
                                 } %}
                                 <span class="badge bg-{{ status_colors.get(ticket.status, 'secondary') }}">
                                     {{ status_labels.get(ticket.status, ticket.status) }}

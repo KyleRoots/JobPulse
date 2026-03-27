@@ -22,6 +22,8 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from openai import OpenAI
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,7 +86,11 @@ class ConversationMixin:
         if self._is_platform_ticket(ticket):
             return self._handle_platform_reply(ticket, reply_body, attachment_content=attachment_content)
 
-        if ticket.status == 'awaiting_user_approval':
+        if ticket.status in ('completed', 'closed'):
+            return self._handle_reopened_ticket(ticket, reply_body, attachment_content=attachment_content)
+        elif ticket.status == 'admin_handling':
+            return self._handle_user_reply_to_admin(ticket, reply_body)
+        elif ticket.status == 'awaiting_user_approval':
             return self._handle_user_approval_response(ticket, reply_body)
         elif ticket.status in ('acknowledged', 'clarifying'):
             return self._handle_clarification_reply(ticket, reply_body, attachment_content=attachment_content, attachment_ack=attachment_ack)
@@ -112,7 +118,7 @@ class ConversationMixin:
             logger.warning(f"Admin reply ignored for platform ticket {ticket.ticket_number} — platform tickets do not use approval flow")
             return False
 
-        if ticket.status not in ('awaiting_admin_approval', 'admin_clarifying'):
+        if ticket.status not in ('awaiting_admin_approval', 'admin_clarifying', 'admin_handling'):
             return False
 
         conv = SupportConversation(
@@ -129,6 +135,15 @@ class ConversationMixin:
         if message_id:
             ticket.last_message_id = message_id
         db.session.commit()
+
+        if ticket.status == 'admin_handling':
+            fresh_text = self._strip_quoted_text(reply_body)
+            if fresh_text and fresh_text.strip():
+                from scout_support_service import ScoutSupportService
+                svc = ScoutSupportService()
+                svc.reply_to_ticket(ticket.id, fresh_text, ticket.admin_email)
+                logger.info(f"💬 Admin direct reply forwarded to user for ticket {ticket.ticket_number}")
+            return True
 
         decision = self._classify_admin_response(reply_body)
 
@@ -166,6 +181,264 @@ class ConversationMixin:
             self._send_status_email(ticket, 'closed')
             logger.info(f"❌ Admin closed ticket {ticket.ticket_number}")
             return True
+
+    def _handle_user_reply_to_admin(self, ticket, reply_body: str) -> bool:
+        from extensions import db
+
+        fresh_text = self._strip_quoted_text(reply_body)
+        if not fresh_text or not fresh_text.strip():
+            return True
+
+        admin_email = ticket.admin_email
+        if not admin_email:
+            logger.warning(f"No admin email for ticket {ticket.ticket_number} in admin_handling state")
+            return True
+
+        admin_body = (
+            f"**User Reply on Ticket {ticket.ticket_number}:**\n\n"
+            f"**From:** {ticket.submitter_name} ({ticket.submitter_email})\n"
+            f"**Subject:** {ticket.subject}\n\n"
+            f"{fresh_text}\n\n"
+            f"You can reply directly to continue the conversation with the user.\n\n"
+            f"— Scout Support"
+        )
+
+        self._send_email(
+            to_email=admin_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            body=admin_body,
+            ticket=ticket,
+            email_type='user_reply_forwarded',
+        )
+
+        logger.info(f"📨 User reply on admin_handling ticket {ticket.ticket_number} forwarded to admin {admin_email}")
+        return True
+
+    def _handle_reopened_ticket(self, ticket, reply_body: str, attachment_content: str = '') -> bool:
+        from extensions import db
+        from models import SupportConversation
+
+        fresh_text = self._strip_quoted_text(reply_body)
+        if not fresh_text or not fresh_text.strip():
+            return True
+
+        escalation_keywords = [
+            'escalate', 'speak to someone', 'talk to someone', 'human',
+            'real person', 'manager', 'supervisor', 'admin', 'administrator'
+        ]
+        wants_escalation = any(kw in fresh_text.lower() for kw in escalation_keywords)
+
+        previous_status = ticket.status
+        ticket.status = 'clarifying'
+        ticket.resolved_at = None
+        db.session.commit()
+        logger.info(f"🔄 Ticket {ticket.ticket_number} reopened from '{previous_status}' by user reply")
+
+        if wants_escalation:
+            ticket.status = 'awaiting_admin_approval'
+            db.session.commit()
+
+            self._send_user_confirmation_email(
+                ticket,
+                f'Your ticket has been reopened and escalated to the administrator as requested. '
+                f'You will be notified once it has been reviewed.'
+            )
+
+            admin_body = (
+                f"**Reopened Ticket — User Requested Escalation**\n\n"
+                f"Ticket {ticket.ticket_number} was previously {previous_status} but the user has replied "
+                f"and requested to speak with an administrator.\n\n"
+                f"**User's message:**\n{fresh_text}\n\n"
+                f"Please reply with one of:\n"
+                f'- **"Approved"** — Retry the automated execution\n'
+                f'- **"Hold"** — Place this ticket on hold\n'
+                f'- **"Close"** — Close this ticket with a manual resolution note\n\n'
+                f"Or reply directly to respond to the user."
+            )
+            self._send_admin_approval_request_custom(ticket, admin_body)
+            logger.info(f"🔼 Reopened ticket {ticket.ticket_number} escalated directly to admin per user request")
+            return True
+
+        full_history = self._build_reopen_context(ticket)
+
+        reopen_analysis = self._analyze_reopened_ticket(ticket, fresh_text, full_history, attachment_content)
+
+        if not reopen_analysis:
+            logger.warning(f"⚠️ Reopen analysis failed for {ticket.ticket_number} — escalating to admin")
+            ticket.status = 'awaiting_admin_approval'
+            db.session.commit()
+            self._send_user_confirmation_email(
+                ticket,
+                f'Your ticket has been reopened and forwarded to the administrator for review. '
+                f'You will be notified once it has been addressed.'
+            )
+            admin_body = (
+                f"**Reopened Ticket — Needs Admin Review**\n\n"
+                f"Ticket {ticket.ticket_number} was previously {previous_status} but the user has replied.\n\n"
+                f"**User's new message:**\n{fresh_text}\n\n"
+                f"**Note:** AI analysis could not be completed for this reopened ticket.\n\n"
+                f"Please reply with one of:\n"
+                f'- **"Approved"** — Retry the automated execution\n'
+                f'- **"Hold"** — Place this ticket on hold\n'
+                f'- **"Close"** — Close this ticket with a manual resolution note\n\n'
+                f"Or reply directly to respond to the user."
+            )
+            self._send_admin_approval_request_custom(ticket, admin_body)
+            return True
+
+        try:
+            analysis_data = json.loads(reopen_analysis)
+        except (json.JSONDecodeError, TypeError):
+            analysis_data = {}
+
+        can_handle = analysis_data.get('can_handle_directly', False)
+        ai_response = analysis_data.get('response_to_user', '')
+        needs_new_solution = analysis_data.get('needs_new_solution', False)
+        new_solution = analysis_data.get('proposed_solution', None)
+
+        if can_handle and ai_response and not needs_new_solution:
+            self._send_user_confirmation_email(ticket, ai_response)
+            ticket.status = 'clarifying'
+            db.session.commit()
+            logger.info(f"✅ AI handled reopened ticket {ticket.ticket_number} directly")
+            return True
+        elif can_handle and needs_new_solution and new_solution:
+            ticket.ai_understanding = analysis_data.get('updated_understanding', ticket.ai_understanding)
+            ticket.proposed_solution = json.dumps(new_solution) if isinstance(new_solution, dict) else new_solution
+            ticket.status = 'awaiting_user_approval'
+            db.session.commit()
+
+            self._send_solution_proposal(ticket, new_solution if isinstance(new_solution, dict) else {})
+            logger.info(f"🔧 AI proposed new solution for reopened ticket {ticket.ticket_number}")
+            return True
+        else:
+            ticket.status = 'awaiting_admin_approval'
+            db.session.commit()
+
+            self._send_user_confirmation_email(
+                ticket,
+                f'Your ticket has been reopened. I\'ve reviewed the full history and this needs to be reviewed '
+                f'by the administrator. You will be notified once it has been addressed.'
+            )
+
+            escalation_reason = analysis_data.get('escalation_reason', 'AI determined this requires manual intervention')
+            admin_body = (
+                f"**Reopened Ticket — Needs Admin Review**\n\n"
+                f"Ticket {ticket.ticket_number} was previously {previous_status} but the user has replied.\n\n"
+                f"**User's new message:**\n{fresh_text}\n\n"
+                f"**AI Assessment:**\n{escalation_reason}\n\n"
+                f"Please reply with one of:\n"
+                f'- **"Approved"** — Retry the automated execution\n'
+                f'- **"Hold"** — Place this ticket on hold\n'
+                f'- **"Close"** — Close this ticket with a manual resolution note\n\n'
+                f"Or reply directly to respond to the user."
+            )
+            self._send_admin_approval_request_custom(ticket, admin_body)
+            logger.info(f"🔼 Reopened ticket {ticket.ticket_number} escalated to admin after AI assessment")
+            return True
+
+    def _build_reopen_context(self, ticket) -> str:
+        from models import SupportConversation, SupportAction
+
+        conversations = SupportConversation.query.filter_by(
+            ticket_id=ticket.id
+        ).order_by(SupportConversation.created_at).all()
+
+        actions = SupportAction.query.filter_by(
+            ticket_id=ticket.id
+        ).order_by(SupportAction.executed_at).all()
+
+        context_parts = []
+        context_parts.append(f"Original Issue: {ticket.subject}")
+        context_parts.append(f"Description: {ticket.description or 'N/A'}")
+        context_parts.append(f"AI Understanding: {ticket.ai_understanding or 'N/A'}")
+        context_parts.append(f"Resolution Note: {ticket.resolution_note or 'N/A'}")
+
+        if conversations:
+            context_parts.append("\n--- Conversation History ---")
+            for conv in conversations:
+                direction = "USER" if conv.direction == 'inbound' else "SCOUT SUPPORT"
+                if conv.email_type == 'admin_direct_reply':
+                    direction = "ADMIN"
+                elif conv.email_type == 'admin_reply':
+                    direction = "ADMIN"
+                context_parts.append(f"[{direction}] {conv.body[:500]}")
+
+        if actions:
+            context_parts.append("\n--- Execution Actions ---")
+            for action in actions:
+                status = "SUCCESS" if action.success else "FAILED"
+                context_parts.append(f"[{status}] {action.action_type} on {action.entity_type} #{action.entity_id}: {action.field_name or ''}")
+
+        if ticket.execution_history:
+            try:
+                history = json.loads(ticket.execution_history)
+                if history:
+                    context_parts.append(f"\n--- Execution History ({len(history)} attempt(s)) ---")
+                    for attempt in history:
+                        context_parts.append(f"Attempt {attempt.get('attempt', '?')}: {json.dumps(attempt.get('proof', []))[:300]}")
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        return "\n".join(context_parts)
+
+    def _analyze_reopened_ticket(self, ticket, user_message: str, full_history: str, attachment_content: str = '') -> Optional[str]:
+        try:
+            client = OpenAI()
+
+            prompt = (
+                f"A previously resolved/closed support ticket has been reopened by the user.\n\n"
+                f"FULL TICKET HISTORY:\n{full_history[:6000]}\n\n"
+                f"USER'S NEW MESSAGE:\n{user_message}\n\n"
+            )
+            if attachment_content:
+                prompt += f"ATTACHMENT CONTENT:\n{attachment_content[:2000]}\n\n"
+
+            prompt += (
+                f"Based on the full history (including what was tried, what failed, what the admin resolved, "
+                f"and the resolution note), determine:\n"
+                f"1. Can you handle this new request directly with Bullhorn API actions?\n"
+                f"2. Is this a follow-up question that can be answered from the history?\n"
+                f"3. Does this need a new solution proposal?\n"
+                f"4. Should this be escalated to the admin?\n\n"
+                f"Respond with JSON:\n"
+                f'{{\n'
+                f'  "can_handle_directly": true/false,\n'
+                f'  "response_to_user": "Plain-language response if you can answer directly",\n'
+                f'  "needs_new_solution": true/false,\n'
+                f'  "proposed_solution": {{}},\n'
+                f'  "escalation_reason": "If escalating, explain why",\n'
+                f'  "updated_understanding": "Updated AI understanding if the issue has evolved"\n'
+                f'}}\n\n'
+                f"If proposing a new solution, use the standard solution format with execution_steps, "
+                f"description_user, description_admin, resolution_type."
+            )
+
+            response = client.chat.completions.create(
+                model='gpt-5',
+                messages=[
+                    {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You are analyzing a reopened ticket with full conversation history. Respond only in valid JSON.'},
+                    {'role': 'user', 'content': prompt},
+                ],
+            )
+
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Reopen analysis failed for {ticket.ticket_number}: {e}")
+            return None
+
+    def _send_admin_approval_request_custom(self, ticket, body: str):
+        admin_email = ticket.admin_email
+        if not admin_email:
+            return
+
+        self._send_email(
+            to_email=admin_email,
+            subject=f"[{ticket.ticket_number}] Reopened — Admin Review Needed",
+            body=body,
+            ticket=ticket,
+            email_type='admin_escalation',
+        )
 
     def _handle_clarification_reply(self, ticket, reply_body: str, attachment_content: str = '', attachment_ack: str = '') -> bool:
         from extensions import db

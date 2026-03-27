@@ -1336,8 +1336,8 @@ class SupportTicket(db.Model):
 
     VALID_STATUSES = [
         'new', 'acknowledged', 'clarifying', 'solution_proposed',
-        'awaiting_user_approval', 'awaiting_admin_approval',
-        'approved', 'executing', 'retrying', 'execution_failed',
+        'awaiting_user_approval', 'awaiting_admin_approval', 'admin_handling',
+        'admin_clarifying', 'approved', 'executing', 'retrying', 'execution_failed',
         'completed', 'on_hold', 'closed', 'escalated'
     ]
 
