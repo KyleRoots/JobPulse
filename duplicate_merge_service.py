@@ -81,7 +81,7 @@ class DuplicateMergeService:
             url = f"{self.bullhorn.base_url}query/JobSubmission"
             params = {
                 'where': f"candidate.id={candidate_id}",
-                'fields': 'id,jobOrder,status,dateWebResponse,source',
+                'fields': 'id,jobOrder,status,dateWebResponse,dateAdded,source',
                 'count': 500,
                 'BhRestToken': self.bullhorn.rest_token
             }
@@ -258,10 +258,35 @@ class DuplicateMergeService:
             logger.error(f"  Error archiving candidate {candidate_id}: {e}")
             return False
 
-    def _add_merge_note(self, candidate_id, other_id, is_primary=True):
+    def _format_bullhorn_ts(self, ts_value):
+        if not ts_value:
+            return 'N/A'
+        try:
+            if isinstance(ts_value, (int, float)):
+                dt = datetime.utcfromtimestamp(ts_value / 1000)
+                return dt.strftime('%m/%d/%Y %I:%M %p')
+            return str(ts_value)
+        except Exception:
+            return str(ts_value)
+
+    def _add_merge_note(self, candidate_id, other_id, is_primary=True, original_dates=None, transferred=None):
         try:
             if is_primary:
-                comment = f"[Scout Genius Auto-Merge] This record received data merged from duplicate candidate ID {other_id}. Submissions, notes, and files were transferred."
+                comment = f"[Scout Genius Auto-Merge] This record received data merged from duplicate candidate ID {other_id}."
+                if original_dates and transferred:
+                    comment += "\n\nOriginal timestamps from duplicate record (Bullhorn resets Date Added on transfer):"
+                    if original_dates.get('submissions'):
+                        comment += "\n\n📋 Submissions:"
+                        for s in original_dates['submissions']:
+                            comment += f"\n  • Job #{s['job_id']} — Original Date Added: {s['dateAdded']}, Web Response: {s['dateWebResponse']}"
+                    if original_dates.get('notes'):
+                        comment += "\n\n📝 Notes:"
+                        for n in original_dates['notes']:
+                            comment += f"\n  • {n['action']} — Original Date Added: {n['dateAdded']}"
+                    if original_dates.get('files'):
+                        comment += "\n\n📎 Files:"
+                        for f in original_dates['files']:
+                            comment += f"\n  • {f['name']} — Original Date Added: {f['dateAdded']}"
             else:
                 comment = f"[Scout Genius Auto-Merge] This record was identified as a duplicate of candidate ID {other_id}. All data has been transferred and this record has been archived."
 
@@ -284,28 +309,44 @@ class DuplicateMergeService:
         logger.info(f"🔀 MERGING: {dup_name} (ID:{duplicate_id}) → {primary_name} (ID:{primary_id}) [confidence={confidence:.2f}, field={match_field}]")
 
         transferred = {'submissions': 0, 'notes': 0, 'files': 0}
+        original_dates = {'submissions': [], 'notes': [], 'files': []}
 
         submissions = self._get_candidate_submissions(duplicate_id)
         for sub in submissions:
             if self._transfer_submission(primary_id, sub):
                 transferred['submissions'] += 1
+                job_order = sub.get('jobOrder', {})
+                job_id = job_order.get('id') if isinstance(job_order, dict) else job_order
+                original_dates['submissions'].append({
+                    'job_id': job_id,
+                    'dateAdded': self._format_bullhorn_ts(sub.get('dateAdded')),
+                    'dateWebResponse': self._format_bullhorn_ts(sub.get('dateWebResponse')),
+                })
             time.sleep(0.5)
 
         notes = self._get_candidate_notes(duplicate_id)
         for note in notes:
             if self._transfer_note(primary_id, note):
                 transferred['notes'] += 1
+                original_dates['notes'].append({
+                    'action': note.get('action', 'Note'),
+                    'dateAdded': self._format_bullhorn_ts(note.get('dateAdded')),
+                })
             time.sleep(0.5)
 
         files = self._get_candidate_files(duplicate_id)
         for f in files:
             if self._transfer_file(primary_id, duplicate_id, f):
                 transferred['files'] += 1
+                original_dates['files'].append({
+                    'name': f.get('name', 'Unknown'),
+                    'dateAdded': self._format_bullhorn_ts(f.get('dateAdded')),
+                })
             time.sleep(0.5)
 
         self._enrich_primary(primary_id, duplicate)
 
-        self._add_merge_note(primary_id, duplicate_id, is_primary=True)
+        self._add_merge_note(primary_id, duplicate_id, is_primary=True, original_dates=original_dates, transferred=transferred)
         self._add_merge_note(duplicate_id, primary_id, is_primary=False)
 
         self._archive_duplicate(duplicate_id)
