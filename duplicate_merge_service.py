@@ -377,13 +377,13 @@ class DuplicateMergeService:
 
     def _search_all_candidates_batch(self, start=0, count=BATCH_SIZE):
         try:
-            url = f"{self.bullhorn.base_url}query/Candidate"
+            url = f"{self.bullhorn.base_url}search/Candidate"
             params = {
-                'where': "isDeleted=false AND status<>'Archive'",
+                'query': 'isDeleted:0 AND -status:Archive',
                 'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
                 'count': count,
                 'start': start,
-                'orderBy': 'id',
+                'sort': 'id',
                 'BhRestToken': self.bullhorn.rest_token
             }
             resp = self.bullhorn.session.get(url, params=params, timeout=60)
@@ -393,7 +393,7 @@ class DuplicateMergeService:
                 return data
             else:
                 logger.error(
-                    f"🔍 Bulk scan: Bullhorn query/Candidate returned status {resp.status_code} "
+                    f"🔍 Bulk scan: Bullhorn search/Candidate returned status {resp.status_code} "
                     f"at start={start}: {resp.text[:500]}"
                 )
         except Exception as e:
@@ -403,16 +403,16 @@ class DuplicateMergeService:
     def _search_recent_candidates(self, hours=RECENT_WINDOW_HOURS):
         try:
             cutoff_ms = int((datetime.utcnow() - timedelta(hours=hours)).timestamp() * 1000)
-            where_clause = f"isDeleted=false AND status<>'Archive' AND dateAdded>{cutoff_ms}"
-            url = f"{self.bullhorn.base_url}query/Candidate"
+            lucene_query = f'isDeleted:0 AND -status:Archive AND dateAdded:[{cutoff_ms} TO *]'
+            url = f"{self.bullhorn.base_url}search/Candidate"
             params = {
-                'where': where_clause,
+                'query': lucene_query,
                 'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
                 'count': 500,
-                'orderBy': '-dateAdded',
+                'sort': '-dateAdded',
                 'BhRestToken': self.bullhorn.rest_token
             }
-            logger.info(f"🔍 Dedup: querying recent candidates (last {hours}h), cutoff_ms={cutoff_ms}")
+            logger.info(f"🔍 Dedup: searching recent candidates (last {hours}h), cutoff_ms={cutoff_ms}")
             resp = self.bullhorn.session.get(url, params=params, timeout=60)
             if resp.status_code == 200:
                 data = resp.json().get('data', [])
@@ -420,7 +420,7 @@ class DuplicateMergeService:
                 return data
             else:
                 logger.error(
-                    f"🔍 Dedup: Bullhorn query/Candidate returned status {resp.status_code}: "
+                    f"🔍 Dedup: Bullhorn search/Candidate returned status {resp.status_code}: "
                     f"{resp.text[:500]}"
                 )
         except Exception as e:
