@@ -1763,17 +1763,33 @@ class AutomationService:
         def progress_cb(stats):
             logger.info(f"🔀 Bulk merge progress: scanned={stats['candidates_scanned']}, merged={stats['merged']}")
 
-        stats = merge_service.run_bulk_scan(progress_callback=progress_cb)
+        status = "completed"
+        error_detail = None
+        try:
+            stats = merge_service.run_bulk_scan(progress_callback=progress_cb)
+        except Exception as e:
+            status = "failed"
+            error_detail = str(e)
+            stats = {
+                'candidates_scanned': 0, 'duplicates_found': 0,
+                'merged': 0, 'skipped_both_placements': 0,
+                'skipped_below_threshold': 0, 'errors': 1,
+            }
+            logger.error(f"🔀 Bulk merge scan failed: {e}", exc_info=True)
+
+        self._send_bulk_scan_notification(stats, status, error_detail)
+
+        summary = (
+            f"Bulk duplicate scan complete. "
+            f"Scanned {stats['candidates_scanned']} candidates, "
+            f"found {stats['duplicates_found']} duplicates, "
+            f"merged {stats['merged']}, "
+            f"skipped (placement conflict) {stats['skipped_both_placements']}, "
+            f"errors {stats['errors']}."
+        ) if status == "completed" else f"Bulk duplicate scan FAILED: {error_detail}"
 
         return {
-            "summary": (
-                f"Bulk duplicate scan complete. "
-                f"Scanned {stats['candidates_scanned']} candidates, "
-                f"found {stats['duplicates_found']} duplicates, "
-                f"merged {stats['merged']}, "
-                f"skipped (placement conflict) {stats['skipped_both_placements']}, "
-                f"errors {stats['errors']}."
-            ),
+            "summary": summary,
             "candidates_scanned": stats['candidates_scanned'],
             "duplicates_found": stats['duplicates_found'],
             "merged": stats['merged'],
@@ -1781,3 +1797,44 @@ class AutomationService:
             "skipped_below_threshold": stats['skipped_below_threshold'],
             "errors": stats['errors'],
         }
+
+    def _send_bulk_scan_notification(self, stats, status, error_detail=None):
+        try:
+            from models import VettingConfig
+            config = VettingConfig.query.filter_by(setting_key='admin_notification_email').first()
+            admin_email = (config.setting_value.strip() if config and config.setting_value else '') or 'kroots@myticas.com'
+
+            from email_service import EmailService
+            email_svc = EmailService()
+
+            if status == "completed":
+                subject = "Scout Genius — Bulk Duplicate Scan Complete"
+                message = (
+                    f"The bulk duplicate candidate scan has completed successfully.\n\n"
+                    f"Results Summary:\n"
+                    f"  - Candidates scanned: {stats.get('candidates_scanned', 0):,}\n"
+                    f"  - Duplicates found: {stats.get('duplicates_found', 0):,}\n"
+                    f"  - Successfully merged: {stats.get('merged', 0):,}\n"
+                    f"  - Skipped (below threshold): {stats.get('skipped_below_threshold', 0):,}\n"
+                    f"  - Skipped (placement conflict): {stats.get('skipped_both_placements', 0):,}\n"
+                    f"  - Errors: {stats.get('errors', 0):,}\n\n"
+                    f"You can now resume the hourly Duplicate Candidate Merge scheduled job "
+                    f"from the Automation Hub.\n\n"
+                    f"— Scout Genius Automation"
+                )
+            else:
+                subject = "Scout Genius — Bulk Duplicate Scan FAILED"
+                message = (
+                    f"The bulk duplicate candidate scan encountered a fatal error and could not complete.\n\n"
+                    f"Error: {error_detail}\n\n"
+                    f"Progress before failure:\n"
+                    f"  - Candidates scanned: {stats.get('candidates_scanned', 0):,}\n"
+                    f"  - Merged before failure: {stats.get('merged', 0):,}\n\n"
+                    f"Please check the Automation Hub run history for details.\n\n"
+                    f"— Scout Genius Automation"
+                )
+
+            email_svc.send_notification_email(admin_email, subject, message, 'bulk_duplicate_scan')
+            logger.info(f"🔀 Bulk scan notification sent to {admin_email} (status={status})")
+        except Exception as e:
+            logger.warning(f"🔀 Failed to send bulk scan notification: {e}")
