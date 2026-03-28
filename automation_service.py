@@ -19,6 +19,7 @@ LONG_RUNNING_BUILTINS = {
     "retry_recruiter_notifications",
     "screening_audit",
     "duplicate_merge_scan",
+    "occupation_extractor",
 }
 
 NO_BULLHORN_BUILTINS = {

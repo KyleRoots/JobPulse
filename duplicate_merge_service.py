@@ -387,6 +387,32 @@ class DuplicateMergeService:
         db.session.add(merge_log)
         db.session.commit()
 
+    def _normalize_name(self, name_str):
+        if not name_str:
+            return ''
+        import re
+        return re.sub(r'[^a-z]', '', name_str.strip().lower())
+
+    def _names_match(self, candidate_a, candidate_b):
+        first_a = self._normalize_name(candidate_a.get('firstName'))
+        last_a = self._normalize_name(candidate_a.get('lastName'))
+        first_b = self._normalize_name(candidate_b.get('firstName'))
+        last_b = self._normalize_name(candidate_b.get('lastName'))
+
+        if not first_a or not first_b or not last_a or not last_b:
+            return False
+
+        if first_a == first_b and last_a == last_b:
+            return True
+
+        if first_a == first_b and (last_a.startswith(last_b[:3]) or last_b.startswith(last_a[:3])):
+            return True
+
+        if last_a == last_b and (first_a.startswith(first_b[:3]) or first_b.startswith(first_a[:3])):
+            return True
+
+        return False
+
     def _compute_match_confidence(self, candidate_a, candidate_b):
         email_a = (candidate_a.get('email') or '').strip().lower()
         email2_a = (candidate_a.get('email2') or '').strip().lower()
@@ -412,7 +438,13 @@ class DuplicateMergeService:
         phones_a = {p for p in [phone_a_digits, mobile_a_digits] if len(p) >= 10}
         phones_b = {p for p in [phone_b_digits, mobile_b_digits] if len(p) >= 10}
         if phones_a & phones_b:
-            return 0.90, 'phone'
+            if self._names_match(candidate_a, candidate_b):
+                return 0.90, 'phone+name'
+            else:
+                logger.debug(f"  Phone match rejected — names differ: "
+                             f"{candidate_a.get('firstName')} {candidate_a.get('lastName')} vs "
+                             f"{candidate_b.get('firstName')} {candidate_b.get('lastName')}")
+                return 0.0, 'phone_name_mismatch'
 
         return 0.0, 'none'
 
