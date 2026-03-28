@@ -1599,9 +1599,21 @@ if is_primary_worker:
                 })
                 reparse_updated = reparse_result.get('updated', 0) if isinstance(reparse_result, dict) else 0
 
+                occupation_updated = 0
+                try:
+                    occupation_result = svc._builtin_occupation_extractor({
+                        'dry_run': False,
+                        'limit': batch_size,
+                        'days_back': 30,
+                    })
+                    occupation_updated = occupation_result.get('updated', 0) if isinstance(occupation_result, dict) else 0
+                except Exception as oe:
+                    app.logger.warning(f"🧹 Occupation extraction step failed: {oe}")
+
                 app.logger.info(
                     f"🧹 Candidate data cleanup cycle complete: "
-                    f"emails_extracted={email_updated}, descriptions_reparsed={reparse_updated} "
+                    f"emails_extracted={email_updated}, descriptions_reparsed={reparse_updated}, "
+                    f"occupations_filled={occupation_updated} "
                     f"(batch_size={batch_size})"
                 )
             except Exception as e:

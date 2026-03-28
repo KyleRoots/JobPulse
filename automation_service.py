@@ -153,6 +153,7 @@ class AutomationService:
             "salesrep_sync": self._builtin_salesrep_sync,
             "update_field_bulk": self._builtin_update_field_bulk,
             "email_extractor": self._builtin_email_extractor,
+            "occupation_extractor": self._builtin_occupation_extractor,
             "retry_recruiter_notifications": self._builtin_retry_recruiter_notifications,
             "screening_audit": self._builtin_screening_audit,
             "duplicate_merge_scan": self._builtin_duplicate_merge_scan,
@@ -1386,6 +1387,253 @@ class AutomationService:
             "updated_samples": updated_samples,
             "candidates": candidate_details[:50],
         }
+
+    def _builtin_occupation_extractor(self, params):
+        dry_run = params.get("dry_run", True)
+        if isinstance(dry_run, str):
+            dry_run = dry_run.lower() not in ('false', '0', 'no')
+        days_back = int(params.get("days_back", 30))
+        limit = int(params.get("limit", 50))
+
+        cutoff_ts = int((datetime.utcnow() - timedelta(days=days_back)).timestamp() * 1000)
+        search_url = f"{self._bh_url()}search/Candidate"
+
+        try:
+            resp = requests.get(search_url, headers=self._bh_headers(), params={
+                "query": f"dateAdded:[{cutoff_ts} TO *] AND -occupation:[* TO *]",
+                "fields": "id,firstName,lastName,email,occupation,dateAdded,owner",
+                "count": min(limit, 500),
+                "sort": "-dateAdded"
+            }, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            total_available = data.get("total", 0)
+            candidates = data.get("data", [])
+        except Exception as e:
+            self.logger.error(f"occupation_extractor: search failed: {e}")
+            return {"error": str(e), "summary": "Failed to search for candidates with missing occupation"}
+
+        if not candidates and total_available == 0:
+            try:
+                resp2 = requests.get(search_url, headers=self._bh_headers(), params={
+                    "query": f'dateAdded:[{cutoff_ts} TO *] AND occupation:""',
+                    "fields": "id,firstName,lastName,email,occupation,dateAdded,owner",
+                    "count": min(limit, 500),
+                    "sort": "-dateAdded"
+                }, timeout=30)
+                resp2.raise_for_status()
+                data2 = resp2.json()
+                total_available = data2.get("total", 0)
+                candidates = data2.get("data", [])
+            except Exception:
+                pass
+
+        results = {
+            "total_without_occupation": total_available,
+            "candidates_in_batch": len(candidates),
+            "with_resume": 0,
+            "no_file": 0,
+            "titles_found": 0,
+            "updated": 0,
+            "no_title_in_resume": 0,
+            "failed": 0,
+        }
+        candidate_details = []
+        updated_samples = []
+
+        for cand in candidates:
+            cid = cand.get("id")
+            name = f"{cand.get('firstName', '')} {cand.get('lastName', '')}".strip()
+
+            file_url = f"{self._bh_url()}entity/Candidate/{cid}/fileAttachments"
+            try:
+                file_resp = requests.get(file_url, headers=self._bh_headers(),
+                                         params={"fields": "id,name,type,contentType"}, timeout=15)
+                file_resp.raise_for_status()
+                files = file_resp.json().get("data", [])
+                resume_files = [f for f in files if
+                                (f.get("type", "").lower() == "resume") or
+                                f.get("name", "").lower().endswith((".pdf", ".doc", ".docx"))]
+            except Exception:
+                resume_files = []
+
+            if not resume_files:
+                results["no_file"] += 1
+                candidate_details.append({
+                    "candidate_id": cid, "name": name,
+                    "status": "no_resume_file"
+                })
+                continue
+
+            results["with_resume"] += 1
+            resume_file = resume_files[0]
+
+            if dry_run:
+                candidate_details.append({
+                    "candidate_id": cid, "name": name,
+                    "resume_file": resume_file.get("name", "unknown"),
+                    "status": "would_process"
+                })
+                continue
+
+            try:
+                text = self._download_and_extract_resume_raw_text(cid, resume_file)
+                if not text or len(text.strip()) < 50:
+                    results["failed"] += 1
+                    candidate_details.append({
+                        "candidate_id": cid, "name": name,
+                        "status": "parse_failed"
+                    })
+                    continue
+
+                title = self._extract_title_from_resume_text(text, name)
+
+                if not title:
+                    results["no_title_in_resume"] += 1
+                    candidate_details.append({
+                        "candidate_id": cid, "name": name,
+                        "resume_file": resume_file.get("name", ""),
+                        "status": "no_title_in_resume"
+                    })
+                    continue
+
+                results["titles_found"] += 1
+
+                update_url = f"{self._bh_url()}entity/Candidate/{cid}"
+                upd_resp = requests.post(
+                    update_url,
+                    headers={**self._bh_headers(), "Content-Type": "application/json"},
+                    json={"occupation": title},
+                    timeout=15
+                )
+                upd_body = upd_resp.json() if upd_resp.status_code in (200, 201) else {}
+                if upd_body.get("changeType") == "UPDATE" or upd_body.get("changedEntityId"):
+                    results["updated"] += 1
+                    detail = {
+                        "candidate_id": cid, "name": name,
+                        "title_extracted": title,
+                        "status": "updated"
+                    }
+                    candidate_details.append(detail)
+                    if len(updated_samples) < 10:
+                        updated_samples.append({"id": cid, "name": name, "occupation": title})
+                    self.logger.info(f"occupation_extractor: updated {cid} ({name}) -> '{title}'")
+                else:
+                    results["failed"] += 1
+                    candidate_details.append({
+                        "candidate_id": cid, "name": name,
+                        "title_extracted": title,
+                        "status": "update_failed",
+                        "response": str(upd_body)[:200]
+                    })
+            except Exception as e:
+                results["failed"] += 1
+                candidate_details.append({
+                    "candidate_id": cid, "name": name,
+                    "status": "error",
+                    "error": str(e)[:150]
+                })
+
+            time.sleep(0.2)
+
+        if dry_run:
+            summary = (
+                f"DRY RUN: {results['total_without_occupation']:,} candidates have no occupation/title "
+                f"(past {days_back} days). This batch covers {results['candidates_in_batch']}. "
+                f"{results['with_resume']} have resume files, {results['no_file']} have no files attached."
+            )
+        else:
+            summary = (
+                f"Processed {results['candidates_in_batch']} candidates: "
+                f"{results['titles_found']} titles extracted, "
+                f"{results['updated']} updated in Bullhorn. "
+                f"{results['no_title_in_resume']} resumes had no extractable title, "
+                f"{results['no_file']} had no resume file, "
+                f"{results['failed']} failed."
+            )
+
+        return {
+            "summary": summary,
+            "dry_run": dry_run,
+            **results,
+            "updated_samples": updated_samples,
+            "candidates": candidate_details[:50],
+        }
+
+    def _download_and_extract_resume_raw_text(self, candidate_id, resume_file_info):
+        import base64
+        import tempfile
+        import os
+
+        file_id = resume_file_info.get("id")
+        filename = resume_file_info.get("name", "resume.pdf")
+
+        dl_url = f"{self._bh_url()}file/Candidate/{candidate_id}/{file_id}"
+        dl_resp = requests.get(dl_url, headers=self._bh_headers(), timeout=30)
+        dl_resp.raise_for_status()
+        file_data = dl_resp.json()
+        file_content = file_data.get("File", {}).get("fileContent", "")
+
+        if not file_content:
+            return None
+
+        raw_bytes = base64.b64decode(file_content)
+        lower_name = filename.lower()
+        if lower_name.endswith(".pdf"):
+            suffix = ".pdf"
+        elif lower_name.endswith(".docx"):
+            suffix = ".docx"
+        elif lower_name.endswith(".doc"):
+            suffix = ".doc"
+        else:
+            suffix = ".pdf"
+
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(raw_bytes)
+                tmp_path = tmp.name
+
+            from resume_parser import ResumeParser
+            parser = ResumeParser()
+            result = parser.parse_resume(tmp_path, quick_mode=True, skip_cache=True)
+            return result.get("raw_text", "")
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    def _extract_title_from_resume_text(self, resume_text, candidate_name=""):
+        try:
+            from openai import OpenAI
+            client = OpenAI()
+
+            prompt = (
+                f"Extract the most recent/current job title from this resume. "
+                f"Return ONLY the job title as a short string (e.g. 'Senior Data Engineer', 'Software Developer', 'Project Manager'). "
+                f"If you cannot determine a clear job title, return exactly: NONE\n\n"
+                f"Resume text:\n{resume_text[:6000]}"
+            )
+
+            response = client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[
+                    {"role": "system", "content": "You extract job titles from resumes. Return only the job title, nothing else."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0,
+                max_completion_tokens=100
+            )
+
+            title = response.choices[0].message.content.strip()
+            title = title.strip('"\'')
+
+            if not title or title.upper() == "NONE" or len(title) > 100 or len(title) < 2:
+                return None
+
+            return title
+        except Exception as e:
+            self.logger.warning(f"occupation_extractor: AI title extraction failed: {e}")
+            return None
 
     def _builtin_retry_recruiter_notifications(self, params):
         from models import CandidateVettingLog

@@ -1044,6 +1044,12 @@ BUILTIN_AUTOMATIONS = [
         "builtin_key": "email_extractor",
     },
     {
+        "name": "Occupation/Title Extractor",
+        "description": "Find candidates with missing occupation/title fields, download their resume files, and use AI to extract the most recent job title. Updates the occupation field in Bullhorn. Runs automatically as part of the 15-minute candidate cleanup cycle.",
+        "automation_type": "one-time",
+        "builtin_key": "occupation_extractor",
+    },
+    {
         "name": "Cleanup AI Notes",
         "description": "Delete AI vetting notes from candidate records. Finds notes matching actions: AI Vetting, AI Resume Summary, AI Vetted.",
         "automation_type": "one-time",
