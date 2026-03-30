@@ -574,10 +574,32 @@ class DuplicateMergeService:
             already_merged.add(log.duplicate_candidate_id)
 
         start = 0
+        batch_count = 0
+        last_auth_time = time.time()
+        TOKEN_REFRESH_INTERVAL = 600
         while True:
+            if time.time() - last_auth_time > TOKEN_REFRESH_INTERVAL:
+                try:
+                    logger.info("🔄 Bulk scan: refreshing Bullhorn token to prevent expiry...")
+                    self.bullhorn.authenticate()
+                    last_auth_time = time.time()
+                    logger.info("✅ Bulk scan: Bullhorn token refreshed successfully")
+                except Exception as e:
+                    logger.error(f"❌ Bulk scan: token refresh failed: {e}")
+                    break
+
             batch = self._search_all_candidates_batch(start=start, count=BATCH_SIZE)
             if not batch:
-                break
+                if batch_count > 0:
+                    try:
+                        logger.info("🔄 Bulk scan: empty batch — attempting token refresh and retry...")
+                        self.bullhorn.authenticate()
+                        last_auth_time = time.time()
+                        batch = self._search_all_candidates_batch(start=start, count=BATCH_SIZE)
+                    except Exception as e:
+                        logger.error(f"❌ Bulk scan: retry auth failed: {e}")
+                if not batch:
+                    break
 
             stats['candidates_scanned'] += len(batch)
 
@@ -630,6 +652,7 @@ class DuplicateMergeService:
             if progress_callback:
                 progress_callback(stats)
 
+            batch_count += 1
             start += len(batch)
             logger.info(f"📊 Bulk scan progress: scanned={stats['candidates_scanned']}, merged={stats['merged']}, skipped_placement={stats['skipped_both_placements']}")
 
