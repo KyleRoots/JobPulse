@@ -1097,40 +1097,6 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             logging.error(f"Full traceback: {traceback.format_exc()}")
             return False
 
-    def send_job_change_notification(self, to_email: str, notification_type: str, 
-                                   job_id: str, job_title: str, changes_summary: str = None) -> bool:
-        """
-        [DISABLED] Individual job change notifications have been disabled to prevent duplicate emails.
-        Use send_bullhorn_notification() for bulk summary notifications instead.
-        
-        Args:
-            to_email: Recipient email address
-            notification_type: 'job_added', 'job_removed', or 'job_modified'
-            job_id: Bullhorn job ID
-            job_title: Job title for reference
-            changes_summary: Summary of changes made
-            
-        Returns:
-            bool: Always returns True (method disabled)
-        """
-        # DISABLED: Individual notifications were causing duplicate emails
-        # Use send_bullhorn_notification() for bulk summary notifications instead
-        logging.warning(f"INDIVIDUAL NOTIFICATIONS DISABLED: Attempted to send individual notification for job {job_id}. "
-                       f"Individual notifications are disabled to prevent duplicates. Use send_bullhorn_notification() instead.")
-        
-        # Log the blocked attempt for tracking
-        self._log_email_delivery(
-            notification_type=f"disabled_{notification_type}",
-            job_id=job_id,
-            job_title=job_title,
-            recipient_email=to_email,
-            delivery_status='blocked',
-            error_message="Individual notifications disabled - use bulk notifications instead",
-            changes_summary=f"Blocked individual notification: {notification_type} for job {job_id}"
-        )
-        
-        return True  # Return True to prevent error handling in calling code
-
     def send_notification_email(self, to_email: str, subject: str, message: str, 
                                 notification_type: str = 'generic') -> bool:
         """

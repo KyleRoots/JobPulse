@@ -176,7 +176,12 @@ class DuplicateMergeService:
 
     def _transfer_note(self, primary_id, note):
         try:
-            commenting_person_id = self.bullhorn.user_id or 1147490
+            try:
+                from models import GlobalSettings
+                default_user_id = GlobalSettings.get_value('bullhorn_api_user_id', '1147490')
+            except Exception:
+                default_user_id = '1147490'
+            commenting_person_id = self.bullhorn.user_id or int(default_user_id)
             original_date_added = note.get('dateAdded')
             payload = {
                 'personReference': {'id': primary_id},

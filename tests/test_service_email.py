@@ -242,24 +242,4 @@ class TestEmailServiceWithMockedSendGrid:
             assert 'success' in result
 
 
-class TestEmailServiceJobChangeNotification:
-    """Test EmailService job change notification (disabled method)."""
-    
-    def test_job_change_notification_returns_bool(self):
-        """Test that job change notification returns a boolean."""
-        from email_service import EmailService
-        
-        service = EmailService()
-        try:
-            result = service.send_job_change_notification(
-                to_email='test@example.com',
-                notification_type='added',
-                job_id='123',
-                job_title='Test Job'
-            )
-            
-            # Method may return True or False depending on implementation
-            assert isinstance(result, bool)
-        except AttributeError:
-            # Method may require app context or db access that isn't available
-            pass  # Test passes if method returns bool or raises AttributeError
+

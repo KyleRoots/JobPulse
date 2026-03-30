@@ -1,7 +1,7 @@
 """
 Trigger endpoint tests for Scout Genius.
 
-Tests system trigger endpoints for job sync, file cleanup, health check, and AI fixes.
+Tests system trigger endpoints for job sync, health check, and AI fixes.
 """
 
 import pytest
@@ -19,23 +19,6 @@ class TestJobSyncTrigger:
         """Test that job sync trigger returns JSON."""
         response = authenticated_client.post('/api/trigger/job-sync')
         # May fail due to missing services but should not crash, may redirect
-        assert response.status_code in [200, 302, 400, 500]
-        if response.status_code == 200:
-            assert 'application/json' in response.content_type
-
-
-class TestFileCleanupTrigger:
-    """Test file cleanup trigger endpoint."""
-    
-    def test_file_cleanup_requires_auth(self, client):
-        """Test that file cleanup trigger requires authentication."""
-        response = client.post('/api/trigger/file-cleanup', follow_redirects=False)
-        assert response.status_code in [302, 401, 403]
-    
-    def test_file_cleanup_returns_json(self, authenticated_client, app):
-        """Test that file cleanup trigger returns JSON."""
-        response = authenticated_client.post('/api/trigger/file-cleanup')
-        # May redirect if auth not working
         assert response.status_code in [200, 302, 400, 500]
         if response.status_code == 200:
             assert 'application/json' in response.content_type

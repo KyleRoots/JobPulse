@@ -436,27 +436,6 @@ scheduler = BackgroundScheduler(
     }
 )
 
-# Defer expensive optimizations to be applied lazily
-optimizer = None
-def lazy_apply_optimizations():
-    """Apply optimizations only when needed, not during startup"""
-    global optimizer
-    if optimizer is None:
-        # Optimization module removed - marked as not available
-        app.logger.debug("Optimization improvements module not available")
-        optimizer = False  # Mark as attempted
-    return optimizer
-
-# Defer file consolidation service initialization
-app.file_consolidation = None
-def lazy_init_file_consolidation():
-    """Initialize file consolidation service only when needed"""
-    if app.file_consolidation is None:
-        # File consolidation module removed - marked as not available
-        app.logger.debug("File consolidation service not available")
-        app.file_consolidation = False  # Mark as attempted
-    return app.file_consolidation
-
 # Cleanup scheduler on exit with proper error handling
 def cleanup_scheduler():
     try:
@@ -1114,8 +1093,6 @@ def ensure_background_services():
     # Only run these once
     if not _background_services_started:
         _background_services_started = True
-        lazy_apply_optimizations()
-        lazy_init_file_consolidation()
 
     return True
 
@@ -1171,32 +1148,6 @@ if is_primary_worker:
     except Exception as e:
         app.logger.warning(f"Initial active job IDs cache warm failed: {e}")
     app.logger.info("Active job IDs background cache refresh enabled (5-min interval)")
-
-    # Schedule automatic file cleanup
-    def schedule_file_cleanup():
-        """Schedule automatic file cleanup"""
-        with app.app_context():
-            try:
-                # Initialize file consolidation service if needed
-                file_service = lazy_init_file_consolidation()
-                
-                if file_service and file_service is not False:
-                    results = file_service.run_full_cleanup()
-                    app.logger.info(f"Scheduled file cleanup completed: {results.get('summary', {})}")
-                else:
-                    app.logger.warning("File consolidation service not available for scheduled cleanup")
-            except Exception as e:
-                app.logger.error(f"Scheduled file cleanup error: {e}")
-
-    scheduler.add_job(
-        func=schedule_file_cleanup,
-        trigger="interval", 
-        hours=24,
-        id="file_cleanup_job",
-        name="Daily File Cleanup",
-        replace_existing=True
-    )
-    app.logger.info("Scheduled daily file cleanup job")
 
 if is_primary_worker:
     # Add activity retention cleanup - runs daily at 3 AM

@@ -645,7 +645,7 @@ class BullhornService:
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
-                data = response.json()
+                data = self._safe_json_parse(response)
                 return data.get('data', [])
             else:
                 logging.error(f"Failed to get job orders: {response.status_code} - {response.text}")
@@ -682,7 +682,7 @@ class BullhornService:
             entity_job_ids = set()
             
             if entity_response.status_code == 200:
-                entity_data = entity_response.json()
+                entity_data = self._safe_json_parse(entity_response)
                 job_orders = entity_data.get('data', {}).get('jobOrders', {})
                 if isinstance(job_orders, dict):
                     entity_total = job_orders.get('total', 0)
@@ -712,7 +712,7 @@ class BullhornService:
                             }
                             paginated_response = self.session.get(assoc_url, params=assoc_params, timeout=60)
                             if paginated_response.status_code == 200:
-                                paginated_data = paginated_response.json()
+                                paginated_data = self._safe_json_parse(paginated_response)
                                 paginated_jobs = paginated_data.get('data', [])
                                 if not paginated_jobs:
                                     break
@@ -766,7 +766,7 @@ class BullhornService:
                 response = self.session.get(url, params=params, timeout=30)
                 
                 if response.status_code == 200:
-                    data = response.json()
+                    data = self._safe_json_parse(response)
                     jobs_data = data.get('data', [])
                     total = data.get('total', 0)
                     
@@ -855,7 +855,7 @@ class BullhornService:
                 response = self.session.get(url, params=params, timeout=30)
                 
                 if response.status_code == 200:
-                    data = response.json()
+                    data = self._safe_json_parse(response)
                     jobs_data = data.get('data', [])
                     total = data.get('total', 0)
                     
@@ -913,7 +913,7 @@ class BullhornService:
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
-                data = response.json()
+                data = self._safe_json_parse(response)
                 if 'data' in data:
                     job = data['data']
                     # Normalize address - parse city/state from address1 if nested fields are empty
@@ -966,7 +966,7 @@ class BullhornService:
                 response = self.session.get(url, params=params, timeout=10)
                 
                 if response.status_code == 200:
-                    data = response.json().get('data', {})
+                    data = self._safe_json_parse(response).get('data', {})
                     if data:
                         user_map[user_id] = {
                             'firstName': data.get('firstName', ''),
@@ -1017,7 +1017,7 @@ class BullhornService:
                     response = self.session.get(url, params=params, timeout=5)
                     
                     if response.status_code == 200:
-                        data = response.json()
+                        data = self._safe_json_parse(response)
                         tearsheet = data.get('data', {})
                         if tearsheet:
                             tearsheets.append(tearsheet)
@@ -1209,7 +1209,7 @@ class BullhornService:
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
-                data = response.json()
+                data = self._safe_json_parse(response)
                 return data.get('data', [])
             else:
                 logging.error(f"Failed to get tearsheet members: {response.status_code} - {response.text}")
@@ -1299,7 +1299,7 @@ class BullhornService:
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
-                data = response.json()
+                data = self._safe_json_parse(response)
                 jobs_data = data.get('data', [])
                 logging.info(f"Retrieved {len(jobs_data)} jobs out of {len(job_ids)} requested")
                 return self._filter_excluded_jobs(jobs_data)
@@ -1562,7 +1562,7 @@ class BullhornService:
             logging.info(f"File upload response: {response.text[:500] if response.text else 'No response body'}")
             
             if response.status_code in [200, 201]:
-                data = response.json()
+                data = self._safe_json_parse(response)
                 file_id = data.get('fileId')
                 if file_id:
                     logging.info(f"✅ Successfully uploaded file '{filename}' to candidate {candidate_id}, file ID: {file_id}")
@@ -1600,7 +1600,7 @@ class BullhornService:
                                 self.session.headers['Content-Type'] = original_content_type
                         
                         if retry_response.status_code in [200, 201]:
-                            data = retry_response.json()
+                            data = self._safe_json_parse(retry_response)
                             file_id = data.get('fileId') or data.get('changedEntityId')
                             logging.info(f"✅ Retry successful, file ID: {file_id}")
                             return file_id

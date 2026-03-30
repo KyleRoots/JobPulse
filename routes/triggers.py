@@ -46,41 +46,6 @@ def trigger_job_sync():
         }), 500
 
 
-@triggers_bp.route('/api/trigger/file-cleanup', methods=['POST'])
-@login_required
-def trigger_file_cleanup():
-    """Manually trigger file consolidation and cleanup"""
-    try:
-        from app import ensure_background_services, lazy_init_file_consolidation
-        
-        current_app.logger.info("Manual file cleanup triggered")
-        ensure_background_services()
-        
-        file_service = lazy_init_file_consolidation()
-        
-        if file_service and file_service is not False:
-            results = file_service.run_full_cleanup()
-            
-            return jsonify({
-                'success': True,
-                'message': 'File cleanup completed successfully',
-                'timestamp': datetime.utcnow().isoformat(),
-                'results': results
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'File consolidation service not available'
-            }), 500
-            
-    except Exception as e:
-        current_app.logger.error(f"Manual file cleanup error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
 @triggers_bp.route('/api/trigger/health-check', methods=['POST'])
 @login_required
 def trigger_health_check():

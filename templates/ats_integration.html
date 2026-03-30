@@ -294,10 +294,6 @@
                 title="Check and fix missing AI classifications">
                 <i class="fas fa-brain me-1"></i>Fix AI
             </button>
-            <button onclick="triggerFileCleanup()" class="btn btn-outline-info btn-sm" id="cleanupBtn"
-                title="Clean up temporary and backup files">
-                <i class="fas fa-broom me-1"></i>Cleanup
-            </button>
             <button onclick="generateFreshXML()" class="btn btn-primary btn-sm" id="generateXMLBtn"
                 title="Generate fresh XML from all Bullhorn tearsheets">
                 <i class="fas fa-sync-alt me-1"></i>Fresh XML
@@ -1154,68 +1150,6 @@
             });
     }
 
-    function triggerFileCleanup() {
-        const cleanupBtn = document.getElementById('cleanupBtn');
-        const originalText = cleanupBtn.innerHTML;
-
-        cleanupBtn.disabled = true;
-        cleanupBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Cleaning...';
-
-        fetch('/api/trigger/file-cleanup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const summary = data.results.summary;
-                    const filesRemoved = summary.total_files_removed || 0;
-                    const sizeFreed = summary.total_size_freed_mb || 0;
-
-                    cleanupBtn.innerHTML = `<i class="fas fa-check me-2"></i>Done`;
-                    cleanupBtn.classList.remove('btn-outline-info');
-                    cleanupBtn.classList.add('btn-outline-success');
-
-                    showNotification(`File cleanup complete: removed ${filesRemoved} files, freed ${sizeFreed}MB`, 'success');
-
-                    setTimeout(() => {
-                        cleanupBtn.disabled = false;
-                        cleanupBtn.innerHTML = originalText;
-                        cleanupBtn.classList.remove('btn-outline-success');
-                        cleanupBtn.classList.add('btn-outline-info');
-                    }, 5000);
-                } else {
-                    cleanupBtn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Failed';
-                    cleanupBtn.classList.remove('btn-outline-info');
-                    cleanupBtn.classList.add('btn-danger');
-
-                    showNotification(data.error || 'File cleanup failed', 'error');
-
-                    setTimeout(() => {
-                        cleanupBtn.disabled = false;
-                        cleanupBtn.innerHTML = originalText;
-                        cleanupBtn.classList.remove('btn-danger');
-                        cleanupBtn.classList.add('btn-outline-info');
-                    }, 3000);
-                }
-            })
-            .catch(error => {
-                cleanupBtn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Error';
-                cleanupBtn.classList.remove('btn-outline-info');
-                cleanupBtn.classList.add('btn-danger');
-
-                showNotification('Error during file cleanup: ' + error.message, 'error');
-
-                setTimeout(() => {
-                    cleanupBtn.disabled = false;
-                    cleanupBtn.innerHTML = originalText;
-                    cleanupBtn.classList.remove('btn-danger');
-                    cleanupBtn.classList.add('btn-outline-info');
-                }, 3000);
-            });
-    }
 
     function generateFreshXML() {
         const generateBtn = document.getElementById('generateXMLBtn');
