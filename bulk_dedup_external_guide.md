@@ -348,6 +348,72 @@ When scan finishes, send notification to `kroots@myticas.com` via SendGrid with:
 
 ---
 
+## Lessons Learned — Errors Encountered & How to Avoid Them
+
+These are specific issues encountered during multiple bulk scan attempts inside the Scout Genius web app. **Every one of these must be accounted for in the external script to avoid the same failures.**
+
+### 1. Bullhorn Token Expiry (401 — "Bad BhRestToken or timed-out")
+- **What happened**: The Bullhorn REST token (`BhRestToken`) expires after approximately 10 minutes. The scan would run fine for ~3,200 candidates, then every subsequent API call returned 401.
+- **Root cause**: The `authenticate()` method had a short-circuit check — if `rest_token` was already set, it returned `True` immediately without actually getting a new token. So "proactive refreshes" were silently doing nothing.
+- **Fix for external script**:
+  - **Must clear the old token before re-authenticating**: Set `rest_token = None` and `base_url = None`, then call the full OAuth flow again.
+  - **Proactively re-authenticate every 5 minutes** (300 seconds), don't wait for a 401.
+  - **On 401 errors**, retry with exponential backoff: wait 5s → re-auth → retry. If still fails, wait 10s → re-auth → retry. Up to 3 attempts.
+  - **Bullhorn has a 5-second auth cooldown** — never call the auth endpoint twice within 5 seconds or it will silently reject the attempt.
+  - **Log the last 4 characters of each new token** to verify you're actually getting fresh tokens on each refresh.
+
+### 2. PostgreSQL SSL Connection Drops
+- **What happened**: The Neon-hosted PostgreSQL database drops idle SSL connections every ~5-10 minutes. After a drop, any DB write (commit) fails with `psycopg2.OperationalError: SSL connection has been closed unexpectedly`. Once this happens, the session is "poisoned" — every subsequent DB operation fails until the session is explicitly rolled back.
+- **Root cause**: Neon's serverless architecture aggressively recycles idle connections to save resources.
+- **Fix for external script**:
+  - **Use TCP keepalives** in your psycopg2 connection:
+    ```python
+    conn = psycopg2.connect(
+        DATABASE_URL,
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5
+    )
+    ```
+  - **Ping the DB before each merge** with a quick `SELECT 1`. If it fails, reconnect.
+  - **Always rollback on error**: If a commit fails, call `conn.rollback()` before the next operation to reset the session.
+  - **Reconnect if rollback doesn't help**: Close and re-create the connection entirely.
+
+### 3. Cascading Merge Failures (Session Poisoning)
+- **What happened**: The first SSL drop caused a commit failure. Because the DB session wasn't rolled back, every subsequent merge also failed with the same "previous exception during flush" error. The scan found duplicates and performed Bullhorn transfers, but couldn't log any of them to the database.
+- **Fix for external script**:
+  - Wrap each merge's DB commit in its own try/except block.
+  - On failure: `conn.rollback()`, then attempt to reconnect if needed.
+  - The next merge should start with a clean session.
+
+### 4. Timestamp Overwrite on Transferred Records
+- **What happened**: When creating a new JobSubmission or Note via Bullhorn's PUT endpoint, Bullhorn ignores the `dateAdded` field in the payload and assigns the current timestamp. This means all transferred submissions/notes showed today's date instead of their original date.
+- **Fix for external script**:
+  - **Two-step timestamp preservation**:
+    1. Include `dateAdded` in the PUT payload (Bullhorn sometimes honors it)
+    2. Immediately after creation, POST update the entity to restore the original `dateAdded`:
+       ```
+       POST {base_url}entity/JobSubmission/{new_id}
+       {"dateAdded": original_timestamp_in_milliseconds}
+       ```
+  - This POST update overwrites Bullhorn's auto-assigned timestamp with the original.
+  - **The original `dateAdded` is in epoch milliseconds** (e.g., `1679500800000` for March 2023).
+
+### 5. Partial Merge State (Bullhorn Updated, DB Not Logged)
+- **What happened**: When the DB connection dropped mid-merge, the Bullhorn transfers (submissions, notes, files) and archival had already completed, but the merge log entry was never written. This left "ghost merges" — candidates that were merged in Bullhorn but not recorded in the database.
+- **Fix for external script**:
+  - Perform all Bullhorn operations first (transfers, enrichment, notes, archive).
+  - Write the DB log entry last.
+  - If the DB write fails, **do not re-merge on retry** — the duplicate is already archived in Bullhorn. Instead, just write the log entry on the next attempt.
+  - To detect this: before merging, check if the duplicate candidate's status is already "Archive" — if so, skip the Bullhorn operations and just log it.
+
+### 6. Duplicate Candidate with Shared Email Across Unrelated Profiles
+- **What happened**: A "Supplier Agreement" record (ID 3628008) shared an email with multiple unrelated real candidates, causing them all to match and attempt merges.
+- **Mitigation**: The matching logic handles this correctly — each duplicate is merged into the primary (or the primary is determined per-pair). But be aware that shared generic emails (e.g., company-wide addresses) can cause unexpected match chains. Monitor the logs for candidates matching against suspiciously named records.
+
+---
+
 ## Environment Requirements
 
 ### Python Dependencies
