@@ -6,3 +6,9 @@ id = "7sY0vobxtWYuMR1Ahp7IG"
 uri = "file://global_screening_instructions_updated.txt"
 type = "text"
 title = "Updated Global Screening Instructions (with Rule 2A)"
+
+[[outputs]]
+id = "fjHK2cpM6lEgYIHJFhfpT"
+uri = "file://bulk_dedup_external_guide.md"
+type = "text"
+title = "Bulk Candidate Deduplication — External Script Guide"

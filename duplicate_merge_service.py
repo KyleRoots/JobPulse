@@ -508,9 +508,12 @@ class DuplicateMergeService:
                                    f"waiting {backoff}s before re-auth...")
                     time.sleep(backoff)
                     try:
+                        self.bullhorn.rest_token = None
+                        self.bullhorn.base_url = None
                         self.bullhorn.authenticate()
                         time.sleep(3)
-                        logger.info(f"✅ Bulk scan: re-auth succeeded on attempt {attempt+1}")
+                        logger.info(f"✅ Bulk scan: re-auth succeeded on attempt {attempt+1} "
+                                    f"(token=***{self.bullhorn.rest_token[-4:] if self.bullhorn.rest_token else 'NONE'})")
                     except Exception as auth_err:
                         logger.error(f"❌ Bulk scan: re-auth attempt {attempt+1} failed: {auth_err}")
                 else:
@@ -632,9 +635,11 @@ class DuplicateMergeService:
             if time.time() - last_auth_time > TOKEN_REFRESH_INTERVAL:
                 try:
                     logger.info("🔄 Bulk scan: refreshing Bullhorn token to prevent expiry...")
+                    self.bullhorn.rest_token = None
+                    self.bullhorn.base_url = None
                     self.bullhorn.authenticate()
                     last_auth_time = time.time()
-                    logger.info("✅ Bulk scan: Bullhorn token refreshed successfully")
+                    logger.info(f"✅ Bulk scan: Bullhorn token refreshed successfully (token=***{self.bullhorn.rest_token[-4:] if self.bullhorn.rest_token else 'NONE'})")
                 except Exception as e:
                     logger.error(f"❌ Bulk scan: token refresh failed: {e}")
                     break
