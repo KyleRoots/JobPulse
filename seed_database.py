@@ -1097,6 +1097,12 @@ BUILTIN_AUTOMATIONS = [
         "automation_type": "one-time",
         "builtin_key": "duplicate_merge_scan",
     },
+    {
+        "name": "Merge Timestamp Correction",
+        "description": "One-time correction tool that restores original dateAdded timestamps on submissions and notes that were transferred during candidate merges. Queries archived duplicate records to find original dates and updates the transferred records on primary candidates. Runs as dry run by default — set dry_run=False to apply corrections.",
+        "automation_type": "one-time",
+        "builtin_key": "timestamp_correction",
+    },
 ]
 
 STALE_BUILTIN_KEYS = set()

@@ -763,3 +763,138 @@ class DuplicateMergeService:
 
         logger.info(f"🔍 Scheduled dedup check complete: checked={stats['candidates_checked']}, merged={stats['merged']}, skipped={stats['skipped']}")
         return stats
+
+    def run_timestamp_correction(self, dry_run=True):
+        from models import CandidateMergeLog
+
+        self._ensure_auth()
+        last_auth_time = time.time()
+
+        stats = {
+            'merges_checked': 0,
+            'submissions_corrected': 0,
+            'notes_corrected': 0,
+            'already_correct': 0,
+            'skipped_no_match': 0,
+            'errors': 0,
+        }
+
+        merge_logs = CandidateMergeLog.query.filter_by(skipped=False).order_by(CandidateMergeLog.merged_at.desc()).all()
+        logger.info(f"📅 Timestamp correction: {len(merge_logs)} merge records to check (dry_run={dry_run})")
+
+        for ml in merge_logs:
+            stats['merges_checked'] += 1
+
+            if time.time() - last_auth_time > 600:
+                try:
+                    self.bullhorn.authenticate()
+                    last_auth_time = time.time()
+                except Exception as e:
+                    logger.error(f"❌ Token refresh failed during correction: {e}")
+                    break
+
+            dup_id = ml.duplicate_candidate_id
+            primary_id = ml.primary_candidate_id
+
+            try:
+                dup_submissions = self._get_candidate_submissions(dup_id)
+                if dup_submissions:
+                    primary_submissions = self._get_candidate_submissions(primary_id)
+
+                    primary_by_job = {}
+                    for ps in primary_submissions:
+                        jo = ps.get('jobOrder', {})
+                        jid = jo.get('id') if isinstance(jo, dict) else jo
+                        if jid:
+                            primary_by_job[jid] = ps
+
+                    for ds in dup_submissions:
+                        jo = ds.get('jobOrder', {})
+                        job_id = jo.get('id') if isinstance(jo, dict) else jo
+                        if not job_id:
+                            continue
+
+                        original_date = ds.get('dateAdded')
+                        if not original_date:
+                            continue
+
+                        matched = primary_by_job.get(job_id)
+                        if not matched:
+                            stats['skipped_no_match'] += 1
+                            continue
+
+                        current_date = matched.get('dateAdded')
+                        if current_date and abs(current_date - original_date) < 60000:
+                            stats['already_correct'] += 1
+                            continue
+
+                        if dry_run:
+                            logger.info(f"  📅 [DRY RUN] Would correct submission {matched['id']} on primary {primary_id}: "
+                                        f"{self._format_bullhorn_ts(current_date)} → {self._format_bullhorn_ts(original_date)}")
+                            stats['submissions_corrected'] += 1
+                        else:
+                            self._restore_date_added('JobSubmission', matched['id'], original_date)
+                            stats['submissions_corrected'] += 1
+                            time.sleep(0.3)
+
+                dup_notes = self._get_candidate_notes(dup_id)
+                if dup_notes:
+                    primary_notes = self._get_candidate_notes(primary_id)
+
+                    for dn in dup_notes:
+                        dn_comments = (dn.get('comments') or '').strip()
+                        if not dn_comments or '[Scout Genius Auto-Merge]' in dn_comments:
+                            continue
+
+                        original_date = dn.get('dateAdded')
+                        if not original_date:
+                            continue
+
+                        matched_note = None
+                        for pn in primary_notes:
+                            pn_comments = (pn.get('comments') or '').strip()
+                            if pn_comments == dn_comments:
+                                matched_note = pn
+                                break
+
+                        if not matched_note:
+                            stats['skipped_no_match'] += 1
+                            continue
+
+                        current_date = matched_note.get('dateAdded')
+                        if current_date and abs(current_date - original_date) < 60000:
+                            stats['already_correct'] += 1
+                            continue
+
+                        if dry_run:
+                            logger.info(f"  📅 [DRY RUN] Would correct note {matched_note['id']} on primary {primary_id}: "
+                                        f"{self._format_bullhorn_ts(current_date)} → {self._format_bullhorn_ts(original_date)}")
+                            stats['notes_corrected'] += 1
+                        else:
+                            self._restore_date_added('Note', matched_note['id'], original_date)
+                            stats['notes_corrected'] += 1
+                            time.sleep(0.3)
+
+            except Exception as e:
+                logger.error(f"  ❌ Correction error for merge {ml.id} (dup {dup_id} → primary {primary_id}): {e}")
+                stats['errors'] += 1
+
+            if stats['merges_checked'] % 50 == 0:
+                logger.info(f"📅 Correction progress: checked={stats['merges_checked']}, "
+                            f"subs_corrected={stats['submissions_corrected']}, notes_corrected={stats['notes_corrected']}")
+
+            time.sleep(0.2)
+
+        mode = "DRY RUN" if dry_run else "LIVE"
+        summary = (
+            f"📅 Timestamp correction [{mode}] complete: "
+            f"merges_checked={stats['merges_checked']}, "
+            f"submissions_corrected={stats['submissions_corrected']}, "
+            f"notes_corrected={stats['notes_corrected']}, "
+            f"already_correct={stats['already_correct']}, "
+            f"skipped_no_match={stats['skipped_no_match']}, "
+            f"errors={stats['errors']}"
+        )
+        logger.info(summary)
+        stats['summary'] = summary
+        return stats
