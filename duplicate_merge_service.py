@@ -118,6 +118,19 @@ class DuplicateMergeService:
             logger.error(f"Error fetching files for candidate {candidate_id}: {e}")
         return []
 
+    def _restore_date_added(self, entity_type, entity_id, original_date_added):
+        try:
+            url = f"{self.bullhorn.base_url}entity/{entity_type}/{entity_id}"
+            params = {'BhRestToken': self.bullhorn.rest_token}
+            payload = {'dateAdded': original_date_added}
+            resp = self.bullhorn.session.post(url, json=payload, params=params, timeout=15)
+            if resp.status_code == 200:
+                logger.debug(f"  📅 Restored dateAdded on {entity_type}/{entity_id}")
+            else:
+                logger.debug(f"  📅 Could not restore dateAdded on {entity_type}/{entity_id}: {resp.status_code}")
+        except Exception as e:
+            logger.debug(f"  📅 dateAdded restore failed for {entity_type}/{entity_id}: {e}")
+
     def _transfer_submission(self, primary_id, submission):
         job_order = submission.get('jobOrder', {})
         job_id = job_order.get('id') if isinstance(job_order, dict) else job_order
@@ -141,10 +154,17 @@ class DuplicateMergeService:
                 'dateWebResponse': submission.get('dateWebResponse'),
                 'source': submission.get('source', 'Merged from duplicate'),
             }
+            original_date_added = submission.get('dateAdded')
+            if original_date_added:
+                payload['dateAdded'] = original_date_added
+
             url = f"{self.bullhorn.base_url}entity/JobSubmission"
             params = {'BhRestToken': self.bullhorn.rest_token}
             resp = self.bullhorn.session.put(url, json=payload, params=params, timeout=30)
             if resp.status_code in (200, 201):
+                new_id = resp.json().get('changedEntityId')
+                if new_id and original_date_added:
+                    self._restore_date_added('JobSubmission', new_id, original_date_added)
                 logger.info(f"  ✅ Transferred submission for job {job_id} to primary {primary_id}")
                 return True
             else:
@@ -157,6 +177,7 @@ class DuplicateMergeService:
     def _transfer_note(self, primary_id, note):
         try:
             commenting_person_id = self.bullhorn.user_id or 1147490
+            original_date_added = note.get('dateAdded')
             payload = {
                 'personReference': {'id': primary_id},
                 'candidates': [{'id': primary_id}],
@@ -165,10 +186,16 @@ class DuplicateMergeService:
                 'commentingPerson': {'id': commenting_person_id},
                 'isDeleted': False,
             }
+            if original_date_added:
+                payload['dateAdded'] = original_date_added
+
             url = f"{self.bullhorn.base_url}entity/Note"
             params = {'BhRestToken': self.bullhorn.rest_token}
             resp = self.bullhorn.session.put(url, json=payload, params=params, timeout=30)
             if resp.status_code in (200, 201):
+                new_id = resp.json().get('changedEntityId')
+                if new_id and original_date_added:
+                    self._restore_date_added('Note', new_id, original_date_added)
                 return True
             else:
                 logger.warning(f"  ⚠️ Failed to transfer note {note.get('id')}: {resp.status_code}")
