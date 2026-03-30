@@ -547,12 +547,11 @@ Consider: name spelling variations, nicknames, contact info matches.
 """
 
             response = self.openai_client.chat.completions.create(
-                model="gpt-4.1-mini",
+                model="gpt-5",
                 messages=[
                     {"role": "system", "content": "You are a deduplication expert. Return only a decimal number."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.0,
                 max_completion_tokens=10
             )
             
