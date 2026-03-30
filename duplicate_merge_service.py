@@ -328,6 +328,15 @@ class DuplicateMergeService:
     def merge_candidates(self, primary, duplicate, confidence, match_field, merge_type='scheduled'):
         from models import CandidateMergeLog
 
+        try:
+            db.session.execute(db.text('SELECT 1'))
+        except Exception:
+            db.session.rollback()
+            try:
+                db.session.execute(db.text('SELECT 1'))
+            except Exception:
+                db.session.remove()
+
         primary_id = primary.get('id')
         duplicate_id = duplicate.get('id')
         primary_name = self._candidate_name(primary)
@@ -678,6 +687,10 @@ class DuplicateMergeService:
                     except Exception as e:
                         logger.error(f"  ❌ Merge failed for {cid} + {mid}: {e}")
                         stats['errors'] += 1
+                        try:
+                            db.session.rollback()
+                        except Exception:
+                            pass
 
                     time.sleep(1.0)
 
