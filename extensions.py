@@ -52,10 +52,17 @@ def create_app():
     if database_url:
         app.config["SQLALCHEMY_DATABASE_URI"] = database_url
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-            "pool_recycle": 300,
+            "pool_recycle": 120,
             "pool_pre_ping": True,
             "pool_size": 20,
-            "max_overflow": 30
+            "max_overflow": 30,
+            "pool_timeout": 30,
+            "connect_args": {
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            }
         }
     else:
         app.logger.warning("DATABASE_URL not set, using default SQLite for development")

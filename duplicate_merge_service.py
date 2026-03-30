@@ -484,37 +484,44 @@ class DuplicateMergeService:
 
         return 0.0, 'none'
 
-    def _search_all_candidates_batch(self, start=0, count=BATCH_SIZE, _retried=False):
-        try:
-            url = f"{self.bullhorn.base_url}search/Candidate"
-            params = {
-                'query': 'isDeleted:0 AND -status:Archive',
-                'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
-                'count': count,
-                'start': start,
-                'sort': 'id',
-                'BhRestToken': self.bullhorn.rest_token
-            }
-            resp = self.bullhorn.session.get(url, params=params, timeout=60)
-            if resp.status_code == 200:
-                data = resp.json().get('data', [])
-                logger.info(f"🔍 Bulk scan batch: start={start}, returned {len(data)} candidate(s)")
-                return data
-            elif resp.status_code == 401 and not _retried:
-                logger.warning(f"🔄 Bulk scan: 401 at start={start}, re-authenticating and retrying...")
-                try:
-                    self.bullhorn.authenticate()
-                    time.sleep(2)
-                    return self._search_all_candidates_batch(start=start, count=count, _retried=True)
-                except Exception as auth_err:
-                    logger.error(f"❌ Bulk scan: re-auth failed after 401: {auth_err}")
-            else:
-                logger.error(
-                    f"🔍 Bulk scan: Bullhorn search/Candidate returned status {resp.status_code} "
-                    f"at start={start}: {resp.text[:500]}"
-                )
-        except Exception as e:
-            logger.error(f"Error fetching candidate batch at start={start}: {e}", exc_info=True)
+    def _search_all_candidates_batch(self, start=0, count=BATCH_SIZE):
+        MAX_AUTH_RETRIES = 3
+        for attempt in range(MAX_AUTH_RETRIES + 1):
+            try:
+                url = f"{self.bullhorn.base_url}search/Candidate"
+                params = {
+                    'query': 'isDeleted:0 AND -status:Archive',
+                    'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
+                    'count': count,
+                    'start': start,
+                    'sort': 'id',
+                    'BhRestToken': self.bullhorn.rest_token
+                }
+                resp = self.bullhorn.session.get(url, params=params, timeout=60)
+                if resp.status_code == 200:
+                    data = resp.json().get('data', [])
+                    logger.info(f"🔍 Bulk scan batch: start={start}, returned {len(data)} candidate(s)")
+                    return data
+                elif resp.status_code == 401 and attempt < MAX_AUTH_RETRIES:
+                    backoff = 5 * (attempt + 1)
+                    logger.warning(f"🔄 Bulk scan: 401 at start={start}, attempt {attempt+1}/{MAX_AUTH_RETRIES}, "
+                                   f"waiting {backoff}s before re-auth...")
+                    time.sleep(backoff)
+                    try:
+                        self.bullhorn.authenticate()
+                        time.sleep(3)
+                        logger.info(f"✅ Bulk scan: re-auth succeeded on attempt {attempt+1}")
+                    except Exception as auth_err:
+                        logger.error(f"❌ Bulk scan: re-auth attempt {attempt+1} failed: {auth_err}")
+                else:
+                    logger.error(
+                        f"🔍 Bulk scan: Bullhorn search/Candidate returned status {resp.status_code} "
+                        f"at start={start}: {resp.text[:500]}"
+                    )
+                    break
+            except Exception as e:
+                logger.error(f"Error fetching candidate batch at start={start}: {e}", exc_info=True)
+                break
         return []
 
     def _search_recent_candidates(self, hours=RECENT_WINDOW_HOURS):
@@ -634,16 +641,7 @@ class DuplicateMergeService:
 
             batch = self._search_all_candidates_batch(start=start, count=BATCH_SIZE)
             if not batch:
-                if batch_count > 0:
-                    try:
-                        logger.info("🔄 Bulk scan: empty batch — attempting token refresh and retry...")
-                        self.bullhorn.authenticate()
-                        last_auth_time = time.time()
-                        batch = self._search_all_candidates_batch(start=start, count=BATCH_SIZE)
-                    except Exception as e:
-                        logger.error(f"❌ Bulk scan: retry auth failed: {e}")
-                if not batch:
-                    break
+                break
 
             stats['candidates_scanned'] += len(batch)
 
