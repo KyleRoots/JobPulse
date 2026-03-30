@@ -226,6 +226,26 @@ def activity_log_page():
         EmailDeliveryLog.sent_at >= seven_days_ago
     ).count()
 
+    logins_drilldown = db.session.query(
+        User.username, UserActivityLog.created_at, UserActivityLog.ip_address, UserActivityLog.details
+    ).join(User, User.id == UserActivityLog.user_id).filter(
+        UserActivityLog.activity_type == 'login',
+        UserActivityLog.created_at >= seven_days_ago
+    ).order_by(UserActivityLog.created_at.desc()).limit(20).all()
+
+    active_users_drilldown = db.session.query(
+        User.username, User.email,
+        db.func.count(UserActivityLog.id).label('activity_count'),
+        db.func.max(UserActivityLog.created_at).label('last_activity')
+    ).join(User, User.id == UserActivityLog.user_id).filter(
+        UserActivityLog.created_at >= seven_days_ago
+    ).group_by(User.username, User.email).order_by(db.desc('last_activity')).all()
+
+    emails_drilldown = EmailDeliveryLog.query.filter(
+        EmailDeliveryLog.notification_type.in_(email_types_count),
+        EmailDeliveryLog.sent_at >= seven_days_ago
+    ).order_by(EmailDeliveryLog.sent_at.desc()).limit(20).all()
+
     return render_template('activity_log.html',
                            active_page='activity_log',
                            tab=tab,
@@ -242,6 +262,9 @@ def activity_log_page():
                            total_logins_7d=total_logins_7d,
                            active_users_7d=active_users_7d,
                            emails_sent_7d=emails_sent_7d,
+                           logins_drilldown=logins_drilldown,
+                           active_users_drilldown=active_users_drilldown,
+                           emails_drilldown=emails_drilldown,
                            email_type=email_type,
                            email_status=email_status,
                            recipient_search=recipient_search,
