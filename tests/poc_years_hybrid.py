@@ -377,8 +377,7 @@ def run_test():
                     {"role": "user", "content": EXTRACTION_PROMPT.format(resume=tc["resume"])}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.1,
-                max_tokens=800
+                max_completion_tokens=800
             )
             extraction = json.loads(resp1.choices[0].message.content)
             work_history = extraction.get("work_history", [])
@@ -424,8 +423,7 @@ def run_test():
                     )}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.1,
-                max_tokens=600
+                max_completion_tokens=600
             )
             gpt_result = json.loads(resp2.choices[0].message.content)
             gpt_years = float(gpt_result.get("estimated_years", 0))

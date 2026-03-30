@@ -356,7 +356,6 @@ Respond with a JSON object:
                     {'role': 'system', 'content': 'You are a helpful platform support assistant. Respond only in valid JSON.'},
                     {'role': 'user', 'content': prompt}
                 ],
-                temperature=0.4,
                 max_completion_tokens=500,
                 response_format={'type': 'json_object'},
             )

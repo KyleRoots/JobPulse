@@ -292,7 +292,6 @@ Example: ["Question 1?", "Question 2?", "Question 3?"]"""
             response = self.openai_client.chat.completions.create(
                 model='gpt-5',
                 messages=[{'role': 'user', 'content': prompt}],
-                temperature=0.3,
             )
             if not response.choices:
                 raise ValueError("OpenAI returned an empty response")
@@ -488,7 +487,6 @@ RULES:
             response = self.openai_client.chat.completions.create(
                 model='gpt-5',
                 messages=[{'role': 'user', 'content': prompt}],
-                temperature=0.3,
             )
             if not response.choices:
                 raise ValueError("OpenAI returned an empty response")
@@ -598,7 +596,6 @@ RULES:
             response = self.openai_client.chat.completions.create(
                 model='gpt-5',
                 messages=[{'role': 'user', 'content': prompt}],
-                temperature=0.3,
             )
             if not response.choices:
                 raise ValueError("OpenAI returned an empty response")
@@ -883,7 +880,6 @@ Keep it concise — no more than 3-4 short paragraphs."""
             response = self.openai_client.chat.completions.create(
                 model='gpt-5',
                 messages=[{'role': 'user', 'content': prompt}],
-                temperature=0.3,
             )
             if not response.choices:
                 raise ValueError("OpenAI returned an empty response")

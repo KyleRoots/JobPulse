@@ -603,7 +603,6 @@ Respond with a JSON object:
             response = self.openai_client.chat.completions.create(
                 model="gpt-5.4",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.4,
                 max_completion_tokens=1000,
             )
             raw = response.choices[0].message.content.strip()

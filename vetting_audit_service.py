@@ -577,7 +577,6 @@ IMPORTANT:
                         {'role': 'system', 'content': 'You are a quality auditor. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
                     ],
-                    'temperature': 0.1,
                     'max_completion_tokens': 500,
                     'response_format': {'type': 'json_object'}
                 },

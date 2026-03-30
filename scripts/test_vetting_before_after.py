@@ -194,8 +194,7 @@ def run_vetting(label, requirements_instruction):
             {"role": "user", "content": prompt}
         ],
         response_format={"type": "json_object"},
-        temperature=0.1,
-        max_tokens=1000
+        max_completion_tokens=1000
     )
 
     result = json.loads(response.choices[0].message.content)
