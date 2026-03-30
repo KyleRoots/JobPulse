@@ -20,7 +20,6 @@ LONG_RUNNING_BUILTINS = {
     "screening_audit",
     "duplicate_merge_scan",
     "occupation_extractor",
-    "timestamp_correction",
 }
 
 NO_BULLHORN_BUILTINS = {
@@ -159,7 +158,6 @@ class AutomationService:
             "retry_recruiter_notifications": self._builtin_retry_recruiter_notifications,
             "screening_audit": self._builtin_screening_audit,
             "duplicate_merge_scan": self._builtin_duplicate_merge_scan,
-            "timestamp_correction": self._builtin_timestamp_correction,
         }
 
         handler = handlers.get(name)
@@ -1841,18 +1839,3 @@ class AutomationService:
             logger.info(f"🔀 Bulk scan notification sent to {admin_email} (status={status})")
         except Exception as e:
             logger.warning(f"🔀 Failed to send bulk scan notification: {e}")
-
-    def _builtin_timestamp_correction(self, params):
-        from duplicate_merge_service import DuplicateMergeService
-
-        dry_run = str(params.get('dry_run', 'True')).lower() in ('true', '1', 'yes')
-
-        merge_service = DuplicateMergeService()
-
-        try:
-            stats = merge_service.run_timestamp_correction(dry_run=dry_run)
-        except Exception as e:
-            logger.error(f"📅 Timestamp correction failed: {e}", exc_info=True)
-            return {"error": str(e), "summary": f"Timestamp correction FAILED: {e}"}
-
-        return stats
