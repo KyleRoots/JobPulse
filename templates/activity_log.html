@@ -89,7 +89,7 @@
     {% if active_users_drilldown %}
     <div class="table-responsive">
         <table class="table table-sm table-dark mb-0">
-            <thead><tr><th>User</th><th>Email</th><th>Activities</th><th>Last Active</th></tr></thead>
+            <thead><tr><th>User</th><th>Email</th><th>Activities</th><th>Last Active</th><th></th></tr></thead>
             <tbody>
             {% for user in active_users_drilldown %}
             <tr>
@@ -97,7 +97,59 @@
                 <td>{{ user.email }}</td>
                 <td><span class="badge bg-primary">{{ user.activity_count }}</span></td>
                 <td>{{ user.last_activity.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    {% if active_users_activities.get(user.username) %}
+                    <button class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:0.75rem" onclick="toggleUserActivities('user-acts-{{ loop.index }}', this)">
+                        <i class="fas fa-list-ul me-1"></i>Details
+                    </button>
+                    {% endif %}
+                </td>
             </tr>
+            {% if active_users_activities.get(user.username) %}
+            <tr id="user-acts-{{ loop.index }}" style="display:none">
+                <td colspan="5" style="padding:0">
+                    <div class="user-activity-detail">
+                        <table class="table table-sm table-dark mb-0" style="margin-left:20px;width:calc(100% - 20px)">
+                            <thead><tr><th style="width:140px">Time</th><th style="width:100px">Type</th><th>Page / Action</th></tr></thead>
+                            <tbody>
+                            {% for act in active_users_activities[user.username] %}
+                            {% set details_parsed = act.details|default('{}', true) %}
+                            <tr>
+                                <td style="color:rgba(255,255,255,0.5);font-size:0.78rem">{{ act.created_at.strftime('%b %d %H:%M') }}</td>
+                                <td>
+                                    {% if act.activity_type == 'login' %}
+                                    <span class="badge bg-success" style="font-size:0.7rem">Login</span>
+                                    {% elif act.activity_type == 'module_access' %}
+                                    <span class="badge bg-info" style="font-size:0.7rem">Page View</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary" style="font-size:0.7rem">{{ act.activity_type|replace('_', ' ')|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td style="font-size:0.82rem">
+                                    {% if act.details %}
+                                        {% set d = json.loads(act.details) if act.details else {} %}
+                                        {% if d.get('module') %}
+                                            <span style="color:#60a5fa">{{ d['module']|replace('_', ' ')|title }}</span>
+                                            {% if d.get('path') %}
+                                            <span style="color:rgba(255,255,255,0.35);margin-left:6px">{{ d['path'] }}</span>
+                                            {% endif %}
+                                        {% elif d.get('user_agent') %}
+                                            <span style="color:rgba(255,255,255,0.5)">{{ parse_user_agent(d['user_agent']) }}</span>
+                                        {% else %}
+                                            <span style="color:rgba(255,255,255,0.4)">—</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span style="color:rgba(255,255,255,0.4)">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
             {% endfor %}
             </tbody>
         </table>
@@ -775,6 +827,15 @@ function toggleSummaryTable() {
     border-color: rgba(255,255,255,0.25) !important;
     box-shadow: 0 0 15px rgba(255,255,255,0.05);
 }
+.user-activity-detail {
+    background: rgba(0,0,0,0.2);
+    border-left: 2px solid rgba(96,165,250,0.3);
+    padding: 8px 0;
+}
+.user-activity-detail .table-dark th {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.4);
+}
 @keyframes drillSlide {
     from { opacity: 0; transform: translateY(-8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -793,6 +854,16 @@ function toggleDrilldown(panelId, card) {
     if (!isOpen) {
         panel.style.display = 'block';
         card.classList.add('drilldown-active');
+    }
+}
+function toggleUserActivities(rowId, btn) {
+    var row = document.getElementById(rowId);
+    if (row.style.display === 'none') {
+        row.style.display = 'table-row';
+        btn.innerHTML = '<i class="fas fa-chevron-up me-1"></i>Hide';
+    } else {
+        row.style.display = 'none';
+        btn.innerHTML = '<i class="fas fa-list-ul me-1"></i>Details';
     }
 }
 </script>

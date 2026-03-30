@@ -241,6 +241,16 @@ def activity_log_page():
         UserActivityLog.created_at >= seven_days_ago
     ).group_by(User.username, User.email).order_by(db.desc('last_activity')).all()
 
+    active_users_activities = {}
+    for u_row in active_users_drilldown:
+        recent_acts = db.session.query(
+            UserActivityLog.activity_type, UserActivityLog.details, UserActivityLog.created_at
+        ).join(User, User.id == UserActivityLog.user_id).filter(
+            User.username == u_row.username,
+            UserActivityLog.created_at >= seven_days_ago
+        ).order_by(UserActivityLog.created_at.desc()).limit(30).all()
+        active_users_activities[u_row.username] = recent_acts
+
     emails_drilldown = EmailDeliveryLog.query.filter(
         EmailDeliveryLog.notification_type.in_(email_types_count),
         EmailDeliveryLog.sent_at >= seven_days_ago
@@ -264,6 +274,7 @@ def activity_log_page():
                            emails_sent_7d=emails_sent_7d,
                            logins_drilldown=logins_drilldown,
                            active_users_drilldown=active_users_drilldown,
+                           active_users_activities=active_users_activities,
                            emails_drilldown=emails_drilldown,
                            email_type=email_type,
                            email_status=email_status,
