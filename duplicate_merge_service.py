@@ -475,7 +475,7 @@ class DuplicateMergeService:
 
         return 0.0, 'none'
 
-    def _search_all_candidates_batch(self, start=0, count=BATCH_SIZE):
+    def _search_all_candidates_batch(self, start=0, count=BATCH_SIZE, _retried=False):
         try:
             url = f"{self.bullhorn.base_url}search/Candidate"
             params = {
@@ -491,6 +491,14 @@ class DuplicateMergeService:
                 data = resp.json().get('data', [])
                 logger.info(f"🔍 Bulk scan batch: start={start}, returned {len(data)} candidate(s)")
                 return data
+            elif resp.status_code == 401 and not _retried:
+                logger.warning(f"🔄 Bulk scan: 401 at start={start}, re-authenticating and retrying...")
+                try:
+                    self.bullhorn.authenticate()
+                    time.sleep(2)
+                    return self._search_all_candidates_batch(start=start, count=count, _retried=True)
+                except Exception as auth_err:
+                    logger.error(f"❌ Bulk scan: re-auth failed after 401: {auth_err}")
             else:
                 logger.error(
                     f"🔍 Bulk scan: Bullhorn search/Candidate returned status {resp.status_code} "
@@ -603,7 +611,7 @@ class DuplicateMergeService:
         start = 0
         batch_count = 0
         last_auth_time = time.time()
-        TOKEN_REFRESH_INTERVAL = 600
+        TOKEN_REFRESH_INTERVAL = 300
         while True:
             if time.time() - last_auth_time > TOKEN_REFRESH_INTERVAL:
                 try:
