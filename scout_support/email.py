@@ -20,6 +20,7 @@ Contains:
 - _escalate_to_admin: Full escalation flow (status change + emails)
 """
 
+import os
 import re
 import json
 import uuid
@@ -774,14 +775,18 @@ class EmailMixin:
 
         try:
             from models import SupportAttachment
+            base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', 'https://app.scoutgenius.ai').rstrip('/')
             attachments = SupportAttachment.query.filter_by(ticket_id=ticket.id).all()
             if attachments:
                 att_lines = []
                 for att in attachments:
                     size_kb = round(att.file_size / 1024, 1) if att.file_size else 'unknown'
-                    att_lines.append(f"- {att.filename} ({size_kb} KB, {att.content_type})")
+                    att_url = f"{base_url}/scout-support/attachment/{att.id}"
+                    if att.is_image:
+                        att_lines.append(f'- 📎 [{att.filename}]({att_url}) ({size_kb} KB) — [View Image]({att_url})')
+                    else:
+                        att_lines.append(f'- 📎 [{att.filename}]({att_url}) ({size_kb} KB, {att.content_type})')
                 admin_parts.append(f"**Attachments ({len(attachments)}):**\n" + "\n".join(att_lines) + "\n")
-                admin_parts.append("Note: Attachments are viewable on the ticket detail page in Scout Support.\n")
         except Exception as e:
             logger.warning(f"Could not include attachment info in escalation email: {e}")
 

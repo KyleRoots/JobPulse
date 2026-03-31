@@ -1184,6 +1184,19 @@ Respond with ONLY one label: ai_instruction or direct_reply"""
             except (json.JSONDecodeError, TypeError):
                 ai_understanding = ticket.ai_understanding or ''
 
+        attachment_context = ''
+        try:
+            from models import SupportAttachment
+            attachments = SupportAttachment.query.filter_by(ticket_id=ticket.id).all()
+            if attachments:
+                att_parts = []
+                for att in attachments:
+                    size_kb = round(att.file_size / 1024, 1) if att.file_size else 'unknown'
+                    att_parts.append(f"- {att.filename} ({size_kb} KB, {att.content_type})")
+                attachment_context = "\n**Attachments:**\n" + "\n".join(att_parts)
+        except Exception as e:
+            logger.warning(f"Could not load attachment context for admin draft: {e}")
+
         prompt = f"""You are Scout Support, an expert AI assistant specializing in Bullhorn ATS/CRM support.
 
 The administrator has given you an instruction regarding support ticket {ticket.ticket_number}. 
@@ -1205,6 +1218,7 @@ Generate the requested content based on the full ticket context.
 
 **AI Understanding:**
 {ai_understanding[:2000]}
+{attachment_context}
 
 **Escalation Reason:**
 {ticket.escalation_reason or 'Not specified'}
