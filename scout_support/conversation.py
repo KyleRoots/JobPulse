@@ -120,8 +120,13 @@ class ConversationMixin:
             logger.warning(f"Admin reply ignored for platform ticket {ticket.ticket_number} — platform tickets do not use approval flow")
             return False
 
-        if ticket.status not in ('awaiting_admin_approval', 'admin_clarifying', 'admin_handling'):
+        if ticket.status not in ('awaiting_admin_approval', 'admin_clarifying', 'admin_handling', 'escalated'):
             return False
+
+        if ticket.status == 'escalated':
+            ticket.status = 'admin_handling'
+            db.session.commit()
+            logger.info(f"📋 Ticket {ticket.ticket_number} transitioned from escalated → admin_handling on admin reply")
 
         conv = SupportConversation(
             ticket_id=ticket.id,
