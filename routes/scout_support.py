@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for, Response
+from flask import Blueprint, render_template, jsonify, request, redirect, url_for, Response, send_file
 from flask_login import login_required, current_user
 from extensions import db
 from routes import register_module_guard
@@ -67,13 +67,43 @@ def ticket_detail(ticket_number):
     from scout_support_service import PLATFORM_CATEGORIES
     is_platform = ticket.category in PLATFORM_CATEGORIES
 
+    attachments = ticket.attachments.all()
+
     return render_template('scout_support_ticket.html',
                            ticket=ticket,
                            conversations=conversations,
                            actions=actions,
                            ai_understanding=ai_understanding,
                            is_platform=is_platform,
+                           attachments=attachments,
                            active_page='scout_support')
+
+
+@scout_support_bp.route('/scout-support/attachment/<int:attachment_id>')
+@login_required
+def serve_attachment(attachment_id):
+    from models import SupportAttachment, SupportTicket
+
+    attachment = SupportAttachment.query.get_or_404(attachment_id)
+    ticket = SupportTicket.query.get(attachment.ticket_id)
+
+    if not current_user.is_admin and (not ticket or ticket.submitter_email != current_user.email):
+        return redirect(url_for('scout_support.scout_support_dashboard'))
+
+    SAFE_INLINE_TYPES = {
+        'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+        'application/pdf',
+    }
+    serve_inline = attachment.content_type in SAFE_INLINE_TYPES
+
+    response = send_file(
+        io.BytesIO(attachment.file_data),
+        mimetype=attachment.content_type,
+        as_attachment=not serve_inline,
+        download_name=attachment.filename,
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 @scout_support_bp.route('/api/scout-support/tickets')

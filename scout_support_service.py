@@ -171,6 +171,18 @@ class ScoutSupportService(
             filenames = [a.get('filename', 'unknown') for a in effective_attachments]
             ticket.description += f"\n\n[Attachments: {', '.join(filenames)}]"
 
+        if attachment_data:
+            from models import SupportAttachment
+            for att in attachment_data:
+                sa = SupportAttachment(
+                    ticket_id=ticket.id,
+                    filename=att.get('filename', 'attachment'),
+                    content_type=att.get('content_type', 'application/octet-stream'),
+                    file_data=att.get('data', b''),
+                    file_size=len(att.get('data', b'')),
+                )
+                db.session.add(sa)
+
         self._attachment_data = attachment_data
 
         db.session.commit()

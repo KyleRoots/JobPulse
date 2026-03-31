@@ -49,6 +49,45 @@
                 </div>
             </div>
 
+            {% if attachments %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-paperclip me-2"></i>Attachments ({{ attachments|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        {% for att in attachments %}
+                        <div class="col-md-4 col-sm-6">
+                            <div class="border border-secondary rounded p-2 text-center" style="background: rgba(255,255,255,0.03);">
+                                {% if att.is_image %}
+                                <a href="{{ url_for('platform_support.serve_my_attachment', attachment_id=att.id) }}" target="_blank">
+                                    <img src="{{ url_for('platform_support.serve_my_attachment', attachment_id=att.id) }}"
+                                         alt="{{ att.filename }}"
+                                         class="img-fluid rounded mb-2"
+                                         style="max-height: 180px; cursor: pointer;">
+                                </a>
+                                {% else %}
+                                <div class="py-3 mb-2">
+                                    <i class="fas fa-file fa-2x text-muted"></i>
+                                </div>
+                                {% endif %}
+                                <div class="small text-truncate">
+                                    <a href="{{ url_for('platform_support.serve_my_attachment', attachment_id=att.id) }}"
+                                       class="text-decoration-none" style="color: #6ec9a5;" target="_blank">
+                                        <i class="fas fa-download me-1"></i>{{ att.filename }}
+                                    </a>
+                                </div>
+                                {% if att.file_size %}
+                                <div class="text-muted small">{{ (att.file_size / 1024)|round(1) }} KB</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             {% if conversations %}
             <div class="card bg-dark border-secondary">
                 <div class="card-header bg-dark border-secondary">

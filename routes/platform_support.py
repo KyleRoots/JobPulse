@@ -1,6 +1,7 @@
+import io
 import json
 import logging
-from flask import Blueprint, render_template, redirect, url_for, jsonify, request
+from flask import Blueprint, render_template, redirect, url_for, jsonify, request, send_file
 from flask_login import login_required, current_user
 from extensions import db
 
@@ -60,6 +61,7 @@ def my_ticket_detail(ticket_number):
         return redirect(url_for('platform_support.my_tickets'))
 
     conversations = ticket.conversations.order_by(db.text('created_at ASC')).all()
+    attachments = ticket.attachments.all()
 
     ai_understanding = None
     if ticket.ai_understanding:
@@ -71,8 +73,36 @@ def my_ticket_detail(ticket_number):
     return render_template('my_ticket_detail.html',
                            ticket=ticket,
                            conversations=conversations,
+                           attachments=attachments,
                            ai_understanding=ai_understanding,
                            active_page='my_tickets')
+
+
+@platform_support_bp.route('/my-tickets/attachment/<int:attachment_id>')
+@login_required
+def serve_my_attachment(attachment_id):
+    from models import SupportAttachment, SupportTicket
+
+    attachment = SupportAttachment.query.get_or_404(attachment_id)
+    ticket = SupportTicket.query.get(attachment.ticket_id)
+
+    if not ticket or (ticket.submitter_email != current_user.email and not current_user.is_admin):
+        return redirect(url_for('platform_support.my_tickets'))
+
+    SAFE_INLINE_TYPES = {
+        'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+        'application/pdf',
+    }
+    serve_inline = attachment.content_type in SAFE_INLINE_TYPES
+
+    response = send_file(
+        io.BytesIO(attachment.file_data),
+        mimetype=attachment.content_type,
+        as_attachment=not serve_inline,
+        download_name=attachment.filename,
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 @platform_support_bp.route('/api/feedback', methods=['POST'])

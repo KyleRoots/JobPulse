@@ -1327,6 +1327,9 @@ class SupportTicket(db.Model):
     actions = db.relationship('SupportAction', backref='ticket', lazy='dynamic',
                                cascade='all, delete-orphan',
                                order_by='SupportAction.executed_at')
+    attachments = db.relationship('SupportAttachment', backref='ticket', lazy='dynamic',
+                                   cascade='all, delete-orphan',
+                                   order_by='SupportAttachment.created_at')
 
     __table_args__ = (
         db.Index('idx_support_status', 'status'),
@@ -1359,6 +1362,25 @@ class SupportTicket(db.Model):
 
     def __repr__(self):
         return f'<SupportTicket {self.ticket_number} status={self.status}>'
+
+
+class SupportAttachment(db.Model):
+    __tablename__ = 'support_attachment'
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey('support_ticket.id'), nullable=False, index=True)
+    filename = db.Column(db.String(255), nullable=False)
+    content_type = db.Column(db.String(100), nullable=False, default='application/octet-stream')
+    file_data = db.Column(db.LargeBinary, nullable=False)
+    file_size = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<SupportAttachment {self.id} ticket={self.ticket_id} file={self.filename}>'
+
+    @property
+    def is_image(self):
+        return self.content_type.startswith('image/')
 
 
 class SupportConversation(db.Model):

@@ -81,6 +81,45 @@
             </div>
             {% endif %}
 
+            {% if attachments %}
+            <div class="card bg-dark mb-4" style="border-color: rgba(139, 92, 246, 0.3);">
+                <div class="card-header bg-dark" style="border-color: rgba(139, 92, 246, 0.3);">
+                    <h5 class="mb-0"><i class="fas fa-paperclip me-2" style="color: var(--module-support-text);"></i>Attachments ({{ attachments|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        {% for att in attachments %}
+                        <div class="col-md-4 col-sm-6">
+                            <div class="border border-secondary rounded p-2 text-center" style="background: rgba(255,255,255,0.03);">
+                                {% if att.is_image %}
+                                <a href="{{ url_for('scout_support.serve_attachment', attachment_id=att.id) }}" target="_blank">
+                                    <img src="{{ url_for('scout_support.serve_attachment', attachment_id=att.id) }}"
+                                         alt="{{ att.filename }}"
+                                         class="img-fluid rounded mb-2"
+                                         style="max-height: 180px; cursor: pointer;">
+                                </a>
+                                {% else %}
+                                <div class="py-3 mb-2">
+                                    <i class="fas fa-file fa-2x text-muted"></i>
+                                </div>
+                                {% endif %}
+                                <div class="small text-truncate">
+                                    <a href="{{ url_for('scout_support.serve_attachment', attachment_id=att.id) }}"
+                                       class="text-decoration-none" style="color: var(--module-support-text);" target="_blank">
+                                        <i class="fas fa-download me-1"></i>{{ att.filename }}
+                                    </a>
+                                </div>
+                                {% if att.file_size %}
+                                <div class="text-muted small">{{ (att.file_size / 1024)|round(1) }} KB</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <div class="card bg-dark border-secondary mb-4">
                 <div class="card-header bg-dark border-secondary">
                     <h5 class="mb-0"><i class="fas fa-comments me-2"></i>Conversation</h5>
@@ -92,7 +131,11 @@
                         <div class="p-3 rounded-3 {% if conv.direction == 'outbound' %}scout-msg{% else %}user-msg{% endif %}" style="max-width: 80%;">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <small class="fw-bold" {% if conv.direction == 'outbound' %}style="color: var(--module-support-text);"{% endif %}>
-                                    {% if conv.email_type in ('admin_reply', 'admin_direct_reply') %}
+                                    {% if conv.email_type == 'admin_ai_draft' %}
+                                    <i class="fas fa-magic me-1" style="color: #f59e0b;"></i>AI Draft (for Admin)
+                                    {% elif conv.email_type == 'admin_ai_instruction' %}
+                                    <i class="fas fa-user-shield me-1"></i>Admin Instruction to AI
+                                    {% elif conv.email_type in ('admin_reply', 'admin_direct_reply') %}
                                     <i class="fas fa-user-shield me-1"></i>Admin
                                     {% elif conv.email_type == 'user_reply_forwarded' %}
                                     <i class="fas fa-share me-1"></i>User (forwarded to Admin)

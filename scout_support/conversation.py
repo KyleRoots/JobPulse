@@ -14,6 +14,8 @@ Contains:
 - _keyword_classify_user: Keyword fallback for user classification
 - _keyword_classify_admin: Keyword fallback for admin classification
 - _refine_execution_with_admin_instructions: Merge admin instructions into execution plan
+- _classify_admin_handling_intent: Detect if admin reply is an AI instruction vs direct user message
+- _generate_admin_draft: Generate AI-drafted content based on admin instructions
 """
 
 import re
@@ -139,10 +141,17 @@ class ConversationMixin:
         if ticket.status == 'admin_handling':
             fresh_text = self._strip_quoted_text(reply_body)
             if fresh_text and fresh_text.strip():
-                from scout_support_service import ScoutSupportService
-                svc = ScoutSupportService()
-                svc.reply_to_ticket(ticket.id, fresh_text, ticket.admin_email)
-                logger.info(f"💬 Admin direct reply forwarded to user for ticket {ticket.ticket_number}")
+                intent = self._classify_admin_handling_intent(fresh_text)
+                if intent == 'ai_instruction':
+                    logger.info(f"🤖 Admin AI instruction detected on ticket {ticket.ticket_number}")
+                    conv.email_type = 'admin_ai_instruction'
+                    db.session.commit()
+                    self._generate_admin_draft(ticket, fresh_text)
+                else:
+                    from scout_support_service import ScoutSupportService
+                    svc = ScoutSupportService()
+                    svc.reply_to_ticket(ticket.id, fresh_text, ticket.admin_email)
+                    logger.info(f"💬 Admin direct reply forwarded to user for ticket {ticket.ticket_number}")
             return True
 
         decision = self._classify_admin_response(reply_body)
@@ -1082,3 +1091,184 @@ Respond with ONLY a JSON object:
 
         except Exception as e:
             logger.warning(f"Failed to refine execution with admin instructions: {e}")
+
+    def _classify_admin_handling_intent(self, text: str) -> str:
+        if not self.openai_client:
+            return self._keyword_classify_admin_handling(text)
+
+        try:
+            prompt = f"""You are Scout Support, an AI assistant for Bullhorn ATS support tickets.
+
+An administrator has replied to a support ticket that is currently being handled manually (admin_handling status).
+Determine whether the admin's message is:
+
+1. "ai_instruction" — The admin is asking Scout Support (the AI) to do something: draft an email, summarize the issue, 
+   generate a report, create a response, look something up, provide guidance, compose a message, etc.
+   Key indicators: "draft", "write", "compose", "summarize", "create", "generate", "prepare", "put together", 
+   "help me write", "can you", "please draft", "I need you to", addressing Scout Support directly.
+
+2. "direct_reply" — The admin is writing a message intended to be forwarded to the user/submitter. This is a 
+   conversational reply addressed to the user (e.g., "Hi Lisa, we're looking into this", "We've identified the issue", 
+   "Please provide more details").
+
+The admin's message:
+\"\"\"
+{text[:3000]}
+\"\"\"
+
+Respond with ONLY one label: ai_instruction or direct_reply"""
+
+            response = self.openai_client.chat.completions.create(
+                model='gpt-5',
+                messages=[{'role': 'user', 'content': prompt}],
+                max_completion_tokens=20,
+            )
+            result = (response.choices[0].message.content or '').strip().lower().strip("'\"")
+
+            if 'ai_instruction' in result:
+                return 'ai_instruction'
+            elif 'direct_reply' in result:
+                return 'direct_reply'
+            else:
+                logger.warning(f"AI admin handling intent classification returned unexpected: {result}")
+                return self._keyword_classify_admin_handling(text)
+
+        except Exception as e:
+            logger.warning(f"AI admin handling intent classification failed: {e}")
+            return self._keyword_classify_admin_handling(text)
+
+    def _keyword_classify_admin_handling(self, text: str) -> str:
+        text_lower = text.lower().strip()
+
+        instruction_phrases = [
+            'draft', 'write up', 'compose', 'put together', 'prepare',
+            'generate', 'create a', 'can you', 'please draft', 'help me write',
+            'i need you to', 'summarize', 'draft up', 'write a', 'compile',
+            'send to', 'email to', 'letter to', 'response to',
+            'could you', 'would you', 'please create', 'please write',
+            'please prepare', 'please compose', 'please generate',
+            'please summarize', 'please compile',
+        ]
+
+        if any(phrase in text_lower for phrase in instruction_phrases):
+            return 'ai_instruction'
+
+        return 'direct_reply'
+
+    def _generate_admin_draft(self, ticket, admin_instruction: str):
+        from extensions import db
+        from models import SupportTicket, SupportConversation
+        from scout_support_service import SCOUT_SUPPORT_EMAIL
+
+        conversation_history = ''
+        try:
+            conversations = SupportConversation.query.filter_by(
+                ticket_id=ticket.id
+            ).order_by(SupportConversation.created_at.asc()).all()
+            if conversations:
+                history_parts = []
+                for conv in conversations:
+                    role = "Admin" if conv.email_type in ('admin_reply', 'admin_direct_reply', 'admin_ai_instruction') else (
+                        "Scout Support" if conv.direction == 'outbound' else "User"
+                    )
+                    history_parts.append(f"[{role}] {(conv.body or '')[:500]}")
+                conversation_history = "\n---\n".join(history_parts)
+        except Exception as e:
+            logger.warning(f"Could not build conversation history for admin draft: {e}")
+
+        ai_understanding = ''
+        if ticket.ai_understanding:
+            try:
+                parsed = json.loads(ticket.ai_understanding)
+                ai_understanding = parsed.get('understanding', parsed.get('updated_understanding', str(parsed)))
+            except (json.JSONDecodeError, TypeError):
+                ai_understanding = ticket.ai_understanding or ''
+
+        prompt = f"""You are Scout Support, an expert AI assistant specializing in Bullhorn ATS/CRM support.
+
+The administrator has given you an instruction regarding support ticket {ticket.ticket_number}. 
+Generate the requested content based on the full ticket context.
+
+**Admin's Instruction:**
+{admin_instruction}
+
+**Ticket Details:**
+- Ticket: {ticket.ticket_number}
+- Subject: {ticket.subject}
+- Category: {ticket.category}
+- Submitted by: {ticket.submitter_name} ({ticket.submitter_email})
+- Department: {ticket.submitter_department or 'Not specified'}
+- Priority: {ticket.priority}
+
+**Original Description:**
+{ticket.description[:3000]}
+
+**AI Understanding:**
+{ai_understanding[:2000]}
+
+**Escalation Reason:**
+{ticket.escalation_reason or 'Not specified'}
+
+**Conversation History:**
+{conversation_history[:4000]}
+
+INSTRUCTIONS:
+- Generate exactly what the admin requested (e.g., a draft email, summary, report, etc.)
+- Be professional and thorough
+- Include all relevant details from the ticket context
+- If drafting an email to a third party (e.g., Bullhorn Support), include a professional subject line suggestion at the top
+- Format the output clearly so the admin can copy and use it directly
+- Do NOT include any meta-commentary like "Here is the draft" — just provide the content itself"""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model='gpt-5',
+                messages=[
+                    {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS. Generate professional, actionable content as requested by the administrator.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                max_completion_tokens=4096,
+            )
+            draft_content = (response.choices[0].message.content or '').strip()
+
+            if not draft_content:
+                logger.warning(f"AI draft generation returned empty content for ticket {ticket.ticket_number}")
+                draft_content = "I was unable to generate the requested content. Please try rephrasing your instruction."
+
+        except Exception as e:
+            logger.error(f"AI draft generation failed for ticket {ticket.ticket_number}: {e}")
+            draft_content = f"I encountered an error while generating the requested content: {str(e)[:200]}. Please try again."
+
+        draft_conv = SupportConversation(
+            ticket_id=ticket.id,
+            direction='outbound',
+            sender_email=SCOUT_SUPPORT_EMAIL,
+            recipient_email=ticket.admin_email,
+            subject=f"Re: [{ticket.ticket_number}] AI Draft",
+            body=draft_content,
+            email_type='admin_ai_draft',
+        )
+        db.session.add(draft_conv)
+        db.session.commit()
+
+        email_body = (
+            f"**AI-Generated Draft for Ticket {ticket.ticket_number}**\n\n"
+            f"Based on your instruction:\n"
+            f"*\"{admin_instruction[:500]}\"*\n\n"
+            f"---\n\n"
+            f"{draft_content}\n\n"
+            f"---\n\n"
+            f"You can copy and use this draft directly. "
+            f"If you need revisions, reply to this email with your feedback and I'll generate an updated version.\n\n"
+            f"— Scout Support"
+        )
+
+        self._send_email(
+            to_email=ticket.admin_email,
+            subject=f"[AI Draft] [{ticket.ticket_number}] {ticket.subject}",
+            body=email_body,
+            ticket=ticket,
+            email_type='admin_ai_draft_email',
+        )
+
+        logger.info(f"✨ AI draft generated and sent to admin for ticket {ticket.ticket_number}")

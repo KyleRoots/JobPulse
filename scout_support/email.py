@@ -36,6 +36,7 @@ class EmailMixin:
         'admin_approval_request', 'admin_reply', 'admin_clarification_response',
         'admin_new_ticket_notification', 'completion_admin',
         'escalation_admin_summary', 'admin_execution_failure',
+        'admin_ai_draft_email',
     }
 
     def _get_stakeholder_emails(self, ticket) -> List[str]:
@@ -771,6 +772,19 @@ class EmailMixin:
 
         admin_parts.append(f"**Original Description:**\n{ticket.description}\n")
 
+        try:
+            from models import SupportAttachment
+            attachments = SupportAttachment.query.filter_by(ticket_id=ticket.id).all()
+            if attachments:
+                att_lines = []
+                for att in attachments:
+                    size_kb = round(att.file_size / 1024, 1) if att.file_size else 'unknown'
+                    att_lines.append(f"- {att.filename} ({size_kb} KB, {att.content_type})")
+                admin_parts.append(f"**Attachments ({len(attachments)}):**\n" + "\n".join(att_lines) + "\n")
+                admin_parts.append("Note: Attachments are viewable on the ticket detail page in Scout Support.\n")
+        except Exception as e:
+            logger.warning(f"Could not include attachment info in escalation email: {e}")
+
         if conversation_summary:
             admin_parts.append(f"**Conversation History:**\n{conversation_summary}")
 
@@ -821,6 +835,7 @@ class EmailMixin:
             'admin_approval_request', 'admin_reply', 'admin_clarification_response',
             'admin_new_ticket_notification', 'completion_admin',
             'admin_execution_failure',
+            'admin_ai_draft', 'admin_ai_draft_email', 'admin_ai_instruction',
             'stakeholder_new_ticket', 'stakeholder_completed',
             'stakeholder_escalated', 'stakeholder_status_update',
             'escalation_admin_summary',
