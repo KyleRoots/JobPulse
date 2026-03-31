@@ -62,7 +62,11 @@ def run_salesrep_sync(bullhorn_service):
     logger.info("🔄 Sales Rep Sync: Starting sync cycle...")
 
     try:
-        rest_url = bullhorn_service.rest_url
+        if not bullhorn_service.rest_token or not bullhorn_service.base_url:
+            bullhorn_service.rest_token = None
+            bullhorn_service.base_url = None
+            bullhorn_service.authenticate()
+        rest_url = bullhorn_service.base_url
         headers = bullhorn_service._get_headers()
     except Exception as e:
         logger.error(f"Sales Rep Sync: Failed to get Bullhorn connection: {e}")
