@@ -60,7 +60,21 @@ def my_ticket_detail(ticket_number):
     if not has_support_module and ticket.category not in PLATFORM_CATEGORIES:
         return redirect(url_for('platform_support.my_tickets'))
 
-    conversations = ticket.conversations.order_by(db.text('created_at ASC')).all()
+    from models import SupportConversation
+    ADMIN_ONLY_TYPES = {
+        'admin_approval_request', 'admin_reply', 'admin_clarification_response',
+        'admin_new_ticket_notification', 'completion_admin',
+        'admin_execution_failure',
+        'admin_ai_draft', 'admin_ai_draft_email', 'admin_ai_instruction',
+        'stakeholder_new_ticket', 'stakeholder_completed',
+        'stakeholder_escalated', 'stakeholder_status_update',
+        'escalation_admin_summary',
+    }
+    all_conversations = ticket.conversations.order_by(db.text('created_at ASC')).all()
+    if current_user.is_admin:
+        conversations = all_conversations
+    else:
+        conversations = [c for c in all_conversations if c.email_type not in ADMIN_ONLY_TYPES]
     attachments = ticket.attachments.all()
 
     ai_understanding = None
