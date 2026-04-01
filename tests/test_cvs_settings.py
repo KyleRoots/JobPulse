@@ -151,18 +151,18 @@ class TestEscalationRange:
         _ensure_config(app, 'escalation_high', '85')
         cvs = _make_cvs()
         with app.app_context():
-            assert cvs.should_escalate_to_gpt4o(70) is True
-            assert cvs.should_escalate_to_gpt4o(60) is True
-            assert cvs.should_escalate_to_gpt4o(85) is True
+            assert cvs.should_escalate_to_layer3(70) is True
+            assert cvs.should_escalate_to_layer3(60) is True
+            assert cvs.should_escalate_to_layer3(85) is True
 
     def test_should_not_escalate_outside_range(self, app):
         _ensure_config(app, 'escalation_low', '60')
         _ensure_config(app, 'escalation_high', '85')
         cvs = _make_cvs()
         with app.app_context():
-            assert cvs.should_escalate_to_gpt4o(59) is False
-            assert cvs.should_escalate_to_gpt4o(86) is False
-            assert cvs.should_escalate_to_gpt4o(95) is False
+            assert cvs.should_escalate_to_layer3(59) is False
+            assert cvs.should_escalate_to_layer3(86) is False
+            assert cvs.should_escalate_to_layer3(95) is False
 
 
 # ===========================================================================

@@ -828,9 +828,9 @@ class TestEscalationRange:
                 'layer2_model': 'gpt-5.4'
             }.get(key, default))
             
-            assert service.should_escalate_to_gpt4o(60) is True
-            assert service.should_escalate_to_gpt4o(72) is True
-            assert service.should_escalate_to_gpt4o(85) is True
+            assert service.should_escalate_to_layer3(60) is True
+            assert service.should_escalate_to_layer3(72) is True
+            assert service.should_escalate_to_layer3(85) is True
     
     def test_should_not_escalate_outside_range(self, app):
         """Scores outside escalation range should NOT trigger escalation."""
@@ -844,10 +844,10 @@ class TestEscalationRange:
                 'layer2_model': 'gpt-5.4'
             }.get(key, default))
             
-            assert service.should_escalate_to_gpt4o(59) is False
-            assert service.should_escalate_to_gpt4o(30) is False
-            assert service.should_escalate_to_gpt4o(86) is False
-            assert service.should_escalate_to_gpt4o(95) is False
+            assert service.should_escalate_to_layer3(59) is False
+            assert service.should_escalate_to_layer3(30) is False
+            assert service.should_escalate_to_layer3(86) is False
+            assert service.should_escalate_to_layer3(95) is False
     
     def test_escalation_range_configurable(self, app):
         """Escalation range should be read from VettingConfig."""
@@ -862,9 +862,9 @@ class TestEscalationRange:
                 'layer2_model': 'gpt-5.4'
             }.get(key, default))
             
-            assert service.should_escalate_to_gpt4o(65) is False  # Below tightened range
-            assert service.should_escalate_to_gpt4o(75) is True   # In range
-            assert service.should_escalate_to_gpt4o(83) is False  # Above tightened range
+            assert service.should_escalate_to_layer3(65) is False  # Below tightened range
+            assert service.should_escalate_to_layer3(75) is True   # In range
+            assert service.should_escalate_to_layer3(83) is False  # Above tightened range
 
 
 class TestLayer2Model:

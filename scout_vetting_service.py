@@ -1,13 +1,13 @@
 """
 Scout Vetting Service — Conversational AI follow-up for qualified candidates.
 
-Activates after Scout Screening qualifies a candidate. Uses GPT-4o to
+Activates after Scout Screening qualifies a candidate. Uses AI to
 generate job-specific verification questions and conducts multi-turn email
 conversations before recruiter handoff.
 
 Flow:
   1. Screening qualifies candidate → initiate_vetting()
-  2. GPT-4o generates 3-5 questions based on gaps/match → send_initial_outreach()
+  2. AI generates 3-5 questions based on gaps/match → send_initial_outreach()
   3. Candidate replies → process_candidate_reply() classifies intent, extracts answers
   4. If more info needed → send follow-up; if complete → finalize_vetting()
   5. Follow-up scheduler nudges unresponsive candidates (24h, 48h, then close)
@@ -35,7 +35,7 @@ SCOUT_VETTING_FROM_NAME = 'Scout by Myticas'
 
 
 class ScoutVettingService:
-    """Conversational AI vetting via GPT-4o."""
+    """Conversational AI vetting engine."""
 
     MAX_CONCURRENT_SESSIONS = 3
     STAGGER_MINUTES = 15
@@ -200,7 +200,7 @@ class ScoutVettingService:
         from app import db
 
         try:
-            # Generate vetting questions using Claude
+            # Generate vetting questions using AI
             questions = self.generate_vetting_questions(session)
             session.vetting_questions_json = json.dumps(questions)
 
@@ -248,7 +248,7 @@ class ScoutVettingService:
     # ═══════════════════════════════════════════════════════════════
 
     def generate_vetting_questions(self, session) -> List[str]:
-        """Generate 3-5 job-specific verification questions using Claude.
+        """Generate 3-5 job-specific verification questions using AI.
         
         Uses match data (gaps_identified, match_summary) and job requirements
         to create targeted questions that verify candidate qualifications.
@@ -444,7 +444,7 @@ Example: ["Question 1?", "Question 2?", "Question 3?"]"""
             return None
 
     def _classify_reply(self, session, email_body: str) -> Dict:
-        """Use Claude to classify the candidate's reply intent and extract answers."""
+        """Use AI to classify the candidate's reply intent and extract answers."""
         questions = json.loads(session.vetting_questions_json or '[]')
         existing_answers = json.loads(session.answered_questions_json or '{}')
         unanswered = [q for q in questions if q not in existing_answers]
@@ -556,7 +556,7 @@ RULES:
             logger.error(traceback.format_exc())
 
     def _generate_outcome(self, session) -> Dict:
-        """Use Claude to generate a final vetting outcome."""
+        """Use AI to generate a final vetting outcome."""
         questions = json.loads(session.vetting_questions_json or '[]')
         answers = json.loads(session.answered_questions_json or '{}')
 
@@ -849,11 +849,11 @@ RULES:
 </div>"""
 
     def _generate_followup_reply(self, session, classification: Dict, unanswered: List[str]) -> str:
-        """Generate a conversational follow-up reply using Claude."""
+        """Generate a conversational follow-up reply using AI."""
         candidate_first = (session.candidate_name or 'there').split()[0]
         candidate_questions = classification.get('candidate_questions', [])
 
-        # Use Claude to generate a natural reply
+        # Use AI to generate a natural reply
         prompt = f"""You are replying to a candidate's email as a recruiter named "Scout by Myticas".
 The candidate has partially answered our vetting questions. Generate a warm, professional follow-up.
 

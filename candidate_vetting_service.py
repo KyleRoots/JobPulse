@@ -61,7 +61,7 @@ class CandidateVettingService(
         # Default settings
         self.match_threshold = 80.0  # Minimum match percentage for notifications
         self.check_interval_minutes = 5
-        self.model = self._get_layer2_model()  # Default GPT-4o, configurable via VettingConfig
+        self.model = self._get_layer2_model()  # Default Layer 2 model, configurable via VettingConfig
         
         # Embedding pre-filter (Layer 1)
         from embedding_service import EmbeddingService
@@ -150,11 +150,11 @@ class CandidateVettingService(
         except (ValueError, TypeError):
             return (60.0, 85.0)
     
-    def should_escalate_to_gpt4o(self, match_score: float) -> bool:
-        """Check if a match score falls in the escalation range for GPT-4o re-analysis.
+    def should_escalate_to_layer3(self, match_score: float) -> bool:
+        """Check if a match score falls in the escalation range for Layer 3 re-analysis.
         
         Args:
-            match_score: Layer 2 (GPT-4o-mini) match score.
+            match_score: Layer 2 model match score.
             
         Returns:
             True if score is within [escalation_low, escalation_high].
@@ -648,8 +648,8 @@ class CandidateVettingService(
             def analyze_single_job(job_with_req):
                 """Analyze one job match - called in parallel threads.
                 
-                Layer 2: Uses self.model (GPT-4o-mini by default).
-                Layer 3: If score falls in escalation range, re-analyzes with GPT-4o.
+                Layer 2: Uses self.model (configurable via VettingConfig).
+                Layer 3: If score falls in escalation range, re-analyzes with Layer 3 model.
                 
                 IMPORTANT: This runs in a ThreadPoolExecutor thread WITHOUT Flask app context.
                 ALL database access must use pre-fetched values from the main thread.
@@ -658,7 +658,7 @@ class CandidateVettingService(
                 prefetched_req = job_with_req['requirements']  # Pre-fetched from main thread
                 job_id = job.get('id')
                 try:
-                    # Layer 2: Main analysis with self.model (GPT-4o-mini default)
+                    # Layer 2: Main analysis with self.model (configurable)
                     analysis = self.analyze_candidate_job_match(
                         cached_resume_text, job, candidate_location,
                         prefetched_requirements=prefetched_req,

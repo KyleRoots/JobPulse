@@ -66,11 +66,10 @@ def with_timeout(seconds=110):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Create a flag to track if function completed
             result = [None]
             exception = [None]
             completed = threading.Event()
-            
+
             def target():
                 try:
                     result[0] = func(*args, **kwargs)
@@ -78,22 +77,18 @@ def with_timeout(seconds=110):
                     exception[0] = e
                 finally:
                     completed.set()
-            
-            # Start function in a thread
+
             thread = threading.Thread(target=target)
             thread.daemon = True
             thread.start()
-            
-            # Wait for completion or timeout
+
             if not completed.wait(timeout=seconds):
                 app.logger.warning(f"⏱️ TIMEOUT: Monitoring cycle exceeded {seconds} seconds - stopping to prevent overdue")
-                # Thread will continue running but we return to prevent overdue
                 return None
-            
-            # If there was an exception, raise it
+
             if exception[0]:
                 raise exception[0]
-            
+
             return result[0]
         return wrapper
     return decorator
@@ -104,27 +99,22 @@ app = create_app()
 
 def is_production_request():
     """Detect if current request is from production domain with hardened detection"""
-    # Check if we have request context first
     if not has_request_context():
-        # No request context - return False for safety
         return False
-    
+
     try:
-        # Handle X-Forwarded-Host (common in proxied deployments) and normalize
         host = request.headers.get('X-Forwarded-Host', request.host or '').split(',')[0].strip()
         host = host.split(':')[0].rstrip('.').lower()
-        
-        # Check against production domains
+
         is_prod = host in PRODUCTION_DOMAINS
-        
-        # Debug logging for troubleshooting
+
         if not is_prod:
             app.logger.debug(f"🔍 Not production: host='{host}' (X-Forwarded-Host={request.headers.get('X-Forwarded-Host', 'None')}, request.host={request.host})")
         else:
             app.logger.info(f"🎯 Production request detected: host='{host}'")
-            
+
         return is_prod
-        
+
     except (RuntimeError, AttributeError) as e:
         app.logger.debug(f"🔍 Production detection failed: {str(e)}")
         return False
@@ -132,8 +122,7 @@ def is_production_request():
 def get_xml_filename():
     """Generate environment-specific XML filename for uploads"""
     base_filename = "myticas-job-feed-v2"
-    
-    # Try app config first (works for background tasks)
+
     env = app.config.get('ENVIRONMENT')
     if env == 'production':
         app.logger.debug(f"Using production filename (source: app config)")
@@ -141,8 +130,7 @@ def get_xml_filename():
     elif env == 'development':
         app.logger.debug(f"Using development filename (source: app config)")
         return f"{base_filename}-dev.xml"
-    
-    # Fall back to request detection (for manual requests when config not set)
+
     try:
         if is_production_request():
             app.logger.debug(f"Using production filename (source: request host)")
@@ -151,16 +139,9 @@ def get_xml_filename():
             app.logger.debug(f"Using development filename (source: request host)")
             return f"{base_filename}-dev.xml"
     except:
-        # Final fallback - default to production to avoid publishing dev filename in production
         app.logger.warning(f"Could not determine environment, defaulting to production filename for safety")
         return f"{base_filename}.xml"
 
-# Simple automated upload scheduling - no complex environment detection needed
-
-
-
-# Company-specific URL generation - no global override needed
-# Each service will determine URLs based on company context
 
 # Register blueprints
 from routes.auth import auth_bp
@@ -272,9 +253,6 @@ def _track_module_access():
     try:
         from models import UserActivityLog
         from extensions import db as _db
-        # SCALABILITY: Throttled to 1 write per user/module per 5 min to reduce
-        # per-request DB commit overhead. One read + conditional write beats
-        # an unconditional write on every page load.
         from datetime import timedelta
         five_min_ago = datetime.utcnow() - timedelta(minutes=5)
         recent = UserActivityLog.query.filter(
@@ -313,18 +291,11 @@ def load_user(user_id):
 @app.after_request
 def set_security_headers(response):
     """Add standard security headers to all responses."""
-    # Prevent clickjacking — deny all framing
     response.headers['X-Frame-Options'] = 'DENY'
-    # Prevent MIME-type sniffing
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    # Enforce HTTPS for 1 year (Render/production uses HTTPS)
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    # Control referrer information sent with requests
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    # Disable legacy XSS filter (modern browsers rely on CSP instead)
     response.headers['X-XSS-Protection'] = '0'
-    # Content-Security-Policy — conservative starting point
-    # 'unsafe-inline' required because templates use inline scripts/styles
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
@@ -344,7 +315,7 @@ MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
-app.config['WTF_CSRF_TIME_LIMIT'] = None  # No token expiry (avoids issues with long-open tabs)
+app.config['WTF_CSRF_TIME_LIMIT'] = None
 
 csrf.init_app(app)
 
@@ -375,13 +346,13 @@ register_filters(app)
 # Initialize database tables
 with app.app_context():
     db.create_all()
-    
+
     # Run any necessary schema migrations for existing tables
     # SQLAlchemy's create_all() only creates new tables, it doesn't add columns to existing ones
     try:
         from sqlalchemy import inspect, text
         inspector = inspect(db.engine)
-        
+
         # Migration: Add vetting_threshold column to job_vetting_requirements if missing
         if 'job_vetting_requirements' in inspector.get_table_names():
             columns = [col['name'] for col in inspector.get_columns('job_vetting_requirements')]
@@ -403,26 +374,24 @@ with app.app_context():
                 app.logger.info('🔧 Migration: Added retry_block_reason column to candidate_vetting_log')
     except Exception as migrate_err:
         app.logger.warning(f'Migration check failed (may be first run): {migrate_err}')
-    
+
     # Seed database with initial data (production-safe, idempotent)
     try:
         from seed_database import seed_database
         from models import User
-        
+
         seeding_results = seed_database(db, User)
-        
-        # Log seeding results
+
         if seeding_results.get('admin_created'):
             app.logger.info(f"🌱 Database seeding: Created admin user {seeding_results.get('admin_username')}")
         else:
             app.logger.info(f"🌱 Database seeding: Admin user already exists ({seeding_results.get('admin_username')})")
-        
+
         if seeding_results.get('errors'):
             for error in seeding_results['errors']:
                 app.logger.error(f"🌱 Seeding error: {error}")
-    
+
     except Exception as e:
-        # Log seeding errors but don't crash the app
         app.logger.error(f"❌ Database seeding failed: {str(e)}")
         app.logger.debug(f"Seeding error details: {traceback.format_exc()}")
 
@@ -430,7 +399,7 @@ with app.app_context():
 scheduler = BackgroundScheduler(
     timezone='UTC',
     job_defaults={
-        'coalesce': True, 
+        'coalesce': True,
         'max_instances': 1,
         'misfire_grace_time': 30
     }
@@ -442,7 +411,7 @@ def cleanup_scheduler():
         if scheduler.running:
             scheduler.shutdown()
     except Exception:
-        pass  # Ignore errors during cleanup
+        pass
 
 atexit.register(cleanup_scheduler)
 
@@ -454,396 +423,8 @@ def allowed_resume_file(filename):
     """Check if file has an allowed resume extension (pdf, doc, docx, txt, rtf)"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_RESUME_EXTENSIONS
 
-def process_scheduled_files():
-    """Process all scheduled files that are due for processing - ONLY for actual scheduled runs, not monitoring"""
-    with app.app_context():
-        try:
-            now = datetime.utcnow()
-            
-            # Health check: Detect overdue schedules to prevent timing issues
-            overdue_schedules = ScheduleConfig.query.filter(
-                ScheduleConfig.is_active == True,
-                ScheduleConfig.next_run < now - timedelta(hours=1)
-            ).all()
-            
-            if overdue_schedules:
-                app.logger.warning(f"HEALTH CHECK: Found {len(overdue_schedules)} schedules overdue by >1 hour. Auto-correcting timing...")
-                for schedule in overdue_schedules:
-                    # Reset to next normal interval based on schedule_days
-                    schedule.next_run = now + timedelta(days=schedule.schedule_days)
-                db.session.commit()
-            
-            # Get all active schedules that are due
-            # CRITICAL: Only process schedules that are truly due for their scheduled run
-            # Do NOT process during monitoring intervals (every 2 minutes)
-            due_schedules = ScheduleConfig.query.filter(
-                ScheduleConfig.is_active == True,
-                ScheduleConfig.next_run <= now
-            ).all()
-            
-            app.logger.info(f"Checking for scheduled files to process. Found {len(due_schedules)} due schedules")
-            files_processed = 0  # Track actual files processed
-            
-            for schedule in due_schedules:
-                app.logger.info(f"Processing schedule: {schedule.name} (ID: {schedule.id})")
-                try:
-                    # Check if file exists
-                    if not os.path.exists(schedule.file_path):
-                        app.logger.warning(f"Scheduled file not found: {schedule.file_path}")
-                        continue
-                    
-                    # CRITICAL: Only regenerate ALL reference numbers for true scheduled runs
-                    # Check if this is a genuine scheduled run (not just monitoring interval)
-                    time_since_last_run = (now - schedule.last_run).total_seconds() if schedule.last_run else float('inf')
-                    
-                    # Only process if sufficient time has passed based on schedule type
-                    min_hours_between_runs = {
-                        'hourly': 0.9,  # 54 minutes minimum
-                        'daily': 23,    # 23 hours minimum
-                        'weekly': 167   # 167 hours (just under 7 days) minimum
-                    }
-                    
-                    min_interval = min_hours_between_runs.get(schedule.interval_type, schedule.schedule_days * 24 - 1)
-                    hours_since_last_run = time_since_last_run / 3600
-                    
-                    if hours_since_last_run < min_interval:
-                        app.logger.info(f"Skipping schedule '{schedule.name}' - only {hours_since_last_run:.1f} hours since last run (need {min_interval} hours)")
-                        continue
-                    
-                    app.logger.info(f"Processing scheduled regeneration for '{schedule.name}' - {hours_since_last_run:.1f} hours since last run")
-                    
-                    # Process the file with full reference number regeneration
-                    processor = XMLProcessor()
-                    
-                    # Create backup of original file
-                    backup_path = f"{schedule.file_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    shutil.copy2(schedule.file_path, backup_path)
-                    
-                    # Generate temporary output filename
-                    temp_output = f"{schedule.file_path}.temp"
-                    
-                    # CRITICAL FIX: Always preserve reference numbers for automated scheduled runs
-                    # Only regenerate reference numbers for explicit manual refresh operations
-                    # The old weekly logic (schedule_days != 7) was causing monitoring cycles to regenerate refs
-                    preserve_refs = True  # Always preserve for automated schedules
-                    app.logger.info(f"🔒 PRESERVING reference numbers for automated schedule '{schedule.name}' ({schedule.schedule_days}-day interval)")
-                    app.logger.info(f"📝 Reference number regeneration only available via manual 'Refresh All' button")
-                    
-                    result = processor.process_xml(schedule.file_path, temp_output, preserve_reference_numbers=preserve_refs)
-                    
-                    # Log the processing result
-                    log_entry = ProcessingLog(
-                        schedule_config_id=schedule.id,
-                        file_path=schedule.file_path,
-                        processing_type='scheduled',
-                        jobs_processed=result.get('jobs_processed', 0),
-                        success=result.get('success', False),
-                        error_message=result.get('error') if not result.get('success') else None
-                    )
-                    db.session.add(log_entry)
-                    
-                    # Update schedule timestamps FIRST (commit immediately to ensure persistence)
-                    schedule.last_run = now
-                    schedule.calculate_next_run()
-                    db.session.commit()  # Commit schedule update immediately
-                    app.logger.info(f"Updated schedule '{schedule.name}': next_run = {schedule.next_run}")
-                    
-                    if result.get('success'):
-                        # Replace original file with updated version
-                        os.replace(temp_output, schedule.file_path)
-                        files_processed += 1  # Increment counter for successful processing
-                        app.logger.info(f"Successfully processed scheduled file: {schedule.file_path}")
-                        
-                        # DISABLED: Sync main XML file with scheduled file to prevent reference number conflicts
-                        # This was causing the reference number flip-flopping issue
-                        # main_xml_path = 'myticas-job-feed.xml'
-                        # if schedule.file_path != main_xml_path and os.path.exists(main_xml_path):
-                        #     try:
-                        #         # Copy the updated scheduled file to main XML file
-                        #         shutil.copy2(schedule.file_path, main_xml_path)
-                        #         app.logger.info(f"✅ Synchronized main XML file {main_xml_path} with scheduled file {schedule.file_path}")
-                        #     except Exception as sync_error:
-                        #         app.logger.error(f"❌ Failed to sync main XML file: {str(sync_error)}")
-                        
-                        app.logger.info(f"⚠️ Scheduled file sync disabled to prevent reference number conflicts")
-                        
-                        # Get original filename for email/FTP (use stored original filename if available)
-                        original_filename = schedule.original_filename or os.path.basename(schedule.file_path).split('_', 1)[-1]
-                        
-                        # Upload to SFTP if configured (using Global Settings)
-                        sftp_upload_success = True  # Default to success if not configured
-                        if schedule.auto_upload_ftp:
-                            try:
-                                # Get SFTP settings from Global Settings
-                                sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
-                                sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                                sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                                sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                                sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                                sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
-                                
-                                if (sftp_enabled and sftp_enabled.setting_value == 'true' and 
-                                    sftp_hostname and sftp_hostname.setting_value and 
-                                    sftp_username and sftp_username.setting_value and 
-                                    sftp_password and sftp_password.setting_value):
-                                    
-                                    ftp_service = FTPService(
-                                        hostname=sftp_hostname.setting_value,
-                                        username=sftp_username.setting_value,
-                                        password=sftp_password.setting_value,
-                                        target_directory=sftp_directory.setting_value if sftp_directory else "/",
-                                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
-                                        use_sftp=True
-                                    )
-                                    sftp_upload_success = ftp_service.upload_file(
-                                        local_file_path=schedule.file_path,
-                                        remote_filename=original_filename
-                                    )
-                                    if sftp_upload_success:
-                                        app.logger.info(f"File uploaded to SFTP server: {original_filename}")
-                                    else:
-                                        app.logger.warning(f"Failed to upload file to SFTP server")
-                                else:
-                                    sftp_upload_success = False
-                                    app.logger.warning(f"SFTP upload requested but credentials not configured in Global Settings")
-                            except Exception as e:
-                                sftp_upload_success = False
-                                app.logger.error(f"Error uploading to SFTP: {str(e)}")
-                        
-                        # Send email notification if configured (using Global Settings)
-                        if schedule.send_email_notifications:
-                            try:
-                                # Get email settings from Global Settings
-                                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                                
-                                if (email_enabled and email_enabled.setting_value == 'true' and 
-                                    email_address and email_address.setting_value):
-                                    
-                                    email_service = get_email_service()
-                                    
-                                    # Send regular processing notification (reference numbers always preserved now)
-                                    app.logger.info(f"📧 Sending scheduled processing notification for {schedule.name}")
-                                    
-                                    # Calculate processing time
-                                    processing_time = (datetime.utcnow() - now).total_seconds()
-                                    
-                                    # Send regular processing notification (all automated schedules preserve reference numbers)
-                                    email_sent = email_service.send_processing_notification(
-                                        to_email=email_address.setting_value,
-                                        schedule_name=schedule.name,
-                                        jobs_processed=result.get('jobs_processed', 0),
-                                        xml_file_path=schedule.file_path,
-                                        original_filename=original_filename,
-                                        sftp_upload_success=sftp_upload_success
-                                    )
-                                    if email_sent:
-                                        app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
-                                    else:
-                                        app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
-                                else:
-                                    app.logger.warning(f"Email notification requested but credentials not configured in Global Settings")
-                            except Exception as e:
-                                app.logger.error(f"Error sending email notification: {str(e)}")
-                        
-                        # Log activity in ATS monitoring system
-                        activity_details = {
-                            'schedule_name': schedule.name,
-                            'jobs_processed': result.get('jobs_processed', 0),
-                            'file_path': schedule.file_path,
-                            'original_filename': original_filename,
-                            'sftp_upload_success': sftp_upload_success
-                        }
-                        
-                        # Create activity entry for scheduled processing (reference numbers always preserved now)
-                        activity_type = 'scheduled_processing'
-                        activity_details = f"Scheduled processing completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs processed (reference numbers preserved)"
-                        
-                        activity_entry = BullhornActivity(
-                            monitor_id=None,  # No specific monitor - this is a general system activity
-                            activity_type=activity_type,
-                            job_id=None,
-                            job_title=None,
-                            details=activity_details,
-                            notification_sent=schedule.send_email_notifications
-                        )
-                        db.session.add(activity_entry)
-                        app.logger.info(f"ATS activity logged for {activity_type}: {schedule.name}")
-                        
-                    else:
-                        # Clean up temp file on failure
-                        if os.path.exists(temp_output):
-                            os.remove(temp_output)
-                        app.logger.error(f"Failed to process scheduled file: {schedule.file_path} - {result.get('error')}")
-                        
-                        # Send error email notification if configured (for any scheduled processing failure)
-                        if schedule.send_email_notifications:
-                            try:
-                                # Get email settings from Global Settings
-                                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                                
-                                if (email_enabled and email_enabled.setting_value == 'true' and 
-                                    email_address and email_address.setting_value):
-                                    
-                                    email_service = get_email_service()
-                                    
-                                    # Send scheduled processing failure notification
-                                    error_sent = email_service.send_processing_error_notification(
-                                        to_email=email_address.setting_value,
-                                        schedule_name=schedule.name,
-                                        error_message=result.get('error', 'Unknown processing error occurred')
-                                    )
-                                    
-                                    if error_sent:
-                                        app.logger.info(f"📧 Scheduled processing error notification sent to {email_address.setting_value}")
-                                    else:
-                                        app.logger.warning(f"Failed to send scheduled processing error notification")
-                            except Exception as e:
-                                app.logger.error(f"Error sending scheduled processing error notification: {str(e)}")
-                        
-                        # Log failure in ATS monitoring system
-                        activity_entry = BullhornActivity(
-                            monitor_id=None,
-                            activity_type='scheduled_processing_error',
-                            job_id=None,
-                            job_title=None,
-                            details=f"Scheduled processing failed for '{schedule.name}' - {result.get('error', 'Unknown error')}",
-                            notification_sent=True  # Error notifications handled separately via email service
-                        )
-                        db.session.add(activity_entry)
-                        
-                        # Send error notification email if configured (using Global Settings)
-                        if schedule.send_email_notifications:
-                            try:
-                                # Get email settings from Global Settings
-                                email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                                email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-                                
-                                if (email_enabled and email_enabled.setting_value == 'true' and 
-                                    email_address and email_address.setting_value):
-                                    
-                                    email_service = get_email_service()
-                                    email_service.send_processing_error_notification(
-                                        to_email=email_address.setting_value,
-                                        schedule_name=schedule.name,
-                                        error_message=result.get('error', 'Unknown error')
-                                    )
-                                else:
-                                    app.logger.warning(f"Error email notification requested but credentials not configured in Global Settings")
-                            except Exception as e:
-                                app.logger.error(f"Error sending error notification email: {str(e)}")
-                    
-                except Exception as e:
-                    app.logger.error(f"Error processing scheduled file {schedule.file_path}: {str(e)}")
-                    
-                    # Log the error
-                    log_entry = ProcessingLog(
-                        schedule_config_id=schedule.id,
-                        file_path=schedule.file_path,
-                        processing_type='scheduled',
-                        jobs_processed=0,
-                        success=False,
-                        error_message=str(e)
-                    )
-                    db.session.add(log_entry)
-            
-            # Final commit for any remaining activity logging
-            try:
-                db.session.commit()
-                # Only log completion when files were actually processed
-                if files_processed > 0:
-                    app.logger.info(f"Scheduled processing activity logging completed - {files_processed} files processed")
-                else:
-                    app.logger.debug("Scheduled processing check completed - no files were due for processing")
-            except Exception as e:
-                app.logger.error(f"Error committing activity logs: {str(e)}")
-                db.session.rollback()
-            
-        except Exception as e:
-            app.logger.error(f"Error in scheduled processing: {str(e)}")
-            db.session.rollback()
 
-# DISABLED: Process Scheduled XML Files - not needed since Enhanced 8-Step Monitor handles all updates
-# This was running every 2 minutes but with 0 active schedules, it was just creating unnecessary cycles
-# that could potentially conflict with the main monitoring process
-# scheduler.add_job(
-#     func=process_scheduled_files,
-#     trigger=IntervalTrigger(minutes=2),  # Reduced from 5 to 2 minutes
-#     id='process_scheduled_files',
-#     name='Process Scheduled XML Files',
-#     replace_existing=True
-# )
-app.logger.info("📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates")
-
-def process_bullhorn_monitors():
-    """Process all active Bullhorn monitors using simplified incremental monitoring"""
-    with app.app_context():
-        try:
-            # Check if XML feed is frozen
-            from feeds.freeze_manager import FreezeManager
-            freeze_mgr = FreezeManager()
-            if freeze_mgr.is_frozen():
-                app.logger.info("🔒 XML FEED FROZEN: Skipping monitoring cycle")
-                return
-            
-            app.logger.info("🔄 INCREMENTAL MONITOR: Starting simplified monitoring cycle")
-            
-            # Initialize incremental monitoring service
-            from incremental_monitoring_service import IncrementalMonitoringService
-            monitoring_service = IncrementalMonitoringService()
-            
-            # Check if we should use the new feed generator
-            use_new_feed = os.environ.get('USE_NEW_FEED', '').lower() == 'true'
-            
-            # Get monitors from database first
-            db_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
-            
-            if db_monitors:
-                # Use actual database monitors
-                monitors = db_monitors
-                app.logger.info(f"Using {len(monitors)} database monitors")
-            else:
-                # Fallback to hardcoded monitors if database is empty
-                class MockMonitor:
-                    def __init__(self, name, tearsheet_id):
-                        self.name = name
-                        self.tearsheet_id = tearsheet_id
-                        self.is_active = True
-                
-                monitors = [
-                    MockMonitor('Sponsored - OTT', 1256),
-                    MockMonitor('Sponsored - VMS', 1264),
-                    MockMonitor('Sponsored - GR', 1499),
-                    MockMonitor('Sponsored - CHI', 1257),
-                    MockMonitor('Sponsored - STSI', 1556)
-                ]
-                app.logger.info(f"Using {len(monitors)} hardcoded tearsheet monitors (fallback)")
-            
-            # Run incremental monitoring cycle with Flask app context
-            with app.app_context():
-                cycle_results = monitoring_service.run_monitoring_cycle()
-            
-            # Update monitor timing in database
-            if db_monitors:
-                current_time = datetime.utcnow()
-                for monitor in db_monitors:
-                    monitor.last_check = current_time
-                    monitor.next_check = current_time + timedelta(minutes=5)  # Set next check for 5 minutes
-                try:
-                    db.session.commit()
-                    app.logger.info(f"✅ Updated timing for {len(db_monitors)} monitors")
-                except Exception as e:
-                    app.logger.error(f"Failed to update monitor timing: {e}")
-                    db.session.rollback()
-            
-            app.logger.info(f"✅ Incremental monitoring completed: {cycle_results}")
-            app.logger.info("📊 MONITOR CYCLE COMPLETE - Incremental monitoring handled all updates")
-            
-        except Exception as e:
-            app.logger.error(f"❌ Incremental monitoring error: {str(e)}")
-            db.session.rollback()
-
+# ── Scheduler Lock (primary worker detection) ─────────────────────────────────
 
 def release_scheduler_lock():
     """Release the scheduler lock on process exit"""
@@ -856,20 +437,15 @@ def release_scheduler_lock():
         except Exception as e:
             app.logger.warning(f"Error releasing scheduler lock: {e}")
 
-# Import required modules for scheduler lock
 import fcntl
-import atexit
 
 # Initialize scheduler lock variables
 scheduler_lock_file = '/tmp/scoutgenius_scheduler.lock'
 scheduler_lock_fd = None
 is_primary_worker = False
 
-# CRITICAL: Use print() for guaranteed logging during module initialization
-# app.logger may not be properly configured at this point
 print("🔒 SCHEDULER INIT: Attempting to acquire scheduler lock...", flush=True)
 
-# Try to acquire exclusive lock for scheduler  
 try:
     scheduler_lock_fd = os.open(scheduler_lock_file, os.O_CREAT | os.O_WRONLY)
     fcntl.flock(scheduler_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -887,33 +463,16 @@ except (IOError, OSError) as e:
         os.close(scheduler_lock_fd)
         scheduler_lock_fd = None
 except Exception as e:
-    # Catch ANY exception to prevent silent failures
     print(f"❌ SCHEDULER INIT: Unexpected error during lock acquisition: {e}", flush=True)
     app.logger.error(f"❌ Unexpected scheduler lock error: {e}")
     is_primary_worker = False
 
 print(f"🔒 SCHEDULER INIT: is_primary_worker = {is_primary_worker}", flush=True)
 
-if is_primary_worker:
-    # RE-ENABLED: 5-Minute Incremental Monitoring (October 2025)
-    # Provides real-time visibility into job changes before 30-minute upload cycle
-    # Now safe with fast keyword classification (<1 second, no timeouts)
-    # This monitors Bullhorn and updates local database every 5 minutes
-    # SFTP uploads still happen on 30-minute cycle separately
-    try:
-        scheduler.add_job(
-            func=process_bullhorn_monitors,
-            trigger=IntervalTrigger(minutes=5),
-            id='process_bullhorn_monitors',
-            name='5-Minute Tearsheet Monitor with Keyword Classification',
-            replace_existing=True
-        )
-        print("✅ SCHEDULER INIT: 5-minute tearsheet monitoring job added", flush=True)
-        app.logger.info("✅ 5-minute tearsheet monitoring ENABLED - provides UI visibility before 30-minute upload cycle")
-    except Exception as e:
-        print(f"❌ SCHEDULER INIT: Failed to add 5-minute monitoring job: {e}", flush=True)
-        app.logger.error(f"Failed to add 5-minute monitoring job: {e}")
-else:
+# Register all background scheduler jobs
+from scheduler_setup import configure_scheduler_jobs
+configure_scheduler_jobs(app, scheduler, is_primary_worker)
+if not is_primary_worker:
     print(f"⚠️ SCHEDULER INIT: Process {os.getpid()} skipping scheduler setup - another worker handles scheduling", flush=True)
     app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
 
@@ -924,42 +483,34 @@ else:
 def get_automation_status():
     """Check if automation/scheduler is currently active"""
     try:
-        # Check if recent monitoring activities have occurred (sign of active automation)
         recent_cutoff = datetime.utcnow() - timedelta(minutes=10)
         recent_activity = BullhornActivity.query.filter(
             BullhornActivity.created_at > recent_cutoff,
             BullhornActivity.activity_type.in_(['check_completed', 'job_added', 'job_removed', 'job_modified'])
         ).count()
-        
+
         if recent_activity > 0:
             return True
-            
-        # Check if monitors have been updated recently (indicates scheduler is running)
+
         recent_monitors = BullhornMonitor.query.filter(
             BullhornMonitor.last_check > recent_cutoff
         ).count()
-        
+
         if recent_monitors > 0:
             return True
-            
-        # Fall back to checking if we have any active monitors at all
+
         active_monitors = BullhornMonitor.query.filter_by(is_active=True).count()
         return active_monitors > 0
-        
+
     except Exception as e:
         app.logger.debug(f"Automation status check error: {e}")
-        return True  # Default to active if can't determine
-
-# Test route removed for production deployment
+        return True
 
 # Note: / and /dashboard routes moved to routes/dashboard.py blueprint
 
-
 # Note: Scheduler routes and helper functions moved to routes/scheduler.py blueprint
 
-
 # Note: /api/refresh-reference-numbers route moved to routes/xml_routes.py blueprint
-
 
 # Note: /upload, /manual-upload-progress, /download, /download-current-xml, /automation-status,
 # /test-upload, /manual-upload-now, /validate, /bullhorn/oauth/callback, /automation_test
@@ -971,13 +522,7 @@ def get_automation_status():
 
 # Note: ATS Integration routes moved to routes/ats_integration.py blueprint (formerly routes/bullhorn.py)
 
-
-
-
-
 # Note: reset_test_file, run_automation_demo, run_step_test helper functions moved to routes/xml_routes.py
-
-
 
 # Note: test_download, ATS monitoring, and email log routes moved to blueprints
 
@@ -997,8 +542,10 @@ def lazy_start_scheduler():
         return False
     return scheduler.running
 
+
 # Track if background services have been initialized
 _background_services_started = False
+
 def _register_scheduler_listeners():
     """Register APScheduler job execution listeners for last-run tracking. Call once after scheduler.start()."""
     try:
@@ -1063,7 +610,6 @@ def _restore_paused_jobs():
 def ensure_background_services():
     """Ensure background services are started when first needed"""
     global _background_services_started
-    # Always check if scheduler is running, not just the flag
     if not scheduler.running:
         try:
             scheduler.start()
@@ -1073,11 +619,9 @@ def ensure_background_services():
             _register_scheduler_listeners()
             _restore_paused_jobs()
 
-            # Force immediate monitor check after restart
             try:
                 with app.app_context():
                     from datetime import datetime, timedelta
-                    # Update all monitors to run immediately
                     monitors = BullhornMonitor.query.all()
                     for monitor in monitors:
                         monitor.next_check_time = datetime.utcnow()
@@ -1090,641 +634,13 @@ def ensure_background_services():
             _background_services_started = False
             return False
 
-    # Only run these once
     if not _background_services_started:
         _background_services_started = True
 
     return True
 
-# Only add scheduler jobs on primary worker to prevent duplicates in production
-if is_primary_worker:
-    # Add monitor health check job - reduced frequency for manual workflow
-    scheduler.add_job(
-        func=check_monitor_health,
-        trigger=IntervalTrigger(hours=2),
-        id='check_monitor_health',
-        name='Monitor Health Check (Manual Workflow)',
-        replace_existing=True
-    )
-    app.logger.info("Monitor health check enabled - periodic check every 2 hours for manual workflow")
 
-    # Add environment monitoring job
-    scheduler.add_job(
-        func=check_environment_status,
-        trigger=IntervalTrigger(minutes=5),  # Check every 5 minutes
-        id='environment_monitoring',
-        name='Production Environment Monitoring',
-        replace_existing=True
-    )
-    app.logger.info("Environment monitoring enabled - checking production status every 5 minutes")
-
-    # P0 optimization: background-refresh active job IDs cache so /screening
-    # never triggers a synchronous Bullhorn API call on page load.
-    def refresh_active_job_ids_cache():
-        """Refresh the CandidateVettingService active job IDs cache in the background."""
-        with app.app_context():
-            try:
-                from candidate_vetting_service import CandidateVettingService
-                import time
-                svc = CandidateVettingService()
-                active_jobs = svc.get_active_jobs_from_tearsheets()
-                result = set(int(job.get('id')) for job in active_jobs if job.get('id'))
-                CandidateVettingService._active_job_ids_cache = result
-                CandidateVettingService._active_job_ids_cache_time = time.time()
-                app.logger.info(f"🔄 Active job IDs cache refreshed: {len(result)} jobs")
-            except Exception as e:
-                app.logger.error(f"Error refreshing active job IDs cache: {e}")
-
-    scheduler.add_job(
-        func=refresh_active_job_ids_cache,
-        trigger=IntervalTrigger(minutes=5),
-        id='refresh_active_job_ids',
-        name='Active Job IDs Cache Refresh (5 min)',
-        replace_existing=True
-    )
-    # Also warm the cache immediately on startup
-    try:
-        refresh_active_job_ids_cache()
-    except Exception as e:
-        app.logger.warning(f"Initial active job IDs cache warm failed: {e}")
-    app.logger.info("Active job IDs background cache refresh enabled (5-min interval)")
-
-if is_primary_worker:
-    # Add activity retention cleanup - runs daily at 3 AM
-    scheduler.add_job(
-        func=activity_retention_cleanup,
-        trigger='cron',
-        hour=3,
-        minute=0,
-        id='activity_cleanup',
-        name='Activity Retention Cleanup (15 days)',
-        replace_existing=True
-    )
-    app.logger.info("📋 Scheduled activity retention cleanup (15 days)")
-
-if is_primary_worker:
-    # Get interval from environment (default 15 minutes)
-    log_monitor_interval = int(os.environ.get('LOG_MONITOR_INTERVAL_MINUTES', '15'))
-    
-    scheduler.add_job(
-        func=log_monitoring_cycle,
-        trigger='interval',
-        minutes=log_monitor_interval,
-        id='log_monitoring',
-        name=f'Render Log Monitoring (Self-Healing) - {log_monitor_interval}min',
-        replace_existing=True
-    )
-    app.logger.info(f"📊 Log monitoring enabled - checking Render logs every {log_monitor_interval} minutes")
-
-if is_primary_worker:
-    # Add email parsing stuck record cleanup - runs every 5 minutes
-    scheduler.add_job(
-        func=email_parsing_timeout_cleanup,
-        trigger='interval',
-        minutes=5,
-        id='email_parsing_timeout_cleanup',
-        name='Email Parsing Timeout Cleanup (10 min)',
-        replace_existing=True
-    )
-    app.logger.info("📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)")
-
-if is_primary_worker:
-    # Add data retention cleanup - runs every 24 hours at 3 AM UTC
-    scheduler.add_job(
-        func=run_data_retention_cleanup,
-        trigger='cron',
-        hour=3,
-        minute=0,
-        id='data_retention_cleanup',
-        name='Data Retention Cleanup (Daily)',
-        replace_existing=True
-    )
-    app.logger.info("🧹 Scheduled data retention cleanup (daily at 3 AM UTC)")
-
-if is_primary_worker:
-    # Add vetting system health check - runs every 10 minutes
-    scheduler.add_job(
-        func=run_vetting_health_check,
-        trigger='interval',
-        minutes=10,
-        id='vetting_health_check',
-        name='Vetting System Health Check',
-        replace_existing=True
-    )
-    app.logger.info("🩺 Scheduled vetting system health check (every 10 minutes)")
-
-if is_primary_worker:
-    # Add candidate vetting cycle - runs every 1 minute (APScheduler lock prevents overlapping runs)
-    scheduler.add_job(
-        func=run_candidate_vetting_cycle,
-        trigger='interval',
-        minutes=1,
-        id='candidate_vetting_cycle',
-        name='AI Candidate Vetting Cycle',
-        replace_existing=True,
-        misfire_grace_time=300,
-        coalesce=False
-    )
-    app.logger.info("🎯 Scheduled AI candidate vetting cycle (every 1 minute)")
-
-if is_primary_worker:
-    # Schedule automated uploads every 30 minutes - simple and reliable
-    print("📤 SCHEDULER INIT: Registering automated upload job (every 30 minutes)...", flush=True)
-    try:
-        scheduler.add_job(
-            func=automated_upload,
-            trigger=IntervalTrigger(minutes=30),
-            id='automated_upload',
-            name='Automated Upload (Every 30 Minutes)',
-            replace_existing=True,
-            misfire_grace_time=300,
-            coalesce=False
-        )
-        print("✅ SCHEDULER INIT: Automated upload job registered successfully", flush=True)
-        app.logger.info("📤 Scheduled automated uploads every 30 minutes")
-
-        # Seed next_sftp_upload_time into DB at startup so all workers can read a consistent value
-        try:
-            from datetime import datetime, timedelta, timezone
-            with app.app_context():
-                from models import GlobalSettings
-                existing = GlobalSettings.query.filter_by(setting_key='next_sftp_upload_time').first()
-                seed_dt = datetime.now(timezone.utc) + timedelta(minutes=30)
-                seed_value = seed_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-                if not existing:
-                    db.session.add(GlobalSettings(setting_key='next_sftp_upload_time', setting_value=seed_value))
-                    db.session.commit()
-                    app.logger.info(f"📤 Seeded initial next_sftp_upload_time: {seed_value}")
-                else:
-                    try:
-                        stored_dt = datetime.strptime(existing.setting_value.strip(), '%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=timezone.utc)
-                        if stored_dt <= datetime.now(timezone.utc) + timedelta(minutes=5):
-                            existing.setting_value = seed_value
-                            db.session.commit()
-                            app.logger.info(f"📤 Refreshed stale next_sftp_upload_time: {seed_value}")
-                    except Exception:
-                        pass
-        except Exception as seed_err:
-            app.logger.warning(f"Could not seed next_sftp_upload_time: {seed_err}")
-
-    except Exception as e:
-        print(f"❌ SCHEDULER INIT: Failed to register automated upload job: {e}", flush=True)
-        app.logger.error(f"Failed to register automated upload job: {e}")
-
-if is_primary_worker:
-    scheduler.add_job(
-        func=cleanup_linkedin_source,
-        trigger=IntervalTrigger(hours=1),
-        id='linkedin_source_cleanup',
-        name='LinkedIn Source Cleanup (hourly)',
-        replace_existing=True
-    )
-    app.logger.info("🔗 LinkedIn source cleanup enabled — runs hourly to update stale source tags")
-
-if is_primary_worker:
-    scheduler.add_job(
-        func=enforce_tearsheet_jobs_public,
-        trigger=IntervalTrigger(minutes=30),
-        id='enforce_tearsheet_jobs_public',
-        name='Enforce Tearsheet Jobs Public (Every 30 Minutes)',
-        replace_existing=True,
-        misfire_grace_time=300,
-        coalesce=False
-    )
-    app.logger.info("🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs")
-
-    scheduler.add_job(
-        func=run_requirements_maintenance,
-        trigger=IntervalTrigger(minutes=5),
-        id='requirements_maintenance',
-        name='Requirements Maintenance — New & Modified Jobs (5 min)',
-        replace_existing=True,
-        misfire_grace_time=300,
-        coalesce=False
-    )
-    app.logger.info("🔍 Requirements maintenance enabled — auto-extracts for new jobs and re-interprets modified descriptions every 5 minutes")
-
-    def run_salesrep_sync_job():
-        try:
-            with app.app_context():
-                from salesrep_sync_service import run_salesrep_sync
-                bullhorn = get_bullhorn_service()
-                result = run_salesrep_sync(bullhorn)
-                if result.get('updated', 0) > 0:
-                    app.logger.info(
-                        f"🏢 Sales Rep Sync: {result['updated']} companies updated "
-                        f"(scanned {result['scanned']}, {result.get('errors', 0)} errors)"
-                    )
-        except Exception as e:
-            app.logger.error(f"Sales Rep Sync job error: {e}")
-
-    try:
-        scheduler.add_job(
-            func=run_salesrep_sync_job,
-            trigger=IntervalTrigger(minutes=30),
-            id='salesrep_sync',
-            name='Sales Rep Display Name Sync (Every 30 Minutes)',
-            replace_existing=True
-        )
-        print("✅ SCHEDULER INIT: Sales Rep sync job registered (every 30 minutes)", flush=True)
-        app.logger.info("🏢 Scheduled Sales Rep display name sync every 30 minutes")
-    except Exception as e:
-        print(f"❌ SCHEDULER INIT: Failed to register Sales Rep sync job: {e}", flush=True)
-        app.logger.error(f"Failed to register Sales Rep sync job: {e}")
-
-    def run_stale_platform_ticket_check():
-        try:
-            with app.app_context():
-                from scout_support_service import ScoutSupportService
-                svc = ScoutSupportService()
-                count = svc.check_stale_platform_tickets()
-                if count > 0:
-                    app.logger.info(f"⏰ Stale platform ticket check: {count} ticket(s) escalated to admin")
-        except Exception as e:
-            app.logger.error(f"Stale platform ticket check error: {e}")
-
-    try:
-        scheduler.add_job(
-            func=run_stale_platform_ticket_check,
-            trigger=IntervalTrigger(hours=6),
-            id='stale_platform_ticket_check',
-            name='Stale Platform Ticket Escalation Check (Every 6 Hours)',
-            replace_existing=True
-        )
-        print("✅ SCHEDULER INIT: Stale platform ticket check registered (every 6 hours)", flush=True)
-        app.logger.info("⏰ Scheduled stale platform ticket escalation check every 6 hours")
-    except Exception as e:
-        print(f"❌ SCHEDULER INIT: Failed to register stale platform ticket check: {e}", flush=True)
-        app.logger.error(f"Failed to register stale platform ticket check: {e}")
-
-    def run_duplicate_merge_check():
-        try:
-            with app.app_context():
-                from duplicate_merge_service import DuplicateMergeService
-                svc = DuplicateMergeService()
-                stats = svc.run_scheduled_check()
-                checked = stats.get('candidates_checked', 0)
-                merged = stats.get('merged', 0)
-                skipped = stats.get('skipped_below_threshold', stats.get('skipped', 0))
-                errors = stats.get('errors', 0)
-                app.logger.info(
-                    f"🔀 Scheduled dedup: checked={checked}, "
-                    f"merged={merged}, skipped={skipped}, errors={errors}"
-                )
-
-                try:
-                    from models import AutomationTask, AutomationLog
-                    from extensions import db
-                    from datetime import datetime
-                    import json as _json
-
-                    task = AutomationTask.query.filter(
-                        AutomationTask.config_json.contains('duplicate_merge_scan')
-                    ).first()
-                    if task:
-                        if merged > 0:
-                            summary = f"Checked {checked} candidate(s) — {merged} merged, {skipped} skipped"
-                        else:
-                            summary = f"Checked {checked} candidate(s) — no duplicates found"
-                        if errors > 0:
-                            summary += f", {errors} error(s)"
-
-                        log = AutomationLog(
-                            automation_task_id=task.id,
-                            status='success' if errors == 0 else 'warning',
-                            message='Duplicate Merge Check (Scheduled)',
-                            details_json=_json.dumps({
-                                'source': 'scheduled',
-                                'candidates_checked': checked,
-                                'merged': merged,
-                                'skipped': skipped,
-                                'errors': errors,
-                                'summary': summary,
-                            })
-                        )
-                        db.session.add(log)
-                        task.last_run_at = datetime.utcnow()
-                        task.run_count = (task.run_count or 0) + 1
-                        db.session.commit()
-                except Exception as log_err:
-                    app.logger.warning(f"⚠️ Dedup check: could not write run history: {log_err}")
-
-        except Exception as e:
-            app.logger.error(f"Scheduled duplicate merge check error: {e}")
-
-    try:
-        scheduler.add_job(
-            func=run_duplicate_merge_check,
-            trigger=IntervalTrigger(minutes=60),
-            id='duplicate_merge_check',
-            name='Duplicate Candidate Merge Check (Every 60 Minutes)',
-            replace_existing=True
-        )
-        print("✅ SCHEDULER INIT: Duplicate merge check registered (every 60 minutes)", flush=True)
-        app.logger.info("🔀 Scheduled duplicate candidate merge check every 60 minutes")
-    except Exception as e:
-        print(f"❌ SCHEDULER INIT: Failed to register duplicate merge check: {e}", flush=True)
-        app.logger.error(f"Failed to register duplicate merge check: {e}")
-
-    def run_onedrive_sync():
-        try:
-            with app.app_context():
-                from onedrive_service import OneDriveService
-                from models import OneDriveSyncFolder
-                folders = OneDriveSyncFolder.query.filter_by(sync_enabled=True).count()
-                if folders > 0:
-                    svc = OneDriveService()
-                    stats = svc.sync_all_folders()
-                    total = stats.get('total_synced', 0) + stats.get('total_updated', 0)
-                    if total > 0:
-                        app.logger.info(f"☁️ OneDrive sync: {stats.get('total_synced', 0)} new, {stats.get('total_updated', 0)} updated across {stats.get('folders_synced', 0)} folder(s)")
-        except Exception as e:
-            app.logger.error(f"OneDrive sync error: {e}")
-
-    try:
-        scheduler.add_job(
-            func=run_onedrive_sync,
-            trigger=IntervalTrigger(hours=4),
-            id='onedrive_knowledge_sync',
-            name='OneDrive Knowledge Sync (Every 4 Hours)',
-            replace_existing=True
-        )
-        print("✅ SCHEDULER INIT: OneDrive knowledge sync registered (every 4 hours)", flush=True)
-        app.logger.info("☁️ Scheduled OneDrive knowledge sync every 4 hours")
-    except Exception as e:
-        print(f"❌ SCHEDULER INIT: Failed to register OneDrive sync: {e}", flush=True)
-        app.logger.error(f"Failed to register OneDrive sync: {e}")
-
-    # Schedule reference refresh every 120 hours — NEVER fires inline on startup.
-    # On restart, we reconstruct next_run from persisted RefreshLog state.
-    # If overdue, we defer to now + 5min so the scheduler handles it, not startup.
-    try:
-        with app.app_context():
-            from datetime import date, timedelta
-            
-            last_refresh = RefreshLog.query.order_by(RefreshLog.refresh_time.desc()).first()
-            
-            if last_refresh:
-                calculated_next_run = last_refresh.refresh_time + timedelta(hours=120)
-                time_since_refresh = datetime.utcnow() - last_refresh.refresh_time
-                is_overdue = time_since_refresh > timedelta(hours=120)
-                
-                if is_overdue:
-                    # Overdue — schedule for 5 minutes from now instead of firing inline
-                    calculated_next_run = datetime.utcnow() + timedelta(minutes=5)
-                    app.logger.info(
-                        f"⏰ Reference refresh: last_run={last_refresh.refresh_time.strftime('%Y-%m-%d %H:%M:%S UTC')}, "
-                        f"next_run={calculated_next_run.strftime('%Y-%m-%d %H:%M:%S UTC')}, overdue=true "
-                        f"(deferred to +5min, NOT firing inline on startup)"
-                    )
-                else:
-                    hours_until_next = (calculated_next_run - datetime.utcnow()).total_seconds() / 3600
-                    app.logger.info(
-                        f"📝 Reference refresh: last_run={last_refresh.refresh_time.strftime('%Y-%m-%d %H:%M:%S UTC')}, "
-                        f"next_run={calculated_next_run.strftime('%Y-%m-%d %H:%M:%S UTC')}, overdue=false "
-                        f"({hours_until_next:.1f}h remaining)"
-                    )
-                
-                scheduler.add_job(
-                    func=reference_number_refresh,
-                    trigger=IntervalTrigger(hours=120),
-                    id='reference_number_refresh',
-                    name='120-Hour Reference Number Refresh',
-                    replace_existing=True,
-                    next_run_time=calculated_next_run
-                )
-            else:
-                # No previous refresh found — schedule for 5 min from now
-                calculated_next_run = datetime.utcnow() + timedelta(minutes=5)
-                app.logger.info(
-                    f"🆕 Reference refresh: last_run=NONE, "
-                    f"next_run={calculated_next_run.strftime('%Y-%m-%d %H:%M:%S UTC')}, "
-                    f"no history found — deferred to +5min"
-                )
-                scheduler.add_job(
-                    func=reference_number_refresh,
-                    trigger=IntervalTrigger(hours=120),
-                    id='reference_number_refresh',
-                    name='120-Hour Reference Number Refresh',
-                    replace_existing=True,
-                    next_run_time=calculated_next_run
-                )
-    except Exception as startup_error:
-        app.logger.error(f"Failed to schedule reference refresh: {str(startup_error)}")
-
-if is_primary_worker:
-    def run_candidate_data_cleanup():
-        """Scheduled cleanup: extract missing emails + reparse empty descriptions (batch=50, every 30 min)."""
-        with app.app_context():
-            try:
-                from models import GlobalSettings
-                enabled = GlobalSettings.get_value('candidate_cleanup_enabled', 'false').lower() == 'true'
-                if not enabled:
-                    return
-
-                batch_size = 50
-                try:
-                    batch_size = int(GlobalSettings.get_value('candidate_cleanup_batch_size', '50'))
-                except (ValueError, TypeError):
-                    pass
-
-                from automation_service import AutomationService
-                from bullhorn_service import BullhornService
-
-                svc = AutomationService()
-                bh = BullhornService()
-                bh.authenticate()
-                svc._bullhorn = bh
-
-                email_result = svc._builtin_email_extractor({
-                    'dry_run': False,
-                    'limit': batch_size,
-                    'days_back': 3650,
-                })
-                email_updated = email_result.get('updated', 0) if isinstance(email_result, dict) else 0
-
-                reparse_result = svc._builtin_resume_reparser({
-                    'dry_run': False,
-                    'limit': batch_size,
-                    'days_back': 3650,
-                })
-                reparse_updated = reparse_result.get('updated', 0) if isinstance(reparse_result, dict) else 0
-
-                occupation_updated = 0
-                try:
-                    occupation_result = svc._builtin_occupation_extractor({
-                        'dry_run': False,
-                        'limit': batch_size,
-                        'days_back': 30,
-                    })
-                    occupation_updated = occupation_result.get('updated', 0) if isinstance(occupation_result, dict) else 0
-                except Exception as oe:
-                    app.logger.warning(f"🧹 Occupation extraction step failed: {oe}")
-
-                app.logger.info(
-                    f"🧹 Candidate data cleanup cycle complete: "
-                    f"emails_extracted={email_updated}, descriptions_reparsed={reparse_updated}, "
-                    f"occupations_filled={occupation_updated} "
-                    f"(batch_size={batch_size})"
-                )
-            except Exception as e:
-                app.logger.error(f"❌ Candidate data cleanup error: {e}")
-
-    scheduler.add_job(
-        func=run_candidate_data_cleanup,
-        trigger=IntervalTrigger(minutes=15),
-        id='candidate_data_cleanup',
-        name='Candidate Data Cleanup (Every 15 Minutes)',
-        replace_existing=True,
-        misfire_grace_time=300,
-        coalesce=False
-    )
-    app.logger.info("🧹 Candidate data cleanup scheduled — runs every 15 minutes when enabled")
-
-if is_primary_worker:
-    def run_incomplete_rescreen():
-        """Scheduled job: reparse resumes for empty-description inbound candidates and re-queue for vetting."""
-        with app.app_context():
-            try:
-                from models import GlobalSettings
-                enabled = GlobalSettings.get_value('incomplete_rescreen_enabled', 'false').lower() == 'true'
-                if not enabled:
-                    return
-
-                from automation_service import AutomationService
-                from bullhorn_service import BullhornService
-
-                svc = AutomationService()
-                bh = BullhornService()
-                bh.authenticate()
-                svc._bullhorn = bh
-
-                result = svc._builtin_incomplete_rescreen({
-                    'dry_run': False,
-                    'batch_size': 20,
-                })
-                app.logger.info(
-                    f"♻️  Incomplete rescreen cycle complete: {result.get('summary', '')}"
-                )
-            except Exception as e:
-                app.logger.error(f"❌ Incomplete rescreen error: {e}")
-
-    scheduler.add_job(
-        func=run_incomplete_rescreen,
-        trigger=IntervalTrigger(minutes=15),
-        id='incomplete_rescreen',
-        name='Incomplete Candidate Rescreen (Every 15 Minutes)',
-        replace_existing=True,
-        misfire_grace_time=300,
-        coalesce=False
-    )
-    app.logger.info("♻️  Incomplete rescreen job scheduled — runs every 15 minutes when enabled")
-
-    # ── Scout Screening Quality Audit (every 15 minutes) ──
-    def run_screening_audit():
-        """Scheduled job: AI quality auditor reviews recent Not Qualified results for scoring errors."""
-        with app.app_context():
-            try:
-                from models import VettingConfig
-                enabled = VettingConfig.get_value('screening_audit_enabled', 'false').lower() == 'true'
-                if not enabled:
-                    return
-
-                from vetting_audit_service import VettingAuditService
-                svc = VettingAuditService()
-                result = svc.run_audit_cycle(batch_size=20)
-                app.logger.info(
-                    f"🔍 Screening audit cycle: {result.get('total_audited', 0)} audited, "
-                    f"{result.get('issues_found', 0)} issues, "
-                    f"{result.get('revets_triggered', 0)} re-vets"
-                )
-
-                # Write to Automation Hub run history so the user can see each cycle
-                try:
-                    from models import AutomationTask, AutomationLog
-                    from extensions import db
-                    from datetime import datetime
-                    import json as _json
-
-                    task = AutomationTask.query.filter(
-                        AutomationTask.config_json.contains('screening_audit')
-                    ).first()
-                    if task:
-                        issues = result.get('issues_found', 0)
-                        revets = result.get('revets_triggered', 0)
-                        audited = result.get('total_audited', 0)
-                        email_sent = result.get('email_sent', False)
-                        if issues > 0 or revets > 0:
-                            summary = (
-                                f"Audited {audited} result(s) — {issues} issue(s) found, "
-                                f"{revets} re-vet(s) triggered"
-                            )
-                        else:
-                            summary = f"Audited {audited} result(s) — no issues found"
-
-                        log_details = {
-                            'source': 'scheduled',
-                            'total_audited': audited,
-                            'issues_found': issues,
-                            'revets_triggered': revets,
-                            'summary': summary,
-                        }
-                        if email_sent:
-                            log_details['email_delivered'] = True
-                        elif issues > 0 or revets > 0:
-                            log_details['email_delivered'] = False
-
-                        log = AutomationLog(
-                            automation_task_id=task.id,
-                            status='success',
-                            message='Screening Quality Audit (Scheduled)',
-                            details_json=_json.dumps(log_details)
-                        )
-                        db.session.add(log)
-                        task.last_run_at = datetime.utcnow()
-                        task.run_count = (task.run_count or 0) + 1
-                        db.session.commit()
-                except Exception as log_err:
-                    app.logger.warning(f"⚠️ Screening audit: could not write run history: {log_err}")
-
-            except Exception as e:
-                app.logger.error(f"❌ Screening audit error: {e}")
-                try:
-                    from models import AutomationTask, AutomationLog
-                    from extensions import db
-                    import json as _json
-                    task = AutomationTask.query.filter(
-                        AutomationTask.config_json.contains('screening_audit')
-                    ).first()
-                    if task:
-                        log = AutomationLog(
-                            automation_task_id=task.id,
-                            status='error',
-                            message='Screening Quality Audit (Scheduled)',
-                            details_json=_json.dumps({'source': 'scheduled', 'error': str(e)})
-                        )
-                        db.session.add(log)
-                        db.session.commit()
-                except Exception:
-                    pass
-
-    scheduler.add_job(
-        func=run_screening_audit,
-        trigger=IntervalTrigger(minutes=15),
-        id='screening_quality_audit',
-        name='Scout Screening Quality Audit (15 min)',
-        replace_existing=True,
-        misfire_grace_time=300,
-        coalesce=False
-    )
-    app.logger.info("🔍 Screening quality audit job scheduled — runs every 15 minutes when enabled")
-
-if is_primary_worker:
-    # XML Change Monitor - DISABLED automatic scheduling for manual workflow
-    # Change notifications now triggered only during manual downloads
-    app.logger.info("📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads")
 # Note: /ready and /alive routes now provided by routes/health.py blueprint
-
 
 # ONE-TIME CLEANUP PAGE REMOVED (2026-02-07)
 # The /cleanup-duplicate-notes page was a one-time solution for duplicate AI vetting notes.
@@ -1735,4 +651,3 @@ if is_primary_worker:
 
 # Scheduler and background services will be started lazily when first needed
 # This significantly reduces application startup time for deployment health checks
-

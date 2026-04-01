@@ -914,7 +914,7 @@ class ParsedResumeCache(db.Model):
     """Cache for parsed resume results to reduce OpenAI API costs.
     
     Uses content-based hashing (SHA-256) to identify duplicate resumes.
-    Same resume content = cache hit = skip GPT-4o call.
+    Same resume content = cache hit = skip AI call.
     """
     id = db.Column(db.Integer, primary_key=True)
     content_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)  # SHA-256 hash
@@ -1021,8 +1021,8 @@ class EscalationLog(db.Model):
     candidate_name = db.Column(db.String(255), nullable=True)
     bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
     job_title = db.Column(db.String(500), nullable=True)
-    mini_score = db.Column(db.Float, nullable=False)  # GPT-4o-mini score (Layer 2)
-    gpt4o_score = db.Column(db.Float, nullable=False)  # GPT-4o score (Layer 3)
+    mini_score = db.Column(db.Float, nullable=False)  # Layer 2 model score
+    gpt4o_score = db.Column(db.Float, nullable=False)  # Layer 3 model score
     score_delta = db.Column(db.Float, nullable=False)  # gpt4o_score - mini_score
     material_change = db.Column(db.Boolean, nullable=False, default=False)  # |delta| >= 5 points
     threshold_used = db.Column(db.Float, nullable=False)  # Job-specific or global threshold
@@ -1042,7 +1042,7 @@ class ScoutVettingSession(db.Model):
     """Tracks a conversational AI vetting session for a qualified candidate on a specific job.
     
     Created after Scout Screening qualifies a candidate. Uses multi-turn email
-    conversations via Claude Opus to verify skills, experience, and availability
+    conversations via GPT-5 to verify skills, experience, and availability
     before recruiter handoff.
     """
     __tablename__ = 'scout_vetting_session'
@@ -1343,6 +1343,26 @@ class SupportTicket(db.Model):
         'admin_clarifying', 'approved', 'executing', 'retrying', 'execution_failed',
         'completed', 'on_hold', 'closed', 'escalated'
     ]
+
+    @property
+    def parsed_ai_understanding(self):
+        """Safely parse ai_understanding JSON field; returns dict or None."""
+        if not self.ai_understanding:
+            return None
+        try:
+            return json.loads(self.ai_understanding)
+        except (ValueError, TypeError):
+            return None
+
+    @property
+    def parsed_proposed_solution(self):
+        """Safely parse proposed_solution JSON field; returns dict or None."""
+        if not self.proposed_solution:
+            return None
+        try:
+            return json.loads(self.proposed_solution)
+        except (ValueError, TypeError):
+            return None
 
     @staticmethod
     def generate_ticket_number():
