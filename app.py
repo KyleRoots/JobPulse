@@ -424,57 +424,24 @@ def allowed_resume_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_RESUME_EXTENSIONS
 
 
-# ── Scheduler Lock (primary worker detection) ─────────────────────────────────
+# ── Scheduler Lock + Job Registration ─────────────────────────────────────────
 
-def release_scheduler_lock():
-    """Release the scheduler lock on process exit"""
-    global scheduler_lock_fd
-    if scheduler_lock_fd:
-        try:
-            fcntl.flock(scheduler_lock_fd, fcntl.LOCK_UN)
-            os.close(scheduler_lock_fd)
-            app.logger.info("🔓 Released scheduler lock on process exit")
-        except Exception as e:
-            app.logger.warning(f"Error releasing scheduler lock: {e}")
+from scheduler_setup import acquire_scheduler_lock, configure_scheduler_jobs
 
-import fcntl
-
-# Initialize scheduler lock variables
-scheduler_lock_file = '/tmp/scoutgenius_scheduler.lock'
-scheduler_lock_fd = None
-is_primary_worker = False
-
-print("🔒 SCHEDULER INIT: Attempting to acquire scheduler lock...", flush=True)
-
-try:
-    scheduler_lock_fd = os.open(scheduler_lock_file, os.O_CREAT | os.O_WRONLY)
-    fcntl.flock(scheduler_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    is_primary_worker = True
-    worker_pid = os.getpid()
-    print(f"✅ SCHEDULER INIT: Process {worker_pid} acquired scheduler lock - will run as PRIMARY scheduler", flush=True)
-    app.logger.info(f"✅ Process {worker_pid} acquired scheduler lock - will run as PRIMARY scheduler")
-    atexit.register(release_scheduler_lock)
-except (IOError, OSError) as e:
-    worker_pid = os.getpid()
-    print(f"⚠️ SCHEDULER INIT: Process {worker_pid} could not acquire scheduler lock (already held): {e}", flush=True)
-    app.logger.info(f"⚠️ Process {worker_pid} could not acquire scheduler lock - another scheduler is already running")
-    is_primary_worker = False
-    if scheduler_lock_fd:
-        os.close(scheduler_lock_fd)
-        scheduler_lock_fd = None
-except Exception as e:
-    print(f"❌ SCHEDULER INIT: Unexpected error during lock acquisition: {e}", flush=True)
-    app.logger.error(f"❌ Unexpected scheduler lock error: {e}")
-    is_primary_worker = False
-
+is_primary_worker = acquire_scheduler_lock()
 print(f"🔒 SCHEDULER INIT: is_primary_worker = {is_primary_worker}", flush=True)
 
-# Register all background scheduler jobs
-from scheduler_setup import configure_scheduler_jobs
 configure_scheduler_jobs(app, scheduler, is_primary_worker)
 if not is_primary_worker:
-    print(f"⚠️ SCHEDULER INIT: Process {os.getpid()} skipping scheduler setup - another worker handles scheduling", flush=True)
-    app.logger.info(f"⚠️ Process {os.getpid()} skipping scheduler setup - another worker handles scheduling")
+    print(
+        f"⚠️ SCHEDULER INIT: Process {os.getpid()} skipping scheduler setup"
+        " - another worker handles scheduling",
+        flush=True,
+    )
+    app.logger.info(
+        f"⚠️ Process {os.getpid()} skipping scheduler setup"
+        " - another worker handles scheduling"
+    )
 
 # Note: login and logout routes moved to routes/auth.py blueprint
 

@@ -2,6 +2,8 @@
 Scheduler Setup — APScheduler job definitions and configuration.
 
 Contains:
+- acquire_scheduler_lock: Attempt to acquire the primary-worker lock file
+- release_scheduler_lock: Release the lock on process exit
 - configure_scheduler_jobs: Register all background jobs with APScheduler
 - process_bullhorn_monitors: Incremental Bullhorn tearsheet monitoring job (closure)
 - Inline job runners: salesrep sync, dedup merge, OneDrive sync, candidate cleanup,
@@ -11,6 +13,8 @@ Note: process_scheduled_files (XML schedule-based processing) was removed here a
 has been disabled since the Enhanced 8-Step Monitor took over all XML update duties.
 """
 
+import atexit
+import fcntl
 import os
 import logging
 from datetime import datetime, timedelta, timezone
@@ -18,6 +22,66 @@ from datetime import datetime, timedelta, timezone
 from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
+
+_LOCK_FILE = '/tmp/scoutgenius_scheduler.lock'
+_lock_fd = None
+
+
+def release_scheduler_lock():
+    """Release the primary-worker scheduler lock on process exit."""
+    global _lock_fd
+    if _lock_fd is not None:
+        try:
+            fcntl.flock(_lock_fd, fcntl.LOCK_UN)
+            os.close(_lock_fd)
+            logger.info("🔓 Released scheduler lock on process exit")
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Error releasing scheduler lock: {e}")
+        finally:
+            _lock_fd = None
+
+
+def acquire_scheduler_lock():
+    """Try to acquire an exclusive non-blocking lock for the primary scheduler worker.
+
+    Returns:
+        bool: True if this process is the primary worker (lock acquired), False otherwise.
+    """
+    global _lock_fd
+    worker_pid = os.getpid()
+    print("🔒 SCHEDULER INIT: Attempting to acquire scheduler lock...", flush=True)
+    try:
+        fd = os.open(_LOCK_FILE, os.O_CREAT | os.O_WRONLY)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _lock_fd = fd
+        print(
+            f"✅ SCHEDULER INIT: Process {worker_pid} acquired scheduler lock"
+            " - will run as PRIMARY scheduler",
+            flush=True,
+        )
+        logger.info(
+            f"✅ Process {worker_pid} acquired scheduler lock - will run as PRIMARY scheduler"
+        )
+        atexit.register(release_scheduler_lock)
+        return True
+    except (IOError, OSError) as e:
+        print(
+            f"⚠️ SCHEDULER INIT: Process {worker_pid} could not acquire scheduler lock"
+            f" (already held): {e}",
+            flush=True,
+        )
+        logger.info(
+            f"⚠️ Process {worker_pid} could not acquire scheduler lock"
+            " - another scheduler is already running"
+        )
+        if _lock_fd is not None:
+            os.close(_lock_fd)
+            _lock_fd = None
+        return False
+    except Exception as e:  # noqa: BLE001
+        print(f"❌ SCHEDULER INIT: Unexpected error during lock acquisition: {e}", flush=True)
+        logger.error(f"❌ Unexpected scheduler lock error: {e}")
+        return False
 
 
 def configure_scheduler_jobs(app, scheduler, is_primary_worker):
