@@ -63,15 +63,8 @@ class ExecutionMixin:
 
         logger.info(f"🔧 Executing solution for ticket {ticket.ticket_number}")
 
-        try:
-            understanding = json.loads(ticket.ai_understanding) if ticket.ai_understanding else {}
-        except (json.JSONDecodeError, TypeError):
-            understanding = {}
-
-        try:
-            solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
-        except (json.JSONDecodeError, TypeError):
-            solution_data = {'description': ticket.proposed_solution}
+        understanding = ticket.parsed_ai_understanding or {}
+        solution_data = ticket.parsed_proposed_solution or {'description': ticket.proposed_solution}
 
         execution_steps = solution_data.get('execution_steps', [])
         requires_bullhorn = (
@@ -221,10 +214,7 @@ class ExecutionMixin:
 
         self._send_user_confirmation_email(ticket, retry_msg)
 
-        try:
-            solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
-        except (json.JSONDecodeError, TypeError):
-            solution_data = {}
+        solution_data = ticket.parsed_proposed_solution or {}
 
         solution_data['execution_steps'] = new_steps
         solution_data['description_user'] = retry_data.get('proposed_solution_user', solution_data.get('description_user', ''))

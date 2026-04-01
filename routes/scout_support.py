@@ -57,12 +57,9 @@ def ticket_detail(ticket_number):
     conversations = ticket.conversations.order_by(db.text('created_at ASC')).all()
     actions = ticket.actions.order_by(db.text('executed_at ASC')).all()
 
-    ai_understanding = None
-    if ticket.ai_understanding:
-        try:
-            ai_understanding = json.loads(ticket.ai_understanding)
-        except (json.JSONDecodeError, TypeError):
-            ai_understanding = {'understanding': ticket.ai_understanding}
+    ai_understanding = ticket.parsed_ai_understanding
+    if ai_understanding is None and ticket.ai_understanding:
+        ai_understanding = {'understanding': ticket.ai_understanding}
 
     from scout_support_service import PLATFORM_CATEGORIES
     is_platform = ticket.category in PLATFORM_CATEGORIES

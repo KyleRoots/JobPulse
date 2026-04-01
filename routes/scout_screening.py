@@ -313,7 +313,7 @@ def save_job_settings(job_id):
 @scout_screening_bp.route('/scout-screening/job/<int:job_id>/optimize-requirements', methods=['POST'])
 @login_required
 def optimize_job_requirements(job_id):
-    """Use GPT-4o to rewrite custom requirements using prompt-engineering best practices."""
+    """Use AI to rewrite custom requirements using prompt-engineering best practices."""
     try:
         data = request.get_json(silent=True) or {}
         raw = (data.get('custom_requirements') or '').strip()

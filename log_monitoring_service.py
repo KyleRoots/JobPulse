@@ -10,7 +10,7 @@ Features:
 - Escalates critical/unknown issues via email
 - Persists all runs and issues to database for transparency
 
-Author: Claude AI
+Author: AI
 Created: 2026-02-04
 Updated: 2026-02-04 - Added database persistence for transparency
 """

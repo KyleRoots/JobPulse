@@ -37,7 +37,7 @@ class VettingAuditService:
     """AI-powered quality auditor for Scout Screening results.
     
     Tier 1: Runs heuristic checks on recent Not Qualified results,
-    confirms findings with GPT-4o, and auto-triggers re-vets for
+    confirms findings with AI, and auto-triggers re-vets for
     high-confidence misfires.
     """
 

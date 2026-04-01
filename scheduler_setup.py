@@ -3,14 +3,15 @@ Scheduler Setup — APScheduler job definitions and configuration.
 
 Contains:
 - configure_scheduler_jobs: Register all background jobs with APScheduler
-- process_scheduled_files: XML schedule processing job (closure)
 - process_bullhorn_monitors: Incremental Bullhorn tearsheet monitoring job (closure)
 - Inline job runners: salesrep sync, dedup merge, OneDrive sync, candidate cleanup,
   incomplete rescreen, screening audit, stale platform ticket check
+
+Note: process_scheduled_files (XML schedule-based processing) was removed here as it
+has been disabled since the Enhanced 8-Step Monitor took over all XML update duties.
 """
 
 import os
-import shutil
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -23,236 +24,7 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
     """Register all APScheduler background jobs. Call once after lock acquisition."""
 
     from extensions import db
-    from models import (
-        ScheduleConfig, ProcessingLog, BullhornActivity,
-        GlobalSettings, BullhornMonitor, RefreshLog,
-    )
-    from xml_processor import XMLProcessor
-    from utils.bullhorn_helpers import get_bullhorn_service, get_email_service
-
-    # ── Process Scheduled XML Files (DISABLED) ────────────────────────────────
-    # Kept as a callable in case it's re-enabled; not added to the scheduler.
-    # Enhanced 8-Step Monitor (process_bullhorn_monitors) handles all XML updates.
-    def process_scheduled_files():
-        """Process all scheduled files that are due — ONLY for actual scheduled runs."""
-        with app.app_context():
-            try:
-                now = datetime.utcnow()
-
-                overdue_schedules = ScheduleConfig.query.filter(
-                    ScheduleConfig.is_active == True,
-                    ScheduleConfig.next_run < now - timedelta(hours=1)
-                ).all()
-
-                if overdue_schedules:
-                    app.logger.warning(
-                        f"HEALTH CHECK: Found {len(overdue_schedules)} schedules overdue by >1 hour. Auto-correcting timing..."
-                    )
-                    for schedule in overdue_schedules:
-                        schedule.next_run = now + timedelta(days=schedule.schedule_days)
-                    db.session.commit()
-
-                due_schedules = ScheduleConfig.query.filter(
-                    ScheduleConfig.is_active == True,
-                    ScheduleConfig.next_run <= now
-                ).all()
-
-                app.logger.info(f"Checking for scheduled files to process. Found {len(due_schedules)} due schedules")
-                files_processed = 0
-
-                for schedule in due_schedules:
-                    app.logger.info(f"Processing schedule: {schedule.name} (ID: {schedule.id})")
-                    try:
-                        if not os.path.exists(schedule.file_path):
-                            app.logger.warning(f"Scheduled file not found: {schedule.file_path}")
-                            continue
-
-                        time_since_last_run = (now - schedule.last_run).total_seconds() if schedule.last_run else float('inf')
-
-                        min_hours_between_runs = {
-                            'hourly': 0.9,
-                            'daily': 23,
-                            'weekly': 167
-                        }
-
-                        min_interval = min_hours_between_runs.get(
-                            schedule.interval_type, schedule.schedule_days * 24 - 1
-                        )
-                        hours_since_last_run = time_since_last_run / 3600
-
-                        if hours_since_last_run < min_interval:
-                            app.logger.info(
-                                f"Skipping schedule '{schedule.name}' - only {hours_since_last_run:.1f} hours since last run (need {min_interval} hours)"
-                            )
-                            continue
-
-                        app.logger.info(
-                            f"Processing scheduled regeneration for '{schedule.name}' - {hours_since_last_run:.1f} hours since last run"
-                        )
-
-                        processor = XMLProcessor()
-                        backup_path = f"{schedule.file_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                        shutil.copy2(schedule.file_path, backup_path)
-                        temp_output = f"{schedule.file_path}.temp"
-
-                        preserve_refs = True
-                        app.logger.info(
-                            f"🔒 PRESERVING reference numbers for automated schedule '{schedule.name}' ({schedule.schedule_days}-day interval)"
-                        )
-                        app.logger.info("📝 Reference number regeneration only available via manual 'Refresh All' button")
-
-                        result = processor.process_xml(schedule.file_path, temp_output, preserve_reference_numbers=preserve_refs)
-
-                        log_entry = ProcessingLog(
-                            schedule_config_id=schedule.id,
-                            file_path=schedule.file_path,
-                            processing_type='scheduled',
-                            jobs_processed=result.get('jobs_processed', 0) if result else 0,
-                            success=bool(result and result.get('success')),
-                            error_message=result.get('error') if result else 'No result'
-                        )
-                        db.session.add(log_entry)
-
-                        if result and result.get('success'):
-                            files_processed += 1
-                            import shutil as _shutil
-                            _shutil.move(temp_output, schedule.file_path)
-                            schedule.last_run = now
-                            schedule.next_run = now + timedelta(days=schedule.schedule_days)
-                            db.session.commit()
-
-                            original_filename = schedule.original_filename or os.path.basename(schedule.file_path)
-                            sftp_upload_success = False
-
-                            sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
-                            if sftp_enabled and sftp_enabled.setting_value == 'true':
-                                try:
-                                    from ftp_service import FTPService
-                                    sftp_host = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-                                    sftp_user = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-                                    sftp_pass = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-                                    sftp_dir = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-                                    sftp_port_setting = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
-
-                                    if sftp_host and sftp_user and sftp_pass:
-                                        ftp_service = FTPService(
-                                            hostname=sftp_host.setting_value,
-                                            username=sftp_user.setting_value,
-                                            password=sftp_pass.setting_value,
-                                            directory=sftp_dir.setting_value if sftp_dir else '/',
-                                            port=int(sftp_port_setting.setting_value) if sftp_port_setting else 22,
-                                            use_sftp=True
-                                        )
-                                        sftp_upload_success = ftp_service.upload_file(
-                                            local_file_path=schedule.file_path,
-                                            remote_filename=original_filename
-                                        )
-                                        if sftp_upload_success:
-                                            app.logger.info(f"File uploaded to SFTP server: {original_filename}")
-                                        else:
-                                            app.logger.warning("Failed to upload file to SFTP server")
-                                    else:
-                                        sftp_upload_success = False
-                                        app.logger.warning("SFTP upload requested but credentials not configured in Global Settings")
-                                except Exception as e:
-                                    sftp_upload_success = False
-                                    app.logger.error(f"Error uploading to SFTP: {str(e)}")
-
-                            if schedule.send_email_notifications:
-                                try:
-                                    email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                                    email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-
-                                    if (email_enabled and email_enabled.setting_value == 'true' and
-                                            email_address and email_address.setting_value):
-                                        email_service = get_email_service()
-                                        app.logger.info(f"📧 Sending scheduled processing notification for {schedule.name}")
-                                        email_sent = email_service.send_processing_notification(
-                                            to_email=email_address.setting_value,
-                                            schedule_name=schedule.name,
-                                            jobs_processed=result.get('jobs_processed', 0),
-                                            xml_file_path=schedule.file_path,
-                                            original_filename=original_filename,
-                                            sftp_upload_success=sftp_upload_success
-                                        )
-                                        if email_sent:
-                                            app.logger.info(f"Email notification sent successfully to {email_address.setting_value}")
-                                        else:
-                                            app.logger.warning(f"Failed to send email notification to {email_address.setting_value}")
-                                    else:
-                                        app.logger.warning("Email notification requested but credentials not configured in Global Settings")
-                                except Exception as e:
-                                    app.logger.error(f"Error sending email notification: {str(e)}")
-
-                            activity_entry = BullhornActivity(
-                                monitor_id=None,
-                                activity_type='scheduled_processing',
-                                job_id=None,
-                                job_title=None,
-                                details=f"Scheduled processing completed for '{schedule.name}' - {result.get('jobs_processed', 0)} jobs processed (reference numbers preserved)",
-                                notification_sent=schedule.send_email_notifications
-                            )
-                            db.session.add(activity_entry)
-                            app.logger.info(f"ATS activity logged for scheduled_processing: {schedule.name}")
-
-                        else:
-                            if os.path.exists(temp_output):
-                                os.remove(temp_output)
-                            app.logger.error(f"Failed to process scheduled file: {schedule.file_path} - {result.get('error') if result else 'No result'}")
-
-                            if schedule.send_email_notifications:
-                                try:
-                                    email_enabled = GlobalSettings.query.filter_by(setting_key='email_notifications_enabled').first()
-                                    email_address = GlobalSettings.query.filter_by(setting_key='default_notification_email').first()
-
-                                    if (email_enabled and email_enabled.setting_value == 'true' and
-                                            email_address and email_address.setting_value):
-                                        email_service = get_email_service()
-                                        email_service.send_processing_error_notification(
-                                            to_email=email_address.setting_value,
-                                            schedule_name=schedule.name,
-                                            error_message=result.get('error', 'Unknown error') if result else 'Unknown error'
-                                        )
-                                    else:
-                                        app.logger.warning("Error email notification requested but credentials not configured in Global Settings")
-                                except Exception as e:
-                                    app.logger.error(f"Error sending error notification email: {str(e)}")
-
-                            activity_entry = BullhornActivity(
-                                monitor_id=None,
-                                activity_type='scheduled_processing_error',
-                                job_id=None,
-                                job_title=None,
-                                details=f"Scheduled processing failed for '{schedule.name}' - {result.get('error', 'Unknown error') if result else 'Unknown error'}",
-                                notification_sent=True
-                            )
-                            db.session.add(activity_entry)
-
-                    except Exception as e:
-                        app.logger.error(f"Error processing scheduled file {schedule.file_path}: {str(e)}")
-                        log_entry = ProcessingLog(
-                            schedule_config_id=schedule.id,
-                            file_path=schedule.file_path,
-                            processing_type='scheduled',
-                            jobs_processed=0,
-                            success=False,
-                            error_message=str(e)
-                        )
-                        db.session.add(log_entry)
-
-                try:
-                    db.session.commit()
-                    if files_processed > 0:
-                        app.logger.info(f"Scheduled processing activity logging completed - {files_processed} files processed")
-                    else:
-                        app.logger.debug("Scheduled processing check completed - no files were due for processing")
-                except Exception as e:
-                    app.logger.error(f"Error committing activity logs: {str(e)}")
-                    db.session.rollback()
-
-            except Exception as e:
-                app.logger.error(f"Error in scheduled processing: {str(e)}")
-                db.session.rollback()
+    from models import GlobalSettings, BullhornMonitor, RefreshLog
 
     app.logger.info("📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates")
 
@@ -274,9 +46,7 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
                 db_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
 
-                if db_monitors:
-                    app.logger.info(f"Using {len(db_monitors)} database monitors")
-                else:
+                if not db_monitors:
                     class MockMonitor:
                         def __init__(self, name, tearsheet_id):
                             self.name = name
@@ -288,9 +58,11 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                         MockMonitor('Sponsored - VMS', 1264),
                         MockMonitor('Sponsored - GR', 1499),
                         MockMonitor('Sponsored - CHI', 1257),
-                        MockMonitor('Sponsored - STSI', 1556)
+                        MockMonitor('Sponsored - STSI', 1556),
                     ]
                     app.logger.info(f"Using {len(db_monitors)} hardcoded tearsheet monitors (fallback)")
+                else:
+                    app.logger.info(f"Using {len(db_monitors)} database monitors")
 
                 with app.app_context():
                     cycle_results = monitoring_service.run_monitoring_cycle()
@@ -554,6 +326,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
     # ── Sales Rep Display Name Sync (every 30 minutes) ───────────────────────
     if is_primary_worker:
+        from utils.bullhorn_helpers import get_bullhorn_service
+
         def run_salesrep_sync_job():
             try:
                 with app.app_context():

@@ -9,8 +9,8 @@ Provides Layer 1 (embedding pre-filter) functionality:
 
 Architecture:
   Layer 1: Embedding pre-filter (this module) → cheap, blocks irrelevant pairs
-  Layer 2: GPT-4o-mini analysis → main vetting (candidate_vetting_service.py)
-  Layer 3: GPT-4o escalation → borderline candidates re-analyzed
+  Layer 2: AI analysis → main vetting (candidate_vetting_service.py)
+  Layer 3: AI escalation → borderline candidates re-analyzed
 """
 
 import hashlib
@@ -515,8 +515,8 @@ class EmbeddingService:
             candidate_name: Candidate name for audit
             job_id: Bullhorn job ID
             job_title: Job title for audit
-            mini_score: GPT-4o-mini score (Layer 2)
-            gpt4o_score: GPT-4o score (Layer 3)
+            mini_score: Layer 2 model score
+            gpt4o_score: Layer 3 model score
             threshold: Job-specific or global threshold used
         """
         try:
@@ -528,8 +528,8 @@ class EmbeddingService:
             
             # Check if recommendation crossed the threshold
             mini_recommended = mini_score >= threshold
-            gpt4o_recommended = gpt4o_score >= threshold
-            crossed_threshold = mini_recommended != gpt4o_recommended
+            layer3_recommended = gpt4o_score >= threshold
+            crossed_threshold = mini_recommended != layer3_recommended
             
             log = EscalationLog(
                 vetting_log_id=vetting_log_id,

@@ -450,19 +450,17 @@ class KnowledgeService:
             f"Description: {ticket.description}",
         ]
 
-        if ticket.ai_understanding:
-            try:
-                understanding = json.loads(ticket.ai_understanding)
-                if understanding.get('understanding'):
-                    parts.append(f"AI Analysis: {understanding['understanding']}")
-                if understanding.get('resolution_approach'):
-                    parts.append(f"Resolution Approach: {understanding['resolution_approach']}")
-            except (json.JSONDecodeError, TypeError):
-                pass
+        understanding = ticket.parsed_ai_understanding
+        if understanding:
+            if understanding.get('understanding'):
+                parts.append(f"AI Analysis: {understanding['understanding']}")
+            if understanding.get('resolution_approach'):
+                parts.append(f"Resolution Approach: {understanding['resolution_approach']}")
 
-        if ticket.proposed_solution:
+        solution = ticket.parsed_proposed_solution
+        if solution is not None:
             try:
-                solution = json.loads(ticket.proposed_solution)
+                solution = solution or {}
                 if solution.get('description_admin'):
                     parts.append(f"Technical Solution: {solution['description_admin']}")
                 if solution.get('execution_steps'):

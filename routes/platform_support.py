@@ -77,12 +77,9 @@ def my_ticket_detail(ticket_number):
         conversations = [c for c in all_conversations if c.email_type not in ADMIN_ONLY_TYPES]
     attachments = ticket.attachments.all()
 
-    ai_understanding = None
-    if ticket.ai_understanding:
-        try:
-            ai_understanding = json.loads(ticket.ai_understanding)
-        except (json.JSONDecodeError, TypeError):
-            ai_understanding = {'understanding': ticket.ai_understanding}
+    ai_understanding = ticket.parsed_ai_understanding
+    if ai_understanding is None and ticket.ai_understanding:
+        ai_understanding = {'understanding': ticket.ai_understanding}
 
     return render_template('my_ticket_detail.html',
                            ticket=ticket,

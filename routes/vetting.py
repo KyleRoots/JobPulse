@@ -1605,7 +1605,7 @@ def extract_all_job_requirements():
                 flash('All jobs already have requirements extracted', 'info')
             return redirect(url_for('vetting.vetting_settings'))
         
-        # Run GPT-4o extraction in a background thread so the HTTP request
+        # Run AI extraction in a background thread so the HTTP request
         # returns immediately instead of timing out after 76 sequential API calls
         app = current_app._get_current_object()
         jobs_to_process = list(all_jobs)
@@ -1769,8 +1769,8 @@ def embedding_audit():
     today_rate = round((today_filtered / today_total * 100), 1) if today_total > 0 else 0.0
     
     # Estimated savings
-    savings_per_filter = 0.003 - 0.00002  # GPT-4o-mini minus embedding
-    savings_per_pass = 0.03 - 0.003       # GPT-4o minus GPT-4o-mini
+    savings_per_filter = 0.003 - 0.00002  # Layer 2 cost minus embedding cost
+    savings_per_pass = 0.03 - 0.003       # Layer 3 cost minus Layer 2 cost
     today_savings = round(today_filtered * savings_per_filter + today_passed * savings_per_pass, 2)
     
     summary = {

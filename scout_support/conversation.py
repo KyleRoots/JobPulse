@@ -676,10 +676,7 @@ Respond with a JSON object:
             db.session.commit()
             logger.info(f"👤 User approved ticket {ticket.ticket_number} — attempting execution")
 
-            try:
-                solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
-            except (json.JSONDecodeError, TypeError):
-                solution_data = {}
+            solution_data = ticket.parsed_proposed_solution or {}
 
             execution_steps = solution_data.get('execution_steps', [])
 
@@ -781,15 +778,8 @@ Respond with a JSON object:
             role = "Admin" if conv.sender_email == ticket.admin_email else ("User" if conv.sender_email == ticket.submitter_email else "Scout Support")
             history.append(f"[{role}] {conv.body[:500]}")
 
-        try:
-            understanding = json.loads(ticket.ai_understanding) if ticket.ai_understanding else {}
-        except (json.JSONDecodeError, TypeError):
-            understanding = {}
-
-        try:
-            solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
-        except (json.JSONDecodeError, TypeError):
-            solution_data = {}
+        understanding = ticket.parsed_ai_understanding or {}
+        solution_data = ticket.parsed_proposed_solution or {}
 
         knowledge_section = ''
         try:
@@ -1021,19 +1011,13 @@ Respond with ONLY the classification label (one word, lowercase). Nothing else."
         if not self.openai_client:
             return
 
-        try:
-            solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
-        except (json.JSONDecodeError, TypeError):
-            return
+        solution_data = ticket.parsed_proposed_solution or {}
 
         original_steps = solution_data.get('execution_steps', [])
         if not original_steps:
             return
 
-        try:
-            understanding = json.loads(ticket.ai_understanding) if ticket.ai_understanding else {}
-        except (json.JSONDecodeError, TypeError):
-            understanding = {}
+        understanding = ticket.parsed_ai_understanding or {}
 
         prompt = f"""You are Scout Support. The admin has approved a solution but included additional instructions or conditions.
 
@@ -1182,12 +1166,11 @@ Respond with ONLY one label: ai_instruction or direct_reply"""
             logger.warning(f"Could not build conversation history for admin draft: {e}")
 
         ai_understanding = ''
-        if ticket.ai_understanding:
-            try:
-                parsed = json.loads(ticket.ai_understanding)
-                ai_understanding = parsed.get('understanding', parsed.get('updated_understanding', str(parsed)))
-            except (json.JSONDecodeError, TypeError):
-                ai_understanding = ticket.ai_understanding or ''
+        parsed = ticket.parsed_ai_understanding
+        if parsed is not None:
+            ai_understanding = parsed.get('understanding', parsed.get('updated_understanding', str(parsed)))
+        else:
+            ai_understanding = ticket.ai_understanding or ''
 
         attachment_context = ''
         try:

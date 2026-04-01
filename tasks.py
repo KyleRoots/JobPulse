@@ -1458,13 +1458,13 @@ def run_requirements_maintenance():
 
     Two responsibilities:
       A) Re-interpret modified jobs — calls check_and_refresh_changed_jobs() which compares
-         Bullhorn dateLastModified vs last_ai_interpretation and re-runs GPT-4o extraction
+         Bullhorn dateLastModified vs last_ai_interpretation and re-runs AI extraction
          for any job whose description has changed since the last interpretation.
       B) Extract for new jobs — finds any jobs currently in monitored tearsheets that have
-         no JobVettingRequirements record yet and extracts requirements via GPT-4o.
+         no JobVettingRequirements record yet and extracts requirements via AI.
 
     In steady state (nothing changed, nothing new) this task makes only lightweight Bullhorn
-    bulk-fetch calls and zero GPT-4o calls, so the 5-minute frequency is safe.
+    bulk-fetch calls and zero AI calls, so the 5-minute frequency is safe.
 
     THREAD-SAFETY: Runs inside app.app_context() — uses CandidateVettingService which manages
     its own Bullhorn session internally. No direct bh.session.* access here.

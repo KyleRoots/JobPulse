@@ -278,15 +278,8 @@ class EmailMixin:
     def _send_admin_approval_request(self, ticket, execution_complete=False, execution_failed=False, failure_summary='', failure_history=None, needs_manual=False):
         from scout_support_service import CATEGORY_LABELS
 
-        try:
-            understanding = json.loads(ticket.ai_understanding) if ticket.ai_understanding else {}
-        except (json.JSONDecodeError, TypeError):
-            understanding = {}
-
-        try:
-            solution = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
-        except (json.JSONDecodeError, TypeError):
-            solution = {'description': ticket.proposed_solution or 'N/A'}
+        understanding = ticket.parsed_ai_understanding or {}
+        solution = ticket.parsed_proposed_solution or {'description': ticket.proposed_solution or 'N/A'}
 
         resolution_type = solution.get('resolution_type', 'full')
         concerns_admin = solution.get('underlying_concerns_admin', '') or solution.get('underlying_concerns', '')
@@ -537,10 +530,7 @@ class EmailMixin:
 
         proof_text = "\n".join(proof_lines) if proof_lines else "No specific actions were executed."
 
-        try:
-            solution_data = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
-        except (json.JSONDecodeError, TypeError):
-            solution_data = {}
+        solution_data = ticket.parsed_proposed_solution or {}
         resolution_type = solution_data.get('resolution_type', 'full')
         concerns_user = solution_data.get('underlying_concerns_user', '') or solution_data.get('underlying_concerns', '')
         concerns_admin = solution_data.get('underlying_concerns_admin', '') or solution_data.get('underlying_concerns', '')

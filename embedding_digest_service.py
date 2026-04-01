@@ -16,9 +16,9 @@ from typing import Dict, List, Tuple
 
 DIGEST_RECIPIENT = 'kroots@myticas.com'
 
-# Estimated cost per GPT-4o call (Layer 2 was previously GPT-4o)
+# Estimated cost per Layer 3 AI call (historical Layer 2 baseline)
 ESTIMATED_GPT4O_COST_PER_CALL = 0.03
-# Estimated cost per GPT-4o-mini call (current Layer 2)
+# Estimated cost per Layer 2 AI call (current main vetting model)
 ESTIMATED_GPT4O_MINI_COST_PER_CALL = 0.003
 # Estimated cost per embedding call
 ESTIMATED_EMBEDDING_COST_PER_CALL = 0.00002
@@ -59,12 +59,12 @@ def get_digest_data(since: datetime = None) -> Dict:
     total_evaluated = total_filtered + total_passed
     filter_rate = (total_filtered / total_evaluated * 100) if total_evaluated > 0 else 0
     
-    # Cost savings: each filtered pair avoided a GPT-4o-mini call
-    # Savings = filtered_count * (gpt4o_mini_cost - embedding_cost)
+    # Cost savings: each filtered pair avoided a Layer 2 AI call
+    # Savings = filtered_count * (layer2_cost - embedding_cost)
     savings_per_pair = ESTIMATED_GPT4O_MINI_COST_PER_CALL - ESTIMATED_EMBEDDING_COST_PER_CALL
     daily_savings = total_filtered * savings_per_pair
     
-    # Bonus savings from model switch (GPT-4o → GPT-4o-mini for passed pairs)
+    # Bonus savings from model switch (Layer 3 → Layer 2 for passed pairs)
     model_switch_savings = total_passed * (ESTIMATED_GPT4O_COST_PER_CALL - ESTIMATED_GPT4O_MINI_COST_PER_CALL)
     total_daily_savings = daily_savings + model_switch_savings
     
@@ -361,11 +361,11 @@ def build_digest_html(data: Dict) -> str:
                     <td style="padding: 6px 0; text-align: right; font-weight: bold;">{data['filter_rate']}%</td>
                 </tr>
                 <tr>
-                    <td style="padding: 6px 0; color: #6c757d;">Savings from filter (avoided GPT-4o-mini calls)</td>
+                    <td style="padding: 6px 0; color: #6c757d;">Savings from filter (avoided Layer 2 AI calls)</td>
                     <td style="padding: 6px 0; text-align: right; color: #28a745;">${data['filter_savings']:.2f}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 6px 0; color: #6c757d;">Savings from model switch (GPT-4o → mini)</td>
+                    <td style="padding: 6px 0; color: #6c757d;">Savings from model switch (Layer 3 → Layer 2)</td>
                     <td style="padding: 6px 0; text-align: right; color: #28a745;">${data['model_savings']:.2f}</td>
                 </tr>
                 <tr style="border-top: 2px solid #1a1a2e;">

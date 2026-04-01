@@ -464,15 +464,8 @@ resolution_type guide:
 
         category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
 
-        try:
-            understanding = json.loads(ticket.ai_understanding) if ticket.ai_understanding else {}
-        except (json.JSONDecodeError, TypeError):
-            understanding = {}
-
-        try:
-            previous_solution = json.loads(ticket.proposed_solution) if ticket.proposed_solution else {}
-        except (json.JSONDecodeError, TypeError):
-            previous_solution = {}
+        understanding = ticket.parsed_ai_understanding or {}
+        previous_solution = ticket.parsed_proposed_solution or {}
 
         try:
             history = json.loads(ticket.execution_history) if ticket.execution_history else []

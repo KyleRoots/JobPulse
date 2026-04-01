@@ -37,7 +37,7 @@ class PromptBuilderMixin:
                                     job_id: int, job_title: str) -> Optional[dict]:
         """Re-check years-of-experience calculation when a >2yr shortfall is detected.
         
-        Uses a focused prompt that asks GPT-4o to verify the arithmetic from the original
+        Uses a focused prompt that asks AI to verify the arithmetic from the original
         analysis. This catches false negatives from model arithmetic errors (e.g., 
         miscounting 3.75yr as 1.8yr).
         
@@ -250,7 +250,7 @@ Format as a bullet-point list. Be specific and concise."""
 
     def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None, model_override: Optional[str] = None, prefetched_global_requirements: Optional[str] = None) -> Dict:
         """
-        Use GPT-4o to analyze how well a candidate matches a job.
+        Use AI to analyze how well a candidate matches a job.
         
         Args:
             resume_text: Extracted text from candidate's resume
@@ -867,7 +867,7 @@ CRITICAL SCORING RULES:
                 result['technical_score'] = result['match_score']
             
             # ── POST-PROCESSING: Remote location misfire enforcer (Python safety net) ──
-            # GPT-4o sometimes simultaneously says "matches the country requirement" in the
+            # The AI sometimes simultaneously says "matches the country requirement" in the
             # summary while putting "Location mismatch: different country" in gaps_identified.
             # This deterministic check catches and corrects the contradiction.
             if work_type == 'Remote':

@@ -1,7 +1,7 @@
 """
 Resume Parsing Service
 Resume text extraction with HTML formatting preservation for Bullhorn description field
-Uses GPT-4o for intelligent PDF formatting when regex-based detection fails
+Uses AI for intelligent PDF formatting when regex-based detection fails
 """
 import logging
 import re
@@ -186,7 +186,7 @@ class ResumeParser:
     
     def _format_pdf_with_ai(self, raw_text: str) -> Optional[str]:
         """
-        Use GPT-4o to intelligently format raw PDF text into clean HTML.
+        Use AI to intelligently format raw PDF text into clean HTML.
         
         This handles the structural ambiguity of PDFs where text extraction
         loses all formatting information (headings, bullets, paragraphs).
@@ -531,7 +531,7 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
         """Extract text from PDF with AI-assisted HTML formatting
         
         Uses PyMuPDF (fitz) for better text extraction with proper spacing,
-        then GPT-4o to intelligently format the raw PDF text into clean HTML,
+        then AI to intelligently format the raw PDF text into clean HTML,
         falling back to regex-based heuristics if AI is unavailable.
         
         Args:
