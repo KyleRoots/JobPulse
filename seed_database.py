@@ -1483,7 +1483,7 @@ def seed_database(db, User):
                     db.session.add(VettingConfig(
                         setting_key='layer2_model_upgraded_to_54',
                         setting_value='true',
-                        description='One-time upgrade to GPT-5.4 — GPT-4o API deprecated Mar 2026'
+                        description='One-time upgrade to GPT-5.4 — previous model API deprecated Mar 2026'
                     ))
                 db.session.commit()
         except Exception as e:
