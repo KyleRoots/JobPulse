@@ -8,7 +8,7 @@ Covers the critical gaps identified in the vetting pipeline:
   - Session finalization and recruiter handoff
   - Session state guards (closed sessions, concurrent session cap)
 
-All external calls (Claude/Anthropic, SendGrid, Bullhorn) are mocked.
+All external calls (AI API, SendGrid, Bullhorn) are mocked.
 No real API calls are made during these tests.
 db and ScoutVettingSession are imported locally inside service methods,
 so we patch at 'app.db' and 'models.ScoutVettingSession'.

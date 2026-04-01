@@ -1,6 +1,6 @@
 """
 Tests for Resume Parsing Cache functionality
-Tests cache hit/miss behavior to ensure GPT-4o API savings
+Tests cache hit/miss behavior to ensure AI API cost savings
 """
 import pytest
 import hashlib

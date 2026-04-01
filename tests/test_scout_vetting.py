@@ -1,7 +1,7 @@
 """
 Scout Vetting Service unit tests for Scout Genius.
 
-Tests ScoutVettingService methods with mocked Claude, SendGrid, and
+Tests ScoutVettingService methods with mocked AI service, SendGrid, and
 database dependencies.  These tests exercise the service in isolation
 without actual API calls.
 """
@@ -354,7 +354,7 @@ class TestInitiateVetting:
 
 
 class TestClassifyReply:
-    """Test _classify_reply with mocked Claude."""
+    """Test _classify_reply with mocked AI service."""
 
     def test_classify_answer_reply(self, app):
         with app.app_context():

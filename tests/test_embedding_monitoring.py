@@ -414,7 +414,7 @@ class TestCSVExports:
             assert response.status_code == 200
             assert 'text/csv' in response.content_type
             content = response.data.decode('utf-8')
-            assert 'GPT-4o-mini Score,GPT-4o Score' in content
+            assert 'Layer 2 Score,Layer 3 Score' in content
 
     def test_filtered_csv_with_data(self, authenticated_client, app):
         """Filtered CSV should include data from EmbeddingFilterLog."""

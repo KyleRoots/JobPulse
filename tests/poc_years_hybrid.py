@@ -195,11 +195,11 @@ Machine Learning Intern | Apple | Jun 2021 - Aug 2021
         "resume": """PROFESSIONAL EXPERIENCE:
 Data Scientist | OpenAI, USA | Jan 2024 – Current
 - Developed Retrieval-Augmented Generation (RAG) systems using OpenAI, LangChain, and FAISS
-- Built LLM-based internal chatbot using GPT-4, Pinecone, and LangChain
+- Built LLM-based internal chatbot using Pinecone and LangChain
 - Fine-tuned open-source models (LLaMA2, Falcon) using domain-specific datasets
 - Deployed scalable AI models using Docker, Kubernetes, and FastAPI
 - Automated model training, evaluation, and tracking using MLflow and Airflow pipelines
-- Engineered prompts for LLMs such as GPT-4, Claude, and Gemini
+- Engineered prompts for large language models
 - Applied advanced NLP techniques using NLTK, Transformers, and LangChain
 - Performed A/B testing and model performance evaluation using SQL and Power BI
 

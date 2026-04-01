@@ -352,7 +352,7 @@ class EmailInboundService:
     
     def parse_resume_with_ai(self, resume_text: str) -> Dict[str, Any]:
         """
-        Use OpenAI GPT-4 to extract structured data from resume text
+        Use AI to extract structured data from resume text
         
         Returns comprehensive candidate profile
         """

@@ -640,6 +640,33 @@ def ensure_background_services():
     return True
 
 
+def process_bullhorn_monitors():
+    """Trigger a single incremental monitoring cycle.
+
+    Used by manual scheduler-start routes (routes/scheduler.py, tasks.py).
+    Can be called within a request context — no app context wrapper needed.
+    """
+    try:
+        from incremental_monitoring_service import IncrementalMonitoringService
+        from models import BullhornMonitor
+        from extensions import db as _db
+        monitoring_service = IncrementalMonitoringService()
+        cycle_results = monitoring_service.run_monitoring_cycle()
+
+        real_monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+        if real_monitors:
+            current_time = datetime.utcnow()
+            for monitor in real_monitors:
+                monitor.last_check = current_time
+                monitor.next_check = current_time + timedelta(minutes=5)
+            _db.session.commit()
+
+        logging.info(f"✅ Manual monitor cycle completed: {cycle_results}")
+    except Exception:
+        logging.error("Manual monitor cycle error", exc_info=True)
+        raise
+
+
 # Note: /ready and /alive routes now provided by routes/health.py blueprint
 
 # ONE-TIME CLEANUP PAGE REMOVED (2026-02-07)
