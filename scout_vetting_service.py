@@ -35,7 +35,7 @@ SCOUT_VETTING_FROM_NAME = 'Scout by Myticas'
 
 
 class ScoutVettingService:
-    """Conversational AI vetting engine."""
+    """Conversational GPT-5.4 vetting engine."""
 
     MAX_CONCURRENT_SESSIONS = 3
     STAGGER_MINUTES = 15

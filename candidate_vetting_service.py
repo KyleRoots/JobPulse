@@ -1,5 +1,5 @@
 """
-Candidate Vetting Service - AI-powered candidate-job matching engine
+Candidate Vetting Service - GPT-5.4 powered candidate-job matching engine
 
 This service monitors new job applicants with "Online Applicant" status,
 analyzes their resumes against all open positions in monitored tearsheets,
@@ -44,7 +44,7 @@ class CandidateVettingService(
     RecoveryMixin,
 ):
     """
-    AI-powered candidate vetting system that:
+    GPT-5.4 powered candidate vetting system that:
     1. Detects new Online Applicant candidates in Bullhorn
     2. Extracts and analyzes their resumes
     3. Compares against all jobs in monitored tearsheets
