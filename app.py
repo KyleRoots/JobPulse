@@ -645,8 +645,15 @@ def process_bullhorn_monitors():
 
     Used by manual scheduler-start routes (routes/scheduler.py, tasks.py).
     Can be called within a request context — no app context wrapper needed.
+    Respects feed freeze state: returns immediately when feeds are frozen.
     """
     try:
+        from feeds.freeze_manager import FreezeManager
+        freeze_mgr = FreezeManager()
+        if freeze_mgr.is_frozen():
+            logging.info("🔒 XML FEED FROZEN: Skipping manual monitoring cycle")
+            return
+
         from incremental_monitoring_service import IncrementalMonitoringService
         from models import BullhornMonitor
         from extensions import db as _db
