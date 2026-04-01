@@ -262,7 +262,8 @@ class ScoutVettingService:
         skills = match.skills_match if match else ''
         experience = match.experience_match if match else ''
 
-        prompt = f"""You are a professional recruiter vetting a candidate for a job position.
+        prompt = f"""You are a professional recruiter verifying a candidate's fit for a specific role. \
+Your task is to write 3–5 concise, friendly verification questions that will be sent via email.
 
 JOB TITLE: {session.job_title or 'Not specified'}
 CANDIDATE: {session.candidate_name or 'Candidate'}
@@ -273,20 +274,19 @@ SKILLS ASSESSMENT: {skills}
 
 EXPERIENCE ASSESSMENT: {experience}
 
-GAPS IDENTIFIED: {gaps}
+GAPS / ITEMS TO VERIFY: {gaps}
 
-Generate 3-5 specific, conversational verification questions to ask this candidate via email.
+QUESTION WRITING RULES:
+1. Focus exclusively on the gaps above — do NOT ask about skills or experience already confirmed in the resume.
+2. Be specific: reference the actual technology, tool, or scenario (e.g., "Could you walk me through how you've used Kubernetes in a production environment?" not "Tell me about your DevOps experience").
+3. Each question must be answerable in 2–3 sentences — no open-ended "Tell me about yourself" questions.
+4. Tone: warm and professional, as if a recruiter is genuinely curious — not an interrogation.
+5. Always include one question about current availability and preferred start date.
+6. If there are fewer than 3 genuine gaps to verify, pad with role-specific questions about work style, remote/hybrid preferences, or compensation expectations — but keep them relevant to this role.
+7. Maximum 5 questions. Do not repeat or rephrase the same gap twice.
 
-RULES:
-- Focus on the gaps identified — verify claims that couldn't be confirmed from their resume
-- Ask about specific technologies, tools, or methodologies mentioned in the gaps
-- Include one question about availability/start date
-- Keep the tone professional but warm — this is a recruiter reaching out, not an interrogation
-- Questions should be concrete, not generic ("Tell me about your experience with X at Y" not "Tell me about yourself")
-- Each question should be answerable in 2-3 sentences
-
-Return ONLY a JSON array of question strings, nothing else.
-Example: ["Question 1?", "Question 2?", "Question 3?"]"""
+Return ONLY a valid JSON array of question strings — no markdown, no explanation, no wrapping text.
+Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
 
         try:
             response = self.openai_client.chat.completions.create(
@@ -449,39 +449,47 @@ Example: ["Question 1?", "Question 2?", "Question 3?"]"""
         existing_answers = json.loads(session.answered_questions_json or '{}')
         unanswered = [q for q in questions if q not in existing_answers]
 
-        prompt = f"""You are analyzing a candidate's email reply in a recruitment vetting conversation.
+        prompt = f"""You are analyzing a candidate's email reply in a recruitment vetting conversation. \
+Your job is to classify the reply's intent and extract any useful answers.
 
 CANDIDATE: {session.candidate_name}
 JOB: {session.job_title}
 
-QUESTIONS WE ASKED:
+QUESTIONS WE ASKED (outstanding — not yet answered):
 {json.dumps(unanswered, indent=2)}
 
 CANDIDATE'S REPLY:
 ---
-{email_body}
+{email_body[:4000]}
 ---
 
-Classify this reply and extract any answers.
-
-Return a JSON object with:
+Return a JSON object with EXACTLY these fields:
 {{
-  "intent": "answer" | "question" | "decline" | "unrelated" | "out_of_office" | "spam",
-  "reasoning": "Brief explanation of why you classified it this way",
+  "intent": "<one of the intent values below>",
+  "reasoning": "<1-2 sentences explaining your classification>",
   "answers_extracted": {{
-    "exact question text": "their answer summary"
+    "<exact question text from our list>": "<concise 1-2 sentence summary of their answer>"
   }},
-  "candidate_questions": ["any questions the candidate asked us"]
+  "candidate_questions": ["<any questions the candidate asked about the role, company, or process>"]
 }}
 
-RULES:
-- "answer": Candidate is providing information relevant to our questions
-- "question": Candidate is asking us for clarification before answering
-- "decline": Candidate explicitly says they're not interested or withdraws
-- "out_of_office": Automated out-of-office reply
-- Match extracted answers to the closest question from our list
-- Summarize answers concisely (1-2 sentences max)
-- If the candidate partially answers, extract what you can"""
+INTENT VALUES — choose exactly one:
+- "answer": The candidate is providing substantive information relevant to one or more of our questions, even if incomplete.
+- "question": The candidate is asking for clarification or information BEFORE answering (their reply contains no answers, only questions back to us).
+- "decline": The candidate explicitly states they are no longer interested, withdrawing, or asking to stop contact.
+- "out_of_office": Automated out-of-office, vacation, or bounce notification — no human-authored content.
+- "spam": Completely unrelated promotional/spam content with no reference to the job or conversation.
+- "unrelated": Human-written reply but entirely off-topic (not a decline, not about this role).
+
+EDGE CASE RULES:
+- PARTIAL ANSWER → use "answer". Extract whatever they did answer; leave unanswered questions out of answers_extracted. Do NOT classify as "unrelated" just because they didn't answer everything.
+- MULTILINGUAL REPLY → classify based on intent regardless of language; summarize answers in English in answers_extracted.
+- CANDIDATE COUNTER-QUESTION WITH ANSWERS → use "answer" if they also provided substantive answers; use "question" if the reply is only questions back to us.
+- AUTO-REPLIES (delivery receipts, email filters, HR system auto-responses) → "out_of_office".
+- When extracting answers: match to the CLOSEST question from our list by meaning, not just keyword. Summarize in 1-2 sentences. Do not quote the full reply.
+- If no questions from our list were answered, answers_extracted should be an empty object {{}}.
+
+Return only valid JSON. No markdown, no preamble."""
 
         try:
             response = self.openai_client.chat.completions.create(
@@ -563,11 +571,17 @@ RULES:
         # Gather conversation history
         turns_text = self._get_conversation_summary(session)
 
-        prompt = f"""You are evaluating a candidate's vetting conversation for a recruitment role.
+        session_status = session.status or 'in_progress'
+        unresponsive = (session_status == 'unresponsive')
+        answered_count = len(answers)
+        total_questions = len(questions)
+
+        prompt = f"""You are evaluating a completed recruiter vetting conversation to determine whether the candidate should move forward in the hiring process.
 
 CANDIDATE: {session.candidate_name}
-JOB: {session.job_title}
-TOTAL TURNS: {session.current_turn}
+JOB TITLE: {session.job_title}
+CONVERSATION STATUS: {'Candidate was unresponsive — no replies received' if unresponsive else f'Completed normally ({session.current_turn} turns)'}
+QUESTIONS ANSWERED: {answered_count} of {total_questions}
 
 QUESTIONS ASKED:
 {json.dumps(questions, indent=2)}
@@ -575,22 +589,30 @@ QUESTIONS ASKED:
 ANSWERS RECEIVED:
 {json.dumps(answers, indent=2)}
 
-CONVERSATION SUMMARY:
+CONVERSATION HISTORY:
 {turns_text}
 
-Provide your assessment as a JSON object:
+Evaluate the candidate and return a JSON object:
 {{
   "recommendation": "qualified" | "not_qualified",
-  "score": <0-100 confidence score>,
-  "summary": "2-3 sentence assessment of the candidate's responses and overall fit"
+  "score": <integer 0-100>,
+  "summary": "<2-3 sentences covering: (1) overall impression of their answers, (2) any notable strengths or concerns, (3) a clear statement of the recommendation>"
 }}
 
-RULES:
-- "qualified": Candidate provided satisfactory answers, appears to meet key requirements
-- "not_qualified": Significant gaps remain, red flags in responses, or insufficient information
-- Score 70+ = likely qualified, 50-69 = borderline, <50 = likely not qualified
-- Account for unanswered questions as mild negatives (may indicate avoidance)
-- Be fair — partial but honest answers are better than no response"""
+SCORING GUIDE:
+- 80-100: Strong, complete answers; candidate clearly meets key requirements; no significant concerns
+- 60-79: Mostly satisfactory; minor gaps or vague answers on 1-2 points; worth pursuing
+- 40-59: Mixed responses; meaningful gaps remain or answers raise questions; borderline
+- 0-39: Insufficient information, red flags, or evasive responses; does not meet requirements
+
+DECISION RULES:
+- "qualified": Score ≥ 60 AND no deal-breaking red flags (e.g., clear misrepresentation, explicit unavailability, location hard block)
+- "not_qualified": Score < 60 OR a clear disqualifying factor was revealed
+- If the candidate was UNRESPONSIVE: score 0 and "not_qualified" — no reply = insufficient information to advance
+- Unanswered questions count as mild negatives (possible avoidance), but a single unanswered question on a multi-question set should not automatically disqualify
+- Be fair and proportionate: an honest partial answer is better than silence
+
+Return only valid JSON. No markdown, no preamble."""
 
         try:
             response = self.openai_client.chat.completions.create(
@@ -608,10 +630,17 @@ RULES:
             return json.loads(content)
         except Exception as e:
             logger.error(f"Scout Vetting: Outcome generation failed for session {session.id}: {e}")
+            if unresponsive:
+                return {
+                    'recommendation': 'not_qualified',
+                    'score': 0,
+                    'summary': 'Candidate did not respond to vetting outreach. Marked not qualified due to non-response.'
+                }
+            coverage = len(answers) / max(len(questions), 1)
             return {
-                'recommendation': 'qualified' if len(answers) >= len(questions) * 0.6 else 'not_qualified',
-                'score': 50.0,
-                'summary': 'Automated assessment — AI evaluation failed, defaulting based on answer coverage.'
+                'recommendation': 'qualified' if coverage >= 0.6 else 'not_qualified',
+                'score': int(coverage * 70),
+                'summary': 'Automated assessment — AI evaluation unavailable, scored based on answer coverage.'
             }
 
     # ═══════════════════════════════════════════════════════════════
@@ -854,27 +883,37 @@ RULES:
         candidate_questions = classification.get('candidate_questions', [])
 
         # Use AI to generate a natural reply
-        prompt = f"""You are replying to a candidate's email as a recruiter named "Scout by Myticas".
-The candidate has partially answered our vetting questions. Generate a warm, professional follow-up.
+        # Include a brief conversation context so GPT-5 doesn't repeat answered questions
+        already_answered = list(json.loads(session.answered_questions_json or '{}').keys())
 
-CANDIDATE NAME: {candidate_first}
+        prompt = f"""You are "Scout by Myticas", a professional recruiter conducting a friendly email vetting conversation. \
+Write a natural, warm reply to a candidate who has partially responded to our questions.
+
+CANDIDATE: {candidate_first}
 JOB: {session.job_title}
+CONVERSATION TURN: {session.current_turn} of {session.max_turns}
 
-WHAT THEY SAID (summary): {classification.get('reasoning', 'Provided some answers')}
+WHAT THE CANDIDATE SHARED (AI summary): {classification.get('reasoning', 'Provided some information')}
 
-QUESTIONS THEY ASKED US: {json.dumps(candidate_questions)}
+QUESTIONS ALREADY ANSWERED (DO NOT ask these again):
+{json.dumps(already_answered, indent=2) if already_answered else '[]'}
 
-REMAINING UNANSWERED QUESTIONS:
+QUESTIONS THE CANDIDATE ASKED US:
+{json.dumps(candidate_questions, indent=2) if candidate_questions else '[]'}
+
+REMAINING QUESTIONS TO ASK:
 {json.dumps(unanswered, indent=2)}
 
-Write a brief HTML email reply that:
-1. Acknowledges what they shared
-2. Answers any questions they asked (professionally, without revealing internal processes)
-3. Naturally asks the remaining unanswered questions
-4. Keeps the tone conversational and warm
+WRITING RULES:
+1. Open by genuinely acknowledging what they shared — be specific if possible (e.g., reference a detail from their summary), not generic ("Thanks for your reply!").
+2. If they asked us questions, answer them briefly and professionally. Do not reveal internal AI processes or scoring. For role/company questions you can't answer, say "A member of our team will be happy to share more details when we connect."
+3. Naturally flow into the remaining unanswered questions — do not number them as a list if there is only 1 left; embed it conversationally.
+4. NEVER repeat a question that is in the "already answered" list above.
+5. Close warmly with "Best regards, Scout by Myticas / Talent Acquisition Team".
+6. Tone: conversational, genuine, professional — not scripted or robotic.
 
-Return ONLY the HTML content (no <html>, <head>, or <body> tags — just the div content).
-Keep it concise — no more than 3-4 short paragraphs."""
+Return ONLY the HTML body content (no <html>, <head>, or <body> tags — just a styled <div>).
+Keep it concise — maximum 3-4 short paragraphs. Use inline styles for any formatting."""
 
         try:
             response = self.openai_client.chat.completions.create(
