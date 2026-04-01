@@ -671,6 +671,11 @@ def process_bullhorn_monitors():
         logging.info(f"✅ Manual monitor cycle completed: {cycle_results}")
     except Exception:
         logging.error("Manual monitor cycle error", exc_info=True)
+        try:
+            from extensions import db as _db
+            _db.session.rollback()
+        except Exception:
+            pass
         raise
 
 
