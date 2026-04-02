@@ -1094,6 +1094,7 @@ class ScoutVettingSession(db.Model):
     
     # Email threading
     last_message_id = db.Column(db.String(255), nullable=True)  # For In-Reply-To header
+    thread_message_id = db.Column(db.String(255), nullable=True)  # First message in thread (for References header)
     
     # Timestamps
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

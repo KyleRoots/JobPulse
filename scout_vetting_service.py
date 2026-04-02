@@ -225,6 +225,7 @@ class ScoutVettingService:
                 session.last_outreach_at = datetime.utcnow()
                 session.current_turn = 1
                 session.last_message_id = message_id
+                self._capture_thread_root(session, message_id)
 
                 # Record the outbound turn
                 self._record_turn(session, 'outbound', subject, html, questions_asked=questions,
@@ -388,17 +389,20 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
             if answered_count >= len(questions) or session.current_turn >= session.max_turns:
                 # All questions answered or max turns reached → finalize
                 reply_html = self._generate_thank_you(session)
+                quoted_history = self._build_quoted_history(session)
                 subject = self._build_subject(session, is_initial=False)
+                headers = self._get_threading_headers(session)
 
                 # Send thank-you and finalize
                 send_result = self.email_service.send_html_email(
                     to_email=session.candidate_email,
                     subject=subject,
-                    html_content=reply_html,
+                    html_content=reply_html + quoted_history,
                     notification_type='scout_vetting_reply',
                     reply_to=SCOUT_VETTING_REPLY_TO,
                     from_name=SCOUT_VETTING_FROM_NAME,
-                    in_reply_to=message_id,
+                    in_reply_to=headers['in_reply_to'],
+                    references=headers['references'],
                 )
 
                 out_msg_id = send_result.get('message_id') if isinstance(send_result, dict) else None
@@ -415,16 +419,19 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                 # Generate follow-up with remaining questions
                 unanswered = [q for q in questions if q not in existing_answers]
                 reply_html = self._generate_followup_reply(session, classification, unanswered)
+                quoted_history = self._build_quoted_history(session)
                 subject = self._build_subject(session, is_initial=False)
+                headers = self._get_threading_headers(session)
 
                 send_result = self.email_service.send_html_email(
                     to_email=session.candidate_email,
                     subject=subject,
-                    html_content=reply_html,
+                    html_content=reply_html + quoted_history,
                     notification_type='scout_vetting_reply',
                     reply_to=SCOUT_VETTING_REPLY_TO,
                     from_name=SCOUT_VETTING_FROM_NAME,
-                    in_reply_to=message_id,
+                    in_reply_to=headers['in_reply_to'],
+                    references=headers['references'],
                 )
 
                 out_msg_id = send_result.get('message_id') if isinstance(send_result, dict) else None
@@ -742,16 +749,19 @@ Return only valid JSON. No markdown, no preamble."""
         is_final = follow_up_num >= len(self.FOLLOWUP_HOURS)
 
         html = self._build_followup_email(session, follow_up_num, is_final)
+        quoted_history = self._build_quoted_history(session)
         subject = self._build_subject(session, is_initial=False)
+        headers = self._get_threading_headers(session)
 
         result = self.email_service.send_html_email(
             to_email=session.candidate_email,
             subject=subject,
-            html_content=html,
+            html_content=html + quoted_history,
             notification_type='scout_vetting_followup',
             reply_to=SCOUT_VETTING_REPLY_TO,
             from_name=SCOUT_VETTING_FROM_NAME,
-            in_reply_to=session.last_message_id,
+            in_reply_to=headers['in_reply_to'],
+            references=headers['references'],
         )
 
         success = result is True or (isinstance(result, dict) and result.get('success', False))
@@ -1083,6 +1093,81 @@ Session ID: SV-{session.id}"""
     # ═══════════════════════════════════════════════════════════════
     # Helper Methods
     # ═══════════════════════════════════════════════════════════════
+
+    def _build_quoted_history(self, session) -> str:
+        """Build HTML quoted conversation history for email threading.
+
+        Iterates prior VettingConversationTurn records and renders them as a
+        styled block matching the Scout Support format (sender label, timestamp,
+        body, left-border dividers).  Returns an empty string when there are no
+        prior turns to quote.
+        """
+        from models import VettingConversationTurn
+        from bs4 import BeautifulSoup
+
+        turns = VettingConversationTurn.query.filter_by(
+            session_id=session.id
+        ).order_by(VettingConversationTurn.created_at.desc()).limit(10).all()
+
+        if not turns:
+            return ''
+
+        parts = []
+        for turn in turns:
+            sender = 'Scout by Myticas' if turn.direction == 'outbound' else (session.candidate_name or session.candidate_email)
+            timestamp = turn.created_at.strftime('%b %d, %Y at %I:%M %p') if turn.created_at else ''
+
+            body_text = (turn.email_body or '').strip()
+            if not body_text:
+                continue
+
+            if '<' in body_text and '>' in body_text:
+                try:
+                    soup = BeautifulSoup(body_text, 'html.parser')
+                    body_text = soup.get_text(separator='\n').strip()
+                except Exception:
+                    pass
+
+            body_html = body_text.replace('\n', '<br>')
+
+            parts.append(
+                f'<b>From:</b> {sender}<br>'
+                f'<b>Date:</b> {timestamp}<br>'
+                f'<b>Subject:</b> {turn.email_subject or ""}<br><br>'
+                f'{body_html}'
+            )
+
+        if not parts:
+            return ''
+
+        quoted_html = '<br>'.join(
+            f'<div style="border-left:2px solid #ccc;padding-left:10px;margin:10px 0;color:#555;">{p}</div>'
+            for p in parts
+        )
+        return (
+            '<br><br>'
+            '<div style="border-top:1px solid #ddd;margin-top:20px;padding-top:10px;">'
+            '<span style="color:#888;font-size:12px;">— Previous messages —</span><br>'
+            f'{quoted_html}'
+            '</div>'
+        )
+
+    def _get_threading_headers(self, session) -> dict:
+        """Return in_reply_to and references values for the current session."""
+        in_reply_to = session.last_message_id
+        references = None
+        if in_reply_to:
+            thread_id = session.thread_message_id or ''
+            if thread_id and thread_id != in_reply_to:
+                references = f"{thread_id} {in_reply_to}"
+            else:
+                references = in_reply_to
+        return {'in_reply_to': in_reply_to, 'references': references}
+
+    def _capture_thread_root(self, session, message_id: str):
+        """Store the very first message ID as the thread root anchor."""
+        if message_id and not session.thread_message_id:
+            session.thread_message_id = message_id
 
     def _record_turn(self, session, direction: str, subject: str, body: str,
                      ai_intent: str = None, ai_reasoning: str = None,

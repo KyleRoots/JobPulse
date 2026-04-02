@@ -896,6 +896,24 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for scout_vetting_session.is_sandbox: {str(e)}")
 
+    # Add thread_message_id to scout_vetting_session (added Apr 2026 for email thread history)
+    try:
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'scout_vetting_session' AND column_name = 'thread_message_id'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text(
+                'ALTER TABLE scout_vetting_session ADD COLUMN thread_message_id VARCHAR(255)'
+            ))
+            db.session.commit()
+            logger.info("✅ Added column thread_message_id to scout_vetting_session table")
+        else:
+            logger.info("ℹ️ Column thread_message_id already exists on scout_vetting_session table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for scout_vetting_session.thread_message_id: {str(e)}")
+
     # Add resolution_note and resolved_by columns to support_ticket
     for col_name, col_type in [('resolution_note', 'TEXT'), ('resolved_by', 'VARCHAR(255)')]:
         try:
