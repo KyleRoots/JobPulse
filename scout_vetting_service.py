@@ -392,6 +392,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                 quoted_history = self._build_quoted_history(session)
                 subject = self._build_subject(session, is_initial=False)
                 headers = self._get_threading_headers(session)
+                reply_to_id = message_id or headers['in_reply_to']
 
                 # Send thank-you and finalize
                 send_result = self.email_service.send_html_email(
@@ -401,7 +402,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                     notification_type='scout_vetting_reply',
                     reply_to=SCOUT_VETTING_REPLY_TO,
                     from_name=SCOUT_VETTING_FROM_NAME,
-                    in_reply_to=headers['in_reply_to'],
+                    in_reply_to=reply_to_id,
                     references=headers['references'],
                 )
 
@@ -422,6 +423,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                 quoted_history = self._build_quoted_history(session)
                 subject = self._build_subject(session, is_initial=False)
                 headers = self._get_threading_headers(session)
+                reply_to_id = message_id or headers['in_reply_to']
 
                 send_result = self.email_service.send_html_email(
                     to_email=session.candidate_email,
@@ -430,7 +432,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                     notification_type='scout_vetting_reply',
                     reply_to=SCOUT_VETTING_REPLY_TO,
                     from_name=SCOUT_VETTING_FROM_NAME,
-                    in_reply_to=headers['in_reply_to'],
+                    in_reply_to=reply_to_id,
                     references=headers['references'],
                 )
 
@@ -1107,7 +1109,7 @@ Session ID: SV-{session.id}"""
 
         turns = VettingConversationTurn.query.filter_by(
             session_id=session.id
-        ).order_by(VettingConversationTurn.created_at.desc()).limit(10).all()
+        ).order_by(VettingConversationTurn.created_at.desc()).all()
 
         if not turns:
             return ''
