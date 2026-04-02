@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import re
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
@@ -207,6 +208,7 @@ class ScoutVettingService:
             # Build and send outreach email
             html = self._build_outreach_email(session, questions)
             subject = self._build_subject(session, is_initial=True)
+            msg_id = self._generate_message_id()
 
             result = self.email_service.send_html_email(
                 to_email=session.candidate_email,
@@ -215,21 +217,21 @@ class ScoutVettingService:
                 notification_type='scout_vetting_outreach',
                 reply_to=SCOUT_VETTING_REPLY_TO,
                 from_name=SCOUT_VETTING_FROM_NAME,
+                message_id=msg_id,
             )
 
             success = result is True or (isinstance(result, dict) and result.get('success', False))
-            message_id = result.get('message_id') if isinstance(result, dict) else None
 
             if success:
                 session.status = 'outreach_sent'
                 session.last_outreach_at = datetime.utcnow()
                 session.current_turn = 1
-                session.last_message_id = message_id
-                self._capture_thread_root(session, message_id)
+                session.last_message_id = msg_id
+                self._capture_thread_root(session, msg_id)
 
                 # Record the outbound turn
                 self._record_turn(session, 'outbound', subject, html, questions_asked=questions,
-                                  message_id=message_id)
+                                  message_id=msg_id)
 
                 logger.info(f"Scout Vetting: Outreach sent for session {session.id} "
                            f"to {session.candidate_email}")
@@ -394,6 +396,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                 headers = self._get_threading_headers(session, in_reply_to_override=message_id)
 
                 # Send thank-you and finalize
+                out_msg_id = self._generate_message_id()
                 send_result = self.email_service.send_html_email(
                     to_email=session.candidate_email,
                     subject=subject,
@@ -403,10 +406,10 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                     from_name=SCOUT_VETTING_FROM_NAME,
                     in_reply_to=headers['in_reply_to'],
                     references=headers['references'],
+                    message_id=out_msg_id,
                 )
 
-                out_msg_id = send_result.get('message_id') if isinstance(send_result, dict) else None
-                session.last_message_id = out_msg_id or session.last_message_id
+                session.last_message_id = out_msg_id
 
                 self._record_turn(session, 'outbound', subject, reply_html, message_id=out_msg_id)
 
@@ -423,6 +426,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                 subject = self._build_subject(session, is_initial=False)
                 headers = self._get_threading_headers(session, in_reply_to_override=message_id)
 
+                out_msg_id = self._generate_message_id()
                 send_result = self.email_service.send_html_email(
                     to_email=session.candidate_email,
                     subject=subject,
@@ -432,10 +436,10 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                     from_name=SCOUT_VETTING_FROM_NAME,
                     in_reply_to=headers['in_reply_to'],
                     references=headers['references'],
+                    message_id=out_msg_id,
                 )
 
-                out_msg_id = send_result.get('message_id') if isinstance(send_result, dict) else None
-                session.last_message_id = out_msg_id or session.last_message_id
+                session.last_message_id = out_msg_id
                 session.last_outreach_at = datetime.utcnow()
 
                 self._record_turn(session, 'outbound', subject, reply_html,
@@ -752,6 +756,7 @@ Return only valid JSON. No markdown, no preamble."""
         quoted_history = self._build_quoted_history(session)
         subject = self._build_subject(session, is_initial=False)
         headers = self._get_threading_headers(session)
+        msg_id = self._generate_message_id()
 
         result = self.email_service.send_html_email(
             to_email=session.candidate_email,
@@ -762,16 +767,16 @@ Return only valid JSON. No markdown, no preamble."""
             from_name=SCOUT_VETTING_FROM_NAME,
             in_reply_to=headers['in_reply_to'],
             references=headers['references'],
+            message_id=msg_id,
         )
 
         success = result is True or (isinstance(result, dict) and result.get('success', False))
-        message_id = result.get('message_id') if isinstance(result, dict) else None
 
         if success:
             session.follow_up_count = follow_up_num
             session.last_outreach_at = datetime.utcnow()
-            session.last_message_id = message_id or session.last_message_id
-            self._record_turn(session, 'outbound', subject, html, message_id=message_id)
+            session.last_message_id = msg_id
+            self._record_turn(session, 'outbound', subject, html, message_id=msg_id)
             logger.info(f"Scout Vetting: Follow-up #{follow_up_num} sent for session {session.id}")
         else:
             logger.error(f"Scout Vetting: Follow-up email failed for session {session.id}")
@@ -1169,6 +1174,11 @@ Session ID: SV-{session.id}"""
             else:
                 references = in_reply_to
         return {'in_reply_to': in_reply_to, 'references': references}
+
+    @staticmethod
+    def _generate_message_id() -> str:
+        """Generate an RFC 2822 Message-ID for outbound vetting emails."""
+        return f"<scout-vetting-{uuid.uuid4().hex[:12]}@scoutgenius.ai>"
 
     def _capture_thread_root(self, session, message_id: str):
         """Store the very first message ID as the thread root anchor."""
