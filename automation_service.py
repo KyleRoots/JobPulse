@@ -1398,36 +1398,35 @@ class AutomationService:
 
         cutoff_ts = int((datetime.utcnow() - timedelta(days=days_back)).timestamp() * 1000)
         search_url = f"{self._bh_url()}search/Candidate"
+        fields = "id,firstName,lastName,email,occupation,dateAdded,owner"
+        batch_count = min(limit, 500)
+        candidates = []
+        total_available = 0
+        seen_ids = set()
 
-        try:
-            resp = requests.get(search_url, headers=self._bh_headers(), params={
-                "query": f"dateAdded:[{cutoff_ts} TO *] AND -occupation:[* TO *]",
-                "fields": "id,firstName,lastName,email,occupation,dateAdded,owner",
-                "count": min(limit, 500),
-                "sort": "-dateAdded"
-            }, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            total_available = data.get("total", 0)
-            candidates = data.get("data", [])
-        except Exception as e:
-            self.logger.error(f"occupation_extractor: search failed: {e}")
-            return {"error": str(e), "summary": "Failed to search for candidates with missing occupation"}
-
-        if not candidates and total_available == 0:
+        for query_str in [
+            f"dateAdded:[{cutoff_ts} TO *] AND -occupation:[* TO *]",
+            f'dateAdded:[{cutoff_ts} TO *] AND occupation:""',
+        ]:
             try:
-                resp2 = requests.get(search_url, headers=self._bh_headers(), params={
-                    "query": f'dateAdded:[{cutoff_ts} TO *] AND occupation:""',
-                    "fields": "id,firstName,lastName,email,occupation,dateAdded,owner",
-                    "count": min(limit, 500),
+                resp = requests.get(search_url, headers=self._bh_headers(), params={
+                    "query": query_str,
+                    "fields": fields,
+                    "count": batch_count,
                     "sort": "-dateAdded"
                 }, timeout=30)
-                resp2.raise_for_status()
-                data2 = resp2.json()
-                total_available = data2.get("total", 0)
-                candidates = data2.get("data", [])
-            except Exception:
-                pass
+                resp.raise_for_status()
+                data = resp.json()
+                total_available += data.get("total", 0)
+                for c in data.get("data", []):
+                    if c.get("id") not in seen_ids:
+                        seen_ids.add(c["id"])
+                        candidates.append(c)
+            except Exception as e:
+                self.logger.error(f"occupation_extractor: search failed ({query_str[:40]}): {e}")
+
+        if not candidates and total_available == 0:
+            return {"updated": 0, "total_without_occupation": 0, "summary": "No candidates with missing occupation found"}
 
         results = {
             "total_without_occupation": total_available,
@@ -1616,12 +1615,12 @@ class AutomationService:
             )
 
             response = client.chat.completions.create(
-                model="gpt-5",
+                model="gpt-4.1-mini",
                 messages=[
                     {"role": "system", "content": "You extract job titles from resumes. Return only the job title, nothing else."},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=100
+                max_completion_tokens=300
             )
 
             title = response.choices[0].message.content.strip()

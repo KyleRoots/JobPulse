@@ -613,6 +613,7 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
                     from automation_service import AutomationService
                     from bullhorn_service import BullhornService
+                    from models import AutomationTask
 
                     svc = AutomationService()
                     bh = BullhornService()
@@ -644,6 +645,17 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                     except Exception as oe:
                         app.logger.warning(f"🧹 Occupation extraction step failed: {oe}")
 
+                    try:
+                        occ_task = AutomationTask.query.filter(
+                            AutomationTask.config_json.like('%"builtin_key": "occupation_extractor"%')
+                        ).first()
+                        if occ_task:
+                            occ_task.last_run_at = datetime.utcnow()
+                            occ_task.run_count = (occ_task.run_count or 0) + 1
+                            db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
                     app.logger.info(
                         f"🧹 Candidate data cleanup cycle complete: "
                         f"emails_extracted={email_updated}, descriptions_reparsed={reparse_updated}, "
@@ -652,6 +664,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                     )
                 except Exception as e:
                     app.logger.error(f"❌ Candidate data cleanup error: {e}")
+                finally:
+                    db.session.remove()
 
         scheduler.add_job(
             func=run_candidate_data_cleanup,
@@ -691,6 +705,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                     )
                 except Exception as e:
                     app.logger.error(f"❌ Incomplete rescreen error: {e}")
+                finally:
+                    db.session.remove()
 
         scheduler.add_job(
             func=run_incomplete_rescreen,
@@ -787,6 +803,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                             db.session.commit()
                     except Exception:
                         pass
+                finally:
+                    db.session.remove()
 
         scheduler.add_job(
             func=run_screening_audit,
