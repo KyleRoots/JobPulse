@@ -391,8 +391,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                 reply_html = self._generate_thank_you(session)
                 quoted_history = self._build_quoted_history(session)
                 subject = self._build_subject(session, is_initial=False)
-                headers = self._get_threading_headers(session)
-                reply_to_id = message_id or headers['in_reply_to']
+                headers = self._get_threading_headers(session, in_reply_to_override=message_id)
 
                 # Send thank-you and finalize
                 send_result = self.email_service.send_html_email(
@@ -402,7 +401,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                     notification_type='scout_vetting_reply',
                     reply_to=SCOUT_VETTING_REPLY_TO,
                     from_name=SCOUT_VETTING_FROM_NAME,
-                    in_reply_to=reply_to_id,
+                    in_reply_to=headers['in_reply_to'],
                     references=headers['references'],
                 )
 
@@ -422,8 +421,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                 reply_html = self._generate_followup_reply(session, classification, unanswered)
                 quoted_history = self._build_quoted_history(session)
                 subject = self._build_subject(session, is_initial=False)
-                headers = self._get_threading_headers(session)
-                reply_to_id = message_id or headers['in_reply_to']
+                headers = self._get_threading_headers(session, in_reply_to_override=message_id)
 
                 send_result = self.email_service.send_html_email(
                     to_email=session.candidate_email,
@@ -432,7 +430,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
                     notification_type='scout_vetting_reply',
                     reply_to=SCOUT_VETTING_REPLY_TO,
                     from_name=SCOUT_VETTING_FROM_NAME,
-                    in_reply_to=reply_to_id,
+                    in_reply_to=headers['in_reply_to'],
                     references=headers['references'],
                 )
 
@@ -1154,9 +1152,15 @@ Session ID: SV-{session.id}"""
             '</div>'
         )
 
-    def _get_threading_headers(self, session) -> dict:
-        """Return in_reply_to and references values for the current session."""
-        in_reply_to = session.last_message_id
+    def _get_threading_headers(self, session, in_reply_to_override: str = None) -> dict:
+        """Return in_reply_to and references values for the current session.
+
+        Args:
+            session: ScoutVettingSession instance
+            in_reply_to_override: If provided, used as in_reply_to instead of
+                session.last_message_id (e.g., the inbound candidate message_id).
+        """
+        in_reply_to = in_reply_to_override or session.last_message_id
         references = None
         if in_reply_to:
             thread_id = session.thread_message_id or ''
