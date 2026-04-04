@@ -150,6 +150,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             except Exception as e:
                 app.logger.error(f"❌ Incremental monitoring error: {str(e)}")
                 db.session.rollback()
+            finally:
+                db.session.remove()
 
     # ── 5-Minute Tearsheet Monitor ────────────────────────────────────────────
     if is_primary_worker:
@@ -405,6 +407,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                         )
             except Exception as e:
                 app.logger.error(f"Sales Rep Sync job error: {e}")
+            finally:
+                db.session.remove()
 
         try:
             scheduler.add_job(
@@ -432,6 +436,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                         app.logger.info(f"⏰ Stale platform ticket check: {count} ticket(s) escalated to admin")
             except Exception as e:
                 app.logger.error(f"Stale platform ticket check error: {e}")
+            finally:
+                db.session.remove()
 
         try:
             scheduler.add_job(
@@ -501,6 +507,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
             except Exception as e:
                 app.logger.error(f"Scheduled duplicate merge check error: {e}")
+            finally:
+                db.session.remove()
 
         try:
             scheduler.add_job(
@@ -535,6 +543,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                             )
             except Exception as e:
                 app.logger.error(f"OneDrive sync error: {e}")
+            finally:
+                db.session.remove()
 
         try:
             scheduler.add_job(
