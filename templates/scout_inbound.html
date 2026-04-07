@@ -171,9 +171,9 @@
     <div class="metric-card blue">
         <div class="metric-icon"><i class="fas fa-briefcase"></i></div>
         <div class="metric-label">Active Jobs</div>
-        <div class="metric-value">{{ job_stats.active_jobs }}</div>
-        <div class="metric-subtext">Assigned to You</div>
-        <div class="metric-trend neutral"><i class="fas fa-layer-group"></i> {{ job_stats.tearsheet_count }} Tearsheet{{ 's' if job_stats.tearsheet_count != 1 }}</div>
+        <div class="metric-value" id="activeJobCount">{{ job_stats.active_jobs }}</div>
+        <div class="metric-subtext" id="activeJobSubtext">Assigned to You</div>
+        <div class="metric-trend neutral" id="activeJobTrend"><i class="fas fa-layer-group"></i> {{ job_stats.tearsheet_count }} Tearsheet{{ 's' if job_stats.tearsheet_count != 1 }}</div>
     </div>
 </div>
 
@@ -486,22 +486,37 @@
         startTimer();
     }());
 
+    var TOTAL_ACTIVE_JOBS = {{ job_stats.active_jobs }};
+    var TOTAL_TEARSHEET_COUNT = {{ job_stats.tearsheet_count }};
+
     function filterJobsByTearsheet(badge, tearsheetName) {
         var badges = document.querySelectorAll('.badge-tearsheet-filter');
         var rows = document.querySelectorAll('tr[data-tearsheet]');
         var isAlreadyActive = badge.classList.contains('active');
         var section = document.getElementById('myJobsCollapse');
         var chevron = document.getElementById('myJobsChevron');
+        var countEl = document.getElementById('activeJobCount');
+        var subtextEl = document.getElementById('activeJobSubtext');
+        var trendEl = document.getElementById('activeJobTrend');
 
         badges.forEach(function(b) { b.classList.remove('active'); });
 
         if (isAlreadyActive) {
             rows.forEach(function(row) { row.style.display = ''; });
+            if (countEl) countEl.textContent = TOTAL_ACTIVE_JOBS;
+            if (subtextEl) subtextEl.textContent = 'Assigned to You';
+            if (trendEl) trendEl.innerHTML = '<i class="fas fa-layer-group"></i> ' + TOTAL_TEARSHEET_COUNT + ' Tearsheet' + (TOTAL_TEARSHEET_COUNT !== 1 ? 's' : '');
         } else {
             badge.classList.add('active');
+            var visibleCount = 0;
             rows.forEach(function(row) {
-                row.style.display = (row.getAttribute('data-tearsheet') === tearsheetName) ? '' : 'none';
+                var match = row.getAttribute('data-tearsheet') === tearsheetName;
+                row.style.display = match ? '' : 'none';
+                if (match) visibleCount++;
             });
+            if (countEl) countEl.textContent = visibleCount;
+            if (subtextEl) subtextEl.textContent = tearsheetName;
+            if (trendEl) trendEl.innerHTML = '<i class="fas fa-filter"></i> Filtered';
             if (section && section.style.display === 'none') {
                 section.style.display = 'block';
                 if (chevron) chevron.style.transform = 'rotate(90deg)';
