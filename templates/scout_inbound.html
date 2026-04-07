@@ -47,6 +47,19 @@
         font-size: 0.7rem;
         font-weight: 500;
     }
+    .badge-tearsheet-filter {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .badge-tearsheet-filter:hover {
+        background: rgba(217, 119, 6, 0.3);
+        border-color: rgba(217, 119, 6, 0.5);
+    }
+    .badge-tearsheet-filter.active {
+        background: rgba(217, 119, 6, 0.4);
+        border-color: #e8a87c;
+        box-shadow: 0 0 8px rgba(217, 119, 6, 0.3);
+    }
     .badge-status-open {
         background: rgba(40, 167, 69, 0.15);
         color: #7ec98e;
@@ -148,7 +161,7 @@
     </div>
     <div>
         {% for ts in job_stats.tearsheets %}
-        <span class="badge badge-tearsheet me-1"><i class="fas fa-layer-group me-1"></i>{{ ts }}</span>
+        <span class="badge badge-tearsheet badge-tearsheet-filter me-1" onclick="event.stopPropagation(); filterJobsByTearsheet(this, '{{ ts }}')" title="Click to filter jobs by {{ ts }}"><i class="fas fa-layer-group me-1"></i>{{ ts }}</span>
         {% endfor %}
     </div>
 </div>
@@ -185,7 +198,7 @@
                 </thead>
                 <tbody>
                     {% for job in user_jobs %}
-                    <tr>
+                    <tr data-tearsheet="{{ job.tearsheet_name }}">
                         <td>
                             <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job.id }}"
                                target="_blank" class="text-info">{{ job.id }} <i class="fas fa-external-link-alt ms-1" style="font-size: 0.6rem; opacity: 0.5;"></i></a>
@@ -472,6 +485,29 @@
 
         startTimer();
     }());
+
+    function filterJobsByTearsheet(badge, tearsheetName) {
+        var badges = document.querySelectorAll('.badge-tearsheet-filter');
+        var rows = document.querySelectorAll('tr[data-tearsheet]');
+        var isAlreadyActive = badge.classList.contains('active');
+        var section = document.getElementById('myJobsCollapse');
+        var chevron = document.getElementById('myJobsChevron');
+
+        badges.forEach(function(b) { b.classList.remove('active'); });
+
+        if (isAlreadyActive) {
+            rows.forEach(function(row) { row.style.display = ''; });
+        } else {
+            badge.classList.add('active');
+            rows.forEach(function(row) {
+                row.style.display = (row.getAttribute('data-tearsheet') === tearsheetName) ? '' : 'none';
+            });
+            if (section && section.style.display === 'none') {
+                section.style.display = 'block';
+                if (chevron) chevron.style.transform = 'rotate(90deg)';
+            }
+        }
+    }
 
     function filterCandidates(filter) {
         var rows = document.querySelectorAll('#candidates-tbody tr[data-status]');
