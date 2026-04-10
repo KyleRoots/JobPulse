@@ -83,3 +83,4 @@ cryptography
 PyJWT
 defusedcsv
 defusedxml
+reportlab
