@@ -213,6 +213,7 @@ _MODULE_MAP = {
     '/workbench': 'scout_automation',
     '/scout-automation': 'scout_automation',
     '/scout-support': 'scout_support',
+    '/scout-prospector': 'scout_prospector',
     '/settings': 'system',
     '/email-logs': 'system',
     '/log-monitoring': 'system',

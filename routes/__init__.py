@@ -10,6 +10,7 @@ MODULE_ROUTES = {
     'scout_inbound': 'scout_inbound.scout_inbound_dashboard',
     'scout_screening': 'scout_screening.dashboard',
     'scout_vetting': 'vetting.vetting_settings',
+    'scout_prospector': 'scout_prospector.prospector_dashboard',
 }
 
 

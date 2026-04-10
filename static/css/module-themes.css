@@ -335,6 +335,12 @@ body[data-module="support"] .nav-section[data-section="support"] .nav-item.activ
     border-left: 3px solid var(--module-support-accent);
 }
 
+body[data-module="prospector"] .nav-section[data-section="prospector"] .nav-item.active {
+    background: var(--module-prospector-bg);
+    color: var(--module-prospector-text);
+    border-left: 3px solid var(--module-prospector-accent);
+}
+
 /* ============================================
    NAV SECTION TITLES – Module-colored when active
    ============================================ */
@@ -352,6 +358,10 @@ body[data-module="vetting"] .nav-section[data-section="vetting"] .nav-section-ti
 
 body[data-module="support"] .nav-section[data-section="support"] .nav-section-title {
     color: var(--module-support-accent);
+}
+
+body[data-module="prospector"] .nav-section[data-section="prospector"] .nav-section-title {
+    color: var(--module-prospector-accent);
 }
 
 /* ============================================
