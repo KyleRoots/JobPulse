@@ -59,8 +59,28 @@
                     <div class="mb-3">
                         <label for="description" class="form-label">Description</label>
                         <textarea class="form-control bg-dark text-light border-secondary" id="description" name="description" rows="3"
-                            placeholder="Describe who your ideal clients are — the AI will use this to find better prospects...">{{ profile.description if profile else '' }}</textarea>
-                        <small class="text-muted">Tip: Be specific about the type of companies you want to target. The AI will use this to refine its search.</small>
+                            placeholder="e.g., Mid-size tech companies in the Southeast that are growing fast and hiring software engineers">{{ profile.description if profile else '' }}</textarea>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted">Tip: Be specific — the AI will analyze your description and suggest criteria.</small>
+                            <button type="button" class="btn btn-sm btn-outline-info" id="refineBtn" onclick="refineCriteria()">
+                                <i class="fas fa-magic me-1"></i>AI Suggest Criteria
+                            </button>
+                        </div>
+                        <div id="refineResult" class="d-none mt-3">
+                            <div class="card bg-dark border-info">
+                                <div class="card-body">
+                                    <h6 class="text-info"><i class="fas fa-robot me-1"></i>AI Suggestions</h6>
+                                    <p id="refineNotes" class="text-muted small mb-2"></p>
+                                    <div id="refineSuggestions" class="mb-2"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="applyRefinements()">
+                                        <i class="fas fa-check me-1"></i>Apply Suggestions
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="document.getElementById('refineResult').classList.add('d-none')">
+                                        Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -242,6 +262,104 @@
 </div>
 
 <script>
+var _refinementData = null;
+
+function refineCriteria() {
+    var desc = document.getElementById('description').value.trim();
+    if (!desc) {
+        document.getElementById('description').focus();
+        return;
+    }
+    var btn = document.getElementById('refineBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Analyzing...';
+
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    fetch('/api/scout-prospector/refine-criteria', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({description: desc})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic me-1"></i>AI Suggest Criteria';
+        if (data.success && data.suggestions) {
+            _refinementData = data.suggestions;
+            var notes = data.suggestions.refinement_notes || 'Based on your description, here are suggested criteria:';
+            document.getElementById('refineNotes').textContent = notes;
+
+            var html = '';
+            if (data.suggestions.suggested_industries && data.suggestions.suggested_industries.length) {
+                html += '<div class="mb-1"><strong class="small">Industries:</strong> ' + data.suggestions.suggested_industries.join(', ') + '</div>';
+            }
+            if (data.suggestions.suggested_sizes && data.suggestions.suggested_sizes.length) {
+                html += '<div class="mb-1"><strong class="small">Sizes:</strong> ' + data.suggestions.suggested_sizes.join(', ') + '</div>';
+            }
+            if (data.suggestions.suggested_geographies && data.suggestions.suggested_geographies.length) {
+                html += '<div class="mb-1"><strong class="small">Geographies:</strong> ' + data.suggestions.suggested_geographies.join(', ') + '</div>';
+            }
+            if (data.suggestions.suggested_job_types && data.suggestions.suggested_job_types.length) {
+                html += '<div class="mb-1"><strong class="small">Job Types:</strong> ' + data.suggestions.suggested_job_types.join(', ') + '</div>';
+            }
+            if (data.suggestions.suggested_signals && data.suggestions.suggested_signals.length) {
+                html += '<div class="mb-1"><strong class="small">Signals:</strong> ' + data.suggestions.suggested_signals.join(', ') + '</div>';
+            }
+            document.getElementById('refineSuggestions').innerHTML = html;
+            document.getElementById('refineResult').classList.remove('d-none');
+        } else {
+            alert(data.error || 'Could not generate suggestions.');
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic me-1"></i>AI Suggest Criteria';
+        alert('Failed to get AI suggestions. Please try again.');
+    });
+}
+
+function applyRefinements() {
+    if (!_refinementData) return;
+
+    if (_refinementData.suggested_industries) {
+        _refinementData.suggested_industries.forEach(function(ind) {
+            document.querySelectorAll('input[name="industries"]').forEach(function(cb) {
+                if (cb.value === ind) cb.checked = true;
+            });
+        });
+    }
+    if (_refinementData.suggested_sizes) {
+        _refinementData.suggested_sizes.forEach(function(sz) {
+            document.querySelectorAll('input[name="company_sizes"]').forEach(function(cb) {
+                if (cb.value === sz) cb.checked = true;
+            });
+        });
+    }
+    if (_refinementData.suggested_geographies && _refinementData.suggested_geographies.length) {
+        var geoField = document.getElementById('geographies');
+        var existing = geoField.value.trim();
+        var newGeos = _refinementData.suggested_geographies.join(', ');
+        geoField.value = existing ? existing + ', ' + newGeos : newGeos;
+    }
+    if (_refinementData.suggested_job_types && _refinementData.suggested_job_types.length) {
+        var jobField = document.getElementById('job_types');
+        var existing = jobField.value.trim();
+        var newJobs = _refinementData.suggested_job_types.join(', ');
+        jobField.value = existing ? existing + ', ' + newJobs : newJobs;
+    }
+    if (_refinementData.suggested_signals) {
+        _refinementData.suggested_signals.forEach(function(sig) {
+            document.querySelectorAll('input[name="hiring_signals"]').forEach(function(cb) {
+                if (cb.value === sig) cb.checked = true;
+            });
+        });
+    }
+
+    document.getElementById('refineResult').classList.add('d-none');
+    _refinementData = null;
+}
+
 function wizardNext(step) {
     if (step === 2) {
         var nameVal = document.getElementById('name').value.trim();

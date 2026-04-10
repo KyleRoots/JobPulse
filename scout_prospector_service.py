@@ -352,6 +352,63 @@ class ProspectorService:
             'additional_criteria': profile.additional_criteria or '',
         }
 
+    def refine_criteria(self, description):
+        import openai
+        import os
+
+        if not description or not description.strip():
+            return None
+
+        client = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+
+        prompt = f"""A staffing company recruiter described their ideal client as:
+
+"{description}"
+
+Based on this description, suggest concrete search criteria for finding prospect companies. Return valid JSON with:
+{{
+  "suggested_industries": ["Industry1", "Industry2"],
+  "suggested_sizes": ["51-200 employees", "201-500 employees"],
+  "suggested_geographies": ["City, State"],
+  "suggested_job_types": ["Role1", "Role2"],
+  "suggested_signals": ["Active job postings", "Recent funding"],
+  "refinement_notes": "Brief explanation of how you interpreted their description"
+}}
+
+Only include fields you can confidently infer. Use standard industry names and realistic values."""
+
+        try:
+            response = client.responses.create(
+                model="gpt-4.1-mini",
+                input=prompt,
+                max_output_tokens=1024,
+            )
+
+            response_text = ''
+            for item in response.output:
+                if item.type == 'message':
+                    for content_block in item.content:
+                        if content_block.type == 'output_text':
+                            response_text = content_block.text
+                            break
+
+            if not response_text:
+                return None
+
+            clean_text = response_text.strip()
+            if clean_text.startswith('```json'):
+                clean_text = clean_text[7:]
+            if clean_text.startswith('```'):
+                clean_text = clean_text[3:]
+            if clean_text.endswith('```'):
+                clean_text = clean_text[:-3]
+
+            return json.loads(clean_text.strip())
+
+        except Exception as e:
+            logger.error(f"ICP refinement failed: {e}")
+            return None
+
     def export_prospects_csv(self, user, profile_id=None, status=None):
         prospects = self.get_user_prospects(user, status=status, profile_id=profile_id)
         output = io.StringIO()

@@ -175,13 +175,14 @@ def run_research(profile_id):
 def run_results(run_id):
     service = _get_service()
     from models import ProspectorRun
-    run = ProspectorRun.query.filter_by(id=run_id).first()
-    if not run or (run.user.company or 'Unknown') != (current_user.company or 'Unknown'):
+    company = current_user.company or 'Unknown'
+    run = ProspectorRun.query.filter_by(id=run_id, company=company).first()
+    if not run:
         flash('Research run not found.', 'danger')
         return redirect(url_for('scout_prospector.prospector_dashboard'))
 
     from models import Prospect
-    prospects = Prospect.query.filter_by(run_id=run.id).order_by(
+    prospects = Prospect.query.filter_by(run_id=run.id, company=company).order_by(
         Prospect.qualification_score.desc()
     ).all()
 
@@ -274,6 +275,20 @@ def export_csv():
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename={filename}'},
     )
+
+
+@scout_prospector_bp.route('/api/scout-prospector/refine-criteria', methods=['POST'])
+@login_required
+def api_refine_criteria():
+    service = _get_service()
+    data = request.get_json()
+    if not data or not data.get('description'):
+        return jsonify({'error': 'Description required'}), 400
+
+    suggestions = service.refine_criteria(data['description'])
+    if suggestions:
+        return jsonify({'success': True, 'suggestions': suggestions})
+    return jsonify({'success': False, 'error': 'Could not generate suggestions. Try a more detailed description.'}), 200
 
 
 @scout_prospector_bp.route('/api/scout-prospector/prospects/<int:prospect_id>/status', methods=['POST'])
