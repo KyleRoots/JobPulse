@@ -1,5 +1,16 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "o7KxJkAq2BwBpn_2ICS2a"
+uri = "file://static/images/scout-prospector-logo.png"
+type = "image"
+title = "Scout Prospector horizontal logo"
+
+[[generated]]
+id = "z66IP0NBUodfX050ItiPN"
+uri = "file://static/images/scout-prospector-icon.png"
+type = "image"
+title = "Scout Prospector square icon"
 
 [[outputs]]
 id = "7sY0vobxtWYuMR1Ahp7IG"
@@ -18,3 +29,15 @@ id = "StNPOuplKqvKIlDsY5H2q"
 uri = "file://Scout_Genius_ROI_Report.pdf"
 type = "pdf"
 title = "Scout Genius ROI Report — Realistic Placement Funnel Drill-Down"
+
+[[outputs]]
+id = "O_cjxQaK54jcMTudqZqQu"
+uri = "file://static/images/scout-prospector-logo.png"
+type = "image"
+title = "Scout Prospector - Logo"
+
+[[outputs]]
+id = "hcPH1NwoA10DLNq1034bL"
+uri = "file://static/images/scout-prospector-icon.png"
+type = "image"
+title = "Scout Prospector - App Icon"
