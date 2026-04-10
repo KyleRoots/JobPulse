@@ -125,12 +125,12 @@
                 </div>
                 <div class="card-body text-center">
                     {% set score = prospect.qualification_score %}
-                    <div class="fs-1 fw-bold mb-2 {% if score >= 80 %}text-success{% elif score >= 60 %}text-warning{% elif score >= 40 %}text-secondary{% else %}text-danger{% endif %}">
+                    <div class="fs-1 fw-bold mb-2 {% if score >= 60 %}text-warning{% elif score >= 40 %}text-secondary{% else %}text-danger{% endif %}" {% if score >= 80 %}style="color: var(--module-prospector-accent) !important;"{% endif %}>
                         {{ score }}%
                     </div>
                     <div class="progress mb-2" style="height: 8px;">
-                        <div class="progress-bar {% if score >= 80 %}bg-success{% elif score >= 60 %}bg-warning{% elif score >= 40 %}bg-secondary{% else %}bg-danger{% endif %}"
-                            role="progressbar" style="width: {{ score }}%"></div>
+                        <div class="progress-bar {% if score < 80 %}{% if score >= 60 %}bg-warning{% elif score >= 40 %}bg-secondary{% else %}bg-danger{% endif %}{% endif %}"
+                            role="progressbar" style="width: {{ score }}%;{% if score >= 80 %} background-color: var(--module-prospector-accent) !important;{% endif %}"></div>
                     </div>
                     <small class="text-muted">
                         {% if score >= 80 %}Strong fit{% elif score >= 60 %}Good potential{% elif score >= 40 %}Moderate match{% else %}Low match{% endif %}

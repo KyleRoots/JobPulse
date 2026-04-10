@@ -40,7 +40,7 @@
                             <td>{{ run.profile.name if run.profile else 'Deleted Profile' }}</td>
                             <td>
                                 {% if run.status == 'completed' %}
-                                <span class="badge bg-success">Completed</span>
+                                <span class="badge text-white" style="background-color: var(--module-prospector-accent);">Completed</span>
                                 {% elif run.status == 'failed' %}
                                 <span class="badge bg-danger">Failed</span>
                                 {% else %}

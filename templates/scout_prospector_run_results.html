@@ -32,7 +32,7 @@
                 <span class="text-muted small">Status</span>
                 <div class="fs-5 fw-bold mt-1">
                     {% if run.status == 'completed' %}
-                    <span class="text-success"><i class="fas fa-check-circle me-1"></i>Completed</span>
+                    <span style="color: var(--module-prospector-accent);"><i class="fas fa-check-circle me-1"></i>Completed</span>
                     {% elif run.status == 'failed' %}
                     <span class="text-danger"><i class="fas fa-times-circle me-1"></i>Failed</span>
                     {% else %}
@@ -107,7 +107,7 @@
                             <td>{{ prospect.location or '—' }}</td>
                             <td>
                                 {% set score = prospect.qualification_score %}
-                                <span class="badge {% if score >= 80 %}bg-success{% elif score >= 60 %}bg-warning text-dark{% elif score >= 40 %}bg-secondary{% else %}bg-danger{% endif %}">
+                                <span class="badge {% if score >= 80 %}text-white{% elif score >= 60 %}bg-warning text-dark{% elif score >= 40 %}bg-secondary{% else %}bg-danger{% endif %}" {% if score >= 80 %}style="background-color: var(--module-prospector-accent);"{% endif %}>
                                     {{ score }}%
                                 </span>
                             </td>

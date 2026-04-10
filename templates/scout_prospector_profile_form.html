@@ -72,7 +72,7 @@
                                     <h6 class="text-info"><i class="fas fa-robot me-1"></i>AI Suggestions</h6>
                                     <p id="refineNotes" class="text-muted small mb-2"></p>
                                     <div id="refineSuggestions" class="mb-2"></div>
-                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="applyRefinements()">
+                                    <button type="button" class="btn btn-sm" style="border-color: var(--module-prospector-accent); color: var(--module-prospector-accent);" onmouseover="this.style.background='var(--module-prospector-accent)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--module-prospector-accent)'" onclick="applyRefinements()">
                                         <i class="fas fa-check me-1"></i>Apply Suggestions
                                     </button>
                                     <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="document.getElementById('refineResult').classList.add('d-none')">
