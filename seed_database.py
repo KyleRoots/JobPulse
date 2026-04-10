@@ -1007,6 +1007,25 @@ def run_schema_migrations(db):
     else:
         logger.info("ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)")
 
+    try:
+        result = db.session.execute(text("""
+            SELECT indexname FROM pg_indexes
+            WHERE tablename = 'candidate_job_match'
+              AND indexname = 'idx_match_job_created'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text(
+                "CREATE INDEX idx_match_job_created "
+                "ON candidate_job_match (bullhorn_job_id, created_at DESC)"
+            ))
+            db.session.commit()
+            logger.info("✅ Created composite index idx_match_job_created on candidate_job_match")
+        else:
+            logger.info("ℹ️ Composite index idx_match_job_created already exists")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Composite index idx_match_job_created creation skipped: {str(e)}")
+
 
 def log_critical_settings_state(db):
     """

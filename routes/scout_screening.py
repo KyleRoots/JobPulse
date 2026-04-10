@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for, current_app
 from flask_login import login_required, current_user
+from sqlalchemy.orm import joinedload
 from routes import register_module_guard
 
 
@@ -134,6 +135,7 @@ def dashboard():
         all_matches = (
             CandidateJobMatch.query
             .join(CandidateVettingLog)
+            .options(joinedload(CandidateJobMatch.vetting_log))
             .filter(
                 CandidateJobMatch.bullhorn_job_id.in_(job_ids),
                 CandidateVettingLog.is_sandbox != True
@@ -494,6 +496,123 @@ def stats_api():
         ),
         'screened_this_week': sum(1 for m in matches if m.created_at and m.created_at >= week_ago),
     })
+
+
+@scout_screening_bp.route('/scout-screening/bulk-email', methods=['POST'])
+@login_required
+def bulk_email():
+    """Send a summary email of selected screening results to specified recipients."""
+    from email_service import EmailService
+    from models import EmailDeliveryLog
+    from extensions import db
+
+    data = request.get_json(silent=True) or {}
+    to_email = (data.get('to_email') or '').strip()
+    cc_emails = [e.strip() for e in (data.get('cc_emails') or []) if e.strip()]
+    candidates = data.get('candidates') or []
+
+    if not to_email:
+        return jsonify({'success': False, 'error': 'Recipient email is required.'}), 400
+    if not candidates:
+        return jsonify({'success': False, 'error': 'No candidates selected.'}), 400
+
+    candidate_rows = ''
+    for c in candidates:
+        cid = c.get('candidate_id', '')
+        name = c.get('candidate_name', 'Unknown')
+        score = c.get('best_score', 0)
+        status = c.get('status', 'unknown')
+        status_label = status.replace('_', ' ').title()
+        if status == 'qualified':
+            status_color = '#28a745'
+        elif status == 'location_barrier':
+            status_color = '#ffc107'
+            status_label = 'Location Barrier'
+        else:
+            status_color = '#6c757d'
+
+        profile_link = ''
+        if cid:
+            profile_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={cid}"
+            profile_link = f'<a href="{profile_url}" style="color: #667eea; text-decoration: none; font-size: 12px;">View Profile →</a>'
+
+        candidate_rows += f"""
+        <tr style="border-bottom: 1px solid #e9ecef;">
+            <td style="padding: 10px 12px; font-weight: 600; color: #495057;">
+                {name}
+                {f'<br><span style="font-size: 11px; color: #adb5bd;">ID: {cid}</span>' if cid else ''}
+            </td>
+            <td style="padding: 10px 12px; text-align: center;">
+                <span style="background: {'#28a745' if score >= 80 else '#ffc107' if score >= 60 else '#6c757d'}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600;">{score}%</span>
+            </td>
+            <td style="padding: 10px 12px; text-align: center;">
+                <span style="color: {status_color}; font-weight: 500; font-size: 13px;">{status_label}</span>
+            </td>
+            <td style="padding: 10px 12px; text-align: center;">{profile_link}</td>
+        </tr>
+        """
+
+    requester = current_user.display_name or current_user.username or 'A recruiter'
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 22px;">📋 Screening Results Summary</h1>
+            <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Shared by {requester} via Scout Screening</p>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef;">
+            <p style="margin: 0 0 15px 0; color: #495057;">
+                Below are <strong>{len(candidates)} candidate(s)</strong> from the Scout Screening portal.
+            </p>
+
+            <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6;">
+                <thead>
+                    <tr style="background: #e9ecef;">
+                        <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #6c757d; text-transform: uppercase;">Candidate</th>
+                        <th style="padding: 10px 12px; text-align: center; font-size: 12px; color: #6c757d; text-transform: uppercase;">Score</th>
+                        <th style="padding: 10px 12px; text-align: center; font-size: 12px; color: #6c757d; text-transform: uppercase;">Status</th>
+                        <th style="padding: 10px 12px; text-align: center; font-size: 12px; color: #6c757d; text-transform: uppercase;">Profile</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {candidate_rows}
+                </tbody>
+            </table>
+
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                <p style="color: #6c757d; font-size: 13px; margin: 0;">
+                    <strong>Tip:</strong> Click "View Profile" to open the candidate record directly in Bullhorn.
+                </p>
+            </div>
+        </div>
+
+        <div style="background: #343a40; color: #adb5bd; padding: 15px; border-radius: 0 0 8px 8px; font-size: 12px; text-align: center;">
+            Powered by Scout Screening™ • Myticas Consulting
+        </div>
+    </div>
+    """
+
+    try:
+        email_service = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
+        qualified_count = sum(1 for c in candidates if c.get('status') == 'qualified')
+        subject = f"📋 Screening Results: {len(candidates)} Candidate{'s' if len(candidates) != 1 else ''} ({qualified_count} Qualified)"
+        result = email_service.send_html_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html_content,
+            notification_type='screening_bulk_email',
+            cc_emails=cc_emails if cc_emails else None,
+            changes_summary=f"Bulk screening results shared by {requester}: {len(candidates)} candidates"
+        )
+        success = result is True or (isinstance(result, dict) and result.get('success', False))
+        if success:
+            logger.info(f"Bulk screening email sent by {current_user.username} to {to_email} ({len(candidates)} candidates)")
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Email delivery failed.'}), 500
+    except Exception as e:
+        logger.error(f"Bulk screening email error: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to send email.'}), 500
 
 
 @scout_screening_bp.route('/scout-screening/guide')

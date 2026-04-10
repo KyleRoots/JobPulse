@@ -708,6 +708,10 @@ class CandidateJobMatch(db.Model):
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    __table_args__ = (
+        db.Index('idx_match_job_created', 'bullhorn_job_id', 'created_at'),
+    )
+    
     def __repr__(self):
         return f'<CandidateJobMatch {self.bullhorn_job_id} - {self.match_score}%>'
 
