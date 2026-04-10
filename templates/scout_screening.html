@@ -575,13 +575,13 @@
     </div>
 </div>
 
-<div id="bulkActionBar" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:1050; background:rgba(30,20,50,0.96); border-top:2px solid #9b7fd4; padding:0.7rem 1.5rem; backdrop-filter:blur(8px);">
+<div id="bulkActionBar" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:1050; background:rgba(42,21,32,0.96); border-top:2px solid var(--module-screening-accent); padding:0.7rem 1.5rem; backdrop-filter:blur(8px);">
     <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:space-between;">
         <div style="display:flex; align-items:center; gap:0.75rem;">
-            <span style="color:#c4a8f0; font-weight:600; font-size:0.88rem;"><i class="fas fa-check-square me-1"></i><span id="bulkCount">0</span> candidate(s) selected</span>
+            <span style="color:var(--module-screening-text); font-weight:600; font-size:0.88rem;"><i class="fas fa-check-square me-1"></i><span id="bulkCount">0</span> candidate(s) selected</span>
             <button type="button" onclick="clearBulkSelection()" style="background:none; border:none; color:rgba(255,255,255,0.4); font-size:0.78rem; cursor:pointer; text-decoration:underline;">Clear</button>
         </div>
-        <button type="button" onclick="openBulkEmailModal()" style="background:#9b7fd4; border:none; color:#fff; border-radius:8px; padding:0.45rem 1.2rem; font-size:0.85rem; font-weight:600; cursor:pointer; transition:background 0.18s;" onmouseover="this.style.background='#b595e8'" onmouseout="this.style.background='#9b7fd4'">
+        <button type="button" onclick="openBulkEmailModal()" style="background:var(--module-screening-accent); border:none; color:#fff; border-radius:8px; padding:0.45rem 1.2rem; font-size:0.85rem; font-weight:600; cursor:pointer; transition:background 0.18s;" onmouseover="this.style.background='#e11d48'" onmouseout="this.style.background='var(--module-screening-accent)'">
             <i class="fas fa-envelope me-1"></i>Email Results
         </button>
     </div>
@@ -589,24 +589,24 @@
 
 <div class="modal fade" id="bulkEmailModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
-        <div class="modal-content">
-            <div class="modal-header" style="padding:1.1rem 1.4rem 0.9rem; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <div class="modal-content" style="background:var(--module-screening-card-bg); border:1px solid var(--module-screening-border);">
+            <div class="modal-header" style="padding:1.1rem 1.4rem 0.9rem; border-bottom:1px solid var(--module-screening-border);">
                 <div>
-                    <div class="modal-title">Email Screening Results</div>
+                    <div class="modal-title"><i class="fas fa-envelope me-2" style="color:var(--module-screening-text);"></i>Email Screening Results</div>
                     <div style="font-size:0.78rem; color:rgba(255,255,255,0.35); margin-top:0.15rem;" id="bulkEmailSubtitle"></div>
                 </div>
-                <button type="button" data-bs-dismiss="modal" style="background:transparent; border:none; color:#9b7fd4; font-size:1.1rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+                <button type="button" data-bs-dismiss="modal" style="background:transparent; border:none; color:var(--module-screening-text); font-size:1.1rem; cursor:pointer;"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body" style="padding:1.25rem 1.4rem;">
-                <div class="col-label mb-1"><i class="fas fa-at"></i> Send To</div>
-                <input type="email" id="bulkEmailTo" class="form-control mb-2" value="{{ current_user.email or '' }}" placeholder="your@email.com" style="background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.22); color:rgba(255,255,255,0.85); border-radius:7px; font-size:0.85rem;">
-                <div class="col-label mb-1"><i class="fas fa-user-plus"></i> CC (optional)</div>
-                <input type="text" id="bulkEmailCc" class="form-control mb-2" placeholder="colleague@company.com, another@company.com" style="background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.22); color:rgba(255,255,255,0.85); border-radius:7px; font-size:0.85rem;">
+                <div class="col-label mb-1" style="color:var(--module-screening-text);"><i class="fas fa-at"></i> Send To</div>
+                <input type="email" id="bulkEmailTo" class="form-control mb-2" value="{{ current_user.email or '' }}" placeholder="your@email.com" style="background:rgba(0,0,0,0.3); border:1px solid var(--module-screening-border); color:rgba(255,255,255,0.85); border-radius:7px; font-size:0.85rem;">
+                <div class="col-label mb-1" style="color:var(--module-screening-text);"><i class="fas fa-user-plus"></i> CC (optional)</div>
+                <input type="text" id="bulkEmailCc" class="form-control mb-2" placeholder="colleague@company.com, another@company.com" style="background:rgba(0,0,0,0.3); border:1px solid var(--module-screening-border); color:rgba(255,255,255,0.85); border-radius:7px; font-size:0.85rem;">
                 <div style="font-size:0.71rem; color:rgba(255,255,255,0.22); margin-top:0.25rem;">Separate multiple CC addresses with commas.</div>
             </div>
-            <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding:0.85rem 1.4rem;">
+            <div class="modal-footer" style="border-top:1px solid var(--module-screening-border); padding:0.85rem 1.4rem;">
                 <button type="button" class="btn btn-sm btn-outline-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" id="bulkEmailSendBtn" onclick="sendBulkEmail()" style="background-color:#9b7fd4; border:none; color:#fff; border-radius:8px; padding:0.5rem 1.4rem; font-size:0.88rem; font-weight:600; cursor:pointer; transition:background-color 0.18s;" onmouseover="if(!this.disabled)this.style.backgroundColor='#b595e8'" onmouseout="if(!this.disabled)this.style.backgroundColor='#9b7fd4'"><i class="fas fa-paper-plane me-1"></i>Send Email</button>
+                <button type="button" id="bulkEmailSendBtn" onclick="sendBulkEmail()" style="background:var(--module-screening-gradient); border:none; color:#fff; border-radius:8px; padding:0.5rem 1.4rem; font-size:0.88rem; font-weight:600; cursor:pointer; transition:opacity 0.18s;" onmouseover="if(!this.disabled)this.style.opacity='0.85'" onmouseout="if(!this.disabled)this.style.opacity='1'"><i class="fas fa-paper-plane me-1"></i>Send Email</button>
             </div>
         </div>
     </div>
