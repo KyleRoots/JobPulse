@@ -125,14 +125,21 @@ class NoteBuilderMixin:
                 _all_incomplete = all(
                     n.get('action', '') in _INCOMPLETE_ACTIONS for n in existing_notes
                 )
+                _all_failed_analysis = all(
+                    'Analysis failed' in (n.get('comments', '') or '')
+                    or 'Match Score: 0%' in (n.get('comments', '') or '')
+                    for n in existing_notes
+                )
                 _has_match_records = CandidateJobMatch.query.filter_by(
                     vetting_log_id=vetting_log.id
                 ).count() > 0
-                if _all_incomplete and _has_match_records:
+                _is_supersedable = (_all_incomplete or _all_failed_analysis) and _has_match_records
+                if _is_supersedable:
+                    override_reason = "Incomplete" if _all_incomplete else "failed analysis (0%)"
                     logging.info(
                         f"ℹ️ DUPLICATE SAFEGUARD OVERRIDE: Candidate {vetting_log.bullhorn_candidate_id} "
-                        f"has {len(existing_notes)} Incomplete note(s) in Bullhorn from last 6h. "
-                        f"Allowing new complete result to proceed."
+                        f"has {len(existing_notes)} {override_reason} note(s) in Bullhorn from last 6h. "
+                        f"Allowing new complete result to supersede."
                     )
                 else:
                     logging.warning(
@@ -175,9 +182,15 @@ class NoteBuilderMixin:
                 logging.warning(f"Could not fetch per-job thresholds for note: {str(e)}")
         
         # Handle case where no jobs were analyzed (no matches recorded)
-        if not matches:
-            # Create a note explaining why no analysis was done
-            error_reason = vetting_log.error_message or "No job matches could be performed"
+        all_analysis_failed = matches and all(
+            m.match_score == 0 and 'Analysis failed' in (m.match_summary or '')
+            for m in matches
+        )
+        if not matches or all_analysis_failed:
+            if all_analysis_failed:
+                error_reason = "All job analyses returned API errors (0% scores)"
+            else:
+                error_reason = vetting_log.error_message or "No job matches could be performed"
             note_lines = [
                 f"📋 SCOUT SCREENING - INCOMPLETE ANALYSIS",
                 f"",

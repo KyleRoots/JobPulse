@@ -18,6 +18,8 @@ from email_service import EmailService
 class RecoveryMixin:
     """Auto-retry safeguards for stuck/failed vetting runs."""
 
+    MAX_ZERO_SCORE_RETRIES = 2
+
     def _reset_zero_score_failures(self):
         """Auto-retry safeguard: detect and reset candidates where ALL job matches
         scored 0%, indicating an API failure (e.g., OpenAI quota exhaustion) rather
@@ -30,16 +32,16 @@ class RecoveryMixin:
         - Only resets records older than 10 minutes (avoids in-progress interference)
         - Max 50 records per cycle (prevents thundering herd)
         - Only resets when ALL job matches are 0% (not legitimate low scores)
+        - Tracks retry count on ParsedEmail; blocks after MAX_ZERO_SCORE_RETRIES
+          to prevent endless recycling of persistently failing candidates
         """
         try:
             from models import CandidateVettingLog, CandidateJobMatch, ParsedEmail
+            from models import EmbeddingFilterLog, EscalationLog
             from sqlalchemy import func
             
             cutoff = datetime.utcnow() - timedelta(minutes=10)
             
-            # Find completed vetting logs with highest_match_score = 0
-            # that are old enough to not be in-progress
-            # Excludes retry_blocked candidates (manually excluded by admin — e.g. unparsable resumes)
             zero_logs = CandidateVettingLog.query.filter(
                 CandidateVettingLog.highest_match_score == 0,
                 CandidateVettingLog.status == 'completed',
@@ -51,39 +53,60 @@ class RecoveryMixin:
                 return
             
             reset_count = 0
+            blocked_count = 0
             for log in zero_logs:
-                # Verify ALL job matches scored 0 (not a legitimate low score)
                 non_zero = db.session.query(func.count(CandidateJobMatch.id)).filter(
                     CandidateJobMatch.vetting_log_id == log.id,
                     CandidateJobMatch.match_score > 0
                 ).scalar()
                 
                 if non_zero > 0:
-                    continue  # Has some non-zero scores — legitimate result
+                    continue
                 
                 candidate_id = log.bullhorn_candidate_id
                 log_id = log.id
                 
-                # Delete child records (FK constraints)
-                CandidateJobMatch.query.filter_by(vetting_log_id=log_id).delete()
+                max_retry = db.session.query(func.coalesce(func.max(ParsedEmail.vetting_retry_count), 0)).filter(
+                    ParsedEmail.bullhorn_candidate_id == candidate_id
+                ).scalar()
                 
-                from models import EmbeddingFilterLog, EscalationLog
+                if max_retry >= self.MAX_ZERO_SCORE_RETRIES:
+                    log.retry_blocked = True
+                    log.retry_block_reason = (
+                        f"Auto-blocked after {max_retry + 1} consecutive 0% failures. "
+                        f"Likely unparseable resume or persistent API error."
+                    )
+                    log.status = 'failed'
+                    blocked_count += 1
+                    logging.info(
+                        f"🚫 Retry-blocked candidate {candidate_id} after {max_retry + 1} "
+                        f"consecutive 0% failures (vetting log {log_id})"
+                    )
+                    continue
+                
+                CandidateJobMatch.query.filter_by(vetting_log_id=log_id).delete()
                 EmbeddingFilterLog.query.filter_by(vetting_log_id=log_id).delete()
                 EscalationLog.query.filter_by(vetting_log_id=log_id).delete()
                 
-                # Delete the vetting log
                 db.session.delete(log)
                 
-                # Reset vetted_at on ParsedEmail to re-queue
                 ParsedEmail.query.filter_by(
                     bullhorn_candidate_id=candidate_id
-                ).update({'vetted_at': None})
+                ).update({
+                    'vetted_at': None,
+                    'vetting_retry_count': ParsedEmail.vetting_retry_count + 1
+                })
                 
                 reset_count += 1
             
-            if reset_count > 0:
+            if reset_count > 0 or blocked_count > 0:
                 db.session.commit()
-                logging.info(f"🔄 Auto-retry: Reset {reset_count} candidates with 0% scores (API failure recovery)")
+                parts = []
+                if reset_count > 0:
+                    parts.append(f"reset {reset_count}")
+                if blocked_count > 0:
+                    parts.append(f"blocked {blocked_count}")
+                logging.info(f"🔄 Auto-retry: {', '.join(parts)} candidates with 0% scores (API failure recovery)")
         except Exception as e:
             db.session.rollback()
             logging.error(f"Error in zero-score auto-retry: {str(e)}")

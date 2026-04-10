@@ -846,7 +846,19 @@ CRITICAL SCORING RULES:
             except Exception as _cache_log_err:
                 logging.debug(f"Cache logging error (non-fatal): {_cache_log_err}")
 
-            result = json.loads(response.choices[0].message.content)
+            response_content = response.choices[0].message.content
+            if not response_content or not response_content.strip():
+                finish_reason = response.choices[0].finish_reason if response.choices[0] else 'unknown'
+                logging.error(f"Empty GPT response for job {job_id} (finish_reason={finish_reason})")
+                return {
+                    'match_score': 0,
+                    'match_summary': f'Analysis failed: Empty API response (finish_reason={finish_reason})',
+                    'skills_match': '',
+                    'experience_match': '',
+                    'gaps_identified': '',
+                    'key_requirements': ''
+                }
+            result = json.loads(response_content)
             
             # ── Layer 2: Normalize text fields that GPT may return as arrays ──
             for field in ['gaps_identified', 'match_summary', 'skills_match', 'experience_match', 'key_requirements']:

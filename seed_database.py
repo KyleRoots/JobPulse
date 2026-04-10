@@ -943,6 +943,24 @@ def run_schema_migrations(db):
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for knowledge_document.{col_name}: {str(e)}")
 
+    # Add vetting_retry_count to parsed_email (Apr 2026 - tracks 0% failure retries to prevent endless recycling)
+    try:
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'parsed_email' AND column_name = 'vetting_retry_count'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text(
+                "ALTER TABLE parsed_email ADD COLUMN vetting_retry_count INTEGER NOT NULL DEFAULT 0"
+            ))
+            db.session.commit()
+            logger.info("✅ Added column vetting_retry_count to parsed_email table")
+        else:
+            logger.info("ℹ️ Column vetting_retry_count already exists on parsed_email table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for parsed_email.vetting_retry_count: {str(e)}")
+
     # Drop UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id
     # (Feb 2026 - allow multiple vetting logs per candidate for re-applications)
     try:

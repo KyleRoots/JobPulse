@@ -1893,7 +1893,7 @@ class BullhornService:
         try:
             url = f"{self.base_url}entity/Candidate/{candidate_id}/notes"
             params = {
-                'fields': 'id,action,dateAdded',
+                'fields': 'id,action,dateAdded,comments',
                 'count': count,
                 'orderBy': '-dateAdded',
                 'BhRestToken': self.rest_token

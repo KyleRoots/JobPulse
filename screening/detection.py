@@ -562,11 +562,13 @@ class CandidateDetectionMixin:
             return None
     
     def _mark_application_vetted(self, parsed_email_id: int):
-        """Mark a ParsedEmail record as vetted"""
+        """Mark a ParsedEmail record as vetted and reset retry counter on success"""
         try:
             parsed_email = ParsedEmail.query.get(parsed_email_id)
             if parsed_email:
                 parsed_email.vetted_at = datetime.utcnow()
+                if parsed_email.vetting_retry_count > 0:
+                    parsed_email.vetting_retry_count = 0
                 db.session.commit()
                 logging.debug(f"Marked ParsedEmail {parsed_email_id} as vetted")
         except Exception as e:

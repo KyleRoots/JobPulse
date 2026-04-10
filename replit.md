@@ -45,7 +45,8 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
 - **Scout Screening Portal**: Recruiter-facing dashboard for AI match results, scores, and qualification status.
 - **Scout Screening Quality Auditor**: Background AI audit to review "Not Qualified" results for scoring errors, with auto-trigger re-vets.
-- **Bullhorn Note Duplicate Safeguard**: Prevents stale "Incomplete" notes from blocking successful re-screen results by overriding if only incomplete notes exist within a 6-hour window.
+- **Bullhorn Note Duplicate Safeguard**: Prevents stale "Incomplete" or "Analysis failed" (0%) notes from blocking successful re-screen results by overriding if only supersedable notes exist within a 6-hour window. Failed-analysis notes (0% scores from API errors) are now classified as "Scout Screen - Incomplete" instead of "Not Qualified".
+- **Zero-Score Failure Retry Limiter**: `ParsedEmail.vetting_retry_count` tracks how many times a candidate has been auto-retried after 0% API failures. After `MAX_ZERO_SCORE_RETRIES` (2) retries, the candidate is marked `retry_blocked` on the vetting log, preventing endless recycling that consumes batch slots. Counter resets on successful vetting.
 - **Automated Duplicate Candidate Merge**: Two-mode system (bulk scan and scheduled check) for merging duplicate candidate records with an audit trail.
 - **Candidate Data Cleanup (Scheduled)**: Background job to extract missing emails from resume files, reparse empty candidate descriptions, and fill missing occupation/title fields using AI resume analysis (gpt-4.1-mini).
 - **Activity Log (Super-Admin Only)**: System-wide admin visibility tracking login history, module usage, email delivery, and active users.

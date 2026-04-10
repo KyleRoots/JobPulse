@@ -604,6 +604,7 @@ class ParsedEmail(db.Model):
     processed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     vetted_at = db.Column(db.DateTime, nullable=True)  # Tracks when AI vetting was completed
+    vetting_retry_count = db.Column(db.Integer, default=0, server_default='0')
     
     __table_args__ = (
         db.Index('idx_parsed_email_unvetted', 'status', 'vetted_at', 'bullhorn_candidate_id'),
