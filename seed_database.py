@@ -1045,6 +1045,21 @@ def run_schema_migrations(db):
         logger.warning(f"⚠️ Composite index idx_match_job_created creation skipped: {str(e)}")
 
 
+    prospector_tables = ['prospector_profile', 'prospector_run', 'prospect']
+    for table_name in prospector_tables:
+        try:
+            result = db.session.execute(text("""
+                SELECT table_name FROM information_schema.tables
+                WHERE table_name = :table_name AND table_schema = 'public'
+            """), {'table_name': table_name})
+            if result.fetchone():
+                logger.info(f"ℹ️ Prospector table '{table_name}' exists")
+            else:
+                logger.warning(f"⚠️ Prospector table '{table_name}' missing — db.create_all() should create it")
+        except Exception as e:
+            logger.warning(f"⚠️ Prospector table check failed for '{table_name}': {str(e)}")
+
+
 def log_critical_settings_state(db):
     """
     Log the current DB values of all admin-controlled settings at startup.

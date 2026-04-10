@@ -190,7 +190,7 @@
                                     <strong>{{ prospect.company_name }}</strong>
                                 </a>
                                 {% if prospect.website %}
-                                <br><a href="{{ prospect.website }}" target="_blank" class="text-muted small"><i class="fas fa-external-link-alt me-1"></i>{{ prospect.website[:40] }}{% if prospect.website|length > 40 %}...{% endif %}</a>
+                                <br><a href="{{ prospect.website }}" target="_blank" rel="noopener noreferrer" class="text-muted small"><i class="fas fa-external-link-alt me-1"></i>{{ prospect.website[:40] }}{% if prospect.website|length > 40 %}...{% endif %}</a>
                                 {% endif %}
                             </td>
                             <td>{{ prospect.industry or '—' }}</td>

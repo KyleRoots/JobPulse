@@ -51,7 +51,7 @@
                             <div class="mb-3">
                                 <label class="text-muted small d-block">Website</label>
                                 {% if prospect.website %}
-                                <a href="{{ prospect.website }}" target="_blank" style="color: var(--module-prospector-text);">
+                                <a href="{{ prospect.website }}" target="_blank" rel="noopener noreferrer" style="color: var(--module-prospector-text);">
                                     {{ prospect.website }} <i class="fas fa-external-link-alt ms-1 small"></i>
                                 </a>
                                 {% else %}
@@ -110,7 +110,7 @@
                 <div class="card-body">
                     <ul class="list-unstyled mb-0">
                         {% for url in sources %}
-                        <li class="mb-1"><a href="{{ url }}" target="_blank" class="text-muted"><i class="fas fa-external-link-alt me-1"></i>{{ url[:60] }}{% if url|length > 60 %}...{% endif %}</a></li>
+                        <li class="mb-1"><a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="text-muted"><i class="fas fa-external-link-alt me-1"></i>{{ url[:60] }}{% if url|length > 60 %}...{% endif %}</a></li>
                         {% endfor %}
                     </ul>
                 </div>
