@@ -1,0 +1,135 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Scout Prospector — Research Results{% endblock %}
+{% block body_attrs %}data-module="prospector"{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="fas fa-search me-2" style="color: var(--module-prospector-text);"></i>
+                Research Results
+            </h2>
+            <p class="text-muted mb-0">
+                Profile: <strong>{{ run.profile.name if run.profile else 'Unknown' }}</strong>
+                &bull; {{ run.created_at.strftime('%b %d, %Y at %I:%M %p') if run.created_at else 'N/A' }}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('scout_prospector.run_history') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-history me-1"></i>Run History
+            </a>
+            <a href="{{ url_for('scout_prospector.prospector_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <span class="text-muted small">Status</span>
+                <div class="fs-5 fw-bold mt-1">
+                    {% if run.status == 'completed' %}
+                    <span class="text-success"><i class="fas fa-check-circle me-1"></i>Completed</span>
+                    {% elif run.status == 'failed' %}
+                    <span class="text-danger"><i class="fas fa-times-circle me-1"></i>Failed</span>
+                    {% else %}
+                    <span class="text-warning"><i class="fas fa-spinner fa-spin me-1"></i>Running</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <span class="text-muted small">Prospects Found</span>
+                <div class="fs-2 fw-bold mt-1" style="color: var(--module-prospector-text);">{{ run.prospects_found or 0 }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <span class="text-muted small">Started</span>
+                <div class="fs-6 fw-bold mt-1">{{ run.started_at.strftime('%I:%M %p') if run.started_at else 'N/A' }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <span class="text-muted small">Completed</span>
+                <div class="fs-6 fw-bold mt-1">{{ run.completed_at.strftime('%I:%M %p') if run.completed_at else 'N/A' }}</div>
+            </div>
+        </div>
+    </div>
+
+    {% if run.ai_summary %}
+    <div class="card bg-dark border-secondary mb-4">
+        <div class="card-header bg-dark border-secondary">
+            <h5 class="mb-0"><i class="fas fa-robot me-2" style="color: var(--module-prospector-text);"></i>AI Summary</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-0">{{ run.ai_summary }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card bg-dark border-secondary">
+        <div class="card-header bg-dark border-secondary">
+            <h5 class="mb-0"><i class="fas fa-building me-2" style="color: var(--module-prospector-text);"></i>Discovered Prospects ({{ prospects|length }})</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if prospects %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>Industry</th>
+                            <th>Size</th>
+                            <th>Location</th>
+                            <th>Score</th>
+                            <th>Fit Reason</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prospect in prospects %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('scout_prospector.prospect_detail', prospect_id=prospect.id) }}" class="text-decoration-none" style="color: var(--module-prospector-text);">
+                                    <strong>{{ prospect.company_name }}</strong>
+                                </a>
+                                {% if prospect.website %}
+                                <br><a href="{{ prospect.website }}" target="_blank" rel="noopener noreferrer" class="text-muted small"><i class="fas fa-external-link-alt me-1"></i>{{ prospect.website[:35] }}{% if prospect.website|length > 35 %}...{% endif %}</a>
+                                {% endif %}
+                            </td>
+                            <td>{{ prospect.industry or '—' }}</td>
+                            <td>{{ prospect.estimated_size or '—' }}</td>
+                            <td>{{ prospect.location or '—' }}</td>
+                            <td>
+                                {% set score = prospect.qualification_score %}
+                                <span class="badge {% if score >= 80 %}bg-success{% elif score >= 60 %}bg-warning text-dark{% elif score >= 40 %}bg-secondary{% else %}bg-danger{% endif %}">
+                                    {{ score }}%
+                                </span>
+                            </td>
+                            <td><small>{{ (prospect.fit_reason or '—')[:60] }}{% if prospect.fit_reason and prospect.fit_reason|length > 60 %}...{% endif %}</small></td>
+                            <td class="text-end">
+                                <a href="{{ url_for('scout_prospector.prospect_detail', prospect_id=prospect.id) }}" class="btn btn-sm btn-outline-secondary" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x mb-3 text-muted" style="opacity: 0.3;"></i>
+                <h5 class="text-muted">No Prospects Found</h5>
+                <p class="text-muted">This research run didn't produce any results. Try adjusting your ICP criteria.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -11,6 +11,9 @@
             <p class="text-muted mb-0">AI-powered prospect discovery for staffing sales</p>
         </div>
         <div class="d-flex gap-2">
+            <a href="{{ url_for('scout_prospector.run_history') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-history me-1"></i>Research History
+            </a>
             <a href="{{ url_for('scout_prospector.export_csv', profile=profile_filter, status=status_filter) }}" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-download me-1"></i>Export CSV
             </a>

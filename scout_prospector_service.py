@@ -189,7 +189,9 @@ class ProspectorService:
         return profile
 
     def update_profile(self, profile_id, user, **kwargs):
-        profile = ProspectorProfile.query.filter_by(id=profile_id, user_id=user.id).first()
+        profile = ProspectorProfile.query.filter_by(
+            id=profile_id, company=user.company or 'Unknown'
+        ).first()
         if not profile:
             return None
         for field in ['name', 'description', 'additional_criteria']:
@@ -203,7 +205,9 @@ class ProspectorService:
         return profile
 
     def delete_profile(self, profile_id, user):
-        profile = ProspectorProfile.query.filter_by(id=profile_id, user_id=user.id).first()
+        profile = ProspectorProfile.query.filter_by(
+            id=profile_id, company=user.company or 'Unknown'
+        ).first()
         if not profile:
             return False
         db.session.delete(profile)
@@ -216,7 +220,9 @@ class ProspectorService:
         ).order_by(ProspectorProfile.updated_at.desc()).all()
 
     def get_profile(self, profile_id, user):
-        return ProspectorProfile.query.filter_by(id=profile_id, user_id=user.id).first()
+        return ProspectorProfile.query.filter_by(
+            id=profile_id, company=user.company or 'Unknown'
+        ).first()
 
     def get_user_prospects(self, user, status=None, profile_id=None, search=None,
                            sort_by='qualification_score', sort_dir='desc'):

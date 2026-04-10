@@ -163,10 +163,46 @@ def run_research(profile_id):
     run = service.run_research(profile, current_user)
     if run.status == 'completed':
         flash(f'Research complete! Found {run.prospects_found} prospects.', 'success')
+        return redirect(url_for('scout_prospector.run_results', run_id=run.id))
     else:
         logger.error(f"Research run {run.id} failed: {run.error_message}")
         flash('Research failed. Please try again or adjust your ICP profile.', 'danger')
     return redirect(url_for('scout_prospector.prospector_dashboard'))
+
+
+@scout_prospector_bp.route('/scout-prospector/runs/<int:run_id>')
+@login_required
+def run_results(run_id):
+    service = _get_service()
+    from models import ProspectorRun
+    run = ProspectorRun.query.filter_by(id=run_id).first()
+    if not run or (run.user.company or 'Unknown') != (current_user.company or 'Unknown'):
+        flash('Research run not found.', 'danger')
+        return redirect(url_for('scout_prospector.prospector_dashboard'))
+
+    from models import Prospect
+    prospects = Prospect.query.filter_by(run_id=run.id).order_by(
+        Prospect.qualification_score.desc()
+    ).all()
+
+    return render_template(
+        'scout_prospector_run_results.html',
+        active_page='scout_prospector',
+        run=run,
+        prospects=prospects,
+    )
+
+
+@scout_prospector_bp.route('/scout-prospector/runs')
+@login_required
+def run_history():
+    service = _get_service()
+    runs = service.get_run_history(current_user)
+    return render_template(
+        'scout_prospector_run_history.html',
+        active_page='scout_prospector',
+        runs=runs,
+    )
 
 
 @scout_prospector_bp.route('/scout-prospector/prospects/<int:prospect_id>')
