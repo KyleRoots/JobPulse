@@ -1,0 +1,237 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Scout Prospector — Dashboard{% endblock %}
+{% block body_attrs %}data-module="prospector"{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-crosshairs me-2" style="color: var(--module-prospector-text);"></i>Scout Prospector</h2>
+            <p class="text-muted mb-0">AI-powered prospect discovery for staffing sales</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('scout_prospector.export_csv', profile=profile_filter, status=status_filter) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-download me-1"></i>Export CSV
+            </a>
+            <a href="{{ url_for('scout_prospector.create_profile') }}" class="btn btn-primary btn-sm" style="background: var(--module-prospector-accent); border-color: var(--module-prospector-accent);">
+                <i class="fas fa-plus me-1"></i>New ICP Profile
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="d-flex align-items-center justify-content-center mb-2">
+                    <i class="fas fa-building me-2" style="color: var(--module-prospector-text); font-size: 1.1rem;"></i>
+                    <span class="text-muted small">Total Prospects</span>
+                </div>
+                <div class="fs-2 fw-bold" style="color: var(--module-prospector-text);">{{ stats.total }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="d-flex align-items-center justify-content-center mb-2">
+                    <i class="fas fa-fire me-2 text-danger" style="font-size: 1.1rem;"></i>
+                    <span class="text-muted small">Hot</span>
+                </div>
+                <div class="fs-2 fw-bold text-danger">{{ stats.hot }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="d-flex align-items-center justify-content-center mb-2">
+                    <i class="fas fa-thermometer-half me-2 text-warning" style="font-size: 1.1rem;"></i>
+                    <span class="text-muted small">Warm</span>
+                </div>
+                <div class="fs-2 fw-bold text-warning">{{ stats.warm }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="d-flex align-items-center justify-content-center mb-2">
+                    <i class="fas fa-phone me-2 text-info" style="font-size: 1.1rem;"></i>
+                    <span class="text-muted small">Contacted</span>
+                </div>
+                <div class="fs-2 fw-bold text-info">{{ stats.contacted }}</div>
+            </div>
+        </div>
+    </div>
+
+    {% if profiles %}
+    <div class="card bg-dark border-secondary mb-4">
+        <div class="card-header bg-dark border-secondary">
+            <h5 class="mb-0"><i class="fas fa-user-tag me-2" style="color: var(--module-prospector-text);"></i>ICP Profiles</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Profile Name</th>
+                            <th>Industries</th>
+                            <th>Geographies</th>
+                            <th>Last Updated</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for profile in profiles %}
+                        <tr>
+                            <td>
+                                <strong>{{ profile.name }}</strong>
+                                {% if profile.description %}
+                                <br><small class="text-muted">{{ profile.description[:80] }}{% if profile.description|length > 80 %}...{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% for ind in profile.get_industries()[:3] %}
+                                <span class="badge bg-secondary">{{ ind }}</span>
+                                {% endfor %}
+                                {% if profile.get_industries()|length > 3 %}
+                                <span class="text-muted small">+{{ profile.get_industries()|length - 3 }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% for geo in profile.get_geographies()[:2] %}
+                                <span class="badge bg-secondary">{{ geo }}</span>
+                                {% endfor %}
+                                {% if profile.get_geographies()|length > 2 %}
+                                <span class="text-muted small">+{{ profile.get_geographies()|length - 2 }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ profile.updated_at.strftime('%b %d, %Y') if profile.updated_at else 'N/A' }}</td>
+                            <td class="text-end">
+                                <form method="post" action="{{ url_for('scout_prospector.run_research', profile_id=profile.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Run AI Research"
+                                        onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Researching...'; this.form.submit();">
+                                        <i class="fas fa-search me-1"></i>Research
+                                    </button>
+                                </form>
+                                <a href="{{ url_for('scout_prospector.edit_profile', profile_id=profile.id) }}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="post" action="{{ url_for('scout_prospector.delete_profile', profile_id=profile.id) }}" class="d-inline" onsubmit="return confirm('Delete this profile and all its research history?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card bg-dark border-secondary mb-4">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-crosshairs fa-3x mb-3" style="color: var(--module-prospector-text); opacity: 0.5;"></i>
+            <h5>No ICP Profiles Yet</h5>
+            <p class="text-muted">Create your first Ideal Client Profile to start discovering prospects.</p>
+            <a href="{{ url_for('scout_prospector.create_profile') }}" class="btn btn-primary" style="background: var(--module-prospector-accent); border-color: var(--module-prospector-accent);">
+                <i class="fas fa-plus me-1"></i>Create ICP Profile
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card bg-dark border-secondary">
+        <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-building me-2" style="color: var(--module-prospector-text);"></i>Prospects</h5>
+            <div class="d-flex gap-2 align-items-center">
+                <form method="get" action="{{ url_for('scout_prospector.prospector_dashboard') }}" class="d-flex gap-2 align-items-center">
+                    <input type="text" name="search" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Search companies..." value="{{ search_query }}" style="width: 180px;">
+                    <select name="status" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+                        <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+                        <option value="hot" {% if status_filter == 'hot' %}selected{% endif %}>Hot</option>
+                        <option value="warm" {% if status_filter == 'warm' %}selected{% endif %}>Warm</option>
+                        <option value="cold" {% if status_filter == 'cold' %}selected{% endif %}>Cold</option>
+                        <option value="contacted" {% if status_filter == 'contacted' %}selected{% endif %}>Contacted</option>
+                        <option value="not_interested" {% if status_filter == 'not_interested' %}selected{% endif %}>Not Interested</option>
+                    </select>
+                    {% if profiles %}
+                    <select name="profile" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: auto;">
+                        <option value="">All Profiles</option>
+                        {% for profile in profiles %}
+                        <option value="{{ profile.id }}" {% if profile_filter == profile.id|string %}selected{% endif %}>{{ profile.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-filter"></i></button>
+                </form>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if prospects %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>Industry</th>
+                            <th>Size</th>
+                            <th>Location</th>
+                            <th>Score</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prospect in prospects %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('scout_prospector.prospect_detail', prospect_id=prospect.id) }}" class="text-decoration-none" style="color: var(--module-prospector-text);">
+                                    <strong>{{ prospect.company_name }}</strong>
+                                </a>
+                                {% if prospect.website %}
+                                <br><a href="{{ prospect.website }}" target="_blank" class="text-muted small"><i class="fas fa-external-link-alt me-1"></i>{{ prospect.website[:40] }}{% if prospect.website|length > 40 %}...{% endif %}</a>
+                                {% endif %}
+                            </td>
+                            <td>{{ prospect.industry or '—' }}</td>
+                            <td>{{ prospect.estimated_size or '—' }}</td>
+                            <td>{{ prospect.location or '—' }}</td>
+                            <td>
+                                {% set score = prospect.qualification_score %}
+                                <span class="badge {% if score >= 80 %}bg-success{% elif score >= 60 %}bg-warning text-dark{% elif score >= 40 %}bg-secondary{% else %}bg-danger{% endif %}">
+                                    {{ score }}%
+                                </span>
+                            </td>
+                            <td>
+                                {% set status_colors = {'new': 'secondary', 'hot': 'danger', 'warm': 'warning', 'cold': 'info', 'contacted': 'primary', 'not_interested': 'dark'} %}
+                                <span class="badge bg-{{ status_colors.get(prospect.status, 'secondary') }} {% if prospect.status == 'warm' %}text-dark{% endif %}">
+                                    {{ prospect.status|replace('_', ' ')|title }}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('scout_prospector.prospect_detail', prospect_id=prospect.id) }}" class="btn btn-sm btn-outline-secondary" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <form method="post" action="{{ url_for('scout_prospector.delete_prospect', prospect_id=prospect.id) }}" class="d-inline" onsubmit="return confirm('Remove this prospect?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x mb-3 text-muted" style="opacity: 0.3;"></i>
+                <h5 class="text-muted">No Prospects Found</h5>
+                <p class="text-muted">Create an ICP profile and run a research session to discover prospects.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

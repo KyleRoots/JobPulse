@@ -1,0 +1,181 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Scout Prospector — {{ prospect.company_name }}{% endblock %}
+{% block body_attrs %}data-module="prospector"{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="fas fa-building me-2" style="color: var(--module-prospector-text);"></i>
+                {{ prospect.company_name }}
+            </h2>
+            <p class="text-muted mb-0">
+                {% if prospect.industry %}{{ prospect.industry }}{% endif %}
+                {% if prospect.location %} &bull; {{ prospect.location }}{% endif %}
+            </p>
+        </div>
+        <a href="{{ url_for('scout_prospector.prospector_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2" style="color: var(--module-prospector-text);"></i>Company Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="text-muted small d-block">Industry</label>
+                                <strong>{{ prospect.industry or 'Not specified' }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="text-muted small d-block">Estimated Size</label>
+                                <strong>{{ prospect.estimated_size or 'Not specified' }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="text-muted small d-block">Location</label>
+                                <strong>{{ prospect.location or 'Not specified' }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="text-muted small d-block">Website</label>
+                                {% if prospect.website %}
+                                <a href="{{ prospect.website }}" target="_blank" style="color: var(--module-prospector-text);">
+                                    {{ prospect.website }} <i class="fas fa-external-link-alt ms-1 small"></i>
+                                </a>
+                                {% else %}
+                                <span class="text-muted">Not available</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if prospect.fit_reason %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-check-circle me-2" style="color: var(--module-prospector-text);"></i>Why They're a Fit</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ prospect.fit_reason }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if prospect.hiring_activity %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2" style="color: var(--module-prospector-text);"></i>Hiring Activity</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ prospect.hiring_activity }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% set contacts = prospect.get_key_contacts() %}
+            {% if contacts %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-user-tie me-2" style="color: var(--module-prospector-text);"></i>Key Contacts</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        {% for contact in contacts %}
+                        <li class="mb-1"><i class="fas fa-user me-2 text-muted"></i>{{ contact }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {% set sources = prospect.get_source_urls() %}
+            {% if sources %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-link me-2" style="color: var(--module-prospector-text);"></i>Sources</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        {% for url in sources %}
+                        <li class="mb-1"><a href="{{ url }}" target="_blank" class="text-muted"><i class="fas fa-external-link-alt me-1"></i>{{ url[:60] }}{% if url|length > 60 %}...{% endif %}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-tachometer-alt me-2" style="color: var(--module-prospector-text);"></i>Qualification Score</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% set score = prospect.qualification_score %}
+                    <div class="fs-1 fw-bold mb-2 {% if score >= 80 %}text-success{% elif score >= 60 %}text-warning{% elif score >= 40 %}text-secondary{% else %}text-danger{% endif %}">
+                        {{ score }}%
+                    </div>
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar {% if score >= 80 %}bg-success{% elif score >= 60 %}bg-warning{% elif score >= 40 %}bg-secondary{% else %}bg-danger{% endif %}"
+                            role="progressbar" style="width: {{ score }}%"></div>
+                    </div>
+                    <small class="text-muted">
+                        {% if score >= 80 %}Strong fit{% elif score >= 60 %}Good potential{% elif score >= 40 %}Moderate match{% else %}Low match{% endif %}
+                    </small>
+                </div>
+            </div>
+
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header bg-dark border-secondary">
+                    <h5 class="mb-0"><i class="fas fa-tag me-2" style="color: var(--module-prospector-text);"></i>Status & Notes</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('scout_prospector.update_prospect', prospect_id=prospect.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="return_to_detail" value="1">
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select bg-dark text-light border-secondary" id="status" name="status">
+                                {% set status_labels = {'new': 'New', 'hot': 'Hot', 'warm': 'Warm', 'cold': 'Cold', 'contacted': 'Contacted', 'not_interested': 'Not Interested'} %}
+                                {% for val, label in status_labels.items() %}
+                                <option value="{{ val }}" {% if prospect.status == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control bg-dark text-light border-secondary" id="notes" name="notes" rows="5"
+                                placeholder="Add your notes about this prospect...">{{ prospect.notes or '' }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100" style="background: var(--module-prospector-accent); border-color: var(--module-prospector-accent);">
+                            <i class="fas fa-save me-1"></i>Save Changes
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card bg-dark border-secondary">
+                <div class="card-body">
+                    <small class="text-muted">
+                        <i class="fas fa-calendar me-1"></i>Found: {{ prospect.created_at.strftime('%b %d, %Y at %I:%M %p') if prospect.created_at else 'N/A' }}<br>
+                        <i class="fas fa-sync me-1"></i>Updated: {{ prospect.updated_at.strftime('%b %d, %Y at %I:%M %p') if prospect.updated_at else 'N/A' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -94,6 +94,25 @@ body[data-module="support"] {
     --bs-info-rgb: 139, 92, 246;
 }
 
+body[data-module="prospector"] {
+    --module-accent: var(--module-prospector-accent);
+    --module-bg: var(--module-prospector-bg);
+    --module-border: var(--module-prospector-border);
+    --module-text: var(--module-prospector-text);
+    --module-glow: var(--module-prospector-glow);
+    --module-gradient: var(--module-prospector-gradient);
+    --module-subtle: var(--module-prospector-subtle);
+    --module-border-strong: var(--module-prospector-border-strong);
+    --module-card-bg: var(--module-prospector-card-bg);
+    --module-card-hover-bg: var(--module-prospector-card-hover-bg);
+    --content-bg: linear-gradient(135deg, #0a1020 0%, #101830 50%, #080e1c 100%);
+    --sidebar-bg: #080e1c;
+    --bs-success: #3b82f6;
+    --bs-success-rgb: 59, 130, 246;
+    --bs-info: #3b82f6;
+    --bs-info-rgb: 59, 130, 246;
+}
+
 /* ============================================
    PAGE HEADER – Module-tinted background + border
    ============================================ */

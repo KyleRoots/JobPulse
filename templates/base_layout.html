@@ -1517,6 +1517,9 @@
                 {% elif active_page in ['scout_support', 'scout_support_knowledge'] %}
                 <img src="{{ url_for('static', filename='images/scout-support-logo.png') }}" alt="Scout Support"
                     class="sidebar-logo-full">
+                {% elif active_page in ['scout_prospector'] %}
+                <img src="{{ url_for('static', filename='images/scout-prospector-logo.png') }}" alt="Scout Prospector"
+                    class="sidebar-logo-full">
                 {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
                     class="sidebar-logo-full">
@@ -1532,6 +1535,9 @@
                     class="sidebar-logo-compact">
                 {% elif active_page in ['scout_support', 'scout_support_knowledge'] %}
                 <img src="{{ url_for('static', filename='images/scout-support-icon.png') }}" alt="Scout Support"
+                    class="sidebar-logo-compact">
+                {% elif active_page in ['scout_prospector'] %}
+                <img src="{{ url_for('static', filename='images/scout-prospector-icon.png') }}" alt="Scout Prospector"
                     class="sidebar-logo-compact">
                 {% else %}
                 <img src="{{ url_for('static', filename='images/scout-genius-icon.png') }}" alt="Scout Genius"
@@ -1621,6 +1627,17 @@
                     <span>Knowledge Hub</span>
                 </a>
                 {% endif %}
+            </div>
+            {% endif %}
+
+            {% if current_user.is_authenticated and current_user.has_module('scout_prospector') %}
+            <div class="nav-section" data-section="prospector">
+                <div class="nav-section-title" style="color: #3b82f6;">Scout Prospector</div>
+                <a href="{{ url_for('scout_prospector.prospector_dashboard') }}"
+                    class="nav-item {% if active_page == 'scout_prospector' %}active{% endif %}">
+                    <i class="fas fa-crosshairs" style="color: #60a5fa;"></i>
+                    <span>Prospect Finder</span>
+                </a>
             </div>
             {% endif %}
 

@@ -1,0 +1,154 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Scout Prospector — {% if edit_mode %}Edit{% else %}Create{% endif %} ICP Profile{% endblock %}
+{% block body_attrs %}data-module="prospector"{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="fas fa-{% if edit_mode %}edit{% else %}plus-circle{% endif %} me-2" style="color: var(--module-prospector-text);"></i>
+                {% if edit_mode %}Edit{% else %}Create{% endif %} ICP Profile
+            </h2>
+            <p class="text-muted mb-0">Define your Ideal Client Profile to target the right prospects</p>
+        </div>
+        <a href="{{ url_for('scout_prospector.prospector_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+        </a>
+    </div>
+
+    <form method="post" action="{% if edit_mode %}{{ url_for('scout_prospector.edit_profile', profile_id=profile.id) }}{% else %}{{ url_for('scout_prospector.create_profile') }}{% endif %}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card bg-dark border-secondary mb-4">
+                    <div class="card-header bg-dark border-secondary">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2" style="color: var(--module-prospector-text);"></i>Profile Basics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Profile Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-dark text-light border-secondary" id="name" name="name" required
+                                placeholder="e.g., Enterprise Tech Companies - Northeast" value="{{ profile.name if profile else '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control bg-dark text-light border-secondary" id="description" name="description" rows="2"
+                                placeholder="Brief description of this ICP...">{{ profile.description if profile else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-dark border-secondary mb-4">
+                    <div class="card-header bg-dark border-secondary">
+                        <h5 class="mb-0"><i class="fas fa-industry me-2" style="color: var(--module-prospector-text);"></i>Target Industries</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">Select the industries you want to target:</p>
+                        {% set all_industries = [
+                            'Technology', 'Healthcare', 'Financial Services', 'Manufacturing',
+                            'Energy & Utilities', 'Government & Defense', 'Retail & E-commerce',
+                            'Telecommunications', 'Life Sciences & Pharma', 'Insurance',
+                            'Professional Services', 'Transportation & Logistics', 'Education',
+                            'Real Estate', 'Media & Entertainment', 'Aerospace',
+                            'Automotive', 'Construction', 'Agriculture', 'Nonprofit'
+                        ] %}
+                        {% set selected_industries = profile.get_industries() if profile else [] %}
+                        <div class="row g-2">
+                            {% for ind in all_industries %}
+                            <div class="col-md-4 col-sm-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="industries" value="{{ ind }}" id="ind_{{ loop.index }}"
+                                        {% if ind in selected_industries %}checked{% endif %}>
+                                    <label class="form-check-label" for="ind_{{ loop.index }}">{{ ind }}</label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-dark border-secondary mb-4">
+                    <div class="card-header bg-dark border-secondary">
+                        <h5 class="mb-0"><i class="fas fa-users me-2" style="color: var(--module-prospector-text);"></i>Company Size</h5>
+                    </div>
+                    <div class="card-body">
+                        {% set all_sizes = ['1-50 employees', '51-200 employees', '201-500 employees', '501-1000 employees', '1001-5000 employees', '5000+ employees'] %}
+                        {% set selected_sizes = profile.get_company_sizes() if profile else [] %}
+                        <div class="row g-2">
+                            {% for size in all_sizes %}
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="company_sizes" value="{{ size }}" id="size_{{ loop.index }}"
+                                        {% if size in selected_sizes %}checked{% endif %}>
+                                    <label class="form-check-label" for="size_{{ loop.index }}">{{ size }}</label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card bg-dark border-secondary mb-4">
+                    <div class="card-header bg-dark border-secondary">
+                        <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2" style="color: var(--module-prospector-text);"></i>Geographic Focus</h5>
+                    </div>
+                    <div class="card-body">
+                        <label for="geographies" class="form-label">Locations <small class="text-muted">(comma-separated)</small></label>
+                        <textarea class="form-control bg-dark text-light border-secondary" id="geographies" name="geographies" rows="3"
+                            placeholder="e.g., New York, Chicago, Remote, Midwest US">{{ profile.get_geographies()|join(', ') if profile else '' }}</textarea>
+                    </div>
+                </div>
+
+                <div class="card bg-dark border-secondary mb-4">
+                    <div class="card-header bg-dark border-secondary">
+                        <h5 class="mb-0"><i class="fas fa-briefcase me-2" style="color: var(--module-prospector-text);"></i>Job Types</h5>
+                    </div>
+                    <div class="card-body">
+                        <label for="job_types" class="form-label">Roles you staff for <small class="text-muted">(comma-separated)</small></label>
+                        <textarea class="form-control bg-dark text-light border-secondary" id="job_types" name="job_types" rows="3"
+                            placeholder="e.g., Software Engineers, Project Managers, Data Analysts">{{ profile.get_job_types()|join(', ') if profile else '' }}</textarea>
+                    </div>
+                </div>
+
+                <div class="card bg-dark border-secondary mb-4">
+                    <div class="card-header bg-dark border-secondary">
+                        <h5 class="mb-0"><i class="fas fa-signal me-2" style="color: var(--module-prospector-text);"></i>Hiring Signals</h5>
+                    </div>
+                    <div class="card-body">
+                        {% set all_signals = ['Active job postings', 'Recent funding', 'Company growth/expansion', 'New office locations', 'Leadership changes', 'Mergers & acquisitions', 'Government contracts', 'Product launches'] %}
+                        {% set selected_signals = profile.get_hiring_signals() if profile else [] %}
+                        {% for signal in all_signals %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="hiring_signals" value="{{ signal }}" id="signal_{{ loop.index }}"
+                                {% if signal in selected_signals %}checked{% endif %}>
+                            <label class="form-check-label" for="signal_{{ loop.index }}">{{ signal }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="card bg-dark border-secondary mb-4">
+                    <div class="card-header bg-dark border-secondary">
+                        <h5 class="mb-0"><i class="fas fa-sliders-h me-2" style="color: var(--module-prospector-text);"></i>Additional Criteria</h5>
+                    </div>
+                    <div class="card-body">
+                        <textarea class="form-control bg-dark text-light border-secondary" id="additional_criteria" name="additional_criteria" rows="4"
+                            placeholder="Any additional details or requirements...">{{ profile.additional_criteria if profile else '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mb-4">
+            <button type="submit" class="btn btn-primary" style="background: var(--module-prospector-accent); border-color: var(--module-prospector-accent);">
+                <i class="fas fa-save me-1"></i>{% if edit_mode %}Update Profile{% else %}Create Profile{% endif %}
+            </button>
+            <a href="{{ url_for('scout_prospector.prospector_dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

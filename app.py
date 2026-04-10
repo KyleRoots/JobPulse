@@ -189,6 +189,9 @@ app.register_blueprint(support_auth_bp)
 app.register_blueprint(scout_support_bp)
 app.register_blueprint(knowledge_hub_bp)
 
+from routes.scout_prospector import scout_prospector_bp
+app.register_blueprint(scout_prospector_bp)
+
 from routes.platform_support import platform_support_bp
 app.register_blueprint(platform_support_bp)
 
