@@ -284,7 +284,7 @@ SOME minimal relevance (even 2-5%) based on:
 
 IMPORTANT: If the candidate genuinely has NO relevant background whatsoever (e.g., a retail cashier 
 applying for a senior cloud architect role), then 0% IS correct — confirm it. Do not inflate scores 
-just to avoid 0%. But if there IS some connection, even minor, assign an honest score of 2-15%.
+just to avoid 0%. But if there IS some connection, even minor, assign an honest revised score.
 
 ORIGINAL ASSESSMENT:
 - Score: 0%
@@ -302,7 +302,7 @@ Respond in JSON:
 {{
   "is_truly_zero": true/false,
   "confidence_reason": "Why 0% is correct (if is_truly_zero=true)",
-  "revised_score": 0-15,
+  "revised_score": 0-100,
   "revised_summary": "Updated summary (if revised_score > 0)",
   "revised_gaps": "Updated gaps (if revised_score > 0)",
   "revision_reason": "What relevance was overlooked (if revised_score > 0)"
@@ -326,8 +326,6 @@ Respond in JSON:
             result = json.loads(content)
             
             revised_score = int(result.get('revised_score', 0))
-            if revised_score > 15:
-                revised_score = 15
             result['revised_score'] = revised_score
             
             return result
