@@ -9,22 +9,44 @@ platform_support_bp = Blueprint('platform_support', __name__)
 logger = logging.getLogger(__name__)
 
 
+@platform_support_bp.route('/my-feedback')
+@login_required
+def my_feedback():
+    from models import SupportTicket
+    from scout_support_service import CATEGORY_LABELS, PLATFORM_CATEGORIES
+
+    tickets = SupportTicket.query.filter_by(
+        submitter_email=current_user.email
+    ).filter(
+        SupportTicket.category.in_(PLATFORM_CATEGORIES)
+    ).order_by(SupportTicket.created_at.desc()).all()
+
+    stats = {
+        'total': len(tickets),
+        'open': sum(1 for t in tickets if t.status not in ('completed', 'closed')),
+    }
+
+    return render_template('my_feedback.html',
+                           tickets=tickets,
+                           stats=stats,
+                           category_labels=CATEGORY_LABELS,
+                           active_page='my_feedback')
+
+
 @platform_support_bp.route('/my-tickets')
 @login_required
 def my_tickets():
     from models import SupportTicket
     from scout_support_service import CATEGORY_LABELS, PLATFORM_CATEGORIES
 
-    all_user_tickets = SupportTicket.query.filter_by(
-        submitter_email=current_user.email
-    ).order_by(SupportTicket.created_at.desc()).all()
-
     has_support_module = current_user.is_admin or current_user.has_module('scout_support')
 
-    if has_support_module:
-        tickets = all_user_tickets
-    else:
-        tickets = [t for t in all_user_tickets if t.category in PLATFORM_CATEGORIES]
+    if not has_support_module:
+        return redirect(url_for('platform_support.my_feedback'))
+
+    tickets = SupportTicket.query.filter_by(
+        submitter_email=current_user.email
+    ).order_by(SupportTicket.created_at.desc()).all()
 
     platform_tickets = [t for t in tickets if t.category in PLATFORM_CATEGORIES]
     ats_tickets = [t for t in tickets if t.category not in PLATFORM_CATEGORIES]
@@ -53,12 +75,14 @@ def my_ticket_detail(ticket_number):
 
     ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first_or_404()
 
-    if ticket.submitter_email != current_user.email and not current_user.is_admin:
-        return redirect(url_for('platform_support.my_tickets'))
-
     has_support_module = current_user.is_admin or current_user.has_module('scout_support')
+
+    if ticket.submitter_email != current_user.email and not current_user.is_admin:
+        fallback = 'platform_support.my_tickets' if has_support_module else 'platform_support.my_feedback'
+        return redirect(url_for(fallback))
+
     if not has_support_module and ticket.category not in PLATFORM_CATEGORIES:
-        return redirect(url_for('platform_support.my_tickets'))
+        return redirect(url_for('platform_support.my_feedback'))
 
     from models import SupportConversation
     ADMIN_ONLY_TYPES = {
@@ -81,12 +105,15 @@ def my_ticket_detail(ticket_number):
     if ai_understanding is None and ticket.ai_understanding:
         ai_understanding = {'understanding': ticket.ai_understanding}
 
+    active = 'my_tickets' if has_support_module else 'my_feedback'
+
     return render_template('my_ticket_detail.html',
                            ticket=ticket,
                            conversations=conversations,
                            attachments=attachments,
                            ai_understanding=ai_understanding,
-                           active_page='my_tickets')
+                           has_support_module=has_support_module,
+                           active_page=active)
 
 
 @platform_support_bp.route('/my-tickets/attachment/<int:attachment_id>')

@@ -1,0 +1,111 @@
+{% extends "base_layout.html" %}
+
+{% block title %}My Feedback{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-comment-dots me-2" style="color: var(--brand-secondary);"></i>My Feedback</h2>
+            <p class="text-muted mb-0">Track your platform feedback submissions</p>
+        </div>
+        <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#feedbackModal">
+            <i class="fas fa-plus me-1"></i>New Feedback
+        </button>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="text-muted small mb-1"><i class="fas fa-comment-dots me-1"></i>Total Submissions</div>
+                <div class="fs-2 fw-bold" style="color: var(--brand-secondary);">{{ stats.total }}</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary text-center p-3">
+                <div class="text-muted small mb-1"><i class="fas fa-clock me-1"></i>Open</div>
+                <div class="fs-2 fw-bold text-warning">{{ stats.open }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+        <div class="card-header bg-dark border-secondary">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>All Feedback</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if tickets %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>Subject</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ticket in tickets %}
+                        <tr style="cursor:pointer;"
+                            onclick="window.location='{{ url_for('platform_support.my_ticket_detail', ticket_number=ticket.ticket_number) }}'">
+                            <td>
+                                <span class="badge font-monospace" style="background: rgba(74, 150, 120, 0.2); color: #6ec9a5;">
+                                    {{ ticket.ticket_number }}
+                                </span>
+                            </td>
+                            <td>{{ ticket.subject[:60] }}{% if ticket.subject|length > 60 %}...{% endif %}</td>
+                            <td>
+                                <span class="badge bg-secondary bg-opacity-50">{{ category_labels.get(ticket.category, ticket.category) }}</span>
+                            </td>
+                            <td>
+                                {% if ticket.priority == 'high' or ticket.priority == 'urgent' %}
+                                <span class="badge bg-danger">{{ ticket.priority|capitalize }}</span>
+                                {% elif ticket.priority == 'medium' %}
+                                <span class="badge bg-warning text-dark">Medium</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Low</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set status_labels = {
+                                    'new': 'New', 'acknowledged': 'Received', 'clarifying': 'In Review',
+                                    'in_progress': 'In Progress', 'solution_proposed': 'Solution Proposed',
+                                    'awaiting_user_approval': 'Your Approval',
+                                    'awaiting_admin_approval': 'Processing', 'approved': 'Approved',
+                                    'executing': 'In Progress', 'completed': 'Completed',
+                                    'execution_failed': 'Needs Attention', 'on_hold': 'On Hold',
+                                    'closed': 'Closed', 'escalated': 'Under Review'
+                                } %}
+                                {% set status_colors = {
+                                    'new': 'secondary', 'acknowledged': 'info', 'clarifying': 'primary',
+                                    'in_progress': 'info', 'solution_proposed': 'primary',
+                                    'awaiting_user_approval': 'warning',
+                                    'awaiting_admin_approval': 'secondary', 'approved': 'info',
+                                    'executing': 'info', 'completed': 'secondary',
+                                    'execution_failed': 'danger', 'on_hold': 'warning',
+                                    'closed': 'secondary', 'escalated': 'danger'
+                                } %}
+                                <span class="badge bg-{{ status_colors.get(ticket.status, 'secondary') }}">
+                                    {{ status_labels.get(ticket.status, ticket.status) }}
+                                </span>
+                            </td>
+                            <td class="text-muted small">{{ ticket.created_at.strftime('%b %d, %H:%M') if ticket.created_at else '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p class="mb-2">No feedback submitted yet.</p>
+                <p class="small">Use the <strong>Feedback</strong> button to submit a bug report, feature request, or question.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
