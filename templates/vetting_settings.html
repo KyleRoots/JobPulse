@@ -81,7 +81,59 @@
         transform: translateX(30px);
     }
 
-    /* stat-card styles removed - now using global metric-card from base_layout.html */
+    .monitor-panel {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    .monitor-stat {
+        text-align: center;
+        padding: 1rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .monitor-stat .stat-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .monitor-stat .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-top: 0.25rem;
+    }
+    .health-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    .health-dot.healthy { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.5); }
+    .health-dot.unhealthy { background: #ef4444; box-shadow: 0 0 6px rgba(239, 68, 68, 0.5); }
+    .health-dot.unknown { background: #6b7280; }
+    .activity-feed-item {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 0.85rem;
+    }
+    .activity-feed-item:last-child { border-bottom: none; }
+    .progress-bar-custom {
+        height: 8px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+    }
+    .progress-bar-custom .fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    #activityMonitor .badge { font-size: 0.7rem; }
 
     .accordion-button {
         background-color: transparent !important;
@@ -183,6 +235,99 @@
     </div>
 </div>
 
+
+{% if current_user.is_admin %}
+<div class="card settings-card mb-4" id="activityMonitor">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-activity me-2"></i>Screening Activity Monitor
+        </h5>
+        <div class="d-flex align-items-center gap-2">
+            <small class="text-muted" id="monitorLastUpdate">Loading...</small>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked>
+                <label class="form-check-label text-muted" for="autoRefreshToggle" style="font-size: 0.75rem;">Auto-refresh</label>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-2">
+                <div class="monitor-stat">
+                    <div class="stat-value text-warning" id="monQueuePending">--</div>
+                    <div class="stat-label">Queue</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="monitor-stat">
+                    <div class="stat-value text-info" id="monProcessed24h">--</div>
+                    <div class="stat-label">Processed (24h)</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="monitor-stat">
+                    <div class="stat-value text-success" id="monQualified24h">--</div>
+                    <div class="stat-label">Qualified (24h)</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="monitor-stat">
+                    <div class="stat-value text-danger" id="monNotQualified24h">--</div>
+                    <div class="stat-label">Not Qualified (24h)</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="monitor-stat">
+                    <div class="stat-value text-secondary" id="monIncomplete24h">--</div>
+                    <div class="stat-label">Incomplete (24h)</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="monitor-stat">
+                    <div class="stat-value text-primary" id="monThroughput">--</div>
+                    <div class="stat-label">Per Hour</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="monitor-panel h-100">
+                    <h6 class="mb-3"><i class="fas fa-server me-2 text-info"></i>System Status</h6>
+                    <div id="monSystemStatus">
+                        <div class="mb-2"><span class="health-dot unknown"></span> Loading...</div>
+                    </div>
+                    <hr class="border-secondary my-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <small class="text-muted">Est. Time Remaining</small>
+                        <strong id="monETA" class="text-light">--</strong>
+                    </div>
+                    <div class="progress-bar-custom mt-2">
+                        <div class="fill bg-info" id="monProgressBar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted d-block mt-1" id="monProgressLabel">Calculating...</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="monitor-panel h-100">
+                    <h6 class="mb-3"><i class="fas fa-chart-pie me-2 text-warning"></i>Result Breakdown (24h)</h6>
+                    <div id="monBreakdown">
+                        <small class="text-muted">Loading...</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="monitor-panel h-100">
+                    <h6 class="mb-3"><i class="fas fa-stream me-2 text-success"></i>Recent Activity</h6>
+                    <div id="monRecentFeed" style="max-height: 220px; overflow-y: auto;">
+                        <small class="text-muted">Loading...</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="row g-4">
     <div class="col-md-6">
@@ -1285,5 +1430,128 @@
                 alert('Network error — please try again');
             });
         }
+
+        {% if current_user.is_admin %}
+        (function initActivityMonitor() {
+            var monitorInterval = null;
+            var REFRESH_SECONDS = 30;
+
+            function esc(str) {
+                var d = document.createElement('div');
+                d.textContent = str || '';
+                return d.innerHTML;
+            }
+
+            function noteActionBadge(action) {
+                var safe = esc(action);
+                var map = {
+                    'Scout Screen - Qualified': '<span class="badge bg-success">Qualified</span>',
+                    'Scout Screen - Not Qualified': '<span class="badge bg-danger">Not Qualified</span>',
+                    'Scout Screen - Incomplete': '<span class="badge bg-secondary">Incomplete</span>',
+                    'Scout Screen - Loc Barrier': '<span class="badge bg-warning text-dark">Loc Barrier</span>'
+                };
+                return map[action] || '<span class="badge bg-secondary">' + safe + '</span>';
+            }
+
+            function formatETA(hours) {
+                if (hours === null || hours === undefined) return 'Stalled';
+                if (hours <= 0) return 'Complete';
+                if (hours < 1) return Math.round(hours * 60) + ' min';
+                if (hours < 24) return hours.toFixed(1) + ' hrs';
+                return (hours / 24).toFixed(1) + ' days';
+            }
+
+            function refreshMonitor() {
+                fetch('/screening/activity-monitor')
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.json();
+                    })
+                    .then(function(d) {
+                        document.getElementById('monQueuePending').textContent = d.queue.pending.toLocaleString();
+                        document.getElementById('monProcessed24h').textContent = d.pipeline.processed_24h.toLocaleString();
+                        document.getElementById('monQualified24h').textContent = d.pipeline.qualified_24h.toLocaleString();
+                        document.getElementById('monNotQualified24h').textContent = d.pipeline.not_qualified_24h.toLocaleString();
+                        document.getElementById('monIncomplete24h').textContent = d.pipeline.incomplete_24h.toLocaleString();
+                        document.getElementById('monThroughput').textContent = d.pipeline.throughput_per_hour;
+
+                        var sysHtml = '';
+                        sysHtml += '<div class="mb-2"><span class="health-dot ' + (d.system.vetting_enabled ? 'healthy' : 'unhealthy') + '"></span> Screening: <strong>' + (d.system.vetting_enabled ? 'Enabled' : 'Disabled') + '</strong></div>';
+                        sysHtml += '<div class="mb-2"><span class="health-dot ' + (d.system.is_locked ? 'unhealthy' : 'healthy') + '"></span> Scheduler: <strong>' + (d.system.is_locked ? 'Processing...' : 'Ready') + '</strong></div>';
+                        if (d.system.health) {
+                            var h = d.system.health;
+                            sysHtml += '<div class="mb-1"><span class="health-dot ' + (h.bullhorn_status === 'ok' ? 'healthy' : 'unhealthy') + '"></span> Bullhorn: ' + esc(h.bullhorn_status || 'Unknown') + '</div>';
+                            sysHtml += '<div class="mb-1"><span class="health-dot ' + (h.openai_status === 'ok' ? 'healthy' : 'unhealthy') + '"></span> OpenAI: ' + esc(h.openai_status || 'Unknown') + '</div>';
+                            sysHtml += '<div class="mb-1"><span class="health-dot ' + (h.database_status === 'ok' ? 'healthy' : 'unhealthy') + '"></span> Database: ' + esc(h.database_status || 'Unknown') + '</div>';
+                            sysHtml += '<small class="text-muted d-block mt-1">Last check: ' + esc(h.check_time) + '</small>';
+                        }
+                        document.getElementById('monSystemStatus').innerHTML = sysHtml;
+
+                        document.getElementById('monETA').textContent = formatETA(d.pipeline.est_hours_remaining);
+                        var total = d.pipeline.processed_24h + d.queue.pending;
+                        var pct = total > 0 ? Math.round((d.pipeline.processed_24h / total) * 100) : 0;
+                        document.getElementById('monProgressBar').style.width = pct + '%';
+                        document.getElementById('monProgressLabel').textContent = d.pipeline.processed_24h.toLocaleString() + ' processed / ' + d.queue.pending.toLocaleString() + ' remaining';
+                        if (d.queue.cutoff_active) {
+                            document.getElementById('monProgressLabel').textContent += ' (cutoff: ' + esc(d.queue.cutoff_date) + ')';
+                        }
+
+                        var bdHtml = '';
+                        var breakdown = d.result_breakdown;
+                        var bdKeys = Object.keys(breakdown).sort(function(a, b) { return breakdown[b] - breakdown[a]; });
+                        if (bdKeys.length === 0) {
+                            bdHtml = '<small class="text-muted">No results in last 24h</small>';
+                        } else {
+                            var maxVal = breakdown[bdKeys[0]] || 1;
+                            bdKeys.forEach(function(key) {
+                                var val = breakdown[key];
+                                var pctW = Math.round((val / maxVal) * 100);
+                                var color = key.includes('Qualified') && !key.includes('Not') ? '#22c55e' : key.includes('Not Qualified') ? '#ef4444' : key.includes('Loc Barrier') ? '#eab308' : key.includes('Incomplete') ? '#6b7280' : '#3b82f6';
+                                bdHtml += '<div class="mb-2"><div class="d-flex justify-content-between mb-1"><small>' + esc(key.replace('Scout Screen - ', '')) + '</small><small class="fw-bold">' + val + '</small></div>';
+                                bdHtml += '<div class="progress-bar-custom"><div class="fill" style="width:' + pctW + '%;background:' + color + '"></div></div></div>';
+                            });
+                        }
+                        document.getElementById('monBreakdown').innerHTML = bdHtml;
+
+                        var feedHtml = '';
+                        d.recent_activity.forEach(function(item) {
+                            feedHtml += '<div class="activity-feed-item d-flex justify-content-between align-items-center">';
+                            feedHtml += '<div><strong>' + esc(item.candidate_name) + '</strong> ';
+                            feedHtml += noteActionBadge(item.note_action);
+                            if (item.score !== null && item.score !== undefined) feedHtml += ' <small class="text-muted">' + esc(String(item.score)) + '%</small>';
+                            feedHtml += '</div>';
+                            feedHtml += '<small class="text-muted text-nowrap ms-2">' + esc(item.completed_at) + '</small>';
+                            feedHtml += '</div>';
+                        });
+                        document.getElementById('monRecentFeed').innerHTML = feedHtml || '<small class="text-muted">No recent activity</small>';
+
+                        var now = new Date();
+                        document.getElementById('monitorLastUpdate').textContent = 'Updated ' + now.toLocaleTimeString();
+                    })
+                    .catch(function(err) {
+                        document.getElementById('monitorLastUpdate').textContent = 'Update failed — ' + (err.message || 'network error');
+                    });
+            }
+
+            refreshMonitor();
+
+            function startAutoRefresh() {
+                if (monitorInterval) clearInterval(monitorInterval);
+                monitorInterval = setInterval(refreshMonitor, REFRESH_SECONDS * 1000);
+            }
+
+            var toggle = document.getElementById('autoRefreshToggle');
+            if (toggle) {
+                toggle.addEventListener('change', function() {
+                    if (this.checked) {
+                        startAutoRefresh();
+                    } else {
+                        if (monitorInterval) clearInterval(monitorInterval);
+                    }
+                });
+            }
+            startAutoRefresh();
+        }());
+        {% endif %}
     </script>
     {% endblock %}

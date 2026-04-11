@@ -735,6 +735,147 @@ def vetting_diagnostic():
 
 
 
+@vetting_bp.route('/screening/activity-monitor')
+@login_required
+def activity_monitor():
+    """Real-time screening pipeline activity monitor (super-admin only)"""
+    from models import ParsedEmail, CandidateVettingLog, VettingConfig, VettingHealthCheck
+    from sqlalchemy import func, case
+    from flask_login import current_user
+
+    if not getattr(current_user, 'is_admin', False):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        return _activity_monitor_data()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Activity monitor error: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+def _activity_monitor_data():
+    from models import ParsedEmail, CandidateVettingLog, VettingConfig, VettingHealthCheck
+    from sqlalchemy import func, case
+
+    db = get_db()
+    now = datetime.utcnow()
+    hour_ago = now - timedelta(hours=1)
+    day_ago = now - timedelta(hours=24)
+
+    cutoff_config = VettingConfig.query.filter_by(setting_key='vetting_cutoff_date').first()
+    cutoff_date = None
+    if cutoff_config and cutoff_config.setting_value:
+        try:
+            cutoff_date = datetime.strptime(cutoff_config.setting_value, '%Y-%m-%d %H:%M:%S')
+        except (ValueError, TypeError):
+            cutoff_date = None
+
+    queue_base = ParsedEmail.query.filter(
+        ParsedEmail.status == 'completed',
+        ParsedEmail.bullhorn_candidate_id.isnot(None),
+        ParsedEmail.vetted_at.is_(None)
+    )
+    if cutoff_date:
+        queue_base = queue_base.filter(ParsedEmail.received_at >= cutoff_date)
+    queue_pending = queue_base.count()
+
+    pipeline_stats = db.session.query(
+        func.count(case((CandidateVettingLog.updated_at >= day_ago, 1))).label('processed_24h'),
+        func.count(case((CandidateVettingLog.updated_at >= hour_ago, 1))).label('processed_1h'),
+        func.count(case(((CandidateVettingLog.updated_at >= day_ago) & (CandidateVettingLog.is_qualified == True), 1))).label('qualified_24h'),
+        func.count(case(((CandidateVettingLog.updated_at >= day_ago) & (CandidateVettingLog.is_qualified == False) & (CandidateVettingLog.highest_match_score > 0), 1))).label('not_qualified_24h'),
+        func.count(case(((CandidateVettingLog.updated_at >= day_ago) & (CandidateVettingLog.highest_match_score == 0), 1))).label('incomplete_24h'),
+    ).filter(CandidateVettingLog.status == 'completed', CandidateVettingLog.is_sandbox != True).first()
+
+    def _derive_note_action(is_qualified, score):
+        if score is not None and score == 0:
+            return 'Scout Screen - Incomplete'
+        if is_qualified:
+            return 'Scout Screen - Qualified'
+        return 'Scout Screen - Not Qualified'
+
+    recent_24h = CandidateVettingLog.query.filter(
+        CandidateVettingLog.status == 'completed',
+        CandidateVettingLog.updated_at >= day_ago,
+        CandidateVettingLog.is_sandbox != True
+    ).all()
+
+    breakdown_counts = {}
+    for r in recent_24h:
+        action = _derive_note_action(r.is_qualified, r.highest_match_score)
+        breakdown_counts[action] = breakdown_counts.get(action, 0) + 1
+    result_breakdown_24h = list(breakdown_counts.items())
+
+    recent = CandidateVettingLog.query.filter(
+        CandidateVettingLog.status == 'completed',
+        CandidateVettingLog.is_sandbox != True
+    ).order_by(CandidateVettingLog.updated_at.desc()).limit(20).all()
+
+    recent_list = []
+    for r in recent:
+        recent_list.append({
+            'candidate_name': r.candidate_name or 'Unknown',
+            'bullhorn_id': r.bullhorn_candidate_id,
+            'score': r.highest_match_score,
+            'is_qualified': r.is_qualified,
+            'note_action': _derive_note_action(r.is_qualified, r.highest_match_score),
+            'jobs_analyzed': r.total_jobs_matched or 0,
+            'completed_at': r.updated_at.strftime('%b %d, %I:%M %p') if r.updated_at else '',
+            'timestamp': r.updated_at.isoformat() if r.updated_at else ''
+        })
+
+    last_run = VettingConfig.query.filter_by(setting_key='last_run_timestamp').first()
+    lock_in_progress = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
+    vetting_enabled = VettingConfig.query.filter_by(setting_key='vetting_enabled').first()
+
+    latest_health = VettingHealthCheck.query.order_by(VettingHealthCheck.check_time.desc()).first()
+    health_info = None
+    if latest_health:
+        health_info = {
+            'is_healthy': latest_health.is_healthy,
+            'bullhorn_status': latest_health.bullhorn_status,
+            'openai_status': latest_health.openai_status,
+            'database_status': latest_health.database_status,
+            'scheduler_status': latest_health.scheduler_status,
+            'check_time': latest_health.check_time.strftime('%b %d, %I:%M %p') if latest_health.check_time else ''
+        }
+
+    throughput = 0
+    if pipeline_stats.processed_1h and pipeline_stats.processed_1h > 0:
+        throughput = pipeline_stats.processed_1h
+    if queue_pending == 0:
+        est_hours_remaining = 0
+    elif throughput > 0:
+        est_hours_remaining = round(queue_pending / throughput, 1)
+    else:
+        est_hours_remaining = None
+
+    return jsonify({
+        'queue': {
+            'pending': queue_pending,
+            'cutoff_active': cutoff_date is not None,
+            'cutoff_date': cutoff_config.setting_value if cutoff_config and cutoff_config.setting_value else None
+        },
+        'pipeline': {
+            'processed_24h': pipeline_stats.processed_24h,
+            'processed_1h': pipeline_stats.processed_1h,
+            'qualified_24h': pipeline_stats.qualified_24h,
+            'not_qualified_24h': pipeline_stats.not_qualified_24h,
+            'incomplete_24h': pipeline_stats.incomplete_24h,
+            'throughput_per_hour': throughput,
+            'est_hours_remaining': est_hours_remaining
+        },
+        'result_breakdown': {row[0]: row[1] for row in result_breakdown_24h},
+        'recent_activity': recent_list,
+        'system': {
+            'vetting_enabled': (vetting_enabled.setting_value or '').lower() == 'true' if vetting_enabled else False,
+            'is_locked': (lock_in_progress.setting_value or '').lower() == 'true' if lock_in_progress else False,
+            'last_run': last_run.setting_value if last_run else 'Never',
+            'health': health_info
+        }
+    })
+
+
 @vetting_bp.route('/screening/force-release-lock', methods=['POST'])
 @login_required
 def force_release_lock():
