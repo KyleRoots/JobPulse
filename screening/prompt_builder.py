@@ -118,7 +118,7 @@ Respond in JSON format:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                max_completion_tokens=800
+                max_completion_tokens=1500
             )
             
             recheck = json.loads(response.choices[0].message.content)
@@ -231,7 +231,7 @@ Format as a bullet-point list. Be specific and concise."""
                     {"role": "system", "content": "You are a technical recruiter extracting ONLY explicitly stated mandatory requirements from job descriptions. You must NEVER infer, fabricate, or add requirements that are not directly written in the job description. If the job description does not mention a specific number of years, do NOT add one. Be concise and specific."},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=500
+                max_completion_tokens=1000
             )
             
             requirements = response.choices[0].message.content.strip()
@@ -827,7 +827,7 @@ CRITICAL SCORING RULES:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                max_completion_tokens=2500
+                max_completion_tokens=4096
             )
 
             # ── Prompt cache hit logging ──

@@ -1620,7 +1620,7 @@ class AutomationService:
                     {"role": "system", "content": "You extract job titles from resumes. Return only the job title, nothing else."},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=300
+                max_completion_tokens=500
             )
 
             title = response.choices[0].message.content.strip()

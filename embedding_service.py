@@ -217,8 +217,9 @@ class EmbeddingService:
             return 0.0
         
         if len(vec_a) != len(vec_b):
-            logging.warning(f"Vector dimension mismatch: {len(vec_a)} vs {len(vec_b)}")
-            return 0.0
+            min_dim = min(len(vec_a), len(vec_b))
+            vec_a = vec_a[:min_dim]
+            vec_b = vec_b[:min_dim]
         
         # Compute dot product and magnitudes
         dot_product = sum(a * b for a, b in zip(vec_a, vec_b))
