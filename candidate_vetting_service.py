@@ -1066,6 +1066,8 @@ class CandidateVettingService(
             
             def process_candidate_thread(cand):
                 with flask_app.app_context():
+                    db.session.remove()
+                    db.session().expire_on_commit = False
                     try:
                         vlog = self.process_candidate(cand, cached_jobs=batch_jobs)
                         if vlog:
