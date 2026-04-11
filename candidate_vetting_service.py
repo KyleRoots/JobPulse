@@ -7,6 +7,7 @@ and notifies recruiters when candidates match at 80%+ threshold.
 """
 
 import logging
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import json
@@ -275,13 +276,15 @@ class CandidateVettingService(
     # OpenAI quota exhaustion tracking (class-level, shared across instances)
     _consecutive_quota_errors: int = 0
     _quota_alert_sent: bool = False
+    _bullhorn_lock = threading.Lock()
 
-    def process_candidate(self, candidate: Dict) -> Optional[CandidateVettingLog]:
+    def process_candidate(self, candidate: Dict, cached_jobs: Optional[List[Dict]] = None) -> Optional[CandidateVettingLog]:
         """
         Process a single candidate through the full vetting pipeline.
         
         Args:
             candidate: Candidate dictionary from Bullhorn
+            cached_jobs: Pre-loaded job list (shared across batch to avoid redundant API calls)
             
         Returns:
             CandidateVettingLog record or None if processing failed
@@ -346,8 +349,9 @@ class CandidateVettingService(
                 return None
         
         try:
-            # Get which job they applied to
-            submission = self.get_candidate_job_submission(candidate_id)
+            # Get which job they applied to (thread-safe Bullhorn access)
+            with CandidateVettingService._bullhorn_lock:
+                submission = self.get_candidate_job_submission(candidate_id)
             if submission:
                 job_order = submission.get('jobOrder', {})
                 vetting_log.applied_job_id = job_order.get('id')
@@ -384,7 +388,8 @@ class CandidateVettingService(
             # Second try: Fall back to file download if description not available
             if not resume_text:
                 logging.info("Falling back to resume file download...")
-                file_content, filename = self.get_candidate_resume(candidate_id)
+                with CandidateVettingService._bullhorn_lock:
+                    file_content, filename = self.get_candidate_resume(candidate_id)
                 if file_content and filename:
                     resume_text = self.extract_resume_text(file_content, filename)
                     if resume_text:
@@ -397,8 +402,12 @@ class CandidateVettingService(
             if resume_text:
                 vetting_log.resume_text = resume_text[:50000]  # Limit storage size
             
-            # Get all active jobs from tearsheets
-            jobs = self.get_active_jobs_from_tearsheets()
+            # Use cached jobs if provided (batch optimization), otherwise load fresh
+            # Shallow copy so applied-job injection doesn't mutate the shared list
+            if cached_jobs is not None:
+                jobs = list(cached_jobs)
+            else:
+                jobs = self.get_active_jobs_from_tearsheets()
             
             # ═══════════════════════════════════════════════════════════════
             # APPLIED JOB INJECTION
@@ -412,10 +421,11 @@ class CandidateVettingService(
                 )
                 if not applied_in_tearsheets:
                     try:
-                        applied_job_data = self._fetch_applied_job(
-                            self._get_bullhorn_service(),
-                            vetting_log.applied_job_id
-                        )
+                        with CandidateVettingService._bullhorn_lock:
+                            applied_job_data = self._fetch_applied_job(
+                                self._get_bullhorn_service(),
+                                vetting_log.applied_job_id
+                            )
                         if applied_job_data:
                             jobs.append(applied_job_data)
                             logging.info(
@@ -736,9 +746,12 @@ class CandidateVettingService(
                 for job in jobs_to_analyze
             ]
             
-            # Run parallel analysis - max 15 concurrent threads to respect API rate limits
+            # Run parallel analysis - cap concurrent threads to respect API rate limits
+            # When running in batch parallel mode (cached_jobs provided), use fewer threads
+            # per candidate since multiple candidates run simultaneously (5 × 8 = 40 total)
             analysis_results = []
-            max_workers = min(15, len(jobs_to_analyze))
+            thread_cap = 8 if cached_jobs is not None else 15
+            max_workers = min(thread_cap, len(jobs_to_analyze))
             
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {executor.submit(analyze_single_job, jwr): jwr for jwr in jobs_with_requirements}
@@ -1005,41 +1018,97 @@ class CandidateVettingService(
             
             if not candidates:
                 logging.info("No new candidates to process")
-                # Still update timestamp to move forward
                 self._set_last_run_timestamp(cycle_start)
                 return summary
             
-            # Process each candidate
-            for candidate in candidates:
+            # ═══════════════════════════════════════════════════════════════
+            # BATCH OPTIMIZATION: Load tearsheet jobs ONCE for the entire batch
+            # Previously this was called inside process_candidate() for EVERY
+            # candidate, causing 300+ redundant Bullhorn API calls per batch.
+            # ═══════════════════════════════════════════════════════════════
+            batch_jobs = self.get_active_jobs_from_tearsheets()
+            logging.info(f"📦 Batch job cache: {len(batch_jobs)} jobs loaded once for {len(candidates)} candidates")
+            
+            # ═══════════════════════════════════════════════════════════════
+            # PARALLEL CANDIDATE PROCESSING
+            # Process up to 5 candidates simultaneously. Each candidate's
+            # AI analysis is independent, so parallelism is safe.
+            # Post-processing (notes, notifications) runs sequentially
+            # after all candidates complete to avoid Bullhorn API conflicts.
+            # ═══════════════════════════════════════════════════════════════
+            max_parallel_candidates = 5
+            candidate_results = []
+            
+            from app import app as flask_app
+            
+            def process_candidate_thread(cand):
+                with flask_app.app_context():
+                    try:
+                        vlog = self.process_candidate(cand, cached_jobs=batch_jobs)
+                        if vlog:
+                            db.session.expunge(vlog)
+                            return {
+                                'candidate': cand,
+                                'vetting_log_id': vlog.id,
+                                'status': vlog.status,
+                                'is_qualified': vlog.is_qualified,
+                                'note_created': vlog.note_created,
+                                'bullhorn_candidate_id': vlog.bullhorn_candidate_id,
+                                'error': None
+                            }
+                        return {'candidate': cand, 'vetting_log_id': None, 'status': None, 'is_qualified': False, 'note_created': False, 'bullhorn_candidate_id': None, 'error': None}
+                    except Exception as e:
+                        db.session.rollback()
+                        return {'candidate': cand, 'vetting_log_id': None, 'status': None, 'is_qualified': False, 'note_created': False, 'bullhorn_candidate_id': None, 'error': str(e)}
+            
+            with ThreadPoolExecutor(max_workers=max_parallel_candidates) as executor:
+                futures = {executor.submit(process_candidate_thread, c): c for c in candidates}
+                for future in as_completed(futures):
+                    candidate_results.append(future.result())
+            
+            logging.info(f"✅ Parallel candidate processing complete: {len(candidate_results)} candidates")
+            
+            for result in candidate_results:
+                candidate = result['candidate']
+                vetting_log_id = result['vetting_log_id']
+                status = result['status']
+                error = result['error']
+                
+                if error:
+                    error_msg = f"Error processing candidate {candidate.get('id')}: {error}"
+                    logging.error(error_msg)
+                    summary['errors'].append(error_msg)
+                    continue
+                
                 try:
-                    vetting_log = self.process_candidate(candidate)
-                    
-                    if vetting_log and vetting_log.status == 'completed':
+                    if vetting_log_id and status == 'completed':
+                        vetting_log = CandidateVettingLog.query.get(vetting_log_id)
+                        if not vetting_log:
+                            logging.error(f"Vetting log {vetting_log_id} not found for post-processing")
+                            continue
+                        
                         summary['candidates_processed'] += 1
                         
                         if vetting_log.is_qualified:
                             summary['candidates_qualified'] += 1
                         
-                        # Create note (only if not already created)
                         if not vetting_log.note_created:
                             if self.create_candidate_note(vetting_log):
                                 summary['notes_created'] += 1
                         else:
                             logging.info(f"⏭️ Skipping note creation - already exists for candidate {vetting_log.bullhorn_candidate_id}")
                         
-                        # Send notifications for qualified candidates
                         if vetting_log.is_qualified:
                             notif_count = self.send_recruiter_notifications(vetting_log)
                             summary['notifications_sent'] += notif_count
                     
-                    # Mark the ParsedEmail record as vetted (if applicable)
                     parsed_email_id = candidate.get('_parsed_email_id')
                     if parsed_email_id:
                         self._mark_application_vetted(parsed_email_id)
                             
                 except Exception as e:
                     db.session.rollback()
-                    error_msg = f"Error processing candidate {candidate.get('id')}: {str(e)}"
+                    error_msg = f"Error post-processing candidate {candidate.get('id')}: {str(e)}"
                     logging.error(error_msg)
                     summary['errors'].append(error_msg)
             

@@ -35,7 +35,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Error Tracking**: Sentry SDK integration.
 - **Testing**: Comprehensive pytest suite.
 - **Proxy Support**: `ProxyFix` middleware.
-- **Screening Engine Architecture**: Modular mixin package (`screening/`) with an orchestrator in `candidate_vetting_service.py` for managing AI prompts, Bullhorn note formatting, notifications, candidate detection, job management, and recovery.
+- **Screening Engine Architecture**: Modular mixin package (`screening/`) with an orchestrator in `candidate_vetting_service.py` for managing AI prompts, Bullhorn note formatting, notifications, candidate detection, job management, and recovery. Batch-optimized: tearsheet jobs loaded once per cycle (not per candidate), candidates processed 5-at-a-time via ThreadPoolExecutor with thread-safe Bullhorn access (threading.Lock) and proper SQLAlchemy session isolation (per-thread app_context, primitive data returned from threads, re-queried in main thread for post-processing).
 - **Dual XML Feed System**: Generates two XML files (`myticas-job-feed-v2.xml` and `myticas-job-feed-pando.xml`) every 30 minutes.
 - **Dual-Cycle Monitoring**: 5-minute tearsheet monitoring and 30-minute automated SFTP upload cycles.
 - **Job Application Forms**: Public forms with multi-brand support, resume parsing, and Bullhorn integration including duplicate candidate detection and profile enrichment.
