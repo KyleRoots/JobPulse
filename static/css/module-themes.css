@@ -141,6 +141,51 @@ body[data-module] .settings-card:hover {
 }
 
 /* ============================================
+   STANDARD CARDS – Override green-tinted base on module pages
+   ============================================ */
+body[data-module] .card:not(.glass-card):not(.settings-card) {
+    background: var(--module-card-bg) !important;
+    border-color: var(--module-border) !important;
+}
+
+body[data-module] .card:not(.glass-card):not(.settings-card) .card-header {
+    background: var(--module-bg) !important;
+    border-bottom-color: var(--module-border) !important;
+}
+
+body[data-module] .card .card-header.bg-info {
+    background: var(--module-bg) !important;
+    border-bottom-color: var(--module-border) !important;
+}
+
+body[data-module] .card.border-info {
+    border-color: var(--module-border) !important;
+}
+
+/* ============================================
+   FEEDBACK MODAL – Module-colored on module pages
+   ============================================ */
+body[data-module] .feedback-modal-content {
+    background: var(--module-card-bg) !important;
+    border-color: var(--module-border-strong) !important;
+}
+
+body[data-module] .feedback-modal-icon {
+    color: var(--module-text) !important;
+}
+
+body[data-module] .feedback-submit-btn {
+    background: var(--module-gradient) !important;
+}
+
+/* ============================================
+   CARD HEADER ICONS – Module-colored
+   ============================================ */
+body[data-module] .card-header h5 i {
+    color: var(--module-text) !important;
+}
+
+/* ============================================
    USER HEADER AVATAR – Module accent
    ============================================ */
 body[data-module] .user-header-avatar {

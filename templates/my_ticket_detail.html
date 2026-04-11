@@ -1,6 +1,7 @@
 {% extends "base_layout.html" %}
 
 {% block title %}Ticket {{ ticket.ticket_number }}{% endblock %}
+{% block body_attrs %}data-module="support"{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4 py-4">
@@ -95,11 +96,11 @@
                 </div>
                 <div class="card-body">
                     {% for conv in conversations %}
-                    <div class="mb-3 p-3 rounded" style="background: rgba({{ '74, 150, 120' if conv.direction == 'outbound' else '255, 255, 255' }}, 0.05); border-left: 3px solid {{ '#4a9678' if conv.direction == 'outbound' else '#6c757d' }};">
+                    <div class="mb-3 p-3 rounded" style="background: rgba({{ '139, 92, 246' if conv.direction == 'outbound' else '255, 255, 255' }}, 0.05); border-left: 3px solid {{ 'var(--module-support-accent)' if conv.direction == 'outbound' else '#6c757d' }};">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <strong class="small">
                                 {% if conv.direction == 'outbound' %}
-                                <i class="fas fa-robot me-1" style="color: #4a9678;"></i>Scout Genius
+                                <i class="fas fa-robot me-1" style="color: var(--module-support-text);"></i>Scout Genius
                                 {% else %}
                                 <i class="fas fa-user me-1"></i>{{ conv.sender_email }}
                                 {% endif %}

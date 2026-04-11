@@ -1736,7 +1736,7 @@
                 <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
                 {% block page_subtitle %}
                 <p class="page-subtitle">
-                    {% if active_page in ['scout_support', 'scout_support_knowledge'] %}
+                    {% if active_page in ['scout_support', 'scout_support_knowledge', 'my_tickets'] %}
                     Welcome back to Scout Support
                     {% elif active_page in ['screening', 'screening_config'] %}
                     Welcome back to Scout Screening
@@ -1744,6 +1744,8 @@
                     Welcome back to Scout Inbound
                     {% elif active_page in ['vetting'] %}
                     Welcome back to Scout Vetting
+                    {% elif active_page in ['scout_prospector'] %}
+                    Welcome back to Scout Prospector
                     {% else %}
                     Welcome back to Scout Genius
                     {% endif %}
