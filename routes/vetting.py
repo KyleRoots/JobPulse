@@ -783,13 +783,33 @@ def _activity_monitor_data():
         func.count(case((CandidateVettingLog.updated_at >= day_ago, 1))).label('processed_24h'),
         func.count(case((CandidateVettingLog.updated_at >= hour_ago, 1))).label('processed_1h'),
         func.count(case(((CandidateVettingLog.updated_at >= day_ago) & (CandidateVettingLog.is_qualified == True), 1))).label('qualified_24h'),
-        func.count(case(((CandidateVettingLog.updated_at >= day_ago) & (CandidateVettingLog.is_qualified == False) & (CandidateVettingLog.highest_match_score > 0), 1))).label('not_qualified_24h'),
-        func.count(case(((CandidateVettingLog.updated_at >= day_ago) & (CandidateVettingLog.highest_match_score == 0), 1))).label('incomplete_24h'),
+        func.count(case((
+            (CandidateVettingLog.updated_at >= day_ago) &
+            (CandidateVettingLog.is_qualified == False) &
+            (
+                (CandidateVettingLog.highest_match_score > 0) |
+                (
+                    (CandidateVettingLog.highest_match_score == 0) &
+                    (CandidateVettingLog.error_message.is_(None)) &
+                    (CandidateVettingLog.total_jobs_matched.isnot(None))
+                )
+            ), 1
+        ))).label('not_qualified_24h'),
+        func.count(case((
+            (CandidateVettingLog.updated_at >= day_ago) &
+            (CandidateVettingLog.highest_match_score == 0) &
+            (
+                (CandidateVettingLog.error_message.isnot(None)) |
+                (CandidateVettingLog.total_jobs_matched.is_(None))
+            ), 1
+        ))).label('incomplete_24h'),
     ).filter(CandidateVettingLog.status == 'completed', CandidateVettingLog.is_sandbox != True).first()
 
-    def _derive_note_action(is_qualified, score):
+    def _derive_note_action(is_qualified, score, error_message=None, total_jobs_matched=None):
         if score is not None and score == 0:
-            return 'Scout Screen - Incomplete'
+            if error_message or total_jobs_matched is None:
+                return 'Scout Screen - Incomplete'
+            return 'Scout Screen - Not Qualified'
         if is_qualified:
             return 'Scout Screen - Qualified'
         return 'Scout Screen - Not Qualified'
@@ -802,7 +822,7 @@ def _activity_monitor_data():
 
     breakdown_counts = {}
     for r in recent_24h:
-        action = _derive_note_action(r.is_qualified, r.highest_match_score)
+        action = _derive_note_action(r.is_qualified, r.highest_match_score, r.error_message, r.total_jobs_matched)
         breakdown_counts[action] = breakdown_counts.get(action, 0) + 1
     result_breakdown_24h = list(breakdown_counts.items())
 
@@ -818,7 +838,7 @@ def _activity_monitor_data():
             'bullhorn_id': r.bullhorn_candidate_id,
             'score': r.highest_match_score,
             'is_qualified': r.is_qualified,
-            'note_action': _derive_note_action(r.is_qualified, r.highest_match_score),
+            'note_action': _derive_note_action(r.is_qualified, r.highest_match_score, r.error_message, r.total_jobs_matched),
             'jobs_analyzed': r.total_jobs_matched or 0,
             'completed_at': r.updated_at.strftime('%b %d, %I:%M %p') if r.updated_at else '',
             'timestamp': r.updated_at.isoformat() if r.updated_at else ''

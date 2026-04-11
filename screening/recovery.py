@@ -55,12 +55,16 @@ class RecoveryMixin:
             reset_count = 0
             blocked_count = 0
             for log in zero_logs:
+                total_matches = db.session.query(func.count(CandidateJobMatch.id)).filter(
+                    CandidateJobMatch.vetting_log_id == log.id
+                ).scalar()
+                
                 non_zero = db.session.query(func.count(CandidateJobMatch.id)).filter(
                     CandidateJobMatch.vetting_log_id == log.id,
                     CandidateJobMatch.match_score > 0
                 ).scalar()
                 
-                if non_zero > 0:
+                if non_zero > 0 or (total_matches > 0 and not log.error_message):
                     continue
                 
                 candidate_id = log.bullhorn_candidate_id
