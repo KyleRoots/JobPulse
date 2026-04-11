@@ -187,6 +187,15 @@ body[data-module] .card.border-info {
     border-color: var(--module-border) !important;
 }
 
+body[data-module] .card .card-header.bg-dark {
+    background: var(--module-bg) !important;
+    border-bottom-color: var(--module-border) !important;
+}
+
+body[data-module] .card.border-secondary {
+    border-color: var(--module-border) !important;
+}
+
 /* ============================================
    FEEDBACK MODAL – Module-colored on module pages
    ============================================ */
