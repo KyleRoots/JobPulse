@@ -1,0 +1,264 @@
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="prospector"{% endblock %}
+
+{% block title %}Scout Prospector: Help Guide{% endblock %}
+
+{% block page_title %}Scout Prospector{% endblock %}
+{% block page_subtitle %}Help Guide: How to use AI-powered prospect discovery{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .guide-hero {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.06));
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 14px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .guide-hero h2 {
+        color: #3b82f6;
+        font-size: 1.4rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .guide-hero p {
+        color: rgba(224, 220, 216, 0.85);
+        font-size: 1rem;
+        line-height: 1.7;
+        margin: 0;
+        max-width: 760px;
+    }
+
+    .guide-section {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.13);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .guide-section h3 {
+        color: #3b82f6;
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-top: 5px;
+        margin-bottom: 1rem;
+        padding-bottom: 0.85rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .guide-section h3 i {
+        font-size: 0.95rem;
+        opacity: 0.8;
+    }
+
+    .guide-section p {
+        color: rgba(224, 220, 216, 0.82);
+        font-size: 0.93rem;
+        line-height: 1.75;
+        margin-bottom: 1rem;
+    }
+
+    .guide-section p:last-child {
+        margin-bottom: 0;
+    }
+
+    .status-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .status-table th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: rgba(59, 130, 246, 0.9);
+        padding: 0.65rem 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        text-align: left;
+        font-weight: 700;
+        background: rgba(59, 130, 246, 0.12);
+    }
+
+    .status-table td {
+        padding: 0.75rem 1rem;
+        font-size: 0.88rem;
+        color: rgba(224, 220, 216, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        vertical-align: top;
+        line-height: 1.6;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(59, 130, 246, 0.2);
+        color: #3b82f6;
+        font-weight: 700;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    .step-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .step-row p {
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4" style="max-width: 900px;">
+    <div class="mb-4">
+        <a href="{{ url_for('scout_prospector.prospector_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+        </a>
+    </div>
+
+    <div class="guide-hero">
+        <h2><i class="fas fa-crosshairs me-2"></i>Welcome to Scout Prospector</h2>
+        <p>
+            Scout Prospector uses AI and real-time web search to discover ideal client companies for your staffing business.
+            Build an Ideal Client Profile (ICP), run AI research, and get a list of qualified prospects complete with key contacts and engagement signals.
+        </p>
+    </div>
+
+    <div class="guide-section">
+        <h3><i class="fas fa-route"></i>Getting Started — Quick Workflow</h3>
+        <div class="step-row">
+            <span class="step-number">1</span>
+            <p><strong>Create an ICP Profile</strong> — Define who your ideal client is: industries, company sizes, locations, job types you staff for, and what hiring signals matter to you.</p>
+        </div>
+        <div class="step-row">
+            <span class="step-number">2</span>
+            <p><strong>Run AI Research</strong> — Click the "Research" button on your ICP profile. The AI searches the web in real time and returns a list of companies matching your criteria.</p>
+        </div>
+        <div class="step-row">
+            <span class="step-number">3</span>
+            <p><strong>Review Prospects</strong> — Browse your discovered prospects, check qualification scores, view key contacts with LinkedIn profiles, and mark their status as you engage.</p>
+        </div>
+        <div class="step-row">
+            <span class="step-number">4</span>
+            <p><strong>Export & Act</strong> — Export your prospects to CSV for outreach, or manage them directly from the dashboard by updating statuses and adding notes.</p>
+        </div>
+    </div>
+
+    <div class="guide-section">
+        <h3><i class="fas fa-user-tag"></i>Creating an ICP Profile</h3>
+        <p>
+            The ICP (Ideal Client Profile) wizard walks you through four steps. Each step focuses on a different aspect of your target client:
+        </p>
+        <p>
+            <strong>Step 1 — Profile Basics:</strong> Give your profile a name and a detailed description. The description is important because the AI uses it to understand exactly what kind of companies you're looking for.
+        </p>
+        <p>
+            <strong>AI Suggest Criteria:</strong> After writing your description, click "AI Suggest Criteria" to have the AI recommend industries, company sizes, locations, job types, and signals based on what you wrote. You can apply the suggestions to pre-fill the remaining steps, then fine-tune as needed.
+        </p>
+        <p>
+            <strong>Step 2 — Target Industries:</strong> Check the industries you want to focus on. Use "Select All" if your services span multiple sectors.
+        </p>
+        <p>
+            <strong>Step 3 — Geography & Roles:</strong> Specify the locations and job types you typically staff for. This helps the AI find companies in the right markets hiring for the right roles.
+        </p>
+        <p>
+            <strong>Step 4 — Hiring Signals & Review:</strong> Choose which signals matter (active job postings, recent funding, growth, etc.) and add any extra criteria. Review your full profile summary before saving.
+        </p>
+    </div>
+
+    <div class="guide-section">
+        <h3><i class="fas fa-search"></i>Running AI Research</h3>
+        <p>
+            From the dashboard, click the <strong>Research</strong> button next to any ICP profile. The AI will search the web in real time, looking for companies that match your profile criteria.
+        </p>
+        <p>
+            Research typically takes 30–60 seconds. The AI evaluates multiple sources, checks company details, and assigns a qualification score (0–100%) based on how closely each company matches your ICP.
+        </p>
+        <p>
+            You can run research multiple times on the same profile — each run may discover new companies. Previously found companies won't be duplicated.
+        </p>
+    </div>
+
+    <div class="guide-section">
+        <h3><i class="fas fa-building"></i>Managing Prospects</h3>
+        <p>
+            Each discovered prospect includes the company name, industry, estimated size, location, qualification score, and key contacts. Click on any prospect to see full details including:
+        </p>
+        <p>
+            <strong>Key Contacts:</strong> Names, titles, LinkedIn URLs, and public email addresses when available. Click LinkedIn links to view profiles directly.
+        </p>
+        <p>
+            <strong>Source URLs:</strong> The web pages where the AI found information about this company.
+        </p>
+        <p>
+            <strong>Notes:</strong> Add your own notes to track outreach attempts, call outcomes, or follow-up reminders.
+        </p>
+
+        <table class="status-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>When to Use</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="status-badge" style="background: rgba(108,117,125,0.2); color: #adb5bd;">New</span></td>
+                    <td>Freshly discovered — not yet reviewed or contacted</td>
+                </tr>
+                <tr>
+                    <td><span class="status-badge" style="background: rgba(220,53,69,0.2); color: #ea868f;">Hot</span></td>
+                    <td>High-priority prospect — strong match, ready for immediate outreach</td>
+                </tr>
+                <tr>
+                    <td><span class="status-badge" style="background: rgba(255,193,7,0.2); color: #ffda6a;">Warm</span></td>
+                    <td>Good match — worth following up, but not urgent</td>
+                </tr>
+                <tr>
+                    <td><span class="status-badge" style="background: rgba(13,202,240,0.2); color: #6edff6;">Cold</span></td>
+                    <td>Low priority — keep on file for future consideration</td>
+                </tr>
+                <tr>
+                    <td><span class="status-badge" style="background: rgba(13,110,253,0.2); color: #6ea8fe;">Contacted</span></td>
+                    <td>You've reached out — awaiting response</td>
+                </tr>
+                <tr>
+                    <td><span class="status-badge" style="background: rgba(33,37,41,0.4); color: #adb5bd;">Not Interested</span></td>
+                    <td>Prospect declined or doesn't fit — archived from active view</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="guide-section">
+        <h3><i class="fas fa-download"></i>Exporting Data</h3>
+        <p>
+            Click <strong>Export CSV</strong> from the dashboard to download your prospects. The export includes company details, contacts (with LinkedIn URLs and emails), qualification scores, statuses, and notes. Use filters first to export only the prospects you need.
+        </p>
+    </div>
+</div>
+{% endblock %}

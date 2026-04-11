@@ -46,7 +46,7 @@ def prospector_dashboard():
 
     return render_template(
         'scout_prospector.html',
-        active_page='scout_prospector',
+        active_page='prospector',
         profiles=profiles,
         prospects=prospects,
         stats=stats,
@@ -90,7 +90,7 @@ def create_profile():
 
     return render_template(
         'scout_prospector_profile_form.html',
-        active_page='scout_prospector',
+        active_page='prospector',
         profile=None,
         edit_mode=False,
     )
@@ -134,7 +134,7 @@ def edit_profile(profile_id):
 
     return render_template(
         'scout_prospector_profile_form.html',
-        active_page='scout_prospector',
+        active_page='prospector',
         profile=profile,
         edit_mode=True,
     )
@@ -188,7 +188,7 @@ def run_results(run_id):
 
     return render_template(
         'scout_prospector_run_results.html',
-        active_page='scout_prospector',
+        active_page='prospector',
         run=run,
         prospects=prospects,
     )
@@ -201,7 +201,7 @@ def run_history():
     runs = service.get_run_history(current_user)
     return render_template(
         'scout_prospector_run_history.html',
-        active_page='scout_prospector',
+        active_page='prospector',
         runs=runs,
     )
 
@@ -217,7 +217,7 @@ def prospect_detail(prospect_id):
 
     return render_template(
         'scout_prospector_detail.html',
-        active_page='scout_prospector',
+        active_page='prospector',
         prospect=prospect,
     )
 
@@ -317,3 +317,9 @@ def api_update_notes(prospect_id):
     if prospect:
         return jsonify({'success': True})
     return jsonify({'error': 'Prospect not found'}), 404
+
+
+@scout_prospector_bp.route('/scout-prospector/guide')
+@login_required
+def guide():
+    return render_template('scout_prospector_guide.html', active_page='prospector')
