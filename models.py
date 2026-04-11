@@ -1692,6 +1692,7 @@ class Prospect(db.Model):
                         'title': item.get('title', ''),
                         'linkedin': item.get('linkedin', ''),
                         'email': item.get('email', ''),
+                        'phone': item.get('phone', ''),
                     })
                 elif isinstance(item, str):
                     normalized.append({
@@ -1699,6 +1700,7 @@ class Prospect(db.Model):
                         'title': item,
                         'linkedin': '',
                         'email': '',
+                        'phone': '',
                     })
             return normalized
         except (json.JSONDecodeError, TypeError):

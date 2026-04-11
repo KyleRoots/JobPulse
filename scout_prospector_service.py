@@ -65,8 +65,9 @@ For each company you find, provide:
 - Key decision-maker contacts with as much detail as you can find publicly:
   - Full name (if publicly available on the company website, LinkedIn, or press releases)
   - Job title / role
-  - LinkedIn profile URL (if you can find it)
+  - LinkedIn profile URL — ONLY include a LinkedIn URL if you actually found and verified it in your web search results. NEVER guess or fabricate LinkedIn URLs based on name patterns (e.g., do not construct "/in/firstname-lastname" or "/in/firstnamelastname"). If you cannot find a verified LinkedIn profile, return an empty string.
   - Email address (only if publicly listed on company website, press releases, or directories)
+  - Phone number (only if publicly listed on company website, contact pages, or directories — never guess)
 - Current hiring activity (active job postings, growth signals)
 - Why they're a good fit based on the ICP criteria
 - A qualification score from 0-100
@@ -84,14 +85,16 @@ Return your findings as valid JSON with this structure:
         {
           "name": "Jane Smith",
           "title": "VP of Human Resources",
-          "linkedin": "https://www.linkedin.com/in/janesmith",
-          "email": "jane.smith@example.com"
+          "linkedin": "https://www.linkedin.com/in/verified-profile-url",
+          "email": "jane.smith@example.com",
+          "phone": "+1-555-123-4567"
         },
         {
           "name": "",
           "title": "Director of Talent Acquisition",
           "linkedin": "",
-          "email": ""
+          "email": "",
+          "phone": ""
         }
       ],
       "hiring_activity": "Currently hiring for 15+ positions including software engineers and project managers",
@@ -103,7 +106,9 @@ Return your findings as valid JSON with this structure:
   "summary": "Brief summary of findings and market observations"
 }
 
-IMPORTANT: For contacts, always return objects with name/title/linkedin/email fields. Use empty strings for any fields you cannot find — never omit the fields. Prioritize finding LinkedIn profile URLs for decision-makers. Only include email addresses that are publicly available — do not guess or fabricate emails.
+IMPORTANT: For contacts, always return objects with name/title/linkedin/email/phone fields. Use empty strings for any fields you cannot find — never omit the fields. 
+CRITICAL LINKEDIN RULE: Only include LinkedIn URLs that you actually found and clicked through in your web search. NEVER construct LinkedIn URLs by guessing the slug from a person's name. If you searched for someone's LinkedIn and couldn't find a verified profile URL, return an empty string for the linkedin field.
+Only include email addresses and phone numbers that are publicly available — do not guess or fabricate them.
 
 Find 5-10 qualifying companies. Focus on quality over quantity. Only include companies with genuine hiring signals or staffing needs."""
 
@@ -178,6 +183,7 @@ Search the web for companies that match these criteria. Look for active job post
                             'title': (c.get('title') or '').strip(),
                             'linkedin': sanitize_url(c.get('linkedin')) or '',
                             'email': (c.get('email') or '').strip(),
+                            'phone': (c.get('phone') or '').strip(),
                         })
                     elif isinstance(c, str):
                         normalized.append({
@@ -185,6 +191,7 @@ Search the web for companies that match these criteria. Look for active job post
                             'title': c.strip(),
                             'linkedin': '',
                             'email': '',
+                            'phone': '',
                         })
                 company['contacts'] = normalized
 
@@ -467,6 +474,8 @@ Only include fields you can confidently infer. Use standard industry names and r
                     parts.append(c['title'])
                 if c.get('email'):
                     parts.append(c['email'])
+                if c.get('phone'):
+                    parts.append(c['phone'])
                 if c.get('linkedin'):
                     parts.append(c['linkedin'])
                 contact_parts.append(' | '.join(parts) if parts else '')
