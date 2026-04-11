@@ -47,13 +47,7 @@ class ResearchProvider(ABC):
 
 class WebSearchProvider(ResearchProvider):
 
-    def execute(self, profile, criteria):
-        import openai
-        import os
-
-        client = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-
-        system_prompt = """You are a B2B sales research analyst specializing in the staffing and recruitment industry. 
+    SYSTEM_PROMPT = """You are a B2B sales research analyst specializing in the staffing and recruitment industry. 
 Your task is to identify companies that would be strong prospects for a staffing company based on the Ideal Client Profile (ICP) provided.
 
 For each company you find, provide:
@@ -71,6 +65,7 @@ For each company you find, provide:
 - Current hiring activity (active job postings, growth signals)
 - Why they're a good fit based on the ICP criteria
 - A qualification score from 0-100
+- Source URLs where you found the information
 
 Return your findings as valid JSON with this structure:
 {
@@ -109,8 +104,47 @@ Return your findings as valid JSON with this structure:
 IMPORTANT: For contacts, always return objects with name/title/linkedin/email/phone fields. Use empty strings for any fields you cannot find — never omit the fields. 
 CRITICAL LINKEDIN RULE: Only include LinkedIn URLs that you actually found and clicked through in your web search. NEVER construct LinkedIn URLs by guessing the slug from a person's name. If you searched for someone's LinkedIn and couldn't find a verified profile URL, return an empty string for the linkedin field.
 Only include email addresses and phone numbers that are publicly available — do not guess or fabricate them.
+Only include companies with genuine hiring signals or staffing needs."""
 
-Find 5-10 qualifying companies. Focus on quality over quantity. Only include companies with genuine hiring signals or staffing needs."""
+    SEARCH_ANGLES = [
+        {
+            'label': 'Job Boards & Active Postings',
+            'instruction': (
+                "Focus on searching job boards (Indeed, LinkedIn Jobs, Glassdoor, ZipRecruiter, company career pages) "
+                "for companies actively posting positions matching the ICP criteria. "
+                "Search for recent job listings in the target industries and geographies. "
+                "Look for companies with multiple open roles — this signals active staffing needs."
+            ),
+        },
+        {
+            'label': 'Company Growth & Expansion News',
+            'instruction': (
+                "Focus on business news, press releases, SEC filings, and industry publications. "
+                "Search for companies announcing expansions, new office openings, funding rounds, "
+                "major contract wins, mergers/acquisitions, or rapid revenue growth in the target industries and geographies. "
+                "These growth signals indicate upcoming or current hiring needs even if jobs aren't posted yet."
+            ),
+        },
+        {
+            'label': 'Industry Directories & Associations',
+            'instruction': (
+                "Focus on industry directories, trade association member lists, business registries, "
+                "government contract databases, and professional networks. "
+                "Search for companies in the target industries and geographies using directories like "
+                "local chambers of commerce, industry-specific associations, government vendor lists, "
+                "and business databases. Cross-reference with any hiring or growth signals you can find."
+            ),
+        },
+    ]
+
+    MAX_COMPANIES_TOTAL = 50
+    COMPANIES_PER_PASS = 20
+
+    def execute(self, profile, criteria):
+        import openai
+        import os
+
+        client = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
         industries_str = ', '.join(criteria.get('industries', [])) or 'Any'
         sizes_str = ', '.join(criteria.get('company_sizes', [])) or 'Any'
@@ -119,7 +153,31 @@ Find 5-10 qualifying companies. Focus on quality over quantity. Only include com
         signals_str = ', '.join(criteria.get('hiring_signals', [])) or 'Active job postings, growth indicators'
         additional = criteria.get('additional_criteria', '')
 
-        user_prompt = f"""Research and identify companies matching this Ideal Client Profile:
+        all_companies = []
+        seen_names = set()
+        summaries = []
+
+        for pass_num, angle in enumerate(self.SEARCH_ANGLES, 1):
+            remaining = self.MAX_COMPANIES_TOTAL - len(all_companies)
+            if remaining <= 0:
+                break
+
+            target = min(self.COMPANIES_PER_PASS, remaining)
+
+            exclude_instruction = ''
+            if seen_names:
+                exclude_list = ', '.join(sorted(seen_names))
+                exclude_instruction = (
+                    f"\n\nIMPORTANT: Do NOT include any of these companies (already found in previous searches): "
+                    f"{exclude_list}. Find DIFFERENT companies not in this list."
+                )
+
+            pass_system = (
+                self.SYSTEM_PROMPT
+                + f"\n\nFind up to {target} qualifying companies. Be thorough and cast a wide net."
+            )
+
+            pass_prompt = f"""Research and identify companies matching this Ideal Client Profile:
 
 **Profile Name:** {criteria.get('profile_name', 'Untitled')}
 **Target Industries:** {industries_str}
@@ -129,83 +187,118 @@ Find 5-10 qualifying companies. Focus on quality over quantity. Only include com
 **Hiring Signals to Look For:** {signals_str}
 {f'**Additional Criteria:** {additional}' if additional else ''}
 
-Search the web for companies that match these criteria. Look for active job postings, press releases about growth, and other hiring signals. Return your findings as JSON."""
+**SEARCH FOCUS (Pass {pass_num} of {len(self.SEARCH_ANGLES)} — {angle['label']}):**
+{angle['instruction']}{exclude_instruction}
+
+Search the web thoroughly for companies that match these criteria. Return your findings as JSON."""
+
+            logger.info(f"Research pass {pass_num}/{len(self.SEARCH_ANGLES)}: {angle['label']} (target: {target} companies)")
+
+            try:
+                pass_result = self._execute_single_pass(client, pass_system, pass_prompt)
+                pass_companies = pass_result.get('companies', [])
+                pass_summary = pass_result.get('summary', '')
+
+                new_count = 0
+                for company in pass_companies:
+                    name_key = (company.get('name') or '').strip().lower()
+                    if name_key and name_key not in seen_names:
+                        seen_names.add(name_key)
+                        all_companies.append(company)
+                        new_count += 1
+                    elif name_key in seen_names:
+                        logger.debug(f"Dedup: skipping '{company.get('name')}' (already found)")
+
+                if pass_summary:
+                    summaries.append(f"**{angle['label']}:** {pass_summary}")
+
+                logger.info(f"Pass {pass_num} complete: {len(pass_companies)} returned, {new_count} new (total: {len(all_companies)})")
+
+            except Exception as e:
+                logger.error(f"Research pass {pass_num} ({angle['label']}) failed: {e}")
+                summaries.append(f"**{angle['label']}:** Search pass failed — {str(e)[:100]}")
+                continue
+
+        all_companies.sort(key=lambda c: c.get('score', 0), reverse=True)
+
+        combined_summary = ' | '.join(summaries) if summaries else 'Research complete.'
+        combined_summary += f" | Total unique prospects found: {len(all_companies)} across {len(self.SEARCH_ANGLES)} search passes."
+
+        return {
+            'companies': all_companies[:self.MAX_COMPANIES_TOTAL],
+            'summary': combined_summary,
+        }
+
+    def _execute_single_pass(self, client, system_prompt, user_prompt):
+        response = client.responses.create(
+            model="gpt-5.4",
+            instructions=system_prompt,
+            input=user_prompt,
+            tools=[{"type": "web_search_preview"}],
+            max_output_tokens=16384,
+        )
+
+        response_text = ''
+        for item in response.output:
+            if item.type == 'message':
+                for content_block in item.content:
+                    if content_block.type == 'output_text':
+                        response_text = content_block.text
+                        break
+
+        if not response_text:
+            logger.warning("Empty response from AI research pass")
+            return {'companies': [], 'summary': 'No results returned.'}
+
+        clean_text = response_text.strip()
+        if clean_text.startswith('```json'):
+            clean_text = clean_text[7:]
+        if clean_text.startswith('```'):
+            clean_text = clean_text[3:]
+        if clean_text.endswith('```'):
+            clean_text = clean_text[:-3]
+        clean_text = clean_text.strip()
 
         try:
-            response = client.responses.create(
-                model="gpt-4.1-mini",
-                instructions=system_prompt,
-                input=user_prompt,
-                tools=[{"type": "web_search_preview"}],
-                max_output_tokens=4096,
-            )
-
-            response_text = ''
-            for item in response.output:
-                if item.type == 'message':
-                    for content_block in item.content:
-                        if content_block.type == 'output_text':
-                            response_text = content_block.text
-                            break
-
-            if not response_text:
-                logger.warning("Empty response from AI research")
-                return {'companies': [], 'summary': 'No results returned from AI research.'}
-
-            clean_text = response_text.strip()
-            if clean_text.startswith('```json'):
-                clean_text = clean_text[7:]
-            if clean_text.startswith('```'):
-                clean_text = clean_text[3:]
-            if clean_text.endswith('```'):
-                clean_text = clean_text[:-3]
-            clean_text = clean_text.strip()
-
             result = json.loads(clean_text)
-            if 'companies' not in result:
-                result = {'companies': [], 'summary': 'Response did not contain company data.'}
-
-            for company in result.get('companies', []):
-                score = company.get('score', 50)
-                if not isinstance(score, (int, float)):
-                    score = 50
-                company['score'] = max(0, min(100, int(score)))
-
-                company['website'] = sanitize_url(company.get('website'))
-                company['sources'] = sanitize_url_list(company.get('sources', []))
-
-                raw_contacts = company.get('contacts', [])
-                normalized = []
-                for c in raw_contacts:
-                    if isinstance(c, dict):
-                        normalized.append({
-                            'name': (c.get('name') or '').strip(),
-                            'title': (c.get('title') or '').strip(),
-                            'linkedin': sanitize_url(c.get('linkedin')) or '',
-                            'email': (c.get('email') or '').strip(),
-                            'phone': (c.get('phone') or '').strip(),
-                        })
-                    elif isinstance(c, str):
-                        normalized.append({
-                            'name': '',
-                            'title': c.strip(),
-                            'linkedin': '',
-                            'email': '',
-                            'phone': '',
-                        })
-                company['contacts'] = normalized
-
-            return result
-
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse AI research response: {e}")
-            return {
-                'companies': [],
-                'summary': 'AI returned non-JSON response. Raw text available in run details.',
-            }
-        except Exception as e:
-            logger.error(f"AI research API error: {e}")
-            raise
+            logger.error(f"Failed to parse AI research pass response: {e}")
+            return {'companies': [], 'summary': 'AI returned non-JSON response in this pass.'}
+
+        if 'companies' not in result:
+            return {'companies': [], 'summary': result.get('summary', 'No company data in response.')}
+
+        for company in result.get('companies', []):
+            score = company.get('score', 50)
+            if not isinstance(score, (int, float)):
+                score = 50
+            company['score'] = max(0, min(100, int(score)))
+
+            company['website'] = sanitize_url(company.get('website'))
+            company['sources'] = sanitize_url_list(company.get('sources', []))
+
+            raw_contacts = company.get('contacts', [])
+            normalized = []
+            for c in raw_contacts:
+                if isinstance(c, dict):
+                    normalized.append({
+                        'name': (c.get('name') or '').strip(),
+                        'title': (c.get('title') or '').strip(),
+                        'linkedin': sanitize_url(c.get('linkedin')) or '',
+                        'email': (c.get('email') or '').strip(),
+                        'phone': (c.get('phone') or '').strip(),
+                    })
+                elif isinstance(c, str):
+                    normalized.append({
+                        'name': '',
+                        'title': c.strip(),
+                        'linkedin': '',
+                        'email': '',
+                        'phone': '',
+                    })
+            company['contacts'] = normalized
+
+        return result
 
 
 class ProspectorService:
