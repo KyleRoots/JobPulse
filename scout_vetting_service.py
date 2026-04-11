@@ -293,7 +293,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
             )
             if not response.choices:
@@ -504,7 +504,7 @@ Return only valid JSON. No markdown, no preamble."""
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
             )
             if not response.choices:
@@ -627,7 +627,7 @@ Return only valid JSON. No markdown, no preamble."""
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
             )
             if not response.choices:
@@ -932,7 +932,7 @@ Keep it concise — maximum 3-4 short paragraphs. Use inline styles for any form
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
             )
             if not response.choices:

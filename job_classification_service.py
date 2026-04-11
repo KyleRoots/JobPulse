@@ -119,7 +119,7 @@ Context-specific guidance:
             # Note: gpt-5 uses reasoning tokens internally, so we need higher max_completion_tokens
             # to allow for both reasoning (500 tokens) and actual output (500 tokens)
             response = self.client.chat.completions.create(
-                model="gpt-5",
+                model="gpt-5.4",
                 messages=[
                     {"role": "system", "content": "You are an expert job classifier using LinkedIn's official taxonomy. Always respond with valid JSON."},
                     {"role": "user", "content": prompt}

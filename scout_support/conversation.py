@@ -429,7 +429,7 @@ class ConversationMixin:
             )
 
             response = client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You are analyzing a reopened ticket with full conversation history. Respond only in valid JSON.'},
                     {'role': 'user', 'content': prompt},
@@ -834,7 +834,7 @@ Keep your response focused and professional. Do not wrap in JSON — respond in 
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an AI ATS support assistant responding to an administrator\'s question during the approval review stage.'},
                     {'role': 'user', 'content': prompt},
@@ -954,7 +954,7 @@ IMPORTANT:
 Respond with ONLY the classification label (one word, lowercase). Nothing else."""
 
         response = self.openai_client.chat.completions.create(
-            model='gpt-5',
+            model='gpt-5.4',
             messages=[{'role': 'user', 'content': prompt}],
             max_completion_tokens=20,
         )
@@ -1051,7 +1051,7 @@ Respond with ONLY a JSON object:
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS. Respond only in valid JSON.'},
                     {'role': 'user', 'content': prompt}
@@ -1108,7 +1108,7 @@ The admin's message:
 Respond with ONLY one label: ai_instruction or direct_reply"""
 
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[{'role': 'user', 'content': prompt}],
                 max_completion_tokens=20,
             )
@@ -1224,7 +1224,7 @@ INSTRUCTIONS:
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS. Generate professional, actionable content as requested by the administrator.'},
                     {'role': 'user', 'content': prompt}

@@ -188,7 +188,7 @@ def run_vetting(label, requirements_instruction):
     prompt = build_prompt(requirements_instruction)
 
     response = client.chat.completions.create(
-        model="gpt-5",
+        model="gpt-5.4",
         messages=[
             {"role": "system", "content": SYSTEM_MESSAGE},
             {"role": "user", "content": prompt}

@@ -199,7 +199,7 @@ resolution_type guide:
             try:
                 token_limit = 8192 if attempt == 0 else 12288
                 response = self.openai_client.chat.completions.create(
-                    model='gpt-5',
+                    model='gpt-5.4',
                     messages=[
                         {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You help internal users resolve their ATS problems. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
@@ -419,7 +419,7 @@ resolution_type guide:
         for attempt in range(2):
             try:
                 response = self.openai_client.chat.completions.create(
-                    model='gpt-5',
+                    model='gpt-5.4',
                     messages=[
                         {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
@@ -563,7 +563,7 @@ Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientCon
 
         try:
             response = self.openai_client.chat.completions.create(
-                model='gpt-5',
+                model='gpt-5.4',
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You are analyzing a FAILED execution attempt and must propose an alternative approach. Respond only in valid JSON.'},
                     {'role': 'user', 'content': prompt}
