@@ -248,6 +248,94 @@ Format as a bullet-point list. Be specific and concise."""
             logging.error(f"Error extracting requirements for job {job_id}: {str(e)}")
             return None
 
+    def _reverify_zero_score(self, resume_text: str, job: Dict,
+                              candidate_location: Optional[Dict],
+                              original_summary: str, original_gaps: str,
+                              prefetched_global_requirements: Optional[str] = None) -> Optional[Dict]:
+        """Quick AI re-check for candidates who scored 0% on a job.
+        
+        Asks the AI to review the original 0% assessment and determine whether
+        there's truly zero relevance, or if some minimal score (even 2-5%) is
+        warranted for transferable skills or partial overlap.
+        
+        Returns dict with revised_score, revised_summary, revised_gaps,
+        revision_reason, confidence_reason — or None on failure.
+        """
+        if not self.openai_client:
+            return None
+        
+        job_title = job.get('title', 'Unknown Position')
+        job_description = job.get('description', '') or job.get('publicDescription', '')
+        job_description = re.sub(r'<[^>]+>', '', job_description)[:2000]
+        
+        resume_excerpt = resume_text[:8000] if resume_text else ''
+        
+        prompt = f"""You previously scored this candidate at 0% match for the job below.
+
+A 0% score means ABSOLUTELY ZERO relevance — no transferable skills, no overlapping domain knowledge, 
+no partial technology overlap, nothing. This is a very strong claim.
+
+Review the original assessment and determine if 0% is truly accurate, or if there is at least 
+SOME minimal relevance (even 2-5%) based on:
+- Any transferable technical skills (e.g., programming in one language when job requires another)
+- Any overlapping domain knowledge (e.g., worked in same industry)
+- Any partial experience overlap (e.g., junior experience when senior is required)
+- Any related education or certifications
+
+IMPORTANT: If the candidate genuinely has NO relevant background whatsoever (e.g., a retail cashier 
+applying for a senior cloud architect role), then 0% IS correct — confirm it. Do not inflate scores 
+just to avoid 0%. But if there IS some connection, even minor, assign an honest score of 2-15%.
+
+ORIGINAL ASSESSMENT:
+- Score: 0%
+- Summary: {original_summary[:500]}
+- Gaps: {original_gaps[:500]}
+
+JOB:
+- Title: {job_title}
+- Description: {job_description}
+
+CANDIDATE RESUME (excerpt):
+{resume_excerpt}
+
+Respond in JSON:
+{{
+  "is_truly_zero": true/false,
+  "confidence_reason": "Why 0% is correct (if is_truly_zero=true)",
+  "revised_score": 0-15,
+  "revised_summary": "Updated summary (if revised_score > 0)",
+  "revised_gaps": "Updated gaps (if revised_score > 0)",
+  "revision_reason": "What relevance was overlooked (if revised_score > 0)"
+}}"""
+        
+        try:
+            response = self.openai_client.chat.completions.create(
+                model='gpt-4.1-mini',
+                messages=[
+                    {"role": "system", "content": "You are a fair technical recruiter reviewing a prior AI assessment. Be honest — confirm 0% if truly warranted, but correct it if some relevance was missed. Respond ONLY with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_completion_tokens=500
+            )
+            
+            content = response.choices[0].message.content.strip()
+            if content.startswith('```'):
+                content = re.sub(r'^```(?:json)?\s*', '', content)
+                content = re.sub(r'\s*```$', '', content)
+            
+            result = json.loads(content)
+            
+            revised_score = int(result.get('revised_score', 0))
+            if revised_score > 15:
+                revised_score = 15
+            result['revised_score'] = revised_score
+            
+            return result
+            
+        except Exception as e:
+            logging.warning(f"Zero-score re-verification failed: {e}")
+            return None
+
     def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None, model_override: Optional[str] = None, prefetched_global_requirements: Optional[str] = None) -> Dict:
         """
         Use AI to analyze how well a candidate matches a job.

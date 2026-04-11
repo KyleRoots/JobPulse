@@ -879,6 +879,67 @@ class CandidateVettingService(
                     except Exception as esc_save_err:
                         logging.warning(f"Failed to save escalation log for job {esc_data['job_id']}: {esc_save_err}")
             
+            # ZERO-SCORE VERIFICATION: If ALL jobs scored 0%, re-verify the top candidates
+            # to confirm the AI is truly confident — a candidate who applied should have
+            # at least some minimal relevance unless they're genuinely mismatched.
+            if all_match_results and all(m.match_score == 0 for m in all_match_results):
+                logging.info(
+                    f"🔄 Zero-score verification: {candidate_name} scored 0% on all "
+                    f"{len(all_match_results)} jobs — running re-verification on top matches"
+                )
+                try:
+                    reverify_matches = all_match_results[:3]
+                    
+                    reverify_jobs = []
+                    for m in reverify_matches:
+                        job_match = next(
+                            (j for j in jobs_to_analyze if j.get('id') == m.bullhorn_job_id),
+                            None
+                        )
+                        if job_match:
+                            reverify_jobs.append((m, job_match))
+                    
+                    if reverify_jobs:
+                        for match_record, job in reverify_jobs:
+                            try:
+                                reverify_result = self._reverify_zero_score(
+                                    cached_resume_text, job, candidate_location,
+                                    match_record.match_summary or '',
+                                    match_record.gaps_identified or '',
+                                    prefetched_global_reqs
+                                )
+                                if reverify_result and reverify_result.get('revised_score', 0) > 0:
+                                    old_score = match_record.match_score
+                                    new_score = reverify_result['revised_score']
+                                    match_record.match_score = new_score
+                                    match_record.match_summary = (
+                                        f"[Verified] {reverify_result.get('revised_summary', match_record.match_summary)}"
+                                    )
+                                    match_record.gaps_identified = reverify_result.get(
+                                        'revised_gaps', match_record.gaps_identified
+                                    )
+                                    job_threshold = job_threshold_cache.get(
+                                        match_record.bullhorn_job_id, global_threshold
+                                    )
+                                    match_record.is_qualified = new_score >= job_threshold
+                                    if match_record.is_qualified:
+                                        qualified_matches.append(match_record)
+                                    logging.info(
+                                        f"  ✅ Re-verified {job.get('title')}: 0% → {new_score}% "
+                                        f"(reason: {reverify_result.get('revision_reason', 'N/A')[:100]})"
+                                    )
+                                else:
+                                    logging.info(
+                                        f"  ✔️ Confirmed 0% for {job.get('title')}: "
+                                        f"{reverify_result.get('confidence_reason', 'AI confirmed non-fit')[:100]}"
+                                    )
+                            except Exception as rv_err:
+                                logging.warning(
+                                    f"  ⚠️ Re-verification failed for job {match_record.bullhorn_job_id}: {rv_err}"
+                                )
+                except Exception as verify_err:
+                    logging.warning(f"⚠️ Zero-score verification error for {candidate_name}: {verify_err}")
+            
             # Update vetting log summary
             vetting_log.status = 'completed'
             vetting_log.analyzed_at = datetime.utcnow()
