@@ -395,8 +395,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         from utils.bullhorn_helpers import get_bullhorn_service
 
         def run_salesrep_sync_job():
-            try:
-                with app.app_context():
+            with app.app_context():
+                try:
                     from salesrep_sync_service import run_salesrep_sync
                     bullhorn = get_bullhorn_service()
                     result = run_salesrep_sync(bullhorn)
@@ -405,10 +405,10 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                             f"🏢 Sales Rep Sync: {result['updated']} companies updated "
                             f"(scanned {result['scanned']}, {result.get('errors', 0)} errors)"
                         )
-            except Exception as e:
-                app.logger.error(f"Sales Rep Sync job error: {e}")
-            finally:
-                db.session.remove()
+                except Exception as e:
+                    app.logger.error(f"Sales Rep Sync job error: {e}")
+                finally:
+                    db.session.remove()
 
         try:
             scheduler.add_job(
@@ -427,17 +427,17 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
     # ── Stale Platform Ticket Escalation Check (every 6 hours) ───────────────
     if is_primary_worker:
         def run_stale_platform_ticket_check():
-            try:
-                with app.app_context():
+            with app.app_context():
+                try:
                     from scout_support_service import ScoutSupportService
                     svc = ScoutSupportService()
                     count = svc.check_stale_platform_tickets()
                     if count > 0:
                         app.logger.info(f"⏰ Stale platform ticket check: {count} ticket(s) escalated to admin")
-            except Exception as e:
-                app.logger.error(f"Stale platform ticket check error: {e}")
-            finally:
-                db.session.remove()
+                except Exception as e:
+                    app.logger.error(f"Stale platform ticket check error: {e}")
+                finally:
+                    db.session.remove()
 
         try:
             scheduler.add_job(
@@ -456,8 +456,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
     # ── Duplicate Candidate Merge Check (every 60 minutes) ───────────────────
     if is_primary_worker:
         def run_duplicate_merge_check():
-            try:
-                with app.app_context():
+            with app.app_context():
+                try:
                     from duplicate_merge_service import DuplicateMergeService
                     svc = DuplicateMergeService()
                     stats = svc.run_scheduled_check()
@@ -505,10 +505,10 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                     except Exception as log_err:
                         app.logger.warning(f"⚠️ Dedup check: could not write run history: {log_err}")
 
-            except Exception as e:
-                app.logger.error(f"Scheduled duplicate merge check error: {e}")
-            finally:
-                db.session.remove()
+                except Exception as e:
+                    app.logger.error(f"Scheduled duplicate merge check error: {e}")
+                finally:
+                    db.session.remove()
 
         try:
             scheduler.add_job(
@@ -527,8 +527,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
     # ── OneDrive Knowledge Sync (every 4 hours) ───────────────────────────────
     if is_primary_worker:
         def run_onedrive_sync():
-            try:
-                with app.app_context():
+            with app.app_context():
+                try:
                     from onedrive_service import OneDriveService
                     from models import OneDriveSyncFolder
                     folders = OneDriveSyncFolder.query.filter_by(sync_enabled=True).count()
@@ -541,10 +541,10 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                                 f"☁️ OneDrive sync: {stats.get('total_synced', 0)} new, "
                                 f"{stats.get('total_updated', 0)} updated across {stats.get('folders_synced', 0)} folder(s)"
                             )
-            except Exception as e:
-                app.logger.error(f"OneDrive sync error: {e}")
-            finally:
-                db.session.remove()
+                except Exception as e:
+                    app.logger.error(f"OneDrive sync error: {e}")
+                finally:
+                    db.session.remove()
 
         try:
             scheduler.add_job(
