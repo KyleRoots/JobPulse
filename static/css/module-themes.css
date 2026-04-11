@@ -28,6 +28,7 @@ body[data-module="inbound"] {
     --module-card-hover-bg: var(--module-inbound-card-hover-bg);
     --content-bg: linear-gradient(135deg, #1a1308 0%, #231a0a 50%, #151008 100%);
     --sidebar-bg: #120e08;
+    background: linear-gradient(135deg, #1a1308 0%, #231a0a 50%, #151008 100%) !important;
     /* Override Bootstrap semantic colors for module consistency */
     --bs-success: #d97706;
     --bs-success-rgb: 217, 119, 6;
@@ -48,6 +49,7 @@ body[data-module="screening"] {
     --module-card-hover-bg: var(--module-screening-card-hover-bg);
     --content-bg: linear-gradient(135deg, #1a0c14 0%, #2a1520 50%, #140a10 100%);
     --sidebar-bg: #140a10;
+    background: linear-gradient(135deg, #1a0c14 0%, #2a1520 50%, #140a10 100%) !important;
     /* Override Bootstrap semantic colors for module consistency */
     --bs-success: #f43f5e;
     --bs-success-rgb: 244, 63, 94;
@@ -68,6 +70,7 @@ body[data-module="vetting"] {
     --module-card-hover-bg: var(--module-vetting-card-hover-bg);
     --content-bg: linear-gradient(135deg, #0a1620 0%, #0e1e2a 50%, #081218 100%);
     --sidebar-bg: #081218;
+    background: linear-gradient(135deg, #0a1620 0%, #0e1e2a 50%, #081218 100%) !important;
     /* Override Bootstrap semantic colors for module consistency */
     --bs-success: #06b6d4;
     --bs-success-rgb: 6, 182, 212;
@@ -88,6 +91,7 @@ body[data-module="support"] {
     --module-card-hover-bg: var(--module-support-card-hover-bg);
     --content-bg: linear-gradient(135deg, #140a20 0%, #1c1030 50%, #0e0818 100%);
     --sidebar-bg: #0e0818;
+    background: linear-gradient(135deg, #140a20 0%, #1c1030 50%, #0e0818 100%) !important;
     --bs-success: #8b5cf6;
     --bs-success-rgb: 139, 92, 246;
     --bs-info: #8b5cf6;
@@ -107,11 +111,21 @@ body[data-module="prospector"] {
     --module-card-hover-bg: var(--module-prospector-card-hover-bg);
     --content-bg: linear-gradient(135deg, #0a1020 0%, #101830 50%, #080e1c 100%);
     --sidebar-bg: #080e1c;
+    background: linear-gradient(135deg, #0a1020 0%, #101830 50%, #080e1c 100%) !important;
     --bs-success: #3b82f6;
     --bs-success-rgb: 59, 130, 246;
     --bs-info: #3b82f6;
     --bs-info-rgb: 59, 130, 246;
 }
+
+/* ============================================
+   SIDEBAR – Module-specific background override
+   ============================================ */
+body[data-module="inbound"] .sidebar { background: #120e08 !important; }
+body[data-module="screening"] .sidebar { background: #140a10 !important; }
+body[data-module="vetting"] .sidebar { background: #081218 !important; }
+body[data-module="support"] .sidebar { background: #0e0818 !important; }
+body[data-module="prospector"] .sidebar { background: #080e1c !important; }
 
 /* ============================================
    PAGE HEADER – Module-tinted background + border
