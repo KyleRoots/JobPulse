@@ -12,7 +12,6 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&display=swap"
         rel="stylesheet">
     <link href="{{ url_for('static', filename='css/theme-variables.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/module-themes.css') }}" rel="stylesheet">
     <style>
         :root {
             --sidebar-width: 260px;
@@ -1457,6 +1456,7 @@
             color: #4a9678;
         }
     </style>
+    <link href="{{ url_for('static', filename='css/module-themes.css') }}" rel="stylesheet">
     {% block extra_styles %}{% endblock %}
 </head>
 

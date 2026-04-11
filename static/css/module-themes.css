@@ -140,6 +140,7 @@ body[data-module] .page-header {
    ============================================ */
 body[data-module] .glass-card,
 body[data-module] .settings-card {
+    background: var(--module-card-bg) !important;
     border-color: var(--module-border);
 }
 
@@ -150,6 +151,7 @@ body[data-module] .settings-card::before {
 
 body[data-module] .glass-card:hover,
 body[data-module] .settings-card:hover {
+    background: var(--module-card-hover-bg) !important;
     border-color: var(--module-accent);
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25), 0 0 30px var(--module-glow);
 }
@@ -535,6 +537,76 @@ body[data-module="vetting"] .glass-card .table,
 body[data-module="vetting"] .glass-card .table th,
 body[data-module="vetting"] .glass-card .table td {
     border-color: rgba(6, 182, 212, 0.1);
+}
+
+body[data-module="support"] .table,
+body[data-module="support"] .table thead,
+body[data-module="support"] .table tbody,
+body[data-module="support"] .table th,
+body[data-module="support"] .table td,
+body[data-module="support"] .table-dark,
+body[data-module="support"] .table-dark thead,
+body[data-module="support"] .table-dark tbody,
+body[data-module="support"] .table-dark th,
+body[data-module="support"] .table-dark td {
+    --bs-table-striped-bg: rgba(139, 92, 246, 0.05) !important;
+    --bs-table-hover-bg: rgba(139, 92, 246, 0.08) !important;
+    --bs-table-border-color: rgba(139, 92, 246, 0.1) !important;
+    --bs-table-active-bg: rgba(139, 92, 246, 0.1) !important;
+}
+
+body[data-module="support"] .table td {
+    border-bottom-color: rgba(139, 92, 246, 0.08) !important;
+}
+
+body[data-module="support"] .table tbody tr:hover {
+    background: rgba(139, 92, 246, 0.08) !important;
+}
+
+body[data-module="support"] .table-dark thead th,
+body[data-module="support"] .table thead th {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.08)) !important;
+}
+
+body[data-module="prospector"] .table,
+body[data-module="prospector"] .table thead,
+body[data-module="prospector"] .table tbody,
+body[data-module="prospector"] .table th,
+body[data-module="prospector"] .table td,
+body[data-module="prospector"] .table-dark,
+body[data-module="prospector"] .table-dark thead,
+body[data-module="prospector"] .table-dark tbody,
+body[data-module="prospector"] .table-dark th,
+body[data-module="prospector"] .table-dark td {
+    --bs-table-striped-bg: rgba(59, 130, 246, 0.05) !important;
+    --bs-table-hover-bg: rgba(59, 130, 246, 0.08) !important;
+    --bs-table-border-color: rgba(59, 130, 246, 0.1) !important;
+    --bs-table-active-bg: rgba(59, 130, 246, 0.1) !important;
+}
+
+body[data-module="prospector"] .table td {
+    border-bottom-color: rgba(59, 130, 246, 0.08) !important;
+}
+
+body[data-module="prospector"] .table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.08) !important;
+}
+
+body[data-module="prospector"] .table-dark thead th,
+body[data-module="prospector"] .table thead th {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08)) !important;
+}
+
+body[data-module="prospector"] .glass-card .table,
+body[data-module="prospector"] .glass-card .table th,
+body[data-module="prospector"] .glass-card .table td {
+    border-color: rgba(59, 130, 246, 0.1);
+}
+
+body[data-module="support"] .glass-card .table,
+body[data-module="support"] .glass-card .table th,
+body[data-module="support"] .glass-card .table td {
+    border-color: rgba(139, 92, 246, 0.1);
 }
 
 /* ============================================
