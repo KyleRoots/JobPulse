@@ -311,6 +311,7 @@ class CandidateVettingService(
             )
             db.session.add(vetting_log)
             db.session.commit()
+            db.session.refresh(vetting_log)
         except Exception as e:
             db.session.rollback()
             # If UniqueViolation, find the existing log and re-analyze if it has 0% scores
@@ -895,10 +896,15 @@ class CandidateVettingService(
             
         except Exception as e:
             logging.error(f"Error processing candidate {candidate_id}: {str(e)}")
-            vetting_log.status = 'failed'
-            vetting_log.error_message = str(e)
-            vetting_log.retry_count += 1
-            db.session.commit()
+            try:
+                vetting_log = db.session.merge(vetting_log)
+                vetting_log.status = 'failed'
+                vetting_log.error_message = str(e)[:500]
+                vetting_log.retry_count += 1
+                db.session.commit()
+            except Exception as merge_err:
+                db.session.rollback()
+                logging.error(f"Could not update vetting log for candidate {candidate_id}: {str(merge_err)}")
             return vetting_log
     
 
@@ -1020,6 +1026,23 @@ class CandidateVettingService(
                 logging.info("No new candidates to process")
                 self._set_last_run_timestamp(cycle_start)
                 return summary
+            
+            # ═══════════════════════════════════════════════════════════════
+            # DEDUPLICATE: Remove duplicate candidate IDs before parallel
+            # processing. Multiple ParsedEmail records can reference the same
+            # Bullhorn candidate — parallel threads for the same ID collide
+            # on vetting log creation, causing session detachment errors.
+            # ═══════════════════════════════════════════════════════════════
+            seen_candidate_ids = set()
+            unique_candidates = []
+            for cand in candidates:
+                cid = cand.get('id')
+                if cid not in seen_candidate_ids:
+                    seen_candidate_ids.add(cid)
+                    unique_candidates.append(cand)
+            if len(unique_candidates) < len(candidates):
+                logging.info(f"🔄 Deduped candidates: {len(candidates)} → {len(unique_candidates)} unique Bullhorn IDs")
+            candidates = unique_candidates
             
             # ═══════════════════════════════════════════════════════════════
             # BATCH OPTIMIZATION: Load tearsheet jobs ONCE for the entire batch
