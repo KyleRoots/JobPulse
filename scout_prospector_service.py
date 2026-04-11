@@ -62,7 +62,11 @@ For each company you find, provide:
 - Estimated employee count/size category
 - Location (headquarters)
 - Website URL if available
-- Key decision-maker contacts (titles, not personal info)
+- Key decision-maker contacts with as much detail as you can find publicly:
+  - Full name (if publicly available on the company website, LinkedIn, or press releases)
+  - Job title / role
+  - LinkedIn profile URL (if you can find it)
+  - Email address (only if publicly listed on company website, press releases, or directories)
 - Current hiring activity (active job postings, growth signals)
 - Why they're a good fit based on the ICP criteria
 - A qualification score from 0-100
@@ -76,7 +80,20 @@ Return your findings as valid JSON with this structure:
       "size": "50-200 employees",
       "location": "City, State",
       "website": "https://example.com",
-      "contacts": ["VP of HR", "Director of Talent Acquisition"],
+      "contacts": [
+        {
+          "name": "Jane Smith",
+          "title": "VP of Human Resources",
+          "linkedin": "https://www.linkedin.com/in/janesmith",
+          "email": "jane.smith@example.com"
+        },
+        {
+          "name": "",
+          "title": "Director of Talent Acquisition",
+          "linkedin": "",
+          "email": ""
+        }
+      ],
       "hiring_activity": "Currently hiring for 15+ positions including software engineers and project managers",
       "fit_reason": "Strong match because...",
       "score": 85,
@@ -85,6 +102,8 @@ Return your findings as valid JSON with this structure:
   ],
   "summary": "Brief summary of findings and market observations"
 }
+
+IMPORTANT: For contacts, always return objects with name/title/linkedin/email fields. Use empty strings for any fields you cannot find — never omit the fields. Prioritize finding LinkedIn profile URLs for decision-makers. Only include email addresses that are publicly available — do not guess or fabricate emails.
 
 Find 5-10 qualifying companies. Focus on quality over quantity. Only include companies with genuine hiring signals or staffing needs."""
 
@@ -149,6 +168,25 @@ Search the web for companies that match these criteria. Look for active job post
 
                 company['website'] = sanitize_url(company.get('website'))
                 company['sources'] = sanitize_url_list(company.get('sources', []))
+
+                raw_contacts = company.get('contacts', [])
+                normalized = []
+                for c in raw_contacts:
+                    if isinstance(c, dict):
+                        normalized.append({
+                            'name': (c.get('name') or '').strip(),
+                            'title': (c.get('title') or '').strip(),
+                            'linkedin': sanitize_url(c.get('linkedin')) or '',
+                            'email': (c.get('email') or '').strip(),
+                        })
+                    elif isinstance(c, str):
+                        normalized.append({
+                            'name': '',
+                            'title': c.strip(),
+                            'linkedin': '',
+                            'email': '',
+                        })
+                company['contacts'] = normalized
 
             return result
 
@@ -420,7 +458,19 @@ Only include fields you can confidently infer. Use standard industry names and r
         ])
         for p in prospects:
             contacts = p.get_key_contacts()
-            contacts_str = '; '.join(contacts) if contacts else ''
+            contact_parts = []
+            for c in contacts:
+                parts = []
+                if c.get('name'):
+                    parts.append(c['name'])
+                if c.get('title'):
+                    parts.append(c['title'])
+                if c.get('email'):
+                    parts.append(c['email'])
+                if c.get('linkedin'):
+                    parts.append(c['linkedin'])
+                contact_parts.append(' | '.join(parts) if parts else '')
+            contacts_str = '; '.join(contact_parts)
             writer.writerow([
                 p.company_name,
                 p.industry or '',

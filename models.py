@@ -1681,7 +1681,26 @@ class Prospect(db.Model):
         if not self.key_contacts:
             return []
         try:
-            return json.loads(self.key_contacts)
+            raw = json.loads(self.key_contacts)
+            if not isinstance(raw, list):
+                return []
+            normalized = []
+            for item in raw:
+                if isinstance(item, dict):
+                    normalized.append({
+                        'name': item.get('name', ''),
+                        'title': item.get('title', ''),
+                        'linkedin': item.get('linkedin', ''),
+                        'email': item.get('email', ''),
+                    })
+                elif isinstance(item, str):
+                    normalized.append({
+                        'name': '',
+                        'title': item,
+                        'linkedin': '',
+                        'email': '',
+                    })
+            return normalized
         except (json.JSONDecodeError, TypeError):
             return []
 
