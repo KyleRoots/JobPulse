@@ -1784,10 +1784,11 @@
                 <a href="/my-tickets" class="btn btn-outline-light btn-sm ms-2" title="View My Tickets">
                     <i class="fas fa-ticket-alt me-1"></i>My Tickets
                 </a>
-                {% endif %}
+                {% else %}
                 <a href="/my-feedback" class="btn btn-outline-light btn-sm ms-2" title="View My Feedback">
                     <i class="fas fa-comment-dots me-1"></i>My Feedback
                 </a>
+                {% endif %}
                 <button class="btn btn-outline-light btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#feedbackModal"
                     title="Send Feedback">
                     <i class="fas fa-bullhorn me-1"></i>Feedback
@@ -1997,7 +1998,11 @@
                             + '<h5 class="mb-2">Feedback Submitted!</h5>'
                             + (ticketNum ? '<p class="mb-1">Reference: <strong>' + ticketNum + '</strong></p>' : '')
                             + '<p class="text-muted small mb-3">You\'ll receive a confirmation email shortly.</p>'
+                            {% if current_user.is_authenticated and (current_user.is_admin or current_user.has_module('scout_support')) %}
+                            + '<a href="/my-tickets" class="btn btn-sm btn-outline-light"><i class="fas fa-ticket-alt me-1"></i>View My Tickets</a>'
+                            {% else %}
                             + '<a href="/my-feedback" class="btn btn-sm btn-outline-light"><i class="fas fa-comment-dots me-1"></i>View My Feedback</a>'
+                            {% endif %}
                             + '</div>';
                         btn.style.display = 'none';
                     } else {
