@@ -638,6 +638,22 @@ class CandidateDetectionMixin:
                 first_bytes = content[:50] if content else b''
                 logging.info(f"Downloaded resume for candidate {candidate_id}: {filename}")
                 logging.info(f"  Content-Type: {content_type}, Size: {content_length} bytes, First bytes: {first_bytes[:30]}")
+                
+                if content and content.lstrip()[:1] == b'{' and b'"File"' in content[:200]:
+                    try:
+                        import json
+                        import base64
+                        json_data = json.loads(content)
+                        file_obj = json_data.get('File', {})
+                        b64_content = file_obj.get('fileContent', '')
+                        if b64_content:
+                            content = base64.b64decode(b64_content)
+                            logging.info(f"📦 Unwrapped JSON-enveloped file for candidate {candidate_id}: {len(content)} bytes decoded from base64")
+                        else:
+                            logging.warning(f"JSON envelope found but no fileContent for candidate {candidate_id}")
+                    except (json.JSONDecodeError, Exception) as e:
+                        logging.warning(f"Failed to unwrap JSON envelope for candidate {candidate_id}: {e}")
+                
                 return content, filename
             else:
                 logging.warning(f"Failed to download file {file_id}: {download_response.status_code}")
