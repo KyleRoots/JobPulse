@@ -455,7 +455,8 @@ MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
 2. MOST RECENT WORK HISTORY: If the header/contact section has no location, check the candidate's most recent job for a city/state/country. Use that as their presumed current location.
 3. SYSTEM ADDRESS FIELD (FALLBACK ONLY): Only if the resume provides NO location in either the header or work history, consider the system-provided address above. WARNING: Bullhorn often auto-fills "United States" as a default when no address is entered — a country-only value with no city/state is UNRELIABLE and should be treated as "unknown" for location matching purposes.
 4. EDUCATION LOCATION: If all above are empty, check education institution location.
-5. "UNKNOWN": Only if none of the four sources above provide any usable city, state, or country.
+5. PHONE AREA CODE INFERENCE (LAST RESORT): If none of the above sources provide any usable location, check the candidate's phone number on the resume and use the area code to infer a likely metro area/region. For example, 416/647 → Toronto ON, 212/646 → New York NY, 713/281 → Houston TX, 604 → Vancouver BC. Mark the extracted location as "(inferred from area code)" so the recruiter knows it is approximate, not confirmed. This is directional only — people may have relocated since obtaining their number — but it is more useful than "Unknown" for location matching.
+6. "UNKNOWN": Only if none of the five sources above provide any usable city, state, or country.
 
 CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults.
 
@@ -529,7 +530,8 @@ MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
 2. MOST RECENT WORK HISTORY: If the header/contact section has no location, check the candidate's most recent job for a city/state/country. Use that as their presumed current location.
 3. SYSTEM ADDRESS FIELD (FALLBACK ONLY): Only if the resume provides NO location in either the header or work history, consider the system-provided address above. WARNING: Bullhorn often auto-fills "United States" as a default when no address is entered — a country-only value with no city/state is UNRELIABLE and should be treated as "unknown" for location matching purposes.
 4. EDUCATION LOCATION: If all above are empty, check education institution location.
-5. "UNKNOWN": Only if none of the four sources above provide any usable city, state, or country.
+5. PHONE AREA CODE INFERENCE (LAST RESORT): If none of the above sources provide any usable location, check the candidate's phone number on the resume and use the area code to infer a likely metro area/region. For example, 416/647 → Toronto ON, 212/646 → New York NY, 713/281 → Houston TX, 604 → Vancouver BC. Mark the extracted location as "(inferred from area code)" so the recruiter knows it is approximate, not confirmed. This is directional only — people may have relocated since obtaining their number — but it is more useful than "Unknown" for location matching.
+6. "UNKNOWN": Only if none of the five sources above provide any usable city, state, or country.
 
 CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults."""
         
