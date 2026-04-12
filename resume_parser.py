@@ -579,8 +579,24 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                     logger.warning(f"PyPDF2 extraction failed: {str(e)}")
                     raw_text = ""
             
-            if not raw_text:
-                return "", ""
+            if not raw_text or len(raw_text.strip()) < 50:
+                file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+                if file_size > 5000:
+                    logger.info(f"🔍 Image-based PDF detected ({len(raw_text.strip()) if raw_text else 0} chars from {file_size} byte file) — attempting AI vision OCR")
+                    from vetting.resume_utils import _ocr_pdf_with_vision
+                    with open(file_path, 'rb') as f:
+                        pdf_bytes = f.read()
+                    ocr_text = _ocr_pdf_with_vision(pdf_bytes)
+                    if ocr_text and len(ocr_text.strip()) > len(raw_text.strip() if raw_text else ''):
+                        raw_text = ocr_text
+                        logger.info(f"📸 AI vision OCR successful: {len(raw_text)} chars extracted from image-based PDF")
+                    else:
+                        logger.warning(f"AI vision OCR did not produce usable text (got {len(ocr_text) if ocr_text else 0} chars)")
+                        if not raw_text:
+                            return "", ""
+                else:
+                    if not raw_text:
+                        return "", ""
             
             # Apply deterministic text normalization to fix common PDF extraction issues
             # This handles Unicode whitespace, non-breaking spaces, and attempts to repair

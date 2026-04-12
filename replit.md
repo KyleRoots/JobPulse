@@ -40,6 +40,8 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Dual-Cycle Monitoring**: 5-minute tearsheet monitoring and 30-minute automated SFTP upload cycles.
 - **Job Application Forms**: Public forms with multi-brand support, resume parsing, and Bullhorn integration including duplicate candidate detection and profile enrichment.
 - **Resume HTML Formatting**: Three-layer process including GPT-5.4 formatting.
+- **AI Vision OCR for Scanned PDFs**: Automatic fallback for image-based/scanned PDF resumes. When PyMuPDF/PyPDF2 extract less than 50 chars from a large PDF (>5KB), pages are rendered to PNG images at 200 DPI and sent to GPT-4.1-mini vision for text extraction. Applied in both the vetting pipeline (`vetting/resume_utils.py`) and the application intake pipeline (`resume_parser.py`). Handles up to 5 pages per resume.
+- **Bullhorn JSON-Enveloped File Unwrapping**: Bullhorn's file API sometimes returns resume files wrapped in JSON (`{"File":{"contentType":"...","fileContent":"<base64>"}}`). The resume download function in `screening/detection.py` automatically detects and decodes this format before passing to extraction.
 - **AI Job Classification**: Classifies jobs based on LinkedIn taxonomy.
 - **Scout Vetting**: AI-powered candidate screening using GPT-5.4 with embedding pre-filtering, experience-level classification, two-phase scoring, work authorization/security clearance inference, configurable global screening prompts, employment gap penalties, and AI-native recency relevance enforcement with strict justification requirements.
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
