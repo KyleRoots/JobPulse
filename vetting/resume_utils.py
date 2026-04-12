@@ -6,10 +6,14 @@ on class state (only used logging via self, replaced with module-level logger).
 """
 
 import io
+import os
 import logging
+import base64
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+MIN_TEXT_RATIO = 10
 
 
 def extract_resume_text(file_content: bytes, filename: str) -> Optional[str]:
@@ -46,16 +50,14 @@ def extract_resume_text(file_content: bytes, filename: str) -> Optional[str]:
 
 
 def extract_text_from_pdf(file_content: bytes) -> Optional[str]:
-    """Extract text from PDF file"""
+    """Extract text from PDF file, with AI vision OCR fallback for scanned/image-based PDFs."""
     try:
         import fitz  # PyMuPDF
         
-        # Debug: Check content size and first bytes
         content_size = len(file_content) if file_content else 0
         first_bytes = file_content[:50] if file_content and len(file_content) >= 50 else file_content
         logging.info(f"PDF extraction: size={content_size} bytes, starts with: {first_bytes[:20] if first_bytes else 'empty'}")
         
-        # Check if content starts with %PDF (valid PDF header)
         if not file_content or not file_content.startswith(b'%PDF'):
             logging.error(f"Invalid PDF content - doesn't start with %PDF header. First 100 bytes: {file_content[:100] if file_content else 'empty'}")
             return None
@@ -67,8 +69,18 @@ def extract_text_from_pdf(file_content: bytes) -> Optional[str]:
             text_parts.append(page.get_text())
         
         doc.close()
-        extracted_text = "\n".join(text_parts)
+        extracted_text = "\n".join(text_parts).strip()
         logging.info(f"PDF extraction successful: {len(extracted_text)} chars extracted")
+        
+        if len(extracted_text) < 50 and content_size > 5000:
+            logging.info(f"🔍 Image-based PDF detected ({len(extracted_text)} chars from {content_size} byte file) — attempting AI vision OCR")
+            ocr_text = _ocr_pdf_with_vision(file_content)
+            if ocr_text and len(ocr_text) > len(extracted_text):
+                logging.info(f"📸 AI vision OCR successful: {len(ocr_text)} chars extracted from image-based PDF")
+                return ocr_text
+            else:
+                logging.warning(f"AI vision OCR did not improve extraction (got {len(ocr_text) if ocr_text else 0} chars)")
+        
         return extracted_text
     except ImportError:
         logging.warning("PyMuPDF not installed - trying pdfminer")
@@ -80,9 +92,65 @@ def extract_text_from_pdf(file_content: bytes) -> Optional[str]:
             return None
     except Exception as e:
         logging.error(f"PDF extraction error: {str(e)}")
-        # Additional debug for the specific error
         if file_content:
             logging.error(f"PDF content size: {len(file_content)} bytes, first 50 bytes: {file_content[:50]}")
+        return None
+
+
+def _ocr_pdf_with_vision(file_content: bytes, max_pages: int = 5) -> Optional[str]:
+    """Use AI vision to extract text from image-based/scanned PDF pages."""
+    try:
+        import fitz
+        from openai import OpenAI
+
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        doc = fitz.open(stream=file_content, filetype="pdf")
+        page_count = min(len(doc), max_pages)
+
+        image_messages = []
+        for i in range(page_count):
+            page = doc[i]
+            pix = page.get_pixmap(dpi=200)
+            img_bytes = pix.tobytes("png")
+            b64_img = base64.b64encode(img_bytes).decode("utf-8")
+            image_messages.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{b64_img}", "detail": "high"}
+            })
+
+        doc.close()
+
+        if not image_messages:
+            return None
+
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an OCR assistant. Extract ALL text from the resume page image(s) provided. "
+                               "Reproduce the text exactly as it appears — preserve names, dates, job titles, skills, "
+                               "phone numbers, emails, addresses, and formatting structure. Do not summarize or interpret. "
+                               "Output only the extracted text, nothing else."
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": f"Extract all text from these {page_count} resume page(s):"},
+                        *image_messages
+                    ]
+                }
+            ],
+            max_completion_tokens=4000
+        )
+
+        ocr_text = response.choices[0].message.content.strip() if response.choices else None
+        if ocr_text:
+            logging.info(f"📸 Vision OCR extracted {len(ocr_text)} chars from {page_count} page(s)")
+        return ocr_text
+
+    except Exception as e:
+        logging.error(f"Vision OCR failed: {str(e)}")
         return None
 
 
