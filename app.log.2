@@ -1886,3 +1886,1106 @@ with app.app_context(). See the documentation for more information.
 2026-04-12 01:20:21,241 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:21:21 UTC)" executed successfully
 2026-04-12 01:21:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:22:21 UTC)" (scheduled at 2026-04-12 01:21:21.227522+00:00)
 2026-04-12 01:21:21,240 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:22:21 UTC)" executed successfully
+2026-04-12 01:22:14,390 - apscheduler.executors.default - INFO - Running job "5-Minute Tearsheet Monitor with Keyword Classification (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:14 UTC)" (scheduled at 2026-04-12 01:22:14.390452+00:00)
+2026-04-12 01:22:14,391 - extensions - INFO - 🔄 INCREMENTAL MONITOR: Starting simplified monitoring cycle
+2026-04-12 01:22:14,391 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:14,391 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:14,391 - apscheduler.executors.default - INFO - Running job "Active Job IDs Cache Refresh (5 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:14 UTC)" (scheduled at 2026-04-12 01:22:14.391349+00:00)
+2026-04-12 01:22:14,391 - apscheduler.executors.default - INFO - Running job "Production Environment Monitoring (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:14 UTC)" (scheduled at 2026-04-12 01:22:14.391096+00:00)
+2026-04-12 01:22:14,401 - extensions - INFO - Checking environment status for: https://app.scoutgenius.ai
+2026-04-12 01:22:14,408 - extensions - INFO - Using 6 database monitors
+2026-04-12 01:22:14,409 - incremental_monitoring_service - INFO - ============================================================
+2026-04-12 01:22:14,409 - incremental_monitoring_service - INFO - STARTING INCREMENTAL MONITORING CYCLE
+2026-04-12 01:22:14,409 - incremental_monitoring_service - INFO - Time: 2026-04-12 01:22:14
+2026-04-12 01:22:14,409 - incremental_monitoring_service - INFO - ============================================================
+2026-04-12 01:22:14,411 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
+2026-04-12 01:22:14,412 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:22:14,412 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:22:14,412 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:22:14,413 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:22:14,414 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
+2026-04-12 01:22:14,414 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:22:14,414 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:22:14,414 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:22:14,414 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:22:14,415 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
+2026-04-12 01:22:14,415 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
+2026-04-12 01:22:14,415 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:22:14,416 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
+2026-04-12 01:22:14,416 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
+2026-04-12 01:22:14,416 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:22:14,560 - root - INFO - Auth response status: 302
+2026-04-12 01:22:14,560 - root - INFO - Auth response headers: [redacted for security]
+2026-04-12 01:22:14,561 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
+2026-04-12 01:22:14,561 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:22:14,572 - root - INFO - Auth response status: 302
+2026-04-12 01:22:14,573 - root - INFO - Auth response headers: [redacted for security]
+2026-04-12 01:22:14,573 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
+2026-04-12 01:22:14,573 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:22:14,646 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:22:14,652 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:22:14,794 - extensions - INFO - ✅ Environment check successful: 200
+2026-04-12 01:22:14,801 - extensions - INFO - ✅ Environment monitoring: production is UP (consecutive failures: 0)
+2026-04-12 01:22:14,802 - apscheduler.executors.default - INFO - Job "Production Environment Monitoring (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:14 UTC)" executed successfully
+2026-04-12 01:22:14,828 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
+2026-04-12 01:22:14,828 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:22:14,828 - root - INFO - REST Token: ***f787
+2026-04-12 01:22:14,829 - root - WARNING - ⚠️ No userId in REST response, querying current user...
+2026-04-12 01:22:14,850 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
+2026-04-12 01:22:14,850 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:22:14,850 - root - INFO - REST Token: ***e493
+2026-04-12 01:22:14,850 - root - WARNING - ⚠️ No userId in REST response, querying current user...
+2026-04-12 01:22:14,973 - root - INFO - Got user ID from settings endpoint: 1147490
+2026-04-12 01:22:14,973 - root - INFO - User ID for note creation: 1147490
+2026-04-12 01:22:14,979 - root - INFO - Got user ID from settings endpoint: 1147490
+2026-04-12 01:22:14,980 - root - INFO - User ID for note creation: 1147490
+2026-04-12 01:22:14,980 - root - INFO - Connection test passed - valid authentication credentials available
+2026-04-12 01:22:15,169 - root - INFO - Full API connection test successful
+2026-04-12 01:22:15,169 - incremental_monitoring_service - INFO - 
+📋 Step 1: Fetching jobs from tearsheets...
+2026-04-12 01:22:15,169 - incremental_monitoring_service - INFO -   Fetching from Sponsored - OTT...
+2026-04-12 01:22:15,372 - root - INFO - Tearsheet 1231: Entity API reports 43 total jobs
+2026-04-12 01:22:15,426 - root - INFO - Tearsheet 1231: Entity API reports 43 total jobs
+2026-04-12 01:22:16,016 - root - WARNING - Tearsheet 1231: Entity API reports 43 jobs but Search API returned 44. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:22:16,061 - root - WARNING - Tearsheet 1231: Entity API reports 43 jobs but Search API returned 44. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:22:16,294 - root - INFO - Tearsheet 1233: Entity API reports 0 total jobs
+2026-04-12 01:22:16,512 - root - INFO - Successfully removed job 34567 from tearsheet 1231
+2026-04-12 01:22:16,512 - incremental_monitoring_service - INFO -     🗑️ AUTO-REMOVED job 34567 from tearsheet 1231: isOpen=Closed
+2026-04-12 01:22:16,513 - incremental_monitoring_service - INFO -     Found 43 eligible jobs, auto-removed 1 ineligible jobs
+2026-04-12 01:22:16,513 - incremental_monitoring_service - INFO -   Fetching from Sponsored - CHI...
+2026-04-12 01:22:16,562 - root - INFO - Tearsheet 1474: Entity API reports 1 total jobs
+2026-04-12 01:22:16,817 - root - INFO - Tearsheet 1239: Entity API reports 10 total jobs
+2026-04-12 01:22:16,820 - root - INFO - Tearsheet 1232: Entity API reports 2 total jobs
+2026-04-12 01:22:16,821 - incremental_monitoring_service - INFO -     Found 2 jobs
+2026-04-12 01:22:16,821 - incremental_monitoring_service - INFO -   Fetching from Sponsored - CLE...
+2026-04-12 01:22:17,104 - root - INFO - Tearsheet 1233: Entity API reports 0 total jobs
+2026-04-12 01:22:17,104 - incremental_monitoring_service - INFO -     Found 0 jobs
+2026-04-12 01:22:17,104 - incremental_monitoring_service - INFO -   Fetching from Sponsored - VMS...
+2026-04-12 01:22:17,400 - root - INFO - Tearsheet 1239: Entity API reports 10 total jobs
+2026-04-12 01:22:17,664 - root - INFO - Tearsheet 1531: Entity API reports 15 total jobs
+2026-04-12 01:22:17,844 - incremental_monitoring_service - INFO -     Found 10 jobs
+2026-04-12 01:22:17,844 - incremental_monitoring_service - INFO -   Fetching from Sponsored - GR...
+2026-04-12 01:22:18,123 - root - INFO - Tearsheet 1474: Entity API reports 1 total jobs
+2026-04-12 01:22:18,123 - incremental_monitoring_service - INFO -     Found 1 jobs
+2026-04-12 01:22:18,123 - incremental_monitoring_service - INFO -   Fetching from Sponsored - STSI...
+2026-04-12 01:22:18,248 - root - WARNING - Tearsheet 1531: Entity API reports 15 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:22:18,382 - root - INFO - Tearsheet 1531: Entity API reports 15 total jobs
+2026-04-12 01:22:18,522 - root - INFO - Tearsheet 1232: Entity API reports 2 total jobs
+2026-04-12 01:22:18,811 - root - WARNING - Tearsheet 1531: Entity API reports 15 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:22:18,811 - incremental_monitoring_service - INFO -     Found 16 jobs
+2026-04-12 01:22:18,827 - incremental_monitoring_service - INFO - ✅ Logged 1 auto-removal activities
+2026-04-12 01:22:18,827 - incremental_monitoring_service - INFO -   ✅ TEARSHEET FETCH COMPLETED: 72 eligible jobs, 1 auto-removed
+2026-04-12 01:22:18,827 - incremental_monitoring_service - INFO - 
+📄 Step 2: Loading current XML and comparing...
+2026-04-12 01:22:18,827 - incremental_monitoring_service - INFO -   🔍 About to call _load_xml_jobs()...
+2026-04-12 01:22:18,835 - incremental_monitoring_service - INFO -   ✅ XML LOAD COMPLETED: 72 jobs
+2026-04-12 01:22:18,835 - incremental_monitoring_service - INFO -   Current XML has 72 jobs
+2026-04-12 01:22:18,835 - incremental_monitoring_service - INFO -   Changes detected: +0 -0 ~72
+2026-04-12 01:22:18,835 - incremental_monitoring_service - INFO - 
+🔄 Step 3: Applying incremental changes...
+2026-04-12 01:22:18,836 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,836 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,838 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,838 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,845 - incremental_monitoring_service - INFO -   ✅ Updated job 34509:  Salesforce Architect
+2026-04-12 01:22:18,845 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,845 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,847 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,847 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,856 - incremental_monitoring_service - INFO -   ✅ Updated job 34877: Sr EDI Developer
+2026-04-12 01:22:18,856 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,856 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,858 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,858 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,864 - incremental_monitoring_service - INFO -   ✅ Updated job 34883: Customer Service Representative
+2026-04-12 01:22:18,865 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,865 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,866 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,866 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,874 - incremental_monitoring_service - INFO -   ✅ Updated job 34806: Enterprise, Solution Delivery Architect
+2026-04-12 01:22:18,874 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,874 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,876 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,876 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,885 - incremental_monitoring_service - INFO -   ✅ Updated job 34861: Structural Engineer - Aerospace & Industrial
+2026-04-12 01:22:18,886 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,886 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,888 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,888 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,895 - incremental_monitoring_service - INFO -   ✅ Updated job 34522: Senior Dayforce Implementation Consultants (5 Roles)
+2026-04-12 01:22:18,895 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,896 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,897 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,897 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,904 - incremental_monitoring_service - INFO -   ✅ Updated job 34862: Azure Integration Specialist, Software Engineer  
+2026-04-12 01:22:18,904 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,905 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,906 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,906 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,914 - incremental_monitoring_service - INFO -   ✅ Updated job 34588: RF Systems Engineer - SatCom
+2026-04-12 01:22:18,914 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,914 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,916 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,916 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,926 - incremental_monitoring_service - INFO -   ✅ Updated job 34889: Technical Consultant - Junior (Flink, Kafka, Microservices, Java - On Site 3 Days) - Level I
+2026-04-12 01:22:18,926 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,926 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,928 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,928 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,936 - incremental_monitoring_service - INFO -   ✅ Updated job 34898: Collections Analyst-Local to Monsey, NY
+2026-04-12 01:22:18,937 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,937 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,938 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,939 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,947 - incremental_monitoring_service - INFO -   ✅ Updated job 34809: FPGA Design Verification Engineer – 5G Radio Units
+2026-04-12 01:22:18,947 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,947 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,949 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,949 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,958 - incremental_monitoring_service - INFO -   ✅ Updated job 34731: Technology Governance Lead
+2026-04-12 01:22:18,959 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,959 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,960 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,960 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,969 - incremental_monitoring_service - INFO -   ✅ Updated job 33597: Senior High-Speed Analog IC Design R&D Engineer
+2026-04-12 01:22:18,970 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,970 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,972 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,972 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,981 - incremental_monitoring_service - INFO -   ✅ Updated job 34792: Lead Azure Cloud Integration & Automation Engineer
+2026-04-12 01:22:18,981 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,981 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,983 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,983 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,993 - incremental_monitoring_service - INFO -   ✅ Updated job 34733: FPGA Developer, Principal
+2026-04-12 01:22:18,993 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,993 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:18,995 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:18,995 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,005 - incremental_monitoring_service - INFO -   ✅ Updated job 34777: Staff Civil Site Engineer 
+2026-04-12 01:22:19,005 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,005 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,008 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,008 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,014 - incremental_monitoring_service - INFO -   ✅ Updated job 34872: Salesforce Order Management System (OMS) Expert
+2026-04-12 01:22:19,015 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,015 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,016 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,016 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,024 - incremental_monitoring_service - INFO -   ✅ Updated job 34837: Azure Site Reliability Engineer (SRE)
+2026-04-12 01:22:19,024 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,024 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,026 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,026 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,035 - incremental_monitoring_service - INFO -   ✅ Updated job 34759: Electrical Engineer (Lead)
+2026-04-12 01:22:19,035 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,035 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,037 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,037 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,045 - incremental_monitoring_service - INFO -   ✅ Updated job 34859: AutoCAD Plant 3D Piping Designer  
+2026-04-12 01:22:19,045 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,045 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,047 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,047 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,054 - incremental_monitoring_service - INFO -   ✅ Updated job 34854: IBM Tech Developer
+2026-04-12 01:22:19,054 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,055 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,056 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,056 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,066 - incremental_monitoring_service - INFO -   ✅ Updated job 34629: Senior EBX Developer (Tibco EBX / MDM
+2026-04-12 01:22:19,067 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,067 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,071 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,071 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,081 - incremental_monitoring_service - INFO -   ✅ Updated job 34870: Facilities Building Engineer
+2026-04-12 01:22:19,082 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,082 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,084 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,084 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,098 - incremental_monitoring_service - INFO -   ✅ Updated job 34722: 100% remote Sr. Telecom BIM Designer
+2026-04-12 01:22:19,099 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,099 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,102 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,102 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,111 - incremental_monitoring_service - INFO -   ✅ Updated job 34282:  Senior, FPGA / Hardware Design Engineer (2 Positions)
+2026-04-12 01:22:19,112 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,112 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,115 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,116 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,127 - incremental_monitoring_service - INFO -   ✅ Updated job 34864: Customer Service Representative
+2026-04-12 01:22:19,127 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,127 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,130 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,130 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,142 - incremental_monitoring_service - INFO -   ✅ Updated job 34761: SharePoint Online Developer
+2026-04-12 01:22:19,142 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,142 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,144 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,144 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,154 - incremental_monitoring_service - INFO -   ✅ Updated job 34863: Databricks Engineer (Data Engineer)
+2026-04-12 01:22:19,154 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,154 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,156 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,156 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,166 - incremental_monitoring_service - INFO -   ✅ Updated job 34853: RF Test Engineer
+2026-04-12 01:22:19,167 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,167 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,170 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,170 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,179 - incremental_monitoring_service - INFO -   ✅ Updated job 34053: Consultant Industrial Cybersecurity (VA)
+2026-04-12 01:22:19,179 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,179 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,181 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,181 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,189 - incremental_monitoring_service - INFO -   ✅ Updated job 34868: Business Analyst – Back Office (Administration & Financing)
+2026-04-12 01:22:19,189 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,189 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,191 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,191 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,198 - incremental_monitoring_service - INFO -   ✅ Updated job 34867: Business Initiatives Manager  
+2026-04-12 01:22:19,198 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,199 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,201 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,201 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,209 - incremental_monitoring_service - INFO -   ✅ Updated job 34866: Business Process Reengineering Specialist
+2026-04-12 01:22:19,209 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,209 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,211 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,211 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,218 - incremental_monitoring_service - INFO -   ✅ Updated job 34789: SAP EAM Manager / Senior Manager – M&M
+2026-04-12 01:22:19,218 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,219 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,220 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,221 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,229 - incremental_monitoring_service - INFO -   ✅ Updated job 32938: Embedded Software Developer
+2026-04-12 01:22:19,229 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,229 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,231 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,231 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,238 - incremental_monitoring_service - INFO -   ✅ Updated job 34869: ONSITE Financial Analyst -Local to Chicago-W2 only
+2026-04-12 01:22:19,239 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,239 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,240 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,240 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,247 - incremental_monitoring_service - INFO -   ✅ Updated job 33329: SAP Commodities Management /OTC
+2026-04-12 01:22:19,247 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,247 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,249 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,249 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,257 - incremental_monitoring_service - INFO -   ✅ Updated job 34857: Structural Engineer
+2026-04-12 01:22:19,257 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,257 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,259 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,259 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,266 - incremental_monitoring_service - INFO -   ✅ Updated job 34737: Guidewire Integration Lead (Integration Developer / Scrum Lead)
+2026-04-12 01:22:19,266 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,266 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,268 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,268 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,277 - incremental_monitoring_service - INFO -   ✅ Updated job 34885: Cyber Security Solutions Architect (AI / Azure)
+2026-04-12 01:22:19,277 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,277 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,279 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,279 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,288 - incremental_monitoring_service - INFO -   ✅ Updated job 34833: EAM Business Process Consultant (SAP S/4HANA)
+2026-04-12 01:22:19,288 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,288 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,290 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,290 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,300 - incremental_monitoring_service - INFO -   ✅ Updated job 34580: Data Architect (Architecture & Engineering)
+2026-04-12 01:22:19,300 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,300 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,302 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,302 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,310 - incremental_monitoring_service - INFO -   ✅ Updated job 33473: Senior Network Architect 
+2026-04-12 01:22:19,310 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,310 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,312 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,313 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,320 - incremental_monitoring_service - INFO -   ✅ Updated job 34671: Senior Account Manager – Electronics (Quebec & Atlantic Canada)
+2026-04-12 01:22:19,321 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,321 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,322 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,322 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,330 - incremental_monitoring_service - INFO -   ✅ Updated job 34729: Assistant Electrical Designer
+2026-04-12 01:22:19,330 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,330 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,332 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,333 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,341 - incremental_monitoring_service - INFO -   ✅ Updated job 34715: Principle RF/EM Engineer
+2026-04-12 01:22:19,341 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,380 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,382 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,382 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,391 - incremental_monitoring_service - INFO -   ✅ Updated job 34025: Business Development Manager – IT Staffing Services
+2026-04-12 01:22:19,391 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,391 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,393 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,393 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,401 - incremental_monitoring_service - INFO -   ✅ Updated job 34030: ASIC Development Engineer
+2026-04-12 01:22:19,402 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,403 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,405 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,406 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,415 - incremental_monitoring_service - INFO -   ✅ Updated job 34128: Southeast Regional Sales Representative
+2026-04-12 01:22:19,415 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,415 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,417 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,417 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,425 - incremental_monitoring_service - INFO -   ✅ Updated job 34890: SAP Data Migration Delivery Lead
+2026-04-12 01:22:19,425 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,425 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,427 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,427 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,434 - incremental_monitoring_service - INFO -   ✅ Updated job 34812: SAP GTS Functional Consultant (Senior Associate)
+2026-04-12 01:22:19,434 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,434 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,436 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,513 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,524 - incremental_monitoring_service - INFO -   ✅ Updated job 34296: LEAD Technical Consultant (Flink / Kafka) - Must Be OnSite (3 Days) - Level III
+2026-04-12 01:22:19,524 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,524 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,526 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,526 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,536 - incremental_monitoring_service - INFO -   ✅ Updated job 32925: Senior Embedded Developer  - Principal 
+2026-04-12 01:22:19,536 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,536 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,538 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,538 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,545 - incremental_monitoring_service - INFO -   ✅ Updated job 34822: Senior Data Engineer
+2026-04-12 01:22:19,546 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,546 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,547 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,547 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,554 - incremental_monitoring_service - INFO -   ✅ Updated job 34541: Technology Services, Director
+2026-04-12 01:22:19,554 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,554 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,556 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,556 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,564 - incremental_monitoring_service - INFO -   ✅ Updated job 34744: Talent Acquisition Lead (Contract)
+2026-04-12 01:22:19,565 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,565 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,567 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
+2026-04-12 01:22:19,567 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,567 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,569 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
+2026-04-12 01:22:19,577 - incremental_monitoring_service - INFO -   ✅ Updated job 34829: Senior HVAC Designer - REMOTE
+2026-04-12 01:22:19,578 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,620 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,623 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Tarra Dziuman
+2026-04-12 01:22:19,623 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,624 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,625 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Tarra Dziuman
+2026-04-12 01:22:19,634 - incremental_monitoring_service - INFO -   ✅ Updated job 34743: Civil Engineer 
+2026-04-12 01:22:19,634 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,634 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,636 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,636 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,643 - incremental_monitoring_service - INFO -   ✅ Updated job 34776: Technical Consultant - Intermediate (Flink, Kafka, Microservices, Java - On Site 3 Days) - Level II
+2026-04-12 01:22:19,644 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,644 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,645 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,645 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,652 - incremental_monitoring_service - INFO -   ✅ Updated job 34793: Structural Engineer II
+2026-04-12 01:22:19,653 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,653 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,654 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,655 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,664 - incremental_monitoring_service - INFO -   ✅ Updated job 34794: Architect
+2026-04-12 01:22:19,664 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,664 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,666 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,666 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,675 - incremental_monitoring_service - INFO -   ✅ Updated job 34821: DevSecOps Engineer (ServiceNow) – Public Sector
+2026-04-12 01:22:19,675 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,675 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,677 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,677 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,684 - incremental_monitoring_service - INFO -   ✅ Updated job 34871: ServiceNow HRSD Solution Consultant (Manager Level)
+2026-04-12 01:22:19,734 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,735 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,737 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,738 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,747 - incremental_monitoring_service - INFO -   ✅ Updated job 34746: Lead Substation Electrical Engineer
+2026-04-12 01:22:19,748 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,748 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,750 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,750 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,758 - incremental_monitoring_service - INFO -   ✅ Updated job 34831: ServiceNow Developers
+2026-04-12 01:22:19,758 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,758 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,760 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,760 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,769 - incremental_monitoring_service - INFO -   ✅ Updated job 34723: Sr Telecom Systems Engineer
+2026-04-12 01:22:19,769 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,769 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,771 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,771 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,780 - incremental_monitoring_service - INFO -   ✅ Updated job 34899: Business Analyst
+2026-04-12 01:22:19,781 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,781 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,783 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,783 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,790 - incremental_monitoring_service - INFO -   ✅ Updated job 34574: Software Architect
+2026-04-12 01:22:19,791 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,791 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,813 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,813 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,820 - incremental_monitoring_service - INFO -   ✅ Updated job 34813: SAP QA Test Lead (Senior Associate)
+2026-04-12 01:22:19,820 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,820 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,822 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,822 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,829 - incremental_monitoring_service - INFO -   ✅ Updated job 34884: Cloud Cyber Security Solutions Architect
+2026-04-12 01:22:19,829 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,829 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,831 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,831 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,841 - incremental_monitoring_service - INFO -   ✅ Updated job 33516: FPGA Developers (Radio Expertise - 4G/5G) - DataPath Side of RU Design
+2026-04-12 01:22:19,841 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,841 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,843 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
+2026-04-12 01:22:19,844 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:22:19,844 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:22:19,846 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
+2026-04-12 01:22:19,854 - incremental_monitoring_service - INFO -   ✅ Updated job 34873: Construction Project Manager 
+2026-04-12 01:22:19,861 - incremental_monitoring_service - INFO - 
+📊 Step 4: Monitoring complete - ready for manual download
+2026-04-12 01:22:19,861 - incremental_monitoring_service - INFO -   ✅ XML updated locally - use manual download for publishing
+2026-04-12 01:22:19,861 - incremental_monitoring_service - INFO -   📋 Job counts: Add +0, Remove -0, Update ~72, Excluded 0, Auto-Removed 1
+2026-04-12 01:22:19,861 - incremental_monitoring_service - INFO - 
+🔄 Step 5: Checking for job changes (AI requirements refresh)...
+2026-04-12 01:22:19,878 - root - INFO - 🔄 Checking 72 jobs for modifications...
+2026-04-12 01:22:19,924 - incremental_monitoring_service - INFO -   ✅ No job modifications detected requiring AI refresh
+2026-04-12 01:22:19,925 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
+2026-04-12 01:22:19,925 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:22:19,925 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:22:19,925 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:22:19,925 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:22:19,928 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
+2026-04-12 01:22:19,928 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
+2026-04-12 01:22:19,929 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:22:20,046 - root - INFO - Auth response status: 302
+2026-04-12 01:22:20,047 - root - INFO - Auth response headers: [redacted for security]
+2026-04-12 01:22:20,047 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
+2026-04-12 01:22:20,047 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:22:20,110 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:22:20,267 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
+2026-04-12 01:22:20,268 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:22:20,268 - root - INFO - REST Token: ***4dbf
+2026-04-12 01:22:20,268 - root - WARNING - ⚠️ No userId in REST response, querying current user...
+2026-04-12 01:22:20,375 - root - INFO - Got user ID from settings endpoint: 1147490
+2026-04-12 01:22:20,375 - root - INFO - User ID for note creation: 1147490
+2026-04-12 01:22:20,568 - root - INFO - 📧 Fetched emails for 20/20 users
+2026-04-12 01:22:20,568 - root - INFO - Loaded 73 jobs from 6 tearsheets with 20 user emails
+2026-04-12 01:22:20,570 - extensions - INFO - 🔄 Active job IDs cache refreshed: 73 jobs
+2026-04-12 01:22:20,576 - apscheduler.executors.default - INFO - Job "Active Job IDs Cache Refresh (5 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:14 UTC)" executed successfully
+2026-04-12 01:22:20,725 - root - INFO - Tearsheet 1231: Entity API reports 43 total jobs
+2026-04-12 01:22:21,226 - apscheduler.executors.default - INFO - Running job "Render Log Monitoring (Self-Healing) - 15min (trigger: interval[0:15:00], next run at: 2026-04-12 01:37:21 UTC)" (scheduled at 2026-04-12 01:22:21.226359+00:00)
+2026-04-12 01:22:21,227 - apscheduler.executors.default - INFO - Running job "Email Parsing Timeout Cleanup (10 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:21 UTC)" (scheduled at 2026-04-12 01:22:21.226628+00:00)
+2026-04-12 01:22:21,228 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:23:21 UTC)" (scheduled at 2026-04-12 01:22:21.227522+00:00)
+2026-04-12 01:22:21,232 - log_monitoring_service - INFO - 📊 Log Monitoring Service initialized
+2026-04-12 01:22:21,233 - log_monitoring_service - INFO -    Service ID: NOT SET
+2026-04-12 01:22:21,233 - log_monitoring_service - INFO -    Interval: 15 minutes
+2026-04-12 01:22:21,234 - log_monitoring_service - INFO -    Escalation email: 
+2026-04-12 01:22:21,233 - apscheduler.executors.default - INFO - Job "Email Parsing Timeout Cleanup (10 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:21 UTC)" executed successfully
+2026-04-12 01:22:21,234 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:23:21 UTC)" executed successfully
+2026-04-12 01:22:21,234 - log_monitoring_service - INFO - ============================================================
+2026-04-12 01:22:21,235 - log_monitoring_service - INFO - 🔍 LOG MONITORING CYCLE STARTED
+2026-04-12 01:22:21,235 - log_monitoring_service - INFO -    Time: 2026-04-12 01:22:21 UTC
+2026-04-12 01:22:21,236 - log_monitoring_service - INFO -    Trigger: Scheduled
+2026-04-12 01:22:21,236 - log_monitoring_service - INFO - ============================================================
+2026-04-12 01:22:21,236 - log_monitoring_service - ERROR - ❌ Render API credentials not configured
+2026-04-12 01:22:21,237 - log_monitoring_service - INFO - 📭 No new logs to analyze
+2026-04-12 01:22:21,240 - apscheduler.executors.default - INFO - Running job "Requirements Maintenance — New & Modified Jobs (5 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:21 UTC)" (scheduled at 2026-04-12 01:22:21.239405+00:00)
+2026-04-12 01:22:21,244 - apscheduler.executors.default - INFO - Running job "Candidate Data Cleanup (Every 15 Minutes) (trigger: interval[0:15:00], next run at: 2026-04-12 01:37:21 UTC)" (scheduled at 2026-04-12 01:22:21.242480+00:00)
+2026-04-12 01:22:21,245 - apscheduler.executors.default - INFO - Running job "Incomplete Candidate Rescreen (Every 15 Minutes) (trigger: interval[0:15:00], next run at: 2026-04-12 01:37:21 UTC)" (scheduled at 2026-04-12 01:22:21.242728+00:00)
+2026-04-12 01:22:21,246 - apscheduler.executors.default - INFO - Running job "Scout Screening Quality Audit (15 min) (trigger: interval[0:15:00], next run at: 2026-04-12 01:37:21 UTC)" (scheduled at 2026-04-12 01:22:21.242963+00:00)
+2026-04-12 01:22:21,249 - apscheduler.executors.default - INFO - Job "Candidate Data Cleanup (Every 15 Minutes) (trigger: interval[0:15:00], next run at: 2026-04-12 01:37:21 UTC)" executed successfully
+2026-04-12 01:22:21,262 - apscheduler.executors.default - INFO - Job "Requirements Maintenance — New & Modified Jobs (5 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:21 UTC)" executed successfully
+2026-04-12 01:22:21,265 - apscheduler.executors.default - INFO - Job "Incomplete Candidate Rescreen (Every 15 Minutes) (trigger: interval[0:15:00], next run at: 2026-04-12 01:37:21 UTC)" executed successfully
+2026-04-12 01:22:21,267 - log_monitoring_service - INFO - 💾 Persisted run #1406 with 0 issues to database
+2026-04-12 01:22:21,268 - extensions - INFO - 📊 Log monitoring cycle complete: 0 logs, 0 issues found, 0 auto-fixed, 0 escalated
+2026-04-12 01:22:21,268 - apscheduler.executors.default - INFO - Job "Scout Screening Quality Audit (15 min) (trigger: interval[0:15:00], next run at: 2026-04-12 01:37:21 UTC)" executed successfully
+2026-04-12 01:22:21,268 - apscheduler.executors.default - INFO - Job "Render Log Monitoring (Self-Healing) - 15min (trigger: interval[0:15:00], next run at: 2026-04-12 01:37:21 UTC)" executed successfully
+2026-04-12 01:22:21,347 - root - WARNING - Tearsheet 1231: Entity API reports 43 jobs but Search API returned 44. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:22:21,667 - root - INFO - Tearsheet 1233: Entity API reports 0 total jobs
+2026-04-12 01:22:22,008 - root - INFO - Tearsheet 1474: Entity API reports 1 total jobs
+2026-04-12 01:22:22,260 - root - INFO - Tearsheet 1239: Entity API reports 10 total jobs
+2026-04-12 01:22:23,078 - root - INFO - Tearsheet 1531: Entity API reports 15 total jobs
+2026-04-12 01:22:23,611 - root - WARNING - Tearsheet 1531: Entity API reports 15 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:22:23,906 - root - INFO - Tearsheet 1232: Entity API reports 2 total jobs
+2026-04-12 01:22:25,888 - root - INFO - 📧 Fetched emails for 20/20 users
+2026-04-12 01:22:25,888 - root - INFO - Loaded 73 jobs from 6 tearsheets with 20 user emails
+2026-04-12 01:22:25,906 - root - INFO - ✅ AI requirements in sync with 73 active tearsheet jobs
+2026-04-12 01:22:25,923 - incremental_monitoring_service - INFO - ✅ Activity logged: Monitoring cycle completed
+2026-04-12 01:22:25,923 - incremental_monitoring_service - INFO - 
+============================================================
+2026-04-12 01:22:25,923 - incremental_monitoring_service - INFO - CYCLE COMPLETED in 11.5s
+2026-04-12 01:22:25,923 - incremental_monitoring_service - INFO - Results: +0 -0 ~72 🗑️1 auto-removed
+2026-04-12 01:22:25,923 - incremental_monitoring_service - INFO - Total jobs: 72
+2026-04-12 01:22:25,923 - incremental_monitoring_service - INFO - ============================================================
+2026-04-12 01:22:25,938 - extensions - INFO - ✅ Updated timing for 6 monitors
+2026-04-12 01:22:25,938 - extensions - INFO - ✅ Incremental monitoring completed: {'timestamp': '2026-04-12T01:22:14.409113', 'jobs_added': 0, 'jobs_removed': 0, 'jobs_updated': 72, 'jobs_auto_removed': 1, 'total_jobs': 72, 'upload_success': False, 'cycle_time': 11.49950098991394, 'errors': [], 'cycle_success': True, 'excluded_jobs': 0, 'jobs_requirements_refreshed': 0}
+2026-04-12 01:22:25,938 - extensions - INFO - 📊 MONITOR CYCLE COMPLETE - Incremental monitoring handled all updates
+2026-04-12 01:22:25,942 - apscheduler.executors.default - INFO - Job "5-Minute Tearsheet Monitor with Keyword Classification (trigger: interval[0:05:00], next run at: 2026-04-12 01:27:14 UTC)" executed successfully
+2026-04-12 01:23:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:24:21 UTC)" (scheduled at 2026-04-12 01:23:21.227522+00:00)
+2026-04-12 01:23:21,231 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:24:21 UTC)" executed successfully
+2026-04-12 01:24:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:25:21 UTC)" (scheduled at 2026-04-12 01:24:21.227522+00:00)
+2026-04-12 01:24:21,230 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:25:21 UTC)" executed successfully
+2026-04-12 01:25:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:26:21 UTC)" (scheduled at 2026-04-12 01:25:21.227522+00:00)
+2026-04-12 01:25:21,242 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:26:21 UTC)" executed successfully
+2026-04-12 01:26:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:27:21 UTC)" (scheduled at 2026-04-12 01:26:21.227522+00:00)
+2026-04-12 01:26:21,239 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:27:21 UTC)" executed successfully
+2026-04-12 01:27:14,390 - apscheduler.executors.default - INFO - Running job "5-Minute Tearsheet Monitor with Keyword Classification (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:14 UTC)" (scheduled at 2026-04-12 01:27:14.390452+00:00)
+2026-04-12 01:27:14,391 - extensions - INFO - 🔄 INCREMENTAL MONITOR: Starting simplified monitoring cycle
+2026-04-12 01:27:14,391 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:14,391 - apscheduler.executors.default - INFO - Running job "Active Job IDs Cache Refresh (5 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:14 UTC)" (scheduled at 2026-04-12 01:27:14.391349+00:00)
+2026-04-12 01:27:14,391 - apscheduler.executors.default - INFO - Running job "Production Environment Monitoring (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:14 UTC)" (scheduled at 2026-04-12 01:27:14.391096+00:00)
+2026-04-12 01:27:14,391 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:14,419 - extensions - INFO - Checking environment status for: https://app.scoutgenius.ai
+2026-04-12 01:27:14,427 - extensions - INFO - Using 6 database monitors
+2026-04-12 01:27:14,427 - incremental_monitoring_service - INFO - ============================================================
+2026-04-12 01:27:14,428 - incremental_monitoring_service - INFO - STARTING INCREMENTAL MONITORING CYCLE
+2026-04-12 01:27:14,428 - incremental_monitoring_service - INFO - Time: 2026-04-12 01:27:14
+2026-04-12 01:27:14,428 - incremental_monitoring_service - INFO - ============================================================
+2026-04-12 01:27:14,443 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
+2026-04-12 01:27:14,444 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:27:14,444 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:27:14,444 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:27:14,444 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:27:14,447 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
+2026-04-12 01:27:14,448 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
+2026-04-12 01:27:14,448 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:27:14,458 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
+2026-04-12 01:27:14,458 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:27:14,458 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:27:14,458 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:27:14,458 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:27:14,459 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
+2026-04-12 01:27:14,459 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
+2026-04-12 01:27:14,459 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:27:14,625 - root - INFO - Auth response status: 302
+2026-04-12 01:27:14,625 - root - INFO - Auth response headers: [redacted for security]
+2026-04-12 01:27:14,625 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
+2026-04-12 01:27:14,625 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:27:14,631 - root - INFO - Auth response status: 302
+2026-04-12 01:27:14,631 - root - INFO - Auth response headers: [redacted for security]
+2026-04-12 01:27:14,632 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
+2026-04-12 01:27:14,632 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:27:14,698 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:27:14,701 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:27:14,776 - extensions - INFO - ✅ Environment check successful: 200
+2026-04-12 01:27:14,792 - extensions - INFO - ✅ Environment monitoring: production is UP (consecutive failures: 0)
+2026-04-12 01:27:14,794 - apscheduler.executors.default - INFO - Job "Production Environment Monitoring (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:14 UTC)" executed successfully
+2026-04-12 01:27:14,901 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
+2026-04-12 01:27:14,901 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:27:14,901 - root - INFO - REST Token: ***06a4
+2026-04-12 01:27:14,901 - root - WARNING - ⚠️ No userId in REST response, querying current user...
+2026-04-12 01:27:14,908 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
+2026-04-12 01:27:14,908 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:27:14,909 - root - INFO - REST Token: ***0941
+2026-04-12 01:27:14,909 - root - WARNING - ⚠️ No userId in REST response, querying current user...
+2026-04-12 01:27:15,042 - root - INFO - Got user ID from settings endpoint: 1147490
+2026-04-12 01:27:15,043 - root - INFO - User ID for note creation: 1147490
+2026-04-12 01:27:15,086 - root - INFO - Got user ID from settings endpoint: 1147490
+2026-04-12 01:27:15,086 - root - INFO - User ID for note creation: 1147490
+2026-04-12 01:27:15,086 - root - INFO - Connection test passed - valid authentication credentials available
+2026-04-12 01:27:15,292 - root - INFO - Full API connection test successful
+2026-04-12 01:27:15,293 - incremental_monitoring_service - INFO - 
+📋 Step 1: Fetching jobs from tearsheets...
+2026-04-12 01:27:15,293 - incremental_monitoring_service - INFO -   Fetching from Sponsored - OTT...
+2026-04-12 01:27:15,426 - root - INFO - Tearsheet 1231: Entity API reports 43 total jobs
+2026-04-12 01:27:15,700 - root - INFO - Tearsheet 1231: Entity API reports 43 total jobs
+2026-04-12 01:27:16,007 - root - WARNING - Tearsheet 1231: Entity API reports 43 jobs but Search API returned 44. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:27:16,239 - root - INFO - Tearsheet 1233: Entity API reports 0 total jobs
+2026-04-12 01:27:16,306 - root - WARNING - Tearsheet 1231: Entity API reports 43 jobs but Search API returned 44. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:27:16,628 - root - INFO - Tearsheet 1474: Entity API reports 1 total jobs
+2026-04-12 01:27:16,754 - root - INFO - Successfully removed job 34567 from tearsheet 1231
+2026-04-12 01:27:16,755 - incremental_monitoring_service - INFO -     🗑️ AUTO-REMOVED job 34567 from tearsheet 1231: isOpen=Closed
+2026-04-12 01:27:16,755 - incremental_monitoring_service - INFO -     Found 43 eligible jobs, auto-removed 1 ineligible jobs
+2026-04-12 01:27:16,756 - incremental_monitoring_service - INFO -   Fetching from Sponsored - CHI...
+2026-04-12 01:27:16,878 - root - INFO - Tearsheet 1239: Entity API reports 10 total jobs
+2026-04-12 01:27:17,064 - root - INFO - Tearsheet 1232: Entity API reports 2 total jobs
+2026-04-12 01:27:17,065 - incremental_monitoring_service - INFO -     Found 2 jobs
+2026-04-12 01:27:17,065 - incremental_monitoring_service - INFO -   Fetching from Sponsored - CLE...
+2026-04-12 01:27:17,295 - root - INFO - Tearsheet 1233: Entity API reports 0 total jobs
+2026-04-12 01:27:17,295 - incremental_monitoring_service - INFO -     Found 0 jobs
+2026-04-12 01:27:17,295 - incremental_monitoring_service - INFO -   Fetching from Sponsored - VMS...
+2026-04-12 01:27:17,656 - root - INFO - Tearsheet 1239: Entity API reports 10 total jobs
+2026-04-12 01:27:17,829 - root - INFO - Tearsheet 1531: Entity API reports 15 total jobs
+2026-04-12 01:27:18,273 - incremental_monitoring_service - INFO -     Found 10 jobs
+2026-04-12 01:27:18,273 - incremental_monitoring_service - INFO -   Fetching from Sponsored - GR...
+2026-04-12 01:27:18,342 - root - WARNING - Tearsheet 1531: Entity API reports 15 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:27:18,610 - root - INFO - Tearsheet 1474: Entity API reports 1 total jobs
+2026-04-12 01:27:18,610 - incremental_monitoring_service - INFO -     Found 1 jobs
+2026-04-12 01:27:18,610 - incremental_monitoring_service - INFO -   Fetching from Sponsored - STSI...
+2026-04-12 01:27:18,685 - root - INFO - Tearsheet 1232: Entity API reports 2 total jobs
+2026-04-12 01:27:18,905 - root - INFO - Tearsheet 1531: Entity API reports 15 total jobs
+2026-04-12 01:27:19,397 - root - WARNING - Tearsheet 1531: Entity API reports 15 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:27:19,399 - incremental_monitoring_service - INFO -     Found 16 jobs
+2026-04-12 01:27:19,415 - incremental_monitoring_service - INFO - ✅ Logged 1 auto-removal activities
+2026-04-12 01:27:19,415 - incremental_monitoring_service - INFO -   ✅ TEARSHEET FETCH COMPLETED: 72 eligible jobs, 1 auto-removed
+2026-04-12 01:27:19,416 - incremental_monitoring_service - INFO - 
+📄 Step 2: Loading current XML and comparing...
+2026-04-12 01:27:19,416 - incremental_monitoring_service - INFO -   🔍 About to call _load_xml_jobs()...
+2026-04-12 01:27:19,424 - incremental_monitoring_service - INFO -   ✅ XML LOAD COMPLETED: 72 jobs
+2026-04-12 01:27:19,424 - incremental_monitoring_service - INFO -   Current XML has 72 jobs
+2026-04-12 01:27:19,424 - incremental_monitoring_service - INFO -   Changes detected: +0 -0 ~72
+2026-04-12 01:27:19,424 - incremental_monitoring_service - INFO - 
+🔄 Step 3: Applying incremental changes...
+2026-04-12 01:27:19,425 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,425 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,427 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,427 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,435 - incremental_monitoring_service - INFO -   ✅ Updated job 34509:  Salesforce Architect
+2026-04-12 01:27:19,435 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,435 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,437 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,438 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,445 - incremental_monitoring_service - INFO -   ✅ Updated job 34877: Sr EDI Developer
+2026-04-12 01:27:19,446 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,446 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,448 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,448 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,456 - incremental_monitoring_service - INFO -   ✅ Updated job 34883: Customer Service Representative
+2026-04-12 01:27:19,456 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,456 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,458 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,458 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,468 - incremental_monitoring_service - INFO -   ✅ Updated job 34806: Enterprise, Solution Delivery Architect
+2026-04-12 01:27:19,469 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,469 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,471 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,472 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,479 - incremental_monitoring_service - INFO -   ✅ Updated job 34861: Structural Engineer - Aerospace & Industrial
+2026-04-12 01:27:19,480 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,480 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,482 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,482 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,493 - incremental_monitoring_service - INFO -   ✅ Updated job 34522: Senior Dayforce Implementation Consultants (5 Roles)
+2026-04-12 01:27:19,494 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,494 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,496 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,497 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,508 - incremental_monitoring_service - INFO -   ✅ Updated job 34862: Azure Integration Specialist, Software Engineer  
+2026-04-12 01:27:19,508 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,509 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,514 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,514 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,527 - incremental_monitoring_service - INFO -   ✅ Updated job 34588: RF Systems Engineer - SatCom
+2026-04-12 01:27:19,527 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,527 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,530 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,530 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,540 - incremental_monitoring_service - INFO -   ✅ Updated job 34889: Technical Consultant - Junior (Flink, Kafka, Microservices, Java - On Site 3 Days) - Level I
+2026-04-12 01:27:19,540 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,540 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,543 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,543 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,552 - incremental_monitoring_service - INFO -   ✅ Updated job 34898: Collections Analyst-Local to Monsey, NY
+2026-04-12 01:27:19,553 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,553 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,555 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,555 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,562 - incremental_monitoring_service - INFO -   ✅ Updated job 34809: FPGA Design Verification Engineer – 5G Radio Units
+2026-04-12 01:27:19,562 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,562 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,564 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,565 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,572 - incremental_monitoring_service - INFO -   ✅ Updated job 34731: Technology Governance Lead
+2026-04-12 01:27:19,573 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,573 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,575 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,575 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,583 - incremental_monitoring_service - INFO -   ✅ Updated job 33597: Senior High-Speed Analog IC Design R&D Engineer
+2026-04-12 01:27:19,583 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,583 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,584 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,585 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,592 - incremental_monitoring_service - INFO -   ✅ Updated job 34792: Lead Azure Cloud Integration & Automation Engineer
+2026-04-12 01:27:19,592 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,592 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,595 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,595 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,603 - incremental_monitoring_service - INFO -   ✅ Updated job 34733: FPGA Developer, Principal
+2026-04-12 01:27:19,604 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,604 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,606 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,606 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,616 - incremental_monitoring_service - INFO -   ✅ Updated job 34777: Staff Civil Site Engineer 
+2026-04-12 01:27:19,616 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,616 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,619 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,619 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,626 - incremental_monitoring_service - INFO -   ✅ Updated job 34872: Salesforce Order Management System (OMS) Expert
+2026-04-12 01:27:19,627 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,627 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,629 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,629 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,638 - incremental_monitoring_service - INFO -   ✅ Updated job 34837: Azure Site Reliability Engineer (SRE)
+2026-04-12 01:27:19,639 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,639 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,641 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,641 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,650 - incremental_monitoring_service - INFO -   ✅ Updated job 34759: Electrical Engineer (Lead)
+2026-04-12 01:27:19,650 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,650 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,653 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,653 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,663 - incremental_monitoring_service - INFO -   ✅ Updated job 34859: AutoCAD Plant 3D Piping Designer  
+2026-04-12 01:27:19,663 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,663 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,668 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,668 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,678 - incremental_monitoring_service - INFO -   ✅ Updated job 34854: IBM Tech Developer
+2026-04-12 01:27:19,679 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,679 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,681 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,681 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,689 - incremental_monitoring_service - INFO -   ✅ Updated job 34629: Senior EBX Developer (Tibco EBX / MDM
+2026-04-12 01:27:19,690 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,690 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,692 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,692 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,701 - incremental_monitoring_service - INFO -   ✅ Updated job 34870: Facilities Building Engineer
+2026-04-12 01:27:19,701 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,701 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,704 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,704 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,712 - incremental_monitoring_service - INFO -   ✅ Updated job 34722: 100% remote Sr. Telecom BIM Designer
+2026-04-12 01:27:19,712 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,712 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,714 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,714 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,724 - incremental_monitoring_service - INFO -   ✅ Updated job 34282:  Senior, FPGA / Hardware Design Engineer (2 Positions)
+2026-04-12 01:27:19,724 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,724 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,727 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,727 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,738 - incremental_monitoring_service - INFO -   ✅ Updated job 34864: Customer Service Representative
+2026-04-12 01:27:19,738 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,738 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,740 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,741 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,754 - incremental_monitoring_service - INFO -   ✅ Updated job 34761: SharePoint Online Developer
+2026-04-12 01:27:19,754 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,755 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,757 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,758 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,771 - incremental_monitoring_service - INFO -   ✅ Updated job 34863: Databricks Engineer (Data Engineer)
+2026-04-12 01:27:19,771 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,771 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,774 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,774 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,785 - incremental_monitoring_service - INFO -   ✅ Updated job 34853: RF Test Engineer
+2026-04-12 01:27:19,785 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,785 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,788 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,788 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,806 - incremental_monitoring_service - INFO -   ✅ Updated job 34053: Consultant Industrial Cybersecurity (VA)
+2026-04-12 01:27:19,806 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,806 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,809 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,809 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,819 - incremental_monitoring_service - INFO -   ✅ Updated job 34868: Business Analyst – Back Office (Administration & Financing)
+2026-04-12 01:27:19,820 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,820 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,823 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,824 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,836 - incremental_monitoring_service - INFO -   ✅ Updated job 34867: Business Initiatives Manager  
+2026-04-12 01:27:19,837 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,837 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,839 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,839 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,848 - incremental_monitoring_service - INFO -   ✅ Updated job 34866: Business Process Reengineering Specialist
+2026-04-12 01:27:19,848 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,848 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,850 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,851 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,860 - incremental_monitoring_service - INFO -   ✅ Updated job 34789: SAP EAM Manager / Senior Manager – M&M
+2026-04-12 01:27:19,860 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,860 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,863 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,863 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,872 - incremental_monitoring_service - INFO -   ✅ Updated job 32938: Embedded Software Developer
+2026-04-12 01:27:19,873 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,873 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,875 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,875 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,884 - incremental_monitoring_service - INFO -   ✅ Updated job 34869: ONSITE Financial Analyst -Local to Chicago-W2 only
+2026-04-12 01:27:19,884 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,884 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,886 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,886 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,895 - incremental_monitoring_service - INFO -   ✅ Updated job 33329: SAP Commodities Management /OTC
+2026-04-12 01:27:19,895 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,895 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,897 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,897 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,907 - incremental_monitoring_service - INFO -   ✅ Updated job 34857: Structural Engineer
+2026-04-12 01:27:19,908 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,908 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,910 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,911 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,918 - incremental_monitoring_service - INFO -   ✅ Updated job 34737: Guidewire Integration Lead (Integration Developer / Scrum Lead)
+2026-04-12 01:27:19,919 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,919 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,921 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,921 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,931 - incremental_monitoring_service - INFO -   ✅ Updated job 34885: Cyber Security Solutions Architect (AI / Azure)
+2026-04-12 01:27:19,931 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,931 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,933 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,933 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,940 - incremental_monitoring_service - INFO -   ✅ Updated job 34833: EAM Business Process Consultant (SAP S/4HANA)
+2026-04-12 01:27:19,941 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,941 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,943 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,943 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,950 - incremental_monitoring_service - INFO -   ✅ Updated job 34580: Data Architect (Architecture & Engineering)
+2026-04-12 01:27:19,950 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,951 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,952 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,953 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,963 - incremental_monitoring_service - INFO -   ✅ Updated job 33473: Senior Network Architect 
+2026-04-12 01:27:19,964 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,964 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,969 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,969 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,982 - incremental_monitoring_service - INFO -   ✅ Updated job 34671: Senior Account Manager – Electronics (Quebec & Atlantic Canada)
+2026-04-12 01:27:19,982 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,982 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,985 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,985 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,995 - incremental_monitoring_service - INFO -   ✅ Updated job 34729: Assistant Electrical Designer
+2026-04-12 01:27:19,995 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,996 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:19,998 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:19,998 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,008 - incremental_monitoring_service - INFO -   ✅ Updated job 34715: Principle RF/EM Engineer
+2026-04-12 01:27:20,009 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,009 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,012 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,012 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,025 - incremental_monitoring_service - INFO -   ✅ Updated job 34025: Business Development Manager – IT Staffing Services
+2026-04-12 01:27:20,025 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,025 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,029 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,029 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,040 - incremental_monitoring_service - INFO -   ✅ Updated job 34030: ASIC Development Engineer
+2026-04-12 01:27:20,040 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,040 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,044 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,045 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,055 - incremental_monitoring_service - INFO -   ✅ Updated job 34128: Southeast Regional Sales Representative
+2026-04-12 01:27:20,055 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,055 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,057 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,058 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,067 - incremental_monitoring_service - INFO -   ✅ Updated job 34890: SAP Data Migration Delivery Lead
+2026-04-12 01:27:20,068 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,068 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,070 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,070 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,080 - incremental_monitoring_service - INFO -   ✅ Updated job 34812: SAP GTS Functional Consultant (Senior Associate)
+2026-04-12 01:27:20,080 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,080 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,082 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,082 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,130 - incremental_monitoring_service - INFO -   ✅ Updated job 34296: LEAD Technical Consultant (Flink / Kafka) - Must Be OnSite (3 Days) - Level III
+2026-04-12 01:27:20,131 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,131 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,135 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,135 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,146 - incremental_monitoring_service - INFO -   ✅ Updated job 32925: Senior Embedded Developer  - Principal 
+2026-04-12 01:27:20,147 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,147 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,150 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,151 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,162 - incremental_monitoring_service - INFO -   ✅ Updated job 34822: Senior Data Engineer
+2026-04-12 01:27:20,162 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,162 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,168 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,168 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,187 - incremental_monitoring_service - INFO -   ✅ Updated job 34541: Technology Services, Director
+2026-04-12 01:27:20,187 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,187 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,193 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,193 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,205 - incremental_monitoring_service - INFO -   ✅ Updated job 34744: Talent Acquisition Lead (Contract)
+2026-04-12 01:27:20,205 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,205 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,212 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
+2026-04-12 01:27:20,213 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,213 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,219 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
+2026-04-12 01:27:20,227 - incremental_monitoring_service - INFO -   ✅ Updated job 34829: Senior HVAC Designer - REMOTE
+2026-04-12 01:27:20,228 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,228 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,336 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Tarra Dziuman
+2026-04-12 01:27:20,337 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,337 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,339 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Tarra Dziuman
+2026-04-12 01:27:20,349 - incremental_monitoring_service - INFO -   ✅ Updated job 34743: Civil Engineer 
+2026-04-12 01:27:20,349 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,349 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,352 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,352 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,362 - incremental_monitoring_service - INFO -   ✅ Updated job 34776: Technical Consultant - Intermediate (Flink, Kafka, Microservices, Java - On Site 3 Days) - Level II
+2026-04-12 01:27:20,363 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,363 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,366 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,367 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,377 - incremental_monitoring_service - INFO -   ✅ Updated job 34793: Structural Engineer II
+2026-04-12 01:27:20,377 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,378 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,381 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,381 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,391 - incremental_monitoring_service - INFO -   ✅ Updated job 34794: Architect
+2026-04-12 01:27:20,391 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,391 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,394 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,394 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,404 - incremental_monitoring_service - INFO -   ✅ Updated job 34821: DevSecOps Engineer (ServiceNow) – Public Sector
+2026-04-12 01:27:20,404 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,404 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,408 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,462 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,472 - incremental_monitoring_service - INFO -   ✅ Updated job 34871: ServiceNow HRSD Solution Consultant (Manager Level)
+2026-04-12 01:27:20,473 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,473 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,475 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,475 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,485 - incremental_monitoring_service - INFO -   ✅ Updated job 34746: Lead Substation Electrical Engineer
+2026-04-12 01:27:20,485 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,485 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,489 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,489 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,498 - incremental_monitoring_service - INFO -   ✅ Updated job 34831: ServiceNow Developers
+2026-04-12 01:27:20,498 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,498 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,501 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,501 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,511 - incremental_monitoring_service - INFO -   ✅ Updated job 34723: Sr Telecom Systems Engineer
+2026-04-12 01:27:20,511 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,511 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,514 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,514 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,522 - incremental_monitoring_service - INFO -   ✅ Updated job 34899: Business Analyst
+2026-04-12 01:27:20,523 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,523 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,525 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,525 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,544 - incremental_monitoring_service - INFO -   ✅ Updated job 34574: Software Architect
+2026-04-12 01:27:20,544 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,544 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,551 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,580 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,592 - incremental_monitoring_service - INFO -   ✅ Updated job 34813: SAP QA Test Lead (Senior Associate)
+2026-04-12 01:27:20,592 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,593 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,595 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,595 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,606 - incremental_monitoring_service - INFO -   ✅ Updated job 34884: Cloud Cyber Security Solutions Architect
+2026-04-12 01:27:20,607 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,607 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,609 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,609 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,620 - incremental_monitoring_service - INFO -   ✅ Updated job 33516: FPGA Developers (Radio Expertise - 4G/5G) - DataPath Side of RU Design
+2026-04-12 01:27:20,620 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,620 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,623 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
+2026-04-12 01:27:20,624 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
+2026-04-12 01:27:20,624 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
+2026-04-12 01:27:20,626 - xml_integration_service - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
+2026-04-12 01:27:20,636 - incremental_monitoring_service - INFO -   ✅ Updated job 34873: Construction Project Manager 
+2026-04-12 01:27:20,642 - incremental_monitoring_service - INFO - 
+📊 Step 4: Monitoring complete - ready for manual download
+2026-04-12 01:27:20,642 - incremental_monitoring_service - INFO -   ✅ XML updated locally - use manual download for publishing
+2026-04-12 01:27:20,642 - incremental_monitoring_service - INFO -   📋 Job counts: Add +0, Remove -0, Update ~72, Excluded 0, Auto-Removed 1
+2026-04-12 01:27:20,642 - incremental_monitoring_service - INFO - 
+🔄 Step 5: Checking for job changes (AI requirements refresh)...
+2026-04-12 01:27:20,661 - root - INFO - 🔄 Checking 72 jobs for modifications...
+2026-04-12 01:27:20,713 - incremental_monitoring_service - INFO -   ✅ No job modifications detected requiring AI refresh
+2026-04-12 01:27:20,714 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
+2026-04-12 01:27:20,715 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:27:20,715 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:27:20,715 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:27:20,715 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:27:20,719 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
+2026-04-12 01:27:20,719 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
+2026-04-12 01:27:20,719 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:27:20,829 - root - INFO - Auth response status: 302
+2026-04-12 01:27:20,829 - root - INFO - Auth response headers: [redacted for security]
+2026-04-12 01:27:20,830 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
+2026-04-12 01:27:20,830 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:27:20,883 - root - INFO - 📧 Fetched emails for 20/20 users
+2026-04-12 01:27:20,883 - root - INFO - Loaded 73 jobs from 6 tearsheets with 20 user emails
+2026-04-12 01:27:20,885 - extensions - INFO - 🔄 Active job IDs cache refreshed: 73 jobs
+2026-04-12 01:27:20,892 - apscheduler.executors.default - INFO - Job "Active Job IDs Cache Refresh (5 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:14 UTC)" executed successfully
+2026-04-12 01:27:20,901 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:27:21,059 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
+2026-04-12 01:27:21,060 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:27:21,060 - root - INFO - REST Token: ***2758
+2026-04-12 01:27:21,060 - root - WARNING - ⚠️ No userId in REST response, querying current user...
+2026-04-12 01:27:21,178 - root - INFO - Got user ID from settings endpoint: 1147490
+2026-04-12 01:27:21,178 - root - INFO - User ID for note creation: 1147490
+2026-04-12 01:27:21,226 - apscheduler.executors.default - INFO - Running job "Email Parsing Timeout Cleanup (10 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:21 UTC)" (scheduled at 2026-04-12 01:27:21.226628+00:00)
+2026-04-12 01:27:21,228 - apscheduler.executors.default - INFO - Running job "Vetting System Health Check (trigger: interval[0:10:00], next run at: 2026-04-12 01:37:21 UTC)" (scheduled at 2026-04-12 01:27:21.227259+00:00)
+2026-04-12 01:27:21,228 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:28:21 UTC)" (scheduled at 2026-04-12 01:27:21.227522+00:00)
+2026-04-12 01:27:21,228 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
+2026-04-12 01:27:21,231 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:27:21,231 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:27:21,230 - apscheduler.executors.default - INFO - Job "Email Parsing Timeout Cleanup (10 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:21 UTC)" executed successfully
+2026-04-12 01:27:21,231 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:27:21,233 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:27:21,235 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:28:21 UTC)" executed successfully
+2026-04-12 01:27:21,238 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
+2026-04-12 01:27:21,238 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
+2026-04-12 01:27:21,238 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-12 01:27:21,240 - apscheduler.executors.default - INFO - Running job "Requirements Maintenance — New & Modified Jobs (5 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:21 UTC)" (scheduled at 2026-04-12 01:27:21.239405+00:00)
+2026-04-12 01:27:21,243 - apscheduler.executors.default - INFO - Job "Requirements Maintenance — New & Modified Jobs (5 min) (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:21 UTC)" executed successfully
+2026-04-12 01:27:21,368 - root - INFO - Auth response status: 302
+2026-04-12 01:27:21,368 - root - INFO - Auth response headers: [redacted for security]
+2026-04-12 01:27:21,368 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
+2026-04-12 01:27:21,369 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-12 01:27:21,434 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-12 01:27:21,500 - root - INFO - Tearsheet 1231: Entity API reports 43 total jobs
+2026-04-12 01:27:21,601 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
+2026-04-12 01:27:21,601 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-12 01:27:21,602 - root - INFO - REST Token: ***ab3c
+2026-04-12 01:27:21,602 - root - WARNING - ⚠️ No userId in REST response, querying current user...
+2026-04-12 01:27:21,703 - root - INFO - Got user ID from settings endpoint: 1147490
+2026-04-12 01:27:21,704 - root - INFO - User ID for note creation: 1147490
+2026-04-12 01:27:21,753 - extensions - INFO - 🩺 Vetting health check: ✅ Healthy
+2026-04-12 01:27:21,758 - apscheduler.executors.default - INFO - Job "Vetting System Health Check (trigger: interval[0:10:00], next run at: 2026-04-12 01:37:21 UTC)" executed successfully
+2026-04-12 01:27:22,181 - root - WARNING - Tearsheet 1231: Entity API reports 43 jobs but Search API returned 44. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:27:22,474 - root - INFO - Tearsheet 1233: Entity API reports 0 total jobs
+2026-04-12 01:27:22,782 - root - INFO - Tearsheet 1474: Entity API reports 1 total jobs
+2026-04-12 01:27:23,166 - root - INFO - Tearsheet 1239: Entity API reports 10 total jobs
+2026-04-12 01:27:24,016 - root - INFO - Tearsheet 1531: Entity API reports 15 total jobs
+2026-04-12 01:27:24,554 - root - WARNING - Tearsheet 1531: Entity API reports 15 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
+2026-04-12 01:27:24,844 - root - INFO - Tearsheet 1232: Entity API reports 2 total jobs
+2026-04-12 01:27:26,934 - root - INFO - 📧 Fetched emails for 20/20 users
+2026-04-12 01:27:26,935 - root - INFO - Loaded 73 jobs from 6 tearsheets with 20 user emails
+2026-04-12 01:27:26,955 - root - INFO - ✅ AI requirements in sync with 73 active tearsheet jobs
+2026-04-12 01:27:26,963 - incremental_monitoring_service - INFO - ✅ Activity logged: Monitoring cycle completed
+2026-04-12 01:27:26,964 - incremental_monitoring_service - INFO - 
+============================================================
+2026-04-12 01:27:26,964 - incremental_monitoring_service - INFO - CYCLE COMPLETED in 12.5s
+2026-04-12 01:27:26,964 - incremental_monitoring_service - INFO - Results: +0 -0 ~72 🗑️1 auto-removed
+2026-04-12 01:27:26,964 - incremental_monitoring_service - INFO - Total jobs: 72
+2026-04-12 01:27:26,965 - incremental_monitoring_service - INFO - ============================================================
+2026-04-12 01:27:26,986 - extensions - INFO - ✅ Updated timing for 6 monitors
+2026-04-12 01:27:26,986 - extensions - INFO - ✅ Incremental monitoring completed: {'timestamp': '2026-04-12T01:27:14.427877', 'jobs_added': 0, 'jobs_removed': 0, 'jobs_updated': 72, 'jobs_auto_removed': 1, 'total_jobs': 72, 'upload_success': False, 'cycle_time': 12.528989553451538, 'errors': [], 'cycle_success': True, 'excluded_jobs': 0, 'jobs_requirements_refreshed': 0}
+2026-04-12 01:27:26,986 - extensions - INFO - 📊 MONITOR CYCLE COMPLETE - Incremental monitoring handled all updates
+2026-04-12 01:27:27,002 - apscheduler.executors.default - INFO - Job "5-Minute Tearsheet Monitor with Keyword Classification (trigger: interval[0:05:00], next run at: 2026-04-12 01:32:14 UTC)" executed successfully
+2026-04-12 01:28:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:29:21 UTC)" (scheduled at 2026-04-12 01:28:21.227522+00:00)
+2026-04-12 01:28:21,230 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:29:21 UTC)" executed successfully
+2026-04-12 01:29:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:30:21 UTC)" (scheduled at 2026-04-12 01:29:21.227522+00:00)
+2026-04-12 01:29:21,240 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:30:21 UTC)" executed successfully
+2026-04-12 01:30:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:31:21 UTC)" (scheduled at 2026-04-12 01:30:21.227522+00:00)
+2026-04-12 01:30:21,242 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:31:21 UTC)" executed successfully
+2026-04-12 01:31:21,227 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:32:21 UTC)" (scheduled at 2026-04-12 01:31:21.227522+00:00)
+2026-04-12 01:31:21,242 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-12 01:32:21 UTC)" executed successfully
