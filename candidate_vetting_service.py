@@ -1167,6 +1167,7 @@ class CandidateVettingService(
                     continue
                 
                 try:
+                    vetting_log = None
                     if vetting_log_id and status == 'completed':
                         vetting_log = CandidateVettingLog.query.get(vetting_log_id)
                         if not vetting_log:
@@ -1190,7 +1191,13 @@ class CandidateVettingService(
                     
                     parsed_email_id = candidate.get('_parsed_email_id')
                     if parsed_email_id:
-                        self._mark_application_vetted(parsed_email_id)
+                        vetting_success = (
+                            vetting_log is not None and
+                            vetting_log.resume_text is not None and
+                            len(vetting_log.resume_text or '') > 10 and
+                            not vetting_log.error_message
+                        )
+                        self._mark_application_vetted(parsed_email_id, success=vetting_success)
                             
                 except Exception as e:
                     db.session.rollback()
