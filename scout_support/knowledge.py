@@ -34,6 +34,7 @@ KNOWLEDGE_CATEGORIES = {
     'policy': 'Company Policy',
     'training': 'Training Material',
     'resolution_pattern': 'Resolution Pattern (Learned)',
+    'escalation_pattern': 'Escalation Pattern (Learned from Failure)',
     'other': 'Other',
 }
 
@@ -123,6 +124,159 @@ class KnowledgeService:
         logger.info(f"Learned resolution from ticket {ticket.ticket_number}: {len(chunks)} chunks")
         return doc
 
+    def learn_from_escalation(self, ticket_id: int) -> Optional['KnowledgeDocument']:
+        from extensions import db
+        from models import SupportTicket, KnowledgeDocument
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return None
+
+        if ticket.status not in ('escalated', 'execution_failed', 'admin_handling', 'closed', 'completed'):
+            return None
+
+        existing = KnowledgeDocument.query.filter_by(
+            source_ticket_id=ticket_id, doc_type='ticket_escalation'
+        ).first()
+        if existing:
+            logger.info(f"Escalation learning already extracted from ticket {ticket.ticket_number}")
+            return existing
+
+        escalation_text = self._build_escalation_text(ticket)
+        if not escalation_text or len(escalation_text.strip()) < 50:
+            return None
+
+        ai_lesson = self._generate_ai_failure_analysis(ticket, escalation_text)
+
+        full_text = escalation_text
+        if ai_lesson:
+            full_text += f"\n\n--- AI LESSON LEARNED ---\n{ai_lesson}"
+
+        doc = KnowledgeDocument(
+            title=f"Escalation Lesson: {ticket.subject[:200]}",
+            doc_type='ticket_escalation',
+            category='escalation_pattern',
+            description=f"Learned from escalated ticket {ticket.ticket_number} ({ticket.category})",
+            source_ticket_id=ticket_id,
+            raw_text=full_text,
+            status='processing',
+            uploaded_by='system',
+        )
+        db.session.add(doc)
+        db.session.flush()
+
+        chunks = self._chunk_text(full_text)
+        self._create_entries_with_embeddings(doc, chunks)
+
+        doc.status = 'active'
+        db.session.commit()
+        logger.info(f"📚 Learned escalation lesson from ticket {ticket.ticket_number}: {len(chunks)} chunks")
+        return doc
+
+    def _build_escalation_text(self, ticket) -> str:
+        import json as _json
+
+        parts = [
+            f"ESCALATION/FAILURE PATTERN — DO NOT REPEAT THESE MISTAKES",
+            f"Issue Category: {ticket.category}",
+            f"Subject: {ticket.subject}",
+            f"Description: {ticket.description}",
+        ]
+
+        if ticket.escalation_reason:
+            parts.append(f"Escalation Reason: {ticket.escalation_reason}")
+
+        understanding = ticket.parsed_ai_understanding
+        if understanding:
+            if understanding.get('understanding'):
+                parts.append(f"AI Analysis: {understanding['understanding']}")
+
+        solution = ticket.parsed_proposed_solution
+        if solution is not None:
+            try:
+                solution = solution or {}
+                if solution.get('description_admin'):
+                    parts.append(f"Attempted Technical Solution: {solution['description_admin']}")
+                if solution.get('retry_strategy'):
+                    parts.append(f"Retry Strategy Attempted: {solution['retry_strategy']}")
+                if solution.get('underlying_concerns_admin'):
+                    parts.append(f"Root Cause Assessment: {solution['underlying_concerns_admin']}")
+                if solution.get('execution_steps'):
+                    steps_str = _json.dumps(solution['execution_steps'], indent=2)
+                    parts.append(f"Execution Steps Attempted: {steps_str}")
+            except (TypeError, AttributeError):
+                if ticket.proposed_solution:
+                    parts.append(f"Solution Attempted: {ticket.proposed_solution}")
+
+        if ticket.execution_history:
+            try:
+                history = _json.loads(ticket.execution_history)
+                for attempt in history:
+                    attempt_num = attempt.get('attempt', '?')
+                    proof = attempt.get('proof', [])
+                    failed_steps = [p for p in proof if 'fail' in p.get('result', '').lower()]
+                    success_steps = [p for p in proof if 'success' in p.get('result', '').lower()]
+                    parts.append(
+                        f"Attempt {attempt_num}: {len(success_steps)} succeeded, {len(failed_steps)} failed"
+                    )
+                    for fs in failed_steps:
+                        parts.append(f"  FAILED: {fs.get('step', '')} — {fs.get('result', '')}")
+            except (_json.JSONDecodeError, TypeError):
+                pass
+
+        if ticket.resolution_note:
+            parts.append(f"Admin Resolution Note: {ticket.resolution_note}")
+
+        from extensions import db as _db
+        conversations = ticket.conversations.order_by(
+            _db.text('created_at ASC')
+        ).all()
+        key_convos = [c for c in conversations if c.email_type in (
+            'user_reply', 'admin_direct_reply', 'user_reply_forwarded', 'admin_approval_request'
+        )]
+        if key_convos:
+            convo_parts = []
+            for c in key_convos[:6]:
+                convo_parts.append(f"[{c.direction}/{c.email_type}] {c.body[:400]}")
+            parts.append(f"Key Conversation Points:\n" + "\n---\n".join(convo_parts))
+
+        return "\n\n".join(parts)
+
+    def _generate_ai_failure_analysis(self, ticket, escalation_text: str) -> Optional[str]:
+        if not self.openai_client:
+            return None
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4.1-mini",
+                max_completion_tokens=800,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are an AI support system analyst. Your job is to analyze escalated/failed support tickets "
+                            "and extract a concise, actionable lesson that the AI should remember for future similar tickets. "
+                            "Focus on: (1) What the AI should have recognized earlier, (2) What approach would have been more "
+                            "effective, (3) Whether the issue was actually resolvable via API or was a vendor/UI/browser issue "
+                            "that should have been identified immediately. Write in imperative style as instructions for the AI."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Analyze this escalated ticket and write a concise lesson (3-6 sentences) that the AI should "
+                            f"remember when encountering similar issues in the future:\n\n{escalation_text[:6000]}"
+                        )
+                    }
+                ]
+            )
+            lesson = response.choices[0].message.content.strip()
+            logger.info(f"🧠 AI failure analysis generated for {ticket.ticket_number}: {lesson[:100]}...")
+            return lesson
+        except Exception as e:
+            logger.warning(f"AI failure analysis failed for {ticket.ticket_number}: {e}")
+            return None
+
     def retrieve_relevant_knowledge(self, query_text: str, top_k: int = MAX_KNOWLEDGE_RESULTS,
                                      threshold: float = SIMILARITY_THRESHOLD) -> List[Dict]:
         from models import KnowledgeEntry, KnowledgeDocument
@@ -182,21 +336,51 @@ class KnowledgeService:
         if not results:
             return ''
 
-        sections = []
+        success_sections = []
+        failure_sections = []
+        other_sections = []
         for i, r in enumerate(results, 1):
             cat_label = KNOWLEDGE_CATEGORIES.get(r['category'], r['category'])
-            sections.append(
+            entry = (
                 f"--- Knowledge Reference {i} (relevance: {r['similarity']:.0%}) ---\n"
                 f"Source: {r['title']} [{cat_label}]\n"
                 f"{r['content']}"
             )
+            if r['category'] == 'escalation_pattern' or r.get('doc_type') == 'ticket_escalation':
+                failure_sections.append(entry)
+            elif r['category'] == 'resolution_pattern' or r.get('doc_type') == 'ticket_resolution':
+                success_sections.append(entry)
+            else:
+                other_sections.append(entry)
 
-        return (
-            "\n\nRelevant Knowledge Base References:\n"
-            "The following information from our knowledge base may help you resolve this issue more accurately. "
-            "Use these references as additional context — they contain SOPs, past resolution patterns, and guides.\n\n"
-            + "\n\n".join(sections)
-        )
+        parts = []
+        if failure_sections:
+            parts.append(
+                "⚠️ CRITICAL — Past Failure/Escalation Patterns (AVOID REPEATING):\n"
+                "The following are lessons learned from tickets that the AI failed to resolve or that were escalated. "
+                "If the current ticket matches any of these patterns, adjust your approach immediately — "
+                "do NOT repeat the same mistakes. Recognize vendor/UI issues early, avoid unnecessary API calls "
+                "when the problem is not data-related, and escalate faster when appropriate.\n\n"
+                + "\n\n".join(failure_sections)
+            )
+        if success_sections:
+            parts.append(
+                "✅ Past Successful Resolution Patterns:\n"
+                "The following are resolution patterns from tickets the AI successfully resolved. "
+                "Use these as proven approaches for similar issues.\n\n"
+                + "\n\n".join(success_sections)
+            )
+        if other_sections:
+            parts.append(
+                "📚 Additional Knowledge Base References:\n"
+                "The following SOPs, guides, and documentation may help resolve this issue.\n\n"
+                + "\n\n".join(other_sections)
+            )
+
+        if not parts:
+            return ''
+
+        return "\n\nRelevant Knowledge Base References:\n" + "\n\n".join(parts)
 
     def delete_document(self, document_id: int) -> bool:
         from extensions import db
@@ -217,6 +401,7 @@ class KnowledgeService:
         total_docs = KnowledgeDocument.query.filter_by(status='active').count()
         uploaded = KnowledgeDocument.query.filter_by(status='active', doc_type='uploaded').count()
         learned = KnowledgeDocument.query.filter_by(status='active', doc_type='ticket_resolution').count()
+        learned_escalations = KnowledgeDocument.query.filter_by(status='active', doc_type='ticket_escalation').count()
         onedrive = KnowledgeDocument.query.filter_by(status='active', doc_type='onedrive_sync').count()
         total_entries = KnowledgeEntry.query.join(KnowledgeDocument).filter(
             KnowledgeDocument.status == 'active'
@@ -226,6 +411,7 @@ class KnowledgeService:
             'total_documents': total_docs,
             'uploaded_documents': uploaded,
             'learned_resolutions': learned,
+            'learned_escalations': learned_escalations,
             'onedrive_documents': onedrive,
             'total_entries': total_entries,
         }

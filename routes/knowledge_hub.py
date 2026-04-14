@@ -177,26 +177,44 @@ def learn_from_tickets():
     from models import SupportTicket, KnowledgeDocument
     from scout_support.knowledge import KnowledgeService
 
+    already_learned_ids = db.session.query(KnowledgeDocument.source_ticket_id).filter(
+        KnowledgeDocument.source_ticket_id.isnot(None),
+        KnowledgeDocument.doc_type == 'ticket_resolution'
+    ).subquery()
     completed_tickets = SupportTicket.query.filter(
         SupportTicket.status.in_(['completed']),
-        ~SupportTicket.id.in_(
-            db.session.query(KnowledgeDocument.source_ticket_id).filter(
-                KnowledgeDocument.source_ticket_id.isnot(None)
-            )
-        )
+        ~SupportTicket.id.in_(already_learned_ids)
+    ).all()
+
+    already_escalation_ids = db.session.query(KnowledgeDocument.source_ticket_id).filter(
+        KnowledgeDocument.source_ticket_id.isnot(None),
+        KnowledgeDocument.doc_type == 'ticket_escalation'
+    ).subquery()
+    escalated_tickets = SupportTicket.query.filter(
+        SupportTicket.status.in_(['escalated', 'execution_failed', 'admin_handling', 'closed']),
+        ~SupportTicket.id.in_(already_escalation_ids)
     ).all()
 
     ks = KnowledgeService()
-    learned = 0
+    learned_success = 0
+    learned_failure = 0
+
     for ticket in completed_tickets:
         doc = ks.learn_from_ticket(ticket.id)
         if doc:
-            learned += 1
+            learned_success += 1
+
+    for ticket in escalated_tickets:
+        doc = ks.learn_from_escalation(ticket.id)
+        if doc:
+            learned_failure += 1
 
     return jsonify({
         'success': True,
-        'learned': learned,
-        'message': f'Learned from {learned} resolved ticket(s)',
+        'learned': learned_success + learned_failure,
+        'learned_success': learned_success,
+        'learned_failure': learned_failure,
+        'message': f'Learned from {learned_success} resolved and {learned_failure} escalated ticket(s)',
     })
 
 

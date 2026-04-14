@@ -635,13 +635,15 @@ Respond with a JSON object:
 
         status_label = 'resolved' if new_status == 'completed' else 'closed'
 
-        if new_status == 'completed':
-            try:
-                from scout_support.knowledge import KnowledgeService
-                ks = KnowledgeService()
+        try:
+            from scout_support.knowledge import KnowledgeService
+            ks = KnowledgeService()
+            if new_status == 'completed':
                 ks.learn_from_ticket(ticket.id)
-            except Exception as e:
-                logger.warning(f"Knowledge learning failed for ticket {ticket.ticket_number}: {e}")
+            else:
+                ks.learn_from_escalation(ticket.id)
+        except Exception as e:
+            logger.warning(f"Knowledge learning failed for ticket {ticket.ticket_number}: {e}")
 
         category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
 
@@ -723,6 +725,14 @@ Respond with a JSON object:
 
         self._send_escalation_email(ticket, reason)
         logger.info(f"⬆️ Ticket {ticket.ticket_number} escalated: {reason}")
+
+        try:
+            from scout_support.knowledge import KnowledgeService
+            ks = KnowledgeService()
+            ks.learn_from_escalation(ticket.id)
+        except Exception as e:
+            logger.warning(f"Escalation learning failed for ticket {ticket.ticket_number}: {e}")
+
         return True
 
     def reopen_ticket(self, ticket_id: int, reopened_by: str) -> bool:

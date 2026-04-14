@@ -113,6 +113,14 @@ class ExecutionMixin:
             ticket.status = 'execution_failed'
             db.session.commit()
             logger.warning(f"⚠️ Ticket {ticket.ticket_number} execution failed after {ticket.execution_attempts} attempt(s)")
+
+            try:
+                from scout_support.knowledge import KnowledgeService
+                ks = KnowledgeService()
+                ks.learn_from_escalation(ticket.id)
+            except Exception as e:
+                logger.warning(f"Execution failure learning failed for ticket {ticket.ticket_number}: {e}")
+
             return False
         elif has_any_failure and has_successful_fix:
             ticket.status = 'completed'

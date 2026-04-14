@@ -18,7 +18,7 @@
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
+        <div class="col">
             <div class="card bg-dark border-secondary">
                 <div class="card-body text-center">
                     <div class="fs-2 fw-bold text-info">{{ stats.total_documents }}</div>
@@ -26,7 +26,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="card bg-dark border-secondary">
                 <div class="card-body text-center">
                     <div class="fs-2 fw-bold text-primary">{{ stats.uploaded_documents }}</div>
@@ -34,7 +34,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
             <div class="card bg-dark border-secondary">
                 <div class="card-body text-center">
                     <div class="fs-2 fw-bold text-success">{{ stats.learned_resolutions }}</div>
@@ -42,7 +42,15 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold" style="color: #f59e0b;">{{ stats.learned_escalations }}</div>
+                    <div class="text-muted small">Escalation Lessons</div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
             <div class="card bg-dark border-secondary">
                 <div class="card-body text-center">
                     <div class="fs-2 fw-bold text-warning">{{ stats.total_entries }}</div>
