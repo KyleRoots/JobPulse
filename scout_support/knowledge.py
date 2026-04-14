@@ -124,7 +124,7 @@ class KnowledgeService:
         logger.info(f"Learned resolution from ticket {ticket.ticket_number}: {len(chunks)} chunks")
         return doc
 
-    def learn_from_escalation(self, ticket_id: int) -> Optional['KnowledgeDocument']:
+    def learn_from_escalation(self, ticket_id: int, force: bool = False) -> Optional['KnowledgeDocument']:
         from extensions import db
         from models import SupportTicket, KnowledgeDocument
 
@@ -138,9 +138,13 @@ class KnowledgeService:
         existing = KnowledgeDocument.query.filter_by(
             source_ticket_id=ticket_id, doc_type='ticket_escalation'
         ).first()
-        if existing:
+        if existing and not force:
             logger.info(f"Escalation learning already extracted from ticket {ticket.ticket_number}")
             return existing
+        if existing and force:
+            db.session.delete(existing)
+            db.session.commit()
+            logger.info(f"♻️ Re-learning escalation lesson for ticket {ticket.ticket_number} (forced)")
 
         escalation_text = self._build_escalation_text(ticket)
         if not escalation_text or len(escalation_text.strip()) < 50:
@@ -231,8 +235,19 @@ class KnowledgeService:
         conversations = ticket.conversations.order_by(
             _db.text('created_at ASC')
         ).all()
+
+        admin_replies = [c for c in conversations if c.email_type == 'admin_direct_reply']
+        if admin_replies:
+            parts.append("--- HOW THE ADMIN ACTUALLY RESOLVED THIS ---")
+            parts.append(
+                "The following are the admin's direct replies to the user. "
+                "These represent the CORRECT resolution approach that the AI should have taken:"
+            )
+            for c in admin_replies:
+                parts.append(f"Admin Reply: {c.body[:600]}")
+
         key_convos = [c for c in conversations if c.email_type in (
-            'user_reply', 'admin_direct_reply', 'user_reply_forwarded', 'admin_approval_request'
+            'user_reply', 'user_reply_forwarded', 'admin_approval_request'
         )]
         if key_convos:
             convo_parts = []
@@ -258,14 +273,18 @@ class KnowledgeService:
                             "and extract a concise, actionable lesson that the AI should remember for future similar tickets. "
                             "Focus on: (1) What the AI should have recognized earlier, (2) What approach would have been more "
                             "effective, (3) Whether the issue was actually resolvable via API or was a vendor/UI/browser issue "
-                            "that should have been identified immediately. Write in imperative style as instructions for the AI."
+                            "that should have been identified immediately, (4) If an admin resolved the ticket, what their "
+                            "approach was and how the AI should replicate it in the future. Write in imperative style as "
+                            "instructions for the AI. If admin replies are included, treat them as the CORRECT resolution "
+                            "and frame the lesson around how the AI should have responded similarly."
                         )
                     },
                     {
                         "role": "user",
                         "content": (
                             f"Analyze this escalated ticket and write a concise lesson (3-6 sentences) that the AI should "
-                            f"remember when encountering similar issues in the future:\n\n{escalation_text[:6000]}"
+                            f"remember when encountering similar issues in the future. Pay special attention to any admin "
+                            f"replies — those show how the issue was actually resolved:\n\n{escalation_text[:6000]}"
                         )
                     }
                 ]

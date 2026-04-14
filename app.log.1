@@ -1,13 +1,120 @@
-2026-04-12 22:51:59,162 - apscheduler.scheduler - INFO - Scheduler has been shut down
-2026-04-12 22:52:00,690 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,691 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,694 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,694 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,699 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,702 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,709 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,712 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,713 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,724 - main - INFO - Starting application initialization...
-2026-04-12 22:52:00,835 - main - INFO - Starting application initialization...
-2026-04-12 22:52:01,515 - main - INFO - Starting application initialization...
+2026-04-14 19:54:03,257 - seed_database - INFO - ✅ All 12 built-in automations already exist
+2026-04-14 19:54:03,436 - seed_database - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-04-14 19:54:03,506 - seed_database - INFO - ✅ All 15 STSI support contacts already up to date
+2026-04-14 19:54:03,508 - seed_database - INFO - ✅ All STSI user accounts already exist
+2026-04-14 19:54:03,510 - seed_database - INFO - ✅ All users already have correct module subscriptions
+2026-04-14 19:54:03,510 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-04-14 19:54:03,510 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-04-14 19:54:03,512 - scheduler_setup - INFO - ✅ Process 8281 acquired scheduler lock - will run as PRIMARY scheduler
+2026-04-14 19:54:03,512 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-04-14 19:54:03,512 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:03,512 - extensions - INFO - ✅ 5-minute tearsheet monitoring ENABLED - provides UI visibility before 30-minute upload cycle
+2026-04-14 19:54:03,513 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:03,513 - extensions - INFO - Monitor health check enabled - periodic check every 2 hours for manual workflow
+2026-04-14 19:54:03,513 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:03,513 - extensions - INFO - Environment monitoring enabled - checking production status every 5 minutes
+2026-04-14 19:54:03,513 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:03,569 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
+2026-04-14 19:54:03,570 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-14 19:54:03,570 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-14 19:54:03,570 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-14 19:54:03,570 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-14 19:54:03,573 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
+2026-04-14 19:54:03,573 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
+2026-04-14 19:54:03,573 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
+2026-04-14 19:54:03,736 - root - INFO - Auth response status: 302
+2026-04-14 19:54:03,736 - root - INFO - Auth response headers: [redacted for security]
+2026-04-14 19:54:03,736 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
+2026-04-14 19:54:03,736 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
+2026-04-14 19:54:03,801 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
+2026-04-14 19:54:03,982 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
+2026-04-14 19:54:03,982 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
+2026-04-14 19:54:03,982 - root - INFO - REST Token: ***9219
+2026-04-14 19:54:03,982 - root - WARNING - ⚠️ No userId in REST response, querying current user...
+2026-04-14 19:54:04,119 - root - INFO - Got user ID from settings endpoint: 1147490
+2026-04-14 19:54:04,119 - root - INFO - User ID for note creation: 1147490
+2026-04-14 19:54:04,303 - root - INFO - Tearsheet 1233: Entity API reports 0 total jobs
+2026-04-14 19:54:04,639 - root - INFO - Tearsheet 1474: Entity API reports 2 total jobs
+2026-04-14 19:54:04,944 - root - INFO - Tearsheet 1231: Entity API reports 44 total jobs
+2026-04-14 19:54:05,499 - root - WARNING - Tearsheet 1231: Entity API reports 44 jobs but Search API returned 45. Using Search API results (authoritative for tearsheet membership).
+2026-04-14 19:54:05,745 - root - INFO - Tearsheet 1232: Entity API reports 1 total jobs
+2026-04-14 19:54:06,056 - root - INFO - Tearsheet 1239: Entity API reports 7 total jobs
+2026-04-14 19:54:06,742 - root - INFO - Tearsheet 1531: Entity API reports 16 total jobs
+2026-04-14 19:54:07,213 - root - WARNING - Tearsheet 1531: Entity API reports 16 jobs but Search API returned 17. Using Search API results (authoritative for tearsheet membership).
+2026-04-14 19:54:09,038 - root - INFO - 📧 Fetched emails for 19/19 users
+2026-04-14 19:54:09,039 - root - INFO - Loaded 72 jobs from 6 tearsheets with 19 user emails
+2026-04-14 19:54:09,043 - extensions - INFO - 🔄 Active job IDs cache refreshed: 72 jobs
+2026-04-14 19:54:09,050 - extensions - INFO - Active job IDs background cache refresh enabled (5-min interval)
+2026-04-14 19:54:09,052 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,052 - extensions - INFO - 📋 Scheduled activity retention cleanup (15 days)
+2026-04-14 19:54:09,052 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,053 - extensions - INFO - 📊 Log monitoring enabled - checking Render logs every 15 minutes
+2026-04-14 19:54:09,053 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,053 - extensions - INFO - 📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)
+2026-04-14 19:54:09,053 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,053 - extensions - INFO - 🧹 Scheduled data retention cleanup (daily at 3 AM UTC)
+2026-04-14 19:54:09,053 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,053 - extensions - INFO - 🩺 Scheduled vetting system health check (every 10 minutes)
+2026-04-14 19:54:09,054 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,054 - extensions - INFO - 🎯 Scheduled AI candidate vetting cycle (every 1 minute)
+2026-04-14 19:54:09,054 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,054 - extensions - INFO - 📤 Scheduled automated uploads every 30 minutes
+2026-04-14 19:54:09,057 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,057 - extensions - INFO - 🔗 LinkedIn source cleanup enabled — runs hourly to update stale source tags
+2026-04-14 19:54:09,057 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,057 - extensions - INFO - 🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs
+2026-04-14 19:54:09,058 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,058 - extensions - INFO - 🔍 Requirements maintenance enabled — auto-extracts for new jobs and re-interprets modified descriptions every 5 minutes
+2026-04-14 19:54:09,058 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,058 - extensions - INFO - 🏢 Scheduled Sales Rep display name sync every 30 minutes
+2026-04-14 19:54:09,058 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,058 - extensions - INFO - ⏰ Scheduled stale platform ticket escalation check every 6 hours
+2026-04-14 19:54:09,058 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,058 - extensions - INFO - 🔀 Scheduled duplicate candidate merge check every 60 minutes
+2026-04-14 19:54:09,058 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,058 - extensions - INFO - ☁️ Scheduled OneDrive knowledge sync every 4 hours
+2026-04-14 19:54:09,060 - extensions - INFO - 📝 Reference refresh: last_run=2026-04-10 00:48:15 UTC, next_run=2026-04-15 00:48:15 UTC, overdue=false (4.9h remaining)
+2026-04-14 19:54:09,060 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,060 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,060 - extensions - INFO - 🧹 Candidate data cleanup scheduled — runs every 15 minutes when enabled
+2026-04-14 19:54:09,061 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,061 - extensions - INFO - ♻️  Incomplete rescreen job scheduled — runs every 15 minutes when enabled
+2026-04-14 19:54:09,061 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-14 19:54:09,061 - extensions - INFO - 🔍 Screening quality audit job scheduled — runs every 15 minutes when enabled
+2026-04-14 19:54:09,061 - extensions - INFO - 📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads
+2026-04-14 19:54:09,061 - main - INFO - Flask application imported successfully
+2026-04-14 19:54:09,065 - main - INFO - Health check passed during startup
+2026-04-14 19:54:09,065 - apscheduler.scheduler - INFO - Added job "5-Minute Tearsheet Monitor with Keyword Classification" to job store "default"
+2026-04-14 19:54:09,065 - apscheduler.scheduler - INFO - Added job "Monitor Health Check (Manual Workflow)" to job store "default"
+2026-04-14 19:54:09,065 - apscheduler.scheduler - INFO - Added job "Production Environment Monitoring" to job store "default"
+2026-04-14 19:54:09,065 - apscheduler.scheduler - INFO - Added job "Active Job IDs Cache Refresh (5 min)" to job store "default"
+2026-04-14 19:54:09,066 - apscheduler.scheduler - INFO - Added job "Activity Retention Cleanup (15 days)" to job store "default"
+2026-04-14 19:54:09,066 - apscheduler.scheduler - INFO - Added job "Render Log Monitoring (Self-Healing) - 15min" to job store "default"
+2026-04-14 19:54:09,066 - apscheduler.scheduler - INFO - Added job "Email Parsing Timeout Cleanup (10 min)" to job store "default"
+2026-04-14 19:54:09,066 - apscheduler.scheduler - INFO - Added job "Data Retention Cleanup (Daily)" to job store "default"
+2026-04-14 19:54:09,066 - apscheduler.scheduler - INFO - Added job "Vetting System Health Check" to job store "default"
+2026-04-14 19:54:09,066 - apscheduler.scheduler - INFO - Added job "AI Candidate Vetting Cycle" to job store "default"
+2026-04-14 19:54:09,066 - apscheduler.scheduler - INFO - Added job "Automated Upload (Every 30 Minutes)" to job store "default"
+2026-04-14 19:54:09,066 - apscheduler.scheduler - INFO - Added job "LinkedIn Source Cleanup (hourly)" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "Enforce Tearsheet Jobs Public (Every 30 Minutes)" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "Requirements Maintenance — New & Modified Jobs (5 min)" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "Sales Rep Display Name Sync (Every 30 Minutes)" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "Stale Platform Ticket Escalation Check (Every 6 Hours)" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "Duplicate Candidate Merge Check (Every 60 Minutes)" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "OneDrive Knowledge Sync (Every 4 Hours)" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "120-Hour Reference Number Refresh" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "Candidate Data Cleanup (Every 15 Minutes)" to job store "default"
+2026-04-14 19:54:09,067 - apscheduler.scheduler - INFO - Added job "Incomplete Candidate Rescreen (Every 15 Minutes)" to job store "default"
+2026-04-14 19:54:09,068 - apscheduler.scheduler - INFO - Added job "Scout Screening Quality Audit (15 min)" to job store "default"
+2026-04-14 19:54:09,068 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-14 19:54:09,068 - extensions - INFO - Background scheduler started/restarted successfully
+2026-04-14 19:54:09,068 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-04-14 19:54:09,068 - extensions - WARNING - Failed to restore paused scheduler jobs: Working outside of application context.
+
+This typically means that you attempted to use functionality that needed
+the current application. To solve this, set up an application context
+with app.app_context(). See the documentation for more information.
+2026-04-14 19:54:09,071 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-04-14 19:54:09,071 - main - INFO - Monitoring system auto-started successfully on boot
+2026-04-14 19:54:46,733 - scheduler_setup - INFO - 🔓 Released scheduler lock on process exit
+2026-04-14 19:54:46,734 - apscheduler.scheduler - INFO - Scheduler has been shut down

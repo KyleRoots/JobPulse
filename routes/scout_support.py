@@ -353,6 +353,47 @@ def delete_ticket(ticket_number):
     return jsonify({'success': True, 'message': f'Ticket {ticket_number} deleted'})
 
 
+@scout_support_bp.route('/api/scout-support/learn/<ticket_number>', methods=['POST'])
+@login_required
+def api_learn_from_ticket(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support.knowledge import KnowledgeService
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    ks = KnowledgeService()
+    doc = None
+    learn_type = None
+
+    if ticket.status == 'completed':
+        doc = ks.learn_from_ticket(ticket.id)
+        learn_type = 'resolution'
+    elif ticket.status in ('escalated', 'execution_failed', 'admin_handling', 'closed'):
+        force = request.json.get('force', False) if request.json else False
+        doc = ks.learn_from_escalation(ticket.id, force=force)
+        learn_type = 'escalation'
+    else:
+        return jsonify({'error': f'Cannot learn from ticket in "{ticket.status}" status'}), 400
+
+    if doc:
+        return jsonify({
+            'success': True,
+            'learn_type': learn_type,
+            'document_id': doc.id,
+            'message': f'Successfully learned {learn_type} pattern from {ticket_number}',
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': f'No learnable content found for {ticket_number} (may already be learned)',
+        })
+
+
 def _compute_analytics(days=90):
     from models import SupportTicket, SupportConversation
     from sqlalchemy import func

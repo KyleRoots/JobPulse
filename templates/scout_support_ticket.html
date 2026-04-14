@@ -271,6 +271,11 @@
                     <button class="btn btn-outline-danger btn-sm w-100 mb-2" onclick="deleteTicket()">
                         <i class="fas fa-trash me-1"></i>Delete Ticket
                     </button>
+                    {% if ticket.status in ('completed', 'closed', 'escalated', 'execution_failed', 'admin_handling') %}
+                    <button class="btn btn-outline-warning btn-sm w-100 mb-2" id="learnBtn" onclick="learnFromTicket()">
+                        <i class="fas fa-brain me-1"></i>Teach AI from This Ticket
+                    </button>
+                    {% endif %}
                     {% if ticket.status not in ('completed', 'closed') %}
                     <hr class="border-secondary my-2">
                     <label class="form-label text-muted small mb-1"><i class="fas fa-reply me-1"></i>Reply to User</label>
@@ -307,6 +312,11 @@
                     {% if ticket.status != 'escalated' %}
                     <button class="btn btn-outline-danger btn-sm w-100 mb-2" onclick="escalateTicket()">
                         <i class="fas fa-level-up-alt me-1"></i>Escalate Ticket
+                    </button>
+                    {% endif %}
+                    {% if ticket.status in ('completed', 'closed', 'escalated', 'execution_failed', 'admin_handling') %}
+                    <button class="btn btn-outline-warning btn-sm w-100 mb-2" id="learnBtn" onclick="learnFromTicket()">
+                        <i class="fas fa-brain me-1"></i>Teach AI from This Ticket
                     </button>
                     {% endif %}
                     {% if ticket.status not in ('completed', 'closed') %}
@@ -643,6 +653,44 @@ function deleteTicket() {
         }
     })
     .catch(err => alert('Error: ' + err));
+}
+
+function learnFromTicket(force) {
+    const btn = document.getElementById('learnBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Analyzing...';
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    fetch('/api/scout-support/learn/{{ ticket.ticket_number }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({force: force || false})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Learned!';
+            btn.classList.remove('btn-outline-warning');
+            btn.classList.add('btn-outline-success');
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-brain me-1"></i>Re-analyze Ticket';
+                btn.classList.remove('btn-outline-success');
+                btn.classList.add('btn-outline-warning');
+                btn.setAttribute('onclick', 'learnFromTicket(true)');
+            }, 3000);
+        } else {
+            btn.innerHTML = '<i class="fas fa-brain me-1"></i>Already Learned — Re-analyze?';
+            btn.disabled = false;
+            btn.setAttribute('onclick', 'learnFromTicket(true)');
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        alert('Error: ' + err);
+    });
 }
 </script>
 {% endif %}
