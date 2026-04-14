@@ -108,6 +108,26 @@
                             <span class="text-muted small">{{ conv.created_at.strftime('%b %d, %H:%M') if conv.created_at else '' }}</span>
                         </div>
                         <div class="small" style="white-space: pre-wrap;">{{ conv.body }}</div>
+                        {% if conv.attachments %}
+                        <div class="mt-2 pt-2" style="border-top: 1px solid rgba(255,255,255,0.1);">
+                            <small class="text-muted d-block mb-1"><i class="fas fa-paperclip me-1"></i>{{ conv.attachments|length }} attachment(s)</small>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for att in conv.attachments %}
+                                {% if att.is_image %}
+                                <a href="{{ url_for('platform_support.serve_my_attachment', attachment_id=att.id) }}" target="_blank">
+                                    <img src="{{ url_for('platform_support.serve_my_attachment', attachment_id=att.id) }}"
+                                         alt="{{ att.filename }}" class="rounded" style="max-height: 100px; max-width: 150px; cursor: pointer;">
+                                </a>
+                                {% else %}
+                                <a href="{{ url_for('platform_support.serve_my_attachment', attachment_id=att.id) }}" target="_blank"
+                                   class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-file me-1"></i>{{ att.filename }}
+                                </a>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>

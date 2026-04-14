@@ -481,7 +481,7 @@ Respond with a JSON object:
         return True
 
     def _send_platform_email(self, to_email: str, subject: str, body: str, ticket=None,
-                              email_type: str = 'general'):
+                              email_type: str = 'general', attachments: list = None):
         import re
         import uuid as _uuid
         from extensions import db
@@ -538,6 +538,7 @@ Respond with a JSON object:
                 from_name='Scout Genius',
                 from_email='support@scoutgenius.ai',
                 message_id=msg_id,
+                attachments=attachments,
             )
 
             success = result.get('success', False) if isinstance(result, dict) else bool(result)
@@ -807,9 +808,9 @@ Respond with a JSON object:
         logger.info(f"✅ Platform ticket {ticket.ticket_number} resolved by {closed_by}: {resolution_note[:100]}")
         return True
 
-    def reply_to_ticket(self, ticket_id: int, reply_body: str, replied_by: str) -> bool:
+    def reply_to_ticket(self, ticket_id: int, reply_body: str, replied_by: str, files: list = None) -> bool:
         from extensions import db
-        from models import SupportTicket, SupportConversation
+        from models import SupportTicket, SupportConversation, SupportAttachment
 
         ticket = SupportTicket.query.get(ticket_id)
         if not ticket:
@@ -832,6 +833,29 @@ Respond with a JSON object:
             email_type='admin_direct_reply',
         )
         db.session.add(conv)
+        db.session.flush()
+
+        email_attachments = []
+        if files:
+            for f in files:
+                file_data = f.read()
+                if not file_data:
+                    continue
+                att = SupportAttachment(
+                    ticket_id=ticket.id,
+                    conversation_id=conv.id,
+                    filename=f.filename,
+                    content_type=f.content_type or 'application/octet-stream',
+                    file_data=file_data,
+                    file_size=len(file_data),
+                )
+                db.session.add(att)
+                email_attachments.append({
+                    'data': file_data,
+                    'filename': f.filename,
+                    'content_type': f.content_type or 'application/octet-stream',
+                })
+
         db.session.commit()
 
         first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
@@ -849,16 +873,18 @@ Respond with a JSON object:
             to_email=ticket.submitter_email,
             subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body=email_body,
-            ticket=ticket,
+            ticket=None,
             email_type='admin_direct_reply',
+            attachments=email_attachments if email_attachments else None,
         )
 
-        logger.info(f"💬 Admin reply on ticket {ticket.ticket_number} by {replied_by}: {reply_body[:80]}")
+        att_info = f" with {len(email_attachments)} attachment(s)" if email_attachments else ""
+        logger.info(f"💬 Admin reply on ticket {ticket.ticket_number} by {replied_by}{att_info}: {reply_body[:80]}")
         return True
 
-    def reply_to_platform_ticket(self, ticket_id: int, reply_body: str, replied_by: str) -> bool:
+    def reply_to_platform_ticket(self, ticket_id: int, reply_body: str, replied_by: str, files: list = None) -> bool:
         from extensions import db
-        from models import SupportTicket
+        from models import SupportTicket, SupportConversation, SupportAttachment
 
         ticket = SupportTicket.query.get(ticket_id)
         if not ticket:
@@ -869,7 +895,41 @@ Respond with a JSON object:
 
         if ticket.status == 'new':
             ticket.status = 'acknowledged'
-            db.session.commit()
+
+        conv = SupportConversation(
+            ticket_id=ticket.id,
+            direction='outbound',
+            sender_email=replied_by,
+            recipient_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
+            body=reply_body,
+            email_type='admin_reply',
+        )
+        db.session.add(conv)
+        db.session.flush()
+
+        email_attachments = []
+        if files:
+            for f in files:
+                file_data = f.read()
+                if not file_data:
+                    continue
+                att = SupportAttachment(
+                    ticket_id=ticket.id,
+                    conversation_id=conv.id,
+                    filename=f.filename,
+                    content_type=f.content_type or 'application/octet-stream',
+                    file_data=file_data,
+                    file_size=len(file_data),
+                )
+                db.session.add(att)
+                email_attachments.append({
+                    'data': file_data,
+                    'filename': f.filename,
+                    'content_type': f.content_type or 'application/octet-stream',
+                })
+
+        db.session.commit()
 
         category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
         first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
@@ -887,11 +947,13 @@ Respond with a JSON object:
             to_email=ticket.submitter_email,
             subject=f"Re: [{ticket.ticket_number}] {ticket.subject}",
             body=email_body,
-            ticket=ticket,
+            ticket=None,
             email_type='admin_reply',
+            attachments=email_attachments if email_attachments else None,
         )
 
-        logger.info(f"💬 Admin reply on platform ticket {ticket.ticket_number} by {replied_by}: {reply_body[:80]}")
+        att_info = f" with {len(email_attachments)} attachment(s)" if email_attachments else ""
+        logger.info(f"💬 Admin reply on platform ticket {ticket.ticket_number} by {replied_by}{att_info}: {reply_body[:80]}")
         return True
 
     def check_stale_platform_tickets(self):

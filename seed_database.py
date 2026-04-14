@@ -961,6 +961,27 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for parsed_email.vetting_retry_count: {str(e)}")
 
+    # Add conversation_id to support_attachment (Apr 2026 - links attachments to specific conversation entries)
+    try:
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'support_attachment' AND column_name = 'conversation_id'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text(
+                "ALTER TABLE support_attachment ADD COLUMN conversation_id INTEGER REFERENCES support_conversation(id)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_support_attachment_conversation_id ON support_attachment(conversation_id)"
+            ))
+            db.session.commit()
+            logger.info("✅ Added column conversation_id to support_attachment table")
+        else:
+            logger.info("ℹ️ Column conversation_id already exists on support_attachment table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for support_attachment.conversation_id: {str(e)}")
+
     # Drop UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id
     # (Feb 2026 - allow multiple vetting logs per candidate for re-applications)
     try:

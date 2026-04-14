@@ -1172,7 +1172,8 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                         from_name: str = None,
                         from_email: str = None,
                         changes_summary: str = None,
-                        message_id: str = None):
+                        message_id: str = None,
+                        attachments: list = None):
         try:
             if not self.api_key:
                 logging.warning("SendGrid API key not configured - cannot send email")
@@ -1219,6 +1220,16 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                     if bcc_email and bcc_email != to_email:  # Don't BCC the primary recipient
                         message.add_bcc(Bcc(bcc_email))
                 logging.info(f"Adding BCC recipients: {bcc_emails}")
+
+            if attachments:
+                for att in attachments:
+                    sg_attachment = Attachment()
+                    sg_attachment.file_content = base64.b64encode(att['data']).decode('utf-8')
+                    sg_attachment.file_type = att.get('content_type', 'application/octet-stream')
+                    sg_attachment.file_name = att.get('filename', 'attachment')
+                    sg_attachment.disposition = 'attachment'
+                    message.add_attachment(sg_attachment)
+                logging.info(f"Adding {len(attachments)} attachment(s) to email")
 
             response = self.sg.client.mail.send.post(request_body=message.get())
             

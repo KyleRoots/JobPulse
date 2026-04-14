@@ -293,17 +293,41 @@ def api_reply_to_ticket(ticket_number):
     if ticket.status in ('completed', 'closed'):
         return jsonify({'error': 'Cannot reply to a resolved ticket'}), 400
 
-    data = request.json or {}
-    reply_body = data.get('reply', '').strip()
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        reply_body = request.form.get('reply', '').strip()
+        files = request.files.getlist('attachments')
+        files = [f for f in files if f and f.filename]
+    else:
+        data = request.json or {}
+        reply_body = data.get('reply', '').strip()
+        files = None
 
     if not reply_body:
         return jsonify({'error': 'Reply message is required'}), 400
 
+    MAX_FILE_SIZE = 10 * 1024 * 1024
+    ALLOWED_TYPES = {
+        'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+        'text/plain',
+    }
+    if files:
+        for f in files:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(0)
+            if size > MAX_FILE_SIZE:
+                return jsonify({'error': f'File "{f.filename}" exceeds 10MB limit'}), 400
+            if f.content_type not in ALLOWED_TYPES:
+                return jsonify({'error': f'File type "{f.content_type}" is not allowed'}), 400
+
     svc = ScoutSupportService()
     if ticket.category in PLATFORM_CATEGORIES:
-        success = svc.reply_to_platform_ticket(ticket.id, reply_body, current_user.email)
+        success = svc.reply_to_platform_ticket(ticket.id, reply_body, current_user.email, files=files or None)
     else:
-        success = svc.reply_to_ticket(ticket.id, reply_body, current_user.email)
+        success = svc.reply_to_ticket(ticket.id, reply_body, current_user.email, files=files or None)
 
     return jsonify({'success': success})
 

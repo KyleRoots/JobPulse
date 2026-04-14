@@ -148,6 +148,26 @@
                                 <small class="text-muted ms-3">{{ conv.created_at.strftime('%b %d, %H:%M') if conv.created_at else '' }}</small>
                             </div>
                             <div style="white-space: pre-wrap; word-break: break-word;">{{ conv.body }}</div>
+                            {% if conv.attachments %}
+                            <div class="mt-2 pt-2" style="border-top: 1px solid rgba(255,255,255,0.1);">
+                                <small class="text-muted d-block mb-1"><i class="fas fa-paperclip me-1"></i>{{ conv.attachments|length }} attachment(s)</small>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for att in conv.attachments %}
+                                    {% if att.is_image %}
+                                    <a href="{{ url_for('scout_support.serve_attachment', attachment_id=att.id) }}" target="_blank">
+                                        <img src="{{ url_for('scout_support.serve_attachment', attachment_id=att.id) }}"
+                                             alt="{{ att.filename }}" class="rounded" style="max-height: 100px; max-width: 150px; cursor: pointer;">
+                                    </a>
+                                    {% else %}
+                                    <a href="{{ url_for('scout_support.serve_attachment', attachment_id=att.id) }}" target="_blank"
+                                       class="btn btn-outline-secondary btn-sm">
+                                        <i class="fas fa-file me-1"></i>{{ att.filename }}
+                                    </a>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if conv.email_type %}
                             <small class="text-muted mt-1 d-block"><i class="fas fa-tag me-1"></i>{{ conv.email_type }}</small>
                             {% endif %}
@@ -256,6 +276,10 @@
                     <label class="form-label text-muted small mb-1"><i class="fas fa-reply me-1"></i>Reply to User</label>
                     <textarea id="platformReplyBody" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
                               rows="3" placeholder="Type your response to the user..."></textarea>
+                    <label class="form-label text-muted small mb-1"><i class="fas fa-paperclip me-1"></i>Attachments</label>
+                    <input type="file" id="platformReplyFiles" class="form-control form-control-sm bg-dark text-white border-secondary mb-1" multiple
+                           accept="image/png,image/jpeg,image/gif,image/webp,.pdf,.docx,.doc,.txt">
+                    <div class="text-muted small mb-2">PNG, JPG, GIF, PDF, DOCX, TXT (max 10MB each)</div>
                     <button class="btn btn-sm w-100 mb-3" id="sendReplyBtn" style="background-color: #4a9678; color: white;" onclick="sendPlatformReply()">
                         <i class="fas fa-paper-plane me-1"></i>Send Reply
                     </button>
@@ -290,6 +314,10 @@
                     <label class="form-label text-muted small mb-1"><i class="fas fa-reply me-1"></i>Reply to User</label>
                     <textarea id="adminReplyBody" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
                               rows="3" placeholder="Type your response to the user..."></textarea>
+                    <label class="form-label text-muted small mb-1"><i class="fas fa-paperclip me-1"></i>Attachments</label>
+                    <input type="file" id="adminReplyFiles" class="form-control form-control-sm bg-dark text-white border-secondary mb-1" multiple
+                           accept="image/png,image/jpeg,image/gif,image/webp,.pdf,.docx,.doc,.txt">
+                    <div class="text-muted small mb-2">PNG, JPG, GIF, PDF, DOCX, TXT (max 10MB each)</div>
                     <button class="btn btn-sm w-100 mb-3" id="sendAdminReplyBtn" style="background-color: #4a9678; color: white;" onclick="sendAdminReply()">
                         <i class="fas fa-paper-plane me-1"></i>Send Reply
                     </button>
@@ -466,17 +494,28 @@ function sendPlatformReply() {
         document.getElementById('platformReplyBody').focus();
         return;
     }
-    if (!confirm('Send this reply to the user? They will receive an email.')) return;
+    const fileInput = document.getElementById('platformReplyFiles');
+    const fileCount = fileInput.files.length;
+    const confirmMsg = fileCount > 0
+        ? `Send this reply with ${fileCount} attachment(s) to the user? They will receive an email.`
+        : 'Send this reply to the user? They will receive an email.';
+    if (!confirm(confirmMsg)) return;
 
     const btn = document.getElementById('sendReplyBtn');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
 
+    const formData = new FormData();
+    formData.append('reply', reply);
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('attachments', fileInput.files[i]);
+    }
+
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
     fetch('/api/scout-support/reply/{{ ticket.ticket_number }}', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
-        body: JSON.stringify({reply: reply})
+        headers: {'X-CSRFToken': csrfToken},
+        body: formData
     })
     .then(r => r.json())
     .then(data => {
@@ -502,17 +541,28 @@ function sendAdminReply() {
         document.getElementById('adminReplyBody').focus();
         return;
     }
-    if (!confirm('Send this reply to the user? They will receive an email.')) return;
+    const fileInput = document.getElementById('adminReplyFiles');
+    const fileCount = fileInput.files.length;
+    const confirmMsg = fileCount > 0
+        ? `Send this reply with ${fileCount} attachment(s) to the user? They will receive an email.`
+        : 'Send this reply to the user? They will receive an email.';
+    if (!confirm(confirmMsg)) return;
 
     const btn = document.getElementById('sendAdminReplyBtn');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
 
+    const formData = new FormData();
+    formData.append('reply', reply);
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('attachments', fileInput.files[i]);
+    }
+
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
     fetch('/api/scout-support/reply/{{ ticket.ticket_number }}', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
-        body: JSON.stringify({reply: reply})
+        headers: {'X-CSRFToken': csrfToken},
+        body: formData
     })
     .then(r => r.json())
     .then(data => {

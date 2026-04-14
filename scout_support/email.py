@@ -876,7 +876,8 @@ class EmailMixin:
 
     def _send_email(self, to_email: str, subject: str, body: str, ticket=None,
                     email_type: str = 'general', cc_email: str = None,
-                    cc_emails: Optional[List[str]] = None):
+                    cc_emails: Optional[List[str]] = None,
+                    attachments: Optional[List[Dict]] = None):
         from extensions import db
         from models import SupportConversation, EmailDeliveryLog
         from scout_support_service import SCOUT_SUPPORT_EMAIL, SCOUT_SUPPORT_NAME
@@ -944,6 +945,7 @@ class EmailMixin:
                 from_name=SCOUT_SUPPORT_NAME,
                 from_email=SCOUT_SUPPORT_EMAIL,
                 message_id=msg_id,
+                attachments=attachments,
             )
 
             success = result.get('success', False) if isinstance(result, dict) else bool(result)
