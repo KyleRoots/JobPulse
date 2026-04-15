@@ -668,7 +668,8 @@
                        data-job-title="{{ job.title|e }}"
                        data-ai-req="{{ (req.ai_interpreted_requirements if req and req.ai_interpreted_requirements else '')|e }}"
                        data-custom="{{ (req.custom_requirements if req and req.custom_requirements else '')|e }}"
-                       data-threshold="{{ (req.vetting_threshold if req and req.vetting_threshold else '')|e }}">
+                       data-threshold="{{ (req.vetting_threshold if req and req.vetting_threshold else '')|e }}"
+                       data-prestige="{{ '1' if req and req.employer_prestige_boost else '0' }}">
                         Configure{% if req and req.custom_requirements %}&nbsp;<i class="fas fa-circle" style="font-size:0.45rem; color:var(--sc-accent); vertical-align:middle; opacity:0.8;"></i>{% endif %}
                     </a>
                 </td>
@@ -741,6 +742,21 @@
                                min="50" max="100" placeholder="{{ global_threshold }}"
                                style="width:52px; text-align:center; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.22); border-radius:7px; color:rgba(255,255,255,0.85); font-size:0.85rem; padding:0.35rem 0.4rem; outline:none; -moz-appearance:textfield;">
                         <span style="font-size:0.77rem; color:rgba(255,255,255,0.3);">% — blank uses global default ({{ global_threshold }}%)</span>
+                    </div>
+
+                    <div style="margin-top:1.1rem;">
+                        <div class="col-label mb-1"><i class="fas fa-building"></i> Employer Prestige Boost</div>
+                        <div style="display:flex; align-items:center; gap:0.6rem;">
+                            <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; user-select:none;">
+                                <input type="hidden" name="employer_prestige_boost" value="0">
+                                <input type="checkbox" name="employer_prestige_boost" id="modalPrestigeBoost" value="1"
+                                       style="width:16px; height:16px; accent-color:#9b7fd4; cursor:pointer;">
+                                <span style="font-size:0.8rem; color:rgba(255,255,255,0.7);">Enable +5 point boost for candidates at major consulting firms</span>
+                            </label>
+                        </div>
+                        <div style="font-size:0.71rem; color:rgba(255,255,255,0.22); margin-top:0.35rem;">
+                            Applies only when the candidate's location is confirmed compatible. Triggers a special recruiter notification for below-threshold candidates at firms like Deloitte, Accenture, KPMG, etc.
+                        </div>
                     </div>
 
                 </div>
@@ -1236,7 +1252,7 @@ document.addEventListener('click', function (e) {
     const configLink = e.target.closest('.open-config-link');
     if (configLink) {
         e.preventDefault();
-        openOverrideModal(configLink.dataset.jobId, configLink.dataset.jobTitle, configLink.dataset.aiReq, configLink.dataset.custom, configLink.dataset.threshold);
+        openOverrideModal(configLink.dataset.jobId, configLink.dataset.jobTitle, configLink.dataset.aiReq, configLink.dataset.custom, configLink.dataset.threshold, configLink.dataset.prestige);
         return;
     }
     const rescreenBtn = e.target.closest('.btn-rescreen');
@@ -1248,13 +1264,14 @@ document.addEventListener('click', function (e) {
 
 let currentModalJobId = null;
 
-function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
+function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold, prestige) {
     currentModalJobId = jobId;
     const form = document.getElementById('overrideModalForm');
     const subtitle = document.getElementById('modalJobSubtitle');
     const aiBox = document.getElementById('modalAiReq');
     const textarea = document.getElementById('modalOverrideText');
     const thInput = document.getElementById('modalThreshold');
+    const prestigeCheck = document.getElementById('modalPrestigeBoost');
     form.action = '/scout-screening/job/' + jobId + '/save';
     if (subtitle) subtitle.textContent = (jobTitle || '') + '  \u00B7  ID: ' + jobId;
     if (aiBox) {
@@ -1266,6 +1283,7 @@ function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold) {
     }
     if (textarea) textarea.value = customOverride || '';
     if (thInput) thInput.value = threshold || '';
+    if (prestigeCheck) prestigeCheck.checked = prestige === '1';
     const statusEl = document.getElementById('optimizeStatus');
     if (statusEl) { statusEl.style.display = 'none'; statusEl.innerHTML = ''; }
     var saveBtn = document.getElementById('saveConfigBtn');

@@ -266,16 +266,27 @@ def save_job_settings(job_id):
             flash('Threshold must be between 50 and 100.', 'error')
             return redirect(url_for('scout_screening.dashboard'))
 
+        is_ajax_threshold_save = request.form.get('_ajax') == '1'
+
         job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+
+        if is_ajax_threshold_save:
+            employer_prestige_boost = job_req.employer_prestige_boost if job_req else False
+        else:
+            prestige_boost_values = request.form.getlist('employer_prestige_boost')
+            employer_prestige_boost = '1' in prestige_boost_values
+
         if job_req:
             job_req.custom_requirements = custom_requirements
             job_req.vetting_threshold = vetting_threshold
+            job_req.employer_prestige_boost = employer_prestige_boost
             job_req.updated_at = datetime.utcnow()
         else:
             job_req = JobVettingRequirements(
                 bullhorn_job_id=job_id,
                 custom_requirements=custom_requirements,
                 vetting_threshold=vetting_threshold,
+                employer_prestige_boost=employer_prestige_boost,
             )
             db.session.add(job_req)
 
@@ -291,6 +302,7 @@ def save_job_settings(job_id):
                     'job_title': job_req.job_title or f'Job #{job_id}',
                     'custom_requirements_action': 'set' if custom_requirements else 'cleared',
                     'threshold': vetting_threshold,
+                    'employer_prestige_boost': employer_prestige_boost,
                     'page': 'scout_screening',
                 })
             ))

@@ -643,15 +643,18 @@ class CandidateVettingService(
             global_threshold = self.get_threshold()
             prefetched_global_reqs = self._get_global_custom_requirements() or ''  # '' not None — avoids DB fallback in threads
             
-            # Pre-fetch per-job thresholds (batch query, not N individual queries)
+            # Pre-fetch per-job thresholds and prestige boost toggles (batch query, not N individual queries)
             job_threshold_cache = {}
+            job_prestige_boost_cache = {}
             try:
                 batch_threshold_reqs = JobVettingRequirements.query.filter(
-                    JobVettingRequirements.bullhorn_job_id.in_(batch_job_ids),
-                    JobVettingRequirements.vetting_threshold.isnot(None)
+                    JobVettingRequirements.bullhorn_job_id.in_(batch_job_ids)
                 ).all()
                 for req in batch_threshold_reqs:
-                    job_threshold_cache[req.bullhorn_job_id] = float(req.vetting_threshold)
+                    if req.vetting_threshold is not None:
+                        job_threshold_cache[req.bullhorn_job_id] = float(req.vetting_threshold)
+                    if req.employer_prestige_boost:
+                        job_prestige_boost_cache[req.bullhorn_job_id] = True
             except Exception as e:
                 logging.error(f"Error pre-fetching job thresholds: {str(e)}")
             
@@ -806,6 +809,27 @@ class CandidateVettingService(
                 # Create match record - use pre-fetched job-specific threshold if set
                 job_threshold = job_threshold_cache.get(job_id, global_threshold)
                 
+                # ── Employer prestige boost ──
+                # Apply 3-5 point boost when:
+                # 1. Per-job prestige toggle is ON
+                # 2. Prestige employer detected in resume
+                # 3. No location barrier (location is confirmed compatible)
+                _prestige_employer = analysis.get('_prestige_employer')
+                _prestige_boost_applied = False
+                _final_score = analysis.get('match_score', 0)
+                if (_prestige_employer 
+                    and job_prestige_boost_cache.get(job_id)
+                    and not analysis.get('is_location_barrier', False)
+                    and 'location mismatch' not in (analysis.get('gaps_identified', '') or '').lower()):
+                    from screening.prompt_builder import PRESTIGE_BOOST_POINTS
+                    _original = _final_score
+                    _final_score = min(100, _final_score + PRESTIGE_BOOST_POINTS)
+                    _prestige_boost_applied = True
+                    logging.info(
+                        f"  🏢 Prestige boost: {_prestige_employer} detected, "
+                        f"score {_original}→{_final_score} (+{PRESTIGE_BOOST_POINTS}pts) for job {job_id}"
+                    )
+                
                 match_record = CandidateJobMatch(
                     vetting_log_id=vetting_log.id,
                     bullhorn_job_id=job_id,
@@ -816,15 +840,17 @@ class CandidateVettingService(
                     recruiter_name=recruiter_name,
                     recruiter_email=recruiter_email,
                     recruiter_bullhorn_id=recruiter_id,
-                    match_score=analysis.get('match_score', 0),
+                    match_score=_final_score,
                     technical_score=analysis.get('technical_score'),
-                    is_qualified=(analysis.get('match_score', 0) >= job_threshold) and not analysis.get('is_location_barrier', False),
+                    is_qualified=(_final_score >= job_threshold) and not analysis.get('is_location_barrier', False),
                     is_applied_job=is_applied_job,
                     match_summary=analysis.get('match_summary', ''),
                     skills_match=analysis.get('skills_match', ''),
                     experience_match=self._build_experience_match(analysis),
                     gaps_identified=analysis.get('gaps_identified', ''),
-                    years_analysis_json=analysis.get('_years_analysis_json')
+                    years_analysis_json=analysis.get('_years_analysis_json'),
+                    prestige_employer=_prestige_employer,
+                    prestige_boost_applied=_prestige_boost_applied,
                 )
                 
                 db.session.add(match_record)

@@ -702,6 +702,10 @@ class CandidateJobMatch(db.Model):
     gaps_identified = db.Column(db.Text, nullable=True)  # What's missing
     years_analysis_json = db.Column(db.Text, nullable=True)  # GPT's years-of-experience calculation (JSON for auditing)
     
+    # Employer prestige tracking
+    prestige_employer = db.Column(db.String(255), nullable=True)
+    prestige_boost_applied = db.Column(db.Boolean, default=False)
+    
     # Notification tracking
     notification_sent = db.Column(db.Boolean, default=False)
     notification_sent_at = db.Column(db.DateTime, nullable=True)
@@ -728,6 +732,7 @@ class JobVettingRequirements(db.Model):
     ai_interpreted_requirements = db.Column(db.Text, nullable=True)  # What AI extracted from job
     vetting_threshold = db.Column(db.Integer, nullable=True)  # Custom threshold for this job (null = use global default)
     scout_vetting_enabled = db.Column(db.Boolean, nullable=True)  # null = follow global, True/False = per-job override
+    employer_prestige_boost = db.Column(db.Boolean, default=False)  # Per-job toggle for prestige employer scoring boost
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

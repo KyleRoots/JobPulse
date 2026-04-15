@@ -35,9 +35,15 @@ class NoteBuilderMixin:
         else:
             score_text = f"  Match Score: {match.match_score:.0f}%"
 
+        if match.prestige_boost_applied and match.prestige_employer:
+            score_text += f"  (includes +5 prestige boost)"
+
         if match_custom:
             score_text += f"  |  Threshold: {match_custom:.0f}% (custom)"
         lines.append(score_text)
+
+        if match.prestige_employer:
+            lines.append(f"  🏢 Currently at Tier-1 firm: {match.prestige_employer}")
 
         if is_applied:
             lines.append(f"  ⭐ APPLIED TO THIS POSITION")
