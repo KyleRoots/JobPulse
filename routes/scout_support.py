@@ -277,6 +277,66 @@ def api_close_platform_ticket(ticket_number):
     return jsonify({'success': success})
 
 
+@scout_support_bp.route('/api/scout-support/send-to-build/<ticket_number>', methods=['POST'])
+@login_required
+def api_send_to_build(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support_service import ScoutSupportService, PLATFORM_CATEGORIES
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    if ticket.category not in PLATFORM_CATEGORIES:
+        return jsonify({'error': 'This workflow is only available for Scout product tickets'}), 400
+
+    data = request.json or {}
+    build_summary = (data.get('build_summary') or '').strip()
+
+    svc = ScoutSupportService()
+    success, error = svc.send_to_build(ticket.id, build_summary, current_user.email)
+
+    if not success:
+        return jsonify({'error': error}), 400
+
+    return jsonify({'success': True, 'new_status': 'in_development'})
+
+
+@scout_support_bp.route('/api/scout-support/mark-deployed/<ticket_number>', methods=['POST'])
+@login_required
+def api_mark_deployed(ticket_number):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from models import SupportTicket
+    from scout_support_service import ScoutSupportService, PLATFORM_CATEGORIES
+
+    ticket = SupportTicket.query.filter_by(ticket_number=ticket_number).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket not found'}), 404
+
+    if ticket.category not in PLATFORM_CATEGORIES:
+        return jsonify({'error': 'This workflow is only available for Scout product tickets'}), 400
+
+    data = request.json or {}
+    deploy_notes = (data.get('deploy_notes') or '').strip()
+    commit_link = (data.get('commit_link') or '').strip() or None
+
+    if not deploy_notes:
+        return jsonify({'error': 'A deploy summary is required'}), 400
+
+    svc = ScoutSupportService()
+    success, error = svc.mark_deployed(ticket.id, current_user.email, deploy_notes, commit_link=commit_link)
+
+    if not success:
+        return jsonify({'error': error}), 400
+
+    return jsonify({'success': True, 'new_status': 'completed'})
+
+
 @scout_support_bp.route('/api/scout-support/reply/<ticket_number>', methods=['POST'])
 @login_required
 def api_reply_to_ticket(ticket_number):

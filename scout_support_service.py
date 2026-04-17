@@ -779,12 +779,170 @@ Respond with a JSON object:
         logger.info(f"📋 Platform ticket {ticket.ticket_number} status updated: {new_status} by {updated_by}")
         return True
 
+    def send_to_build(self, ticket_id: int, build_summary: str, sent_by: str) -> tuple[bool, str]:
+        """Queue a Scout product ticket for development build.
+        Sets status to in_development, notifies admin, notifies user.
+        Returns (success, error_message).
+        """
+        from extensions import db
+        from models import SupportTicket
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return False, "Ticket not found"
+
+        if ticket.category not in PLATFORM_CATEGORIES:
+            return False, "This workflow is only available for Scout product tickets"
+
+        if ticket.status in ('completed', 'closed'):
+            return False, "Cannot send a resolved ticket to build"
+
+        if ticket.status == 'in_development':
+            return False, "Ticket is already queued for development"
+
+        ticket.status = 'in_development'
+        ticket.sent_to_build_at = datetime.utcnow()
+        ticket.sent_to_build_by = sent_by
+        ticket.build_summary = build_summary or None
+        db.session.commit()
+
+        import html as _html
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+        e_num = _html.escape(ticket.ticket_number or '')
+        e_subj = _html.escape(ticket.subject or '')
+        e_desc = _html.escape(ticket.description or '')
+        e_name = _html.escape(ticket.submitter_name or '')
+        e_email = _html.escape(ticket.submitter_email or '')
+        e_sent_by = _html.escape(sent_by or '')
+        e_summary = _html.escape(build_summary or '(not provided)')
+        e_priority = _html.escape((ticket.priority or '').capitalize())
+        e_cat = _html.escape(category_label)
+
+        # Notify admin (build queue notification)
+        admin_body = (
+            f"A Scout product ticket has been queued for development build.\n\n"
+            f"**Ticket:** {e_num}\n"
+            f"**Type:** {e_cat}\n"
+            f"**Priority:** {e_priority}\n"
+            f"**Subject:** {e_subj}\n"
+            f"**Submitted by:** {e_name} ({e_email})\n"
+            f"**Sent to build by:** {e_sent_by}\n\n"
+            f"**Build summary / scope:**\n{e_summary}\n\n"
+            f"**Original description:**\n{e_desc}\n\n"
+            f"View ticket: https://app.scoutgenius.ai/scout-support/ticket/{e_num}\n"
+        )
+        self._send_platform_email(
+            to_email=ticket.admin_email,
+            subject=f"[Build Queue] {ticket.ticket_number} — {ticket.subject}",
+            body=admin_body,
+            ticket=ticket,
+            email_type='build_queued_admin',
+        )
+
+        # Notify user (in-development confirmation)
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
+        e_first = _html.escape(first_name)
+        user_body = (
+            f"Hi {e_first},\n\n"
+            f"Good news — your ticket **{e_num}** has been approved for development.\n\n"
+            f"**Subject:** {e_subj}\n"
+            f"**Status:** Queued for build\n\n"
+            f"Our development team has reviewed your request and is putting it into the build queue. "
+            f"You'll receive another email once the work has been deployed to production.\n\n"
+            f"Thank you for helping us improve Scout Genius!\n\n"
+            f"— Scout Genius"
+        )
+        self._send_platform_email(
+            to_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject} — Queued for Development",
+            body=user_body,
+            ticket=ticket,
+            email_type='build_queued_user',
+        )
+
+        logger.info(f"🛠 Ticket {ticket.ticket_number} sent to build by {sent_by}: {(build_summary or '')[:80]}")
+        return True, ""
+
+    def mark_deployed(self, ticket_id: int, deployed_by: str, deploy_notes: str,
+                      commit_link: str = None) -> tuple[bool, str]:
+        """Mark an in_development ticket as deployed. Sends close-out email to user.
+        Returns (success, error_message).
+        """
+        from extensions import db
+        from models import SupportTicket
+
+        ticket = SupportTicket.query.get(ticket_id)
+        if not ticket:
+            return False, "Ticket not found"
+
+        if ticket.category not in PLATFORM_CATEGORIES:
+            return False, "This workflow is only available for Scout product tickets"
+
+        if ticket.status != 'in_development':
+            return False, f"Ticket must be in development to mark as deployed (current: {ticket.status})"
+
+        if not deploy_notes or not deploy_notes.strip():
+            return False, "A deploy summary is required for the close-out email"
+
+        ticket.status = 'completed'
+        ticket.deployed_at = datetime.utcnow()
+        ticket.deployed_by = deployed_by
+        ticket.deploy_commit_link = (commit_link or '').strip() or None
+        ticket.resolution_note = deploy_notes.strip()
+        ticket.resolved_by = deployed_by
+        ticket.resolved_at = datetime.utcnow()
+        db.session.commit()
+
+        import html as _html
+        category_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
+        first_name = ticket.submitter_name.split()[0] if ticket.submitter_name else 'there'
+        e_first = _html.escape(first_name)
+        e_num = _html.escape(ticket.ticket_number or '')
+        e_subj = _html.escape(ticket.subject or '')
+        e_cat = _html.escape(category_label)
+        e_notes = _html.escape(deploy_notes.strip())
+
+        commit_section = ""
+        if ticket.deploy_commit_link:
+            e_link = _html.escape(ticket.deploy_commit_link)
+            commit_section = f"\n**Reference:** {e_link}\n"
+
+        user_body = (
+            f"Hi {e_first},\n\n"
+            f"Great news — the work for your ticket **{e_num}** has been deployed to production.\n\n"
+            f"**Type:** {e_cat}\n"
+            f"**Subject:** {e_subj}\n\n"
+            f"**What was built / fixed:**\n{e_notes}\n"
+            f"{commit_section}\n"
+            f"You should be able to use the change right away. If you run into any issues or have follow-up "
+            f"questions, just reply to this email or submit a new ticket.\n\n"
+            f"Thank you for helping us improve Scout Genius!\n\n"
+            f"— Scout Genius"
+        )
+        self._send_platform_email(
+            to_email=ticket.submitter_email,
+            subject=f"Re: [{ticket.ticket_number}] {ticket.subject} — Deployed",
+            body=user_body,
+            ticket=ticket,
+            email_type='build_deployed',
+        )
+
+        logger.info(f"🚀 Ticket {ticket.ticket_number} marked deployed by {deployed_by}")
+        return True, ""
+
     def close_platform_ticket(self, ticket_id: int, resolution_note: str, closed_by: str) -> bool:
         from extensions import db
         from models import SupportTicket
 
         ticket = SupportTicket.query.get(ticket_id)
         if not ticket:
+            return False
+
+        if ticket.status == 'in_development':
+            logger.warning(
+                f"Refusing to resolve ticket {ticket.ticket_number} via generic close — "
+                f"in_development tickets must be closed via Mark as Deployed."
+            )
             return False
 
         ticket.status = 'completed'

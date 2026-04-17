@@ -25,12 +25,13 @@
                 {% set status_colors = {
                     'new': 'secondary', 'acknowledged': 'info', 'clarifying': 'primary',
                     'in_progress': 'info', 'completed': 'success', 'closed': 'secondary',
-                    'escalated': 'danger', 'on_hold': 'warning'
+                    'escalated': 'danger', 'on_hold': 'warning', 'in_development': 'warning'
                 } %}
                 {% set status_labels = {
                     'new': 'New', 'acknowledged': 'Received', 'clarifying': 'In Review',
                     'in_progress': 'In Progress', 'completed': 'Completed', 'closed': 'Closed',
-                    'escalated': 'Under Review', 'on_hold': 'On Hold'
+                    'escalated': 'Under Review', 'on_hold': 'On Hold',
+                    'in_development': 'In Development'
                 } %}
                 <span class="badge bg-{{ status_colors.get(ticket.status, 'secondary') }} fs-6">
                     {{ status_labels.get(ticket.status, ticket.status) }}

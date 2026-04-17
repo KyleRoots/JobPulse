@@ -30,7 +30,8 @@
                 'awaiting_admin_approval': 'danger', 'admin_handling': 'info', 'admin_clarifying': 'info',
                 'approved': 'success',
                 'executing': 'info', 'completed': 'success', 'execution_failed': 'danger',
-                'on_hold': 'warning', 'closed': 'secondary', 'escalated': 'danger', 'retrying': 'warning'
+                'on_hold': 'warning', 'closed': 'secondary', 'escalated': 'danger', 'retrying': 'warning',
+                'in_development': 'warning'
             } %}
             {% set status_labels = {
                 'new': 'New', 'acknowledged': 'Acknowledged', 'clarifying': 'Clarifying',
@@ -39,7 +40,8 @@
                 'awaiting_admin_approval': 'Admin Approval', 'admin_handling': 'Admin Handling',
                 'admin_clarifying': 'Admin Clarifying', 'approved': 'Approved',
                 'executing': 'Executing', 'completed': 'Completed', 'execution_failed': 'Execution Failed',
-                'on_hold': 'On Hold', 'closed': 'Closed', 'escalated': 'Escalated', 'retrying': 'Retrying'
+                'on_hold': 'On Hold', 'closed': 'Closed', 'escalated': 'Escalated', 'retrying': 'Retrying',
+                'in_development': '🛠 In Development'
             } %}
             <span class="badge bg-{{ status_colors.get(ticket.status, 'secondary') }} fs-6">
                 {{ status_labels.get(ticket.status, ticket.status) }}
@@ -290,6 +292,41 @@
                     <button class="btn btn-sm w-100 mb-3" id="sendReplyBtn" style="background-color: #4a9678; color: white;" onclick="sendPlatformReply()">
                         <i class="fas fa-paper-plane me-1"></i>Send Reply
                     </button>
+
+                    {% if ticket.status == 'in_development' %}
+                    <hr class="border-secondary my-2">
+                    <div class="p-2 mb-2 rounded" style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3);">
+                        <div class="small fw-semibold" style="color: #ffc107;">
+                            <i class="fas fa-tools me-1"></i>Queued for Development
+                        </div>
+                        <div class="small text-muted mt-1">
+                            Sent by {{ ticket.sent_to_build_by or '—' }}
+                            {% if ticket.sent_to_build_at %}on {{ ticket.sent_to_build_at.strftime('%b %d, %Y at %H:%M UTC') }}{% endif %}
+                        </div>
+                        {% if ticket.build_summary %}
+                        <div class="small mt-2 text-white-50" style="white-space: pre-wrap;">{{ ticket.build_summary }}</div>
+                        {% endif %}
+                    </div>
+                    <label class="form-label text-muted small mb-1"><i class="fas fa-rocket me-1"></i>Deploy Summary <span class="text-danger">*</span></label>
+                    <textarea id="deployNotes" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
+                              rows="3" placeholder="What was built / fixed (this goes in the close-out email to the user)..."></textarea>
+                    <label class="form-label text-muted small mb-1">Commit / PR Link <span class="text-muted">(optional)</span></label>
+                    <input id="commitLink" type="url" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
+                           placeholder="https://github.com/...">
+                    <button class="btn btn-sm w-100 mb-3" style="background-color: #198754; color: white;" onclick="markDeployed()">
+                        <i class="fas fa-rocket me-1"></i>Mark as Deployed &amp; Notify User
+                    </button>
+                    {% else %}
+                    <hr class="border-secondary my-2">
+                    <label class="form-label text-muted small mb-1"><i class="fas fa-tools me-1"></i>Build Summary <span class="text-muted">(optional)</span></label>
+                    <textarea id="buildSummary" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
+                              rows="2" placeholder="Brief scope notes for the build queue..."></textarea>
+                    <button class="btn btn-sm w-100 mb-3" style="background-color: #ffc107; color: #1a1a1a; font-weight: 600;" onclick="sendToBuild()">
+                        <i class="fas fa-tools me-1"></i>Send to Agent for Build
+                    </button>
+                    {% endif %}
+
+                    {% if ticket.status != 'in_development' %}
                     <hr class="border-secondary my-2">
                     <label class="form-label text-muted small mb-1">Resolution Note</label>
                     <textarea id="platformResolutionNote" class="form-control form-control-sm bg-dark text-white border-secondary mb-2"
@@ -297,6 +334,7 @@
                     <button class="btn btn-sm w-100" style="background-color: #4a9678; color: white;" onclick="closePlatformTicket()">
                         <i class="fas fa-check-circle me-1"></i>Resolve & Notify User
                     </button>
+                    {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -617,6 +655,73 @@ function closePlatformTicket() {
         }
     })
     .catch(err => alert('Error: ' + err));
+}
+
+function sendToBuild() {
+    const summary = (document.getElementById('buildSummary')?.value || '').trim();
+    const msg = 'Send this ticket to the build queue?\n\n' +
+                '• Status will change to "In Development"\n' +
+                '• You (admin) will receive a build queue notification email\n' +
+                '• The user will be notified that their request is being built\n\n' +
+                'Proceed?';
+    if (!confirm(msg)) return;
+
+    const btn = event.target.closest('button');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...'; }
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    fetch('/api/scout-support/send-to-build/{{ ticket.ticket_number }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({build_summary: summary})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed: ' + (data.error || 'Unknown error'));
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-tools me-1"></i>Send to Agent for Build'; }
+        }
+    })
+    .catch(err => {
+        alert('Error: ' + err);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-tools me-1"></i>Send to Agent for Build'; }
+    });
+}
+
+function markDeployed() {
+    const notes = (document.getElementById('deployNotes')?.value || '').trim();
+    const commit = (document.getElementById('commitLink')?.value || '').trim();
+    if (!notes) {
+        alert('Please describe what was built / fixed — this gets sent to the user in the close-out email.');
+        document.getElementById('deployNotes').focus();
+        return;
+    }
+    if (!confirm('Mark this ticket as deployed and send the close-out email to the user?')) return;
+
+    const btn = event.target.closest('button');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...'; }
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    fetch('/api/scout-support/mark-deployed/{{ ticket.ticket_number }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({deploy_notes: notes, commit_link: commit})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed: ' + (data.error || 'Unknown error'));
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-rocket me-1"></i>Mark as Deployed &amp; Notify User'; }
+        }
+    })
+    .catch(err => {
+        alert('Error: ' + err);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-rocket me-1"></i>Mark as Deployed &amp; Notify User'; }
+    });
 }
 
 function reopenTicket() {

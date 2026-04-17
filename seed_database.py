@@ -919,8 +919,17 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for scout_vetting_session.thread_message_id: {str(e)}")
 
-    # Add resolution_note and resolved_by columns to support_ticket
-    for col_name, col_type in [('resolution_note', 'TEXT'), ('resolved_by', 'VARCHAR(255)')]:
+    # Add resolution_note, resolved_by, and Send-to-Build workflow columns to support_ticket
+    for col_name, col_type in [
+        ('resolution_note', 'TEXT'),
+        ('resolved_by', 'VARCHAR(255)'),
+        ('sent_to_build_at', 'TIMESTAMP'),
+        ('sent_to_build_by', 'VARCHAR(255)'),
+        ('build_summary', 'TEXT'),
+        ('deployed_at', 'TIMESTAMP'),
+        ('deployed_by', 'VARCHAR(255)'),
+        ('deploy_commit_link', 'VARCHAR(500)'),
+    ]:
         try:
             check = text(f"SELECT column_name FROM information_schema.columns WHERE table_name='support_ticket' AND column_name='{col_name}'")
             exists = db.session.execute(check).fetchone()

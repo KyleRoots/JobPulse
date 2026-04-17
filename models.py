@@ -1322,6 +1322,14 @@ class SupportTicket(db.Model):
     last_reminder_at = db.Column(db.DateTime, nullable=True)
     reminder_count = db.Column(db.Integer, nullable=False, default=0)
 
+    # Send-to-Agent-for-Build workflow (platform tickets only)
+    sent_to_build_at = db.Column(db.DateTime, nullable=True)
+    sent_to_build_by = db.Column(db.String(255), nullable=True)
+    build_summary = db.Column(db.Text, nullable=True)
+    deployed_at = db.Column(db.DateTime, nullable=True)
+    deployed_by = db.Column(db.String(255), nullable=True)
+    deploy_commit_link = db.Column(db.String(500), nullable=True)
+
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)
@@ -1346,6 +1354,7 @@ class SupportTicket(db.Model):
         'new', 'acknowledged', 'clarifying', 'solution_proposed',
         'awaiting_user_approval', 'awaiting_admin_approval', 'admin_handling',
         'admin_clarifying', 'approved', 'executing', 'retrying', 'execution_failed',
+        'in_development',
         'completed', 'on_hold', 'closed', 'escalated'
     ]
 
