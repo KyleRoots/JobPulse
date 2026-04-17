@@ -29,6 +29,16 @@ def _detect_file_format(file_content: bytes) -> str:
     return 'unknown'
 
 
+def _sanitize_text(text: Optional[str]) -> Optional[str]:
+    """Strip NUL bytes and other control characters that PostgreSQL TEXT columns reject.
+    PostgreSQL does not allow 0x00 in text values; some scanned/corrupted resumes
+    embed NUL bytes from OCR or binary artifacts."""
+    if not text:
+        return text
+    cleaned = text.replace('\x00', '')
+    return cleaned
+
+
 def extract_resume_text(file_content: bytes, filename: str) -> Optional[str]:
     """
     Extract text content from a resume file (PDF, DOCX, DOC, TXT).
@@ -40,8 +50,12 @@ def extract_resume_text(file_content: bytes, filename: str) -> Optional[str]:
         filename: Original filename (for determining file type)
         
     Returns:
-        Extracted text or None if extraction fails
+        Extracted text or None if extraction fails (NUL-byte sanitized)
     """
+    return _sanitize_text(_extract_resume_text_raw(file_content, filename))
+
+
+def _extract_resume_text_raw(file_content: bytes, filename: str) -> Optional[str]:
     if not file_content:
         return None
     
