@@ -35,7 +35,8 @@ def list_jobs():
         'location': r.job_location or '',
         'work_type': r.job_work_type or '',
         'ai_requirements': r.ai_interpreted_requirements or '',
-        'custom_requirements': r.custom_requirements or '',
+        'edited_requirements': r.edited_requirements or '',
+        'effective_requirements': r.get_active_requirements() or '',
         'threshold': r.vetting_threshold,
     } for r in reqs]
     return jsonify({'jobs': jobs})
@@ -68,7 +69,7 @@ def run_screening():
             'publicDescription': req.ai_interpreted_requirements if req else '',
             'address': {'city': '', 'state': ''},
         }
-        prefetched_reqs = req.custom_requirements or req.ai_interpreted_requirements if req else None
+        prefetched_reqs = req.get_active_requirements() if req else None
     else:
         job = {
             'id': 0,

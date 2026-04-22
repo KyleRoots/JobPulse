@@ -667,15 +667,15 @@
                        data-job-id="{{ job_id }}"
                        data-job-title="{{ job.title|e }}"
                        data-ai-req="{{ (req.ai_interpreted_requirements if req and req.ai_interpreted_requirements else '')|e }}"
-                       data-custom="{{ (req.custom_requirements if req and req.custom_requirements else '')|e }}"
+                       data-edited="{{ (req.edited_requirements if req and req.edited_requirements else '')|e }}"
+                       data-edited-by="{{ (req.requirements_edited_by if req and req.requirements_edited_by else '')|e }}"
+                       data-edited-at="{{ (req.requirements_edited_at.strftime('%b %-d, %Y at %H:%M UTC') if req and req.requirements_edited_at else '')|e }}"
                        data-threshold="{{ (req.vetting_threshold if req and req.vetting_threshold else '')|e }}"
                        data-prestige="{{ '1' if req and req.employer_prestige_boost else '0' }}">
-                        Configure{% if req and req.custom_requirements %}&nbsp;<i class="fas fa-circle" style="font-size:0.45rem; color:var(--sc-accent); vertical-align:middle; opacity:0.8;"></i>{% endif %}
+                        Configure{% if req and req.edited_requirements %}&nbsp;<i class="fas fa-circle" style="font-size:0.45rem; color:var(--sc-accent); vertical-align:middle; opacity:0.8;" title="Recruiter-edited"></i>{% endif %}
                     </a>
                 </td>
                 <td style="text-align:center;">
-                    <input type="hidden" id="hiddenOverride-{{ job_id }}"
-                           value="{{ req.custom_requirements or '' if req else '' }}">
                     <div style="position:relative; display:inline-block;">
                         <input type="number"
                                class="threshold-input auto-save-threshold"
@@ -715,23 +715,28 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body" style="padding:1.25rem 1.4rem;">
 
-                    <div class="col-label mb-1"><i class="fas fa-robot"></i> AI-Interpreted Requirements</div>
-                    <div class="notes-full-text" id="modalAiReq" style="max-height:180px;"></div>
-                    <div style="font-size:0.71rem; color:rgba(255,255,255,0.22); margin-top:0.4rem; margin-bottom:1.1rem;">
-                        Read-only — extracted automatically from the Bullhorn job description.
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.4rem; gap:0.75rem;">
+                        <div class="col-label mb-0"><i class="fas fa-robot"></i> Screening Requirements</div>
+                        <a href="javascript:void(0)" id="resetReqLink"
+                           style="display:none; font-size:0.72rem; color:#9b7fd4; text-decoration:none; white-space:nowrap;"
+                           onmouseover="this.style.color='#c4a8f0'"
+                           onmouseout="this.style.color='#9b7fd4'">
+                            <i class="fas fa-rotate-left me-1"></i>Reset to AI extraction
+                        </a>
                     </div>
-
-                    <div class="col-label mb-1"><i class="fas fa-edit"></i> Custom Override</div>
-                    <textarea name="custom_requirements" id="modalOverrideText"
-                              placeholder="Enter custom requirements to override AI interpretation…"
-                              style="display:block; width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.22); border-radius:8px; color:rgba(255,255,255,0.85); font-size:0.82rem; resize:vertical; min-height:130px; max-height:280px; padding:0.75rem 0.9rem; line-height:1.65; outline:none; font-family:inherit;"></textarea>
+                    <div id="editedBadge" style="display:none; font-size:0.71rem; color:rgba(196,168,240,0.85); margin-bottom:0.45rem; padding:0.35rem 0.6rem; background:rgba(155,127,212,0.08); border-left:2px solid rgba(155,127,212,0.55); border-radius:4px;">
+                        <i class="fas fa-user-pen me-1"></i><span id="editedBadgeText"></span>
+                    </div>
+                    <textarea name="edited_requirements" id="modalReqText"
+                              placeholder="Requirements will appear here once the AI extracts them from the Bullhorn job description…"
+                              style="display:block; width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(155,127,212,0.22); border-radius:8px; color:rgba(255,255,255,0.85); font-size:0.82rem; resize:vertical; min-height:200px; max-height:320px; padding:0.75rem 0.9rem; line-height:1.65; outline:none; font-family:inherit;"></textarea>
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-top:0.4rem; margin-bottom:1.1rem; gap:0.75rem;">
-                        <div style="font-size:0.72rem; color:rgba(255,255,255,0.27);">Custom requirements take priority over AI-interpreted ones. Leave blank to use AI interpretation.</div>
+                        <div style="font-size:0.72rem; color:rgba(255,255,255,0.27);">Edit any line to refine what the AI screens against. Your edits override the original AI extraction.</div>
                         <button type="button" id="optimizeReqBtn"
                                 style="flex-shrink:0; background:transparent; border:1px solid rgba(155,127,212,0.35); color:#9b7fd4; border-radius:7px; padding:0.3rem 0.8rem; font-size:0.75rem; font-weight:500; cursor:pointer; white-space:nowrap; transition:all 0.18s;"
                                 onmouseover="this.style.borderColor='rgba(155,127,212,0.75)';this.style.color='#c4a8f0'"
                                 onmouseout="this.style.borderColor='rgba(155,127,212,0.35)';this.style.color='#9b7fd4'">
-                            <i class="fas fa-wand-magic-sparkles me-1"></i>Optimize with AI
+                            <i class="fas fa-wand-magic-sparkles me-1"></i>Refine with AI
                         </button>
                     </div>
                     <div id="optimizeStatus" style="display:none; font-size:0.72rem; margin-top:-0.6rem; margin-bottom:0.8rem;"></div>
@@ -1252,7 +1257,16 @@ document.addEventListener('click', function (e) {
     const configLink = e.target.closest('.open-config-link');
     if (configLink) {
         e.preventDefault();
-        openOverrideModal(configLink.dataset.jobId, configLink.dataset.jobTitle, configLink.dataset.aiReq, configLink.dataset.custom, configLink.dataset.threshold, configLink.dataset.prestige);
+        openOverrideModal({
+            jobId: configLink.dataset.jobId,
+            jobTitle: configLink.dataset.jobTitle,
+            aiReq: configLink.dataset.aiReq,
+            edited: configLink.dataset.edited,
+            editedBy: configLink.dataset.editedBy,
+            editedAt: configLink.dataset.editedAt,
+            threshold: configLink.dataset.threshold,
+            prestige: configLink.dataset.prestige
+        });
         return;
     }
     const rescreenBtn = e.target.closest('.btn-rescreen');
@@ -1264,26 +1278,70 @@ document.addEventListener('click', function (e) {
 
 let currentModalJobId = null;
 
-function openOverrideModal(jobId, jobTitle, aiReq, customOverride, threshold, prestige) {
+var currentModalAiReq = '';
+
+function _normalizeReqText(s) {
+    return (s || '').replace(/\.\. /g, '\n');
+}
+
+function _refreshEditedBadge(textValue) {
+    const badge = document.getElementById('editedBadge');
+    const badgeText = document.getElementById('editedBadgeText');
+    const resetLink = document.getElementById('resetReqLink');
+    const trimmed = (textValue || '').trim();
+    const aiTrimmed = (currentModalAiReq || '').trim();
+    const hasEdit = trimmed.length > 0 && trimmed !== aiTrimmed;
+    if (badge) badge.style.display = hasEdit ? '' : 'none';
+    if (resetLink) resetLink.style.display = hasEdit ? '' : 'none';
+    return hasEdit;
+}
+
+function openOverrideModal(opts) {
+    const jobId = opts.jobId;
     currentModalJobId = jobId;
+    currentModalAiReq = _normalizeReqText(opts.aiReq);
     const form = document.getElementById('overrideModalForm');
     const subtitle = document.getElementById('modalJobSubtitle');
-    const aiBox = document.getElementById('modalAiReq');
-    const textarea = document.getElementById('modalOverrideText');
+    const textarea = document.getElementById('modalReqText');
     const thInput = document.getElementById('modalThreshold');
     const prestigeCheck = document.getElementById('modalPrestigeBoost');
+    const badge = document.getElementById('editedBadge');
+    const badgeText = document.getElementById('editedBadgeText');
+
     form.action = '/scout-screening/job/' + jobId + '/save';
-    if (subtitle) subtitle.textContent = (jobTitle || '') + '  \u00B7  ID: ' + jobId;
-    if (aiBox) {
-        const hasReq = aiReq && aiReq.trim();
-        aiBox.textContent = hasReq ? aiReq.replace(/\.\. /g, '\n')
-            : 'No AI interpretation available yet. Requirements are extracted automatically from the Bullhorn job description within 5 minutes of the job being added.';
-        aiBox.style.color = hasReq ? '' : 'rgba(255,255,255,0.28)';
-        aiBox.style.fontStyle = hasReq ? '' : 'italic';
+    if (subtitle) subtitle.textContent = (opts.jobTitle || '') + '  \u00B7  ID: ' + jobId;
+
+    const editedTrimmed = (opts.edited || '').trim();
+    let initialValue;
+    if (editedTrimmed) {
+        initialValue = _normalizeReqText(opts.edited);
+    } else if (currentModalAiReq) {
+        initialValue = currentModalAiReq;
+    } else {
+        initialValue = '';
     }
-    if (textarea) textarea.value = customOverride || '';
-    if (thInput) thInput.value = threshold || '';
-    if (prestigeCheck) prestigeCheck.checked = prestige === '1';
+
+    if (textarea) {
+        textarea.value = initialValue;
+        textarea.style.fontStyle = (currentModalAiReq || editedTrimmed) ? '' : 'italic';
+        textarea.style.color = '';
+    }
+
+    if (badge && badgeText) {
+        if (editedTrimmed) {
+            const who = opts.editedBy || 'recruiter';
+            const when = opts.editedAt || '';
+            badgeText.textContent = 'Edited by ' + who + (when ? (' on ' + when) : '');
+            badge.style.display = '';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+    const resetLink = document.getElementById('resetReqLink');
+    if (resetLink) resetLink.style.display = editedTrimmed ? '' : 'none';
+
+    if (thInput) thInput.value = opts.threshold || '';
+    if (prestigeCheck) prestigeCheck.checked = opts.prestige === '1';
     const statusEl = document.getElementById('optimizeStatus');
     if (statusEl) { statusEl.style.display = 'none'; statusEl.innerHTML = ''; }
     var saveBtn = document.getElementById('saveConfigBtn');
@@ -1306,8 +1364,46 @@ document.getElementById('overrideModalForm').addEventListener('submit', function
     }
 });
 
+document.getElementById('modalReqText').addEventListener('input', function () {
+    _refreshEditedBadge(this.value);
+});
+
+document.getElementById('resetReqLink').addEventListener('click', function () {
+    if (!currentModalJobId) return;
+    if (!confirm('Discard your edits and revert to the AI-extracted requirements? This cannot be undone.')) return;
+    const csrfToken = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
+    const link = this;
+    const origHtml = link.innerHTML;
+    link.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Resetting\u2026';
+    fetch('/scout-screening/job/' + currentModalJobId + '/reset-requirements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data && data.success) {
+            const textarea = document.getElementById('modalReqText');
+            const aiText = _normalizeReqText(data.ai_requirements || '');
+            currentModalAiReq = aiText;
+            if (textarea) textarea.value = aiText;
+            const badge = document.getElementById('editedBadge');
+            if (badge) badge.style.display = 'none';
+            link.style.display = 'none';
+            // Reload the page so the dashboard row picks up the cleared edit state
+            setTimeout(function () { saveAndReloadScreening(); }, 350);
+        } else {
+            alert((data && data.error) || 'Reset failed — please try again.');
+            link.innerHTML = origHtml;
+        }
+    })
+    .catch(function () {
+        alert('Reset failed — please try again.');
+        link.innerHTML = origHtml;
+    });
+});
+
 document.getElementById('optimizeReqBtn').addEventListener('click', function () {
-    const textarea = document.getElementById('modalOverrideText');
+    const textarea = document.getElementById('modalReqText');
     const status = document.getElementById('optimizeStatus');
     const btn = this;
     const raw = (textarea.value || '').trim();
@@ -1318,7 +1414,7 @@ document.getElementById('optimizeReqBtn').addEventListener('click', function () 
         return;
     }
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Optimizing\u2026';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refining\u2026';
     status.style.display = '';
     status.style.color = 'rgba(255,255,255,0.35)';
     status.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Analyzing and rewriting\u2026';
@@ -1326,7 +1422,7 @@ document.getElementById('optimizeReqBtn').addEventListener('click', function () 
     fetch('/scout-screening/job/' + currentModalJobId + '/optimize-requirements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({ custom_requirements: raw })
+        body: JSON.stringify({ edited_requirements: raw })
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {
@@ -1335,11 +1431,12 @@ document.getElementById('optimizeReqBtn').addEventListener('click', function () 
             textarea.style.transition = 'border-color 0.3s';
             textarea.style.borderColor = 'rgba(74,222,128,0.6)';
             setTimeout(function () { textarea.style.borderColor = 'rgba(155,127,212,0.22)'; }, 1800);
+            _refreshEditedBadge(data.optimized);
             status.style.color = 'rgba(74,222,128,0.75)';
-            status.innerHTML = '<i class="fas fa-check me-1"></i>Optimized \u2014 review and save when ready.';
+            status.innerHTML = '<i class="fas fa-check me-1"></i>Refined \u2014 review and save when ready.';
         } else {
             status.style.color = 'rgba(255,100,100,0.8)';
-            status.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + (data.error || 'Optimization failed.');
+            status.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + (data.error || 'Refinement failed.');
         }
     })
     .catch(function () {
@@ -1348,7 +1445,7 @@ document.getElementById('optimizeReqBtn').addEventListener('click', function () 
     })
     .finally(function () {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-wand-magic-sparkles me-1"></i>Optimize with AI';
+        btn.innerHTML = '<i class="fas fa-wand-magic-sparkles me-1"></i>Refine with AI';
     });
 });
 
@@ -1441,7 +1538,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const fd = new FormData();
             fd.append('csrf_token', this.dataset.csrf);
             fd.append('vetting_threshold', newVal);
-            fd.append('custom_requirements', (document.getElementById('hiddenOverride-' + jobId) || {}).value || '');
             fd.append('_ajax', '1');
             fetch(this.dataset.saveUrl, { method: 'POST', body: fd })
                 .then(r => {

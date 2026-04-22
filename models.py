@@ -722,41 +722,52 @@ class CandidateJobMatch(db.Model):
 
 
 class JobVettingRequirements(db.Model):
-    """Custom requirements override for job vetting - allows users to specify key requirements if AI interpretation is inaccurate"""
+    """Per-job screening requirements.
+
+    The screening pipeline reads `get_active_requirements()`, which returns the
+    recruiter-edited list when present, otherwise the immutable AI-extracted
+    snapshot. The legacy `custom_requirements` column is retained read-only for
+    historical rows that pre-date inline editing (Apr 2026).
+    """
     id = db.Column(db.Integer, primary_key=True)
     bullhorn_job_id = db.Column(db.Integer, unique=True, nullable=False, index=True)
     job_title = db.Column(db.String(255), nullable=True)
     job_location = db.Column(db.String(255), nullable=True)  # City, State, Country
     job_work_type = db.Column(db.String(50), nullable=True)  # On-site, Hybrid, Remote
-    custom_requirements = db.Column(db.Text, nullable=True)  # User-editable requirements text
-    ai_interpreted_requirements = db.Column(db.Text, nullable=True)  # What AI extracted from job
+    custom_requirements = db.Column(db.Text, nullable=True)  # DEPRECATED — kept read-only for legacy rows; new edits write to edited_requirements
+    ai_interpreted_requirements = db.Column(db.Text, nullable=True)  # Immutable AI extraction snapshot from Bullhorn job description
+    edited_requirements = db.Column(db.Text, nullable=True)  # Recruiter-edited requirements; takes precedence over AI extraction when set
+    requirements_edited_at = db.Column(db.DateTime, nullable=True)  # When edited_requirements was last saved
+    requirements_edited_by = db.Column(db.String(255), nullable=True)  # Email of the user who last edited
     vetting_threshold = db.Column(db.Integer, nullable=True)  # Custom threshold for this job (null = use global default)
     scout_vetting_enabled = db.Column(db.Boolean, nullable=True)  # null = follow global, True/False = per-job override
     employer_prestige_boost = db.Column(db.Boolean, default=False)  # Per-job toggle for prestige employer scoring boost
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     def __repr__(self):
         return f'<JobVettingRequirements job_id={self.bullhorn_job_id}>'
-    
-    def get_active_requirements(self):
-        """Return combined requirements for vetting.
 
-        When both fields are populated, returns AI-interpreted requirements as the
-        base with the custom recruiter requirements clearly marked as priority
-        overrides. Instructs the AI not to double-count overlapping requirements.
-        When only one field is populated, returns that field.
+    def get_active_requirements(self):
+        """Return the requirements text the screening engine should use.
+
+        Priority:
+            1. `edited_requirements` — recruiter-edited list (Apr 2026+)
+            2. `ai_interpreted_requirements` — immutable AI extraction
+            3. `custom_requirements` — legacy override (historical rows only)
         """
-        if self.custom_requirements and self.ai_interpreted_requirements:
-            return (
-                f"{self.ai_interpreted_requirements}\n\n"
-                f"RECRUITER-SPECIFIED PRIORITY REQUIREMENTS (these take precedence over "
-                f"any overlapping AI-interpreted requirements above — do NOT double-count "
-                f"or double-penalize requirements that appear in both sections):\n"
-                f"{self.custom_requirements}"
-            )
-        return self.custom_requirements or self.ai_interpreted_requirements
+        if self.edited_requirements and self.edited_requirements.strip():
+            return self.edited_requirements
+        if self.ai_interpreted_requirements and self.ai_interpreted_requirements.strip():
+            return self.ai_interpreted_requirements
+        if self.custom_requirements and self.custom_requirements.strip():
+            return self.custom_requirements
+        return None
+
+    def has_recruiter_edits(self):
+        """True when a recruiter has edited the requirements (vs. raw AI extraction)."""
+        return bool(self.edited_requirements and self.edited_requirements.strip())
 
 
 class VettingConfig(db.Model):

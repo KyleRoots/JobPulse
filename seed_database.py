@@ -807,6 +807,10 @@ def run_schema_migrations(db):
         # Add employer prestige tracking to candidate_job_match (added Apr 2026)
         ("candidate_job_match", "prestige_employer", "VARCHAR(255)"),
         ("candidate_job_match", "prestige_boost_applied", "BOOLEAN DEFAULT FALSE"),
+        # Add inline-editable requirements + provenance metadata (added Apr 2026)
+        ("job_vetting_requirements", "edited_requirements", "TEXT"),
+        ("job_vetting_requirements", "requirements_edited_at", "TIMESTAMP"),
+        ("job_vetting_requirements", "requirements_edited_by", "VARCHAR(255)"),
     ]
     
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -1208,6 +1212,75 @@ STALE_BUILTIN_KEYS = {"timestamp_correction"}
 STALE_BUILTIN_NAMES = {"LinkedIn Source Updater", "Merge Timestamp Correction"}
 
 
+def migrate_legacy_custom_requirements(db):
+    """One-time data migration: convert legacy `custom_requirements` rows to the
+    new `edited_requirements` field (Apr 2026 — inline editable requirements).
+
+    For rows where both `ai_interpreted_requirements` and `custom_requirements`
+    were populated, the AI list is preserved and the recruiter additions are
+    appended in a clearly-marked block so the screening engine continues to see
+    both. For rows with only `custom_requirements`, that text becomes the
+    edited list directly. Idempotent — only touches rows where
+    `edited_requirements` is still NULL.
+    """
+    from sqlalchemy import text
+
+    try:
+        result = db.session.execute(text(
+            """
+            SELECT id, ai_interpreted_requirements, custom_requirements, updated_at
+            FROM job_vetting_requirements
+            WHERE edited_requirements IS NULL
+              AND custom_requirements IS NOT NULL
+              AND TRIM(custom_requirements) <> ''
+            """
+        ))
+        rows = result.fetchall()
+        migrated = 0
+        for row in rows:
+            row_id = row[0]
+            ai_text = (row[1] or '').strip()
+            custom_text = (row[2] or '').strip()
+            updated_at = row[3]
+
+            if not custom_text:
+                continue
+
+            if ai_text:
+                edited_text = (
+                    f"{ai_text}\n\n"
+                    f"--- RECRUITER NOTES (migrated from legacy override) ---\n"
+                    f"{custom_text}"
+                )
+            else:
+                edited_text = custom_text
+
+            db.session.execute(
+                text(
+                    """
+                    UPDATE job_vetting_requirements
+                    SET edited_requirements = :edited,
+                        requirements_edited_at = COALESCE(:edited_at, NOW()),
+                        requirements_edited_by = 'migrated'
+                    WHERE id = :row_id
+                    """
+                ),
+                {'edited': edited_text, 'edited_at': updated_at, 'row_id': row_id}
+            )
+            migrated += 1
+
+        if migrated:
+            db.session.commit()
+            logger.info(
+                f"✅ Migrated {migrated} legacy custom_requirements row(s) to edited_requirements"
+            )
+        else:
+            logger.info("ℹ️ No legacy custom_requirements rows needed migration")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Legacy custom_requirements migration skipped: {str(e)}")
+
+
 def seed_builtin_automations(db):
     try:
         from models import AutomationTask
@@ -1596,6 +1669,8 @@ def seed_database(db, User):
             logger.warning(f"⚠️ Failed to upgrade layer2_model: {str(e)}")
         
         seed_builtin_automations(db)
+
+        migrate_legacy_custom_requirements(db)
 
         seed_support_contacts(db)
 

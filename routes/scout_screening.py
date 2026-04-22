@@ -259,14 +259,13 @@ def save_job_settings(job_id):
         return redirect(url_for('scout_screening.dashboard'))
 
     try:
-        custom_requirements = request.form.get('custom_requirements', '').strip() or None
+        is_ajax_threshold_save = request.form.get('_ajax') == '1'
+
         threshold_raw = request.form.get('vetting_threshold', '').strip()
         vetting_threshold = int(threshold_raw) if threshold_raw else None
         if vetting_threshold is not None and not (50 <= vetting_threshold <= 100):
             flash('Threshold must be between 50 and 100.', 'error')
             return redirect(url_for('scout_screening.dashboard'))
-
-        is_ajax_threshold_save = request.form.get('_ajax') == '1'
 
         job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
 
@@ -276,35 +275,64 @@ def save_job_settings(job_id):
             prestige_boost_values = request.form.getlist('employer_prestige_boost')
             employer_prestige_boost = '1' in prestige_boost_values
 
+        # Edited requirements: only processed on full modal save (not AJAX threshold-only saves).
+        # Empty submission OR matches the AI-original exactly → clear the edit (revert to AI).
+        # Sentinel: leave None on AJAX path so the persistence block below leaves edited_* untouched.
+        edit_action = None
+        new_edited = None
+        if not is_ajax_threshold_save:
+            submitted_edit = (request.form.get('edited_requirements', '') or '').strip()
+            ai_baseline = ((job_req.ai_interpreted_requirements if job_req else '') or '').strip()
+
+            if not submitted_edit or submitted_edit == ai_baseline:
+                new_edited = None
+                edit_action = 'cleared'
+            else:
+                new_edited = submitted_edit
+                edit_action = 'set'
+
         if job_req:
-            job_req.custom_requirements = custom_requirements
             job_req.vetting_threshold = vetting_threshold
             job_req.employer_prestige_boost = employer_prestige_boost
+            if not is_ajax_threshold_save:
+                if new_edited is None:
+                    job_req.edited_requirements = None
+                    job_req.requirements_edited_at = None
+                    job_req.requirements_edited_by = None
+                elif new_edited != (job_req.edited_requirements or ''):
+                    job_req.edited_requirements = new_edited
+                    job_req.requirements_edited_at = datetime.utcnow()
+                    job_req.requirements_edited_by = current_user.email
             job_req.updated_at = datetime.utcnow()
         else:
             job_req = JobVettingRequirements(
                 bullhorn_job_id=job_id,
-                custom_requirements=custom_requirements,
                 vetting_threshold=vetting_threshold,
                 employer_prestige_boost=employer_prestige_boost,
             )
+            if not is_ajax_threshold_save and new_edited:
+                job_req.edited_requirements = new_edited
+                job_req.requirements_edited_at = datetime.utcnow()
+                job_req.requirements_edited_by = current_user.email
             db.session.add(job_req)
 
         # Audit log
         try:
             from models import UserActivityLog
+            audit_details = {
+                'job_id': job_id,
+                'job_title': job_req.job_title or f'Job #{job_id}',
+                'threshold': vetting_threshold,
+                'employer_prestige_boost': employer_prestige_boost,
+                'page': 'scout_screening',
+            }
+            if edit_action is not None:
+                audit_details['edited_requirements_action'] = edit_action
             db.session.add(UserActivityLog(
                 user_id=current_user.id,
                 activity_type='config_change',
                 ip_address=request.remote_addr,
-                details=json.dumps({
-                    'job_id': job_id,
-                    'job_title': job_req.job_title or f'Job #{job_id}',
-                    'custom_requirements_action': 'set' if custom_requirements else 'cleared',
-                    'threshold': vetting_threshold,
-                    'employer_prestige_boost': employer_prestige_boost,
-                    'page': 'scout_screening',
-                })
+                details=json.dumps(audit_details),
             ))
         except Exception as log_err:
             logger.warning(f"Failed to write config_change log: {log_err}")
@@ -324,13 +352,64 @@ def save_job_settings(job_id):
     return redirect(url_for('scout_screening.dashboard'))
 
 
+@scout_screening_bp.route('/scout-screening/job/<int:job_id>/reset-requirements', methods=['POST'])
+@login_required
+def reset_job_requirements(job_id):
+    """Discard recruiter edits and revert to the AI-extracted requirements."""
+    from extensions import db
+    from models import JobVettingRequirements
+
+    job_ids = _get_user_job_ids()
+    if job_id not in job_ids:
+        return jsonify({'success': False, 'error': 'Not authorized for this job.'}), 403
+
+    try:
+        job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+        if not job_req:
+            return jsonify({'success': False, 'error': 'No requirements record found.'}), 404
+
+        had_edits = bool(job_req.edited_requirements)
+        job_req.edited_requirements = None
+        job_req.requirements_edited_at = None
+        job_req.requirements_edited_by = None
+        job_req.updated_at = datetime.utcnow()
+
+        try:
+            from models import UserActivityLog
+            db.session.add(UserActivityLog(
+                user_id=current_user.id,
+                activity_type='config_change',
+                ip_address=request.remote_addr,
+                details=json.dumps({
+                    'job_id': job_id,
+                    'job_title': job_req.job_title or f'Job #{job_id}',
+                    'edited_requirements_action': 'reset_to_ai',
+                    'page': 'scout_screening',
+                })
+            ))
+        except Exception as log_err:
+            logger.warning(f"Failed to write reset audit log: {log_err}")
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'had_edits': had_edits,
+            'ai_requirements': job_req.ai_interpreted_requirements or '',
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error resetting requirements for job {job_id}: {e}")
+        return jsonify({'success': False, 'error': 'Reset failed — please try again.'}), 500
+
+
 @scout_screening_bp.route('/scout-screening/job/<int:job_id>/optimize-requirements', methods=['POST'])
 @login_required
 def optimize_job_requirements(job_id):
-    """Use AI to rewrite custom requirements using prompt-engineering best practices."""
+    """Use AI to rewrite the editable requirements using prompt-engineering best practices."""
     try:
         data = request.get_json(silent=True) or {}
-        raw = (data.get('custom_requirements') or '').strip()
+        # Accept new key first; fall back to legacy key for any cached client JS
+        raw = (data.get('edited_requirements') or data.get('custom_requirements') or '').strip()
         if not raw:
             return jsonify({'success': False, 'error': 'No requirements text provided.'}), 400
 
