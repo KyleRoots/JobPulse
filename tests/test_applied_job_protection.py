@@ -187,7 +187,62 @@ class TestAppliedJobInjection:
         result = service._fetch_applied_job(mock_bullhorn, 33615)
         
         assert result is None, "Closed jobs should return None"
-    
+
+    @patch('candidate_vetting_service.BullhornService')
+    def test_fetch_applied_job_rejects_half_closed_job(self, mock_bullhorn_cls):
+        """Regression for job 31896: isOpen=False but status left as
+        'Accepting Candidates' must still be rejected (OR-logic, not AND)."""
+        from candidate_vetting_service import CandidateVettingService
+
+        service = CandidateVettingService()
+
+        mock_bullhorn = Mock()
+        mock_bullhorn.rest_token = 'test_token'
+        mock_bullhorn.base_url = 'https://rest.bullhornstaffing.com/rest-services/abc123/'
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'data': {
+                'id': 31896,
+                'title': 'Data Engineer',
+                'isOpen': False,
+                'status': 'Accepting Candidates',
+                'assignedUsers': {'data': []},
+            }
+        }
+        mock_bullhorn.session.get.return_value = mock_response
+
+        result = service._fetch_applied_job(mock_bullhorn, 31896)
+        assert result is None, "Half-closed jobs (isOpen=False, status stale) must be skipped"
+
+    @patch('candidate_vetting_service.BullhornService')
+    def test_fetch_applied_job_rejects_ineligible_status(self, mock_bullhorn_cls):
+        """isOpen=True but status in INELIGIBLE_STATUSES must be rejected."""
+        from candidate_vetting_service import CandidateVettingService
+
+        service = CandidateVettingService()
+
+        mock_bullhorn = Mock()
+        mock_bullhorn.rest_token = 'test_token'
+        mock_bullhorn.base_url = 'https://rest.bullhornstaffing.com/rest-services/abc123/'
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'data': {
+                'id': 40000,
+                'title': 'Filled Role',
+                'isOpen': True,
+                'status': 'Filled',
+                'assignedUsers': {'data': []},
+            }
+        }
+        mock_bullhorn.session.get.return_value = mock_response
+
+        result = service._fetch_applied_job(mock_bullhorn, 40000)
+        assert result is None, "Jobs in ineligible statuses must be skipped even if isOpen=True"
+
     @patch('candidate_vetting_service.BullhornService')
     def test_fetch_applied_job_returns_none_for_invalid_id(self, mock_bullhorn_cls):
         """_fetch_applied_job returns None for non-existent job IDs."""

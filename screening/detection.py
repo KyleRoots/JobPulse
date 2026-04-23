@@ -525,14 +525,17 @@ class CandidateDetectionMixin:
             if not job_data or not job_data.get('id'):
                 return None
             
-            # Only return open jobs
-            is_open = job_data.get('isOpen', False)
-            status = job_data.get('status', '')
-            
-            if not is_open and status != 'Accepting Candidates':
+            # Only return open jobs. Use shared eligibility helper so the
+            # screening filter cannot drift from the dashboard/feed filters.
+            # NOTE: a job is ineligible if EITHER isOpen is false OR status is
+            # in the ineligible set — recruiters sometimes flip isOpen=false
+            # but leave the status as 'Accepting Candidates' (e.g., job 31896).
+            from utils.job_status import is_job_eligible
+            if not is_job_eligible(job_data):
                 logging.info(
-                    f"Applied job {job_id} is closed (isOpen={is_open}, "
-                    f"status={status}) — skipping injection"
+                    f"Applied job {job_id} is closed "
+                    f"(isOpen={job_data.get('isOpen')}, "
+                    f"status={job_data.get('status')}) — skipping injection"
                 )
                 return None
             
