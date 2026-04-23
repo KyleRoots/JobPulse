@@ -1262,11 +1262,11 @@ def enforce_tearsheet_jobs_public():
     from app import app
     import requests as _requests
 
-    INELIGIBLE_STATUSES = {
-        'Qualifying', 'Hold - Covered', 'Hold - Client Hold', 'Offer Out',
-        'Filled', 'Lost - Competition', 'Lost - Filled Internally',
-        'Lost - Funding', 'Canceled', 'Placeholder/ MPC', 'Archive'
-    }
+    # Sourced from utils.job_status — single source of truth across screening,
+    # monitoring, dashboard, and feed generation. Note: the shared set is
+    # lowercase, so callers below must lowercase the Bullhorn `status` field
+    # before checking membership.
+    from utils.job_status import INELIGIBLE_STATUSES
 
     with app.app_context():
         try:
@@ -1369,7 +1369,7 @@ def enforce_tearsheet_jobs_public():
             jobs_to_update = []
             for job in all_jobs:
                 job_id = job.get("id")
-                status = job.get("status", "")
+                status = (job.get("status") or "").strip().lower()
                 if job_id and job_id not in seen_ids and status not in INELIGIBLE_STATUSES:
                     seen_ids.add(job_id)
                     jobs_to_update.append(job_id)

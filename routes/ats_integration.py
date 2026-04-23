@@ -316,12 +316,10 @@ def get_monitor_jobs(monitor_id):
     from app import get_bullhorn_service
     from models import BullhornMonitor
     
-    # Statuses that indicate a job should NOT be in the sponsored job feed
-    INELIGIBLE_STATUSES = {
-        'qualifying', 'hold - covered', 'hold - client hold', 'offer out',
-        'filled', 'lost - competition', 'lost - filled internally',
-        'lost - funding', 'canceled', 'placeholder/ mpc', 'archive'
-    }
+    # Statuses that indicate a job should NOT be in the sponsored job feed.
+    # Sourced from utils.job_status — single source of truth across screening,
+    # monitoring, dashboard, and feed generation.
+    from utils.job_status import INELIGIBLE_STATUSES
     
     try:
         monitor = BullhornMonitor.query.get_or_404(monitor_id)

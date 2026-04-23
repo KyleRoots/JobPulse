@@ -27,21 +27,12 @@ from utils.field_mappers import map_employment_type, map_remote_type
 class IncrementalMonitoringService:
     """Simplified incremental monitoring service"""
     
-    # Statuses that indicate a job should be removed from tearsheet
-    # Jobs with these statuses are not eligible for sponsored job feeds
-    INELIGIBLE_STATUSES = [
-        'Qualifying',
-        'Hold - Covered',
-        'Hold - Client Hold',
-        'Offer Out',
-        'Filled',
-        'Lost - Competition',
-        'Lost - Filled Internally',
-        'Lost - Funding',
-        'Canceled',
-        'Placeholder/ MPC',
-        'Archive'
-    ]
+    # Statuses that indicate a job should be removed from tearsheet.
+    # Sourced from the shared single source of truth in utils.job_status so
+    # this service can never drift from the dashboard, feed generator, or
+    # screening filter.
+    from utils.job_status import INELIGIBLE_STATUSES as _SHARED_INELIGIBLE_STATUSES
+    INELIGIBLE_STATUSES = _SHARED_INELIGIBLE_STATUSES
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)

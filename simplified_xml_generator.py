@@ -140,13 +140,11 @@ class SimplifiedXMLGenerator:
             password=credentials.get('bullhorn_password')
         )
     
-    # Statuses that indicate a job should NOT be in the sponsored XML feed
-    # Must match the INELIGIBLE_STATUSES in IncrementalMonitoringService
-    INELIGIBLE_STATUSES = {
-        'qualifying', 'hold - covered', 'hold - client hold', 'offer out',
-        'filled', 'lost - competition', 'lost - filled internally',
-        'lost - funding', 'canceled', 'placeholder/ mpc', 'archive'
-    }
+    # Statuses that indicate a job should NOT be in the sponsored XML feed.
+    # Sourced from utils.job_status — single source of truth across screening,
+    # monitoring, dashboard, and feed generation.
+    from utils.job_status import INELIGIBLE_STATUSES as _SHARED_INELIGIBLE_STATUSES
+    INELIGIBLE_STATUSES = _SHARED_INELIGIBLE_STATUSES
 
     def _get_recent_tearsheet_job_ids(self, tearsheet_id: int, limit: int) -> Optional[set]:
         """
