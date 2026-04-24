@@ -1107,6 +1107,28 @@ class CandidateVettingService(
                 else:
                     summary['detection_method'] = 'bullhorn_search+pandologic'
             
+            # ALSO detect Matador API candidates (corporate website submissions).
+            # Matador feeds candidates directly into Bullhorn with owner='Matador API'
+            # and status='New Lead', so they bypass both the Online Applicant
+            # status filter and the inbound email parser. Owner-based detection
+            # mirrors the Pandologic pattern.
+            matador_candidates = self.detect_matador_candidates(since_minutes=10)
+            if matador_candidates:
+                logging.info(f"🟣 Adding {len(matador_candidates)} Matador candidates to vetting queue")
+                
+                # Merge with existing candidates, dedupe by candidate ID
+                existing_ids = {c.get('id') for c in candidates}
+                for matador_candidate in matador_candidates:
+                    if matador_candidate.get('id') not in existing_ids:
+                        candidates.append(matador_candidate)
+                        existing_ids.add(matador_candidate.get('id'))
+                
+                # Update detection method to reflect Matador inclusion
+                if summary['detection_method'] in ('parsed_email', 'bullhorn_search'):
+                    summary['detection_method'] = f"{summary['detection_method']}+matador"
+                else:
+                    summary['detection_method'] = f"{summary['detection_method']}+matador"
+            
             summary['candidates_detected'] = len(candidates)
             
             if not candidates:

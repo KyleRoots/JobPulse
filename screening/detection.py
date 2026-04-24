@@ -5,6 +5,7 @@ Candidate Detection - Discovery of new candidates from Bullhorn and ParsedEmail.
 Contains:
 - detect_new_applicants: Finds Online Applicant candidates via Bullhorn search
 - detect_pandologic_candidates: Finds Pandologic API candidates
+- detect_matador_candidates: Finds Matador API candidates (corporate website submissions)
 - detect_unvetted_applications: Primary detection via ParsedEmail records
 - _should_skip_candidate: Job-aware dedup logic
 - _fetch_candidate_details: Fetches full candidate data from Bullhorn
@@ -280,6 +281,122 @@ class CandidateDetectionMixin:
             
         except Exception as e:
             logging.error(f"Error detecting Pandologic candidates: {str(e)}")
+            return []
+    
+    def detect_matador_candidates(self, since_minutes: int = 5) -> List[Dict]:
+        """
+        Find candidates from Matador API that haven't been vetted recently.
+        Matador feeds candidates directly into Bullhorn with owner='Matador API'
+        when applicants submit through the corporate website. These candidates
+        land in Bullhorn with status='New Lead' (not 'Online Applicant'), so the
+        status-based detection in detect_new_applicants will not catch them, and
+        they bypass the inbound email parser entirely. Owner-based detection is
+        the only reliable path — same pattern as detect_pandologic_candidates.
+        
+        Uses dateLastModified to catch returning candidates who reapply to new
+        jobs (dateAdded only reflects candidate creation, not new applications).
+        
+        Job-aware dedup: candidates applying to different jobs are always
+        rescreened (delegated to _should_skip_candidate).
+        
+        Args:
+            since_minutes: Only look at candidates modified in the last N
+                minutes (fallback when no last-run timestamp is available).
+            
+        Returns:
+            List of candidate dictionaries from Bullhorn, each enriched with
+            `_applied_job_id` / `_applied_job_title` when a JobSubmission is
+            found.
+        """
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            return []
+        
+        if not bullhorn.authenticate():
+            logging.error("Failed to authenticate with Bullhorn for Matador detection")
+            return []
+        
+        try:
+            # Use same timestamp logic as detect_pandologic_candidates
+            last_run = self._get_last_run_timestamp()
+            if last_run:
+                since_time = last_run
+            else:
+                since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
+            
+            since_timestamp = int(since_time.timestamp() * 1000)
+            
+            # Use dateLastModified to catch returning candidates who reapply to new jobs
+            url = f"{bullhorn.base_url}search/Candidate"
+            params = {
+                'query': f'owner.name:"Matador API" AND dateLastModified:[{since_timestamp} TO *]',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName),owner(name)',
+                'count': 50,
+                'sort': '-dateLastModified',
+                'BhRestToken': bullhorn.rest_token
+            }
+            
+            response = bullhorn.session.get(url, params=params, timeout=30)
+            
+            if response.status_code != 200:
+                logging.error(f"Failed to search for Matador candidates: {response.status_code}")
+                return []
+            
+            data = response.json()
+            candidates = data.get('data', [])
+            
+            logging.info(f"🔍 Matador: Found {len(candidates)} candidates since {since_time}")
+            
+            # Job-aware dedup: get latest JobSubmission for each candidate to check
+            # if they were already vetted for THIS specific job
+            new_candidates = []
+            for candidate in candidates:
+                candidate_id = candidate.get('id')
+                if not candidate_id:
+                    continue
+                
+                # Get latest job submission to determine which job they applied to
+                applied_job_id = None
+                try:
+                    sub_url = f"{bullhorn.base_url}search/JobSubmission"
+                    sub_params = {
+                        'query': f'candidate.id:{candidate_id}',
+                        'fields': 'id,jobOrder(id,title),dateAdded',
+                        'count': 1,
+                        'sort': '-dateAdded',
+                        'BhRestToken': bullhorn.rest_token
+                    }
+                    sub_response = bullhorn.session.get(sub_url, params=sub_params, timeout=15)
+                    if sub_response.status_code == 200:
+                        submissions = sub_response.json().get('data', [])
+                        if submissions:
+                            job_order = submissions[0].get('jobOrder', {})
+                            applied_job_id = job_order.get('id')
+                            candidate['_applied_job_id'] = applied_job_id
+                            candidate['_applied_job_title'] = job_order.get('title', '')
+                except Exception as e:
+                    logging.debug(f"Could not fetch JobSubmission for candidate {candidate_id}: {str(e)}")
+                
+                # Job-aware dedup: different job = always allow; same job = apply caps
+                if self._should_skip_candidate(candidate_id, applied_job_id):
+                    logging.debug(
+                        f"Matador candidate {candidate_id} skipped by job-aware dedup "
+                        f"(applied_job={applied_job_id})"
+                    )
+                else:
+                    new_candidates.append(candidate)
+                    job_info = f" for job {applied_job_id}" if applied_job_id else ""
+                    logging.info(
+                        f"🟣 Matador candidate detected: "
+                        f"{candidate.get('firstName')} {candidate.get('lastName')} "
+                        f"(ID: {candidate_id}{job_info})"
+                    )
+            
+            logging.info(f"🔍 Matador: {len(new_candidates)} candidates to vet out of {len(candidates)} total")
+            return new_candidates
+            
+        except Exception as e:
+            logging.error(f"Error detecting Matador candidates: {str(e)}")
             return []
     
     def detect_unvetted_applications(self, limit: int = 25) -> List[Dict]:
