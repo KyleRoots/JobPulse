@@ -295,3 +295,213 @@ class TestMatadorMerge:
         params = first_call_kwargs.get('params', {})
         assert 'owner.name:"Matador API"' in params.get('query', '')
         assert 'dateLastModified' in params.get('query', '')
+
+
+# ===========================================================================
+# 6. JobSubmission lookup retry helper (Task B)
+# ===========================================================================
+class TestJobSubmissionLookupRetry:
+    """
+    Tests for CandidateDetectionMixin._fetch_latest_job_submission, the shared
+    helper used by both Pandologic and Matador detectors. Behavior:
+      - Retries once on transient failures (5xx, network errors, JSON parse)
+      - Logs a WARNING on persistent failure (so operators see missed lookups)
+      - Returns (None, None, True) on legitimate empty submissions
+      - Returns (None, None, False) on persistent failure (caller falls back
+        to global dedup, candidate is NOT dropped)
+    """
+
+    def _make_bullhorn(self):
+        from unittest.mock import MagicMock
+        bh = MagicMock()
+        bh.base_url = 'https://example.test/'
+        bh.rest_token = 'TEST_TOKEN'
+        return bh
+
+    def _make_response(self, status_code, json_data=None, raise_value_error=False):
+        from unittest.mock import MagicMock
+        resp = MagicMock()
+        resp.status_code = status_code
+        if raise_value_error:
+            resp.json.side_effect = ValueError("not json")
+        else:
+            resp.json.return_value = json_data or {}
+        return resp
+
+    def test_success_returns_id_and_title(self):
+        """200 with a submission → (id, title, True)."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(
+            200,
+            {'data': [{'id': 1, 'jobOrder': {'id': 555, 'title': 'Senior Dev'},
+                       'dateAdded': 0}]},
+        )
+
+        job_id, title, ok = cvs._fetch_latest_job_submission(bh, 12345)
+
+        assert job_id == 555
+        assert title == 'Senior Dev'
+        assert ok is True
+        assert bh.session.get.call_count == 1  # no retry needed
+
+    def test_empty_submissions_returns_none_with_success(self):
+        """200 with no submissions → (None, None, True). NOT a failure."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(200, {'data': []})
+
+        job_id, title, ok = cvs._fetch_latest_job_submission(bh, 12345)
+
+        assert job_id is None
+        assert title is None
+        assert ok is True  # legitimate empty result, not a transient failure
+        assert bh.session.get.call_count == 1
+
+    def test_5xx_then_success_retries_once(self):
+        """500 → retry → 200 with submission. Returns the data."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.side_effect = [
+            self._make_response(503),
+            self._make_response(200, {'data': [
+                {'id': 2, 'jobOrder': {'id': 777, 'title': 'PM'}}
+            ]}),
+        ]
+
+        with patch('screening.detection.time.sleep') as mock_sleep:
+            job_id, title, ok = cvs._fetch_latest_job_submission(bh, 99)
+
+        assert job_id == 777
+        assert title == 'PM'
+        assert ok is True
+        assert bh.session.get.call_count == 2
+        mock_sleep.assert_called_once_with(1)  # backoff between attempts
+
+    def test_5xx_then_5xx_returns_failure_and_warns(self, caplog):
+        """500 → retry → still 500. Returns (None, None, False) + WARNING."""
+        import logging
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(502)
+
+        with patch('screening.detection.time.sleep'):
+            with caplog.at_level(logging.WARNING, logger='root'):
+                job_id, title, ok = cvs._fetch_latest_job_submission(bh, 4242)
+
+        assert job_id is None
+        assert title is None
+        assert ok is False
+        assert bh.session.get.call_count == 2
+        warned = [r for r in caplog.records
+                  if r.levelno == logging.WARNING
+                  and 'JobSubmission lookup failed' in r.getMessage()
+                  and '4242' in r.getMessage()]
+        assert warned, "Expected WARNING with candidate id 4242"
+
+    def test_timeout_then_success(self):
+        """Timeout → retry → 200 success."""
+        import requests
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.side_effect = [
+            requests.Timeout("timed out"),
+            self._make_response(200, {'data': [
+                {'id': 3, 'jobOrder': {'id': 888, 'title': 'QA'}}
+            ]}),
+        ]
+
+        with patch('screening.detection.time.sleep'):
+            job_id, title, ok = cvs._fetch_latest_job_submission(bh, 7)
+
+        assert job_id == 888
+        assert title == 'QA'
+        assert ok is True
+        assert bh.session.get.call_count == 2
+
+    def test_timeout_then_timeout_returns_failure_and_warns(self, caplog):
+        """Timeout → retry → timeout. Returns failure + WARNING."""
+        import logging
+        import requests
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.side_effect = requests.Timeout("timed out")
+
+        with patch('screening.detection.time.sleep'):
+            with caplog.at_level(logging.WARNING, logger='root'):
+                job_id, title, ok = cvs._fetch_latest_job_submission(bh, 8888)
+
+        assert job_id is None
+        assert title is None
+        assert ok is False
+        assert bh.session.get.call_count == 2
+        warned = [r for r in caplog.records
+                  if r.levelno == logging.WARNING
+                  and 'JobSubmission lookup failed' in r.getMessage()
+                  and '8888' in r.getMessage()
+                  and 'Timeout' in r.getMessage()]
+        assert warned, "Expected WARNING with Timeout cause for candidate 8888"
+
+    def test_connection_error_then_success(self):
+        """ConnectionError → retry → success."""
+        import requests
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.side_effect = [
+            requests.ConnectionError("conn refused"),
+            self._make_response(200, {'data': [
+                {'id': 4, 'jobOrder': {'id': 111, 'title': 'Eng'}}
+            ]}),
+        ]
+
+        with patch('screening.detection.time.sleep'):
+            job_id, title, ok = cvs._fetch_latest_job_submission(bh, 11)
+
+        assert job_id == 111
+        assert ok is True
+
+    def test_4xx_does_not_retry(self):
+        """401/403/404 should NOT retry (not transient). Returns failure + WARN."""
+        import logging
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(401)
+
+        with patch('screening.detection.time.sleep') as mock_sleep:
+            job_id, title, ok = cvs._fetch_latest_job_submission(bh, 333)
+
+        assert ok is False
+        assert bh.session.get.call_count == 1  # no retry on 4xx
+        mock_sleep.assert_not_called()
+
+    def test_json_parse_error_retries(self):
+        """200 with malformed JSON → retry → success."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.side_effect = [
+            self._make_response(200, raise_value_error=True),
+            self._make_response(200, {'data': [
+                {'id': 5, 'jobOrder': {'id': 222, 'title': 'Ops'}}
+            ]}),
+        ]
+
+        with patch('screening.detection.time.sleep'):
+            job_id, title, ok = cvs._fetch_latest_job_submission(bh, 44)
+
+        assert job_id == 222
+        assert ok is True
+        assert bh.session.get.call_count == 2
+
+    def test_missing_job_order_returns_none_id(self):
+        """200 with submission but no jobOrder → returns (None, '', True)."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(
+            200, {'data': [{'id': 1, 'jobOrder': None}]}
+        )
+
+        job_id, title, ok = cvs._fetch_latest_job_submission(bh, 55)
+
+        assert job_id is None
+        assert title == ''
+        assert ok is True
