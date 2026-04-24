@@ -1706,6 +1706,7 @@ function sendBulkEmail() {
     });
 }
 
+{% if current_user.is_admin %}
 // ===== Admin: Clear Stuck Vetting (super-admin only; button is server-rendered behind is_admin) =====
 function cleanupStaleVetting() {
     const btn = document.getElementById('cleanupStaleBtn');
@@ -1793,5 +1794,6 @@ function cleanupStaleVetting() {
         })
         .catch(err => showError('Error: ' + (err && err.message ? err.message : err)));
 }
+{% endif %}
 </script>
 {% endblock %}
