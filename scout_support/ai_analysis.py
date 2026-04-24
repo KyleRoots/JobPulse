@@ -621,7 +621,7 @@ Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientCon
                         self._attachment_results.append({'filename': filename, 'status': 'failed', 'type': 'document'})
 
                 elif ext in ('doc', 'docx') or 'word' in content_type:
-                    text = self._extract_docx_text(data, ext)
+                    text = self._extract_docx_text(data, ext, filename)
                     if text:
                         extracted_parts.append(f"[File: {filename}]\n{text[:10000]}")
                         self._attachment_results.append({'filename': filename, 'status': 'read', 'type': 'document'})
@@ -723,7 +723,7 @@ Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientCon
             logger.warning(f"PyPDF2 PDF extraction failed: {e}")
             return ''
 
-    def _extract_docx_text(self, data: bytes, ext: str) -> str:
+    def _extract_docx_text(self, data: bytes, ext: str, filename: str = 'document.doc') -> str:
         import tempfile
         if ext == 'docx' or not ext:
             try:
@@ -736,15 +736,12 @@ Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientCon
                 return ''
         elif ext == 'doc':
             try:
-                import subprocess
-                with tempfile.NamedTemporaryFile(suffix='.doc', delete=True) as tmp:
-                    tmp.write(data)
-                    tmp.flush()
-                    result = subprocess.run(['antiword', tmp.name], capture_output=True, text=True, timeout=10)
-                    if result.returncode == 0 and result.stdout.strip():
-                        return result.stdout.strip()
+                from utils.doc_extraction import extract_doc_text
+                extracted = extract_doc_text(data, filename)
+                if extracted and extracted.strip():
+                    return extracted.strip()
             except Exception as e:
-                logger.warning(f"antiword .doc extraction failed: {e}")
+                logger.warning(f".doc extraction failed for {filename}: {e}")
             return ''
         return ''
 

@@ -562,18 +562,26 @@ def _register_scheduler_listeners():
 
 
 def _restore_paused_jobs():
-    """Re-apply paused state from GlobalSettings after scheduler (re)start."""
+    """Re-apply paused state from GlobalSettings after scheduler (re)start.
+
+    Wrapped in app.app_context() because the GlobalSettings query touches the
+    SQLAlchemy session, which requires a Flask application context. Without
+    this wrapper, restart-time invocation logs:
+      "Working outside of application context"
+    and silently fails to restore any paused jobs.
+    """
     try:
         import json as _json
         from models import GlobalSettings
-        paused_raw = GlobalSettings.get_value('scheduler_paused_jobs', '[]')
-        paused_ids = _json.loads(paused_raw)
-        for job_id in paused_ids:
-            try:
-                scheduler.pause_job(job_id)
-                app.logger.info(f"⏸ Restored paused state for scheduler job: {job_id}")
-            except Exception:
-                pass
+        with app.app_context():
+            paused_raw = GlobalSettings.get_value('scheduler_paused_jobs', '[]')
+            paused_ids = _json.loads(paused_raw)
+            for job_id in paused_ids:
+                try:
+                    scheduler.pause_job(job_id)
+                    app.logger.info(f"⏸ Restored paused state for scheduler job: {job_id}")
+                except Exception:
+                    pass
     except Exception as e:
         app.logger.warning(f"Failed to restore paused scheduler jobs: {e}")
 

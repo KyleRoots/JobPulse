@@ -309,21 +309,18 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                     raw_text, formatted_html = self._extract_docx_with_formatting(file_path)
                 elif filename.lower().endswith('.doc'):
                     formatted_html = ""
+                    raw_text = ""
                     try:
-                        import subprocess
-                        import shutil
-                        antiword_path = shutil.which('antiword') or 'antiword'
-                        result = subprocess.run(
-                            [antiword_path, file_path],
-                            capture_output=True,
-                            timeout=30
-                        )
-                        raw_text = result.stdout.decode('utf-8', errors='replace').strip()
+                        from utils.doc_extraction import extract_doc_text
+                        with open(file_path, 'rb') as _f:
+                            _doc_bytes = _f.read()
+                        extracted = extract_doc_text(_doc_bytes, filename)
+                        raw_text = (extracted or "").strip()
                         if not raw_text:
-                            logger.warning(f"antiword returned empty output for {filename}")
+                            logger.warning(f"DOC extraction returned no usable text for {filename}")
                     except Exception as e:
                         raw_text = ""
-                        logger.warning(f"antiword failed for {filename}: {e}")
+                        logger.warning(f"DOC extraction failed for {filename}: {e}")
                 else:
                     raw_text = ""
                     formatted_html = ""

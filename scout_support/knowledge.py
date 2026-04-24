@@ -551,22 +551,12 @@ class KnowledgeService:
             except Exception as e:
                 logger.error(f"DOCX extraction failed for {filename}: {e}")
         elif ext == 'doc':
-            tmp_path = None
             try:
-                import tempfile
-                import subprocess
-                with tempfile.NamedTemporaryFile(suffix='.doc', delete=False) as tmp:
-                    tmp.write(file_bytes)
-                    tmp_path = tmp.name
-                result = subprocess.run(['antiword', tmp_path], capture_output=True, text=True, timeout=30)
-                text = result.stdout
-            except FileNotFoundError:
-                logger.warning(f"antiword not installed — cannot extract .doc file {filename}")
+                from utils.doc_extraction import extract_doc_text
+                extracted = extract_doc_text(file_bytes, filename)
+                text = extracted or ""
             except Exception as e:
                 logger.error(f"DOC extraction failed for {filename}: {e}")
-            finally:
-                if tmp_path and os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
         return text.strip()
 
     def _chunk_text(self, text: str) -> List[str]:

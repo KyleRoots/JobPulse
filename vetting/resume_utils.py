@@ -73,19 +73,17 @@ def _extract_resume_text_raw(file_content: bytes, filename: str) -> Optional[str
             logging.info(f"🔄 DOCX extraction failed for '{filename}' (detected format: {actual_format}) — attempting AI vision OCR")
             return _ocr_document_with_vision(file_content, filename)
         elif filename_lower.endswith('.doc'):
-            result = extract_text_from_doc(file_content)
+            # Routes through utils.doc_extraction: handles real OLE2 .doc via
+            # vision OCR, mislabeled .docx via python-docx, mislabeled PDF returns
+            # None so we route here.
+            if actual_format == 'pdf':
+                logging.info(f"🔄 File '{filename}' is labeled .doc but is actually a PDF — routing to PDF extractor")
+                return extract_text_from_pdf(file_content)
+            result = extract_text_from_doc(file_content, filename)
             if result and len(result.strip()) > 10:
                 return result
-            if actual_format == 'docx':
-                logging.info(f"🔄 File '{filename}' is labeled .doc but is actually a .docx — retrying with DOCX extractor")
-                result = extract_text_from_docx(file_content)
-                if result and len(result.strip()) > 10:
-                    return result
-            if actual_format == 'pdf':
-                logging.info(f"🔄 File '{filename}' is labeled .doc but is actually a PDF — retrying with PDF extractor")
-                return extract_text_from_pdf(file_content)
-            logging.info(f"🔄 DOC extraction failed for '{filename}' (detected format: {actual_format}) — attempting AI vision OCR")
-            return _ocr_document_with_vision(file_content, filename)
+            logging.info(f"🔄 DOC extraction returned no usable text for '{filename}' (detected format: {actual_format})")
+            return None
         elif filename_lower.endswith('.txt'):
             return file_content.decode('utf-8', errors='ignore')
         else:
@@ -303,29 +301,16 @@ def extract_text_from_docx(file_content: bytes) -> Optional[str]:
         return None
 
 
-def extract_text_from_doc(file_content: bytes) -> Optional[str]:
-    """Extract text from legacy DOC file"""
+def extract_text_from_doc(file_content: bytes, filename: str = "document.doc") -> Optional[str]:
+    """Extract text from a legacy DOC file.
+
+    Delegates to ``utils.doc_extraction.extract_doc_text`` which uses
+    magic-byte routing + AI vision OCR (no antiword dependency). See
+    that module for the full strategy and rationale.
+    """
     try:
-        import subprocess
-        import tempfile
-        import os
-        
-        # Write to temp file and use antiword or similar
-        with tempfile.NamedTemporaryFile(suffix='.doc', delete=False) as tmp:
-            tmp.write(file_content)
-            tmp_path = tmp.name
-        
-        try:
-            # Try antiword
-            result = subprocess.run(['antiword', tmp_path], capture_output=True, text=True, timeout=30)
-            if result.returncode == 0:
-                return result.stdout
-        except FileNotFoundError:
-            logging.warning("antiword not available for DOC extraction")
-        finally:
-            os.unlink(tmp_path)
-        
-        return None
+        from utils.doc_extraction import extract_doc_text
+        return extract_doc_text(file_content, filename)
     except Exception as e:
-        logging.error(f"DOC extraction error: {str(e)}")
+        logging.error(f"DOC extraction error for '{filename}': {e}")
         return None
