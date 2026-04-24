@@ -6,7 +6,7 @@ packages = ["antiword", "cacert", "cargo", "freetype", "glibcLocales", "gumbo", 
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "--workers=4", "--timeout=120", "--preload", "main:app"]
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "--workers=4", "--timeout=300", "--preload", "main:app"]
 
 [workflows]
 runButton = "Project"
