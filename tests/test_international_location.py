@@ -415,12 +415,20 @@ class TestSmartCorrectCountryWACollision:
             candidate_location=candidate_location
         )
 
-        # Verify prompt has Australia (NSW correctly resolved)
-        call_args = vetting_service.openai_client.chat.completions.create.call_args
-        messages = call_args[1]['messages']
-        user_prompt = messages[1]['content']
-        assert 'Australia' in user_prompt, \
+        # Verify the geo helper correctly resolves NSW to Australia.
+        # NOTE: As of the resume-only-extraction change, the corrected
+        # candidate country is intentionally NOT injected into the prompt
+        # (the disclaimer tells the AI to extract location from the resume).
+        # So we test the disambiguation logic directly at its layer of truth.
+        from vetting.geo_utils import smart_correct_country
+        assert smart_correct_country('Sydney', 'NSW', '') == 'Australia', \
             "NSW should be correctly resolved to Australia"
+        # Verify the resume text (which the AI uses for extraction) made it
+        # into the prompt so the AI can derive 'Sydney, NSW' itself.
+        call_args = vetting_service.openai_client.chat.completions.create.call_args
+        user_prompt = call_args[1]['messages'][1]['content']
+        assert 'NSW' in user_prompt, \
+            "Resume containing 'Sydney, NSW' must reach the prompt for AI extraction"
 
 
 class TestSmartCorrectCountryNewCountries:
@@ -817,11 +825,16 @@ class TestLocationAndClearancePrompt:
         )
 
         call_args = vetting_service.openai_client.chat.completions.create.call_args
-        user_prompt = call_args[1]['messages'][1]['content']
+        messages = call_args[1]['messages']
+        # Global screening instructions live in the cached SYSTEM message
+        # (see prompt_builder.py — global_reqs_section is appended to
+        # system_message). Search both messages so the assertion is robust
+        # to future reorganization.
+        full_prompt = '\n'.join(m.get('content', '') for m in messages)
 
-        assert 'GLOBAL SCREENING INSTRUCTIONS' in user_prompt, \
+        assert 'GLOBAL SCREENING INSTRUCTIONS' in full_prompt, \
             "Global screening instructions must be present in prompt"
-        assert 'CLEARANCE INFERENCE RULES' in user_prompt, \
+        assert 'CLEARANCE INFERENCE RULES' in full_prompt, \
             "Clearance inference rules must be injected into prompt"
 
 

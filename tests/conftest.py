@@ -86,6 +86,14 @@ def app():
             test_user.password_hash = generate_password_hash('testpassword123', method='pbkdf2:sha256')
             db.session.add(test_user)
             db.session.commit()
+
+        # Ensure testadmin is an admin so _get_user_landing() returns a real
+        # dashboard URL instead of falling back to /login. Without this flag,
+        # any test that follows redirects after a successful login hits an
+        # infinite loop (login → /login → login → ...).
+        if not test_user.is_admin:
+            test_user.is_admin = True
+            db.session.commit()
         
         yield flask_app
         

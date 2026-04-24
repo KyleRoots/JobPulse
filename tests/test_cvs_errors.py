@@ -40,7 +40,7 @@ def _release_lock(app):
 def _make_cvs():
     from candidate_vetting_service import CandidateVettingService
     cvs = CandidateVettingService.__new__(CandidateVettingService)
-    cvs.bullhorn_service = MagicMock()
+    cvs.bullhorn = MagicMock()
     cvs.openai_client = MagicMock()
     cvs.model = 'gpt-5.4'
     cvs.embedding_model = 'text-embedding-3-small'
@@ -65,7 +65,9 @@ class TestCandidateLevelErrorContainment:
             ]
             call_count = [0]
 
-            def mock_process(candidate):
+            def mock_process(candidate, **kwargs):
+                # **kwargs absorbs cached_jobs (and any future kwargs) that
+                # the production run_vetting_cycle now forwards.
                 call_count[0] += 1
                 if candidate['id'] == 501:
                     raise RuntimeError("Simulated failure")
@@ -125,7 +127,7 @@ class TestResumeExtractionFailure:
             with patch.object(cvs, 'get_candidate_job_submission', return_value=None):
                 with patch.object(cvs, 'get_candidate_resume', return_value=(None, None)):
                     with patch.object(cvs, 'get_active_jobs_from_tearsheets', return_value=[]):
-                        with patch.object(cvs, '_get_bullhorn_service', return_value=cvs.bullhorn_service):
+                        with patch.object(cvs, '_get_bullhorn_service', return_value=cvs.bullhorn):
                             result = cvs.process_candidate(candidate)
 
             log = CandidateVettingLog.query.filter_by(bullhorn_candidate_id=700).first()

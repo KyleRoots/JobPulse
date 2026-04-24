@@ -58,6 +58,12 @@ def csrf_app():
             db.session.add(test_user)
             db.session.commit()
 
+        # Ensure testadmin is an admin so post-login redirects target a real
+        # dashboard instead of looping back to /login.
+        if not test_user.is_admin:
+            test_user.is_admin = True
+            db.session.commit()
+
         yield flask_app
 
         # Restore original CSRF config to prevent bleeding into other tests

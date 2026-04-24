@@ -45,7 +45,7 @@ def _make_cvs(app):
     from candidate_vetting_service import CandidateVettingService
     with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
         cvs = CandidateVettingService.__new__(CandidateVettingService)
-        cvs.bullhorn_service = MagicMock()
+        cvs.bullhorn = MagicMock()
         cvs.openai_client = MagicMock()
         cvs.model = 'gpt-5.4'
         cvs.embedding_model = 'text-embedding-3-small'
@@ -203,7 +203,7 @@ class TestVettingLogCreation:
             # Mock everything after log creation to isolate
             with patch.object(cvs, 'get_candidate_job_submission', return_value=None):
                 with patch.object(cvs, 'get_active_jobs_from_tearsheets', return_value=[]):
-                    with patch.object(cvs, '_get_bullhorn_service', return_value=cvs.bullhorn_service):
+                    with patch.object(cvs, '_get_bullhorn_service', return_value=cvs.bullhorn):
                         result = cvs.process_candidate(candidate)
 
             # Should have created a log
@@ -229,7 +229,7 @@ class TestVettingLogCreation:
             }
             with patch.object(cvs, 'get_candidate_job_submission', return_value=None):
                 with patch.object(cvs, 'get_active_jobs_from_tearsheets', return_value=[]):
-                    with patch.object(cvs, '_get_bullhorn_service', return_value=cvs.bullhorn_service):
+                    with patch.object(cvs, '_get_bullhorn_service', return_value=cvs.bullhorn):
                         result = cvs.process_candidate(candidate)
 
             log = CandidateVettingLog.query.filter_by(bullhorn_candidate_id=301).first()
